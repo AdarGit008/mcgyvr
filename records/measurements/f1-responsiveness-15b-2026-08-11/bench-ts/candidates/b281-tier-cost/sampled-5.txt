@@ -1,0 +1,10 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) throw new Error("Number of units must be non-negative.");
+
+  const unitsToCharge = Math.max(0, units - allowance);
+  const totalCost = allowance * firstRate + unitsToCharge * laterRate;
+
+  return Math.round(totalCost); // Rounding to the nearest whole number
+}
+```

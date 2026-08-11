@@ -1,0 +1,20 @@
+```python
+def span_merge(spans: list) -> list:
+    if not spans:
+        return []
+
+    sorted_spans = sorted(spans)
+    merged_spans = [sorted_spans[0]]
+
+    for span in sorted_spans[1:]:
+        start, end = span
+
+        if start <= merged_spans[-1][1]:
+            # The current span overlaps or touches the last merged span
+            merged_spans[-1] = (merged_spans[-1][0], max(merged_spans[-1][1], end))
+        else:
+            # The current span does not overlap with the last merged span
+            merged_spans.append(span)
+
+    return sorted(merged_spans)
+```

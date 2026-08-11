@@ -1,0 +1,23 @@
+```ts
+function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  // Validate input
+  if (isNaN(mark) || isNaN(wasOutOf) || isNaN(nowOutOf)) {
+    throw new Error('All arguments must be numbers');
+  }
+  if (nowOutOf < 0) {
+    throw new Error('NowOutOf cannot be a negative number');
+  }
+
+  // Scale the mark
+  let scaledMark = Math.floor(mark / wasOutOf * nowOutOf);
+  
+  // Ensure the scaled mark is not higher than the new total and does not pass it
+  if (scaledMark > nowOutOf) {
+    scaledMark = nowOutOf;
+  }
+  
+  return scaledMark;
+}
+```
+
+This solution implements the `scoreScale` function as described, ensuring that the mark is scaled down to a value within the new range while maintaining the original meaning of passing the total. It includes input validation and ensures that the returned value meets the specified criteria, adhering to the coding standards.

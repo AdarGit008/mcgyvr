@@ -1,0 +1,15 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (typeof volumeA !== 'number' || typeof strengthA !== 'number' || typeof volumeB !== 'number' || typeof strengthB !== 'number') {
+    throw new Error('All arguments must be numbers');
+  }
+
+  const volume = Math.min(volumeA + volumeB, 100); // Ensure the total volume is within a reasonable range
+
+  const strength = (
+    (strengthA * volumeA) + (strengthB * volumeB) / volume
+  ).toFixed(2).split('.')[0]; // Round down to the nearest whole percent
+
+  return parseInt(strength, 10);
+}
+```

@@ -1,0 +1,11 @@
+```python
+def tag_open(marker: str) -> str:
+    if marker.strip() != '<':
+        raise ValueError("Marker must be wrapped in angle brackets.")
+    return marker[1:]
+
+def tag_pair(opening: str, closing: str) -> bool:
+    if opening.strip() != '<' or closing.strip() != '>':
+        raise ValueError("Both markers must be wrapped in angle brackets.")
+    return opening[1:] == closing[:-1]
+```

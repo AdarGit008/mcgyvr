@@ -1,0 +1,16 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if not store or not isinstance(head, str):
+        raise ValueError("Store must be non-empty and head must be a string.")
+
+    current_level = [head]
+    for child in store.get(head, []):
+        if '.' not in child:
+            current_level.append(child)
+        else:
+            deeper_head = child.split('.')[0]
+            if deeper_head != '':
+                current_level.extend(key_path(store, deeper_head))
+
+    return current_level
+```

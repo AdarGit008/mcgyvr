@@ -22,6 +22,9 @@ import sys
 import types
 from itertools import combinations, product
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -119,7 +122,7 @@ def test_tranche_boundaries_land_where_the_ids_were_authored() -> None:
     assert resp.tranche("b466-a") == 9
 
 
-def _write(run: Path, arm: str, rows: list[dict]) -> None:
+def _write(run: Path, arm: str, rows: list[dict[str, Any]]) -> None:
     d = run / f"bench-{arm}"
     d.mkdir(parents=True, exist_ok=True)
     (d / "results.jsonl").write_text(
@@ -127,8 +130,10 @@ def _write(run: Path, arm: str, rows: list[dict]) -> None:
     )
 
 
-def _draws(task: str, passes: list[bool], greedy: bool = False) -> list[dict]:
-    out = [{"task": task, "arm": "greedy", "draw": 0, "passed": greedy}]
+def _draws(task: str, passes: list[bool], greedy: bool = False) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = [
+        {"task": task, "arm": "greedy", "draw": 0, "passed": greedy}
+    ]
     out += [
         {"task": task, "arm": "sampled", "draw": i, "passed": p}
         for i, p in enumerate(passes)
@@ -137,7 +142,7 @@ def _draws(task: str, passes: list[bool], greedy: bool = False) -> list[dict]:
 
 
 def test_a_cell_short_one_draw_is_dropped_rather_than_scored(tmp_path: Path) -> None:
-    """"No pass in N" has to mean N draws were looked at (#217)."""
+    """ "No pass in N" has to mean N draws were looked at (#217)."""
     run = tmp_path / "run"
     _write(run, "ts", _draws("b228-a", [False] * 8) + _draws("b230-b", [False] * 7))
     _write(run, "py", [])
@@ -166,7 +171,7 @@ def test_both_arms_are_separate_cells_of_the_same_problem(tmp_path: Path) -> Non
 
 
 def test_retired_problems_are_dropped_where_the_figure_is_derived(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Their rows stay in the record; no derived figure may count them."""
     run = tmp_path / "run"

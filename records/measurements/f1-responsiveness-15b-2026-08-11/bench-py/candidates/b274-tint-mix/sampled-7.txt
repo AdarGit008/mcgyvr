@@ -1,0 +1,14 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if not (volume_a >= 0 and strength_a >= 0 and volume_b >= 0 and strength_b >= 0):
+        raise ValueError("All inputs must be non-negative integers.")
+    
+    # Compute the total volume of the mixture
+    total_volume = volume_a + volume_b
+    
+    # Compute the total strength of the mixture
+    total_strength = (volume_a * strength_a + volume_b * strength_b) // total_volume
+    
+    # Round down to the nearest whole percent
+    return round(total_strength)
+```

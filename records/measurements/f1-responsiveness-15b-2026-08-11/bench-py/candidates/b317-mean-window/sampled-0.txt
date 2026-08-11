@@ -1,0 +1,13 @@
+```python
+def mean_window(readings: list, size: int) -> list:
+    if size <= 0:
+        raise ValueError("Window size must be greater than zero")
+    
+    results = []
+    for i in range(len(readings) - size + 1):
+        window = readings[i:i+size]
+        result = sum(window) // size
+        results.append(result)
+    
+    return results
+```

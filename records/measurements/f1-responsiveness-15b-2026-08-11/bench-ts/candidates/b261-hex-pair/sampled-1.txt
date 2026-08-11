@@ -1,0 +1,31 @@
+```ts
+/**
+ * Splits a hexadecimal colour into its three two-digit parts, returning them in order.
+ * @param hexColour - A string representing a hexadecimal colour, typically starting with '#'.
+ * @returns An array of strings containing the red, green, and blue components.
+ * @throws Error if the input is not a valid hexadecimal colour or does not contain exactly six characters.
+ */
+export function hexSplit(hexColour: string): string[] {
+  const regex = /^#[0-9A-Fa-f]{6}$/;
+  if (!regex.test(hexColour)) {
+    throw new Error('Invalid hexadecimal color');
+  }
+  const red = hexColour.slice(1, 3);
+  const green = hexColour.slice(3, 5);
+  const blue = hexColour.slice(5);
+  return [red, green, blue];
+}
+
+/**
+ * Joins three two-digit hexadecimal parts back into a single string representing the colour.
+ * @param parts - An array of strings containing the red, green, and blue components.
+ * @returns A string representing the combined hexadecimal colour.
+ */
+export function hexJoin(parts: string[]): string {
+  const [red, green, blue] = parts;
+  if (typeof red !== 'string' || typeof green !== 'string' || typeof blue !== 'string') {
+    throw new Error('Invalid part');
+  }
+  return `#${red}${green}${blue}`;
+}
+```

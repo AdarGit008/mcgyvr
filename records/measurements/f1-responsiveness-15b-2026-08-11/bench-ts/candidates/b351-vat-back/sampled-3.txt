@@ -1,0 +1,9 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (rate < 0 || isNaN(rate) || !isFinite(rate)) {
+    throw new Error('Invalid tax rate');
+  }
+  const baseAmount = gross / (1 + rate / 100);
+  return Math.floor(baseAmount);
+}
+```

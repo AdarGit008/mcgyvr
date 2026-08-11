@@ -1,0 +1,7 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start > end:
+        raise ValueError("The first place must be before or equal to the second.")
+    
+    return text[start:end]
+```

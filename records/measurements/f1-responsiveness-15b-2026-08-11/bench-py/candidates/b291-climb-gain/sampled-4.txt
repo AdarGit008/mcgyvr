@@ -1,0 +1,11 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    # Ignore rises smaller than the accuracy of the measurement is not stated.
+    if start < end:
+        return 0
+    else:
+        return 1
+
+def climb_gain(heights: list) -> int:
+    return sum(leg_gain(h, h + 1) for h in heights)
+```

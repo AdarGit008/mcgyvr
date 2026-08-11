@@ -1,0 +1,14 @@
+```python
+from typing import * 
+
+
+def alias_resolve(aliases: dict, name: str) -> str:
+    if name in aliases:
+        return aliases[name]
+    else:
+        raise ValueError("Name is not defined")
+
+
+def alias_names(aliases: dict) -> list:
+    return sorted(aliases)
+```

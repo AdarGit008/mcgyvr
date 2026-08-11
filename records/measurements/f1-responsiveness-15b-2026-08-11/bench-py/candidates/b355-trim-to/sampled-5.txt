@@ -1,0 +1,20 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if limit < 4:
+        raise ValueError("Limit must be at least 4 characters.")
+
+    if len(line) <= limit:
+        return line
+
+    words = line.split()
+    cut_on_word_boundary = False
+
+    for i in range(len(words)):
+        word_length = len(words[i])
+        if cut_on_word_boundary or (word_length + 3) > limit:
+            break
+        cut_on_word_boundary = True
+
+    cut_line = ' '.join(words[:i]) + '...'
+    return cut_line
+```

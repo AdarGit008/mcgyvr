@@ -1,0 +1,12 @@
+```ts
+export function lastFour(number: string): string {
+  const length = number.length;
+  return length >= 4 ? number.slice(-4) : number;
+}
+
+export function maskCard(number: string): string {
+  if (typeof number !== 'string') throw new Error('Invalid input: expected a string');
+  const regex = /(\d{13})(\d)/g;
+  return Array.from(regex.exec(number) ?? [], (_, position) => position === 0 ? '*' : '**').join('');
+}
+```

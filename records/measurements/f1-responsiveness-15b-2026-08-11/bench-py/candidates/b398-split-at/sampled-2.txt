@@ -1,0 +1,10 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    try:
+        index = entries.index(marker)
+        return [entries[:index], entries[index + 1:]]
+    except ValueError:
+        return [], []
+```
+
+This solution adheres to the given interface and contract. It uses Python's built-in `index` method to find the first occurrence of the marker in the list, then slices the list into two parts accordingly. If no such entry is found, it returns an empty list for both parts.

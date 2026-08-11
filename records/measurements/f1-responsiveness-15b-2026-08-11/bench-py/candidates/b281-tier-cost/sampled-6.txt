@@ -1,0 +1,18 @@
+```python
+
+from typing import *
+from collections import *
+
+def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int:
+    if units < 0:
+        raise ValueError("Number of units must be non-negative")
+
+    if allowance <= 0:
+        return first_rate * units
+
+    cost = first_rate * allowance
+    remaining_units = max(0, units - allowance)
+    cost += later_rate * remaining_units
+
+    return cost
+```

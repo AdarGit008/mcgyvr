@@ -1,0 +1,21 @@
+```ts
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) throw new Error("Invalid limit");
+  
+  const queue: { name: string; timestamp: number }[] = [];
+  
+  for (const caller of callers) {
+    const now = Date.now();
+    
+    // Remove the oldest caller if the queue is full
+    while (queue.length >= limit && queue[0].timestamp < now - 3600 * 1000) {
+      queue.shift();
+    }
+    
+    // Add the caller to the queue
+    queue.push({ name: caller, timestamp: now });
+  }
+  
+  return queue.map(({ name }) => name);
+}
+```

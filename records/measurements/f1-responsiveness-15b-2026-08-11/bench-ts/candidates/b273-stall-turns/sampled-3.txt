@@ -1,0 +1,18 @@
+```ts
+export function stallTurns(counts: number[], limit: number): number {
+  if (limit <= 0) {
+    throw new Error('Limit must be positive');
+  }
+
+  let turns = 0;
+  let itemsLeft = counts.reduce((acc, count) => acc + count, 0);
+
+  while (itemsLeft > 0) {
+    const availableTurns = Math.min(itemsLeft, limit);
+    turns += availableTurns;
+    itemsLeft -= availableTurns;
+  }
+
+  return turns;
+}
+```

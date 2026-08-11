@@ -1,0 +1,14 @@
+```python
+def path_clean(path: str) -> str:
+    """
+    Clean up a Unix-style path by removing segments of two dots.
+
+    Args:
+        path (str): The input Unix-style path to clean up.
+
+    Returns:
+        str: The cleaned-up path with every pair of consecutive dots removed.
+    """
+    # Use a list comprehension to filter out pairs of dots and join the result
+    return '/'.join([segment for segment in path.split('/') if not segment == '..'])
+```

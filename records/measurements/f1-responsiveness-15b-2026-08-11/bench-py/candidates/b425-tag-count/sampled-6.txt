@@ -1,0 +1,21 @@
+```python
+def tag_count(line: str) -> int:
+    if line is None or len(line) == 0:
+        raise ValueError("Input cannot be None or empty")
+
+    marker_count = 0
+    ignore_until_close = False
+
+    for i, char in enumerate(line):
+        if char == '<':
+            if not ignore_until_close:
+                marker_count += 1
+                ignore_until_close = True
+        elif char == '>':
+            ignore_until_close = False
+
+        if marker_count > 1:
+            raise ValueError("Multiple markers are not allowed")
+
+    return marker_count
+```

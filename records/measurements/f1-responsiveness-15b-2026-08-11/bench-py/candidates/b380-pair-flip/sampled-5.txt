@@ -1,0 +1,11 @@
+```python
+def flip_one(pair: list) -> list:
+    """Flip two elements in a pair."""
+    if len(pair) != 2:
+        raise ValueError("A pair must have exactly two members.")
+    return [pair[1], pair[0]]
+
+def flip_all(pairs: list) -> list:
+    """Flip each pair in the list."""
+    return [flip_one(pair) for pair in pairs]
+```

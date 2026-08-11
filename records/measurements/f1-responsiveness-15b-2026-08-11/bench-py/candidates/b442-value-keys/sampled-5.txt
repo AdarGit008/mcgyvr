@@ -1,0 +1,14 @@
+```python
+def value_keys(store: dict) -> dict:
+    if not store:
+        return {}
+    
+    occurrences = {}
+    for key, value in store.items():
+        if value in occurrences:
+            occurrences[value] += 1
+        else:
+            occurrences[value] = 1
+    
+    return occurrences
+```

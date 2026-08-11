@@ -1,0 +1,11 @@
+```ts
+
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (mark < 0 || wasOutOf <= 0 || nowOutOf <= 0) {
+    throw new Error("Invalid input: mark must be non-negative and both 'wasOutOf' and 'nowOutOf' must be positive.");
+  }
+
+  const scale = Math.floor(mark * nowOutOf / wasOutOf);
+  return scale;
+}
+```

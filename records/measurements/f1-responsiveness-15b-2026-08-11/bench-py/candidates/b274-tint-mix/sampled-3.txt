@@ -1,0 +1,21 @@
+```python
+from typing import * 
+
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    # Validate inputs
+    if not (isinstance(volume_a, int) and isinstance(strength_a, int) and isinstance(volume_b, int) and isinstance(strength_b, int)):
+        raise ValueError("All arguments must be integers.")
+    if not (0 <= volume_a <= 1000 and 0 <= strength_a <= 100 and 0 <= volume_b <= 1000 and 0 <= strength_b <= 100):
+        raise ValueError("Volume and strength values must be within the range of 0 to 1000.")
+    
+    # Calculate total volume
+    total_volume = volume_a + volume_b
+    
+    # Calculate total strength
+    total_strength = (volume_a * strength_a) + (volume_b * strength_b)
+    
+    # Round down to whole percent
+    mixed_strength = round(total_strength / total_volume * 100)
+    
+    return mixed_strength
+```

@@ -1,0 +1,16 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """Return the height gained on one leg of a walk."""
+    if start > end:
+        raise ValueError("Start must be less than or equal to end.")
+    return end - start
+
+def climb_gain(heights: list) -> int:
+    """Add the gains of every leg of a walk, given the heights in order."""
+    if not heights:
+        return 0
+    total_gain = 0
+    for i in range(len(heights) - 1):
+        total_gain += leg_gain(heights[i], heights[i + 1])
+    return total_gain
+```

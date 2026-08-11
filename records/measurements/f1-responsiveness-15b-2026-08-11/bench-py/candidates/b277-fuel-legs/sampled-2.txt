@@ -1,0 +1,9 @@
+```python
+def fuel_legs(litres: int, burn: int) -> int:
+    if not isinstance(litres, int) or not isinstance(burn, int):
+        raise ValueError("Both litres and burn must be integers.")
+    if burn <= 0:
+        raise ValueError("Burn must be a positive integer.")
+
+    return litres // burn
+```

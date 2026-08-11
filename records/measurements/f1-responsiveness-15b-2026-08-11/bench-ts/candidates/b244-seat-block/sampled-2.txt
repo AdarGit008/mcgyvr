@@ -1,0 +1,12 @@
+```ts
+function seatBlock(label: string): (number | string)[] {
+  if (!/^\d+[A-Z]$/.test(label)) {
+    throw new Error('Invalid seat label');
+  }
+
+  const digits = label.match(/\d+/)[0];
+  const letter = label.charAt(label.length - 1);
+
+  return [parseInt(digits, 10), letter];
+}
+```

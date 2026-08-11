@@ -1,0 +1,12 @@
+```ts
+export function netPay(gross: number, rate: number, fee: number): number {
+  if (rate <= 0 || fee <= 0) {
+    throw new Error("Rate and fee must be positive.");
+  }
+  let afterFee = gross - fee;
+  while (afterFee >= 0 && afterFee > Math.floor((afterFee * rate) / 100)) {
+    afterFee -= Math.floor((afterFee * rate) / 100);
+  }
+  return afterFee <= 0 ? 0 : afterFee;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+export function billSplit(total: number, diners: number): number[] {
+  if (diners <= 0) {
+    throw new Error("There must be at least one diner.");
+  }
+
+  const payPerPerson = Math.floor(total / diners);
+  const remainingPennies = total % diners;
+
+  return Array.from({ length: diners }, (_, i) => {
+    if (i === diners - 1) {
+      return payPerPerson + remainingPennies;
+    }
+    return payPerPerson;
+  });
+}
+```

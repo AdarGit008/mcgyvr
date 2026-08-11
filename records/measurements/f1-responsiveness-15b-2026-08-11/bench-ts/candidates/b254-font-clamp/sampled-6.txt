@@ -1,0 +1,15 @@
+```ts
+export function fontClamp(size: number, smallest: number, largest: number): number {
+  if (smallest > largest) {
+    throw new Error("Range is invalid: smallest must be less than or equal to largest.");
+  }
+
+  if (size < smallest) {
+    return smallest;
+  } else if (size > largest) {
+    return largest;
+  } else {
+    return size; // Already within the range, no-op.
+  }
+}
+```

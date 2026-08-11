@@ -1,0 +1,13 @@
+```python
+def grid_flip(grid):
+    if not grid:
+        return []
+
+    # Extract column data from each row into a list of lists
+    columns = [[row[i] for row in grid] for i in range(len(grid[0]))]
+
+    # Reverse the order of the columns to get the flipped version
+    flipped_grid = [column[::-1] for column in columns]
+
+    return flipped_grid
+```

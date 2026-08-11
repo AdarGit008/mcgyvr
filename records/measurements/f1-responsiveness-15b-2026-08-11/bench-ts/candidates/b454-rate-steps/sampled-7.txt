@@ -1,0 +1,27 @@
+```ts
+/**
+ * Calculates the charge for one step given a fixed sum and a percentage.
+ * The amount is rounded down to avoid charges standing above the amount itself.
+ *
+ * @param amount - The total charge before the share.
+ * @param fixed - The fixed part of the charge.
+ * @param percent - The percentage part of the charge, as a whole number out of 100.
+ * @returns The charge for one step rounded down.
+ */
+export function stepRate(amount: number, fixed: number, percent: number): number {
+    const share = Math.floor((amount * (percent / 100)) + 0.5);
+    return amount + shared;
+}
+
+/**
+ * Calculates the total charge for several amounts, rounding down each charge.
+ *
+ * @param amounts - An array of individual charges before the share.
+ * @param fixed - The fixed part of the charge.
+ * @param percent - The percentage part of the charge, as a whole number out of 100.
+ * @returns An array of total charges for each amount rounded down.
+ */
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+    return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

@@ -1,0 +1,16 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    try:
+        # Normalize input to upper case for uniformity
+        normalized_code = code.upper()
+        
+        # Check if the normalized code exists in the table
+        if normalized_code in table:
+            return table[normalized_code]
+        else:
+            return "unknown"
+    except Exception as e:
+        raise ValueError(f"An error occurred: {e}")
+```
+
+This solution correctly implements the `cloud_code` function according to the specified interface. It uses a dictionary to map codes to descriptions and normalizes the input code to ensure case insensitivity for accurate matching. If the normalized code is not found in the table, it returns "unknown". The function also includes error handling to catch and raise a ValueError with a suitable message if an unexpected exception occurs during execution.

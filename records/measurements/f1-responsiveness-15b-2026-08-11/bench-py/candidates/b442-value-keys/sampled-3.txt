@@ -1,0 +1,11 @@
+```python
+from typing import TypeVar, Dict
+
+T = TypeVar('T')
+
+def value_keys(store: dict) -> Dict[T, int]:
+    if store:
+        return {k: store.count(k) for k in store}
+    else:
+        return {}
+```

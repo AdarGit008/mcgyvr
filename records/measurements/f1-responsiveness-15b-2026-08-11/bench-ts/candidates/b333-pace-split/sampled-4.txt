@@ -1,0 +1,23 @@
+```ts
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres === 0) {
+    throw new Error("Distance cannot be zero.");
+  }
+  return Math.floor(seconds / kilometres);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  if (! legs || ! legs.length) {
+    throw new Error("Legs must not be empty.");
+  }
+
+  const pace = [];
+  for (const leg of legs) {
+    if (leg.kilometres === 0) {
+      throw new Error("Distance cannot be zero.");
+    }
+    pace.push(Math.floor(leg.seconds / leg.kilometres));
+  }
+  return pace;
+}
+```

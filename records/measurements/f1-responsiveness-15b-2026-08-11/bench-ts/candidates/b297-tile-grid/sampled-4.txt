@@ -1,0 +1,25 @@
+```ts
+function tilesAcross(length: number, tile: number): number {
+  if (length === 0 || tile <= 0) {
+    throw new Error("Length and tile must be positive numbers.");
+  }
+  return Math.ceil(length / tile);
+}
+
+function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  if (width * height === 0 || tile <= 0 || spare < 0) {
+    throw new Error("Width, height, and tile must be positive numbers, and spare cannot be negative.");
+  }
+  const totalTiles = width * height;
+  const coveredTiles = tilesAcross(totalTiles, tile);
+  const wastedTiles = totalTiles - coveredTiles;
+
+  // Add a whole-percent allowance for breakages
+  let additionalBreakage = Math.ceil(wastedTiles / (tile + spare));
+  if (additionalBreakage > 0) {
+    coveredTiles += additionalBreakage;
+  }
+
+  return tilesAcross(coveredTiles, tile);
+}
+```

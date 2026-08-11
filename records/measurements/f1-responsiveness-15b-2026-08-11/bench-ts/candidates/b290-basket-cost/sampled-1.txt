@@ -1,0 +1,24 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (typeof price !== 'number' || typeof quantity !== 'number') {
+    throw new Error('Both price and quantity must be numbers');
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (!lines.length) {
+    return 0;
+  }
+
+  const totalLineCost = lines.reduce((acc, line) => acc + lineCost(line.price, line.quantity), 0);
+
+  if (discount > 100) {
+    throw new Error('Discount cannot exceed one hundred percent');
+  }
+
+  const discountedTotal = Math.round(totalLineCost * (1 - discount / 100));
+
+  return Math.floor(discountedTotal);
+}
+```

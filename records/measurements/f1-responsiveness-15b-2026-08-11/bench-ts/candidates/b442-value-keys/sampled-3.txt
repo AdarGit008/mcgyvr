@@ -1,0 +1,17 @@
+```ts
+import { isEqual } from "lodash";
+
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const key in store) {
+    if (!store.hasOwnProperty(key)) continue;
+    const value = store[key];
+    if (result.hasOwnProperty(value)) {
+      result[value]++;
+    } else {
+      result[value] = 1;
+    }
+  }
+  return result;
+}
+```

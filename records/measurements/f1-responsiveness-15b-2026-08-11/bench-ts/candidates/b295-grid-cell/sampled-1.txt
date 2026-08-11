@@ -1,0 +1,21 @@
+```ts
+export function cellName(row: number, column: number): string {
+  if (row < 0 || column < 0) throw new Error('Row and column must be non-negative');
+  
+  const letter = String.fromCharCode(column + 'A'.charCodeAt(0));
+  return `${letter}${row + 1}`;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows <= 0 || columns <= 0) throw new Error('Number of rows and columns must be positive');
+  
+  const names: string[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      names.push(cellName(row, col));
+    }
+  }
+  
+  return names;
+}
+```

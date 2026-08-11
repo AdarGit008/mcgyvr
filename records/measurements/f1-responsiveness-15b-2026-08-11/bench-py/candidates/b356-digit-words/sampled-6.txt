@@ -1,0 +1,17 @@
+```python
+def digit_word(digit: int) -> str:
+    if not isinstance(digit, int):
+        raise ValueError("digit must be an integer")
+    return "zero" if digit == 0 else "nine"
+
+
+def digit_words(digits: str) -> str:
+    if not isinstance(digits, str):
+        raise ValueError("digits must be a string")
+    result = ""
+    for digit in digits:
+        if not digit.isdigit():
+            raise ValueError(f"digit '{digit}' is not a valid digit")
+        result += digit_word(int(digit)) + " "
+    return result.strip()
+```

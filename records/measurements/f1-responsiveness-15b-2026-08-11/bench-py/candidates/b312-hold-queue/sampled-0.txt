@@ -1,0 +1,38 @@
+```python
+class Queue:
+    def __init__(self):
+        self.items = []
+
+    def is_empty(self):
+        return len(self.items) == 0
+
+    def enqueue(self, item):
+        self.items.append(item)
+
+    def dequeue(self):
+        if not self.is_empty():
+            return self.items.pop(0)
+        raise ValueError("Queue is empty")
+
+    def peek(self):
+        if not self.is_empty():
+            return self.items[0]
+        raise ValueError("Queue is empty")
+
+    def size(self):
+        return len(self.items)
+
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than 0")
+
+    queue = Queue()
+    for caller in callers:
+        while queue.size() >= limit and not queue.is_empty():
+            queue.dequeue()
+        queue.enqueue(caller)
+    
+    return queue.items
+```
+
+This solution introduces a `Queue` class to manage the hold list, ensuring that no more than the specified limit of callers is maintained. The function `hold_queue` iterates through the callers, dequeuing the oldest caller if the queue is full and adding the new caller to the end of the queue if it's not. This approach ensures that the list always contains the most recent callers up to the limit, with those waiting the longest dropped off last.

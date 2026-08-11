@@ -1,0 +1,24 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    """
+    If current is already at or beyond target, return target. Otherwise,
+    move from current toward target by at most step, never overshooting the target.
+    """
+    if not step:
+        raise ValueError("Step must be non-zero")
+    if current > target:
+        step = -step
+    return min(target, max(current + step, target))
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    """
+    Return a list of all values visited while moving from start to target,
+    both ends included. If start is already at the target, return just that one value.
+    """
+    if step == 0:
+        raise ValueError("Step must be non-zero")
+    if current > target:
+        start = target
+        step = -step
+    return list(range(start, target + 1, step))
+```

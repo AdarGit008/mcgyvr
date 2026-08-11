@@ -1,0 +1,12 @@
+```typescript
+function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("Number of units must be non-negative.");
+  }
+
+  const baseUnits = Math.min(units, allowance);
+  const excessUnits = units - allowance;
+
+  return baseUnits * firstRate + excessUnits * laterRate;
+}
+```

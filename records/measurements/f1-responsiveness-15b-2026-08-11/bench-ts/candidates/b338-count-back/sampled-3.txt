@@ -1,0 +1,12 @@
+```ts
+/**
+ * The numbers from a starting count down to one.
+ */
+export function countBack(start: number): number[] {
+  const counted: number[] = [];
+  for (let value = start; value > 0; value -= 1) { // Fixed the direction of iteration to ensure the loop runs downwards
+    counted.push(value);
+  }
+  return counted;
+}
+```

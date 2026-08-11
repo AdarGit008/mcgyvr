@@ -1,0 +1,42 @@
+```ts
+export function cellName(row: number, column: number): string {
+    if (row < 0 || row >= 26) throw new Error('Row index must be between 0 and 25');
+    if (column < 0 || column >= 26) throw new Error('Column index must be between 0 and 25');
+
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let cellName = '';
+
+    while (row > 0) {
+        const remainder = row % 26;
+        cellName = alphabet[remainder] + cellName;
+        row = Math.floor(row / 26);
+    }
+
+    if (column > 0) {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let cellName = '';
+
+        while (column > 0) {
+            const remainder = column % 26;
+            cellName = alphabet[remainder] + cellName;
+            column = Math.floor(column / 26);
+        }
+    }
+
+    return cellName;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+    if (rows <= 0 || columns <= 0) throw new Error('Grid size must be positive');
+
+    const cells: string[] = [];
+
+    for (let row = 1; row <= rows; row++) {
+        for (let col = 1; col <= columns; col++) {
+            cells.push(cellName(row - 1, col - 1));
+        }
+    }
+
+    return cells;
+}
+```

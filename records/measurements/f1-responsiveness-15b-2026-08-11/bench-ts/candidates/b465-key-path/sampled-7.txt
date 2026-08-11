@@ -1,0 +1,6 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  const keys = Object.keys(store);
+  return keys.filter(key => key.startsWith(head + '.'));
+}
+```

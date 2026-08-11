@@ -1,0 +1,16 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    # Round down the percentage before applying to avoid floating point issues
+    perct = round(rate / 100)
+    
+    after_fee = gross - fee
+    
+    # Subtract the fee first to ensure the correct percentage is applied
+    after_discount = after_fee - (after_fee * perct / 100)
+    
+    # Ensure pay never falls below zero
+    net_pay = max(after_discount, 0)
+    
+    return net_pay
+```

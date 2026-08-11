@@ -1,0 +1,10 @@
+```python
+from typing import List
+
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    adjusted = amount + (amount * percent / 100)
+    return int(adjusted)
+
+def rate_steps(amounts: List[int], fixed: int, percent: int) -> List[int]:
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

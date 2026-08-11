@@ -1,0 +1,17 @@
+```python
+def take_back(values: list, target: int) -> int:
+    if not values or target <= 0:
+        return -1
+
+    total = sum(values)
+    if total >= target:
+        return len(values)
+
+    count = 0
+    while total < target and count < len(values):
+        total -= values[-1]
+        del values[-1]
+        count += 1
+
+    return -1
+```

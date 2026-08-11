@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def grid_flip(grid: List[List[int]]) -> List[List[int]]:
+    if not grid:
+        return []
+    
+    # Calculate the number of columns in the grid
+    num_columns = len(grid[0])
+    
+    # Initialize the result grid with the same number of rows as the input grid
+    result_grid = [[None] * num_columns for _ in range(len(grid))]
+    
+    # Copy elements from the grid to the result grid column by column
+    for i in range(num_columns):
+        for j in range(len(grid)):
+            result_grid[i][j] = grid[j][i]
+    
+    return result_grid
+```

@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def link_find(line: str, opens: str, closes: str) -> List[str]:
+    if len(opens) != len(closes):
+        raise ValueError(f"Unequal number of opening and closing markers: {opens} vs {closes}")
+    
+    stack = []
+    results = []
+    current_line = ""
+    
+    for char in line:
+        current_line += char
+        
+        if char == opens:
+            stack.append(char)
+        elif char == closes:
+            if not stack or stack.pop() != opens:
+                raise ValueError(f"Unmatched closing marker: {char}")
+            
+            results.append(current_line.strip())
+            current_line = ""
+    
+    return results
+```

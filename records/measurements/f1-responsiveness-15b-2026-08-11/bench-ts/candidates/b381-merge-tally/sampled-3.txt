@@ -1,0 +1,18 @@
+```ts
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  if (typeof name !== 'string' || typeof amount !== 'number') throw new Error("Invalid input type");
+  if (!tally[name]) tally[name] = 0;
+  tally[name] += amount;
+  return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  for (const key in left) {
+    if (left.hasOwnProperty(key)) {
+      if (!right[key]) right[key] = 0;
+      right[key] += left[key];
+    }
+  }
+  return Object.assign({}, left, right);
+}
+```

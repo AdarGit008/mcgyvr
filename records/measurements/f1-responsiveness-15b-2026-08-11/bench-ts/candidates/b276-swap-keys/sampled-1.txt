@@ -1,0 +1,19 @@
+```ts
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+  const swappedNames: Record<string, string> = {};
+  let sortedCodes = Object.keys(names).sort();
+
+  for (const code of sortedCodes) {
+    const name = names[code];
+    if (name !== "") {
+      if (!swappedNames[name]) {
+        swappedNames[name] = code;
+      } else if (sortedCodes.indexOf(code) < sortedCodes.indexOf(swappedNames[name])) {
+        swappedNames[name] = code;
+      }
+    }
+  }
+
+  return swappedNames;
+}
+```

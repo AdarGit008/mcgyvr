@@ -1,0 +1,27 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  spans.sort((a, b) => a[0] - b[0]); // Sort by start time
+
+  const mergedSpans: number[][] = [];
+  let currentSpan: number[] | undefined = undefined;
+
+  for (const span of spans) {
+    if (!currentSpan || span[0] > currentSpan[1]) {
+      // Start a new span
+      if (currentSpan) {
+        mergedSpans.push(currentSpan);
+      }
+      currentSpan = span;
+    } else {
+      // Extend the current span
+      currentSpan[1] = Math.max(currentSpan[1], span[1]);
+    }
+  }
+
+  if (currentSpan) {
+    mergedSpans.push(currentSpan);
+  }
+
+  return mergedSpans;
+}
+```

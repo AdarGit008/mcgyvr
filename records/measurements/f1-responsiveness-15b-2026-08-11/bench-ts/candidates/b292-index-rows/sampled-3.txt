@@ -1,0 +1,19 @@
+```ts
+
+export function rowKey(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+export function indexRows(names: string[]): Record<string, string[]> {
+  if (names.length === 0) return {};
+
+  const indexedNames = names.reduce((acc, name) => {
+    const key = rowKey(name);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(name);
+    return acc;
+  }, {});
+
+  return indexedNames;
+}
+```

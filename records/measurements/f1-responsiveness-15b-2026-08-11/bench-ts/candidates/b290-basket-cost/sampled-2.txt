@@ -1,0 +1,19 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (typeof price !== 'number' || typeof quantity !== 'number') {
+    throw new Error('Both price and quantity must be numbers');
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (!Array.isArray(lines) || lines.length === 0) {
+    throw new Error('lines array must not be empty');
+  }
+
+  const totalLinePrice = lines.reduce((acc, line) => acc + line.price * line.quantity, 0);
+  const discountedTotal = Math.round(totalLinePrice * (1 - discount / 100));
+
+  return Math.floor(discountedTotal);
+}
+```

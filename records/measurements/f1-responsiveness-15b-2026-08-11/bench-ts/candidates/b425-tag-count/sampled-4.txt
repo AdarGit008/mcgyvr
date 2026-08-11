@@ -1,0 +1,21 @@
+```ts
+function tagCount(line: string): number {
+  if (!line || typeof line !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  let markerCount = 0;
+  let inMarker = false;
+
+  for (let char of line) {
+    if (char === '<' && !inMarker) {
+      inMarker = true;
+      markerCount++;
+    } else if (char === '>' && inMarker) {
+      inMarker = false;
+    }
+  }
+
+  return markerCount;
+}
+```

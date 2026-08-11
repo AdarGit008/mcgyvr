@@ -1,0 +1,25 @@
+```python
+def row_key(name: str) -> str:
+    """Return the first letter of a name in upper case."""
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    """File names under their row_key, each group holding its names in the order they arrived."""
+    if not isinstance(names, list):
+        raise ValueError("names must be a list")
+    
+    indexed_names = {}
+    for i, name in enumerate(names):
+        key = row_key(name)
+        if key not in indexed_names:
+            indexed_names[key] = []
+        indexed_names[key].append((i + 1, name))
+    
+    # Sort each group by the index (ascending) and then by name (alphabetically)
+    for key in indexed_names:
+        indexed_names[key].sort(key=lambda x: (x[0], x[1]))
+    
+    return indexed_names
+```

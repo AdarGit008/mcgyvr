@@ -1,0 +1,28 @@
+```ts
+/**
+ * This function calculates how many tiles of a given size cover a length.
+ *
+ * @param length The total length to be covered by the tiles.
+ * @param tile The size of each tile.
+ * @returns The total number of tiles required, including any partial tiles.
+ */
+export function tilesAcross(length: number, tile: number): number {
+  return Math.ceil(length / tile);
+}
+
+/**
+ * This function calculates the total number of tiles needed to cover a wall with
+ * a specified width and height, adding an allowance for breakages and rounding up.
+ *
+ * @param width The width of the wall.
+ * @param height The height of the wall.
+ * @param tile The size of each tile.
+ * @param spare The percentage allowance for breakages as a positive number between 0 and 100.
+ * @returns The total number of tiles required, including breakage allowances.
+ */
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  const cover = width * height;
+  const round = Math.ceil(cover / tile);
+  return Math.ceil(round * (1 + spare / 100));
+}
+```

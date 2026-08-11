@@ -1,0 +1,17 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  if (typeof store !== 'object' || !store) {
+    throw new Error('Invalid input: Store must be an object.');
+  }
+
+  const countObj: Record<string, number> = {};
+  for (const key in store) {
+    if (store.hasOwnProperty(key)) {
+      const value = store[key];
+      countObj[value] = (countObj[value] || 0) + 1;
+    }
+  }
+
+  return countObj;
+}
+```

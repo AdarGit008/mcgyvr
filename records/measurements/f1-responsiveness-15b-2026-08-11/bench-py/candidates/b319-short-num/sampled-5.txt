@@ -1,0 +1,32 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a given integer by writing it in short form: below a thousand it is written as it stands,
+    a thousand or more takes 'k', and a million or more takes 'm'. A shortened number keeps one decimal place, rounded down.
+    
+    :param value: The integer to be shortened.
+    :return: The shortened string representation of the integer.
+    """
+    if not isinstance(value, int):
+        raise ValueError("Input must be an integer.")
+    
+    if value < 1000:
+        return str(value)
+    
+    elif value < 1_000_000:
+        return f"{value // 1000:.1f}k"
+    
+    else:
+        return f"{value / 1_000_000:.1f}m"
+
+def test_short_num():
+    assert short_num(5) == "5", "Test case 1 failed"
+    assert short_num(999) == "999", "Test case 2 failed"
+    assert short_num(1000) == "1k", "Test case 3 failed"
+    assert short_num(1850) == "1.9k", "Test case 4 failed"
+    assert short_num(1_000_000) == "1m", "Test case 5 failed"
+    assert short_num(123456789) == "1.2m", "Test case 6 failed"
+    print("All test cases passed!")
+
+test_short_num()
+```

@@ -1,0 +1,36 @@
+```ts
+function inQuote(ch: string): boolean {
+  return ch === '"' || ch === "'";
+}
+
+function quoteSplit(line: string): string[] {
+  const escaped = /\\"/g;
+  let lastIndex = 0;
+  const pieces: string[] = [];
+
+  for (let i = 0; i < line.length; i++) {
+    if (escaped.test(line.slice(i))) {
+      continue;
+    }
+    if (line[i] === '"') {
+      if (lastIndex !== i) {
+        pieces.push(line.substring(lastIndex, i));
+      }
+      lastIndex = i + 1;
+      pieces.push(line.substring(i, i + 2));
+    } else if (line[i] === ',') {
+      if (lastIndex !== i) {
+        pieces.push(line.substring(lastIndex, i));
+      }
+      lastIndex = i + 1;
+      pieces.push('');
+    }
+  }
+
+  if (lastIndex < line.length) {
+    pieces.push(line.substring(lastIndex));
+  }
+
+  return pieces.filter(piece => piece.trim() !== '');
+}
+```

@@ -1,0 +1,10 @@
+```python
+from typing import *
+from collections.abc import *
+
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    if smallest > largest:
+        raise ValueError("Smallest value cannot be greater than largest.")
+    
+    return max(min(size, largest), smallest)
+```

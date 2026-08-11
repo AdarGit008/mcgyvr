@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Distance must be positive")
+    return seconds // kilometres
+
+def pace_list(legs: list) -> list:
+    if not legs:
+        raise ValueError("No legs provided")
+    
+    for leg in legs:
+        if leg[1] > 0:
+            yield pace_of(*leg)
+        else:
+            raise ValueError(f"Leg covering no ground: {leg}")
+```

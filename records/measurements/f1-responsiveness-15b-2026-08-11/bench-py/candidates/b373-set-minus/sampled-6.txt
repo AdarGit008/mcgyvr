@@ -1,0 +1,20 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """
+    Returns a list containing elements from 'entries' that are not present in 'remove',
+    preserving their original order and ensuring duplicate entries are included.
+
+    :param entries: List of elements to be compared.
+    :param remove: List of elements to be removed from 'entries'.
+    :return: A new list with the specified elements removed, maintaining their original order.
+    """
+    if not entries:
+        return []
+    seen = set()
+    result = []
+    for element in entries:
+        if element not in remove and element not in seen:
+            result.append(element)
+            seen.add(element)
+    return result
+```

@@ -1,0 +1,26 @@
+```ts
+export function pathClean(path: string): string {
+  if (typeof path !== 'string') throw new Error('Expected a string');
+
+  let cleanedPath = '';
+  let segmentCount = 0;
+
+  for (let i = 0; i < path.length; i++) {
+    const char = path[i];
+
+    if (char === '/') {
+      segmentCount++;
+    } else if (segmentCount >= 2) {
+      // Drop the previous segment and this one, keeping track of the current one
+      segmentCount -= 2;
+    } else if (segmentCount === 1 && char !== '.') {
+      // Keep this segment as it's not part of two dots, but it might not be needed
+      cleanedPath += char;
+    }
+
+    cleanedPath += char;
+  }
+
+  return cleanedPath.trim();
+}
+```

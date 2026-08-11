@@ -1,0 +1,24 @@
+```python
+def swap_keys(names: dict) -> dict:
+    # Create a dictionary to store the reversed mapping
+    reversed_names = {}
+    
+    # Iterate over the input dictionary
+    for code, name in names.items():
+        # Skip if the name is empty text
+        if not name:
+            continue
+        
+        # If the code already exists in the reversed dictionary,
+        # keep the name that sorts first and overwrite it.
+        # Otherwise, add the new code-name pair to the dictionary.
+        if code in reversed_names:
+            current_name = reversed_names[code]
+            # Sort the names alphabetically to choose the correct one
+            if current_name > name:
+                reversed_names[word] = name
+        else:
+            reversed_names[code] = name
+    
+    return reversed_names
+```

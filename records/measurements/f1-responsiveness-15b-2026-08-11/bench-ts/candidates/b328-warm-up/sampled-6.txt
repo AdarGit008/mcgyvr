@@ -1,0 +1,7 @@
+```ts
+export function warmUp(readings: number[], floor: number): number[] {
+  let index = readings.findIndex((reading) => reading >= floor);
+  
+  return index === -1 ? [] : readings.slice(index);
+}
+```

@@ -1,0 +1,15 @@
+```typescript
+/**
+ * An amount written with its unit.
+ * @param amount The amount to be labeled.
+ * @param unit The unit of measurement for the amount.
+ * @throws {Error} If the amount is negative.
+ */
+export function labelOf(amount: number, unit: string): string {
+  if (amount < 0) {
+    throw new Error("amount cannot be negative");
+  }
+  const singularOrPlural = amount === 1 ? "" : "s";
+  return String(amount) + " " + shortUnit(unit) + singularOrPlural;
+}
+```

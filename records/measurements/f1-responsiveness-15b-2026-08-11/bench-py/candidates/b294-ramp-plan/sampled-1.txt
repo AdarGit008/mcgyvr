@@ -1,0 +1,42 @@
+```python
+from typing import *
+import math
+
+def ramp_step(current: int, target: int, step: int) -> int:
+    """
+    Returns the next value moving from 'current' toward 'target' by at most 'step',
+    never overshooting the target.
+
+    Args:
+        current (int): The starting value.
+        target (int): The target value.
+        step (int): The maximum step size.
+
+    Returns:
+        int: The next value after the step calculation.
+    """
+    if step == 0:
+        raise ValueError("Step cannot be zero.")
+    
+    if current < target:
+        return min(current + step, target)
+    else:
+        return max(current - step, target)
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    """
+    Returns a list of all values visited going from 'start' to 'target', both ends included.
+
+    Args:
+        start (int): The starting value.
+        target (int): The target value.
+        step (int): The step size between each value in the sequence.
+
+    Returns:
+        list: The list of all values visited.
+    """
+    if step == 0:
+        raise ValueError("Step cannot be zero.")
+    
+    return [start + i * step for i in range((target - start) // step + 1)]
+```

@@ -1,0 +1,22 @@
+```python
+def is_gap(reading: int) -> bool:
+    return reading == -1
+
+
+def fill_gaps(readings: list) -> list:
+    """Missing readings replaced by the last real one seen."""
+    filled = list(readings)
+    for i in range(len(filled)):
+        if is_gap(filled[i]):
+            for later in filled[i + 1:]:
+                if not is_gap(later):
+                    filled[i] = later
+                    break
+            # If no gap found after the current gap, the original gap remains missing.
+```
+
+Explanation:
+- The `fill_gaps` function iterates through the list of readings.
+- When it encounters a gap (a reading equal to -1), it searches for the next non-gap reading in the rest of the list.
+- If such a non-gap reading is found, it replaces the current gap with that value, effectively filling it.
+- The loop continues until all gaps are filled or the end of the list is reached.

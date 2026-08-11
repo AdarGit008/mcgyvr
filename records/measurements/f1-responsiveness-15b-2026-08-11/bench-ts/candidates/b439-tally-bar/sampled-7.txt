@@ -1,0 +1,10 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+    if (typeof count !== 'number' || typeof width !== 'number') {
+        throw new Error('Both count and width must be numbers');
+    }
+
+    const barWidth = Math.min(Math.max(0, count), width);
+    return ` bars`.repeat(barWidth) + (barWidth === 0 ? '' : '>');
+}
+```

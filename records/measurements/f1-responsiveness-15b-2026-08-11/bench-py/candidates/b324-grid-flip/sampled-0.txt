@@ -1,0 +1,23 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Flip a given grid into its transposed form.
+
+    :param grid: List of lists representing rows of the grid.
+    :return: Transposed grid (rows become columns).
+    """
+    if not grid:
+        return []
+    
+    # Find the maximum length to ensure correct alignment
+    max_len = max(len(row) for row in grid)
+    
+    # Initialize the result list with empty lists of the appropriate size
+    transposed_grid = [[] for _ in range(max_len)]
+    
+    for i, row in enumerate(grid):
+        for j, value in enumerate(row[:max_len]):
+            transposed_grid[j].append(value)
+    
+    return transposed_grid
+```

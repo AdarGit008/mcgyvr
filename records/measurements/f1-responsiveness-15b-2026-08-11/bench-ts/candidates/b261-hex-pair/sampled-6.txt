@@ -1,0 +1,12 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (!colour || colour.length !== 7 || !/^[0-9a-fA-F]{6}$/.test(colour)) {
+    throw new Error("Invalid colour");
+  }
+  return colour.match(/.{2}/g) as string[];
+}
+
+export function hexJoin(parts: string[]): string {
+  return parts.join("");
+}
+```

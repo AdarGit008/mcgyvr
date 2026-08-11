@@ -1,0 +1,20 @@
+```ts
+// fontClamp.ts
+
+/**
+ * Brings a requested size inside an allowed range: a size under the smallest allowed becomes the smallest,
+ * a size over the largest becomes the largest, and a size already inside comes back unchanged. Rejects a range whose smallest is above its largest with an error.
+ *
+ * @param size The requested size to be clamped.
+ * @param smallest The smallest acceptable value for `size`.
+ * @param largest The largest acceptable value for `size`.
+ * @returns The clamped size within the specified range.
+ */
+export function fontClamp(size: number, smallest: number, largest: number): number {
+  if (smallest > largest) {
+    throw new Error('Invalid range: smallest is above largest.');
+  }
+
+  return Math.max(smallest, Math.min(size, largest));
+}
+```

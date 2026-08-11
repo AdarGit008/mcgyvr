@@ -1,0 +1,27 @@
+```python
+from typing import List, Optional
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    """
+    Given a list of minutes on which a monitor was meant to run every minute,
+    return the minutes between the first and the last on which it did not run,
+    in increasing order. Fewer than two runs means there is nothing to report.
+
+    :param minutes: List[int] - A sorted list of integers representing minutes
+    """
+    if not minutes:
+        raise ValueError("No minutes provided")
+
+    # Ensure the input list has at least two elements
+    if len(minutes) < 2:
+        return []
+
+    first_run = minutes[0]
+    last_run = minutes[-1]
+
+    # Calculate the gap between consecutive runs, up to the second to last run
+    gaps = [last_run - first_run + 1 for i in range(len(minutes) - 1)]
+    gaps.append(0)  # Handle the case where there are no gaps
+
+    return gaps[1:]
+```

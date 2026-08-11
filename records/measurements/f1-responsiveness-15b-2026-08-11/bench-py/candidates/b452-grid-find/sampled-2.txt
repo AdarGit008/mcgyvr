@@ -1,0 +1,39 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    """
+    Check whether the cell at (row, column) in the grid holds the given value.
+
+    Args:
+        grid (list): A list of lists representing a 2D grid.
+        row (int): The row index to check.
+        column (int): The column index to check.
+        value (int): The value to search for in the grid.
+
+    Returns:
+        bool: True if the cell holds the value, False otherwise.
+    """
+    if not grid or not isinstance(grid[0], list) or len(grid) <= row or len(grid[row]) <= column:
+        raise ValueError("Invalid grid dimensions")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    """
+    Find the first occurrence of the specified value in a 2D grid.
+
+    Args:
+        grid (list): A list of lists representing a 2D grid.
+        value (int): The value to find in the grid.
+
+    Returns:
+        list: A list containing the row and column indices where the value is found,
+               or None if the value is not present in the grid.
+
+    Raises:
+        ValueError: If the grid dimensions are invalid.
+    """
+    for row, row_values in enumerate(grid):
+        for col, cell_value in enumerate(row_values):
+            if cell_value == value:
+                return [row, col]
+    return None
+```

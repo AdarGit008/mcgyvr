@@ -1,0 +1,13 @@
+```typescript
+export function stepsOn(first: number, count: number): number[] {
+    const step = first;
+    return Array.from({ length: count }, (_, i) => step + i);
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+    if (first === 0 && !seen.includes(first)) return 1;
+    for (let i = first; i < first + count; ++i) {
+        if (!seen.includes(i)) return i;
+    }
+}
+```

@@ -1,0 +1,27 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a number to below a thousand in English.
+    
+    :param value: The number to shorten.
+    :return: The shortened number string.
+    """
+
+    if value < 0 or value > 999_999_999:
+        raise ValueError("Input must be between 0 and 999,999,999.")
+
+    if value == 0:
+        return "zero"
+
+    if value < 100:
+        digits = [int(d) for d in str(value)]
+        return f"{digits[0]}{('' if len(digits) > 1 else 'hundred')} {('' if len(digits) > 2 else '')}{'and ' if digits[1] > 0 else ''}{short_num(digits[1:])}"
+
+    if value < 1_000:
+        return f"{short_num(value // 100)} hundred and {'{:.0f}'.format(value % 100)[::-1]}" if int('{:.0f}'.format(value % 100)[::-1]) > 0 else short_num(value // 100)
+
+    if value < 1_000_000:
+        return f"{short_num(value // 1000)} thousand and {'{:.0f}'.format(value % 1000)[::-1]}" if int('{:.0f}'.format(value % 1000)[::-1]) > 0 else short_num(value // 1000)
+
+    return f"{short_num(value // 1_000_000)} million and {'{:.0f}'.format(value % 1_000_000)[::-1]}" if int('{:.0f}'.format(value % 1_000_000)[::-1]) > 0 else short_num(value // 1_000_000)
+```

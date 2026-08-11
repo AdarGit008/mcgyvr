@@ -1,0 +1,15 @@
+```python
+def line_number(block: str) -> str:
+    if not block:
+        return ""
+
+    lines = block.split("\n")
+    min_length = min(len(line) for line in lines)
+    
+    result = ""
+    for i, line in enumerate(lines):
+        formatted_line = f"{i + 1}: {line}"
+        result += formatted_line.ljust(min_length + 2, " ") + "\n"
+    
+    return result.rstrip("\n")
+```

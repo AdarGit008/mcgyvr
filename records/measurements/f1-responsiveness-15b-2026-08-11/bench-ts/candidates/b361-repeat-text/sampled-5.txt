@@ -1,0 +1,17 @@
+```ts
+/**
+ * Repeats a given phrase a specified number of times, joining each copy with a separator.
+ *
+ * @param phrase The string to repeat.
+ * @param times The number of times to repeat the phrase.
+ * @param between The string to use as a separator between phrases.
+ * @returns A string with the phrase repeated and separated by 'between' if specified.
+ */
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (typeof phrase !== 'string') throw new Error("Phrase must be a string");
+  if (typeof times !== 'number' || Math.floor(times) !== times) throw new Error("Times must be an integer");
+  if (typeof between !== 'string') throw new Error("Between must be a string");
+
+  return Array(times).fill(phrase).join(between);
+}
+```

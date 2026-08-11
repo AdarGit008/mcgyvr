@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    if amount <= 0:
+        raise ValueError("amount must be positive")
+    
+    return (fixed + (amount * percent / 100)) // 1
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    if any(amount <= 0 for amount in amounts):
+        raise ValueError("all amounts must be positive")
+    
+    total_amount = sum(amounts)
+    if total_amount <= 0:
+        return []
+    
+    step_charge_per_amount = (fixed + (total_amount * percent / 100)) // 1
+    return [step_charge_per_amount] * len(amounts)
+```

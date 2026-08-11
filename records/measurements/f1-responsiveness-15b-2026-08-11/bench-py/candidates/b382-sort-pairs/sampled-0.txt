@@ -1,0 +1,10 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    if field not in record:
+        raise ValueError(f'Record does not contain field: {field}')
+    return record[field]
+
+
+def sort_pairs(records: list, field: str) -> list:
+    return sorted(records, key=lambda r: (r[field], records.index(r)))
+```

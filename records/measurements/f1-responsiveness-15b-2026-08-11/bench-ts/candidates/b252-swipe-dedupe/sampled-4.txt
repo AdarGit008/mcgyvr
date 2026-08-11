@@ -1,0 +1,21 @@
+```ts
+/**
+ * Removes consecutive duplicate card swipes from a given array of swipe records.
+ *
+ * @param swipes - An array of strings representing the recorded card swipes.
+ * @returns A new array with consecutive duplicates removed.
+ */
+export function swipeDedupe(swipes: string[]): string[] {
+  const uniqueSwipes: Set<string> = new Set();
+  const result: string[] = [];
+
+  for (const swipe of swipes) {
+    if (!uniqueSwipes.has(swipe)) {
+      uniqueSwipes.add(swipe);
+      result.push(swipe);
+    }
+  }
+
+  return result;
+}
+```

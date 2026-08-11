@@ -1,0 +1,20 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (typeof volumeA !== 'number' || typeof strengthA !== 'number' || typeof volumeB !== 'number' || typeof strengthB !== 'number') {
+    throw new Error('All inputs must be numbers.');
+  }
+
+  if (volumeA < 0 || volumeB < 0) {
+    throw new Error('Volume cannot be negative.');
+  }
+
+  if (!Number.isInteger(strengthA) || !Number.isInteger(strengthB)) {
+    throw new Error('Strengths must be integers.');
+  }
+
+  const totalVolume = volumeA + volumeB;
+  const mixedStrength = (strengthA * volumeA + strengthB * volumeB) / totalVolume;
+
+  return Math.floor(mixedStrength);
+}
+```

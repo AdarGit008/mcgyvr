@@ -1,0 +1,6 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    for movement in moves:
+        opening += movement if movement > 0 else -min(opening, abs(movement))
+    return opening
+```

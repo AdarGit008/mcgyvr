@@ -1,0 +1,23 @@
+```ts
+export function meanWindow(readings: number[], size: number): number[] {
+  if (size <= 0) {
+    throw new Error("The window size must be positive.");
+  }
+
+  if (readings.length === 0 || size > readings.length) {
+    return [];
+  }
+
+  let result: number[] = [];
+
+  for (let i = 0; i <= readings.length - size; i++) {
+    const window = readings.slice(i, i + size);
+    const sum = window.reduce((acc, val) => acc + val, 0);
+    const mean = Math.floor(sum / size);
+
+    result.push(mean);
+  }
+
+  return result;
+}
+```

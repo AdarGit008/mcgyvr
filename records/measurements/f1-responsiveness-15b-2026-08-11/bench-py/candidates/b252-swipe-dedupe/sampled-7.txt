@@ -1,0 +1,15 @@
+```python
+def swipe_dedupe(swipes: list) -> list:
+    if not swipes:
+        return []
+
+    deduplicated_swipes = []
+    current_card = None
+
+    for swipe in swipes:
+        if swipe != current_card:
+            deduplicated_swipes.append(swipe)
+            current_card = swipe
+
+    return deduplicated_swipes
+```

@@ -1,0 +1,18 @@
+```python
+from typing import *
+
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if mark < 0 or now_out_of <= 0:
+        raise ValueError("Mark and new total must be non-negative.")
+    
+    if now_out_of == 0:
+        return None
+    
+    scaling_factor = (mark / was_out_of) * now_out_of
+    scaled_mark = round(scaling_factor)
+    
+    if scaled_mark >= now_out_of:
+        return now_out_of - 1
+    
+    return scaled_mark
+```

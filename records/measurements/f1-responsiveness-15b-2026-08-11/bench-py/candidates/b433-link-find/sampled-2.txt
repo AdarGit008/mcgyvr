@@ -1,0 +1,22 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Find every piece of a line standing between an opening and closing marker.
+    
+    :param line: The line to search within.
+    :param opens: The string that marks the start of a segment.
+    :param closes: The string that marks the end of a segment.
+    :return: A list containing each segment found between the markers, without the markers themselves. An empty list is returned if no segments are found.
+    """
+    opened = False
+    segments = []
+    
+    for i in range(len(line)):
+        if line[i] == opens:
+            opened = True
+        elif line[i] == closes and opened:
+            segments.append(line[i+1:])
+            opened = False
+    
+    return segments
+```

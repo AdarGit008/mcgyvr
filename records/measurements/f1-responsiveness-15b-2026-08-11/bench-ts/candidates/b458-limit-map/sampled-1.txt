@@ -1,0 +1,24 @@
+```ts
+export function heldDown(value: number, ceiling: number): number {
+  return Math.min(ceiling, value);
+}
+
+/** Every value of a store brought down to a ceiling. */
+export function limitMap(
+  store: Record<string, number>,
+  ceiling: number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key in store) { // Avoid using Object.keys, it's not recommended for performance reasons
+    if (store.hasOwnProperty(key)) {
+      const value = store[key];
+      if (value <= ceiling) {
+        out[key] = value;
+      } else {
+        delete out[key]; // Drop the name whose value was over the ceiling
+      }
+    }
+  }
+  return out;
+}
+```

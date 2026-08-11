@@ -1,0 +1,24 @@
+```python
+from typing import List, Optional
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    if len(minutes) < 2:
+        return []
+    
+    gaps = []
+    for i in range(1, len(minutes)):
+        if minutes[i] == minutes[i-1]:
+            continue
+        gaps.append(minutes[i] - minutes[i-1])
+    return gaps
+
+# Example check function to verify the correctness of the solution
+def check_solution():
+    assert poll_gaps([]) == [], "Empty input should return an empty list."
+    assert poll_gaps([5]) == [], "Single-element input should return an empty list."
+    assert poll_gaps([1, 3, 5]) == [2, 4], "Two runs should produce gaps of 2 and 4."
+    assert poll_gaps([10, 20, 30, 40]) == [10, 10, 10], "No gap if all are consecutive."
+    print("All tests passed!")
+
+check_solution()
+```

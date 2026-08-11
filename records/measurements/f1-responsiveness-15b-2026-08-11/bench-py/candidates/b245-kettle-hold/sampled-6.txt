@@ -1,0 +1,15 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings or not isinstance(target, (int, float)):
+        raise ValueError("Invalid input. Readings must be a non-empty list of numbers, and the target must be an integer.")
+
+    holding_count = 0
+    prev_reading = None
+
+    for reading in readings:
+        if reading >= target and (prev_reading is None or prev_reading < target):
+            holding_count += 1
+        prev_reading = reading
+
+    return holding_count
+```

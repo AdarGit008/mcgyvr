@@ -1,0 +1,15 @@
+```ts
+export function cellCount(grid: number[][], value: number): number {
+  let count = 0;
+  for (const row of grid) {
+    // Note: We don't need to check for null or undefined in the loop,
+    // because we're only interested in numeric cells, not string ones.
+    for (const cell of row) {
+      if (cell === value) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+```

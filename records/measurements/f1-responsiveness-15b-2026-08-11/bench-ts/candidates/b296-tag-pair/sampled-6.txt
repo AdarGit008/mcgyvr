@@ -1,0 +1,25 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^\s*<\s*/.test(marker)) {
+    throw new Error("Marker must be wrapped in angle brackets");
+  }
+  
+  const nameStart = marker.indexOf('<') + 1;
+  const nameEnd = marker.indexOf('>');
+  return nameStart < nameEnd ? marker.slice(nameStart, nameEnd) : '';
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  if (!/^\s*<\s*/.test(opening) || !/^\s*</.test(closing)) {
+    throw new Error("Both markers must be wrapped in angle brackets");
+  }
+  
+  const openingNameStart = opening.indexOf('<') + 1;
+  const openingNameEnd = opening.indexOf('>');
+  const closingNameStart = closing.indexOf('<') + 1;
+  const closingNameEnd = closing.indexOf('>');
+
+  return openingNameStart < openingNameEnd && closingNameStart < closingNameEnd &&
+         opening.slice(openingNameStart, openingNameEnd) === closing.slice(closingNameStart, closingNameEnd);
+}
+```

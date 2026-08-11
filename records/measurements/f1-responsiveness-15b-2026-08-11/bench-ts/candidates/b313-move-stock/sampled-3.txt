@@ -1,0 +1,30 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function moveStock(opening: number, moves: number[]): number {
+  let quantity = opening;
+  for (const move of moves) {
+    if (move > 0) {
+      quantity += move;
+    } else if (quantity - Math.abs(move) >= 0) {
+      quantity -= Math.abs(move);
+    } else {
+      // If removal exceeds the current quantity, empty it instead
+      quantity = 0;
+    }
+  }
+  return quantity;
+}
+
+// Check function to verify the correctness of the solution with provided data points.
+function checkMoveStock() {
+  assert.equal(moveStock(100, [50, -30, 20]), 80);
+  assert.equal(moveStock(-5, [-2, -3, 4]), -6);
+  assert.equal(moveStock(0, [100, -50, 20, -70]), 0);
+  assert.equal(moveStock(100, [-100]), -100);
+  console.log('All tests passed!');
+}
+
+// Run the check function to verify the solution
+checkMoveStock();
+```

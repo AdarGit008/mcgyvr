@@ -1,0 +1,12 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    closing = opening
+    for move in moves:
+        if move > 0 and closing + move <= opening:
+            closing -= move
+        elif move < 0 and closing - move >= opening:
+            closing += move
+        else:
+            closing += move
+    return closing
+```

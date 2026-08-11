@@ -1,0 +1,30 @@
+```python
+def tag_count(line: str) -> int:
+    if not line or line[-1] == '>':
+        raise ValueError("Invalid line")
+    
+    count = 0
+    depth = 0
+    
+    for char in line:
+        if char == '<':
+            depth += 1
+            if depth > 1:
+                continue
+            count += 1
+        elif char == '>':
+            depth -= 1
+    
+    return count
+
+# Example usage:
+assert tag_count("") == 0
+assert tag_count("<") == 0
+assert tag_count(">") == 0
+assert tag_count("aa>bb<cc") == 5
+assert tag_count("a>b<c>d>e>f<g>") == 7
+try:
+    tag_count("abc>")
+except ValueError as e:
+    print(e)  # Invalid line
+```

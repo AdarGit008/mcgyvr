@@ -1,0 +1,20 @@
+```python
+class Solution:
+    def step_allowed(self, start: str, end: str, allowed: list) -> bool:
+        if start == end:
+            return False
+        # Check if the end state is in the allowed moves
+        if end not in allowed:
+            raise ValueError("end state must be in allowed moves")
+        return True
+
+    def step_plan(self, states: list, allowed: list) -> int:
+        if not states:
+            raise ValueError("states must contain at least one element")
+
+        # Iterate through the states to find the first move that's not allowed
+        for i in range(len(states) - 1):
+            if (states[i], states[i+1]) not in allowed or (states[i+1], states[i]) not in allowed:
+                return i
+        return -1
+```

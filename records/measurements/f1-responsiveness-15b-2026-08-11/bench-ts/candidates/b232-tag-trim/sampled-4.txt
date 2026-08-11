@@ -1,0 +1,19 @@
+```ts
+export function tagTrim(tag: string): string {
+  if (typeof tag !== 'string') {
+    throw new Error('Expected a string');
+  }
+
+  const trimmedTag = tag.trim();
+
+  while (trimmedTag.startsWith('#')) {
+    trimmedTag = trimmedTag.slice(1);
+  }
+
+  while (trimmedTag.endsWith(':')) {
+    trimmedTag = trimmedTag.slice(0, -1);
+  }
+
+  return trimmedTag;
+}
+```

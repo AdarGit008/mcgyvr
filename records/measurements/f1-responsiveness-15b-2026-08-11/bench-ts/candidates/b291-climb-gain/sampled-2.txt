@@ -1,0 +1,23 @@
+```ts
+export function legGain(start: number, end: number): number {
+  if (start === undefined || start === null || end === undefined || end === null) {
+    throw new Error("Invalid arguments");
+  }
+  return Math.abs(end - start);
+}
+
+export function climbGain(heights: number[]): number {
+  if (!heights || heights.length < 2) {
+    return 0;
+  }
+
+  let totalGain = 0;
+
+  for (let i = 1; i < heights.length; ++i) {
+    const gain = legGain(heights[i - 1], heights[i]);
+    totalGain += gain;
+  }
+
+  return totalGain;
+}
+```

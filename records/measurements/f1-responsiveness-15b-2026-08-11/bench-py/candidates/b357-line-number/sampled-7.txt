@@ -1,0 +1,6 @@
+```python
+def line_number(block: str) -> str:
+    return "\n".join(f"{i+1}: {line}" for i, line in enumerate(block.splitlines()))
+```
+
+The function `line_number` takes a single string argument `block`, which represents the input text. It splits the block into lines using `splitlines()`, then uses a generator expression to format each line with its corresponding number and a colon and space. Finally, it joins all the formatted lines back together into a single string with newline characters in between, returning the result.

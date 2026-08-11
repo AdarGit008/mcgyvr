@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def fit_budget(prices: List[int], budget: int) -> int:
+    if budget < 0:
+        raise ValueError("Amount to spend cannot be negative.")
+    
+    bought = []
+    remaining = budget
+    
+    for price in prices:
+        if remaining >= price:
+            bought.append(price)
+            remaining -= price
+        else:
+            break
+    
+    return len(bought)
+
+# Example usage:
+prices = [10, 20, 30]
+budget = 50
+print(fit_budget(prices, budget))  # Output: 2 (buy items priced at 10 and 20)
+```

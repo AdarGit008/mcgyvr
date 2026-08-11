@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+def stall_turns(counts: List[int], limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Limit must be positive.")
+    
+    total_turns = 0
+    for count in counts:
+        if count == 0:
+            continue
+        turns = count // limit + (count % limit > 0)
+        total_turns += turns
+    
+    return total_turns
+```

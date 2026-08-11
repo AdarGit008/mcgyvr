@@ -1,0 +1,19 @@
+```ts
+export function foldEnds(values: number[]): number[] {
+  if (values.length === 0) return [];
+  if (values.length === 1) return [values[0]];
+
+  const result: number[] = [];
+  for (let i = 0; i < values.length / 2; i++) {
+    result.push(values[i] + values[values.length - 1 - i]);
+  }
+
+  // If the length is odd, include the middle element
+  if (values.length % 2 !== 0) {
+    const midIndex = Math.floor(values.length / 2);
+    result.push(values[midIndex]);
+  }
+
+  return result;
+}
+```

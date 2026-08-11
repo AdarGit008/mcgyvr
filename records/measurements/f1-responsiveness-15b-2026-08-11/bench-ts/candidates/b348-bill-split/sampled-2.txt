@@ -1,0 +1,9 @@
+```ts
+export function billSplit(total: number, diners: number): number[] {
+  if (diners === 0) {
+    throw new Error("No diners at all");
+  }
+  const pennies = total % diners;
+  return Array.from({ length: diners - 1 }, (_, i) => Math.floor(total / diners));
+}
+```

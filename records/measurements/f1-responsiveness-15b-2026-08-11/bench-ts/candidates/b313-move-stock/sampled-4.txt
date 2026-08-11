@@ -1,0 +1,17 @@
+```ts
+export function moveStock(opening: number, moves: number[]): number {
+  if (moves.length === 0) return opening;
+
+  let currentQuantity = opening;
+  for (const movement of moves) {
+    if (movement < 0 && currentQuantity + movement < 0) {
+      // If the removal would make the quantity negative, empty it
+      currentQuantity = 0;
+    } else {
+      currentQuantity += movement;
+    }
+  }
+
+  return currentQuantity;
+}
+```

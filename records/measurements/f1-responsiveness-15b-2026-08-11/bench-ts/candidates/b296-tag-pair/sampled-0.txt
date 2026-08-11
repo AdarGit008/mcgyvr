@@ -1,0 +1,11 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^\s*</.test(marker)) throw new Error("Marker must be wrapped in angle brackets");
+
+  return marker.length > 1 && marker.startsWith('/') ? marker.slice(1) : marker;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  return opening === closing && /^<\w+>$/.test(opening);
+}
+```

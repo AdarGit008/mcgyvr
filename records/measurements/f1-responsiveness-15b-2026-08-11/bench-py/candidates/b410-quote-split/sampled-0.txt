@@ -1,0 +1,27 @@
+```python
+def in_quote(ch: str) -> bool:
+    return ch == '"'
+
+def quote_split(line: str) -> list:
+    result = []
+    current_part = ""
+    nesting_level = 0
+
+    for char in line:
+        if char == '"':
+            nesting_level += 1
+            if nesting_level == 1 and not current_part:
+                continue
+            if nesting_level > 1 and current_part:
+                current_part += char
+            elif nesting_level < 1:
+                result.append(current_part)
+                current_part = ""
+        else:
+            current_part += char
+
+    if current_part:
+        result.append(current_part)
+
+    return result
+```

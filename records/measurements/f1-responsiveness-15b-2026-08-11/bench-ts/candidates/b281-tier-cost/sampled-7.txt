@@ -1,0 +1,12 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("Units must be non-negative");
+  }
+
+  const unitsInAllowance = Math.min(units, allowance);
+  const unitsAboveAllowance = Math.max(0, units - allowance);
+
+  return (unitsInAllowance * firstRate) + (unitsAboveAllowance * laterRate);
+}
+```

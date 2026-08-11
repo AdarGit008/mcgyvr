@@ -1,0 +1,15 @@
+```ts
+/** The store without the keys a list names. */
+export function dropKeys(
+  store: Record<string, number>,
+  keys: string[],
+): Record<string, number> {
+  const kept: Record<string, number> = {};
+  for (const key of Object.keys(store)) {
+    if (keys.includes(key)) {
+      kept[key] = store[key];
+    }
+  }
+  return kept;
+}
+```

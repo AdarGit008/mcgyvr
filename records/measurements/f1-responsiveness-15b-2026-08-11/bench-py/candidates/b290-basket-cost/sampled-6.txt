@@ -1,0 +1,27 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """
+    Returns the total cost of a single line given its unit price and quantity.
+    
+    :param price: The price per item in pence.
+    :param quantity: The number of items in this line.
+    :return: The total cost in pence.
+    """
+    return (price * quantity) // 100
+
+def basket_cost(lines: list, discount: int) -> int:
+    """
+    Calculates the total cost of all lines in a basket after applying a whole-percent discount to the entire basket.
+    
+    :param lines: A list of tuples representing each line, where each tuple contains (price, quantity).
+    :param discount: The discount percentage as an integer between 0 and 100.
+    :return: The total cost in pence after applying the discount.
+    """
+    # Calculate the total cost without discount
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    # Apply the discount
+    discounted_total = total_cost * (100 - discount) // 100
+    
+    return int(discounted_total)
+```

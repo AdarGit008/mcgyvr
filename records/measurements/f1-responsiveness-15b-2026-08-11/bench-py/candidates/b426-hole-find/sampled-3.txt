@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def steps_on(first: int, count: int) -> List[int]:
+    return list(range(first, first + count))
+
+def hole_find(seen: List[int], first: int, count: int) -> int:
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+    return None
+```

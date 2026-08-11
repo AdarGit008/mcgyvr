@@ -1,0 +1,15 @@
+```ts
+/**
+ * Calculates how many complete legs of travel can be covered by a given fuel tank.
+ * @param litres - The total capacity of the fuel tank in litres.
+ * @param burn - The number of litres burned per leg of travel.
+ * @returns A non-negative integer representing the number of complete legs that can be travelled, or 0 if none are possible.
+ */
+export function fuelLegs(litres: number, burn: number): number {
+    if (burn <= 0) {
+        throw Error("Burn must be greater than 0.");
+    }
+    
+    return Math.max(0, litres / burn);
+}
+```

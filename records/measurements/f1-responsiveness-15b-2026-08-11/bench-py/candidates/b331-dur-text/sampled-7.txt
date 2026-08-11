@@ -1,0 +1,15 @@
+```python
+def dur_hours(minutes: int) -> int:
+    """Return the whole hours in a count of minutes."""
+    return minutes // 60
+
+def dur_text(minutes: int) -> str:
+    """Write the count of minutes as hours and minutes joined, like 1h30m;."""
+    if minutes < 0:
+        raise ValueError("Negative count of minutes is not supported.")
+    
+    hours = minutes // 60
+    minutes %= 60
+    
+    return f"{hours}h{minutes:02d}m"
+```

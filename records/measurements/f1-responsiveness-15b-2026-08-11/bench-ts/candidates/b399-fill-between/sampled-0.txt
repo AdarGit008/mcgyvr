@@ -1,0 +1,20 @@
+```ts
+/**
+ * Fills between every two neighboring entries in an array with a specified filler.
+ * A single-element or empty input list remains unchanged.
+ * 
+ * @param entries - The array of entries to be filled.
+ * @param filler - The string to fill between each pair of entries.
+ * @returns A new array with the filler inserted between each entry.
+ */
+export function fillBetween(entries: string[], filler: string): string[] {
+  if (entries.length === 0) return [];
+
+  const result = [entries[0]];
+  for (let i = 1; i < entries.length; i++) {
+    result.push(filler, entries[i]);
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,17 @@
+```python
+from typing import List, Optional, Tuple
+
+def cell_at(grid: List[List[int]], row: int, column: int) -> Optional[int]:
+    if not grid or not all(isinstance(row, (int,)) for row in grid) or not all(isinstance(column, (int,)) for column in zip(*grid)):
+        raise ValueError("Invalid input")
+    if 0 <= row < len(grid) and 0 <= column < len(grid[row]):
+        return grid[row][column]
+    else:
+        return None
+
+
+def diag_of(grid: List[List[int]]) -> List[int]:
+    if not grid or not all(isinstance(row, (int,)) for row in grid):
+        raise ValueError("Invalid input")
+    return [grid[i][i] for i in range(len(grid))]
+```

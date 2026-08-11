@@ -1,0 +1,4 @@
+```python
+def crust_slice(name: str) -> str:
+    return name.rsplit('.', 1)[0] if '.' in name else name
+```

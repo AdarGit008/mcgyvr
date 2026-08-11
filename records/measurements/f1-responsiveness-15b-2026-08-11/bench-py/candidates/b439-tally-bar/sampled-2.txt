@@ -1,0 +1,7 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count > width:
+        return "!" + 'x' * (width - 1)
+    else:
+        return 'x' * count
+```

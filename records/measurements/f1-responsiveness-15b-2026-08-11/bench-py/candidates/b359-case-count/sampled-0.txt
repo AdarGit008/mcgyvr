@@ -1,0 +1,12 @@
+```python
+def case_count(text: str) -> list:
+    if not text:
+        return [0, 0]
+
+    caps = sum(1 for char in text if char.isupper())
+    lows = sum(1 for char in text if char.islower())
+
+    return [caps, lows]
+```
+
+This solution implements the `case_count` function as specified in the task contract. It correctly counts the number of capital letters and small letters in the input string, with zero-counted non-letter characters. The function returns a list containing the counts of capitals followed by the counts of lowercase letters.

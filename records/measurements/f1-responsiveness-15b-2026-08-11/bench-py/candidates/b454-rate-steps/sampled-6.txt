@@ -1,0 +1,22 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """Return the charge for one step."""
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    total_charge = fixed + (amount * percent // 100)
+    return total_charge
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """Return the charge for each of several amounts."""
+    if not amounts or not isinstance(amounts, list):
+        raise ValueError("Amounts must be a non-empty list")
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    
+    result = []
+    for amount in amounts:
+        total_charge = step_rate(amount, fixed, percent)
+        result.append(total_charge)
+    
+    return result
+```

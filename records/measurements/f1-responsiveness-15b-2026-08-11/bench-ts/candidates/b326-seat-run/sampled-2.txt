@@ -1,0 +1,25 @@
+```ts
+function seatRun(row: string, party: number): number {
+  if (typeof row !== 'string' || typeof party !== 'number') {
+    throw new Error('Both arguments must be of type string and number.');
+  }
+
+  const partySize = Math.abs(party);
+  let maxPosition = -1;
+  let positionCount = 0;
+
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      positionCount++;
+      if (positionCount >= partySize) {
+        maxPosition = i;
+        break;
+      }
+    } else {
+      positionCount = 0;
+    }
+  }
+
+  return maxPosition;
+}
+```

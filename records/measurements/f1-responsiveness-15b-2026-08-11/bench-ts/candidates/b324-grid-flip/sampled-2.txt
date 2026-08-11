@@ -1,0 +1,18 @@
+```ts
+export function gridFlip(grid: number[][]): number[][] {
+  if (grid.length === 0) return [];
+
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  const flippedGrid: number[][] = Array.from({ length: numCols }, () => []);
+
+  for (let i = 0; i < numRows; i++) {
+    for (let j = 0; j < numCols; j++) {
+      flippedGrid[j][i] = grid[i][j];
+    }
+  }
+
+  return flippedGrid;
+}
+```

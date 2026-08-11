@@ -1,0 +1,18 @@
+```ts
+export function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+    if (!field.trim()) {
+        throw new Error("Field name cannot be empty text.");
+    }
+
+    const result: Record<string, number> = {};
+
+    for (const record of records) {
+        if (typeof record[field] !== 'string') {
+            continue;
+        }
+        result[record[field]] = (result[record[field]] || 0) + 1;
+    }
+
+    return result;
+}
+```

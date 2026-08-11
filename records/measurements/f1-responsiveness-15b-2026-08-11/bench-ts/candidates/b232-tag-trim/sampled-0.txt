@@ -1,0 +1,11 @@
+```ts
+export function tagTrim(tag: string): string {
+  if (!tag || typeof tag !== 'string') {
+    throw new Error('Invalid argument');
+  }
+
+  const trimmedTag = tag.replace(/^#+/, '').replace(/:+$/, '');
+
+  return trimmedTag;
+}
+```

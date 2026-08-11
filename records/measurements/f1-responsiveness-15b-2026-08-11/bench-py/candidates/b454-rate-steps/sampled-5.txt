@@ -1,0 +1,43 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """
+    Calculate the charge for one step.
+
+    :param amount: The total charge before the share.
+    :param fixed: A fixed sum added to the total charge.
+    :param percent: A whole-percent share of the total charge.
+    :return: The final charge after adding the fixed sum and the share.
+    """
+    # Ensure percent is a non-negative integer
+    if percent < 0:
+        raise ValueError("percent must be non-negative")
+    
+    # Calculate the share as a percentage of the total charge
+    share = amount * (percent / 100)
+    
+    # Calculate the final charge by adding the fixed sum and the share
+    final_charge = fixed + share
+    
+    return int(final_charge)
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """
+    Calculate the charge for each amount in a list.
+
+    :param amounts: A list of individual charges.
+    :param fixed: A fixed sum added to each total charge.
+    :param percent: A whole-percent share of each total charge.
+    :return: A list of final charges after adding the fixed sum and the share.
+    """
+    # Ensure percent is a non-negative integer
+    if percent < 0:
+        raise ValueError("percent must be non-negative")
+    
+    # Calculate the share as a percentage of each amount
+    shares = [amount * (percent / 100) for amount in amounts]
+    
+    # Calculate the final charges by adding the fixed sum and the shares
+    final_charges = [fixed + share for share in shares]
+    
+    return final_charges
+```

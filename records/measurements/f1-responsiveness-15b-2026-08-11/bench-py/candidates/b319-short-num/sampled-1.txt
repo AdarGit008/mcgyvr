@@ -1,0 +1,21 @@
+```python
+def short_num(value: int) -> str:
+    if value < 100:
+        return str(value)
+    
+    units = {100: 'hundred', 1000: 'thousand'}
+    thousands = [10**i for i in range(3)]
+    
+    result = ''
+    for unit, thousand in zip(units.items(), thousands):
+        if value >= thousand:
+            count = value // thousand
+            remainder = value % thousand
+            if remainder > 0:
+                result += f'{count} {units[unit]} and '
+            else:
+                result += f'{count} {units[unit]}'
+            break
+    
+    return result[:-6] if result else 'zero'
+```

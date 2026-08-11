@@ -1,0 +1,11 @@
+```python
+def route_stops(route: str) -> list:
+    """Break a route written as stop names joined by greater-than signs into the stops themselves."""
+    return [stop.strip() for stop in route.split('>')]
+
+def route_hops(route: str) -> int:
+    """Count the journeys between stops, one fewer than the stops, and none at all for a blank route."""
+    if not route:
+        return 0
+    return len(route_stops(route)) - 1
+```

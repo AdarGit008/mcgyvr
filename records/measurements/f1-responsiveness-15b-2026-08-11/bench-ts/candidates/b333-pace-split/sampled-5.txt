@@ -1,0 +1,19 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres === 0) {
+    throw new Error("Leg distance cannot be zero.");
+  }
+  return Math.floor(seconds / kilometres);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  assert(legs.every(leg => leg.seconds >= 0 && leg.kilometres >= 0), "Legs must have non-negative seconds and km.");
+  const distances = legs.map(leg => leg.kilometres);
+  if (distances.includes(0)) {
+    throw new Error("Leg covering no ground is not allowed.");
+  }
+  return legs.map(leg => paceOf(leg.seconds, leg.kilometres));
+}
+```

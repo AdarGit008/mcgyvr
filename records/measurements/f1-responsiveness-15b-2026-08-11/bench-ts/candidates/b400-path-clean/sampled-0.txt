@@ -1,0 +1,11 @@
+```ts
+export function pathClean(path: string): string {
+  if (typeof path !== 'string') {
+    throw new Error('Path must be a string');
+  }
+
+  return path.split('/')
+    .filter(segment => segment !== '..' && segment !== '.')
+    .join('/');
+}
+```

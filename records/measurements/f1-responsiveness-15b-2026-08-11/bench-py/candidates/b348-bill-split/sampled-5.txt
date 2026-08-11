@@ -1,0 +1,17 @@
+```python
+
+from typing import List
+
+
+def bill_split(total: int, diners: int) -> list:
+    if diners == 0:
+        raise ValueError("Cannot split a bill among zero diners.")
+    
+    remainder = total % diners
+    per_person = total // diners
+    
+    # Ensure the first diner pays exactly what's left over
+    final_per_person = per_person - remainder if remainder > 0 else per_person
+    
+    return [final_per_person] * (diners - 1) + [remainder]
+```

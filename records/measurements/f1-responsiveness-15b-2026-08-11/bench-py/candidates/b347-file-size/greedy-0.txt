@@ -1,0 +1,20 @@
+```python
+def size_unit(bytes_count: int) -> str:
+    if bytes_count < 1024:
+        return "B"
+    if bytes_count < 1024 * 1024:
+        return "KB"
+    return "MB"
+
+
+def size_text(bytes_count: int) -> str:
+    """A byte count written in whole units."""
+    if bytes_count < 0:
+        raise ValueError("a byte count cannot be negative")
+    unit = size_unit(bytes_count)
+    if unit == "B":
+        return str(bytes_count) + " B"
+    if unit == "KB":
+        return f"{bytes_count // 1000:.2f} KB"
+    return f"{bytes_count // (1000 * 1000):.2f} MB"
+```

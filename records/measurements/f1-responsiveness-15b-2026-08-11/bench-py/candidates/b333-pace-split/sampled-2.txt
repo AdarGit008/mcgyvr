@@ -1,0 +1,17 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Leg distance must be greater than zero.")
+    
+    return seconds // kilometres
+
+def pace_list(legs: list) -> list:
+    if not legs:
+        raise ValueError("Legs list cannot be empty.")
+    
+    for leg in legs:
+        if leg[1] <= 0:
+            raise ValueError("Leg distance must be greater than zero.")
+    
+    return [pace_of(*leg) for leg in legs]
+```

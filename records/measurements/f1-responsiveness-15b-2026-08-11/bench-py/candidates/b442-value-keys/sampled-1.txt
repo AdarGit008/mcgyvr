@@ -1,0 +1,13 @@
+```python
+def value_keys(store: dict) -> dict:
+    if store is None:
+        raise ValueError("Store cannot be None")
+    
+    # Initialize the result with all values set to 0
+    count_map = {}
+    for key, value in store.items():
+        count_map[value] = count_map.get(value, 0)
+        count_map[value] += 1
+    
+    return count_map
+```

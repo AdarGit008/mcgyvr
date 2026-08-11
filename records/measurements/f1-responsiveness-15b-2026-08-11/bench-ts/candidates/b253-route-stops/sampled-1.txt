@@ -1,0 +1,28 @@
+```ts
+export function routeStops(route: string): string[] {
+  if (typeof route !== 'string') {
+    throw new Error('Invalid argument');
+  }
+
+  return route.split('>').map(stop => stop.trim());
+}
+
+export function routeHops(route: string): number {
+  const stops = routeStops(route);
+  if (!stops.length) {
+    return 0;
+  }
+
+  let hops = stops.length - 1;
+
+  for (let i = 0; i < stops.length; i++) {
+    if (i === 0 && stops[i + 1] !== stops[1]) {
+      hops++;
+    } else if (i === stops.length - 2 && stops[i] !== stops[i - 1]) {
+      hops++;
+    }
+  }
+
+  return hops;
+}
+```

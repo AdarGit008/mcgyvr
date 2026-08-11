@@ -1,0 +1,41 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Calculate how many tiles of size 'tile' cover a length 'length', rounding up.
+
+    :param length: The total length to be covered by the tiles.
+    :param tile: The size of the individual tiles.
+    :return: The number of complete and partial tiles needed.
+    """
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Calculate the total number of tiles required to cover a wall of dimensions 'width' x 'height',
+    adding a whole-percent allowance for breakages and rounding up.
+
+    :param width: The width of the wall.
+    :param height: The height of the wall.
+    :param tile: The size of the individual tiles.
+    :param spare: The percentage of spare tiles to be added (0-100).
+    :return: The total number of tiles including spare ones.
+    """
+    # Calculate the total area of the wall
+    total_area = width * height
+    
+    # Calculate the number of full tiles needed without spare allowance
+    full_tiles_needed = total_area // tile
+    
+    # Calculate the remaining area to be covered after placing full tiles
+    remaining_area = total_area % tile
+    
+    # Determine if there's a whole-percent allowance for breakages
+    if spare:
+        # Calculate the number of additional full tiles needed based on spare percentage
+        additional_full_tiles = 1 + (remaining_area * spare) // 100
+        
+        # Add the additional full tiles to the total tiles needed
+        full_tiles_needed += additional_full_tiles
+    
+    return full_tiles_needed
+```

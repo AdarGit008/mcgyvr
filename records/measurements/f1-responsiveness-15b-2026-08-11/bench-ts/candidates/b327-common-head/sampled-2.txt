@@ -1,0 +1,14 @@
+```ts
+function commonHead(words: string[]): string {
+  if (words.length === 0) return '';
+  
+  let firstChar = words[0][0];
+  
+  for (let i = 1; i < words.length && words[i].startsWith(firstChar); i++) {
+    // No need to check further if the current character matches all words
+    continue;
+  }
+  
+  return words.slice(0, i).join('');
+}
+```

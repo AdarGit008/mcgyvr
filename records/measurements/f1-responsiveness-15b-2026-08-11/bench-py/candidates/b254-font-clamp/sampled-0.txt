@@ -1,0 +1,31 @@
+```python
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    if smallest > largest:
+        raise ValueError("Smallest size cannot be greater than largest size.")
+    
+    if size < smallest:
+        return smallest
+    
+    if size > largest:
+        return largest
+    
+    return size
+
+# Test cases to verify the correctness of the function
+def test_font_clamp():
+    assert font_clamp(10, 5, 20) == 10
+    assert font_clamp(15, 5, 20) == 15
+    assert font_clamp(5, 5, 20) == 5
+    assert font_clamp(25, 5, 20) == 20
+    try:
+        font_clamp(10, 20, 10)
+    except ValueError as e:
+        print(e)  # Expected: Smallest size cannot be greater than largest size.
+    
+    try:
+        font_clamp(-5, -10, 0)
+    except ValueError as e:
+        print(e)  # Expected: Smallest size cannot be greater than largest size.
+
+test_font_clamp()
+```

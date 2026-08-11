@@ -1,0 +1,11 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (!store || typeof head !== 'string') {
+    throw new Error('Invalid input. Store must be an object with a head string.');
+  }
+
+  const keys = Object.keys(store);
+  const filteredKeys = keys.filter(key => key.startsWith(head + '.'));
+  return filteredKeys;
+}
+```

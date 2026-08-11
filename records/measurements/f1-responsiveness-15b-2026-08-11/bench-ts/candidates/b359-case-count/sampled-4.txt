@@ -1,0 +1,18 @@
+```ts
+export function caseCount(text: string): number[] {
+  if (!text) return [0, 0];
+  
+  let caps = 0;
+  let lows = 0;
+  
+  for (const char of text) {
+    if (char >= 'A' && char <= 'Z') {
+      caps++;
+    } else if (char >= 'a' && char <= 'z') {
+      lows++;
+    }
+  }
+  
+  return [caps, lows];
+}
+```

@@ -1,0 +1,16 @@
+```ts
+function oxfordJoin(names: string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0];
+
+  let result = "";
+  for (let i = 0; i < names.length; i++) {
+    if (i > 0 && i < names.length - 1) {
+      result += ", and ";
+    }
+    result += names[i];
+  }
+
+  return result;
+}
+```

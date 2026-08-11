@@ -1,0 +1,8 @@
+```python
+from typing import List
+
+def drop_keys(store: dict, keys: List[str]) -> dict:
+    """The store without the keys in the list."""
+    kept = {key: value for key, value in store.items() if key not in keys}
+    return kept
+```

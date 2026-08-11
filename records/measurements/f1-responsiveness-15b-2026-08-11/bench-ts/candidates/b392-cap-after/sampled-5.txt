@@ -1,0 +1,43 @@
+```ts
+/**
+ * Capitalizes the first letter of every sentence in the given passage, starting a new sentence at the beginning.
+ * Letters outside sentences remain unchanged.
+ *
+ * @param {string} passage - The input string to process.
+ * @return {string} - The processed passage with capitalized sentences.
+ */
+export function capAfter(passage: string): string {
+    if (passage === "") return "";
+
+    let result = "";
+    let sentenceStart = 0;
+
+    for (let i = 0; i < passage.length; i++) {
+        const char = passage[i];
+        const isSpace = char === " ";
+
+        if (isSpace) {
+            // Start a new sentence
+            result += passage.slice(sentenceStart, i).charAt(0).toUpperCase();
+            result += passage.slice(sentenceStart, i);
+            sentenceStart = i + 1;
+            continue;
+        }
+
+        // Check if the current character is part of a sentence
+        if (passage[i - 1] !== " ") {
+            result += char.toUpperCase();
+        } else {
+            result += char;
+        }
+    }
+
+    // Capitalize the last sentence if it doesn't end with a period
+    const lastSentence = passage.slice(sentenceStart, passage.length);
+    if (!lastSentence.endsWith(".")) {
+        result += lastSentence.charAt(0).toUpperCase() + lastSentence.slice(1);
+    }
+
+    return result;
+}
+```

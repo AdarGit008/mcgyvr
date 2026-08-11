@@ -1,0 +1,13 @@
+```ts
+export function fuelLegs(litres: number, burn: number): number {
+  if (burn <= 0) throw new Error('Burn must be greater than zero.');
+
+  let legs = 0;
+  while (litres >= burn) {
+    litres -= burn;
+    legs++;
+  }
+
+  return legs;
+}
+```

@@ -1,0 +1,26 @@
+```ts
+/**
+ * Counts held per bin, and the bins standing above a limit.
+ */
+export function binSpill(
+  bins: Record<string, number>,
+  limit: number,
+): string[] {
+  return Object.keys(bins).filter((name) => bins[name] >= limit);
+}
+
+export function binAdd(
+  bins: Record<string, number>,
+  name: string,
+  count: number,
+): Record<string, number> {
+  if (bins[name] === undefined) {
+    // Return an object with the updated count since it doesn't exist
+    return { ...bins, [name]: count };
+  } else {
+    // Increment the existing count and return the updated record
+    bins[name] += count;
+    return bins;
+  }
+}
+```

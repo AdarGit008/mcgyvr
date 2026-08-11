@@ -1,0 +1,12 @@
+```ts
+/** The text with a character removed from both of its ends. */
+export function stripEnds(text: string, mark: string): string {
+  if (mark.length !== 1) {
+    throw new Error("Mark must be exactly one character.");
+  }
+
+  return text.startsWith(mark) && text.endsWith(mark)
+    ? text.slice(1, -1)
+    : text;
+}
+```

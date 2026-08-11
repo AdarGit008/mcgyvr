@@ -1,0 +1,14 @@
+```ts
+export function commonHead(words: string[]): string {
+  if (words.length === 0) return '';
+
+  let prefix = words[0][0];
+  for (let i = 1; i < words.length; i++) {
+    const wordPrefix = words[i][0];
+    if (wordPrefix !== prefix) break;
+    prefix += wordPrefix;
+  }
+
+  return prefix;
+}
+```

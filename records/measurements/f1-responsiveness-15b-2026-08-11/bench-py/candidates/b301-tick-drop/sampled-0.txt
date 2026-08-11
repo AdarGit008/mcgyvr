@@ -1,0 +1,9 @@
+```python
+def every_other(entries: list) -> list:
+    """Every second entry of a log, beginning with the second."""
+    if entries:
+        return entries[1::2]
+    else:
+        return []
+```
+This solution correctly implements the `every_other` function as described. It checks if the input list is empty first to avoid any index errors later on.

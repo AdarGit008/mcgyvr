@@ -1,0 +1,26 @@
+```ts
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error("Limit must be greater than zero");
+  }
+
+  const queue: { caller: string; time: number }[] = [];
+
+  for (const caller of callers) {
+    const currentTime = Date.now();
+    const entry = { caller, time: currentTime };
+
+    if (queue.length < limit) {
+      queue.push(entry);
+    } else {
+      const oldestEntry = queue.shift()!;
+      if (oldestEntry.time > entry.time) {
+        queue.push(oldestEntry);
+      }
+      queue.push(entry);
+    }
+  }
+
+  return queue.map(({ caller }) => caller);
+}
+```

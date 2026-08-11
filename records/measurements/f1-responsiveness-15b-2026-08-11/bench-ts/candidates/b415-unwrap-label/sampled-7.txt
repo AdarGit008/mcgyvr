@@ -1,0 +1,10 @@
+```ts
+/** A label with one surrounding pair of brackets removed. */
+export function unwrapLabel(label: string): string {
+  if (!label.startsWith("[")) {
+    throw new Error(`The label "${label}" does not start with "[".`);
+  }
+  const lastBracketIndex = label.lastIndexOf("]");
+  return label.slice(1, lastBracketIndex - 1);
+}
+```

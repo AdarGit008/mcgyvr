@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def leg_gain(start: int, end: int) -> int:
+    if start == end:  # If the ground stays level or goes up by exactly zero
+        return 0
+    else:
+        return abs(end - start)
+
+def climb_gain(heights: List[int]) -> int:
+    if not heights:  # If no heights are given, the walk gains nothing
+        return 0
+    return sum(leg_gain(heights[i], heights[(i + 1) % len(heights)]) for i in range(len(heights)))
+```

@@ -1,0 +1,14 @@
+```python
+from typing import *
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    total_tiles = (width + 1) * (height + 1)
+    total_length = width * tile + height * tile
+    covered_length = tiles_across(total_length, tile)
+    required_length = ceil((total_length - spare) / tile)
+    return max(covered_length, required_length)
+```

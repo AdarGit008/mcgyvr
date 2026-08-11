@@ -1,0 +1,10 @@
+```python
+from typing import List
+
+def key_path(store: dict, head: str) -> List[str]:
+    if len(head.split('.')) < 2:
+        raise ValueError("Invalid head format. It should be a string with at least one stop.")
+    
+    keys = [k for k in store.keys() if k.startswith(head)]
+    return keys
+```

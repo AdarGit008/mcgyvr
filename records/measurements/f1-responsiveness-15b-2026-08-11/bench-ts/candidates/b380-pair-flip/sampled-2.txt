@@ -1,0 +1,9 @@
+```ts
+function flipOne(pair: string[]): string[] {
+  return pair.reverse();
+}
+
+function flipAll(pairs: string[][]): string[][] {
+  return pairs.map(flipOne);
+}
+```

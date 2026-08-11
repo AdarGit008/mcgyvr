@@ -1,0 +1,32 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error('Digit must be between 0 and 9');
+  }
+  return 'zero one two three four five six seven eight nine'.split(' ')[digit];
+}
+
+export function digitWords(digits: string): string {
+  if (!digits || digits.length === 0) {
+    return '';
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < digits.length) {
+    const currentDigit = parseInt(digits[i], 10);
+    if (currentDigit === 0) {
+      result += 'zero ';
+    } else {
+      for (let digit = 1; digit <= currentDigit; digit++) {
+        result += digitWord(digit) + ' ';
+      }
+    }
+
+    i++;
+  }
+
+  return result.trim();
+}
+```

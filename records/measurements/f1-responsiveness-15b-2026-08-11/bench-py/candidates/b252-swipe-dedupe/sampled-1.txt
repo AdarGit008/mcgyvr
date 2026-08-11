@@ -1,0 +1,14 @@
+```python
+# solution.py
+
+def swipe_dedupe(swipes: list) -> list:
+    if not swipes:
+        return []
+
+    deduplicated_swipes = [swipes[0]]
+    for i in range(1, len(swipes)):
+        if swaps[i] != deduplicated_swipes[-1]:
+            deduplicated_swipes.append(swipes[i])
+
+    return deduplicated_swipes
+```

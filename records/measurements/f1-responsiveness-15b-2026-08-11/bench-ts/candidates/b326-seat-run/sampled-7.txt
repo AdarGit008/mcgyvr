@@ -1,0 +1,24 @@
+```ts
+export function seatRun(row: string, party: number): number {
+  if (party === 0) {
+    throw new Error("No one asked for a seat.");
+  }
+
+  let freeCount = 0;
+  let startOfFreeRun = -1;
+
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      freeCount++;
+      if (freeCount >= party) {
+        startOfFreeRun = i;
+        break;
+      }
+    } else {
+      freeCount = 0;
+    }
+  }
+
+  return startOfFreeRun;
+}
+```

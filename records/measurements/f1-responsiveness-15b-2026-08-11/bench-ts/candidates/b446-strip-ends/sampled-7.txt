@@ -1,0 +1,17 @@
+```ts
+/** The text with a character removed from both of its ends. */
+export function stripEnds(text: string, mark: string): string {
+  if (text === "" || text === null || text === undefined) {
+    throw new Error("Text cannot be empty or null/undefined");
+  }
+
+  let out = text;
+  while (out.startsWith(mark)) {
+    out = out.slice(1);
+  }
+  while (out.endsWith(mark)) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+```

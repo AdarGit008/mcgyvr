@@ -1,0 +1,16 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if limit < 4:
+        raise ValueError("Limit must be at least 4")
+    
+    if len(line) <= limit:
+        return line
+    
+    # Find the last space before the limit to cut on a word boundary
+    for i in range(limit - 3, -1, -1):
+        if line[i] == ' ':
+            return line[:i + 1] + '...'
+    
+    # If no space is found, cut at the limit minus three dots
+    return line[:limit - 3] + '...'
+```

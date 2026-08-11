@@ -1,0 +1,10 @@
+```ts
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (mark < 0 || wasOutOf === 0 || nowOutOf === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const scale = Math.floor((mark * nowOutOf) / wasOutOf);
+  return Math.min(scale, nowOutOf);
+}
+```

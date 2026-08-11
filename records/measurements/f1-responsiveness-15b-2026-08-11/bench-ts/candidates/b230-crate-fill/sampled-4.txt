@@ -1,0 +1,24 @@
+```ts
+/**
+ * Distributes items evenly across crates, returning the largest crate first.
+ * @param items The total number of items to be distributed.
+ * @param crates The total number of crates to distribute the items into.
+ * @returns An array of numbers representing the size of each crate after distribution.
+ */
+export function crateFill(items: number, crates: number): number[] {
+  if (crates === 0) return [];
+  const avg = Math.floor(items / crates);
+  const remainder = items % crates;
+  const sizes = Array.from({ length: crates }, (_, i) => i < remainder ? avg + 1 : avg);
+  return sizes;
+}
+
+/**
+ * Calculates the total number of items distributed by crateFill.
+ * @param sizes An array of numbers representing the size of each crate.
+ * @returns The total number of items distributed.
+ */
+export function crateTotal(sizes: number[]): number {
+  return sizes.reduce((acc, val) => acc + val, 0);
+}
+```

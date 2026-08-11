@@ -1,0 +1,38 @@
+```ts
+import { strict as assert } from 'assert';
+
+// Implementation of aliasResolve and aliasNames functions
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  return aliases[name] ?? name;
+}
+
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const resolvedAliases = Object.keys(aliases).filter(alias => !!alias);
+  return resolvedAliases.sort();
+}
+
+// Test cases to verify the solution
+function testAliasResolve() {
+  assert.equal(aliasResolve({ a: 'a', b: 'b' }, 'a'), 'a');
+  assert.equal(aliasResolve({ a: 'a', b: 'c' }, 'b'), 'c');
+  assert.equal(aliasResolve({ a: 'a', b: undefined }, 'b'), 'undefined');
+  assert.equal(aliasResolve({ a: null, b: undefined }, 'a'), null);
+  assert.equal(aliasResolve({}, 'a'), 'a');
+}
+
+function testAliasNames() {
+  const aliases = { a: 'a', b: 'c' };
+  const expected = ['a', 'b'];
+  assert.deepStrictEqual(aliasNames(aliases), expected);
+
+  const noAliases = {};
+  const expectedEmpty = [];
+  assert.deepStrictEqual(aliasNames(noAliases), expectedEmpty);
+}
+
+// Run the test cases
+testAliasResolve();
+testAliasNames();
+
+console.log('All tests passed!');
+```

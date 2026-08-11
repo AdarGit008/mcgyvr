@@ -1,0 +1,13 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if was_out_of == 0:
+        return None
+
+    mark_as_fraction = mark / was_out_of * now_out_of
+
+    # Ensure the result is an integer by rounding down
+    scaled_mark = int(mark_as_fraction)
+
+    # The new total cannot exceed the previous total, so cap at 0 if necessary
+    return max(0, scaled_mark)
+```

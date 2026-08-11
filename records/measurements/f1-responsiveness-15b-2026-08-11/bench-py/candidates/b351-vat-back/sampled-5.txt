@@ -1,0 +1,14 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    
+    # Convert rate to a decimal fraction of 1 (e.g., 5% = 0.05)
+    rate_decimal = rate / 100
+    
+    # Calculate the price before the VAT was added
+    price_before_vat = gross * (1 - rate_decimal)
+    
+    # Return the rounded down price
+    return int(price_before_vat)
+```

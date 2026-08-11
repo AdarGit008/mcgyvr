@@ -1,0 +1,19 @@
+```python
+def camel_break(name: str) -> list:
+    words = name.lower().split()
+    result = []
+    last_word = ''
+    
+    for word in words:
+        if len(word) > 1 and word[0].isupper():
+            # Split the word on the first capital, keeping it as a single word
+            if not result or result[-1] != '' and result[-1][-1].islower():
+                result.extend([result.pop(), word])
+            else:
+                result.append(word)
+        else:
+            # Add the entire word to the result list
+            result.append(word)
+    
+    return result
+```

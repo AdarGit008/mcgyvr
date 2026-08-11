@@ -1,0 +1,20 @@
+```ts
+export function crossUp(readings: number[], level: number): number {
+  if (!readings || !level) {
+    throw new Error('Both readings and level must be provided.');
+  }
+
+  let crossingCount = 0;
+  let lastReading = readings[0];
+
+  for (let i = 1; i < readings.length; i++) {
+    const currentReading = readings[i];
+    if (currentReading > level && lastReading <= level) {
+      crossingCount++;
+    }
+    lastReading = currentReading;
+  }
+
+  return crossingCount;
+}
+```

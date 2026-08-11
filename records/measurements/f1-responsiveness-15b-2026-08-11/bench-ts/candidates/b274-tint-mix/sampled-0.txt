@@ -1,0 +1,13 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+    if (volumeA < 0 || volumeB < 0) {
+        throw new Error('Volume cannot be negative');
+    }
+
+    const totalVolume = volumeA + volumeB;
+    const totalStrengthA = strengthA * volumeA / totalVolume;
+    const totalStrengthB = strengthB * volumeB / totalVolume;
+
+    return Math.floor(totalStrengthA + totalStrengthB);
+}
+```

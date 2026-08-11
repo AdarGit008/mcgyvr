@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+def split_at(entries: List[str], marker: str) -> List[List[str]]:
+    first_part = []
+    second_part = []
+
+    for entry in entries:
+        if entry == marker:
+            break
+        first_part.append(entry)
+
+    second_part.extend(entries[entries.index(marker):])
+
+    return [first_part, second_part]
+```

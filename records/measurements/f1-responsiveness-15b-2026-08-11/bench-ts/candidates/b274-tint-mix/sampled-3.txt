@@ -1,0 +1,26 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  // Validate input
+  if (typeof volumeA !== 'number' || typeof strengthA !== 'number' ||
+      typeof volumeB !== 'number' || typeof strengthB !== 'number') {
+    throw new Error('All inputs must be numbers.');
+  }
+
+  if (volumeA <= 0 || volumeB <= 0 || strengthA >= 100 || strengthB >= 100) {
+    throw new Error('Volume and strength must be between 0% and 100%.');
+  }
+
+  // Convert strengths to millilitres per litre
+  const strengthAMillilitres = strengthA / 100 * volumeA;
+  const strengthBMillilitres = strengthB / 100 * volumeB;
+
+  // Calculate the total strength of the mixture
+  const totalStrengthMillilitres = strengthAMillilitres + strengthBMillilitres;
+
+  // Convert the total strength back to percentage
+  const totalStrengthPercentage = (totalStrengthMillilitres / volumeA) * 100;
+
+  // Round down to a whole percent
+  return Math.floor(totalStrengthPercentage);
+}
+```

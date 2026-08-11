@@ -1,0 +1,10 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners < 1:
+        raise ValueError("No dining parties.")
+    
+    share = total // diners
+    remainder = total % diners
+    
+    return [share] * (diners - 1) + [remainder]
+```

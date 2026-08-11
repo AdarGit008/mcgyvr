@@ -1,0 +1,31 @@
+```ts
+/**
+ * Splits a hex colour into its three two-digit parts in order.
+ * @param colour - A hex colour written as #RRGGBB.
+ * @returns An array of three two-digit parts.
+ */
+export function hexSplit(colour: string): string[] {
+  if (!colour.startsWith('#') || !/^[A-Fa-f0-9]{6}$/.test(colour)) {
+    throw new Error("Invalid colour format. Expected a hash followed by six hexadecimal digits.");
+  }
+
+  return [
+    colour.slice(1, 3),
+    colour.slice(3, 5),
+    colour.slice(5, 7),
+  ];
+}
+
+/**
+ * Joins three two-digit parts into a hex colour.
+ * @param parts - An array of three two-digit parts.
+ * @returns A formatted hex colour string in #RRGGBB format.
+ */
+export function hexJoin(parts: string[]): string {
+  if (parts.length !== 3 || !/^[A-Fa-f0-9]{2}$/.test(parts.join(''))) {
+    throw new Error("Invalid parts for hex colour.");
+  }
+
+  return `#${parts.map(part => part.padStart(2, '0')).join('')}`;
+}
+```

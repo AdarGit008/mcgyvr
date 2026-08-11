@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def kettle_hold(readings: List[int], target: int) -> int:
+    count = 0
+    for i in range(len(readings) - 1, -1, -1):
+        if readings[i] >= target:
+            count += 1
+        else:
+            break
+    return count
+```

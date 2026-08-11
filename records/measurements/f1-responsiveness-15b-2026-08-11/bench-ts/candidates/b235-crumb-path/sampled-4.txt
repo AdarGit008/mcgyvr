@@ -1,0 +1,11 @@
+```ts
+export function crumbSplit(trail: string): string[] {
+  return trail.split('/')
+    .filter(segment => segment !== '');
+}
+
+export function crumbJoin(parts: string[]): string {
+  return parts.filter(segment => segment !== '')
+    .join('/');
+}
+```

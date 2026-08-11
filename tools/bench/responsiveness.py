@@ -88,7 +88,10 @@ def retired_ids() -> frozenset[str]:
 
 def tranche(task: str) -> int:
     """The authoring tranche an `f1` id belongs to."""
-    return FIRST_TRANCHE + (int(re.match(r"b(\d+)", task).group(1)) - FIRST_ID) // TRANCHE_SIZE
+    return (
+        FIRST_TRANCHE
+        + (int(re.match(r"b(\d+)", task).group(1)) - FIRST_ID) // TRANCHE_SIZE
+    )
 
 
 def read_rows(path: Path) -> list[dict[str, Any]]:
@@ -173,7 +176,19 @@ def fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
     hi = min(row1, col1)
     # 1e-9 relative slack: equally extreme tables differing only in float dust
     # must land on the same side of the comparison.
-    return min(1.0, sum(prob(x) for x in range(lo, hi + 1) if prob(x) <= observed * (1 + 1e-9)))
+    return min(
+        1.0, sum(prob(x) for x in range(lo, hi + 1) if prob(x) <= observed * (1 + 1e-9))
+    )
+
+
+def pct(k: int, n: int) -> str:
+    """``k`` of ``n`` as a one-decimal percentage."""
+    return f"{100 * k / n:.1f}%"
+
+
+def counted(k: int, n: int) -> str:
+    """The count and its share, so a share is never read without its numerator."""
+    return f"{k} ({pct(k, n)})"
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -230,7 +245,10 @@ def main() -> int:
         base_pass = sum(base[k] for k in shared)
         now_pass = sum(built[k]["greedy"] for k in shared)
         print(f"# validity gate vs {args.baseline.name}:")
-        print(f"#   shared cells {len(shared)}, greedy {base_pass} -> {now_pass}, drift {len(drift)}")
+        print(
+            f"#   shared cells {len(shared)}, greedy {base_pass} -> {now_pass}, "
+            f"drift {len(drift)}"
+        )
         report["validity"] = {
             "baseline": args.baseline.name,
             "shared": len(shared),
@@ -245,10 +263,13 @@ def main() -> int:
             )
             report["void"] = True
             if args.json:
-                args.json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+                args.json.write_text(
+                    json.dumps(report, indent=2) + "\n", encoding="utf-8"
+                )
             return 1
         if drift:
-            print(f"#   drifted (within allowance): {', '.join(f'{a}/{t}' for a, t in drift)}")
+            named = ", ".join(f"{a}/{t}" for a, t in drift)
+            print(f"#   drifted (within allowance): {named}")
 
     # --- primary: psi_draw -------------------------------------------------
     kinds = {k: classify(v) for k, v in built.items()}
@@ -301,7 +322,9 @@ def main() -> int:
     print(f"{'n':>8}  {'unit':<10}  {'MDE':>8}")
     for size, unit in ((n, "cells today"), (400, "problems"), (800, "cells at 400")):
         mde = detectable_delta(size, psi_draw)
-        print(f"{size:>8}  {unit:<10}  {('%.1fpp' % (100 * mde)) if mde else 'none':>8}")
+        print(
+            f"{size:>8}  {unit:<10}  {('%.1fpp' % (100 * mde)) if mde else 'none':>8}"
+        )
     report["mde"] = {
         str(size): detectable_delta(size, psi_draw) for size in (n, 400, 800)
     }
@@ -313,19 +336,59 @@ def main() -> int:
         per[t][kind] += 1
         per[t]["n"] += 1
         per[t]["greedy"] += built[(arm, task)]["greedy"]
+        per[t]["sampled_passes"] += sum(built[(arm, task)]["sampled"])
+        per[t]["sampled_draws"] += len(built[(arm, task)]["sampled"])
 
     print()
     print("## per tranche — all six reported, not only the one named in advance")
     print()
-    print(f"{'tranche':>8}  {'cells':>6}  {'greedy':>8}  {'pinned-fail':>12}  {'responsive':>12}")
+    print(
+        f"{'tranche':>8}  {'cells':>6}  {'greedy':>8}  {'sampled':>8}  "
+        f"{'pinned-fail':>12}  {'responsive':>12}"
+    )
     for t in sorted(per):
         row = per[t]
+        greedy = pct(row["greedy"], row["n"])
+        sampled = pct(row["sampled_passes"], row["sampled_draws"])
+        failed = counted(row["pinned-fail"], row["n"])
+        live = counted(row["responsive"], row["n"])
         print(
-            f"{('t%d' % t):>8}  {row['n']:>6}  "
-            f"{('%.1f%%' % (100 * row['greedy'] / row['n'])):>8}  "
-            f"{('%d (%.1f%%)' % (row['pinned-fail'], 100 * row['pinned-fail'] / row['n'])):>12}  "
-            f"{('%d (%.1f%%)' % (row['responsive'], 100 * row['responsive'] / row['n'])):>12}"
+            f"{f't{t}':>8}  {row['n']:>6}  {greedy:>8}  {sampled:>8}  "
+            f"{failed:>12}  {live:>12}"
         )
+    tot_g = sum(r["greedy"] for r in per.values())
+    tot_sp = sum(r["sampled_passes"] for r in per.values())
+    tot_sd = sum(r["sampled_draws"] for r in per.values())
+    print(f"{'ALL':>8}  {n:>6}  {pct(tot_g, n):>8}  {pct(tot_sp, tot_sd):>8}")
+    print()
+    print(
+        "# The sampled column is DESCRIPTIVE and was not pre-registered: it is the\n"
+        "# mean over eight draws at T=0.7, a different operating point from the\n"
+        "# greedy figure the brief aims at, and it carries no p-value. It is here\n"
+        "# because a tranche's greedy rate rests on one draw per cell, and this is\n"
+        "# the same question asked with eight times the data."
+    )
+
+    # --- how much of a cell's verdict is the draw? -------------------------
+    # A tranche rate is a sum of one-draw-per-cell verdicts. This is the
+    # distribution those single draws are sampled from, and it is the reason
+    # the sampled column above is worth printing at all.
+    spread: dict[int, int] = defaultdict(int)
+    for cell in built.values():
+        spread[sum(cell["sampled"])] += 1
+    knife = sum(v for k, v in spread.items() if 0 < k < args.draws)
+    print()
+    print("## sampled pass count per cell — how settled a single draw is")
+    print()
+    print("  " + "  ".join(f"{k}/{args.draws}" for k in range(args.draws + 1)))
+    print("  " + "  ".join(f"{spread[k]:>3}" for k in range(args.draws + 1)))
+    print()
+    print(
+        f"cells strictly between 0 and {args.draws}: {counted(knife, n)} — "
+        "a single draw of these could have gone either way"
+    )
+    report["sampled_rate"] = {"greedy": tot_g / n, "sampled": tot_sp / tot_sd}
+    report["spread"] = {str(k): spread[k] for k in range(args.draws + 1)}
     report["tranches"] = {
         str(t): {k: v for k, v in row.items()} for t, row in sorted(per.items())
     }
@@ -340,14 +403,15 @@ def main() -> int:
         ref_fail,
         ref_n - ref_fail,
     )
+    against = "/".join(str(t) for t in REFERENCE_TRANCHES)
     print()
-    print(f"## pre-registered: t{FOCUS_TRANCHE} vs t{'/'.join(str(t) for t in REFERENCE_TRANCHES)} pooled, pinned-fail")
+    print(f"## pre-registered: t{FOCUS_TRANCHE} vs t{against} pooled, pinned-fail")
     print()
     print(
         f"  t{FOCUS_TRANCHE}: {focus['pinned-fail']}/{focus['n']} "
-        f"({100 * focus['pinned-fail'] / focus['n']:.1f}%)"
+        f"({pct(focus['pinned-fail'], focus['n'])})"
     )
-    print(f"  pooled: {ref_fail}/{ref_n} ({100 * ref_fail / ref_n:.1f}%)")
+    print(f"  pooled: {ref_fail}/{ref_n} ({pct(ref_fail, ref_n)})")
     print(f"  Fisher exact, two-sided: p = {p:.3f}")
     print(
         "  reading: "
@@ -359,8 +423,8 @@ def main() -> int:
     )
     print()
     print(
-        f"# t{FOCUS_TRANCHE} was named by a post-hoc look at six tranches. This tests a "
-        "different quantity on draws that did not exist when it was named, so the "
+        f"# t{FOCUS_TRANCHE} was named by a post-hoc look at six tranches. This "
+        "tests a different quantity on draws that did not exist when named, so the "
         "prediction is out of sample; it is not evidence that t8 is unusual among "
         "tranches. Every other tranche in the table above is observational and "
         "carries no p-value."

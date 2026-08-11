@@ -1,0 +1,18 @@
+```python
+def tag_trim(tag: str) -> str:
+    """
+    Strip leading hashes (#) and trailing colons (:)
+
+    :param tag: The input tag string
+    :return: Tag with the markers removed, if any
+    """
+    # Strip leading hash
+    while tag.startswith('#'):
+        tag = tag[1:]
+    
+    # Strip trailing colon
+    while tag.endswith(':'):
+        tag = tag[:-1]
+    
+    return tag
+```

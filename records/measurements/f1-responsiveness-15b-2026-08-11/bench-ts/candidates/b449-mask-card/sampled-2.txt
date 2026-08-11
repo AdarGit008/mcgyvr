@@ -1,0 +1,10 @@
+```ts
+export function lastFour(number: string): string {
+  return number.length < 4 ? number : number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  if (typeof number !== 'string') throw new Error('Number must be a string');
+  return '*'.repeat(number.length - 4) + number.slice(-4);
+}
+```

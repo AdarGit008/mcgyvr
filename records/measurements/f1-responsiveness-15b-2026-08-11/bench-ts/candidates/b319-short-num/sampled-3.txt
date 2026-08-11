@@ -1,0 +1,20 @@
+```ts
+/**
+ * Converts a number to its short form in terms of 'k' or 'm'.
+ * If the number is greater than or equal to 1 million, it returns "n+m".
+ * Otherwise, it converts the number to a string with one decimal place and rounds down.
+ * 
+ * @param value The number to convert.
+ * @returns The short form of the number as a string.
+ */
+export function shortNum(value: number): string {
+    if (!Number.isFinite(value)) {
+        throw new Error('Input must be a finite number.');
+    }
+
+    const suffix = value >= 1000 ? (value >= 1_000_000 ? 'm' : 'k') : '';
+    const roundedValue = Math.floor(value);
+
+    return `${roundedValue}${suffix}`;
+}
+```

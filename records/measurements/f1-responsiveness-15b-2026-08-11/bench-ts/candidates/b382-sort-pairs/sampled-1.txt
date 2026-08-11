@@ -1,0 +1,12 @@
+```ts
+export function fieldOf(record: Record<string, number>, field: string): number {
+  if (!record.hasOwnProperty(field)) {
+    throw new Error(`Record lacks the field "${field}"`);
+  }
+  return record[field];
+}
+
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[] {
+  return records.sort((a, b) => a[field] - b[field]);
+}
+```

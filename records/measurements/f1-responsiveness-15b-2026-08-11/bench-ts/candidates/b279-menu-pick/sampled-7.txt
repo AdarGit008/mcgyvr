@@ -1,0 +1,13 @@
+```ts
+export function menuPick(dishes: { name: string; price: number }[], budget: number): string[] {
+  if (budget < 0) {
+    throw Error('Budget must be a non-negative integer');
+  }
+
+  const eligibleDishes = dishes.filter(dish => dish.price <= budget);
+
+  return eligibleDishes
+    .sort((a, b) => a.price === b.price ? a.name.localeCompare(b.name) : a.price - b.price)
+    .map(dish => dish.name);
+}
+```

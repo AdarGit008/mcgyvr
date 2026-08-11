@@ -1,0 +1,21 @@
+```ts
+/** Scores written out, with a star against those that reach a floor. */
+export function markList(scores: number[], floor: number): string[] {
+  if (!Array.isArray(scores) || scores.some(score => typeof score !== 'number')) {
+    throw new Error("scores must be an array of numbers");
+  }
+  if (typeof floor !== 'number' || floor === Infinity || floor === -Infinity || isNaN(floor)) {
+    throw new Error("floor must be a finite number");
+  }
+
+  const out: string[] = [];
+  for (const score of scores) {
+    if (score >= floor) {
+      out.push(`${score}*`);
+    } else {
+      out.push(String(score));
+    }
+  }
+  return out;
+}
+```

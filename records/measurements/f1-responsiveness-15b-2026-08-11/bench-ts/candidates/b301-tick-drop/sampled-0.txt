@@ -1,0 +1,10 @@
+```ts
+/** Every second entry of a log, beginning with the first. */
+export function everyOther(entries: string[]): string[] {
+  if (!Array.isArray(entries)) {
+    throw new Error('entries must be an array');
+  }
+
+  return entries.filter((entry, index) => index % 2 === 0);
+}
+```

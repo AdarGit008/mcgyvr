@@ -1,0 +1,16 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    if not isinstance(grid, list) or not all(isinstance(row, int) and isinstance(column, int) for row, column in zip(grid, range(len(grid)))):
+        raise ValueError("Invalid input: grid must be a non-empty list of lists, and rows and columns must be integers")
+        
+    try:
+        return grid[row][column]
+    except IndexError:
+        return None
+
+def diag_of(grid: list) -> list:
+    if not isinstance(grid, list) or len(grid) != len(grid[0]):
+        raise ValueError("Invalid input: grid must be a square matrix")
+    
+    return [grid[r][r] for r in range(len(grid))]
+```

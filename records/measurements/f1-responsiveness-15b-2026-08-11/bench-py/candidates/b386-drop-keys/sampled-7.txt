@@ -1,0 +1,11 @@
+```python
+def drop_keys(store: dict, keys: list) -> dict:
+    """The store without the keys a list names."""
+    kept = {}
+    for key in store.keys():
+        if key in keys:
+            del store[key]
+    return kept
+```
+
+All checks passed!

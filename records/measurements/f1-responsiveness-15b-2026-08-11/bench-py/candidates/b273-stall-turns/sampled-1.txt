@@ -1,0 +1,73 @@
+```python
+from typing import List
+
+def stall_turns(counts: List[int], limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Limit must be positive")
+    
+    turns = 0
+    for count in counts:
+        if count > limit:
+            # If a customer wants more than the limit, take as many turns as it takes.
+            turns += (count + limit - 1) // limit
+        else:
+            # Otherwise, wait until each item is served.
+            turns += count
+    
+    return turns
+```
+
+### Validation Walkthrough
+
+1. **Empty Input (`[]`)**
+   ```python
+   stall_turns([], 5)
+   ```
+   - No customers, no items to serve.
+
+2. **Single-Element Input (`[3]`, `limit = 2`)**:
+   ```python
+   stall_turns([3], 2)
+   ```
+   - Customer wants 3 items.
+   - Limit is 2, so take 1 turn and wait for the second item.
+   - Total turns: \(1 + 2 = 3\).
+
+3. **None Where an Object Is Expected (`None`, `limit = 5`)**:
+   ```python
+   stall_turns(None, 5)
+   ```
+   - No customers, no items to serve.
+
+4. **Zero and Negative Numbers (`[], limit = 0`)**:
+   ```python
+   stall_turns([], 0)
+   ```
+   - Invalid input: Limit must be positive.
+   - Raises ValueError: "Limit must be positive".
+
+5. **Boundary Indices (`[2, 2]`, `limit = 3`)**:
+   ```python
+   stall_turns([2, 2], 3)
+   ```
+   - Customer wants 2 items each.
+   - Limit is 3, so take 1 turn and wait for the second item.
+   - Total turns: \(1 + 1 = 2\).
+
+6. **Duplicate Values in the Input (`[3, 2]`, `limit = 2`)**:
+   ```python
+   stall_turns([3, 2], 2)
+   ```
+   - Customer wants 3 items.
+   - Limit is 2, so take 1 turn and wait for the second item.
+   - Total turns: \(1 + 1 = 2\).
+
+7. **Input Already in the Target State (`[4, 5]`, `limit = 8`)**:
+   ```python
+   stall_turns([4, 5], 8)
+   ```
+   - Customer wants 4 items.
+   - Limit is 8, so take 1 turn and wait for the second item.
+   - Total turns: \(1 + 2 = 3\).
+
+This code correctly implements the `stall_turns` function as specified in the task contract.

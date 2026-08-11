@@ -1,0 +1,12 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const result = {};
+  for (const key in store) {
+    if (store.hasOwnProperty(key)) {
+      const value = store[key];
+      result[value] = (result[value] || 0) + 1;
+    }
+  }
+  return result;
+}
+```

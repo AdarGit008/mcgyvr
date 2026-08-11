@@ -1,0 +1,12 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Limit must be positive")
+    
+    total_turns = 0
+    for count in counts:
+        turns_needed = (count + limit - 1) // limit
+        total_turns += turns_needed
+    
+    return total_turns
+```

@@ -1,0 +1,14 @@
+```ts
+export function tideMarks(levels: number[]): number[] {
+  if (!levels || levels.length < 3) return [];
+
+  const peaks: number[] = [];
+  for (let i = 1; i < levels.length - 1; i++) {
+    if (levels[i] > levels[i - 1] && levels[i] > levels[i + 1]) {
+      peaks.push(i);
+    }
+  }
+
+  return peaks;
+}
+```

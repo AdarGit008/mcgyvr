@@ -1,0 +1,16 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if total < 0 or diners <= 0:
+        raise ValueError("Invalid input. Total must be non-negative and number of diners must be positive.")
+
+    # Calculate the whole amount each diner should pay
+    per_diner = total // diners
+
+    # Calculate the leftover pennies
+    leftover = total % diners
+
+    # Create a list to store how much each diner pays
+    payments = [per_diner] * (diners - 1) + [leftover]
+
+    return payments
+```

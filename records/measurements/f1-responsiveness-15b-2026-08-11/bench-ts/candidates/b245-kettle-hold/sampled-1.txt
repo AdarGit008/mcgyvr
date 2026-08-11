@@ -1,0 +1,18 @@
+```ts
+function kettleHold(readings: number[], target: number): number {
+    if (target === undefined || typeof target !== 'number') {
+        throw new Error('Invalid target');
+    }
+
+    let count = 0;
+    for (let i = readings.length - 1; i >= 0; i--) {
+        if (readings[i] >= target) {
+            count++;
+        } else {
+            break;
+        }
+    }
+
+    return count;
+}
+```

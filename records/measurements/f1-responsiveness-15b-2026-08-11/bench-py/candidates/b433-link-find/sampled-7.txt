@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def link_find(line: str, opens: str, closes: str) -> List[str]:
+    stack = []
+    result = []
+
+    for char in line:
+        if char == opens:
+            stack.append(char)
+        elif char == closes and stack:
+            stack.pop()
+            if not stack:
+                result.append(line[opens.index(stack[0]):closes.index(stack[-1]) + 1])
+
+    return result
+```

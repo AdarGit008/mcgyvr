@@ -1,0 +1,19 @@
+```ts
+/**
+ * Reverses each word in the input line while keeping the words in their original order.
+ * Spaces between words are preserved.
+ *
+ * @param line - The string containing words to be reversed.
+ * @returns A new string with each word's letters reversed, preserving original spacing.
+ */
+export function wordReverse(line: string): string {
+  // Split the line into words
+  const words = line.split(' ');
+
+  // Reverse each word using map and join
+  const reversedWords = words.map(word => word.split('').reverse().join(''));
+
+  // Join the reversed words with spaces to form the final result
+  return reversedWords.join(' ');
+}
+```

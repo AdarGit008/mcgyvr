@@ -1,0 +1,18 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  // Ensure the table has uppercase keys for case-insensitive matching
+  const upperTable = Object.fromEntries(
+    Object.entries(table).map(([key, value]) => [key.toUpperCase(), value])
+  );
+  
+  try {
+    const result = upperTable[code];
+    if (result === undefined) {
+      return "unknown";
+    }
+    return result;
+  } catch (error) {
+    throw new Error("Invalid input: table should be an object with uppercase keys.");
+  }
+}
+```

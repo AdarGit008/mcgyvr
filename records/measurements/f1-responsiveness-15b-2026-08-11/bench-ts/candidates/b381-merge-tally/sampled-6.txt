@@ -1,0 +1,18 @@
+```ts
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  tally[name] = (tally[name] || 0) + amount;
+  return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  const mergedTally: Record<string, number> = { ...left };
+  Object.keys(right).forEach((key) => {
+    if (mergedTally[key]) {
+      mergedTally[key] += right[key];
+    } else {
+      mergedTally[key] = right[key];
+    }
+  });
+  return mergedTally;
+}
+```

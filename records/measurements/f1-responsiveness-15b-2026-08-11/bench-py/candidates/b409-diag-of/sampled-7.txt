@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+
+def cell_at(grid: List[List[int]], row: int, column: int) -> int:
+    if not grid or not -1 < row < len(grid) or not -1 < column < len(grid[0]):
+        raise ValueError("Grid coordinates must be within bounds.")
+    return grid[row][column]
+
+
+def diag_of(grid: List[List[int]]) -> List[int]:
+    if not all(len(row) == len(grid) for row in grid):
+        raise ValueError("Grid must be square to have a main diagonal.")
+    
+    return [grid[i][i] for i in range(min(len(grid), len(grid[0])))]
+```

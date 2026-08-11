@@ -1,0 +1,23 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (!/^[#0-9a-fA-F]{6}$/.test(colour)) {
+    throw new Error('Invalid colour format. It must be a hash followed by six hexadecimal digits.');
+  }
+
+  const parts = colour.slice(1).match(/.{2}/g) || [];
+  return ['00', ...parts, ''].map(part => part.toLowerCase());
+}
+
+export function hexJoin(parts: string[]): string {
+  if (!Array.isArray(parts) || parts.some(part => typeof part !== 'string')) {
+    throw new Error('Invalid input format. It must be an array of strings.');
+  }
+
+  const [hexCode] = parts.filter(part => /^\#0-9a-fA-F]{6}$/.test(part));
+  if (!hexCode) {
+    throw new Error('Invalid colour format in the input.');
+  }
+
+  return `${hexCode}${parts.join('').toLowerCase()}`;
+}
+```

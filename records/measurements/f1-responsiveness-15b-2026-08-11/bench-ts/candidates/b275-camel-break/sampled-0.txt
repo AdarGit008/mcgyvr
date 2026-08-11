@@ -1,0 +1,10 @@
+```ts
+export function camelBreak(name: string): string[] {
+    if (typeof name !== 'string' || name === '') {
+        throw new Error('Input must be a non-empty string');
+    }
+
+    const words = name.split(/(?=[A-Z])/).map(word => word.toLowerCase());
+    return words;
+}
+```

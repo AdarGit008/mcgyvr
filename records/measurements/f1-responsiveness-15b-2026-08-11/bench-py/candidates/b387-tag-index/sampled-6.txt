@@ -1,0 +1,26 @@
+```python
+def tags_of(line):
+    if not isinstance(line, str) or not line:
+        raise ValueError("Input must be a non-empty string")
+    
+    return [tag.strip() for tag in line.split(",") if tag.strip()]
+
+def tag_index(lines):
+    tag_dict = {}
+    
+    for i, line in enumerate(lines):
+        if not isinstance(line, str) or not line:
+            raise ValueError("All lines must be non-empty strings")
+        
+        tags = tags_of(line)
+        if not tags:
+            continue
+        
+        for tag in tags:
+            if tag in tag_dict:
+                tag_dict[tag].append(i)
+            else:
+                tag_dict[tag] = [i]
+    
+    return tag_dict
+```

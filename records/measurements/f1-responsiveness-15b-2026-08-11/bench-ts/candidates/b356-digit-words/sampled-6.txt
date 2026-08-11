@@ -1,0 +1,33 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error('Argument must be between 0 and 9');
+  }
+  return ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][digit];
+}
+
+export function digitWords(digits: string): string {
+  if (typeof digits !== 'string' || !digits.length) {
+    throw new Error('Argument must be a non-empty string');
+  }
+
+  const result = [];
+  let currentDigit = '';
+  for (const char of digits) {
+    if (!char.match(/\d/)) {
+      if (currentDigit) {
+        result.push(currentDigit);
+        currentDigit = '';
+      }
+      continue;
+    }
+    currentDigit += char;
+    if (currentDigit.length > 1 || !isNaN(parseInt(currentDigit))) {
+      result.push(currentDigit);
+      currentDigit = '';
+    }
+  }
+
+  return result.join(' ');
+}
+```

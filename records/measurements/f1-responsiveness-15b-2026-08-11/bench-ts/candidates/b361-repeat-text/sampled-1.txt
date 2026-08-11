@@ -1,0 +1,6 @@
+```ts
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (times < 0) throw Error('Number of copies must be non-negative');
+  return Array(times).fill(phrase).join(between);
+}
+```

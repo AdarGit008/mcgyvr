@@ -1,0 +1,5 @@
+```python
+def mark_list(scores: list, floor: int) -> list:
+    """Scores written out, with a star against those that reach a floor."""
+    return [str(score) + "*" if score < floor else str(score) for score in scores]
+```

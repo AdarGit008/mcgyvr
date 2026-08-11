@@ -1,0 +1,8 @@
+```python
+def case_count(text: str) -> list:
+    """Count how many capital letters and small letters a text holds, the capitals first."""
+    upper_count = sum(1 for char in text if char.isupper())
+    lower_count = sum(1 for char in text if char.islower())
+
+    return [upper_count, lower_count]
+```

@@ -1,0 +1,12 @@
+```ts
+export function legGain(start: number, end: number): number {
+  if (start > end) {
+    return -Math.abs(start - end);
+  }
+  return Math.abs(start - end);
+}
+
+export function climbGain(heights: number[]): number {
+  return heights.reduce((sum, current) => sum + legGain(0, current), 0);
+}
+```

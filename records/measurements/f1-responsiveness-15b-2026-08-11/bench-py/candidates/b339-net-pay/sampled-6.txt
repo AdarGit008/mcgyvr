@@ -1,0 +1,35 @@
+```python
+from typing import *
+from math import floor
+
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then subtracts a flat fee."""
+    if gross is None or fee is None:
+        raise ValueError("Both gross and fee must be provided.")
+    
+    after_fee = max(gross - fee, 0)
+    percentage = floor(after_fee * rate / 100)
+    return max(after_fee - percentage, 0)
+```
+
+To verify the correctness of this solution:
+
+```python
+# Test cases to ensure the function behaves as expected
+
+def check_net_pay():
+    test_cases = [
+        (200, 20, 50, 40),  # 190 after fee, 80% off 190, -80% off 190 should be 110
+        (0, 30, 20, 0),      # No gross pay, no fee, still 0
+        (100, 40, 50, 50),  # 50 after fee, 40% off 50, -40% off 50 should be 70
+        (50, 50, 20, 0),    # 30 after fee, 50% off 30, -25% off 30 should be 15
+        (30, 40, 50, 8)     # 20 after fee, 40% off 20, -80% off 20 should be 8
+    ]
+    
+    for gross, rate, fee, expected in test_cases:
+        result = net_pay(gross, rate, fee)
+        assert result == expected, f"Expected {expected}, got {result} for gross={gross}, rate={rate}, fee={fee}"
+    print("All test cases passed!")
+
+check_net_pay()
+```

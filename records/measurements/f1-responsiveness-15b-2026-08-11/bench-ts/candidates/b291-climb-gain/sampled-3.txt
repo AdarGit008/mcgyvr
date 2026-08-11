@@ -1,0 +1,9 @@
+```ts
+export function legGain(start: number, end: number): number {
+    return Math.abs(end - start);
+}
+
+export function climbGain(heights: number[]): number {
+    return heights.reduce((acc, height) => acc + Math.abs(height), 0);
+}
+```

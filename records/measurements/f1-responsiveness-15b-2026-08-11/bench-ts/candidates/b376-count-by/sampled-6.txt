@@ -1,0 +1,18 @@
+```ts
+function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+  if (typeof field !== 'string' || field === '') {
+    throw new Error('Field name cannot be empty text.');
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const record of records) {
+    if (field in record) {
+      const value = record[field];
+      result[value] = (result[value] ?? 0) + 1;
+    }
+  }
+
+  return result;
+}
+```

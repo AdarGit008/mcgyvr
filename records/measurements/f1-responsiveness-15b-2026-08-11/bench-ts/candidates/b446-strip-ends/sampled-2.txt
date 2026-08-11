@@ -1,0 +1,11 @@
+```ts
+function stripEnds(text: string, mark: string): string {
+  if (text === "" || text.length <= 2 * mark.length) {
+    return "";
+  }
+  let out = text;
+  out = out.slice(mark.length);
+  out = out.slice(0, -mark.length);
+  return out;
+}
+```

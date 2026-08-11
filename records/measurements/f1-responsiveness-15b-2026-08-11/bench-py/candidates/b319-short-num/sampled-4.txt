@@ -1,0 +1,21 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shortens a number to below a thousand by writing it as is, or in short form if it is a thousand or more.
+
+    :param value: The integer to be shortened.
+    :return: A string representing the shortened number.
+    """
+    # Handle single-digit values directly
+    if value < 10:
+        return str(value)
+    
+    # Convert to string and use slicing to format as short form
+    num_str = f"{value:,}"
+    if len(num_str) > 4:
+        num_str = num_str[:-3] + "k"
+    elif len(num_str) > 7:
+        num_str = num_str[:-6] + "m"
+    
+    return num_str.rstrip("0").rstrip(",")
+```

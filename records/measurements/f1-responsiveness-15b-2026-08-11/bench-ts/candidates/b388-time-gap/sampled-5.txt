@@ -1,0 +1,17 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  // Normalize the hours and minutes by adding 24 hours if necessary
+  const normalizedFrom = (fromHour + 24) % 24;
+  const normalizedTo = (toHour + 24) % 24;
+
+  // Calculate the total minutes for both times
+  const totalMinutesFrom = fromHour * 60 + fromMinute;
+  const totalMinutesTo = normalizedTo * 60 + toMinute;
+
+  // Check if the second time is before the first time of the next day
+  const isSecondBeforeNextDay = totalMinutesTo < totalMinutesFrom && normalizedTo === 0;
+
+  // Adjust the total minutes to account for the difference in days
+  return isSecondBeforeNextDay ? (totalMinutesFrom + 24 * 60) - totalMinutesTo : totalMinutesTo - totalMinutesFrom;
+}
+```

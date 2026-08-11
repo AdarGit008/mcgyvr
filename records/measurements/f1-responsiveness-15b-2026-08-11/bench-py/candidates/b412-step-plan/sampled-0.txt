@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def step_allowed(start: str, end: str, allowed: List[str]) -> bool:
+    if start == end:
+        return False  # No move needed if starting and ending are the same
+    for move in allowed:
+        if move == start + end or move == end + start:
+            return True  # Found an allowed move
+    return False  # No allowed moves found
+
+def step_plan(states: List[str], allowed: List[str]) -> int:
+    for i in range(len(states) - 1):
+        if not step_allowed(states[i], states[i + 1], allowed):
+            return i  # First non-allowed move position
+    raise ValueError("No valid moves found")  # All moves are valid
+```

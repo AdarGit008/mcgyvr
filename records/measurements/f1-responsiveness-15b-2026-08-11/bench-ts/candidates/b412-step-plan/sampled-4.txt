@@ -1,0 +1,18 @@
+```ts
+// stepAllowed checks if the transition from 'from' to 'to' is allowed based on the list of allowed moves.
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+  const allowedMoves = new Set(allowed.map(move => move.join(',')));
+  return allowedMoves.has(`${from},${to}`);
+}
+
+// stepPlan finds the first state in a sequence that cannot be reached by any of the allowed moves.
+export function stepPlan(states: string[], allowed: string[][]): number {
+  for (let i = 0; i < states.length - 1; i++) {
+    if (!stepAllowed(states[i], states[i + 1], allowed)) {
+      return i;
+    }
+  }
+  // If no such state exists, all states can be reached, so return -1.
+  return -1;
+}
+```

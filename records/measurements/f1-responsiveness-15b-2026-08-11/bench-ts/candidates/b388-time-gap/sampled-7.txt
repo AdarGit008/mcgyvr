@@ -1,0 +1,20 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  if (fromHour < 0 || fromHour > 23 || fromMinute < 0 || fromMinute > 59) {
+    throw new Error('Invalid hour or minute');
+  }
+  if (toHour < 0 || toHour > 23 || toMinute < 0 || toMinute > 59) {
+    throw new Error('Invalid hour or minute');
+  }
+
+  const startTime = fromHour * 60 + fromMinute;
+  const endTime = toHour * 60 + toMinute;
+
+  if (endTime <= startTime) {
+    // If toTime is earlier than fromTime, adjust it for the following day
+    return ((24 - startTime) + endTime) % (24 * 60);
+  } else {
+    return endTime - startTime;
+  }
+}
+```

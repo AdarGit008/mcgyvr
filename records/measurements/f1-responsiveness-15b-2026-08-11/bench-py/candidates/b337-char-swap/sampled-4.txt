@@ -1,0 +1,22 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """Swap the characters at the beginning and end of the two strings."""
+    if not first or not second:
+        raise ValueError("Both input strings must be non-empty.")
+    
+    return second + first
+
+def swap_all(text: str) -> str:
+    """Swap pairs of adjacent characters in the text, leaving a final odd character at its original position."""
+    result = []
+    even_index = 0
+    
+    for char in text:
+        if even_index < len(text):
+            result.append(second[even_index])
+        else:
+            result.append(char)
+        even_index += 1
+    
+    return ''.join(result)
+```

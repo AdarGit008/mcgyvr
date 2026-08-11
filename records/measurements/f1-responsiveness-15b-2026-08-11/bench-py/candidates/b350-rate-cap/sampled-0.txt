@@ -1,0 +1,15 @@
+```python
+from typing import *
+
+def rate_cap(price: int, rate: int, most: int) -> int:
+    if price is None or rate is None or most is None:
+        raise ValueError("All arguments must be provided")
+
+    increase = (price * rate) // 100
+
+    if increase > most:
+        increase = most
+
+    new_price = price + increase
+    return new_price
+```

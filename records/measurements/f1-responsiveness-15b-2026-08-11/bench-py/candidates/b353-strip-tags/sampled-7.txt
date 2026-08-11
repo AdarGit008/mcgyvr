@@ -1,0 +1,36 @@
+```python
+def strip_tags(line: str) -> str:
+    """
+    Remove every marker from a line of text, a marker being an opening angle bracket,
+    everything up to the next closing bracket, and that bracket. An opening bracket
+    that is never closed removes everything from there to the end of the line.
+    
+    :param line: The input string containing tags to be removed.
+    :return: A new string with all markers removed.
+    """
+    result = ""
+    current_index = 0
+
+    while current_index < len(line):
+        if line[current_index] == '<':
+            marker_start = current_index
+            marker_end = marker_start
+
+            # Skip the opening angle bracket in the marker
+            marker_start += 1
+
+            while marker_end < len(line) and line[marker_end] != '>':
+                marker_end += 1
+
+            if marker_end == len(line):
+                result += line[marker_start:]
+                break
+            else:
+                result += line[marker_start:marker_end]
+        else:
+            result += line[current_index]
+
+        current_index += 1
+
+    return result
+```

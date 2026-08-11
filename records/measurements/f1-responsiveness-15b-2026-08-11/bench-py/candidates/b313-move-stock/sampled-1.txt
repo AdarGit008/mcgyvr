@@ -1,0 +1,12 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    closing = opening  # Initialize the closing quantity with the opening quantity
+
+    for move in moves:
+        if move < 0 and abs(move) > closing:  # If a removal is larger than what's left, empty it instead
+            closing = 0
+        else:  # Otherwise, add or subtract the stock movement
+            closing += move
+
+    return closing
+```

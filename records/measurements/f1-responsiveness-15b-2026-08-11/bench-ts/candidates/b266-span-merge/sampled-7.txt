@@ -1,0 +1,29 @@
+```ts
+// spanMerge implementation
+export function spanMerge(spans: number[][]): number[][] {
+  if (spans.length === 0) return [];
+
+  // Sort spans by their start time to simplify merging
+  spans.sort((a, b) => a[0] - b[0]);
+
+  const mergedSpans: number[][] = [];
+  let currentSpan: number[] = spans[0];
+
+  for (let i = 1; i < spans.length; i++) {
+    const nextSpan = spans[i];
+    if (nextSpan[0] <= currentSpan[1]) {
+      // Merge the current span with the next
+      currentSpan[1] = Math.max(nextSpan[1], currentSpan[1]);
+    } else {
+      // Add the current span to mergedSpans and start a new one
+      mergedSpans.push(currentSpan);
+      currentSpan = nextSpan;
+    }
+  }
+
+  // Push the last remaining span
+  mergedSpans.push(currentSpan);
+
+  return mergedSpans;
+}
+```

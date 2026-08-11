@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def hold_queue(callers: List[int], limit: int) -> List[int]:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero.")
+    
+    # Use a deque for efficient popping from both ends
+    from collections import deque
+    
+    queue = deque()
+    
+    for caller in callers:
+        if len(queue) < limit:
+            queue.append(caller)
+        else:
+            # Remove the caller who has waited longest
+            oldest_caller = queue.popleft()
+            queue.append(caller)
+
+    return list(queue)
+```

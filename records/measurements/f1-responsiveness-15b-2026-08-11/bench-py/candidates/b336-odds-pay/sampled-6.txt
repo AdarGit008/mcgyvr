@@ -1,0 +1,34 @@
+```python
+import logging
+
+logging.basicConfig(level=logging.ERROR)
+
+def payout(stake: int, odds: int) -> int:
+    if stake < 0:
+        raise ValueError("Stake must be non-negative")
+    return stake * odds
+
+def settle_all(bets: list) -> int:
+    total = 0
+    for stake, odds in bets:
+        try:
+            payout_amount = payout(stake, odds)
+            total += payout_amount
+        except ValueError as e:
+            logging.error(f"Failed to payout {stake} with odds {odds}: {e}")
+    return total
+
+def test_payout():
+    assert payout(100, 2) == 200
+    assert payout(50, 3) == 150
+    assert payout(-10, 2) == ValueError("Stake must be non-negative")
+    logging.info(f"Passed all payouts tests")
+
+def test_settle_all():
+    assert settle_all([(100, 2), (50, 3)]) == 400
+    assert settle_all([(0, 5), (-1, 2)]) == ValueError("Stake must be non-negative")
+    logging.info(f"Passed all settle_all tests")
+
+test_payout()
+test_settle_all()
+```

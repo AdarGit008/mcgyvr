@@ -1,0 +1,15 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if row < 0 or column < 0:
+        raise ValueError("Row and column indices must be non-negative.")
+    if row >= len(letters):
+        raise ValueError(f"Column index {column} is beyond the twenty-sixth letter. Use 'ZZ' for columns past Z.")
+    return letters[row] + str(column + 1)
+
+
+def grid_cells(rows: int, columns: int) -> list:
+    if rows < 0 or columns < 0:
+        raise ValueError("Rows and columns must be non-negative.")
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

@@ -1,0 +1,19 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+    if (fromHour < 0 || fromHour > 23 || fromMinute < 0 || fromMinute > 59 ||
+        toHour < 0 || toHour > 23 || toMinute < 0 || toMinute > 59) {
+        throw new Error('Invalid time format');
+    }
+
+    let startMinutes = fromHour * 60 + fromMinute;
+    let endMinutes = toHour * 60 + toMinute;
+
+    if (endMinutes <= startMinutes) {
+        // If the second time is earlier than or at the same time as the first,
+        // it means they are on the next day. Adjust the endMinutes by adding 1440 minutes.
+        endMinutes += 1440;
+    }
+
+    return endMinutes - startMinutes;
+}
+```

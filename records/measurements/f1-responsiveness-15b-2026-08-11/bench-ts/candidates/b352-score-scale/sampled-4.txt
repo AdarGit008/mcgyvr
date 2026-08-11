@@ -1,0 +1,22 @@
+```ts
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  // Ensure we're working with numbers and positive values
+  if (isNaN(mark) || isNaN(wasOutOf) || isNaN(nowOutOf)) {
+    throw new Error('Mark, wasOutOf, and nowOutOf must be numbers.');
+  }
+  mark = Math.floor(mark);
+  wasOutOf = Math.floor(wasOutOf);
+  nowOutOf = Math.floor(nowOutOf);
+
+  // Handle the special case where the original mark is zero
+  if (mark === 0) {
+    return 0;
+  }
+
+  // Calculate the new scale factor
+  const scaleFactor = nowOutOf / wasOutOf;
+
+  // Scale the mark and return it, or return the original mark if scaling would result in a negative number
+  return Math.floor(mark * scaleFactor);
+}
+```

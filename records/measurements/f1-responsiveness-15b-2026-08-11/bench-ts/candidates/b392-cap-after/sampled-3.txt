@@ -1,0 +1,17 @@
+```typescript
+export function capAfter(passage: string): string {
+  if (typeof passage !== 'string') {
+    throw new Error('Invalid input. Expected a string.');
+  }
+
+  const sentences = passage.split('. ');
+
+  return sentences.reduce((acc, sentence) => {
+    const firstLetter = sentence.charAt(0).toUpperCase();
+    const restOfSentence = sentence.slice(1);
+    const capitalizedSentence = `${firstLetter}${restOfSentence}`;
+    acc += capitalizedSentence + (sentences.indexOf(sentence) === sentences.length - 2 ? '' : '. ');
+    return acc;
+  }, '');
+}
+```

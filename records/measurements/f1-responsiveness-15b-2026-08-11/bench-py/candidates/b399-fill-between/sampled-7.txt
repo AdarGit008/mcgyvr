@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def fill_between(entries: List[str], filler: str) -> List[str]:
+    if len(entries) == 0:
+        return []
+    elif len(entries) == 1:
+        return [entries[0]]
+    
+    result = [entries[0]] + [filler] * (len(entries)-1) + [entries[-1]]
+    return result
+```

@@ -1,0 +1,22 @@
+```python
+from typing import *
+from collections import *
+
+def check_digit(code: str) -> int:
+    if not code.isdigit():
+        raise ValueError("Invalid input: only digits are allowed.")
+
+    total = sum(int(digit) for digit in code)
+    
+    return (total + 9) % 10
+
+# Test cases
+assert check_digit("") == 0
+assert check_digit("123") == 7
+assert check_digit("456789") == 6
+assert check_digit("10") == 0
+try:
+    check_digit("abc")
+except ValueError as e:
+    assert str(e) == "Invalid input: only digits are allowed."
+```

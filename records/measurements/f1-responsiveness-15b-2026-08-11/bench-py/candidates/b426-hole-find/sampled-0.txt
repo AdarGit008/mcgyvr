@@ -1,0 +1,20 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a sequence starting at first containing count numbers."""
+    return [first + i for i in range(count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the first number in the range [first, first + count - 1] that is not in seen."""
+    if not seen or all(num in seen for num in range(first, first + count)):
+        return None
+
+    # Find the first missing number using a set
+    observed = set(seen)
+    for i in range(first, first + count):
+        if i not in observed:
+            return i
+
+# Example usage:
+print(steps_on(1, 5))  # Output: [1, 2, 3, 4, 5]
+print(hole_find([1, 2], 1, 2))  # Output: None
+```

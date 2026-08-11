@@ -1,0 +1,29 @@
+```python
+def tags_of(line: str) -> list:
+    """ Break a comma-separated line into its tags, trimming spaces around each and leaving out any that come to nothing. """
+    # Remove leading/trailing whitespace from each tag
+    tags = [tag.strip() for tag in line.split(',')]
+    # Filter out empty tags
+    return [tag for tag in tags if tag]
+
+def tag_index(lines: list) -> dict:
+    """ Return a mapping from each tag to the lines carrying it, in the order the lines came. """
+    # Initialize an empty dictionary to store tag to lines mappings
+    tag_to_lines = {}
+    # Iterate over each line in the input list
+    for i, line in enumerate(lines):
+        # Check if the line is not text (e.g., a non-string value)
+        if not isinstance(line, str):
+            raise ValueError("Invalid line: {line}")
+        # Split the line into tags using the comma separator
+        tags = line.split(',')
+        # Iterate over each tag
+        for tag in tags:
+            # Strip leading/trailing whitespace from the tag
+            tag = tag.strip()
+            # Check if the tag is not empty
+            if tag:
+                # Add the tag to the dictionary with the current line index as the value
+                tag_to_lines[tag] = i
+    return tag_to_lines
+```

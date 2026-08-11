@@ -1,0 +1,30 @@
+```ts
+export function crateFill(items: number, crates: number): number[] {
+  if (crates <= 0) return [];
+
+  const avgPerCrane = Math.ceil(items / crates);
+  let leftoverItems = items % crates;
+
+  const result = Array.from({ length: crates }, (_, index) => {
+    const size = index < leftoverItems ? avgPerCrane + 1 : avgPerCrane;
+    leftoverItems--;
+    return size;
+  });
+
+  return result;
+}
+
+export function crateTotal(sizes: number[]): number {
+  if (sizes.reduce((acc, size) => acc + size, 0) === 0) return [];
+
+  const sortedSizes = sizes.sort((a, b) => a - b);
+
+  let total = 0;
+  for (let i = 0; i < sizes.length; i++) {
+    total += sortedSizes[i];
+    if (total >= sortedSizes[sizes.length - 1]) break;
+  }
+
+  return sortedSizes.slice(0, i);
+}
+```

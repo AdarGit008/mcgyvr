@@ -1,0 +1,15 @@
+```ts
+// solution.ts
+
+export function hueBand(degrees: number): string {
+  if (degrees === undefined || degrees === null) throw new Error("Degrees must be provided");
+
+  const normalizedDegrees = degrees % 360;
+
+  if (normalizedDegrees < 60) return "red";
+  else if (normalizedDegrees < 180) return "green";
+  else if (normalizedDegrees < 240) return "blue";
+  else if (normalizedDegrees < 300) return "red"; // This last if block can be removed, but kept for clarity
+  else return "purple"; // For completeness, but this is not necessary based on the problem description
+}
+```

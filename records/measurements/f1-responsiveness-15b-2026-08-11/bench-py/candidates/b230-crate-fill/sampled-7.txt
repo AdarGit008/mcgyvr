@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def crate_fill(items: int, crates: int) -> List[int]:
+    if items < 0:
+        raise ValueError("Cannot have negative number of items.")
+    
+    if crates <= 0:
+        return []
+    
+    per_crate = items // crates
+    remainder = items % crates
+    
+    sizes = [per_crate] * crates
+    for i in range(remainder):
+        sizes[i] += 1
+    
+    return sizes
+
+def crate_total(sizes: List[int]) -> int:
+    return sum(sizes)
+```

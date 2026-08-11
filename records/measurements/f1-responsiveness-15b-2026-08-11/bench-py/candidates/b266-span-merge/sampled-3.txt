@@ -1,0 +1,32 @@
+```python
+
+from typing import List
+
+
+def span_merge(spans: List[List[int]]) -> List[List[int]]:
+    """
+    Combine overlapping or adjacent spans into a single span while maintaining the original order.
+
+    :param spans: A list of lists, where each inner list contains two integers representing the start and end of a booking span.
+    :return: A list of lists with merged spans, sorted by their start times.
+    """
+    if not spans:
+        return []
+
+    # Sort all spans by their start time
+    spans.sort(key=lambda x: x[0])
+
+    merged_spans = [spans[0]]
+    for current_span in spans[1:]:
+        start, end = current_span
+
+        # Check if the current span overlaps with the last span in the list
+        if start <= merged_spans[-1][1]:
+            # Merge the spans if they overlap
+            merged_spans[-1] = [min(merged_spans[-1][0], start), max(merged_spans[-1][1], end)]
+        else:
+            # If the current span does not overlap, add it to the list of merged spans
+            merged_spans.append(current_span)
+
+    return merged_spans
+```

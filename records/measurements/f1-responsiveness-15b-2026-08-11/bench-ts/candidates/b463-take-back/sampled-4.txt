@@ -1,0 +1,17 @@
+```ts
+
+export function takeBack(values: number[], target: number): number {
+  if (target === 0) return -1; // Early exit for target of zero
+
+  let sum = values.reduce((acc, curr) => acc + curr, 0);
+  let count = 0;
+
+  while (sum > target && count < values.length) {
+    sum -= values[count];
+    count++;
+  }
+
+  if (sum === target) return count;
+  else return -1;
+}
+```

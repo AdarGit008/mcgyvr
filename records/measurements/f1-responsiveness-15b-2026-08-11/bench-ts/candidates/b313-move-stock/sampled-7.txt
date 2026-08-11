@@ -1,0 +1,14 @@
+```ts
+export function moveStock(opening: number, moves: number[]): number {
+  let quantity = opening;
+
+  for (const move of moves) {
+    if (move > 0 && quantity + move <= 0) {
+      return quantity; // Return the current quantity since it can't be reduced further
+    }
+    quantity += move;
+  }
+
+  return quantity;
+}
+```

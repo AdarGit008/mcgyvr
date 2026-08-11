@@ -1,0 +1,15 @@
+```ts
+export function pluralOf(noun: string): string {
+  const vowels = 'aeiouAEIOU';
+  if (noun.endsWith('s') || noun.endsWith('x') || noun.endsWith('ch') || noun.endsWith('sh')) {
+    return noun + 'es';
+  } else if (vowels.includes(lastCharOf(noun))) {
+    return noun + 'ies';
+  }
+  return noun + 's';
+}
+
+function lastCharOf(str: string): string {
+  return str[str.length - 1];
+}
+```

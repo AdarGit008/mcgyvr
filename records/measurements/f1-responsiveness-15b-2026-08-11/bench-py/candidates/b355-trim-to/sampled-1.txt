@@ -1,0 +1,16 @@
+```python
+
+from typing import *
+
+def trim_to(line: str, limit: int) -> str:
+    if limit < 4:
+        raise ValueError("Limit must be at least 4.")
+
+    if len(line) <= limit:
+        return line
+
+    words = line.split()
+    words[-1] = words[-1][:-3]
+    return ' '.join(words)
+
+```

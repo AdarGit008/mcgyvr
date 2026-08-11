@@ -1,0 +1,9 @@
+```ts
+export function capAfter(passage: string): string {
+  if (typeof passage !== 'string') {
+    throw new Error("Input must be a string.");
+  }
+
+  return passage.replace(/(?<=[.!?])\s+/g, '. ').split('. ').map(sentence => sentence.charAt(0).toUpperCase() + sentence.slice(1)).join('. ');
+}
+```

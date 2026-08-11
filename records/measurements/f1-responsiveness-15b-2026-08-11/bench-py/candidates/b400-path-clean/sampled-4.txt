@@ -1,0 +1,35 @@
+```python
+def path_clean(path: str) -> str:
+    """
+    Clean a given path by removing every segment of two dots.
+    
+    Args:
+    path (str): The input path to clean.
+
+    Returns:
+    str: The cleaned path without any segments of two dots.
+
+    Examples:
+    >>> path_clean("")
+    ""
+    >>> path_clean("a")
+    "a"
+    >>> path_clean("..")
+    ""
+    >>> path_clean(".\\..\\.")
+    ""
+    >>> path_clean("..\\a")
+    "..\\a"
+    >>> path_clean("a/..")
+    "a/"
+    >>> path_clean("a/b/../c")
+    "a/c"
+    """
+    cleaned = []
+    for part in path.split('/'):
+        if part == '..' and cleaned:
+            cleaned.pop()  # Remove the last segment if there is one
+        elif part != '.' and part != '':
+            cleaned.append(part)
+    return '/'.join(cleaned)
+```

@@ -1,0 +1,21 @@
+```python
+from typing import List, Union
+
+def field_mean(records: list, field: str) -> int:
+    if not isinstance(field, str):
+        raise ValueError("field must be a string")
+
+    total_sum = 0
+    count = 0
+
+    for record in records:
+        if field in record and isinstance(record[field], (int, float)):
+            total_sum += record[field]
+            count += 1
+
+    if count == 0:
+        return 0
+
+    rounded_mean = total_sum // count
+    return rounded_mean
+```

@@ -1,0 +1,20 @@
+```ts
+/**
+ * Breaks a route written as stop names joined by greater-than signs into the stops themselves, trimming any spaces around each one.
+ * @param route The route to split.
+ * @returns An array of the individual stops.
+ */
+export function routeStops(route: string): string[] {
+    return route.split('>').map(stop => stop.trim());
+}
+
+/**
+ * Counts the journeys between stops, one fewer than the stops, and none at all for a blank route.
+ * @param route The route to count journeys for.
+ * @returns The number of journeys in the route.
+ */
+export function routeHops(route: string): number {
+    const stops = routeStops(route);
+    return stops.length === 0 ? 0 : stops.length - 1;
+}
+```

@@ -1,0 +1,16 @@
+```ts
+function capAfter(passage: string): string {
+  if (typeof passage !== 'string') throw new Error('Argument must be a string');
+  
+  const sentences = passage.split('.');
+  let result = sentences[0].charAt(0).toUpperCase() + sentences[0].slice(1);
+  
+  for (let i = 1; i < sentences.length; i++) {
+    if (i === sentences.length - 1) break;
+    
+    result += '. ' + sentences[i].charAt(0).toUpperCase() + sentences[i].slice(1);
+  }
+  
+  return result;
+}
+```

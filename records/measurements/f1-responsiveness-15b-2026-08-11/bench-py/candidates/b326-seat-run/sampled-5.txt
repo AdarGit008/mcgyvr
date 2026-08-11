@@ -1,0 +1,23 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = []
+    i = 0
+    while i < len(row):
+        if row[i] == '.':
+            free_seats.append(i)
+        else:
+            # If we find a taken seat, reset the count of consecutive free seats
+            if free_seats:
+                # Calculate the length of the current run of free seats
+                length = i - free_seats[-1]
+                # Check if this run can accommodate the party
+                if length >= party:
+                    return free_seats[-1]
+        i += 1
+
+    # If no suitable run is found, return -1
+    return -1
+```

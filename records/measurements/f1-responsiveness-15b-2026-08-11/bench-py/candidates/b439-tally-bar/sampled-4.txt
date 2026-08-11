@@ -1,0 +1,10 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count is None or count < 0 or width <= 0:
+        raise ValueError("Invalid input")
+    
+    if count == 0:
+        return " " * width
+    
+    return "#" * min(count, width) + ">" if count != width else "#"
+```

@@ -1,0 +1,17 @@
+```ts
+export function stepsOn(first: number, count: number): number[] {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error('Count must be a positive integer');
+  }
+  const sequence = Array.from({ length: count }, (_, i) => first + i);
+  return sequence;
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error('Count must be a positive integer');
+  }
+  const expectedSequence = stepsOn(first, count);
+  return expectedSequence.find((num, index) => !seen.includes(num)) ?? undefined;
+}
+```

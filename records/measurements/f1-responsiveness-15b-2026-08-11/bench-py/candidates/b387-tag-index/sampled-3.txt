@@ -1,0 +1,11 @@
+```python
+def tags_of(line) -> list:
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string")
+    return [tag.strip() for tag in line.split(',') if tag.strip()]
+
+def tag_index(lines: list) -> dict:
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All lines must be strings")
+    return {line.strip(): index for index, line in enumerate(lines)}
+```

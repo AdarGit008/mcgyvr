@@ -1,0 +1,13 @@
+```ts
+export function flipOne(pair: string[]): string[] {
+  if (pair.length !== 2) throw new Error("Pair must have exactly two members");
+  return [pair[1], pair[0]];
+}
+
+export function flipAll(pairs: string[][]): string[][] {
+  for (let i = 0; i < pairs.length; i++) {
+    pairs[i] = flipOne(pairs[i]);
+  }
+  return pairs;
+}
+```

@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def bill_split(total: int, diners: int) -> List[int]:
+    if total < diners:
+        raise ValueError("Total cannot be less than number of diners.")
+    
+    # Calculate the total amount each diner should pay
+    amount_per_diner = total // diners
+    
+    # Calculate any leftover pennies after distributing equal amounts
+    leftover_pennies = total % diners
+    
+    # Create the result list with each diner paying their share plus any leftover pennies
+    result = [amount_per_diner] * (diners - 1) + [amount_per_diner + leftover_pennies]
+    
+    return result
+```
+
+This solution implements the `bill_split` function according to the specified interface and uses type hints for clarity. It includes error handling for invalid inputs and ensures that each diner pays a whole number of pennies, with the first diner paying whatever is left over.

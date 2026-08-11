@@ -1,0 +1,24 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    """
+    Return a list of dish names that cost no more than the given budget,
+    sorted by price and name if prices are equal.
+
+    Args:
+        dishes (list): A list of dictionaries, where each dictionary represents a dish with keys 'name' and 'price'.
+        budget (int): The maximum budget in whole pence.
+
+    Returns:
+        list: A list of dish names that cost no more than the budget.
+    """
+    if not dishes or budget < 0:
+        raise ValueError("Invalid input.")
+    
+    # Sort by price, then name using a lambda function
+    sorted_dishes = sorted(dishes, key=lambda x: (x['price'], x['name']))
+    
+    # Filter dishes that cost no more than the budget
+    affordable_dishes = [dish['name'] for dish in sorted_dishes if dish['price'] <= budget]
+    
+    return affordable_dishes
+```

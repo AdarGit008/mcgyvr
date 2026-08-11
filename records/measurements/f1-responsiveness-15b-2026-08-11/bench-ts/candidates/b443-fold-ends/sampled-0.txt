@@ -1,0 +1,17 @@
+```ts
+/**
+ * Fold a list onto itself by adding each element to its corresponding position from the end.
+ * For odd-length lists, the middle element is left unchanged.
+ * Example usage:
+ * foldEnds([1, 2, 3]) returns [1, 4, 9]
+ * foldEnds([]) returns []
+ */
+
+export function foldEnds(values: number[]): number[] {
+  if (values.length === 0) return [];
+  const result = Array.from({ length: values.length }, (_, i) => values[i] + values[values.length - i - 1]);
+  // Adjust the middle element for odd lengths
+  if (values.length % 2 !== 0) result[(values.length - 1) / 2] = values[Math.floor(values.length / 2)];
+  return result;
+}
+```

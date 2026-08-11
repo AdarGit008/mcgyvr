@@ -1,0 +1,26 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error("Digit must be between 0 and 9");
+  }
+  const digits = '0123456789';
+  return digits[digit];
+}
+
+export function digitWords(digits: string): string {
+  if (!digits || typeof digits !== 'string') {
+    throw new Error("Digits must be a non-empty string");
+  }
+
+  let result = '';
+  for (let i = 0; i < digits.length; i++) {
+    if (i > 0 && digits[i] === digits[i - 1]) {
+      continue;
+    }
+    const word = digitWord(parseInt(digits[i], 10));
+    result += word + ' ';
+  }
+
+  return result.trim();
+}
+```

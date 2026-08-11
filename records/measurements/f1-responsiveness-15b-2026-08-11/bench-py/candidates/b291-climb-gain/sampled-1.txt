@@ -1,0 +1,17 @@
+```python
+# leg_gain function to calculate height gained on one leg
+def leg_gain(start: int, end: int) -> int:
+    # Determine if the ground is going up or down
+    if start < end:
+        return end - start  # Rise when going up
+    else:
+        return 0  # No rise when going down
+
+# climb_gain function to calculate total height gained on a walk
+def climb_gain(heights: list) -> int:
+    total_height = 0
+    for i in range(len(heights)):
+        if i > 0 and heights[i] < heights[i - 1]:
+            total_height += leg_gain(heights[i], heights[i - 1])
+    return total_height
+```

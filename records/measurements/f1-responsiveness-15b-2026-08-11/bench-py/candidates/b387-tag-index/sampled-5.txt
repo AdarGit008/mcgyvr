@@ -1,0 +1,22 @@
+```python
+def tags_of(line):
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string.")
+    return [tag.strip() for tag in line.split(',') if tag]
+
+def tag_index(lines: list) -> dict:
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All lines must be strings.")
+    tag_dict = {}
+    for i, line in enumerate(lines):
+        try:
+            tags = tags_of(line)
+            for tag in tags:
+                if tag in tag_dict:
+                    tag_dict[tag].append(i)
+                else:
+                    tag_dict[tag] = [i]
+        except ValueError as e:
+            print(f"Skipping line {i}: {e}")
+    return tag_dict
+```

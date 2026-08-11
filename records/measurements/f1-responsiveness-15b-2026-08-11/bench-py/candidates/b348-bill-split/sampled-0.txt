@@ -1,0 +1,15 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    # Ensure there are at least two diners for a split to be possible
+    if diners <= 1:
+        raise ValueError("At least two diners are required.")
+    
+    # Calculate the amount each diner pays, including any leftover pennies
+    remaining_pennies = total % diners
+    base_amount_per_diner = total // diners
+    
+    # Construct the list of payments
+    payments = [base_amount_per_diner] * (diners - 1) + [remaining_pennies]
+    
+    return payments
+```

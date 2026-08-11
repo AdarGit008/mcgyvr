@@ -1,0 +1,22 @@
+```ts
+export function stepCost(distance: number, rate: number): number {
+  return distance * rate;
+}
+
+/**
+ * The cost of a whole trip, never below the minimum charge. If there are no hops,
+ * the minimum charge is applied to the entire trip.
+ */
+export function tripCost(
+  hops: number[],
+  rate: number,
+  minimum: number,
+): number {
+  if (hops.length === 0) return minimum;
+  let total = 0;
+  for (const hop of hops) {
+    total += Math.max(stepCost(hop, rate), minimum);
+  }
+  return total > minimum ? total : minimum;
+}
+```

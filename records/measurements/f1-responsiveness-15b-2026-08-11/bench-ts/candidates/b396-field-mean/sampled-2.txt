@@ -1,0 +1,20 @@
+```ts
+export function fieldMean(records: Record<string, number>[], field: string): number {
+  if (records.length === 0) return 0;
+
+  let sum = 0;
+  let count = 0;
+
+  for (const record of records) {
+    if (record.hasOwnProperty(field)) {
+      const value = record[field];
+      if (typeof value !== 'number') continue; // Skip non-numeric values
+
+      sum += value;
+      count++;
+    }
+  }
+
+  return Math.floor(sum / count);
+}
+```

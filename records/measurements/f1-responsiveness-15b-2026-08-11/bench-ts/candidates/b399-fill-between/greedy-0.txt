@@ -1,0 +1,12 @@
+```ts
+export function fillBetween(entries: string[], filler: string): string[] {
+  if (entries.length === 0) return [];
+
+  const result = [entries[0]];
+  for (let i = 1; i < entries.length; i++) {
+    result.push(filler, entries[i]);
+  }
+
+  return result;
+}
+```

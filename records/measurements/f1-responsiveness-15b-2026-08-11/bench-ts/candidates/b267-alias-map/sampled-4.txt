@@ -1,0 +1,26 @@
+```ts
+/**
+ * Resolves an aliased name to its actual value, following one hop.
+ * If the name stands for nothing, returns the name itself.
+ *
+ * @param aliases - A record mapping names to their resolved values.
+ * @param name - The name to resolve.
+ * @returns The resolved name.
+ */
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (name in aliases) {
+    return aliases[name];
+  }
+  throw new Error(`Name "${name}" does not have an aliased value.`);
+}
+
+/**
+ * Lists all names that stand for something, in alphabetical order.
+ *
+ * @param aliases - A record mapping names to their resolved values.
+ * @returns An array of all resolved names.
+ */
+export function aliasNames(aliases: Record<string, string>): string[] {
+  return Object.keys(aliases).sort();
+}
+```

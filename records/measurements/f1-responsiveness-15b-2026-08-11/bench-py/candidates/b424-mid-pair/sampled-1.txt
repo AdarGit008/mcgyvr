@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def mid_pair(values: List) -> List:
+    if not values:
+        return [None, None]
+    
+    sorted_values = sorted(values)
+    middle_index = len(sorted_values) // 2
+    
+    if len(sorted_values) % 2 == 1:
+        # If the list has an odd length, return the two middle values
+        return [sorted_values[middle_index], sorted_values[middle_index]]
+    else:
+        # If the list has an even length, return the two middle values, averaged
+        return [(sorted_values[middle_index - 1] + sorted_values[middle_index]) / 2,
+                 (sorted_values[middle_index - 1] + sorted_values[middle_index]) / 2]
+```

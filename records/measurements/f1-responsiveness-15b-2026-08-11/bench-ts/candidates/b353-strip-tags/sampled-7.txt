@@ -1,0 +1,39 @@
+```ts
+
+export function stripTags(line: string): string {
+  let result = "";
+  let depth = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    switch (char) {
+      case '<':
+        depth++;
+        // If the angle bracket is inside quotation marks, skip it
+        if (depth > 1 && line.substr(i - 2, 2) === '">') {
+          break;
+        }
+        result += char;
+        break;
+      case '>':
+        depth--;
+        if (depth === 0) {
+          // If the angle bracket is at the end of the string or inside quotation marks, skip it
+          if (i + 1 < line.length && line.substr(i + 1, 2) !== '<"') {
+            break;
+          }
+        }
+        result += char;
+        break;
+      default:
+        // If depth is zero and we are not inside a marker or quotation mark, add the character to the result
+        if (depth === 0 && !line.startsWith('"', i)) {
+          result += char;
+        }
+    }
+  }
+
+  return result;
+}
+```

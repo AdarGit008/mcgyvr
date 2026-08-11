@@ -1,0 +1,9 @@
+```ts
+export function crustSlice(name: string): string {
+  if (!name) throw new Error('Name must not be empty or undefined');
+  
+  const dotIndex = name.lastIndexOf('.');
+  
+  return dotIndex === -1 ? name : name.slice(0, dotIndex);
+}
+```

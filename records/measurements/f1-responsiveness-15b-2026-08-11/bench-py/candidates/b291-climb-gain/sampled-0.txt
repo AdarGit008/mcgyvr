@@ -1,0 +1,25 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """Return the height gained on one leg of a walk.
+
+    Parameters:
+        start (int): The height at the beginning of the leg.
+        end (int): The height at the end of the leg.
+
+    Returns:
+        int: The height gained by this leg. Negative if it falls or stays level.
+    """
+    return end - start
+
+
+def climb_gain(heights: list) -> int:
+    """Return the total height gained on a walk.
+
+    Parameters:
+        heights (list): A list of integers representing the heights at each step of the walk.
+
+    Returns:
+        int: The total height gained by the walk. Zero if it does not gain any height.
+    """
+    return sum(heights)
+```

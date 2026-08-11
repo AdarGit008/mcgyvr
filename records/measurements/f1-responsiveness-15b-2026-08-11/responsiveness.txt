@@ -1,0 +1,54 @@
+# f1 responsiveness — f1-responsiveness-15b-2026-08-11
+# cells complete at 8 sampled draws + greedy: 270
+# validity gate vs bench-calibration-15b-f1-240-2026-08-11:
+#   shared cells 270, greedy 105 -> 104, drift 1
+#   drifted (within allowance): ts/b387-tag-index
+
+## responsiveness — cells that ever change verdict across the draws
+
+   cells   pinned-fail   pinned-pass    responsive
+     270            83             9           178 (65.9%)
+
+psi_draw = 0.659, 95% Wilson 0.601-0.713
+pre-registered reading: at or above the planning prior's middle; sizing holds
+
+## what psi_draw would buy, if a lever moved exactly the reachable cells
+#  optimistic by construction — see the module docstring
+
+       n  unit             MDE
+     270  cells today    14.4pp
+     400  problems      11.8pp
+     800  cells at 400     8.2pp
+
+## per tranche — all six reported, not only the one named in advance
+
+ tranche   cells    greedy   sampled   pinned-fail    responsive
+      t4      40     45.0%     43.8%     6 (15.0%)    31 (77.5%)
+      t5      56     32.1%     26.3%    19 (33.9%)    37 (66.1%)
+      t6      48     50.0%     35.7%    14 (29.2%)    32 (66.7%)
+      t7      46     43.5%     31.8%    15 (32.6%)    27 (58.7%)
+      t8      44     22.7%     19.3%    19 (43.2%)    25 (56.8%)
+      t9      36     38.9%     26.4%    10 (27.8%)    26 (72.2%)
+     ALL     270     38.5%     30.4%
+
+# The sampled column is DESCRIPTIVE and was not pre-registered: it is the
+# mean over eight draws at T=0.7, a different operating point from the
+# greedy figure the brief aims at, and it carries no p-value. It is here
+# because a tranche's greedy rate rests on one draw per cell, and this is
+# the same question asked with eight times the data.
+
+## sampled pass count per cell — how settled a single draw is
+
+  0/8  1/8  2/8  3/8  4/8  5/8  6/8  7/8  8/8
+   89   45   26   19   26   22   22   12    9
+
+cells strictly between 0 and 8: 172 (63.7%) — a single draw of these could have gone either way
+
+## pre-registered: t8 vs t4/5/6/7 pooled, pinned-fail
+
+  t8: 19/44 (43.2%)
+  pooled: 54/190 (28.4%)
+  Fisher exact, two-sided: p = 0.071
+  reading: not materially above — the problems are reachable, merely harder
+
+# t8 was named by a post-hoc look at six tranches. This tests a different quantity on draws that did not exist when named, so the prediction is out of sample; it is not evidence that t8 is unusual among tranches. Every other tranche in the table above is observational and carries no p-value.

@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def till_float(amount: int, coins: List[int]) -> List[int]:
+    """How many of each coin to hand back, largest coin first."""
+    if amount < 0:
+        raise ValueError("Amount cannot be negative")
+    
+    counts = []
+    left = amount
+    
+    for coin in sorted(coins, reverse=True):
+        while left >= coin and left >= 0:
+            counts.append(1)
+            left -= coin
+        else:
+            counts.append(0)
+    
+    return counts
+```

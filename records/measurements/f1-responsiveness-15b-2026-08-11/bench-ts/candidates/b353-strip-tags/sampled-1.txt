@@ -1,0 +1,27 @@
+```ts
+export function stripTags(line: string): string {
+  let result = '';
+  let depth = 0;
+  
+  for (const char of line) {
+    if (char === '<') {
+      depth++;
+    } else if (char === '>') {
+      depth--;
+      
+      if (depth <= 0) {
+        // We're done with the current marker
+        break;
+      }
+    } else if (char === '"' && depth % 2 === 0) {
+      // Ignore characters inside quotation marks
+      continue;
+    } else {
+      // Add character to result
+      result += char;
+    }
+  }
+  
+  return result;
+}
+```

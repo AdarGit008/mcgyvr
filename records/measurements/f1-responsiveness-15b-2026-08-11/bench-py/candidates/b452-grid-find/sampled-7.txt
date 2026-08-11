@@ -1,0 +1,21 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if grid is None or row < 0 or column < 0:
+        raise ValueError("Invalid arguments.")
+    for i in range(row):
+        if len(grid[i]) != column:
+            raise ValueError("Grid dimensions do not match.")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    if grid is None or value is None:
+        raise ValueError("Invalid arguments.")
+    
+    for i, row in enumerate(grid):
+        try:
+            col = row.index(value)
+            return [i, col]
+        except ValueError:
+            continue
+    raise ValueError("Value not found in the grid.")
+```

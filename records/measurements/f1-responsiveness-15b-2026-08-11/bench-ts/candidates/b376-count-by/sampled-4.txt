@@ -1,0 +1,16 @@
+```ts
+function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+  if (field.trim() === '') {
+    throw new Error('Field name cannot be empty');
+  }
+
+  const countMap: Record<string, number> = {};
+  for (const record of records) {
+    if (record.hasOwnProperty(field)) {
+      const fieldValue = record[field];
+      countMap[fieldValue] = (countMap[fieldValue] || 0) + 1;
+    }
+  }
+  return countMap;
+}
+```

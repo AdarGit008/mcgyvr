@@ -1,0 +1,17 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+  if (count < 0 || !Number.isInteger(count) || count > width) {
+    throw new Error('Invalid arguments');
+  }
+
+  let bar = '';
+  for (let i = 0; i < count; i++) {
+    bar += '#';
+  }
+  if (bar.length < width) {
+    bar += '>';
+  }
+
+  return bar;
+}
+```

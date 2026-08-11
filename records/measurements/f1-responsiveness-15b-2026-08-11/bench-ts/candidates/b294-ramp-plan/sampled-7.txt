@@ -1,0 +1,20 @@
+```ts
+function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) {
+    throw new Error("step cannot be zero");
+  } else if (current > target && step < 0 || current < target && step > 0) {
+    return current;
+  }
+  return current + Math.min(step, target - current);
+}
+
+function rampPlan(start: number, target: number, step: number): number[] {
+  const steps = [];
+  while (start !== target) {
+    steps.push(start);
+    start += step;
+  }
+  steps.push(target);
+  return steps;
+}
+```

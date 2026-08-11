@@ -1,0 +1,9 @@
+```ts
+export function clipText(text: string, from: number, to: number): string {
+    if (from < 0 || to < 0 || from > text.length || to > text.length) {
+        throw new Error('First place must be less than or equal to the second place and within the bounds of the text length.');
+    }
+    
+    return text.slice(Math.min(from, to), Math.max(from, to) + 1);
+}
+```

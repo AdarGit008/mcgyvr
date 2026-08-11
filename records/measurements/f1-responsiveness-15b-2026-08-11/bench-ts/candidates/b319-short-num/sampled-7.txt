@@ -1,0 +1,22 @@
+```ts
+export function shortNum(value: number): string {
+  if (value < 0) {
+    throw new Error("Value must be non-negative");
+  }
+
+  const kPrefix = "k";
+  const mPrefix = "m";
+
+  if (value < 1_000) {
+    return value.toString();
+  } else if (value >= 1_000 && value < 1_000_000) {
+    const result = Math.round(value / 1_000);
+    return `${result}${kPrefix}`;
+  } else if (value >= 1_000_000 && value <= Number.MAX_SAFE_INTEGER) {
+    const result = Math.round(value / 1_000_000);
+    return `${result}${mPrefix}`;
+  }
+
+  throw new Error("Value is too large to be represented as a shortened number");
+}
+```

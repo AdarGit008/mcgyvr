@@ -1,0 +1,11 @@
+```python
+def range_check(readings: list, low: int, high: int) -> bool:
+    if low > high:
+        raise ValueError("low cannot be greater than high")
+
+    for reading in readings:
+        if reading < low or reading > high:
+            return False
+
+    return True
+```

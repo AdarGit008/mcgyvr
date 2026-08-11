@@ -1,0 +1,24 @@
+```ts
+export function pluralOf(noun: string): string {
+  if (noun === "") throw new Error("Input cannot be empty");
+  if (typeof noun !== "string") throw new Error("Input must be a string");
+
+  const lastChar = noun.toLowerCase().charAt(noun.length - 1);
+
+  switch (lastChar) {
+    case "s":
+      return noun + "es";
+    case "x":
+    case "ch":
+    case "sh":
+      return noun + "es";
+    case "y":
+      if (noun.endsWith("y")) {
+        return noun.substring(0, noun.length - 1) + "ies";
+      }
+      return noun + "s";
+    default:
+      return noun + "s";
+  }
+}
+```

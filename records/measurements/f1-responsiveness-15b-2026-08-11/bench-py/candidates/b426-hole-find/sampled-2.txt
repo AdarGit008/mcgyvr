@@ -1,0 +1,19 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Returns a list of numbers from 'first' up to but not including 'first + count'."""
+    return [first + i for i in range(count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Finds the first missing number in 'seen' starting from 'first' and counting 'count'.
+    Returns None if all numbers are present."""    
+    # Check if the seen list is a subset of the expected range
+    if not set(seen).issubset(range(first, first + count)):
+        return None
+    
+    for num in range(first, first + count):
+        if num not in seen:
+            return num
+
+    # If no missing number was found, all numbers are present
+    return None
+```

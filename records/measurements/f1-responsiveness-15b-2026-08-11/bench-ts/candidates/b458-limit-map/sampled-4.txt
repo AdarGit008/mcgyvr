@@ -1,0 +1,23 @@
+```ts
+export function heldDown(value: number, ceiling: number): number {
+  return value > ceiling ? ceiling : value;
+}
+
+/**
+ * Every value of a store brought down to a ceiling.
+ */
+export function limitMap(
+  store: Record<string, number>,
+  ceiling: number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key of Object.keys(store)) {
+    if (store[key] <= ceiling) {
+      out[key] = store[key];
+    } else if (out[key] !== undefined) {
+      throw new Error(`Duplicate value ${key} in the store`);
+    }
+  }
+  return out;
+}
+```

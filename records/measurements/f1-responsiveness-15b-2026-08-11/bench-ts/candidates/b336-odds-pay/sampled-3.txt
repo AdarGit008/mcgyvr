@@ -1,0 +1,29 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function payout(stake: number, odds: number): number {
+  if (stake < 0) {
+    throw new Error('Stake must be non-negative');
+  }
+  return stake * odds;
+}
+
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  let totalHandedBack = 0.0;
+  for (const bet of bets) {
+    if (!bet.won) continue;
+    totalHandedBack += payout(bet.stake, bet.odds);
+  }
+  return totalHandedBack;
+}
+
+// Test cases to verify the correctness of the solution
+function runTests() {
+  assert.equal(payout(100, 2), 200);
+  assert.equal(settleAll([{ stake: 50, odds: 2, won: true }, { stake: -10, odds: 3, won: false }]), 100.0);
+  assert.equal(settleAll([]), 0.0);
+  console.log('All tests passed!');
+}
+
+runTests();
+```

@@ -1,0 +1,26 @@
+```ts
+function rowKey(name: string): string {
+  if (typeof name !== 'string' || name.length === 0) {
+    throw new Error('Name must be a non-empty string');
+  }
+  return name[0].toUpperCase();
+}
+
+function indexRows(names: string[]): Record<string, string[]> {
+  if (!Array.isArray(names) || names.some(name => typeof name !== 'string')) {
+    throw new Error('Names array must contain only strings');
+  }
+
+  const index: Record<string, string[]> = {};
+
+  for (const name of names) {
+    const rowKey = rowKey(name);
+    if (!index[rowKey]) {
+      index[rowKey] = [];
+    }
+    index[rowKey].push(name);
+  }
+
+  return index;
+}
+```

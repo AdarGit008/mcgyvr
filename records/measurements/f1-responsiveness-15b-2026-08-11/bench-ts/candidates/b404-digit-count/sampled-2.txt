@@ -1,0 +1,21 @@
+```typescript
+/**
+ * Calculates the number of digits in a given integer.
+ * If the value is negative, the minus sign is not counted.
+ *
+ * @param value The integer to count digits for.
+ * @returns The number of digits in the integer.
+ */
+export function digitCount(value: number): number {
+  if (value === 0) return 1;
+  const absValue = Math.abs(value);
+  let count = 0;
+
+  while (absValue > 0) {
+    absValue /= 10;
+    count++;
+  }
+
+  return count;
+}
+```

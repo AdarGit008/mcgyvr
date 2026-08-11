@@ -1,0 +1,35 @@
+```python
+from typing import List
+
+def field_mean(records: List[dict], field: str) -> int:
+    if not records or not field:
+        raise ValueError("Records must be provided and field cannot be empty")
+
+    total_sum = 0
+    count = 0
+
+    for record in records:
+        try:
+            numeric_value = float(record[field])
+        except KeyError:
+            continue
+        except ValueError:
+            raise ValueError(f"Non-numeric value found for field {field}")
+
+        total_sum += numeric_value
+        count += 1
+
+    if not count:
+        return 0
+
+    return int(total_sum // count)
+
+# Example usage
+records = [
+    {"name": "Alice", "age": "30"},
+    {"name": "Bob", "age": "25"},
+    {"name": "Charlie"}
+]
+
+print(field_mean(records, "age"))  # Output: 27
+```

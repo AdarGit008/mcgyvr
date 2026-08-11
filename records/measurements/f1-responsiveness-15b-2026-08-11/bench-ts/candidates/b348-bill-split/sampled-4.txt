@@ -1,0 +1,22 @@
+```ts
+/**
+ * Divides a bill between a given number of diners so that each pays exactly pence.
+ * The first diner pays the total amount plus any remaining pennies after equal sharing.
+ * 
+ * @param total - The total amount to be split, in pence.
+ * @param diners - The number of diners splitting the bill.
+ * @returns An array where each element corresponds to the amount paid by a diner.
+ */
+export function billSplit(total: number, diners: number): number[] {
+    if (diners === 0) {
+        throw new Error("No diners! Cannot split a bill.");
+    }
+
+    let remainder = total % diners;
+    const equalShare = Math.floor(total / diners);
+
+    return Array.from({ length: diners }, (_, index) => {
+        return index === 0 ? total + remainder : equalShare;
+    });
+}
+```

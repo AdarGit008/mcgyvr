@@ -1,0 +1,26 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    if len(opens) != len(closes):
+        raise ValueError("Number of opening and closing markers must be equal")
+    
+    result = []
+    stack = []
+    marker_index = 0
+    marker_count = 0
+    
+    while marker_index < len(line):
+        if line[marker_index] == opens:
+            stack.append((line[marker_index], marker_count))
+            marker_count += 1
+        elif line[marker_index] in closes:
+            if not stack or stack[-1][0] != opens:
+                raise ValueError("Unmatched closing marker")
+            
+            match = stack.pop()
+            if len(stack) == 0:
+                result.append(line[min(match[1], marker_count):max(match[1], marker_count)+1])
+        
+        marker_index += 1
+    
+    return result
+```

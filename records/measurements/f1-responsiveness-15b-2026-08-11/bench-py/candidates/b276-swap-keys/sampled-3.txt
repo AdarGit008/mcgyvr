@@ -1,0 +1,39 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Returns a dictionary with codes mapped to names, where names are sorted first in case of ties.
+
+    Args:
+        names (dict): A mapping of names to codes.
+
+    Returns:
+        dict: A new dictionary with codes as keys and the corresponding names sorted in ascending order.
+    """
+    code_to_name = {}
+    for name, code in names.items():
+        if not isinstance(code, str):
+            raise ValueError("Codes must be strings.")
+
+        # Convert empty text to None
+        if code == "":
+            continue
+
+        # Sort the name case-insensitively
+        sorted_name = "".join(sorted(name.lower()))
+
+        # Add to the dictionary with the sorted name as key
+        if sorted_name in code_to_name:
+            code_to_name[sorted_name].append(name)
+        else:
+            code_to_name[sorted_name] = [name]
+
+    result = {}
+    for sorted_name, names in code_to_name.items():
+        # Sort names within each group case-insensitively and add them to the result
+        sorted_names = sorted(names, key=lambda x: "".join(sorted(x.lower())))
+        for name in sorted_names:
+            if name in names:
+                result[name] = sorted_name
+
+    return result
+```

@@ -1,0 +1,86 @@
+```ts
+import { strict as assert } from 'assert';
+
+/** A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  if (typeof store !== 'object' || store === null) {
+    throw new Error('Expected an object');
+  }
+
+  const hidden: Record<string, string> = {};
+  for (const key in store) {
+    if (Object.hasOwnProperty.call(store, key)) {
+      hidden["*".repeat(key.length)] = secretToMaskedString(store[key]);
+    }
+  }
+  return hidden;
+}
+
+function secretToMaskedString(secret: string): string {
+  let starCount = 0;
+  const maskedSecret: string[] = [];
+  for (const char of secret) {
+    if (char === '\0') {
+      break;
+    }
+    maskedSecret.push('*');
+    starCount++;
+  }
+  return maskedSecret.join('');
+}
+
+// Test cases to ensure the function works as expected
+assert.deepStrictEqual(
+  hideValues({
+    'hello': 'world',
+    ' TypeScript': 'is fun',
+  }),
+  {
+    '*'.repeat(5): 'world',
+    '*'.repeat(10): 'is fun',
+  },
+);
+
+assert.deepStrictEqual(hideValues({}), {});
+
+assert.deepStrictEqual(
+  hideValues({
+    null: null,
+    undefined: undefined,
+    true: true,
+    false: false,
+    0: 0,
+    -1: -1,
+    NaN: NaN,
+    '': '',
+  }),
+  {
+    '*'.repeat(8): null,
+    '*'.repeat(13): undefined,
+    '*'.repeat(5): true,
+    '*'.repeat(6): false,
+    '*'.repeat(2): 0,
+    '*'.repeat(4): -1,
+    '*'.repeat(9): NaN,
+    '*'.repeat(0): '',
+  },
+);
+
+// Additional test case to check if the function works with edge cases
+assert.deepStrictEqual(
+  hideValues({
+    'one': 'two',
+    'three': 'four',
+    'five': 'six',
+  }),
+  {
+    '*'.repeat(3): 'two',
+    '*'.repeat(4): 'four',
+    '*'.repeat(5): 'six',
+  },
+);
+
+console.log('All tests passed!');
+```

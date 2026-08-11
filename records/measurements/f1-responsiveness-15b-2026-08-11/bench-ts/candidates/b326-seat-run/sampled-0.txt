@@ -1,0 +1,19 @@
+```ts
+function seatRun(row: string, party: number): number {
+  if (party <= 0) {
+    throw new Error("Party size must be positive");
+  }
+
+  const freeSeats = row.split('.').filter(seat => seat === '.');
+  let earliestFreeSeatIndex = -1;
+
+  for (let i = 0; i < freeSeats.length; i++) {
+    if (freeSeats[i].length >= party) {
+      earliestFreeSeatIndex = i;
+      break;
+    }
+  }
+
+  return earliestFreeSeatIndex;
+}
+```

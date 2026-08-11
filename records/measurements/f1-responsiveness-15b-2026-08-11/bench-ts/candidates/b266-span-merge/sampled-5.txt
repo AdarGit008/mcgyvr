@@ -1,0 +1,26 @@
+```ts
+function spanMerge(spans: number[][]): number[][] {
+  // Sort the spans by their start times
+  const sortedSpans = spans.sort((a, b) => a[0] - b[0]);
+
+  let mergedSpans: number[][] = [];
+
+  for (let i = 0; i < sortedSpans.length; i++) {
+    if (mergedSpans.length === 0 || !doesSpanOverlap(mergedSpans[mergedSpans.length - 1], sortedSpans[i])) {
+      // If no overlap or the previous span does not end before this one starts
+      mergedSpans.push(sortedSpans[i]);
+    } else {
+      // Merge overlapping spans
+      const lastSpan = mergedSpans.pop()!;
+      const newSpan: number[] = [Math.min(lastSpan[0], sortedSpans[i][0]), Math.max(lastSpan[1], sortedSpans[i][1])];
+      mergedSpans.push(newSpan);
+    }
+  }
+
+  return mergedSpans;
+}
+
+function doesSpanOverlap(span1: number[], span2: number[]): boolean {
+  return span1[0] <= span2[1] && span2[0] <= span1[1];
+}
+```

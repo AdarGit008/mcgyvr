@@ -1,0 +1,21 @@
+```ts
+export function stepBack(moves: string): number {
+  if (typeof moves !== 'string') {
+    throw Error('moves must be a string');
+  }
+
+  let currentPosition = 0;
+  let maxForwardPosition = 0;
+
+  for (const move of moves) {
+    if (move === 'F') {
+      currentPosition++;
+      maxForwardPosition = Math.max(maxForwardPosition, currentPosition);
+    } else if (move === 'B') {
+      currentPosition--;
+    }
+  }
+
+  return maxForwardPosition;
+}
+```

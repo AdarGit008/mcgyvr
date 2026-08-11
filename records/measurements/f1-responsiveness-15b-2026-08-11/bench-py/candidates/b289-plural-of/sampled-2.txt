@@ -1,0 +1,27 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    A noun ending in s, x, ch or sh takes es.
+    A noun ending in y after a consonant loses the y and takes ies instead.
+    Every other noun simply takes s.
+    """
+    if len(noun) == 0:
+        raise ValueError("Input cannot be empty")
+    if len(noun) == 1:
+        raise ValueError("Input must be at least two characters long")
+
+    suffixes = {
+        's': 'es',
+        'x': 'xes',
+        'ch': 'ches',
+        'sh': 'shes',
+        'y': lambda: noun[:-2] + 'ies' if noun[-1].isalpha() else noun + 'ies'
+    }
+
+    if suffixes.get(noun[-1]):
+        return noun + suffixes[noun[-1]]()
+    else:
+        return noun + 's'
+```

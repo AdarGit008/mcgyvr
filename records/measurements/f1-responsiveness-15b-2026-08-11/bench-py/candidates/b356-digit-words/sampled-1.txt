@@ -1,0 +1,20 @@
+```python
+def digit_word(digit: int) -> str:
+    """Returns a single English word for the given digit."""
+    return {
+        0: "zero",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine"
+    }.get(digit, "")
+
+def digit_words(digits: str) -> str:
+    """Returns a string of English words for every digit in the given run."""
+    return ' '.join(digit_word(int(d)) for d in digits)
+```

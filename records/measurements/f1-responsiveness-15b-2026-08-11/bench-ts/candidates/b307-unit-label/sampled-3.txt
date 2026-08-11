@@ -1,0 +1,17 @@
+```ts
+export function shortUnit(unit: string): string {
+  return unit.slice(0, 3);
+}
+
+/** An amount written with its unit. */
+export function labelOf(amount: number, unit: string): string {
+  if (amount < 0) {
+    throw new Error("amount cannot be negative");
+  }
+
+  // Check if the plural is irregular by looking at the second letter
+  const irregularPlural = unit.endsWith('s') && !['a', 'o', 'e'].includes(unit[1]);
+
+  return String(amount) + " " + (irregularPlural ? unit : unit + 's');
+}
+```

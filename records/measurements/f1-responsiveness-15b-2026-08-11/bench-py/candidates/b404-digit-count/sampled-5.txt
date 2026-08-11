@@ -1,0 +1,23 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Count the number of digits in a whole number.
+
+    Parameters:
+    - value (int): The integer whose digits are to be counted.
+
+    Returns:
+    - int: The total count of digits in the input number.
+    """
+    if value == 0:
+        return 1
+    elif value < 0:
+        value = -value  # Remove the minus sign if present
+
+    digit_count = 0
+    while value > 0:
+        digit_count += 1
+        value //= 10
+
+    return digit_count
+```

@@ -1,0 +1,27 @@
+```python
+def run_decode(coded: str) -> str:
+    if not coded:  # If the input string is empty, return an empty string
+        return ""
+
+    decoded = ""
+    i = 0
+    while i < len(coded):
+        letter = coded[i]
+        count_str = ""
+        
+        # Find the end of the current character or number
+        while i < len(coded) and coded[i].isdigit():
+            count_str += coded[i]
+            i += 1
+        
+        if not count_str:
+            decoded += letter  # If there's no count, just add the letter as is
+        else:
+            count = int(count_str)
+            
+            # Add the letter repeated 'count' times to the output
+            for _ in range(count):
+                decoded += letter
+
+    return decoded
+```

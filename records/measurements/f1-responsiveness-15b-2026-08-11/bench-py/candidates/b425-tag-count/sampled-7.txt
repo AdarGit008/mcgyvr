@@ -1,0 +1,22 @@
+```python
+def tag_count(line: str) -> int:
+    """Return how many markers a line holds."""
+    if not line or any(char != '<' and char != '>' for char in line):
+        raise ValueError("Invalid input format")
+    
+    marker_count = 0
+    depth = 0
+    
+    for char in line:
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            depth -= 1
+            
+            if depth < 0:
+                raise ValueError(f"Unmatched closing bracket found: {line}")
+            
+            marker_count += depth == 0
+    
+    return marker_count
+```

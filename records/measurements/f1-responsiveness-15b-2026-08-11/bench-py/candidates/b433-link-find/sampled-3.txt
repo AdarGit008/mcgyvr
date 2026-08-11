@@ -1,0 +1,21 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    if line is None or opens is None or closes is None:
+        raise ValueError("Arguments cannot be None")
+    
+    result = []
+    depth = 0
+    
+    for i in range(len(line)):
+        if line[i] == opens:
+            depth += 1
+            if depth > 1:
+                continue
+        elif line[i] == closes:
+            depth -= 1
+        
+        if depth == 0:
+            result.append(line[i:])
+    
+    return result
+```

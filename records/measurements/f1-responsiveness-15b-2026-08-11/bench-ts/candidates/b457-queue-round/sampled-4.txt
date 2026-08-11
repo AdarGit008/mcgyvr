@@ -1,0 +1,26 @@
+```typescript
+export function servedBy(queue: string[], turn: number): string {
+  if (queue.length === 0) {
+    throw new Error("a queue needs somebody in it");
+  }
+  return queue[turn % queue.length];
+}
+
+/**
+ * Who is served on each turn, the queue coming round again.
+ * 
+ * @param queue - The sequence of people waiting to be served.
+ * @param turns - The number of rounds to simulate for.
+ * @returns An array containing the names of the people served on each turn, starting from turn 0.
+ */
+export function queueRound(queue: string[], turns: number): string[] {
+  const served: string[] = [];
+  if (queue.length === 0) return served;
+
+  for (let i = 0; i < turns && i < queue.length; i += 1) {
+    served.push(servedBy(queue, i));
+  }
+
+  return served;
+}
+```

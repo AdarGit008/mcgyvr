@@ -1,0 +1,24 @@
+```ts
+function runDecode(coded: string): string {
+  if (typeof coded !== 'string') throw new Error('Input must be a string');
+  if (!coded) return '';
+
+  let decoded = '';
+  let currentCharacter = '';
+  let count = 0;
+
+  for (const char of coded) {
+    if (char >= '0' && char <= '9') {
+      // Count part
+      count = parseInt(char, 10);
+    } else {
+      // Letter part
+      currentCharacter = char;
+      decoded += currentCharacter.repeat(count);
+      count = 0; // Reset count for the next character
+    }
+  }
+
+  return decoded;
+}
+```

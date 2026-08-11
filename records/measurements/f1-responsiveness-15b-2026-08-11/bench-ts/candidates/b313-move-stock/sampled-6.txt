@@ -1,0 +1,11 @@
+```ts
+function moveStock(opening: number, moves: number[]): number {
+    for (const move of moves) {
+        opening += move;
+        if (opening < 0) {
+            opening = 0;
+        }
+    }
+    return opening;
+}
+```

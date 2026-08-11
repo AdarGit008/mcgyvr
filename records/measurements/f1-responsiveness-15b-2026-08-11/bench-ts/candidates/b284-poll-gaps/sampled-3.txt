@@ -1,0 +1,14 @@
+```ts
+export function pollGaps(minutes: number[]): number[] {
+  if (minutes.length < 2) return [];
+
+  const sortedMinutes = minutes.sort((a, b) => a - b);
+  const gaps = [];
+
+  for (let i = 1; i < sortedMinutes.length; i++) {
+    gaps.push(sortedMinutes[i] - sortedMinutes[i - 1]);
+  }
+
+  return gaps;
+}
+```

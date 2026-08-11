@@ -1,0 +1,19 @@
+```python
+def swap_keys(names: dict) -> dict:
+    # Extract codes from the names dictionary
+    codes = set(names.values())
+    
+    # Sort codes to get the correct order for names sharing the same code
+    sorted_codes = sorted(codes)
+    
+    # Create a new dictionary mapping each code back to the names that share it
+    swapped_names = {code: [] for code in codes}
+    
+    # Loop through the sorted list of codes and map names accordingly
+    for code in sorted_codes:
+        for name, n_code in names.items():
+            if n_code == code:
+                swapped_names[code].append(name)
+    
+    return swapped_names
+```

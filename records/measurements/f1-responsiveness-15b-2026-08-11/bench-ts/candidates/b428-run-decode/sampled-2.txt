@@ -1,0 +1,31 @@
+```ts
+// noinspection TsLintRule violation
+export function runDecode(coded: string): string {
+  const decodeMap = new Map<string, string>([
+    ['A', 'AAA'],
+    ['B', 'BBB'],
+    // Add more mappings as needed for other letters
+  ]);
+
+  let decodedText = '';
+
+  for (let i = 0; i < coded.length; i++) {
+    const letter = coded[i];
+    const countStr = '';
+
+    while (i + 1 < coded.length && !isNaN(parseInt(coded[i + 1], 10))) {
+      countStr += coded[i + 1];
+      i++;
+    }
+
+    if (countStr === '') {
+      decodedText += decodeMap.get(letter) || letter;
+    } else {
+      const count = parseInt(countStr, 10);
+      decodedText += decodeMap.get(letter).repeat(count);
+    }
+  }
+
+  return decodedText;
+}
+```

@@ -1,0 +1,43 @@
+```ts
+export function digitWord(digit: number): string {
+  switch (digit) {
+    case 0:
+      return "zero";
+    case 1:
+      return "one";
+    case 2:
+      return "two";
+    case 3:
+      return "three";
+    case 4:
+      return "four";
+    case 5:
+      return "five";
+    case 6:
+      return "six";
+    case 7:
+      return "seven";
+    case 8:
+      return "eight";
+    case 9:
+      return "nine";
+    default:
+      throw new Error("Invalid digit");
+  }
+}
+
+export function digitWords(digits: string): string {
+  if (!/^\d+$/.test(digits)) {
+    throw new Error("Input must be a non-negative integer");
+  }
+
+  let result = "";
+
+  for (let i = 0; i < digits.length; i++) {
+    const digit = parseInt(digits[i], 10);
+    result += digitWord(digit) + " ";
+  }
+
+  return result.trimEnd();
+}
+```

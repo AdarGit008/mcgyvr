@@ -1,0 +1,18 @@
+```ts
+function liveCount(neighbours: boolean[]): number {
+  if (neighbours.length !== 8) throw new Error('Invalid number of neighbours');
+
+  let aliveNeighbours = 0;
+  for (let i = 0; i < neighbours.length; i++) {
+    if (neighbours[i]) aliveNeighbours++;
+  }
+  return aliveNeighbours;
+}
+
+function liveNext(alive: boolean, neighbours: boolean[]): boolean {
+  if (neighbours.length !== 8) throw new Error('Invalid number of neighbours');
+
+  let aliveNeighbours = liveCount(neighbours);
+  return alive ? aliveNeighbours === 2 || aliveNeighbours === 3 : aliveNeighbours === 3;
+}
+```

@@ -1,0 +1,32 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Returns how many digits are in the given integer.
+    
+    Examples:
+    >>> digit_count(0)
+    1
+    >>> digit_count(987654321)
+    10
+    >>> digit_count(-98)
+    2
+    >>> digit_count(0.1)
+    1
+    """
+    if value == 0:
+        return 1
+    
+    count = 0
+    
+    is_negative = value < 0
+    value = abs(value)
+    
+    while value > 0:
+        value //= 10
+        count += 1
+    
+    if is_negative:
+        count -= 1
+    
+    return count
+```

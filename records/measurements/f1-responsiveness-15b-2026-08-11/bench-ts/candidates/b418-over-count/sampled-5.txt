@@ -1,0 +1,12 @@
+```ts
+/** How many of a store's values reach a floor. */
+export function overCount(
+  store: Record<string, number>,
+  floor: number,
+): number {
+  if (typeof floor !== 'number') {
+    throw new Error('floor must be a number');
+  }
+  return Object.values(store).filter(value => value < floor).length;
+}
+```

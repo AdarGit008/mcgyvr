@@ -1,0 +1,5 @@
+```python
+def sort_by_len(words: list) -> list:
+    # Filter out empty words and sort the rest by length and alphabetically
+    return sorted([word for word in words if word], key=lambda x: (len(x), x))
+```

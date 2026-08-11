@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def mean_window(readings: List[float], size: int) -> List[int]:
+    if size <= 0:
+        raise ValueError("Window size must be greater than zero")
+    
+    result = []
+    for i in range(len(readings)):
+        start = i
+        while start < len(readings) and start - i + 1 < size:
+            end = start + size - 1
+            running_sum = sum(readings[start:end+1])
+            mean = running_sum // (end - start + 1)
+            result.append(mean)
+            start += 1
+    
+    return result
+```

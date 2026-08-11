@@ -1,0 +1,9 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    try:
+        index = entries.index(marker)
+        return entries[:index], entries[index + 1:]
+    except ValueError:
+        return entries, []
+```
+This solution correctly implements the `split_at` function according to the provided contract. It first attempts to find the index of the marker in the input list. If the marker is found, it splits the list into two parts at that index and returns them. If the marker is not found (which means there were no matches in the list), it simply returns the entire list as the first part and an empty list as the second part.

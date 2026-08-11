@@ -1,0 +1,28 @@
+```ts
+export function rowKey(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+/**
+ * Groups names by their first letter in uppercase and returns an object where each key is
+ * a row key (first letter of the name) and the value is an array of names starting with that key.
+ * An empty list of names results in an empty index.
+ *
+ * @param names Array of strings representing names to be grouped.
+ * @returns An object where keys are row keys and values are arrays of names.
+ */
+export function indexRows(names: string[]): Record<string, string[]> {
+  if (!names || !names.length) return {};
+
+  const rows: Record<string, string[]> = {};
+  for (const name of names) {
+    const firstLetter = rowKey(name);
+    if (!rows[firstLetter]) {
+      rows[firstLetter] = [];
+    }
+    rows[firstLetter].push(name);
+  }
+
+  return rows;
+}
+```

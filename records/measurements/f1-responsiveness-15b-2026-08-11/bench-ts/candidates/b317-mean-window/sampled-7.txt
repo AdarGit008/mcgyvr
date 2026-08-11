@@ -1,0 +1,14 @@
+```ts
+function meanWindow(readings: number[], size: number): number[] {
+  if (size <= 0) {
+    throw new Error('Invalid window size');
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i < readings.length - size + 1; i++) {
+    const sum = readings.slice(i, i + size).reduce((acc, val) => acc + val, 0);
+    result.push(Math.floor(sum / size));
+  }
+  return result;
+}
+```

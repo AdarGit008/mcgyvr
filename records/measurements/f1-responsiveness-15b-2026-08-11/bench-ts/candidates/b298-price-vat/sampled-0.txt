@@ -1,0 +1,12 @@
+```ts
+/**
+ * A net price with a whole-percent tax added, in whole pence.
+ */
+export function grossPrice(net: number, rate: number): number {
+  if (rate === 0) return net;
+
+  const percentRate = rate / 100;
+  const tax = Math.floor(percentRate * net);
+  return net + tax;
+}
+```

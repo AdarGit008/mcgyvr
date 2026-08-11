@@ -1,0 +1,19 @@
+```ts
+export function stepsOn(first: number, count: number): number[] {
+  // Ensure first is less than or equal to count because we're starting from zero
+  if (first > count) return [];
+
+  const sequence = Array.from({ length: count }, (_, i) => first + i);
+  return sequence;
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+  // Ensure first is less than or equal to count because we're starting from zero
+  if (first > count) return;
+
+  for (let i = first; i < count + seen.length; i++) {
+    const num = i;
+    if (!seen.includes(num)) return num;
+  }
+}
+```

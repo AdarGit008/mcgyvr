@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[List[int]]) -> bool:
+    if len(hops) < 2:
+        return True
+    
+    start = hops[0][0]
+    end = hops[0][1]
+    
+    for hop in hops[1:]:
+        if not (hop[0] == end + 1 and hop[1] == end + 2):
+            return False
+        start = hop[1]
+        end = hop[1]
+    
+    return True
+```

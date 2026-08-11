@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def flip_one(pair: List) -> List:
+    if len(pair) != 2:
+        raise ValueError("flip_one expects a list of exactly two elements")
+    return pair[::-1]
+
+def flip_all(pairs: List[List]) -> List[List]:
+    for i in range(len(pairs)):
+        pairs[i] = flip_one(pairs[i])
+    return pairs
+```

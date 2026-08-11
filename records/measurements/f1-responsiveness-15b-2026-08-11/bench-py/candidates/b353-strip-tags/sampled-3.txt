@@ -1,0 +1,16 @@
+```python
+def strip_tags(line: str) -> str:
+    result = []
+    marker_opened = False
+
+    for char in line:
+        if char == '<':
+            marker_opened = True
+        elif char == '>':
+            marker_opened = False
+            continue
+        elif not marker_opened:
+            result.append(char)
+
+    return ''.join(result)
+```

@@ -1,0 +1,26 @@
+ ```ts
+export function stripTags(line: string): string {
+    if (typeof line !== 'string') {
+        throw new Error('Line must be a string');
+    }
+
+    let result = '';
+    let depth = 0;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '<') {
+            depth++;
+        } else if (c === '>') {
+            depth--;
+            if (depth <= 0) {
+                result += line.slice(i + 1);
+                break;
+            }
+        } else if (depth > 0 && !result.endsWith('>') && c !== '"') {
+            result += c;
+        }
+    }
+
+    return result;
+}
+```

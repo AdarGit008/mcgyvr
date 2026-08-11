@@ -1,0 +1,27 @@
+```python
+from typing import List
+
+def hold_queue(callers: List[int], limit: int) -> List[int]:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero.")
+
+    # If limit is 1, only the caller added most recently will stay
+    if limit == 1:
+        return [callers[-1]]
+
+    # Use a heap to keep track of callers along with their last arrival time
+    import heapq
+    heap = []
+    for i, caller in enumerate(callers):
+        # Remove outdated callers first
+        while heap and heap[0][1] < i - limit:
+            heapq.heappop(heap)
+        
+        # Add the new caller to the heap
+        if heap:
+            heapq.heappush(heap, (caller, i))
+        else:
+            heapq.heappush(heap, (caller, i))
+
+    return [heapq.heappop(heap)[0] for _ in range(len(callers))]
+```

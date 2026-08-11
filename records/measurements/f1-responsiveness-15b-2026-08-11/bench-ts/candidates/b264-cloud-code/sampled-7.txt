@@ -1,0 +1,16 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  // Ensure input is a valid object and a string
+  if (typeof table !== 'object' || !table || typeof code !== 'string') {
+    throw Error('Invalid table or code');
+  }
+
+  // Convert the code to uppercase to match keys in the table
+  const upperCaseCode = code.toUpperCase();
+
+  // Get the description from the table
+  const description = table[upperCaseCode] ?? 'unknown';
+
+  return description;
+}
+```

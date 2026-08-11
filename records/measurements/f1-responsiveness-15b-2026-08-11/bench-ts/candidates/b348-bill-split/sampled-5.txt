@@ -1,0 +1,12 @@
+```ts
+export function billSplit(total: number, diners: number): number[] {
+    if (!total || !diners) {
+        throw new Error("Both total and diners must be provided.");
+    }
+
+    const remainder = total % diners;
+    const baseAmount = Math.floor(total / diners);
+
+    return Array.from({ length: diners }, (_, index) => (index === 0 ? baseAmount + remainder : baseAmount));
+}
+```

@@ -1,0 +1,17 @@
+```ts
+export function longWord(sentence: string): string {
+    if (sentence === "") return "";
+    
+    const words = sentence.split(/\s+/);
+    if (words.length === 0) return "";
+    
+    let longestWord = words[0];
+    for (const word of words) {
+        if (word.length > longestWord.length || (word.length === longestWord.length && words.indexOf(word) < words.indexOf(longestWord))) {
+            longestWord = word;
+        }
+    }
+    
+    return longestWord;
+}
+```

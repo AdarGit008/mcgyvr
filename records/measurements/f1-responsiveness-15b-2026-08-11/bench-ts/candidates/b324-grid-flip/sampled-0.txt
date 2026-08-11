@@ -1,0 +1,23 @@
+```ts
+/**
+ * Flips a grid from rows to columns.
+ * Each row is now a column in the new array.
+ *
+ * @param {number[][]} grid - The original grid.
+ * @returns {number[][]} - The flipped grid.
+ */
+export function gridFlip(grid: number[][]): number[][] {
+  if (grid.length === 0) return [];
+
+  const transposedGrid: number[][] = [];
+  for (let colIndex = 0; colIndex < grid[0].length; colIndex++) {
+    let newRow: number[] = [];
+    for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+      newRow.push(grid[rowIndex][colIndex]);
+    }
+    transposedGrid.push(newRow);
+  }
+
+  return transposedGrid;
+}
+```

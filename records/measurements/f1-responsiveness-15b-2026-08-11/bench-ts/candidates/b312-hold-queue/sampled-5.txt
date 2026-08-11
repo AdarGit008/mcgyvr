@@ -1,0 +1,36 @@
+```ts
+
+export function holdQueue(callers: string[], limit: number): string[] {
+    if (limit <= 0) throw new Error("Limit must be positive");
+
+    const result = [...callers]; // Start with a copy of the callers array
+    const sortedCallers = [...result].sort((a, b) => a.localeCompare(b)); // Sort to determine longest wait time
+
+    for (let i = 0; i < limit && i < result.length; i++) {
+        let indexToSwap = -1;
+        let maxWaitIndex = -1;
+
+        // Find the caller with the longest wait time
+        for (let j = 0; j < sortedCallers.length; j++) {
+            if (result[j] !== sortedCallers[j]) {
+                if (indexToSwap === -1 || result[j].localeCompare(sortedCallers[indexToSwap]) > 0) {
+                    indexToSwap = j;
+                    maxWaitIndex = i;
+                }
+            }
+        }
+
+        // Swap the caller with the longest wait time to the end
+        if (indexToSwap !== -1) {
+            const temp = result[i];
+            result[i] = sortedCallers[indexToSwap];
+            sortedCallers[indexToSwap] = temp;
+
+            // Remove the caller from the sorted list
+            sortedCallers.splice(indexToSwap, 1);
+        }
+    }
+
+    return result;
+}
+```

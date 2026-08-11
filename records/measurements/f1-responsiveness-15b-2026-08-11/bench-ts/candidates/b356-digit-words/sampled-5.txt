@@ -1,0 +1,33 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) throw new Error("digit must be between 0 and 9");
+  return {
+    0: "zero",
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+    8: "eight",
+    9: "nine"
+  }[digit];
+}
+
+export function digitWords(digits: string): string {
+  if (typeof digits !== "string") throw new Error("digits must be a string");
+  const words = [];
+  let i = 0;
+  while (i < digits.length) {
+    let numStr = "";
+    while (i < digits.length && digits[i] >= "0" && digits[i] <= "9") {
+      numStr += digits[i];
+      i++;
+    }
+    if (numStr === "") continue;
+    words.push(digitWord(Number(numStr)));
+  }
+  return words.join(" ");
+}
+```

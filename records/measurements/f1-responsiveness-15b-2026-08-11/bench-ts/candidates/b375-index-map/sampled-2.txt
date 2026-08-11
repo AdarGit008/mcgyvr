@@ -1,0 +1,13 @@
+```ts
+export function indexMap(labels: string[]): Record<string, number[]> {
+  const labelIndices: Record<string, number[]> = {};
+  labels.forEach((label, index) => {
+    if (typeof labelIndices[label] !== 'undefined') {
+      labelIndices[label].push(index);
+    } else {
+      labelIndices[label] = [index];
+    }
+  });
+  return labelIndices;
+}
+```

@@ -1,0 +1,34 @@
+```python
+def cap_after(passage: str) -> str:
+    """
+    Capitalizes the first letter of every sentence in a given passage,
+    followed by another sentence at the start and again after any full stop.
+
+    Args:
+        passage (str): The input passage to be processed.
+
+    Returns:
+        str: The modified passage with sentences starting capitalized.
+    """
+    if not passage:
+        return ""
+
+    # Split the passage into sentences
+    sentences = [sentence.strip() for sentence in passage.split('. ')]
+
+    # Capitalize the first letter of each sentence and add a new one at the start
+    result = f"{sentences[0].capitalize()}.\n"
+    for sentence in sentences[1:]:
+        result += f"{sentence.capitalize()}.\n"
+
+    return result.rstrip()
+
+# Example check function to verify correctness
+def check():
+    assert cap_after("") == ""
+    assert cap_after("hello world") == "Hello World.\nHello World.\n"
+    assert cap_after("one two three") == "One Two Three.\nOne Two Three.\n"
+    assert cap_after(". hello .world") == ". Hello .World.\n. Hello .World.\n"
+
+check()
+```

@@ -1,0 +1,12 @@
+```typescript
+export function durHours(minutes: number): number {
+  if (minutes < 0) throw new Error("Minutes cannot be negative");
+  return Math.floor(minutes / 60);
+}
+
+export function durText(minutes: number): string {
+  const hours = durHours(minutes);
+  const minutesRemaining = minutes % 60;
+  return `${hours}h${minutesRemaining}m`;
+}
+```

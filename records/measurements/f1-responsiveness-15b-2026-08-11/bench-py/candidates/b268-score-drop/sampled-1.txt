@@ -1,0 +1,17 @@
+```python
+def score_drop(scores: list) -> int:
+    if len(scores) <= 1:
+        return 0
+    
+    scores = sorted(scores)
+    
+    lowest_score = scores[0]
+    if scores.count(lowest_score) > 1:
+        for i in range(2):
+            low_index = scores.index(lowest_score, i)
+            scores.pop(low_index)
+            if len(scores) <= 1:
+                return 0
+    
+    return sum(scores)
+```

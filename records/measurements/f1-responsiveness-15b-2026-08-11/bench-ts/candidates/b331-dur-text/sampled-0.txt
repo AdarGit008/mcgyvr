@@ -1,0 +1,24 @@
+```ts
+/**
+ * Calculates and returns the number of whole hours from a given count of minutes.
+ *
+ * @param minutes - The total number of minutes to convert into hours.
+ * @returns The number of whole hours in the input time period.
+ */
+export function durHours(minutes: number): number {
+  if (minutes < 0) throw new Error('Input cannot be negative.');
+  return Math.floor(minutes / 60);
+}
+
+/**
+ * Converts a count of minutes into its equivalent as hours and minutes, formatted as 'hh:mm'.
+ *
+ * @param minutes - The total number of minutes to convert.
+ * @returns A string representing the time in 'hh:mm' format.
+ */
+export function durText(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`;
+}
+```

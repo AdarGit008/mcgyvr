@@ -1,0 +1,22 @@
+```ts
+function trimTo(line: string, limit: number): string {
+  if (limit < 4) {
+    throw new Error("Limit must be at least 4 characters");
+  }
+
+  const words = line.split(' ');
+  let trimmedLine = '';
+
+  for (let i = 0; i < words.length && trimmedLine.length + words[i].length <= limit - 3; i++) {
+    trimmedLine += words[i] + ' ';
+  }
+
+  if (trimmedLine.length + 2 > limit) {
+    trimmedLine = trimmedLine.slice(0, limit - 3) + '...';
+  } else {
+    trimmedLine = trimmedLine.trimEnd();
+  }
+
+  return trimmedLine;
+}
+```

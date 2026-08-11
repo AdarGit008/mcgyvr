@@ -1,0 +1,20 @@
+```ts
+
+export function crumbSplit(trail: string): string[] {
+  if (typeof trail !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+  
+  const segments = trail.split('/');
+  return segments.filter(segment => segment.trim() !== '');
+}
+
+export function crumbJoin(parts: string[]): string {
+  if (!Array.isArray(parts)) {
+    throw new Error('Input must be an array.');
+  }
+  
+  const filteredParts = parts.filter(part => part.trim() !== '');
+  return filteredParts.join('/');
+}
+```

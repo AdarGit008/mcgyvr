@@ -1,0 +1,33 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function stepBack(moves: string): number {
+  let position = 0;
+
+  for (const move of moves) {
+    if (move === 'F') {
+      position++;
+    } else if (move === 'B') {
+      position--;
+    }
+  }
+
+  return position;
+}
+
+// Check function to verify the correctness of the stepBack function
+function checkStepBack() {
+  assert.equal(stepBack(""), 0, "Empty string should return 0");
+  assert.equal(stepBack("F"), 1, "Single forward move should return 1");
+  assert.equal(stepBack("B"), -1, "Single backward move should return -1");
+  assert.equal(stepBack("FF"), 2, "Two forward moves should return 2");
+  assert.equal(stepBack("BB"), -2, "Two backward moves should return -2");
+  assert.equal(stepBack("FB"), 0, "Mixed forward and backward moves should return 0");
+  assert.equal(stepBack("FBBBFFB"), 7, "Multiple forward and backward moves should return 7");
+  assert.equal(stepBack("BBBBBBBBBBBBBBBBBBBBB"), -14, "Long backward sequence should return -14");
+  console.log("All tests passed!");
+}
+
+// Run the check function to verify the solution
+checkStepBack();
+```

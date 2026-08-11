@@ -1,0 +1,26 @@
+```ts
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  if (typeof line !== 'string' || typeof opens !== 'string' || typeof closes !== 'string') {
+    throw Error('All parameters must be strings');
+  }
+
+  const stack: string[] = [];
+  const matches: string[] = [];
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === opens) {
+      stack.push(char);
+    } else if (char === closes) {
+      if (stack.length === 0) {
+        throw Error(`Unmatched closing marker '${closes}' at index ${i}`);
+      }
+      matches.push(line.substring(i - stack.length, i + 1));
+      stack.pop();
+    }
+  }
+
+  return matches;
+}
+```

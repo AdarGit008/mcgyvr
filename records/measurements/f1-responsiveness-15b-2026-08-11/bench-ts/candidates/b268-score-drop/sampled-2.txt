@@ -1,0 +1,15 @@
+```ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length < 2) return 0;
+
+  const lowest = Math.min(...scores);
+  let count = 1;
+
+  for (let i = 0; i < scores.length; i++) {
+    if (scores[i] === lowest) continue;
+    scores[count++] = scores[i];
+  }
+
+  return count > 0 ? scores.slice(0, count).reduce((a, b) => a + b, 0) : 0;
+}
+```

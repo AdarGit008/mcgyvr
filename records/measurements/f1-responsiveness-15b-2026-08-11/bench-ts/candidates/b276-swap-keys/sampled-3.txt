@@ -1,0 +1,15 @@
+```ts
+
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+  const reversedNames = Object.fromEntries(
+    Object.entries(names).sort(([_, code1], [_, code2]) => code1.localeCompare(code2))
+  );
+
+  return Object.keys(reversedNames).reduce((acc, key) => {
+    if (reversedNames[key]) {
+      acc[reversedNames[key]] = key;
+    }
+    return acc;
+  }, {});
+}
+```

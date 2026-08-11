@@ -1,0 +1,11 @@
+```python
+from typing import *
+from collections import *
+
+def cross_up(readings: List[int], level: int) -> int:
+    up_count = 0
+    for i in range(1, len(readings)):
+        if readings[i] > level and (i == 0 or readings[i - 1] <= level):
+            up_count += 1
+    return up_count
+```

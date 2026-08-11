@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def warm_up(readings: List[int], floor: int) -> List[int]:
+    if not readings:
+        return []
+
+    warm_up_start = 0
+    for i in range(len(readings)):
+        if readings[i] >= floor:
+            warm_up_end = i + 1
+            break
+
+    return readings[warm_up_end:]
+```

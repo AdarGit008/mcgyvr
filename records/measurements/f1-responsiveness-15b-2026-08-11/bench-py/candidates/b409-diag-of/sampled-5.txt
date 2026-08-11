@@ -1,0 +1,24 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    if len(grid) == 0 or len(grid[0]) == 0:
+        raise ValueError("Grid cannot be empty.")
+    
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[0]):
+        return None
+    
+    return grid[row][column]
+
+
+def diag_of(grid: list) -> list:
+    if len(grid) == 0 or len(grid[0]) == 0:
+        raise ValueError("Grid cannot be empty.")
+    
+    rows = len(grid)
+    cols = len(grid[0])
+    diagonal = []
+    
+    for i in range(min(rows, cols)):
+        diagonal.append(grid[i][i])
+    
+    return diagonal
+```

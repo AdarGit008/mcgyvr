@@ -1,0 +1,20 @@
+```ts
+export function shortNum(value: number): string {
+  if (typeof value !== 'number' || !isFinite(value)) {
+    throw new Error('Input must be a finite number');
+  }
+
+  const units = ['', 'k', 'm'];
+  let num = Math.abs(value);
+
+  if (num < 10) {
+    return num.toString();
+  } else if (num >= 10 && num < 1000) {
+    return num.toString();
+  } else if (num >= 1000) {
+    const index = Math.floor(Math.log(num) / Math.log(1000));
+    const truncatedValue = Math.floor(num / Math.pow(1000, index)) * Math.pow(1000, index);
+    return `${truncatedValue.toFixed(1)}${units[index]}`;
+  }
+}
+```

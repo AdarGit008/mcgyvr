@@ -1,0 +1,12 @@
+```python
+from typing import List, Dict
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Leg distance must be greater than zero.")
+    return seconds // kilometres
+
+
+def pace_list(legs: List[Dict[str, float]]) -> list:
+    return [pace_of(leg['seconds'], leg['distance']) for leg in legs]
+```

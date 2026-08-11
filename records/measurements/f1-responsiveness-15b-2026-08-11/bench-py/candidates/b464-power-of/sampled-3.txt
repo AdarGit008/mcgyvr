@@ -1,0 +1,13 @@
+```python
+def power_of(base: int, power: int) -> int:
+
+    if base < 1:
+        raise ValueError("Base must be greater than or equal to 1")
+
+    result = 1
+
+    for _ in range(power):
+        result *= base
+
+    return result
+```

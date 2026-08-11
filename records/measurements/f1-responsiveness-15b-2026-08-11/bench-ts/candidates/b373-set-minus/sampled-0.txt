@@ -1,0 +1,8 @@
+```ts
+function setMinus(entries: string[], remove: string[]): string[] {
+    const result: Set<string> = new Set(remove);
+    return entries.filter(entry => !result.has(entry));
+}
+```
+
+This solution uses a `Set` for efficient lookup, ensuring that duplicates are removed and the order of elements is maintained. The `filter` method is used to select entries from the `entries` array that are not present in the `remove` set.

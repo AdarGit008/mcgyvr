@@ -1,0 +1,23 @@
+```ts
+export function crateFill(items: number, crates: number): number[] {
+    if (crates === 0) return [];
+
+    const perCrane = Math.floor(items / crates);
+    const remainder = items % crates;
+
+    const result = Array.from({ length: crates }, (_, i) => {
+        const currentPerCrane = perCrane + (i < remainder ? 1 : 0);
+        return currentPerCrane;
+    });
+
+    return result;
+}
+
+export function crateTotal(sizes: number[]): number {
+    let total = 0;
+    for (const size of sizes) {
+        total += size;
+    }
+    return total;
+}
+```

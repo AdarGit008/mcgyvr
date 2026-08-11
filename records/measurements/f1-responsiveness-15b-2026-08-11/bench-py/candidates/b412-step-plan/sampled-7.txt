@@ -1,0 +1,23 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    if start == end:
+        return False
+    for move in allowed:
+        if move[0] == start and move[1] == end:
+            return True
+    return False
+
+
+def step_plan(states: list, allowed: list) -> int:
+    if not states:
+        raise ValueError("No states provided")
+    
+    current_state = states[0]
+    for i in range(1, len(states)):
+        next_state = states[i]
+        if not step_allowed(current_state, next_state, allowed):
+            return i - 1
+        current_state = next_state
+    
+    return -1
+```

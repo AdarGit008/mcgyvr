@@ -1,0 +1,15 @@
+```ts
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+    const reversedNames: Record<number, string> = {};
+    let sortedCodes: Array<[number, string]> = Object.entries(names)
+        .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+
+    for (const [code, name] of sortedCodes) {
+        if (name !== "") {
+            reversedNames[code as number] = name;
+        }
+    }
+
+    return reversedNames;
+}
+```

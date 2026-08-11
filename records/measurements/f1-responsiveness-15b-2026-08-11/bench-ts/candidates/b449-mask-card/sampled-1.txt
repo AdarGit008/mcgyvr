@@ -1,0 +1,9 @@
+```ts
+export function lastFour(number: string): string {
+  return number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  return number.replace(/./g, '*');
+}
+```

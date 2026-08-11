@@ -1,0 +1,26 @@
+```ts
+export function fieldOf(record: Record<string, number>, field: string): number {
+  if (!record || typeof record !== 'object' || !field || typeof field !== 'string') {
+    throw new Error('Invalid input');
+  }
+  return record[field];
+}
+
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[] {
+  if (!records || records.length === 0) {
+    return [];
+  }
+
+  const sortedRecords = [...records].sort((a, b) => {
+    if (a[field] < b[field]) {
+      return -1;
+    } else if (a[field] > b[field]) {
+      return 1;
+    }
+    // If the fields are equal, maintain the original order
+    return records.indexOf(a) - records.indexOf(b);
+  });
+
+  return sortedRecords;
+}
+```

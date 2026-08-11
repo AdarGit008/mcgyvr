@@ -1,0 +1,22 @@
+```typescript
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+    if (grid.length === 0 || grid[0].length === 0) return false;
+
+    for (let i = 0; i < grid.length; i++) {
+        if (grid[i][column] === value) return true;
+    }
+
+    return false;
+}
+
+export function gridFind(grid: number[][], value: number): number[] {
+    if (grid.length === 0 || grid[0].length === 0) throw new Error("Grid is empty");
+
+    for (let i = 0; i < grid.length; i++) {
+        let foundIndex = grid[i].indexOf(value);
+        if (foundIndex !== -1) return [i, foundIndex];
+    }
+
+    throw new Error(`Value ${value} not found in the grid`);
+}
+```

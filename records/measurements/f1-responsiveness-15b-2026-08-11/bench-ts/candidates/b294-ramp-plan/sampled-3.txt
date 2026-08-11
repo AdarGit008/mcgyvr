@@ -1,0 +1,19 @@
+```ts
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) {
+    throw new Error('Step must be non-zero for rampStep');
+  }
+  const direction = current < target ? 1 : -1;
+  return Math.min(target, Math.max(current + direction * step, target));
+}
+
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0) {
+    throw new Error('Step must be non-zero for rampPlan');
+  }
+  const direction = start < target ? 1 : -1;
+  return Array.from({ length: Math.ceil(Math.abs(target - start) / step) }, (_, i) => 
+    Math.min(target, target + step * (i * direction))
+  );
+}
+```

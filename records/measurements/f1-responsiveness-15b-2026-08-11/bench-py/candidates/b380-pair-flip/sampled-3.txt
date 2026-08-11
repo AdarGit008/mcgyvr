@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def flip_one(pair: List) -> List:
+    if len(pair) != 2:
+        raise ValueError("flip_one expects a pair with exactly two members.")
+    return [pair[1], pair[0]]
+
+def flip_all(pairs: List[List]) -> List[List]:
+    return [flip_one(pair) for pair in pairs]
+```

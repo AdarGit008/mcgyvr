@@ -1,0 +1,16 @@
+```ts
+/** How many of each coin to hand back, largest coin first. */
+export function tillFloat(amount: number, coins: number[]): number[] {
+  const counts: number[] = [];
+  let left = amount;
+  for (let i = coins.length - 1; i >= 0; i--) {
+    if (left >= coins[i]) {
+      counts.push(1);
+      left -= coins[i];
+    } else {
+      counts.push(0);
+    }
+  }
+  return counts;
+}
+```

@@ -1,0 +1,23 @@
+```ts
+export function hueBand(degrees: number): string {
+  if (degrees === null || degrees === undefined) {
+    throw new Error('Input cannot be null or undefined');
+  }
+
+  degrees = degrees % 360; // Wrap around the circle
+
+  const bands = {
+    red: [0, 59],
+    green: [60, 179],
+    blue: [180, 269]
+  };
+
+  for (const band in bands) {
+    if (degrees >= bands[band][0] && degrees < bands[band][1]) {
+      return band;
+    }
+  }
+
+  throw new Error('Input is out of valid hue range');
+}
+```

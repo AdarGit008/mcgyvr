@@ -1,0 +1,17 @@
+```typescript
+export function longWord(sentence: string): string {
+  if (typeof sentence !== 'string') throw new Error('Input must be a string');
+  
+  const words = sentence.split(/\s+/);
+  
+  let longestWord = '';
+  
+  for (const word of words) {
+    if (word.length > longestWord.length) {
+      longestWord = word;
+    }
+  }
+  
+  return longestWord;
+}
+```

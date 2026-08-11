@@ -1,0 +1,25 @@
+```typescript
+
+import { PriorityQueue } from 'prioqueue';
+
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error('Limit must be greater than zero');
+  }
+
+  const queue = new PriorityQueue((a, b) => a.length - b.length);
+
+  for (const caller of callers) {
+    if (queue.size() < limit) {
+      queue.push(caller);
+    } else {
+      const longestCaller = queue.dequeue();
+      if (longestCaller !== undefined) {
+        queue.enqueue(caller);
+      }
+    }
+  }
+
+  return queue.toArray().map(item => item.value);
+}
+```

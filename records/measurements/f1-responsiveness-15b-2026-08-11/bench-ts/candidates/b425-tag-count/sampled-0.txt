@@ -1,0 +1,17 @@
+```ts
+export function tagCount(line: string): number {
+  let count = 0;
+  let inMarker = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '<') {
+      inMarker = true;
+    } else if (inMarker && line[i] === '>') {
+      count++;
+      inMarker = false;
+    }
+  }
+
+  return count;
+}
+```

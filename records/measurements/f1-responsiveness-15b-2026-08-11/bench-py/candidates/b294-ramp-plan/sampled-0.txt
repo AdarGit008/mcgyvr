@@ -1,0 +1,21 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step == 0:
+        raise ValueError("Step cannot be zero when start is not already at the target")
+    if current > target:
+        return max(0, current - step)
+    else:
+        return min(target, current + step)
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    plan = []
+    while True:
+        next_value = ramp_step(start, target, step)
+        if next_value == target and start != target:
+            continue
+        plan.append(next_value)
+        if next_value >= target:
+            break
+        start = next_value
+    return plan
+```

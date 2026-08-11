@@ -1,0 +1,14 @@
+```python
+def digit_count(value: int) -> int:
+    if value < 0:
+        return digit_count(-value)
+    elif value == 0:
+        return 1  # Edge case: zero is written with one digit
+    else:
+        # Count the number of digits in the absolute value of the number
+        count = 0
+        while value > 0:
+            value //= 10
+            count += 1
+        return count
+```

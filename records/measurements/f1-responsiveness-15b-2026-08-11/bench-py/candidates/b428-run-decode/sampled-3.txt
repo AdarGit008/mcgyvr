@@ -1,0 +1,33 @@
+```python
+
+def run_decode(coded: str) -> str:
+    """
+    Decode a string where each letter is followed by its count (optional),
+    and return the decoded letters in full.
+
+    Examples:
+    >>> run_decode("A3B1")
+    'AAAB'
+    >>> run_decode("")
+    ''
+    >>> run_decode("D2E4")
+    'DDDEEE'
+    """
+    result = ""
+    i = 0
+    while i < len(coded):
+        letter = coded[i]
+        if i + 1 < len(coded) and coded[i+1].isdigit():
+            count_str = ""
+            while i + 1 < len(coded) and coded[i+1].isdigit():
+                count_str += coded[i+1]
+                i += 1
+            count = int(count_str)
+        else:
+            count = 1
+
+        result += letter * count
+        i += count
+
+    return result
+```

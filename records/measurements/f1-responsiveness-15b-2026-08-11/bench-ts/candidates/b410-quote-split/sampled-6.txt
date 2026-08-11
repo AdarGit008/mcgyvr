@@ -1,0 +1,49 @@
+```ts
+// This TypeScript function implements the inQuote and quoteSplit functions as specified.
+
+/**
+ * Determines whether a character is a quotation mark.
+ * 
+ * @param ch The character to check.
+ * @returns true if the character is a quotation mark, false otherwise.
+ */
+export function inQuote(ch: string): boolean {
+  return ch === '"' || ch === "'";
+}
+
+/**
+ * Splits a line on commas, except for a comma standing inside quotation marks.
+ * Returns the pieces with their quotation marks still in place.
+ * 
+ * @param line The line to split.
+ * @returns An array of strings, each representing a piece of the original line.
+ */
+export function quoteSplit(line: string): string[] {
+  let result: string[] = [];
+  let inQuote = false;
+  let currentString = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      inQuote = !inQuote;
+      currentString += inQuote ? '\"' : '"';
+    } else if (inQuote) {
+      currentString += ch;
+    } else if (ch === ',' && !inQuote) {
+      result.push(currentString);
+      currentString = '';
+    } else {
+      currentString += ch;
+    }
+  }
+
+  // Add the last piece if it wasn't closed in a quote
+  if (currentString) {
+    result.push(currentString);
+  }
+
+  return result;
+}
+```

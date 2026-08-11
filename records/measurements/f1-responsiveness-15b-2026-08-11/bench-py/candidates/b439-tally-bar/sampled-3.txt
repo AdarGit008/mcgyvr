@@ -1,0 +1,11 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count == 0:
+        return "" * width + ">"
+    elif count < 0:
+        raise ValueError("Count cannot be negative")
+    
+    full_hashes = min(width, count)
+    truncated_hashes = max(0, count - full_hashes)
+    return "#" * full_hashes + ">" + "#" * truncated_hashes
+```

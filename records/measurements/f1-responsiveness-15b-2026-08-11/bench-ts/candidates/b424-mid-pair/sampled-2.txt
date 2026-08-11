@@ -1,0 +1,14 @@
+```ts
+function midPair(values: number[]): number[] {
+    if (values.length === 0) return [null, null];
+
+    values.sort((a, b) => a - b);
+    const middleIndex = Math.floor(values.length / 2);
+
+    if (values.length % 2 === 1) {
+        return [values[middleIndex], values[middleIndex]];
+    } else {
+        return [values[middleIndex - 1], values[middleIndex]];
+    }
+}
+```

@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def cell_count(grid: List[List[int]], value: int) -> int:
+    if len(grid) == 0 or all(len(row) == 0 for row in grid):
+        return 0
+    
+    return sum(row.count(value) for row in grid)
+```

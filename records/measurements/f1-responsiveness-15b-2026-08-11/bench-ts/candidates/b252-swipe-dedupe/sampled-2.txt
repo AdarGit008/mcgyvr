@@ -1,0 +1,17 @@
+```ts
+function swipeDedupe(swipes: string[]): string[] {
+  if (!swipes || swipes.length === 0) return []; // Handle empty or null input
+
+  const dedupedSwipes: Set<string> = new Set();
+  let currentSwipe: string | undefined;
+
+  for (const swipe of swipes) {
+    if (!currentSwipe || swipe !== currentSwipe) {
+      dedupedSwipes.add(swipe);
+      currentSwipe = swipe;
+    }
+  }
+
+  return Array.from(dedupedSwipes);
+}
+```

@@ -1,0 +1,15 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    
+    total = fixed + (amount * percent // 100)
+    return min(int(total), amount)
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    if any(amount <= 0 for amount in amounts):
+        raise ValueError("All amounts must be positive")
+    
+    rates = [step_rate(amount, fixed, percent) for amount in amounts]
+    return rates
+```

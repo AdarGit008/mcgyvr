@@ -1,0 +1,14 @@
+```ts
+export function liveCount(neighbours: boolean[]): number {
+  const aliveNeighbours = neighbours.filter(Boolean).length;
+  return aliveNeighbours === 2 || aliveNeighbours === 3 ? 1 : 0;
+}
+
+export function liveNext(alive: boolean, neighbours: boolean[]): boolean {
+  if (alive) {
+    return liveCount(neighbours) === 2 || liveCount(neighbours) === 3;
+  } else {
+    return neighbours.filter(Boolean).length === 3;
+  }
+}
+```

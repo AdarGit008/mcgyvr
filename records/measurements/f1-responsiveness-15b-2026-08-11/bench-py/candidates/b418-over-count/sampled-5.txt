@@ -1,0 +1,7 @@
+```python
+def over_count(store: dict, floor: int) -> int:
+    """How many of a store's values reach a floor."""
+    return sum(1 for value in store.values() if value >= floor)
+```
+
+This solution implements the `over_count` function by using a generator expression within the `sum` function. This approach avoids modifying the input dictionary and is more concise and readable.

@@ -1,0 +1,32 @@
+```ts
+export function swapPair(first: string, second: string): string {
+  if (typeof first !== 'string' || typeof second !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  if (first.length !== second.length) {
+    throw new Error('Both strings must have the same length');
+  }
+
+  return `${second}${first}`;
+}
+
+export function swapAll(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('The input must be a string');
+  }
+
+  const result = '';
+
+  for (let i = 0; i < text.length; i += 2) {
+    if (i + 1 >= text.length) {
+      // Odd character at the end, keep it unchanged
+      result += text[i];
+    } else {
+      result += swapPair(text[i], text[i + 1]);
+    }
+  }
+
+  return result;
+}
+```

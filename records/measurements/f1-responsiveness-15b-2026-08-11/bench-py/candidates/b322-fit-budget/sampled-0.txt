@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def fit_budget(prices: List[int], budget: int) -> int:
+    if budget < 0:
+        raise ValueError("amount must be non-negative")
+
+    return sum(min(price, budget) for price in prices)
+```

@@ -1,0 +1,12 @@
+```typescript
+/** The first few entries of a list. */
+export function headOf(entries: string[], count: number): string[] {
+  if (count < 0) {
+    throw new Error('Count cannot be negative');
+  }
+  if (count === 0 || entries.length === 0) {
+    return [];
+  }
+  return entries.slice(0, count);
+}
+```

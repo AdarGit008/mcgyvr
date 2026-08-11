@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def index_map(labels: List[str]) -> dict:
+    result = {}
+    for i, label in enumerate(labels):
+        if label:
+            result[label] = [i]
+        else:
+            result[None] = []
+    return result
+```

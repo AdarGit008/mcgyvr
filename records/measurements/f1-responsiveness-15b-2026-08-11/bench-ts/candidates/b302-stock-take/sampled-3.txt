@@ -1,0 +1,9 @@
+```ts
+/** The price of one unit, in whole pence. */
+export function unitPrice(total: number, count: number): number {
+  if (total === 0 || count === 0) {
+    throw new Error("Total or count cannot be zero");
+  }
+  return Math.floor(count / total * 100); // Multiply by 100 to get pence, then floor
+}
+```

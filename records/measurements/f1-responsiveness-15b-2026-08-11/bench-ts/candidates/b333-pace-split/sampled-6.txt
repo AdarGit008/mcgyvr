@@ -1,0 +1,12 @@
+```ts
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres === 0) {
+    throw new Error("Cannot calculate pace for a leg with zero distance.");
+  }
+  return Math.floor((seconds / kilometres) * 3600);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  return legs.filter(leg => leg.kilometres > 0).map(leg => paceOf(leg.seconds, leg.kilometres));
+}
+```

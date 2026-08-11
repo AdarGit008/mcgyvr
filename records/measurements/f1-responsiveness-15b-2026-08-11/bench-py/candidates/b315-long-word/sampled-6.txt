@@ -1,0 +1,14 @@
+```python
+def long_word(sentence: str) -> str:
+    if not sentence:
+        return ""
+    
+    words = sentence.split()
+    longest_word = ""
+    for word in words:
+        if len(word) > len(longest_word):
+            longest_word = word
+    
+    return longest_word
+```
+We've implemented the `long_word` function to find the longest word in a given sentence, following the specified guidelines. The function first checks if the input is empty and returns an empty string immediately. It then splits the sentence into words using the `split()` method and iterates through them to find the longest one. If two words of equal length are found, the first encountered wins.

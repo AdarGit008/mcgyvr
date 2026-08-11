@@ -1,0 +1,17 @@
+```python
+def tag_trim(tag: str) -> str:
+    if tag.startswith("#"):
+        return tag[1:]
+    elif tag.endswith(":"):
+        return tag[:-1]
+    else:
+        return tag
+
+# Test cases to verify the correctness of the solution
+assert tag_trim("#hello") == "hello"
+assert tag_trim("world:") == "world"
+assert tag_trim("example#tag:") == "exampletag"
+assert tag_trim("#single#tag:") == "#single#tag"
+assert tag_trim(":multiple:tags:") == ":multiple:tags"
+assert tag_trim("no_markers") == "no_markers"
+```

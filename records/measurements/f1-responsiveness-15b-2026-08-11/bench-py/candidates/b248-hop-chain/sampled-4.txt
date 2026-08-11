@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[List[int]]) -> bool:
+    if len(hops) < 2:
+        return True  # A list of one hop or none is always a chain.
+
+    for i in range(1, len(hops)):
+        start, end = hops[i]
+        prev_start, _ = hops[i - 1]
+
+        if start != prev_end + 1:
+            return False
+
+    return True
+```

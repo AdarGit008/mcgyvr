@@ -1,0 +1,19 @@
+```ts
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+  if (!allowed.some(arr => arr[0] === from && arr[1] === to)) {
+    throw new Error('The move from ' + from + ' to ' + to + ' is not allowed.');
+  }
+  return true;
+}
+
+export function stepPlan(states: string[], allowed: string[][]): number {
+  for (let i = 0; i < states.length - 1; i++) {
+    const from = states[i];
+    const to = states[i + 1];
+    if (!allowed.some(arr => arr[0] === from && arr[1] === to)) {
+      return i;
+    }
+  }
+  throw new Error('All moves are allowed.');
+}
+```

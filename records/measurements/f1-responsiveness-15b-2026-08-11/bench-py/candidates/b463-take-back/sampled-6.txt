@@ -1,0 +1,14 @@
+```python
+def take_back(values: list, target: int) -> int:
+    total = 0
+    count = len(values)
+    
+    for i in range(len(values) - 1, -1, -1):
+        if total >= target:
+            return count - (i + 1)
+        
+        total += values[i]
+        count -= 1
+    
+    return -1
+```

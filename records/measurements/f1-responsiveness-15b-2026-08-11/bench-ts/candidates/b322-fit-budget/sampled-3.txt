@@ -1,0 +1,10 @@
+```ts
+export function fitBudget(prices: number[], budget: number): number {
+    if (budget < 0) {
+        throw new Error("Amount to spend cannot be negative");
+    }
+
+    const affordablePrices = prices.filter(price => price <= budget);
+    return affordablePrices.length;
+}
+```

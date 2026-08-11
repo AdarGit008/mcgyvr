@@ -1,0 +1,14 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const [key, value] of Object.entries(store)) {
+    if (!counts.has(value)) {
+      counts.set(value, 0);
+    }
+    counts.set(value, counts.get(value) + 1);
+  }
+
+  return counts;
+}
+```

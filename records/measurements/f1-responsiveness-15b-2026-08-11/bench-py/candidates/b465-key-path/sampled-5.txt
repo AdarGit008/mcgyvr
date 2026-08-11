@@ -1,0 +1,13 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if not store or not isinstance(head, str):
+        raise ValueError("Invalid input")
+
+    result = []
+    for name in store[head]:
+        # Ensure all elements are strings to avoid issues with stop characters
+        if isinstance(name, str):
+            result.append(name)
+
+    return result
+```

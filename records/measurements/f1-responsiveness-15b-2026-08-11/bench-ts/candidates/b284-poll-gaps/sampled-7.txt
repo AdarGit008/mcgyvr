@@ -1,0 +1,19 @@
+```ts
+export function pollGaps(minutes: number[]): number[] {
+  if (minutes.length < 2) return [];
+
+  const gaps = [];
+  for (let i = 1; i < minutes.length; i++) {
+    gaps.push(minutes[i] - minutes[i - 1]);
+  }
+
+  let minGap = Number.MAX_VALUE;
+  for (const gap of gaps) {
+    if (gap < minGap && gap !== 0) {
+      minGap = gap;
+    }
+  }
+
+  return minutes.length === gaps.length ? [] : [minGap];
+}
+```

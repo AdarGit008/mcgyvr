@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+
+    # Find the longest first letter that all words start with
+    for i in range(100):  # Limit to a reasonable number of characters
+        first_letter = words[0][i]
+        matches = [word.startswith(first_letter) for word in words]
+        if all(matches):
+            return first_letter * len(words)
+
+    # If no match found, return an empty string
+    return ""
+
+# Example usage:
+print(common_head([]))  # Output: ""
+print(common_head(["hello"]))  # Output: "h"
+print(common_head(["hello", "world"]))  # Output: "h"
+print(common_head(["Hello", "World"]))  # Output: "H"
+print(common_head(["abc", "def", "ghi"]))  # Output: "a"
+```

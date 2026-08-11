@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def swipe_dedupe(swipes: List) -> List:
+    if not swipes:
+        return []
+
+    result = [swipes[0]]
+    prev_card = swipes[0]
+
+    for card in swipes[1:]:
+        if card != prev_card:
+            result.append(card)
+            prev_card = card
+
+    return result
+```

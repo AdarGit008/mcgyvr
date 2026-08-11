@@ -1,0 +1,35 @@
+```ts
+export function camelBreak(name: string): string[] {
+  if (!name || name.trim() === '') {
+    throw new Error('Invalid empty input');
+  }
+
+  let words = [];
+  let currentWord = '';
+  let isCaptial = false;
+
+  for (const char of name) {
+    if (char >= 'A' && char <= 'Z') {
+      if (isCaptial) {
+        continue; // Skip the rest of this word if it's already a capital
+      }
+      isCaptial = true;
+      currentWord += char.toLowerCase();
+    } else if (char === ' ') {
+      if (currentWord.trim() !== '') {
+        words.push(currentWord);
+      }
+      currentWord = '';
+      isCaptial = false;
+    } else {
+      currentWord += char;
+    }
+  }
+
+  if (currentWord.trim() !== '') {
+    words.push(currentWord);
+  }
+
+  return words;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+/**
+ * A passage broken into its sentences. Each sentence comes back trimmed of surrounding spaces,
+ * and empty pieces are left out. Return the complete fixed file.
+ */
+export function sentenceSplit(passage: string): string[] {
+  // Regular expression to match sentences ending with full stops, question marks, or exclamation marks
+  const regex = /[.?!]/g;
+
+  // Split the passage into an array of sentences using the regular expression
+  const sentences = passage.split(regex);
+
+  // Filter out empty sentences and trim leading/trailing spaces from each sentence
+  const fixedSentences = sentences
+    .filter((sentence) => sentence.trim() !== "")
+    .map(sentence => sentence.trim());
+
+  return fixedSentences;
+}
+```

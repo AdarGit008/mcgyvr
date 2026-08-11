@@ -1,0 +1,18 @@
+```typescript
+function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error("Amount must be non-negative.");
+  }
+
+  let totalPrice = 0;
+  let count = 0;
+
+  for (let i = 0; i < prices.length && totalPrice <= budget; i++) {
+    const price = prices[i];
+    totalPrice += price;
+    count++;
+  }
+
+  return count;
+}
+```

@@ -1,0 +1,13 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if not grid or not (0 <= row < len(grid)) or not (0 <= column < len(grid[row])):
+        raise ValueError("Invalid grid dimensions")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    if not grid or not any(v == value for v in grid):
+        raise ValueError(f"Grid does not contain the value {value}")
+    for i, row in enumerate(grid):
+        col = [i, j] for j, cell in enumerate(row) if cell == value]
+        return col[0] if col else []
+```

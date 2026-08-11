@@ -1,0 +1,21 @@
+```python
+def camel_break(name: str) -> list:
+    if not name:
+        return []
+
+    words = []
+    current_word = name[0]
+
+    for char in name[1:]:
+        if char.isupper():
+            if current_word and current_word.lower() != char:
+                words.append(current_word.lower())
+            current_word = char
+        else:
+            current_word += char
+
+    if current_word:
+        words.append(current_word.lower())
+
+    return words
+```

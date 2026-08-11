@@ -1,0 +1,32 @@
+```ts
+function cellName(row: number, column: number): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let result = '';
+
+    if (column >= 26) {
+        throw new Error('Column cannot be beyond the twenty-sixth');
+    }
+
+    while (column >= 0) {
+        result = letters[column % 26] + result;
+        column = Math.floor(column / 26) - 1;
+    }
+
+    return result;
+}
+
+function gridCells(rows: number, columns: number): string[] {
+    if (rows <= 0 || columns <= 0) {
+        throw new Error('Grid size must be positive');
+    }
+
+    const cells = [];
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+            cells.push(cellName(row, col));
+        }
+    }
+
+    return cells;
+}
+```

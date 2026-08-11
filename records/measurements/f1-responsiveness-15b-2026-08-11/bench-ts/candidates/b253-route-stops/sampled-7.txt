@@ -1,0 +1,10 @@
+```ts
+export function routeStops(route: string): string[] {
+  return route.split(/\s*\>\s*/).filter(stop => stop.trim() !== '');
+}
+
+export function routeHops(route: string): number {
+  const stops = routeStops(route);
+  return stops.length - (stops.length === 1 ? 1 : 0);
+}
+```

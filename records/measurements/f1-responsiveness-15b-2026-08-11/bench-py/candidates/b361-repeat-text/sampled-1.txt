@@ -1,0 +1,10 @@
+```python
+from typing import *
+from collections import *
+
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    if times <= 0:
+        raise ValueError("Number of copies must be positive")
+    
+    return between.join([phrase] * times)
+```

@@ -1,0 +1,23 @@
+```ts
+function commonHead(words: string[]): string {
+  if (words.length === 0) return '';
+
+  let currentRun = words[0][0];
+  let maxLength = 1;
+  let currentLength = 1;
+
+  for (let i = 1; i < words.length; i++) {
+    const char = words[i][0];
+
+    if (char === currentRun) {
+      currentLength++;
+      maxLength = Math.max(maxLength, currentLength);
+    } else {
+      currentRun = char;
+      currentLength = 1;
+    }
+  }
+
+  return maxLength > 1 ? currentRun : '';
+}
+```

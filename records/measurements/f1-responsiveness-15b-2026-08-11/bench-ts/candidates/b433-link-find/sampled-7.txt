@@ -1,0 +1,23 @@
+```ts
+function linkFind(line: string, opens: string, closes: string): string[] {
+  if (opens.length !== closes.length || opens.includes(closes) || closes.includes(opens)) {
+    throw new Error('Invalid marker usage');
+  }
+
+  const results: string[] = [];
+  let balance = 0;
+
+  for (let index = 0; index < line.length; index++) {
+    if (line[index] === opens[balance]) {
+      balance++;
+      continue;
+    }
+    if (balance > 0 && line[index] === closes[balance]) {
+      balance--;
+      results.push(line.substring(index + 1, balance));
+    }
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,10 @@
+```ts
+export function fuelLegs(litres: number, burn: number): number {
+  if (burn <= 0) {
+    throw new Error('Burn cannot be zero or less');
+  }
+
+  const runs = Math.floor(litres / burn);
+  return runs;
+}
+```

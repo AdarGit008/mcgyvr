@@ -1,0 +1,19 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (typeof store !== 'object' || !store || typeof head !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const parts = head.split('.');
+  let currentStore = store;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!currentStore[parts[i]]) {
+      throw new Error(`No such key: ${parts[i]}`);
+    }
+    currentStore = currentStore[parts[i]];
+  }
+
+  return Object.keys(currentStore).filter(key => !key.includes('.'));
+}
+```

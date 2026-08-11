@@ -1,0 +1,30 @@
+```typescript
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+  if (!Array.isArray(grid) || !grid.every(subArr => Array.isArray(subArr))) {
+    throw new Error('Invalid grid');
+  }
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  if (row < 0 || row >= numRows || column < 0 || column >= numCols) {
+    throw new Error('Invalid cell coordinates');
+  }
+
+  return grid[row][column] === value;
+}
+
+export function gridFind(grid: number[][], value: number): number[] {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      if (grid[row][col] === value) {
+        return [row, col];
+      }
+    }
+  }
+
+  throw new Error('Grid does not contain the specified value');
+}
+```

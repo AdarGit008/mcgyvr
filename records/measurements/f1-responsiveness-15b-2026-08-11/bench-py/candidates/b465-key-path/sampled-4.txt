@@ -1,0 +1,11 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if not isinstance(head, str):
+        raise ValueError("head must be a string")
+    if not store:
+        return []
+    
+    _, *rest = head.split('.')
+    path = [name for name in rest if name in store]
+    return path
+```

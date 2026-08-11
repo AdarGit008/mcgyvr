@@ -1,0 +1,17 @@
+```python
+def live_count(neighbours: list) -> int:
+    count = 0
+    if len(neighbours) == 0:
+        return 0
+    for neighbour in neighbours:
+        if neighbour:
+            count += 1
+    return count
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    live_neighbours_count = live_count(neighbours)
+    if alive:
+        return live_neighbours_count == 2 or live_neighbours_count == 3
+    else:
+        return live_neighbours_count == 3
+```

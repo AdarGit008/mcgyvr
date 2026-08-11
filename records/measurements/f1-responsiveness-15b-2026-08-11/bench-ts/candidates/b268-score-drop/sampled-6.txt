@@ -1,0 +1,12 @@
+```ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length === 0) return 0;
+
+  scores.sort((a, b) => a - b);
+
+  const lowestScore = scores[0];
+  const remainingScores = scores.slice(1);
+
+  return remainingScores.reduce((acc, curr) => acc + curr, 0);
+}
+```

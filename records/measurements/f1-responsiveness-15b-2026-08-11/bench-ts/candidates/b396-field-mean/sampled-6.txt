@@ -1,0 +1,20 @@
+```ts
+export function fieldMean(records: Record<string, number>[], field: string): number {
+  if (!field) throw new Error("Field name cannot be null or undefined");
+
+  let total = 0;
+  let count = 0;
+
+  for (const record of records) {
+    const value = record[field];
+    if (typeof value === "number") {
+      total += value;
+      count++;
+    }
+  }
+
+  if (!count) return 0; // No valid numbers, average is zero
+
+  return Math.floor(total / count);
+}
+```

@@ -1,0 +1,35 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    Args:
+        noun (str): The singular noun to pluralize.
+
+    Returns:
+        str: The plural form of the noun.
+
+    Raises:
+        ValueError: If the input is not a string or if it's empty.
+    """
+
+    if not isinstance(noun, str) or len(noun) == 0:
+        raise ValueError("Input must be a non-empty string.")
+
+    if noun[-1] in 'sxch' and len(noun) > 2:
+        return noun + 'es'
+    elif noun[-1] == 'y':
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+
+# Test cases
+print(plural_of("dog"))   # Output: "dogs"
+print(plural_of("foot"))  # Output: "feet"
+print(plural_of("box"))   # Output: "boxes"
+print(plural_of(""))     # Raise ValueError
+try:
+    print(plural_of(123))  # Raise ValueError
+except ValueError as e:
+    print(e)  # Output: Input must be a non-empty string.
+```

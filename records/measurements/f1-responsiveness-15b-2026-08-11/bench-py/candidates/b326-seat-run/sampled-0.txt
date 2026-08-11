@@ -1,0 +1,14 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = row.count('.')
+    if free_seats < party:
+        return -1
+
+    # Find the first group of party size consecutive '.'s from the beginning
+    for i in range(free_seats):
+        if row[i:i+party].count('.') == party:
+            return i
+```

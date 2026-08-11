@@ -1,0 +1,20 @@
+```ts
+/** How many of a store's values reach a floor. */
+export function overCount(
+  store: Record<string, number>,
+  floor: number,
+): number {
+  if (typeof floor !== 'number') {
+    throw new Error('floor must be a number');
+  }
+
+  let found = 0;
+  for (const key of Object.keys(store)) {
+    const value = parseFloat(store[key]);
+    if (!isNaN(value) && value < floor) {
+      found += 1;
+    }
+  }
+  return found;
+}
+```

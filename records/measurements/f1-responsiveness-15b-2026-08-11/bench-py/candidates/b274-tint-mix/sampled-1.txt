@@ -1,0 +1,11 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a == 0 or strength_a > 100 or volume_b == 0 or strength_b > 100:
+        raise ValueError("Invalid input")
+
+    total_volume = volume_a + volume_b
+    total_strength = (strength_a * volume_a) + (strength_b * volume_b)
+    mixed_strength = round(total_strength / total_volume)
+
+    return mixed_strength
+```

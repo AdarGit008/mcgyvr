@@ -1,0 +1,10 @@
+```ts
+export function lineNumber(block: string): string {
+  if (block === "") return "";
+  
+  const lines = block.split("\n");
+  const maxLength = Math.max(...lines.map(line => line.length));
+  
+  return lines.join(`\n${Array(maxLength).fill(" ").join("")}:\n`);
+}
+```

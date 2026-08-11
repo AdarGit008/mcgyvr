@@ -1,0 +1,29 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes from the first time to the second time, taking into account the following:
+    - If the second time is before the first time on the same day, it is considered to be at the start of the next day.
+    
+    Parameters:
+    from_hour (int): The hour of the starting time in 24-hour format.
+    from_minute (int): The minute of the starting time in 24-hour format.
+    to_hour (int): The hour of the ending time in 24-hour format.
+    to_minute (int): The minute of the ending time in 24-hour format.
+    
+    Returns:
+    int: The total minutes between the two times, considering daylight saving time if applicable.
+    """
+    # Convert from hours and minutes to minutes since midnight
+    start_min = from_hour * 60 + from_minute
+    end_min = to_hour * 60 + to_minute
+    
+    # Handle cases where the second time is before the first time on the same day
+    if end_min < start_min:
+        # Calculate the minutes from start to end of the current day and the next day
+        days_to_add = (end_min - start_min) // (60 * 24)
+        return (days_to_add + 1) * 24 * 60 + end_min - start_min
+    
+    return end_min - start_min
+```

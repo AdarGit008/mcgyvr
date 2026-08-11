@@ -1,0 +1,18 @@
+```typescript
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount <= 0 || percent < 0) {
+    throw new Error('Amount must be positive and percent must be non-negative');
+  }
+
+  const amountWithPercent = Math.floor(amount * (1 + percent / 100));
+  return fixed + amountWithPercent;
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!Array.isArray(amounts) || amounts.some(a => typeof a !== 'number' || a <= 0)) {
+    throw new Error('Amounts must be an array of positive numbers');
+  }
+
+  return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

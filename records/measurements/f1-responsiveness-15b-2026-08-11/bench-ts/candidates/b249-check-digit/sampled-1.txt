@@ -1,0 +1,19 @@
+```ts
+function checkDigit(code: string): number {
+  // Throw Error if the input is empty or contains non-digit characters
+  if (code.length === 0) return 0;
+  for (const char of code) {
+    if (!char.match(/^\d$/)) throw new Error('Invalid character in the input');
+  }
+
+  // Add up the digits and find the remainder when divided by 10
+  let sum = 0;
+  for (const digit of code) {
+    sum += parseInt(digit, 10);
+  }
+  const remainder = sum % 10;
+
+  // Return the single digit that should follow to bring the total up to a multiple of ten
+  return remainder !== 0 ? 10 - remainder : 0;
+}
+```

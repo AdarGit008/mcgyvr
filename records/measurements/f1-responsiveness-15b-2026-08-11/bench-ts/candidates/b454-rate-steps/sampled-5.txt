@@ -1,0 +1,30 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Amount must be a positive finite number');
+  }
+  if (!Number.isInteger(fixed) || fixed < 0) {
+    throw new Error('Fixed amount must be an integer non-negative number');
+  }
+  if (!Number.isInteger(percent) || percent < 0) {
+    throw new Error('Percent must be an integer non-negative number');
+  }
+
+  const baseRate = Math.floor(amount + (amount * percent / 100));
+  return fixed + Math.floor(baseRate - fixed);
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!Array.isArray(amounts) || amounts.some(amount => !Number.isFinite(amount) || amount <= 0)) {
+    throw new Error('Amounts array must be an array of positive finite numbers');
+  }
+  if (!Number.isInteger(fixed) || fixed < 0) {
+    throw new Error('Fixed amount must be an integer non-negative number');
+  }
+  if (!Number.isInteger(percent) || percent < 0) {
+    throw new Error('Percent must be an integer non-negative number');
+  }
+
+  return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

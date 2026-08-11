@@ -1,0 +1,15 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if len(line) < limit or limit < 4:
+        raise ValueError("Limit must be at least 4")
+    
+    # Find the last position where we can cut to keep the line within the limit
+    for i in range(limit - 3, -1, -1):
+        if line[i] == ' ':
+            return line[:i+1] + '...'
+        elif line[i] in '!.,;?':
+            return line[:i+1] + '...'
+    
+    # If no cut is possible within the limit, just truncate it to the exact limit
+    return line[:limit]
+```

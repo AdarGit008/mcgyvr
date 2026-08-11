@@ -1,0 +1,16 @@
+```ts
+function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (!aliases[name]) return name;
+  const resolvedName = aliases[name];
+  return aliasResolve(aliases, resolvedName);
+}
+
+function aliasNames(aliases: Record<string, string>): string[] {
+  let result = [];
+  for (const [key, value] of Object.entries(aliases)) {
+    if (value === key) continue; // Skip names that stand for themselves
+    result.push(value); // Add only unique resolved aliases to the array
+  }
+  return result.sort();
+}
+```

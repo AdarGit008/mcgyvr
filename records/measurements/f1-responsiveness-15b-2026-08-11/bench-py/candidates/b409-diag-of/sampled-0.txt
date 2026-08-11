@@ -1,0 +1,14 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    if not isinstance(grid, list) or not all(isinstance(row, int) and isinstance(column, int) for row, column in enumerate(grid)):
+        raise ValueError("grid must be a non-empty list of lists")
+    if not (0 <= row < len(grid)) or not (0 <= column < len(grid[row])):
+        return None
+    return grid[row][column]
+
+
+def diag_of(grid: list) -> list:
+    if not isinstance(grid, list) or not all(isinstance(row, int) and isinstance(column, int) for row, column in enumerate(grid)):
+        raise ValueError("grid must be a non-empty list of lists")
+    return [grid[i][i] for i in range(len(grid))]
+```

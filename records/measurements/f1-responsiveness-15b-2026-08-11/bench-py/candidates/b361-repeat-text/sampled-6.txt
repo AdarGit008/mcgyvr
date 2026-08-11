@@ -1,0 +1,27 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Returns a phrase written out multiple times, with copies joined by a specified separator.
+    
+    Args:
+        phrase (str): The string to be repeated.
+        times (int): The number of times to repeat the phrase.
+        between (str): The separator used to join the repeated phrases.
+        
+    Returns:
+        str: A single string containing the repeated phrases with separators.
+        
+    Examples:
+        >>> repeat_text("hello", 3, ", ")
+        "hello, hello, hello"
+        >>> repeat_text("world", 1, "")
+        "world"
+        >>> repeat_text("", 0, "-")
+        ""
+    """
+    if times <= 0:
+        return ""
+    
+    repeated_phrases = [phrase] * times
+    return between.join(repeated_phrases)
+```

@@ -1,0 +1,17 @@
+```ts
+function runDecode(coded: string): string {
+  if (typeof coded !== 'string' || coded === '') return '';
+
+  return [...coded].reduce((acc, char) => {
+    const match = /^(\d+)([a-zA-Z])/.exec(char);
+    if (!match) throw new Error('Invalid run decode format');
+
+    const count = parseInt(match[1], 10);
+    const code = match[2];
+
+    if (code === 'A') return acc + 'AAA';
+    if (count > 1) return acc + code.repeat(count);
+    return acc;
+  }, '');
+}
+```

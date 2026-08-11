@@ -1,0 +1,31 @@
+```ts
+export function legGain(start: number, end: number): number {
+  if (start === undefined || start !== Number(start) || isNaN(start)) {
+    throw new Error("Invalid start height");
+  }
+  if (end === undefined || end !== Number(end) || isNaN(end)) {
+    throw new Error("Invalid end height");
+  }
+
+  return Math.abs(end - start);
+}
+
+export function climbGain(heights: number[]): number {
+  if (heights.length < 2) {
+    return 0;
+  }
+
+  let totalGain = 0;
+
+  for (let i = 1; i < heights.length; i++) {
+    const currentHeight = heights[i];
+    const previousHeight = heights[i - 1];
+
+    if (currentHeight > previousHeight) {
+      totalGain += currentHeight - previousHeight;
+    }
+  }
+
+  return totalGain;
+}
+```

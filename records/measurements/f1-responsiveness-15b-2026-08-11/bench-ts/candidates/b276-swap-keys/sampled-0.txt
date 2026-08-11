@@ -1,0 +1,17 @@
+```ts
+function swapKeys(names: Record<string, string>): Record<string, string> {
+  const mapped: Record<string, string> = {};
+
+  for (const [code, name] of Object.entries(names)) {
+    if (!name) continue;
+
+    // Ensure the code is lowercase for case-insensitive comparison
+    const lowerCode = code.toLowerCase();
+
+    // Use the current name or keep the previous one based on alphabetical order
+    mapped[lowerCode] = name;
+  }
+
+  return mapped;
+}
+```

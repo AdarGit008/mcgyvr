@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def in_quote(ch: str) -> bool:
+    return ch == '"' or ch == "'"
+
+def quote_split(line: str) -> List[str]:
+    output = []
+    buffer = ""
+    level = 0
+
+    for char in line:
+        if in_quote(char):
+            if level > 0:
+                buffer += char
+                level += 1
+            else:
+                buffer += char
+                level -= 1
+        elif char == "," and level == 0:
+            output.append(buffer)
+            buffer = ""
+        else:
+            buffer += char
+
+    if buffer:
+        output.append(buffer)
+
+    return output
+```

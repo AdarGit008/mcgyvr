@@ -1,0 +1,15 @@
+```python
+def short_num(value: int) -> str:
+    if value == 0:
+        return "0"
+
+    def format_number(num):
+        if num < 1000:
+            return f"{num:,d}"
+        elif num < 1000000:
+            return f"{num//1000}k"
+        else:
+            return f"{num//1000000}m"
+
+    format_num(value)
+```

@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+    
+    # Find the longest word in the list
+    max_word = max(words, key=len)
+    
+    # Iterate over each character of the longest word
+    for i in range(len(max_word)):
+        # Check if all words start with the current character
+        if all(word[i] == max_word[i] for word in words):
+            return max_word[:i + 1]
+    
+    # If no common prefix is found, return an empty string
+    return ""
+```

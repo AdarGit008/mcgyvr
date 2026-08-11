@@ -1,0 +1,18 @@
+```ts
+/**
+ * Group items into slots of a fixed capacity, in order.
+ *
+ * @param items - The array of items to group.
+ * @param capacity - The maximum number of items per slot.
+ * @returns An array of arrays, where each inner array is a slot of the given capacity.
+ */
+export function slotPack(items: string[], capacity: number): string[][] {
+  if (capacity === 0) return [];
+
+  const slots: string[][] = [];
+  for (let i = 0; i < items.length; i += capacity) {
+    slots.push(items.slice(i, Math.min(i + capacity, items.length)));
+  }
+  return slots;
+}
+```

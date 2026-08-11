@@ -1,0 +1,14 @@
+```python
+def swap_case(text: str) -> str:
+    """Text with the case of every letter turned over."""
+    result = []
+    for char in text:
+        if char.isalpha():
+            if char.islower():
+                result.append(char.upper())
+            else:
+                result.append(char.lower())
+        else:
+            result.append(char)
+    return ''.join(result)
+```

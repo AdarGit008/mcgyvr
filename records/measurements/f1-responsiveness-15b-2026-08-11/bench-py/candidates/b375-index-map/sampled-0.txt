@@ -1,0 +1,13 @@
+```python
+class Solution:
+    def index_map(self, labels: list) -> dict:
+        if not labels:
+            return {}
+
+        position_mapping = {label: [] for label in set(labels)}
+        
+        for i, label in enumerate(labels):
+            position_mapping[label].append(i)
+        
+        return position_mapping
+```

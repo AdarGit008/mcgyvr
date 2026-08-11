@@ -1,0 +1,11 @@
+```python
+def rate_cap(price: int, rate: int, most: int) -> int:
+    if price <= 0 or rate < 0 or most < 0:
+        raise ValueError("Invalid input")
+
+    increase = (price * rate) // 100
+    if increase > most:
+        increase = most
+
+    return price + increase
+```

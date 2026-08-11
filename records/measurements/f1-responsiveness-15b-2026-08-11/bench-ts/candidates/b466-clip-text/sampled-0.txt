@@ -1,0 +1,9 @@
+```ts
+
+export function clipText(text: string, from: number, to: number): string {
+  if (from > to) {
+    throw new Error('First place must be below or equal to second place.');
+  }
+  return text.slice(from, to + 1);
+}
+```

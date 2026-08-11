@@ -1,0 +1,10 @@
+```python
+def route_stops(route: str) -> list:
+    return [stop.strip() for stop in route.split('>')]
+
+def route_hops(route: str) -> int:
+    if not route:  # Blank route
+        return 0
+    stops = route_stops(route)
+    return len(stops) - 1
+```

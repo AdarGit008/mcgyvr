@@ -1,0 +1,18 @@
+```ts
+/**
+ * Returns the two values standing closest to the middle of a sorted list,
+ * the lower value first.
+ * @param values An array of numbers.
+ * @returns A number[] containing the two closest values, in ascending order.
+ */
+export function midPair(values: number[]): number[] {
+  const length = values.length;
+  if (length === 0) return [null, null]; // Edge case: empty list
+  if (length === 1) return [values[0], null]; // Edge case: single-element list
+
+  values.sort((a, b) => a - b); // Sort the array
+
+  const mid = Math.floor(length / 2);
+  return [values[mid - 1] || null, values[mid] || null];
+}
+```

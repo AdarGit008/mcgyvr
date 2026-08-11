@@ -1,0 +1,33 @@
+```ts
+export function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  const trimmedLine = line.trim();
+  if (!trimmedLine) {
+    return [];
+  }
+  return trimmedLine.split(',').map(tag => tag.trim());
+}
+
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  if (!Array.isArray(lines)) {
+    throw new Error('Input must be an array');
+  }
+  const result: Record<string, string[]> = {};
+  for (const line of lines) {
+    try {
+      const tags = tagsOf(line);
+      for (const tag of tags) {
+        if (!result[tag]) {
+          result[tag] = [];
+        }
+        result[tag].push(line);
+      }
+    } catch (error) {
+      console.error(`Error processing line: ${line}`, error);
+    }
+  }
+  return result;
+}
+```

@@ -1,0 +1,19 @@
+```ts
+export function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error('Amount cannot be negative');
+  }
+
+  prices.sort((a, b) => a - b);
+  let itemsBought = 0;
+  let remainingBudget = budget;
+
+  for (const price of prices) {
+    if (price > remainingBudget) break;
+    itemsBought++;
+    remainingBudget -= price;
+  }
+
+  return itemsBought;
+}
+```

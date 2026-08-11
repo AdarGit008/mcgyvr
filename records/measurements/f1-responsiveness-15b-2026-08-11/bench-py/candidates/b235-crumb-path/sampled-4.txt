@@ -1,0 +1,8 @@
+```python
+class Solution:
+    def crumb_split(trail: str) -> list:
+        return [segment for segment in trail.split('/') if segment.strip()]
+
+    def crumb_join(parts: list) -> str:
+        return '/'.join(part for part in parts if part.strip())
+```

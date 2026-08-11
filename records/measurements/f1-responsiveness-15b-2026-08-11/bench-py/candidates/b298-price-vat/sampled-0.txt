@@ -1,0 +1,12 @@
+```python
+from typing import *
+from collections.abc import *
+
+def gross_price(net: int, rate: int) -> int:
+    """A net price with a whole-percent tax added, in whole pence."""
+    if rate != 0:
+        tax = (rate / 100) * net
+        return round(tax)
+    else:
+        return net
+```

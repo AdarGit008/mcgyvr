@@ -1,0 +1,25 @@
+```python
+from typing import *
+from collections import *
+
+def hue_band(degrees: int) -> str:
+    """
+    Given a hue in degrees (0 to 359), name the band it falls in: red below 60, green below 180, blue below 300,
+    and red again from 300 up.
+    
+    :param degrees: Hue in degrees (0 to 359)
+    :return: The band the hue falls in
+    """
+    if not isinstance(degrees, int) or degrees < 0 or degrees > 359:
+        raise ValueError("Degrees must be an integer between 0 and 359")
+    
+    # Wrap around the circle by adding 360 to negative degrees and subtracting 360 from positive degrees
+    degrees = (degrees + 360) % 360
+    
+    if degrees < 60:
+        return "red"
+    elif degrees < 180:
+        return "green"
+    else:
+        return "blue"
+```

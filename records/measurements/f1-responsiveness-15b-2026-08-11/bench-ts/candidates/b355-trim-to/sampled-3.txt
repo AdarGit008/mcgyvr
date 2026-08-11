@@ -1,0 +1,24 @@
+```ts
+export function trimTo(line: string, limit: number): string {
+  if (limit < 4) {
+    throw new Error('Limit must be at least 4 characters');
+  }
+
+  const length = line.length;
+  if (length <= limit) {
+    return line;
+  }
+
+  let cutIndex = length - limit + 3;
+
+  while (true) {
+    const spaceIndex = line.lastIndexOf(' ', cutIndex);
+    if (spaceIndex === -1 || spaceIndex < cutIndex - limit) {
+      break;
+    }
+    cutIndex = spaceIndex;
+  }
+
+  return line.slice(0, cutIndex) + '...';
+}
+```

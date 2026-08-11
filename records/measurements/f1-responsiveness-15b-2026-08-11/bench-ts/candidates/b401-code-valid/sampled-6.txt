@@ -1,0 +1,16 @@
+```ts
+export function codeValid(code: string, length: number): boolean {
+    if (length <= 0) {
+        throw new Error("Length must be greater than zero");
+    }
+
+    const allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    for (let i = 0; i < length; i++) {
+        if (!allowedChars.includes(code[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+```

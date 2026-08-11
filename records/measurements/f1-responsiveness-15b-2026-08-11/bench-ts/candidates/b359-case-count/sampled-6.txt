@@ -1,0 +1,15 @@
+```ts
+function caseCount(text: string): number[] {
+  let uppercase = 0;
+  let lowercase = 0;
+
+  for (const char of text) {
+    if (!char.match(/[a-zA-Z]/)) continue;
+
+    if (char === char.toUpperCase()) uppercase++;
+    else lowercase++;
+  }
+
+  return [uppercase, lowercase];
+}
+```

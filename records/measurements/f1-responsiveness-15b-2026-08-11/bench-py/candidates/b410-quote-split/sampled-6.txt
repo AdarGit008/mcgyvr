@@ -1,0 +1,24 @@
+```python
+def in_quote(ch: str) -> bool:
+    return ch == '"'
+
+def quote_split(line: str) -> list:
+    result = []
+    current_word = ''
+    in_quotes = False
+
+    for char in line:
+        if char == '"':
+            in_quotes = not in_quotes
+        elif in_quotes or char != ',':
+            current_word += char
+        else:
+            if current_word:
+                result.append(current_word)
+                current_word = ''
+
+    if current_word:  # Edge case: trailing comma at the end
+        result.append(current_word)
+
+    return result
+```

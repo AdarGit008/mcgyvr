@@ -1,0 +1,30 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    """
+    Finds the starting position of the first run of free seats long enough to hold the given party size.
+
+    :param row: A string representing a row of seats, where '.' represents a free seat and 'x' represents a taken seat.
+    :param party: The number of people needed to sit down in one row.
+    :return: The index of the first free seat that can accommodate the party, or -1 if no such seat exists.
+    """
+    if not row:
+        return -1
+
+    current_run = 0
+    total_free_seats = 0
+
+    for seat in row:
+        if seat == '.':
+            current_run += 1
+            total_free_seats += 1
+        else:
+            if total_free_seats >= party:
+                return current_run - party + 1 if current_run > 0 else 1
+            current_run = 0
+            total_free_seats = 0
+
+    if total_free_seats >= party:
+        return len(row) - party + 2
+
+    return -1
+```

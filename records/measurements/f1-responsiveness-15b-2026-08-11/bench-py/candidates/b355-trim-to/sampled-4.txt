@@ -1,0 +1,17 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if len(line) < limit:
+        return line
+
+    if limit < 4:
+        raise ValueError("Limit must be at least 4")
+
+    # Find the last dot before the limit
+    last_dot = line.rfind('.', 0, limit)
+
+    if last_dot == -1:  # No dot found
+        return line[:limit] + '...'
+    else:
+        # Cut at the last dot found
+        return line[:last_dot + 1] + '...'
+```

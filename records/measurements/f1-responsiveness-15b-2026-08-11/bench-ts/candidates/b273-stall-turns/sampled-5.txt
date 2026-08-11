@@ -1,0 +1,12 @@
+```ts
+export function stallTurns(counts: number[], limit: number): number {
+  if (limit <= 0) throw new Error("Limit must be positive");
+
+  let totalTurns = 0;
+  for (const count of counts) {
+    totalTurns += Math.ceil(count / limit);
+  }
+
+  return totalTurns;
+}
+```

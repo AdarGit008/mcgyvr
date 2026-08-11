@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Distance must be positive.")
+    return seconds // kilometres
+
+def pace_list(legs: list) -> list:
+    if not legs or all(len(l) < 2 for l in legs):
+        raise ValueError("Legs must have at least two elements.")
+    
+    distances = [l[0] for l in legs]
+    times = [l[1] for l in legs]
+    
+    if any(d < 0 for d in distances):
+        raise ValueError("Distance cannot be negative.")
+    
+    pace_per_km = [t // d for t, d in zip(times, distances)]
+    return pace_per_km
+```

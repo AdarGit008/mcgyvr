@@ -1,0 +1,15 @@
+```ts
+export function repeatText(phrase: string, times: number, between: string): string {
+    if (typeof phrase !== 'string') {
+        throw new Error("Expected input to be a string");
+    }
+    if (!Number.isInteger(times) || times < 0) {
+        throw new Error("Count must be a non-negative integer");
+    }
+    if (between === "") {
+        return phrase.repeat(times);
+    } else {
+        return Array.from({ length: times }, () => phrase).join(between);
+    }
+}
+```

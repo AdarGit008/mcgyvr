@@ -1,0 +1,15 @@
+```ts
+/**
+ * Discards initial readings below a given floor until a reading at or above the floor is reached.
+ * @param readings - The array of numbers representing the readings.
+ * @param floor - The floor value to compare readings against.
+ * @returns A new array containing all readings from the first one that reaches or exceeds the floor.
+ */
+export function warmUp(readings: number[], floor: number): number[] {
+    let i = 0;
+    while (i < readings.length && readings[i] < floor) {
+        i++;
+    }
+    return readings.slice(i);
+}
+```

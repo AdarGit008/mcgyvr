@@ -1,0 +1,20 @@
+```ts
+function rowKey(name: string): string {
+  if (typeof name !== 'string') throw new Error('Name must be a string');
+  return name.charAt(0).toUpperCase();
+}
+
+function indexRows(names: string[]): Record<string, string[]> {
+  if (!Array.isArray(names) || names.length === 0) return {};
+
+  const result: Record<string, string[]> = {};
+  for (const name of names) {
+    const rowKey = rowKey(name);
+    // Ensure the row key exists in the result object to avoid errors later
+    if (!(rowKey in result)) result[rowKey] = [];
+    result[rowKey].push(name);
+  }
+
+  return result;
+}
+```

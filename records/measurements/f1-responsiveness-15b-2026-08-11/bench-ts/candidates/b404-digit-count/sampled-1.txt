@@ -1,0 +1,27 @@
+```ts
+/**
+ * Calculates the number of digits in the given integer.
+ * A minus sign before the number is considered not to be counted as a digit.
+ *
+ * @param value The number whose digits are to be counted.
+ * @returns The count of digits in the number.
+ */
+export function digitCount(value: number): number {
+  if (value === 0) return 1; // Edge case for zero
+
+  let negative = value < 0;
+  value = Math.abs(value);
+
+  let count = 0;
+  while (value > 0) {
+    value = Math.floor(value / 10);
+    count++;
+  }
+
+  if (negative) {
+    count++; // Include the minus sign
+  }
+
+  return count;
+}
+```

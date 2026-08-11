@@ -1,0 +1,14 @@
+```ts
+/** Scores written out, with a star against those that reach a floor. */
+export function markList(scores: number[], floor: number): string[] {
+  const out: string[] = [];
+  for (const score of scores) {
+    if (score >= floor) {
+      out.push(`${score}*`);
+    } else {
+      out.push(String(score));
+    }
+  }
+  return out;
+}
+```

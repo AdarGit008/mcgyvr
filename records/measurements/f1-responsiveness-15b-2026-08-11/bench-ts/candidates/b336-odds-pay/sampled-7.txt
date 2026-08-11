@@ -1,0 +1,21 @@
+```ts
+
+export function payout(stake: number, odds: number): number {
+  if (stake < 0) {
+    throw new Error("Stake cannot be negative");
+  }
+  
+  return stake * odds;
+}
+
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  const totalWinnings = bets.reduce((acc, bet) => {
+    if (bet.won) {
+      acc += payout(bet.stake, bet.odds);
+    }
+    return acc;
+  }, 0);
+  
+  return totalWinnings;
+}
+```

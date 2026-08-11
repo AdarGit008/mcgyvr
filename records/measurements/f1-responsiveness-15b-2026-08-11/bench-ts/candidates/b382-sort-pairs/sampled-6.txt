@@ -1,0 +1,18 @@
+```ts
+export function fieldOf(record: Record<string, number>, field: string): number {
+  if (!record.hasOwnProperty(field)) {
+    throw new Error(`Record does not have field ${field}`);
+  }
+  return record[field];
+}
+
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[] {
+  const sortedRecords = records.slice().sort((a, b) => {
+    if (a[field] === b[field]) {
+      return -1; // Keep the earlier record earlier
+    }
+    return a[field] < b[field] ? -1 : 1;
+  });
+  return sortedRecords;
+}
+```

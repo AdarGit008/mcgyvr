@@ -1,0 +1,37 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    """
+    Return a string with two characters swapped.
+    
+    :param first: The first character to swap.
+    :param second: The second character to swap.
+    :return: A new string with the specified characters swapped.
+    """
+    if not first or not second:
+        raise ValueError("Both parameters must be non-empty strings.")
+    
+    return f"{second}{first}"
+
+def swap_all(text: str) -> str:
+    """
+    Swap every pair of adjacent characters in a string, leaving a final odd character exactly where it is.
+    
+    :param text: The input string to swap pairs for.
+    :return: A new string with swapped pairs and the last odd character intact.
+    """
+    if not text:
+        raise ValueError("The input text must be non-empty.")
+    
+    # Special case: if the string has an odd number of characters, leave the final character unchanged
+    if len(text) % 2 == 1:
+        return text
+    
+    result = ""
+    for i in range(0, len(text), 2):
+        if i + 1 < len(text):
+            result += swap_pair(text[i], text[i+1])
+        else:
+            result += text[i]
+    
+    return result
+```

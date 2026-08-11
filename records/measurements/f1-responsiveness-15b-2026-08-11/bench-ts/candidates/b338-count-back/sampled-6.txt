@@ -1,0 +1,13 @@
+```ts
+/**
+ * The numbers from a start down to one. If start is zero or less, returns nothing at all.
+ */
+export function countBack(start: number): number[] {
+  if (start <= 0) return [];
+  const counted: number[] = [];
+  for (let value = start; value >= 1; value -= 1) {
+    counted.push(value);
+  }
+  return counted;
+}
+```

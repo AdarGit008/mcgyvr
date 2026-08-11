@@ -1,0 +1,106 @@
+{
+  "run": "f1-responsiveness-15b-2026-08-11",
+  "cells": 270,
+  "validity": {
+    "baseline": "bench-calibration-15b-f1-240-2026-08-11",
+    "shared": 270,
+    "baseline_passes": 105,
+    "run_passes": 104,
+    "drift_cells": [
+      "ts/b387-tag-index"
+    ]
+  },
+  "psi_draw": {
+    "responsive": 178,
+    "pinned_fail": 83,
+    "pinned_pass": 9,
+    "n": 270,
+    "value": 0.6592592592592592,
+    "wilson": [
+      0.6008439895174598,
+      0.7132061767100235
+    ],
+    "reading": "at or above the planning prior's middle; sizing holds"
+  },
+  "mde": {
+    "270": 0.14444444444444443,
+    "400": 0.1175,
+    "800": 0.0825
+  },
+  "sampled_rate": {
+    "greedy": 0.3851851851851852,
+    "sampled": 0.3037037037037037
+  },
+  "spread": {
+    "0": 89,
+    "1": 45,
+    "2": 26,
+    "3": 19,
+    "4": 26,
+    "5": 22,
+    "6": 22,
+    "7": 12,
+    "8": 9
+  },
+  "tranches": {
+    "4": {
+      "responsive": 31,
+      "n": 40,
+      "greedy": 18,
+      "sampled_passes": 140,
+      "sampled_draws": 320,
+      "pinned-pass": 3,
+      "pinned-fail": 6
+    },
+    "5": {
+      "responsive": 37,
+      "n": 56,
+      "greedy": 18,
+      "sampled_passes": 118,
+      "sampled_draws": 448,
+      "pinned-fail": 19
+    },
+    "6": {
+      "responsive": 32,
+      "n": 48,
+      "greedy": 24,
+      "sampled_passes": 137,
+      "sampled_draws": 384,
+      "pinned-fail": 14,
+      "pinned-pass": 2
+    },
+    "7": {
+      "responsive": 27,
+      "n": 46,
+      "greedy": 20,
+      "sampled_passes": 117,
+      "sampled_draws": 368,
+      "pinned-fail": 15,
+      "pinned-pass": 4
+    },
+    "8": {
+      "responsive": 25,
+      "n": 44,
+      "greedy": 10,
+      "sampled_passes": 68,
+      "sampled_draws": 352,
+      "pinned-fail": 19
+    },
+    "9": {
+      "pinned-fail": 10,
+      "n": 36,
+      "greedy": 14,
+      "sampled_passes": 76,
+      "sampled_draws": 288,
+      "responsive": 26
+    }
+  },
+  "prereg_test": {
+    "focus": 8,
+    "focus_pinned_fail": 19,
+    "focus_n": 44,
+    "reference_pinned_fail": 54,
+    "reference_n": 190,
+    "p": 0.07078654720791702
+  }
+}

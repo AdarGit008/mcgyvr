@@ -1,0 +1,25 @@
+```ts
+export function cellAt(grid: number[][], row: number, column: number): number {
+  if (!Array.isArray(grid) || !grid.every(row => Array.isArray(row))) {
+    throw new Error('grid must be a two-dimensional array');
+  }
+  if (row < 0 || row >= grid.length || column < 0 || column >= grid[row].length) {
+    return undefined;
+  }
+  return grid[row][column];
+}
+
+export function diagOf(grid: number[][]): number[] {
+  if (!Array.isArray(grid) || !grid.every(row => Array.isArray(row))) {
+    throw new Error('grid must be a two-dimensional array');
+  }
+  const result: number[] = [];
+  for (let i = 0; i < grid.length; i++) {
+    if (i === grid.length - 1) {
+      break;
+    }
+    result.push(grid[i][i]);
+  }
+  return result;
+}
+```

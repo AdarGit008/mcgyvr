@@ -1,0 +1,20 @@
+```python
+def last_four(number):
+    """
+    Returns the last four characters of a card number, or the whole of it when it is shorter.
+    
+    :param number: A string representing a credit card number.
+    :return: The last four characters of the number if it is longer than four; otherwise, the full number.
+    """
+    return number[-4:] if len(number) > 4 else number
+
+
+def mask_card(number):
+    """
+    Returns the number with everything but its last four replaced by stars, one star for each character hidden.
+    
+    :param number: A string representing a credit card number.
+    :return: The masked version of the number.
+    """
+    return '*' * len(number) - 4
+```

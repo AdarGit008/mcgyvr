@@ -1,0 +1,14 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  if (typeof table !== 'object' || !table) {
+    throw new Error('Table must be an object');
+  }
+
+  if (typeof code !== 'string') {
+    throw new Error('Code must be a string');
+  }
+
+  const lowerCaseCode = code.toUpperCase();
+  return table[lowerCaseCode] ?? 'unknown';
+}
+```

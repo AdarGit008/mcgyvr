@@ -1,0 +1,19 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = []
+    for i in range(len(row)):
+        if row[i] == '.' and not free_seats:
+            free_seats.append(i)
+        elif row[i] == 'x':
+            if len(free_seats) >= party:
+                return free_seats[0]
+            free_seats.clear()
+
+    if free_seats and len(free_seats) >= party:
+        return free_seats[0]
+
+    return -1
+```

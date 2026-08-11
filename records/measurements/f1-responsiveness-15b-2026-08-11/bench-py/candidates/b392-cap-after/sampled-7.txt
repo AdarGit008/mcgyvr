@@ -1,0 +1,26 @@
+```python
+
+def cap_after(passage: str) -> str:
+    """
+    Capitalizes the first letter of every sentence in a given passage,
+    with sentences starting at the beginning and ending after any full stop.
+    
+    Args:
+        passage (str): The passage to be processed.
+        
+    Returns:
+        str: A new Passage with capitalized sentences.
+    """
+    if not passage:
+        return ""
+    
+    lines = passage.split(". ")
+    capitalized_lines = [line.capitalize() for line in lines]
+    capped_passage = ". ".join(capitalized_lines)
+    
+    # Ensure the first sentence starts with a capital
+    if capitalized_lines[0]:
+        capped_passage = capitalized_lines[0].capitalize() + ". "
+    
+    return capped_passage.strip()
+```

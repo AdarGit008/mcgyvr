@@ -1,0 +1,11 @@
+```python
+def field_of(record, field):
+    if field not in record:
+        raise ValueError(f"Field '{field}' not found in record")
+    return record[field]
+
+def sort_pairs(records, field):
+    return sorted(records, key=lambda x: x[field])
+```
+
+This solution redefines the `field_of` and `sort_pairs` functions as required. It uses Python's built-in `sorted` function with a custom key that accesses the specified field of each record. The function checks for missing fields by raising a `ValueError`, adhering to the contract.

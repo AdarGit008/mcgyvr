@@ -1,0 +1,15 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error('Input must be between 0 and 9');
+  }
+  return ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][digit];
+}
+
+export function digitWords(digits: string): string {
+  if (!/^\d+$/.test(digits)) {
+    throw new Error('Input must be a string of digits');
+  }
+  return digits.split('').map(digitWord).join(' ');
+}
+```

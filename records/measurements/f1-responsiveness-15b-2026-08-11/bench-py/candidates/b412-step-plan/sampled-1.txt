@@ -1,0 +1,22 @@
+```python
+class Solution:
+    def step_allowed(self, start: str, end: str, allowed: list) -> bool:
+        if start == end:
+            return True
+        for move in allowed:
+            if move == (start, end):
+                return True
+        return False
+
+    def step_plan(self, states: list, allowed: list) -> int:
+        if not states or len(states) <= 1:
+            raise ValueError("No moves to plan.")
+        
+        for i in range(len(states)):
+            next_state = states[i]
+            for j in range(i + 1, len(states)):
+                next_next_state = states[j]
+                if (next_state, next_next_state) not in allowed and (next_next_state, next_state) not in allowed:
+                    return i
+        return -1
+```

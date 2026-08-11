@@ -1,0 +1,13 @@
+```ts
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (typeof phrase !== 'string' || typeof times !== 'number' || typeof between !== 'string') {
+    throw new Error('All arguments must be strings.');
+  }
+
+  if (times < 0) {
+    throw new Error('Times cannot be negative.');
+  }
+
+  return Array(times).fill(phrase).join(between);
+}
+```

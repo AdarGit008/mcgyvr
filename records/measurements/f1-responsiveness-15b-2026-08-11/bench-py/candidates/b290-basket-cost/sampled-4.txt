@@ -1,0 +1,21 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """Return the cost of a single line."""
+    if price < 0 or quantity < 0:
+        raise ValueError("Price and quantity must be non-negative.")
+    return price * quantity
+
+def basket_cost(lines: list, discount: int) -> int:
+    """Calculate the total cost including a discount on a list of lines."""
+    if discount > 100:
+        raise ValueError("Discount percentage cannot exceed one hundred percent.")
+    
+    # Calculate the total cost without discount
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    # Apply the discount
+    discounted_total = total_cost * (100 - discount) / 100
+    
+    # Round down to whole pence
+    return int(discounted_total)
+```

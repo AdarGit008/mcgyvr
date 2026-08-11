@@ -1,0 +1,20 @@
+```ts
+// tierCost calculates the cost of a number of units in whole pence,
+// applying tiered rates based on an allowance.
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) {
+    throw new Error("Number of units must be non-negative.");
+  }
+
+  let total = 0;
+  for (let i = 0; i < units; ++i) {
+    if (i < allowance) {
+      total += firstRate;
+    } else {
+      total += laterRate;
+    }
+  }
+
+  return total;
+}
+```

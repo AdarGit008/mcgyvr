@@ -1,0 +1,10 @@
+```ts
+export function pathClean(path: string): string {
+  if (!path) return '';
+
+  let segments = path.split('/');
+  const filteredSegments = segments.filter(segment => segment !== '..' || filteredSegments.length > 1);
+
+  return filteredSegments.join('/');
+}
+```

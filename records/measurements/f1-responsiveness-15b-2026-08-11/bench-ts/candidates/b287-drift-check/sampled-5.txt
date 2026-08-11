@@ -1,0 +1,15 @@
+```ts
+export function driftCheck(readings: number[], step: number): number {
+  if (!readings || !step) {
+    throw new Error('Invalid input: readings and step must be provided');
+  }
+
+  for (let i = 1; i < readings.length; i++) {
+    if (Math.abs(readings[i] - readings[i - 1]) > step) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+```

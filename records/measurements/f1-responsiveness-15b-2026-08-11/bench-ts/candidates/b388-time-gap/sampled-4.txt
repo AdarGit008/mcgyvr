@@ -1,0 +1,22 @@
+```ts
+/**
+ * Calculates the minutes from the start time to the end time, considering the second time falls on the following day.
+ * 
+ * @param fromHour - The hour of the start time (0-23).
+ * @param fromMinute - The minute of the start time (0-59).
+ * @param toHour - The hour of the end time (0-23).
+ * @param toMinute - The minute of the end time (0-59).
+ * @returns The minutes between the two times, including the second time if it falls on the following day.
+ */
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+    const totalMinutesFromStart = (fromHour * 60) + fromMinute;
+    const totalMinutesToEnd = (toHour * 60) + toMinute;
+
+    if (totalMinutesToEnd < totalMinutesFromStart) {
+        // If the end time is before the start time, it means the second time falls on the following day.
+        return 24 * 60 - (totalMinutesFromStart - totalMinutesToEnd);
+    }
+
+    return totalMinutesToEnd - totalMinutesFromStart;
+}
+```

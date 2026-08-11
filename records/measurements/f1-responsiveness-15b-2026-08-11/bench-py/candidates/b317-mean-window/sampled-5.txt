@@ -1,0 +1,19 @@
+```python
+from typing import *
+from collections import *
+
+def mean_window(readings: list, size: int) -> list:
+    if size == 0:
+        return []
+    
+    result = []
+    for i in range(len(readings)):
+        if i + size > len(readings):
+            break
+        window = readings[i:i+size]
+        total = sum(window)
+        rounded_mean = total // size
+        result.append(rounded_mean)
+    
+    return result
+```

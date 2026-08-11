@@ -1,0 +1,17 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    if not dishes or len(dishes) == 1:
+        return []
+    
+    sorted_dishes = sorted(dishes, key=lambda x: (x[1], x[0]))
+    prices = [dish[1] for dish in sorted_dishes]
+    names = [dish[0] for dish in sorted_dishes]
+    
+    affordable_dishes = []
+    for i in range(len(prices)):
+        if prices[i] > budget:
+            break
+        affordable_dishes.extend(names[i:i+prices[i]+1])
+    
+    return affordable_dishes
+```

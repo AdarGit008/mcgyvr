@@ -1,0 +1,28 @@
+```ts
+/**
+ * The quickest completed lap of a session. If a lap recorded as zero means the lap was never completed,
+ * it does not count. Zero counts only if there are no completed laps in the session.
+ * Returns 0 if the session has no completed laps at all.
+ */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  let hasCompletedLap = false;
+
+  for (const lap of laps) {
+    if (lap === 0) {
+      continue; // Skip zeros
+    }
+    if (!hasCompletedLap && lap > best) {
+      best = lap;
+      hasCompletedLap = true;
+    } else if (hasCompletedLap && lap < best) {
+      best = lap;
+    }
+  }
+
+  return hasCompletedLap ? best : 0;
+}
+```

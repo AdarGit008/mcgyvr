@@ -1,0 +1,12 @@
+```python
+def unwrap_label(label: str) -> str:
+    """A label with one surrounding pair of brackets removed."""
+    if len(label) < 2 or label[0] != "[" or label[-1] != "]":
+        return label
+
+    # Find the last bracket that is not at the end of the string
+    closing_bracket_index = label.rfind("]")
+    
+    # Remove the first and last brackets, and the character before the closing bracket
+    return label[1:closing_bracket_index]
+```

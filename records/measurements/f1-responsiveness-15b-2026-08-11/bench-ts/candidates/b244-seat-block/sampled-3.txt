@@ -1,0 +1,11 @@
+```ts
+export function seatBlock(label: string): (number | string)[] {
+  if (!/^\d+[A-Z]$/.test(label)) {
+    throw new Error('Invalid seat label');
+  }
+  const match = /^(\d+)([A-Z])$/.exec(label);
+  const rowNumber = parseInt(match[1], 10);
+  const letter = match[2];
+  return [rowNumber, letter];
+}
+```

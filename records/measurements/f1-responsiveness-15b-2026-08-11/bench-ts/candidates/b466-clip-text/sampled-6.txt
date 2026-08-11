@@ -1,0 +1,8 @@
+```ts
+export function clipText(text: string, from: number, to: number): string {
+  if (from < 0 || to < 0) throw new Error("Places cannot be negative");
+  if (to > text.length - 1) throw new Error("The second position is out of bounds");
+
+  return text.slice(from, to + 1);
+}
+```

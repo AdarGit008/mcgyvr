@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def take_back(values: list, target: int) -> int:
+    if not values or not target:
+        return -1
+    
+    total = 0
+    for i in range(len(values) - 1, -1, -1):
+        value = values[i]
+        total += value
+        if total >= target:
+            return i + 1
+    return -1
+```

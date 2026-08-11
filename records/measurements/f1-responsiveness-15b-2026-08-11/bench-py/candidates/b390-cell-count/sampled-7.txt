@@ -1,0 +1,13 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid or not grid[0]:  # Check for empty input
+        return 0
+    
+    count = 0
+    for row in grid:  # Iterate through each row in the grid
+        for cell in row:  # Iterate through each cell in the current row
+            if cell == value:  # If the cell holds the specified value
+                count += 1  # Increment the count
+    
+    return count
+```

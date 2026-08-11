@@ -1,0 +1,41 @@
+```python
+from typing import List
+
+def hold_queue(callers: list, limit: int) -> List:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    # If no limit or empty input, return the original list as it is
+    if not callers or limit == len(callers):
+        return callers
+    
+    # Initialize a queue with the first element
+    queue = [callers[0]]
+    
+    for i in range(1, len(callers)):
+        current_caller = callers[i]
+        
+        # If the queue isn't full, add the caller directly
+        if len(queue) < limit:
+            queue.append(current_caller)
+        else:
+            # Otherwise, remove the oldest caller and add the new one
+            del queue[0]
+            queue.append(current_caller)
+    
+    return queue
+
+# Example check function to verify the correctness of the solution
+def check_solution():
+    assert hold_queue([], 3) == []
+    assert hold_queue(['a', 'b'], 2) == ['a']
+    assert hold_queue(['a', 'b', 'c'], 3) == ['a', 'b', 'c']
+    try:
+        hold_queue(['a', 'b', 'c'], -1)
+    except ValueError as e:
+        assert str(e) == "Limit must be greater than zero"
+    
+    print("All checks passed!")
+
+check_solution()
+```

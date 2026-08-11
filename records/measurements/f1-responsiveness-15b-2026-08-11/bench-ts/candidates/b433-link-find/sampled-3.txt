@@ -1,0 +1,20 @@
+```ts
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  const result: string[] = [];
+  let depth = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === opens) {
+      depth++;
+    } else if (line[i] === closes) {
+      depth--;
+      if (depth <= 0) {
+        result.push(line.slice(i + 1, line.indexOf(closes, i)));
+        i = line.indexOf(closes, i); // Skip the closing marker
+      }
+    }
+  }
+
+  return result;
+}
+```

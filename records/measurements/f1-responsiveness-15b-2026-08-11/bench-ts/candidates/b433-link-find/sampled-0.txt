@@ -1,0 +1,29 @@
+```ts
+/**
+ * Returns every piece of a line standing between an opening and closing marker,
+ * in the order they appear and without the markers themselves.
+ *
+ * @param line The input string containing lines to search through.
+ * @param opens The opening marker for finding lines.
+ * @param closes The closing marker for finding lines.
+ * @returns An array of strings representing the lines found between the markers.
+ */
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  const stack = [];
+  const results: string[] = [];
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === opens) {
+      stack.push(char);
+    } else if (char === closes && stack.length > 0) {
+      stack.pop();
+      if (stack.length === 0) {
+        results.push(line.slice(i + 1));
+      }
+    }
+  }
+
+  return results;
+}
+```

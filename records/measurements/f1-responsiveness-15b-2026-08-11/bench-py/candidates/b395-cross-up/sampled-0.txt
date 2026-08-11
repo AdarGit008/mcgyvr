@@ -1,0 +1,26 @@
+```python
+def cross_up(readings: list, level: int) -> int:
+    """
+    Return how many times a run of readings crosses a level going upward.
+
+    Args:
+    readings (list): A list of integer readings.
+    level (int): The target level to cross.
+
+    Returns:
+    int: The count of crossings from the level up.
+    """
+    if not readings or level < 0:
+        raise ValueError("Invalid input")
+
+    count = 0
+    prev_level = float('inf')
+    for reading in readings:
+        if reading == level:
+            count += 1
+        elif reading > level and prev_level < level:
+            count += 1
+        prev_level = reading
+
+    return count
+```

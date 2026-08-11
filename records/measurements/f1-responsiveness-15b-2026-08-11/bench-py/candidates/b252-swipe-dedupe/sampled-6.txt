@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def swipe_dedupe(swipes: List[int]) -> List[int]:
+    """
+    Remove consecutive duplicate numbers from a list of card swipes.
+
+    Parameters:
+        swipes (List[int]): A list of integers representing card swipes.
+
+    Returns:
+        List[int]: A new list with duplicates removed, keeping the first occurrence of each consecutive run.
+    """
+    if not swipes or len(swipes) == 1:
+        return swipes
+
+    result = [swipes[0]]
+    for swipe in swipes[1:]:
+        if swipe != result[-1]:
+            result.append(swipe)
+    return result
+```

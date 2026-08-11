@@ -1,0 +1,8 @@
+```ts
+export function trimTo(line: string, limit: number): string {
+  if (limit < 4) throw new Error("Limit must be at least 4 characters");
+
+  const trimmed = line.slice(0, limit - 2) + "...";
+  return trimmed;
+}
+```

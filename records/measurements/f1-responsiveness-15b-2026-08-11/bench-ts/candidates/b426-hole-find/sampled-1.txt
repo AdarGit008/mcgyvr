@@ -1,0 +1,11 @@
+```ts
+export function stepsOn(first: number, count: number): number[] {
+  if (count < 1) throw new Error('Count must be at least 1');
+  return Array.from({ length: count }, (_, i) => first + i);
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+  const expected = stepsOn(first, count);
+  for (const num of expected) if (!seen.includes(num)) return num;
+}
+```

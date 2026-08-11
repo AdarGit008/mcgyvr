@@ -1,0 +1,27 @@
+```typescript
+/**
+ * Returns the whole hours in a count of minutes, discarding what is left over.
+ *
+ * @param minutes - The total number of minutes.
+ * @returns The whole hours.
+ */
+export function durHours(minutes: number): number {
+  if (minutes < 0) {
+    throw new Error("Count of minutes cannot be negative.");
+  }
+  return Math.floor(minutes / 60);
+}
+
+/**
+ * Writes the count as hours and minutes joined, like 1h30m; a whole number of
+ * hours drops the minutes, a count under an hour drops the hours, and zero is 0m.
+ *
+ * @param minutes - The total number of minutes.
+ * @returns A string representing the time in hours and minutes.
+ */
+export function durText(minutes: number): string {
+  const hours = durHours(minutes);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h${remainingMinutes < 10 ? '0' : ''}${remainingMinutes}m`;
+}
+```

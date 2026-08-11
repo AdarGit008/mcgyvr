@@ -1,0 +1,10 @@
+```python
+def case_count(text: str) -> list:
+    if not text.isalpha():  # If the text contains no letters, return two zeros
+        return [0, 0]
+    
+    capital_count = sum(1 for char in text if char.isupper())
+    lowercase_count = len(text) - capital_count
+    
+    return [capital_count, lowercase_count]
+```

@@ -1,0 +1,14 @@
+```python
+def camel_break(name: str) -> list:
+    if name is None or not isinstance(name, str):
+        raise ValueError("Invalid argument")
+
+    words = name.split()
+    result = []
+    for word in words:
+        if word.isupper():
+            result.append(word.lower())
+        else:
+            result.extend(list(word))
+    return result
+```

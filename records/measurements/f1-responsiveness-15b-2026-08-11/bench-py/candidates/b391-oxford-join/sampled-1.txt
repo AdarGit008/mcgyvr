@@ -1,0 +1,26 @@
+```python
+from typing import List
+
+def oxford_join(names: list) -> str:
+    """
+    Join a list of names into one phrase.
+    
+    Parameters:
+    names (list): A list of strings, each representing a name.
+    
+    Returns:
+    str: A single string containing the names joined by appropriate delimiters.
+    If no names are provided or if the input is empty, returns an empty string.
+    """
+    if not names:
+        return ""
+    
+    if len(names) == 1:
+        return names[0]
+    
+    # Joining names with commas except for the last one
+    joined_names = ", ".join(names[:-1])
+    # Adding "and" before the last name
+    result = f"{joined_names} and {names[-1]}"
+    return result
+```

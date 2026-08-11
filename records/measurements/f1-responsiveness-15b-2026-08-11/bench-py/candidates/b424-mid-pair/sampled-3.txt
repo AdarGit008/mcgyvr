@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def mid_pair(values: List) -> List:
+    if not values:
+        return [None] * 2
+    
+    values.sort()
+    
+    # If the list has an odd number of elements, we take the middle one twice.
+    # If it has an even number of elements, we take the two middle ones.
+    mid = len(values) // 2
+    return [values[mid], values[mid]]
+```

@@ -1,0 +1,11 @@
+```ts
+export function setMinus(entries: string[], remove: string[]): string[] {
+    if (!entries || !remove) {
+        throw new Error("Both entries and remove arrays must be provided");
+    }
+
+    const result = entries.filter(entry => !remove.includes(entry));
+
+    return result;
+}
+```

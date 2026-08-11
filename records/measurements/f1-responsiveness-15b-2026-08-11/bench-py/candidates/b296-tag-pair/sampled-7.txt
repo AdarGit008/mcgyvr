@@ -1,0 +1,13 @@
+```python
+def tag_open(marker: str) -> str:
+    # Check if the marker is wrapped in angle brackets
+    if not marker.startswith("<") or not marker.endswith(">"):
+        raise ValueError("Marker must be wrapped in angle brackets")
+    
+    # Remove leading slash if present
+    return marker[1:] if marker.startswith("/") else marker
+
+def tag_pair(opening: str, closing: str) -> bool:
+    # If the markers differ only in case, they name the same thing
+    return opening.lower() == closing.lower()
+```

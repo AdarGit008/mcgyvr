@@ -1,0 +1,12 @@
+```ts
+export function foldEnds(values: number[]): number[] {
+  const length = values.length;
+  const result = new Array(length);
+
+  for (let i = 0; i < length / 2; i++) {
+    result[length - i - 1] = values[i] + values[length - i - 1];
+  }
+
+  return result;
+}
+```

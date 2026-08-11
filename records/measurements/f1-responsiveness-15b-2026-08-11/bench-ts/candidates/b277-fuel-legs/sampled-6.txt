@@ -1,0 +1,10 @@
+```ts
+export function fuelLegs(litres: number, burn: number): number {
+  if (burn <= 0) {
+    throw new Error("Burn must be positive");
+  }
+
+  const completeLegs = Math.floor(litres / burn);
+  return completeLegs;
+}
+```

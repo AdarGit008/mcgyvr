@@ -1,0 +1,30 @@
+```ts
+// solution.ts
+
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  // Check if both times are valid
+  if (!isValidTime(fromHour, fromMinute) || !isValidTime(toHour, toMinute)) {
+    throw new Error("Invalid time format");
+  }
+
+  // Convert hours and minutes to total minutes since midnight
+  const fromTotalMinutes = fromHour * 60 + fromMinute;
+  const toTotalMinutes = toHour * 60 + toMinute;
+
+  // Calculate the difference in minutes, taking into account days if necessary
+  let timeDifference = toTotalMinutes - fromTotalMinutes;
+
+  // Adjust for crossing midnight if toTime is earlier than fromTime
+  if (timeDifference < 0) {
+    const dayInMinutes = 24 * 60;
+    timeDifference += dayInMinutes;
+  }
+
+  return timeDifference;
+}
+
+// Helper function to check if a given time is valid
+function isValidTime(hour: number, minute: number): boolean {
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+```

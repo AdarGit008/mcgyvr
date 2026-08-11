@@ -1,0 +1,16 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (colour.length !== 7 || colour[0] !== '#') throw new Error('Invalid colour format');
+  const parts = [];
+  for (let i = 1; i <= 6; i += 2) {
+    parts.push(`0x${colour[i]}${colour[i + 1]}`);
+  }
+  return parts;
+}
+
+export function hexJoin(parts: string[]): string {
+  if (!parts.every(part => typeof part === 'string' && part.startsWith('0x') && /^[a-fA-F]{2}$/.test(part.slice(2)))) throw new Error('Invalid hex colour format');
+  const hex = parts.join('');
+  return `#${hex.toLowerCase()}`;
+}
+```

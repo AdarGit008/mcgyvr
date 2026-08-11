@@ -1,0 +1,29 @@
+```python
+
+from typing import *
+from collections import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the number of minutes between two given times on a 24-hour clock,
+    considering that the second time is falling on the following day if it is not
+    later than the first.
+
+    Args:
+        from_hour (int): The hour part of the start time.
+        from_minute (int): The minute part of the start time.
+        to_hour (int): The hour part of the end time.
+        to_minute (int): The minute part of the end time.
+
+    Returns:
+        int: The number of minutes between the two times, including any necessary
+             leap seconds or adjustments for crossing midnight.
+    """
+    if from_hour == to_hour and from_minute <= to_minute:
+        return to_minute - from_minute
+    elif from_hour < to_hour:
+        total_minutes = 60 * (24 - from_hour) + from_minute + 60 * to_hour + to_minute
+    else:  # from_hour > to_hour
+        total_minutes = 60 * (24 - from_hour) + from_minute + 60 * (to_hour + 1) + to_minute
+    return total_minutes
+```

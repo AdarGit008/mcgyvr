@@ -1,0 +1,9 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if len(code) >= width:  # If the code is already at or beyond the width, return it unchanged
+        return code
+    else:  # Pad the code on the left until it reaches the specified width
+        padding = "0" * (width - len(code))
+        return padding + code
+```

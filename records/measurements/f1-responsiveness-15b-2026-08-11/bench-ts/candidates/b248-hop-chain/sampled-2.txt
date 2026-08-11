@@ -1,0 +1,14 @@
+```ts
+export function hopChain(hops: string[][]): boolean {
+  if (hops.length === 0) return true; // No hops means they form a chain
+
+  for (let i = 0; i < hops.length - 1; i++) {
+    const [start, end] = hops[i];
+    const [nextStart, nextEnd] = hops[i + 1];
+
+    if (start !== nextEnd) return false; // If the start of one hop does not match the end of the previous one, it's not a chain
+  }
+
+  return true; // All hops form a chain
+}
+```

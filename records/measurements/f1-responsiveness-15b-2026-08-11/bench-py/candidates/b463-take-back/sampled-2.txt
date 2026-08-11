@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def take_back(values: List[int], target: int) -> int:
+    if not values or target <= 0:
+        return -1
+
+    total = 0
+    taken = 0
+
+    for i in range(len(values) - 1, -1, -1):
+        total += values[i]
+        taken += 1
+        if total >= target:
+            return taken
+
+    return -1
+```

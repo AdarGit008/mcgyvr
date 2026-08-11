@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def stall_turns(counts: List[int], limit: int) -> int:
+    """
+    Calculate the number of turns needed to serve customers at a market stall,
+    distributing items in the order they arrive and limiting each turn to a fixed number.
+
+    Parameters:
+    counts (List[int]): A list of integers representing the number of items each customer wants.
+    limit (int): The maximum number of items that can be served in one turn.
+
+    Returns:
+    int: The total number of turns needed to serve all customers.
+    """
+    if limit <= 0:
+        return 0
+    turns = 0
+    for count in counts:
+        if count > limit:
+            turns += (count // limit) + 1
+        else:
+            turns += 1
+    return turns
+```

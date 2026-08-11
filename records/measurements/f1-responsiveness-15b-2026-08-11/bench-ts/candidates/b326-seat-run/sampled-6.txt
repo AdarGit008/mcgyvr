@@ -1,0 +1,21 @@
+```ts
+export function seatRun(row: string, party: number): number {
+  if (party <= 0) {
+    throw new Error('Invalid party size');
+  }
+
+  let freeSeats = 0;
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      freeSeats++;
+      if (freeSeats >= party) {
+        return i - party + 1;
+      }
+    } else {
+      freeSeats = 0;
+    }
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,23 @@
+```ts
+export function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error("Amount is below zero");
+  }
+
+  prices.sort((a, b) => a - b);
+
+  let totalSpent = 0;
+  let count = 0;
+
+  for (const price of prices) {
+    if (totalSpent + price <= budget) {
+      totalSpent += price;
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  return count;
+}
+```

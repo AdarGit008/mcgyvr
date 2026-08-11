@@ -1,0 +1,15 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount <= 0 || !Number.isFinite(amount)) {
+    throw new Error('Amount must be a positive finite number');
+  }
+  return Math.floor(fixed + amount * (percent / 100));
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!amounts.every(amount => Number.isFinite(amount) && amount > 0)) {
+    throw new Error('All amounts must be positive finite numbers');
+  }
+  return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

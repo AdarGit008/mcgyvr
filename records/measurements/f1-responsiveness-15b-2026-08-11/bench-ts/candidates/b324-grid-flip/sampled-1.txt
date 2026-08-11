@@ -1,0 +1,16 @@
+```ts
+export function gridFlip(grid: number[][]): number[][] {
+  if (grid.length === 0) return [];
+
+  const rows = grid.map(row => row.slice());
+  for (let i = 0; i < rows[0].length; i++) {
+    let column: number[] = [];
+    for (let j = 0; j < rows.length; j++) {
+      column.push(rows[j][i]);
+    }
+    rows.push(column);
+  }
+
+  return rows.slice(1);
+}
+```

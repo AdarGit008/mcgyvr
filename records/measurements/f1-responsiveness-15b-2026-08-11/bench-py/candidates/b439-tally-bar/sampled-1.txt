@@ -1,0 +1,18 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count is None or width is None:
+        raise ValueError("Both count and width must be provided")
+    
+    if count == 0 or width <= 0:
+        return ''
+    
+    bar = '#' * min(count, width)
+    cut_off_index = count - width
+    
+    if cut_off_index > 0:
+        bar += '>'
+        for _ in range(cut_off_index):
+            bar += '#'
+    
+    return bar
+```

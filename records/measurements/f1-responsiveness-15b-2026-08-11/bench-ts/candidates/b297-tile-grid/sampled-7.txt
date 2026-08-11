@@ -1,0 +1,19 @@
+```ts
+export function tilesAcross(length: number, tile: number): number {
+    if (length <= 0 || !Number.isInteger(length) || !Number.isInteger(tile)) {
+        throw new Error('Invalid input');
+    }
+    return Math.ceil(length / tile);
+}
+
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+    if (width <= 0 || height <= 0 || !Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(tile) || !Number.isInteger(spare)) {
+        throw new Error('Invalid input');
+    }
+    const totalTilesLength = tilesAcross(width, tile);
+    const totalTilesHeight = tilesAcross(height, tile);
+    const totalSpare = Math.round(spare * totalTilesArea);
+    const totalNeeded = (totalTilesLength + totalTilesHeight + spare) * tile;
+    return Math.ceil(totalNeeded / tile);
+}
+```

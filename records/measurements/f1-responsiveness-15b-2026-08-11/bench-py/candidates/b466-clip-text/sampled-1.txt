@@ -1,0 +1,11 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start > end:
+        raise ValueError("start cannot be greater than end")
+
+    # Adjust start and end to handle negative indices
+    start = max(0, start)
+    end = min(len(text), end)
+
+    return text[start:end]
+```

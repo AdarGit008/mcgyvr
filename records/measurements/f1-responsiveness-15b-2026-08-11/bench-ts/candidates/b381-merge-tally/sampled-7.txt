@@ -1,0 +1,34 @@
+```ts
+/**
+ * Adds a specified amount to the count of a name in the given tally.
+ *
+ * @param tally - The initial tally object.
+ * @param name - The name to add the amount to.
+ * @param amount - The amount to add to the name's count.
+ * @returns A new tally with the added amount.
+ */
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  const updatedTally = { ...tally };
+  if (updatedTally[name]) {
+    updatedTally[name] += amount;
+  }
+  return updatedTally;
+}
+
+/**
+ * Merges two tallies by adding the counts of their shared names.
+ *
+ * @param left - The first tally object.
+ * @param right - The second tally object.
+ * @returns A new tally with summed counts for shared names.
+ */
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  const mergedTally = { ...left, ...right };
+  for (const [name, amount] of Object.entries(right)) {
+    if (mergedTally[name]) {
+      mergedTally[name] += amount;
+    }
+  }
+  return mergedTally;
+}
+```

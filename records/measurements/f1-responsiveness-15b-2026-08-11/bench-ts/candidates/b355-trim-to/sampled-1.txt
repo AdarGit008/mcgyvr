@@ -1,0 +1,29 @@
+```ts
+export function trimTo(line: string, limit: number): string {
+  if (limit < 4) {
+    throw new Error("Limit must be at least 4 characters.");
+  }
+
+  const length = line.length;
+  if (length <= limit) {
+    return line;
+  }
+
+  // Find the last space before the limit
+  let lastSpaceIndex = -1;
+  for (let i = length; i > limit - 3; i--) {
+    if (line[i] === ' ') {
+      lastSpaceIndex = i;
+      break;
+    }
+  }
+
+  // If no word boundary is found, cut at the limit minus three dots
+  if (lastSpaceIndex === -1) {
+    return line.slice(0, limit - 3) + "...";
+  }
+
+  // Cut at the last space and add three dots
+  return line.slice(0, lastSpaceIndex) + "...";
+}
+```

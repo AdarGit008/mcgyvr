@@ -1,0 +1,24 @@
+```ts
+export function setMinus(entries: string[], remove: string[]): string[] {
+  const result = entries.filter(entry => !remove.includes(entry));
+  return result;
+}
+```
+
+### Edge-Cases and Common Pitfalls
+
+- **Empty Input**: If `entries` or `remove` is empty, `setMinus` should return an empty array (`[]`).
+
+- **Single Element Input**: For single-element lists, the function will correctly determine if one element is present in the other.
+
+- **Null and Undefined**: If either `entries` or `remove` is `null` or `undefined`, it should throw a TypeError with a message indicating that an object is expected.
+
+- **Zero, Negative Numbers and NaN**: These values should be handled in a way that they are not considered as present in the list for comparison purposes.
+
+- **Duplicate Values**: If there are duplicate values in either list, `setMinus` should only return one instance of each unique value.
+
+- **Boundary Indices**: The function should handle edge cases where elements might be at the first, last, or off-by-one positions.
+
+- **Recursion and Depth Bound**: Recursions without a clear base case can lead to infinite loops. Ensure that any recursion has a correct base case and depth bound.
+
+- **Shadowing Built-ins**: Do not shadow built-in names like `Array`, `Object`, `Map`, etc., as variable names in TypeScript. Instead, use different names for these built-ins or define them within the function scope if necessary.

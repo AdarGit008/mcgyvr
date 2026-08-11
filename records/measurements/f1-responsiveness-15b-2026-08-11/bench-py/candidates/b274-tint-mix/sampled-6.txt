@@ -1,0 +1,16 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    # Validate input
+    if not (0 <= volume_a <= 100 and 0 <= strength_a <= 100 and
+            0 <= volume_b <= 100 and 0 <= strength_b <= 100):
+        raise ValueError("Volume and strength must be between 0 and 100")
+
+    # Calculate the total volume of paint in millilitres
+    total_volume = volume_a + volume_b
+
+    # Calculate the total strength of the mixture
+    total_strength = (strength_a * volume_a + strength_b * volume_b) / total_volume
+
+    # Round down to the nearest whole percent and return
+    return round(total_strength * 100)
+```

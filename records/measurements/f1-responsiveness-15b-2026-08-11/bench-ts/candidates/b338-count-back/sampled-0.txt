@@ -1,0 +1,19 @@
+```ts
+/**
+ * The numbers from a start down to one.
+ *
+ * @param {number} start - The starting number for the count. If it's less than or equal to 0,
+ *                      an empty array is returned.
+ * @returns {number[]} An array containing the numbers from `start` down to 1.
+ */
+export function countBack(start: number): number[] {
+  if (start <= 0) {
+    return [];
+  }
+  const counted: number[] = [];
+  for (let value = start; value >= 1; value -= 1) {
+    counted.push(value);
+  }
+  return counted;
+}
+```

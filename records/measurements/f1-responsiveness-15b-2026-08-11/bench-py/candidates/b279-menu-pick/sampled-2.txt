@@ -1,0 +1,8 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List[tuple], budget: int) -> List[str]:
+    filtered_dishes = [dish for dish in dishes if dish[1] <= budget]
+    filtered_dishes.sort(key=lambda x: (x[0], x[1]))
+    return [dish[0] for dish in filtered_dishes]
+```

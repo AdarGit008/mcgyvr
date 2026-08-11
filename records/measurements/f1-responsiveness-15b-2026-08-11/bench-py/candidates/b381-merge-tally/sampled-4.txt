@@ -1,0 +1,16 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    if name in tally:
+        tally[name] += amount
+    else:
+        tally[name] = amount
+    return tally
+
+
+def merge_tally(left: dict, right: dict) -> dict:
+    merged = {**left, **right}
+    for key in left.keys():
+        if key in right:
+            merged[key] += right[key]
+    return merged
+```

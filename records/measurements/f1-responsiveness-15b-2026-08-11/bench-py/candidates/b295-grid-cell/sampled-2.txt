@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def cell_name(row: int, column: int) -> str:
+    if row < 0 or column < 0:
+        raise ValueError("Rows and columns must be non-negative.")
+    
+    col_name = chr(column + ord('A')) if column < 26 else chr((column - 25) // 26 + 'A')
+    return f"{col_name}{row + 1}"
+
+def grid_cells(rows: int, columns: int) -> List[str]:
+    if rows <= 0 or columns <= 0:
+        raise ValueError("Rows and columns must be positive.")
+    
+    cells = []
+    for r in range(rows):
+        for c in range(columns):
+            cells.append(cell_name(r, c))
+    return cells
+```

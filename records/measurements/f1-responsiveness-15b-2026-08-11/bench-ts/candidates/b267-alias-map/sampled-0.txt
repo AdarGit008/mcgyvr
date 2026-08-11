@@ -1,0 +1,24 @@
+```ts
+/**
+ * Resolves a given name to its alias if it exists, otherwise returns the name itself.
+ * The function follows one hop and no further in the provided aliases object.
+ *
+ * @param aliases - An object mapping names to their aliases.
+ * @param name    - The name to be resolved.
+ * @returns The resolved name or the original name if no alias is found.
+ */
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  return aliases[name] ?? name;
+}
+
+/**
+ * Lists all names in the provided aliases object that stand for something,
+ * sorted alphabetically.
+ *
+ * @param aliases - An object mapping names to their aliases.
+ * @returns A sorted array of unique alias names.
+ */
+export function aliasNames(aliases: Record<string, string>): string[] {
+  return Object.keys(aliases).sort();
+}
+```

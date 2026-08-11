@@ -1,0 +1,14 @@
+```python
+def tag_open(marker: str) -> str:
+    if marker[0] == '/':
+        return marker[1:]
+    else:
+        raise ValueError("Marker must start with '/'")
+
+def tag_pair(opening: str, closing: str) -> bool:
+    if opening.lower() != closing.lower():
+        return False
+    if not (opening.startswith('<') and closing.endswith('>')):
+        raise ValueError("Markers must be wrapped in angle brackets")
+    return True
+```

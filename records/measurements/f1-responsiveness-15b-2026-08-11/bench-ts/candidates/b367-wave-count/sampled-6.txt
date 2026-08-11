@@ -1,0 +1,17 @@
+```ts
+function waveCount(readings: number[]): number {
+  if (readings.length < 2) return 0;
+
+  let changeCount = 0;
+  for (let i = 1; i < readings.length; i++) {
+    const prevReading = readings[i - 1];
+    const currReading = readings[i];
+
+    if ((prevReading > 0 && currReading < 0) || (prevReading < 0 && currReading > 0)) {
+      changeCount++;
+    }
+  }
+
+  return changeCount;
+}
+```

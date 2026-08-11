@@ -1,0 +1,19 @@
+```python
+from typing import *
+from collections import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    # Adjust minutes and hours for wrapping around at 23:59 or 00:00
+    if to_minute < from_minute:
+        to_hour -= 1
+        to_minute += 60
+    if to_hour < from_hour:
+        from_hour, from_minute = 0, 0
+        to_hour += 24
+    
+    # Calculate the total minutes difference
+    min_diff = to_minute - from_minute
+    hour_diff = to_hour - from_hour
+    
+    return hour_diff * 60 + min_diff
+```

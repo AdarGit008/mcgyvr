@@ -1,0 +1,14 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings or target is None:
+        raise ValueError("Input must be a non-empty list and a positive integer")
+
+    count = 0
+    for i in range(len(readings) - 1, -1, -1):
+        if readings[i] >= target:
+            count += 1
+        else:
+            break
+
+    return count
+```

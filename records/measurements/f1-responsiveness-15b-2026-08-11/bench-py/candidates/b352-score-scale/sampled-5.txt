@@ -1,0 +1,13 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if mark < 0 or now_out_of == 0:
+        raise ValueError("Invalid input")
+    
+    scale_factor = now_out_of / was_out_of
+    scaled_mark = int(mark * scale_factor)
+    
+    return max(0, scaled_mark)
+
+# STOP AND REPORT BLOCKED IF (do not guess past any of these):
+- Whether a mark below zero should scale in the same way is not stated.
+```

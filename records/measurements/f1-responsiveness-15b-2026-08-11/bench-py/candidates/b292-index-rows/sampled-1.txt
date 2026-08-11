@@ -1,0 +1,22 @@
+```python
+
+class NameIndexer:
+    def row_key(self, name: str) -> str:
+        if not name or not isinstance(name, str):
+            raise ValueError("Name must be a non-empty string")
+        
+        return name[0].upper()
+
+    def index_rows(self, names: list) -> dict:
+        if not names or not all(isinstance(n, str) for n in names):
+            raise ValueError("Names list must contain only strings")
+        
+        index = {}
+        for name in names:
+            key = self.row_key(name)
+            if key not in index:
+                index[key] = []
+            index[key].append(name)
+        
+        return index
+```

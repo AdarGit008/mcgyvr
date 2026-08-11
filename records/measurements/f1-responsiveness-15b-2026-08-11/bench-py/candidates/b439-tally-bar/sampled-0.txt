@@ -1,0 +1,19 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count is None or count < 0:
+        raise ValueError("Count cannot be None or negative.")
+    
+    if width <= 0:
+        return ""
+    
+    # Calculate the number of actual hashes to draw
+    actual_hashes = min(count, width)
+    
+    # Construct the bar with the appropriate number of hashes
+    bar = "#" * actual_hashes
+    
+    # Determine whether a cut bar needs to be added
+    cut_bar = "" if count != actual_hashes else ">"
+    
+    return f"{bar}{cut_bar}"
+```

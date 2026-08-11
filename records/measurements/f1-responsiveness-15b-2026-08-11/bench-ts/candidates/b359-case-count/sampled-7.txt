@@ -1,0 +1,17 @@
+```ts
+export function caseCount(text: string): number[] {
+  const count = text.split('').reduce((acc, char) => {
+    if (char === char.toUpperCase()) {
+      acc[0]++;
+    } else if (char === char.toLowerCase()) {
+      acc[1]++;
+    }
+    return acc;
+  }, [0, 0]);
+
+  // Ensure the result is in the correct order
+  count.sort((a, b) => a - b);
+
+  return count;
+}
+```

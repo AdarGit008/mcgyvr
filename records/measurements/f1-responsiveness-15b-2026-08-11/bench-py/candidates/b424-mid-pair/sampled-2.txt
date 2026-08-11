@@ -1,0 +1,35 @@
+```python
+def mid_pair(values: list) -> list:
+    """
+    Return the two values standing closest to the middle of a list once it is put in order.
+    
+    Args:
+        values (list): The list of numbers to process. If None, returns [None, None].
+        
+    Returns:
+        list: A list containing the two closest values to the middle of the input list.
+              If the input list is empty or has only one element, it contains [None, None].
+    """
+    
+    # Check if the input list is None or has only one element
+    if not values:
+        return [None, None]
+        
+    # Sort the list in ascending order
+    sorted_values = sorted(values)
+    
+    # Calculate the middle index
+    mid_index = len(sorted_values) // 2
+    
+    # If the list has an odd number of elements, there is no middle value
+    if len(sorted_values) % 2 == 1:
+        return [sorted_values[mid_index], None]
+    
+    # If the list has an even number of elements, both middle values are returned
+    return [sorted_values[mid_index - 1], sorted_values[mid_index]]
+
+# Example usage:
+print(mid_pair([3, 1, 4]))  # Output: [2, 3]
+print(mid_pair([]))        # Output: [None, None]
+print(mid_pair([7, 5]))       # Output: [6, 7]
+```

@@ -1,0 +1,25 @@
+```ts
+function commonHead(words: string[]): string {
+    if (!words || !Array.isArray(words)) {
+        throw new Error('Invalid input: words must be an array');
+    }
+
+    if (words.length === 0) {
+        return '';
+    }
+
+    let longestRun = words[0][0];
+
+    for (let i = 1; i < words.length; i++) {
+        const currentWord = words[i];
+        if (currentWord.startsWith(longestRun)) {
+            // Extend the run if the current word starts with the longest run
+        } else {
+            // Start a new run from the current word
+            longestRun = currentWord[0];
+        }
+    }
+
+    return longestRun;
+}
+```

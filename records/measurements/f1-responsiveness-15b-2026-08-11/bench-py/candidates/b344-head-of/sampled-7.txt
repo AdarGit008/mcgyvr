@@ -1,0 +1,9 @@
+```python
+def head_of(entries: list, count: int) -> list:
+    """The first few entries of a list."""
+    if count <= 0:
+        return []
+    return entries[:count]
+```
+
+This solution ensures that the function correctly handles different cases based on the provided parameters. It checks for invalid inputs and returns the appropriate results, adhering to the contract specified in the task.

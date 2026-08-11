@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+    
+    # Extract the first word and compare its characters with others
+    first_word = words[0]
+    for i in range(1, len(first_word)):
+        if first_word[:i] != words[0][:i]:
+            break
+    
+    # If we reach here, it means all words start with the same leading characters
+    return first_word[:i]
+```

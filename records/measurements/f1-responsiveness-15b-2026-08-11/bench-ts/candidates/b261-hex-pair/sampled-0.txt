@@ -1,0 +1,13 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (!/^[a-f0-9]{6}$/i.test(colour)) {
+    throw new Error('Invalid colour format');
+  }
+  return colour.match(/.{2}/gi) as string[];
+}
+
+export function hexJoin(parts: string[]): string {
+  const hexDigits = '0123456789abcdef';
+  return parts.join('');
+}
+```

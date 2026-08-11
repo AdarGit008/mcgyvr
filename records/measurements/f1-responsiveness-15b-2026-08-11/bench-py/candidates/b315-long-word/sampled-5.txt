@@ -1,0 +1,14 @@
+```python
+def long_word(sentence: str) -> str:
+    if sentence == "":
+        return ""
+    
+    words = sentence.split()
+    longest_word = words[0]
+    
+    for word in words[1:]:
+        if len(word) > len(longest_word):
+            longest_word = word
+    
+    return longest_word
+```

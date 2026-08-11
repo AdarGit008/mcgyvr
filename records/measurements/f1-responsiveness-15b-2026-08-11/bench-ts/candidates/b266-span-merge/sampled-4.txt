@@ -1,0 +1,25 @@
+```ts
+import { sort } from "lodash";
+
+export function spanMerge(spans: number[][]): number[][] {
+  if (!spans || !spans.length) return [];
+
+  // Sort spans by start time
+  sort(spans, (a, b) => a[0] - b[0]);
+
+  let mergedSpans: number[][] = [];
+  for (const span of spans) {
+    if (!mergedSpans.length || mergedSpans[mergedSpans.length - 1][1] < span[0]) {
+      mergedSpans.push(span);
+    } else {
+      // Merge overlap
+      const lastSpan = mergedSpans.pop()!;
+      mergedSpans.push([lastSpan[0], Math.max(lastSpan[1], span[1])]);
+    }
+  }
+
+  return mergedSpans;
+}
+```
+
+This solution maintains the original behavior of merging overlapping spans and returning them in sorted order. It uses lodash's `sort` function to sort the spans by their start times, then iterates through the sorted list, handling overlaps between spans efficiently using a single pass.

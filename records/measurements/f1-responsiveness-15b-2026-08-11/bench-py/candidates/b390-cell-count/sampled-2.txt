@@ -1,0 +1,9 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid or not isinstance(grid, list):
+        raise ValueError("Grid must be a non-empty list of rows.")
+    
+    return sum(row.count(value) for row in grid)
+```
+
+This solution adheres to the task contract by implementing the `cell_count` function as specified. It includes type hints and raises a `ValueError` if the input is invalid. The function iterates through each row of the grid, counting how many times the given value appears in each row, and then sums these counts to return the total number of cells holding the specified value.

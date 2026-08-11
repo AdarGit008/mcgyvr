@@ -1,0 +1,17 @@
+```ts
+export function oxfordJoin(names: string[]): string {
+  if (names.length === 0) return '';
+
+  let result = '';
+  const last = names.length - 1;
+
+  for (let i = 0; i < names.length; i++) {
+    result += names[i];
+    if (i !== last && names[i + 1] !== null && names[i + 1] !== undefined) {
+      result += ' and ';
+    }
+  }
+
+  return result;
+}
+```

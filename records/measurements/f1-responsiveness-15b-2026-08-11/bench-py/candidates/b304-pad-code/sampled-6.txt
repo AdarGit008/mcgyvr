@@ -1,0 +1,10 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if len(code) >= width:
+        return code
+    padding_length = width - len(code)
+    return "0" * padding_length + code
+```
+
+This solution adheres to the task requirements by implementing the `pad_code` function according to the provided interface. It checks for the length of the input code and adds zeros on the left if necessary, ensuring that the output has the specified width.

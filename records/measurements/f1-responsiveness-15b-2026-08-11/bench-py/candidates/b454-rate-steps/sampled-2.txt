@@ -1,0 +1,32 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """
+    Return the charge for one step: a fixed sum plus a whole-percent share of the amount.
+
+    :param amount: Amount to be charged
+    :param fixed: Fixed part of the charge
+    :param percent: Percentage of the amount to be charged as a whole percent, rounded down
+    :return: Total charge for one step
+    """
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    if not (isinstance(fixed, int) and isinstance(percent, int)):
+        raise ValueError("Fixed and percentage must be integers")
+    
+    return fixed + amount * percent // 100
+
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """
+    Return the charge for each of several amounts, in order.
+
+    :param amounts: List of amounts to be charged
+    :param fixed: Fixed part of the charge
+    :param percent: Percentage of the amount to be charged as a whole percent, rounded down
+    :return: List of total charges for each amount
+    """
+    if not (isinstance(amounts, list) and all(isinstance(x, int) for x in amounts)):
+        raise ValueError("Amounts must be a list of integers")
+    
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

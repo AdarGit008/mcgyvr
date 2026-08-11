@@ -1,0 +1,15 @@
+```python
+def run_decode(coded: str) -> str:
+    decoded = ''
+    i = 0
+    while i < len(coded):
+        if coded[i].isdigit():
+            count = int(coded[i:])
+            letter = coded[i - 1]
+            decoded += letter * count
+            i += count + 1  # Skip the digit and the following letters
+        else:
+            decoded += coded[i]
+            i += 1
+    return decoded
+```

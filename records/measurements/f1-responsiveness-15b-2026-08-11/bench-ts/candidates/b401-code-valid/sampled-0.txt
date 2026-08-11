@@ -1,0 +1,6 @@
+```ts
+export function codeValid(code: string, length: number): boolean {
+  if (length <= 0) throw new Error("code must be at least one character long");
+  return code.length === length && /^[A-Z0-9]+$/.test(code);
+}
+```

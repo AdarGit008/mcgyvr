@@ -1,0 +1,10 @@
+```python
+from typing import List
+
+def split_at(entries: List[str], marker: str) -> List[List[str]]:
+    if not entries or marker not in entries:
+        return [[None], []]
+    
+    index = entries.index(marker)
+    return [entries[:index+1], entries[index+1:]]
+```

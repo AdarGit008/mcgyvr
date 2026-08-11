@@ -1,0 +1,19 @@
+```ts
+/**
+ * Selects dish names for every dish in dishes that cost no more than budget,
+ * ordered by price ascending and then name ascending if prices are equal.
+ *
+ * @param {Array<{ name: string; price: number }>} dishes - Array of menu items.
+ * @param {number} budget - Maximum price a dish can have.
+ * @returns {string[]} Array of dish names that meet the criteria.
+ */
+export function menuPick(dishes: { name: string; price: number }[], budget: number): string[] {
+  if (budget < 0) {
+    throw new Error("Budget must be non-negative.");
+  }
+
+  const affordableDishes = dishes.filter(dish => dish.price <= budget);
+
+  return affordableDishes.sort((a, b) => a.price === b.price ? a.name.localeCompare(b.name) : a.price - b.price).map(dish => dish.name);
+}
+```

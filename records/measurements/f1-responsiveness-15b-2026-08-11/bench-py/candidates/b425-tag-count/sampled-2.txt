@@ -1,0 +1,19 @@
+```python
+def tag_count(line: str) -> int:
+    if not line:
+        return 0
+
+    marker_count = 0
+    open_bracket_index = None
+
+    for i, char in enumerate(line):
+        if char == '<':
+            if open_bracket_index is not None:
+                raise ValueError("Unmatched closing bracket found")
+            open_bracket_index = i
+        elif char == '>' and open_bracket_index is not None:
+            marker_count += 1
+            open_bracket_index = None
+
+    return marker_count
+```

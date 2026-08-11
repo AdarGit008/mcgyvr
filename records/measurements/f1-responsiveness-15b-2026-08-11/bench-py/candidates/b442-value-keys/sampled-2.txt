@@ -1,0 +1,18 @@
+```python
+from typing import *
+from collections import *
+
+def value_keys(store: dict) -> dict:
+    if store is None:
+        raise ValueError("Store cannot be None")
+    
+    # Initialize a dictionary to hold counts of each value
+    value_counts = defaultdict(int)
+    
+    # Iterate over each key-value pair in the store
+    for item in store.values():
+        # Increment the count for the current value
+        value_counts[item] += 1
+    
+    return dict(value_counts)
+```

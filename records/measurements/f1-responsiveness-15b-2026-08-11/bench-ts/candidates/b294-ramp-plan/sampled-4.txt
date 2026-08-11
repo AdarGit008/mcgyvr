@@ -1,0 +1,25 @@
+```ts
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) {
+    throw new Error("Step cannot be zero.");
+  }
+  const delta = Math.sign(target - current) * step;
+  return current + delta;
+}
+
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0) {
+    throw new Error("Step cannot be zero.");
+  }
+  const differences = [];
+  for (
+    let i = start < target ? start : target,
+      increment = start < target ? -1 : 1;
+    i !== target + increment;
+    i += increment
+  ) {
+    differences.push(i);
+  }
+  return differences;
+}
+```

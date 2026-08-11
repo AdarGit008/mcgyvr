@@ -1,0 +1,22 @@
+```typescript
+/**
+ * Finds the longest word in a sentence. It considers two words equally long for the first occurrence,
+ * and returns the first one encountered if there are ties. The function handles empty sentences by returning an empty string.
+ * Punctuation attached to a word does not affect its length.
+ * 
+ * @param sentence - The sentence to search through.
+ * @returns The longest word in the sentence, or empty if no words are found.
+ */
+export function longWord(sentence: string): string {
+    const words = sentence.split(' ');
+    let longestWord = '';
+
+    for (const word of words) {
+        if (word.length > longestWord.length || (word.length === longestWord.length && words.indexOf(word) < words.indexOf(longestWord))) {
+            longestWord = word;
+        }
+    }
+
+    return longestWord;
+}
+```

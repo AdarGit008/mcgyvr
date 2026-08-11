@@ -1,0 +1,15 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None] * 2
+
+    values.sort()
+    mid_index = len(values) // 2
+    lower_mid = values[mid_index]
+    upper_mid = None
+
+    if len(values) % 2 == 1:
+        upper_mid = values[mid_index + 1]
+
+    return [lower_mid, upper_mid]
+```

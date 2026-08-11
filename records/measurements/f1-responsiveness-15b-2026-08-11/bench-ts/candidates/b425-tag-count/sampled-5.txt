@@ -1,0 +1,29 @@
+```ts
+function tagCount(line: string): number {
+  if (!line) {
+    throw Error("Input line cannot be empty");
+  }
+
+  let markerCount = 0;
+  let inMarker = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '<') {
+      if (!inMarker) {
+        inMarker = true;
+        markerCount++;
+      }
+    } else if (char === '>') {
+      if (inMarker) {
+        inMarker = false;
+      } else {
+        throw Error(`Unmatched closing bracket at index ${i}`);
+      }
+    }
+  }
+
+  return markerCount;
+}
+```

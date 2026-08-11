@@ -1,0 +1,14 @@
+```ts
+/** A code padded with zeros to a fixed width. */
+export function padCode(code: string, width: number): string {
+  if (typeof code !== "string" || typeof width !== "number") {
+    throw new Error("Both code and width must be provided.");
+  }
+
+  let padded = code;
+  while (padded.length < width) {
+    padded = "0" + padded;
+  }
+  return padded;
+}
+```

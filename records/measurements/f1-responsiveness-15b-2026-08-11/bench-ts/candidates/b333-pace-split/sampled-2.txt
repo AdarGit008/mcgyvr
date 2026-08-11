@@ -1,0 +1,27 @@
+```ts
+// Solution to paceOf and paceList
+
+/**
+ * Calculates the seconds per kilometre for a leg of a run.
+ * @param seconds The total time taken in seconds.
+ * @param kilometres The distance covered in kilometres.
+ * @returns The pace in seconds per kilometre, rounded down.
+ */
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres === 0) {
+    throw new Error("Leg distance cannot be zero.");
+  }
+  return Math.floor(seconds / kilometres);
+}
+
+/**
+ * Calculates the pace of each leg of a run based on the seconds and distance.
+ * @param legs An array of objects, where each object contains:
+ *   - seconds: The total time taken in seconds for this leg.
+ *   - kilometres: The distance covered in kilometres for this leg.
+ * @returns An array of pace values corresponding to each leg.
+ */
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  return legs.map(leg => paceOf(leg.seconds, leg.kilometres));
+}
+```

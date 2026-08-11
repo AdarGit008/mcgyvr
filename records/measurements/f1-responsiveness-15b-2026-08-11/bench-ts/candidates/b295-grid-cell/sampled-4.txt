@@ -1,0 +1,38 @@
+```ts
+export function cellName(row: number, column: number): string {
+  if (row < 0 || row >= 65535) {
+    throw new Error("Row index out of bounds");
+  }
+  if (column < 0 || column >= 26) {
+    throw new Error("Column index out of bounds");
+  }
+
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let cellName = "";
+
+  for (let col = column; col > 0; col--) {
+    cellName = letters[col - 1] + cellName;
+  }
+
+  return cellName + row.toString();
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows <= 0 || rows >= 65535) {
+    throw new Error("Rows count out of bounds");
+  }
+  if (columns <= 0 || columns >= 26) {
+    throw new Error("Columns count out of bounds");
+  }
+
+  const cells: string[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      cells.push(cellName(row, col));
+    }
+  }
+
+  return cells;
+}
+```

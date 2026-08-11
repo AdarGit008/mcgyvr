@@ -1,0 +1,24 @@
+```typescript
+/**
+ * Counts how many times a run of readings crosses a level going upward.
+ * A crossing is considered when a reading reaches the level when the previous reading was below it.
+ * 
+ * @param readings - An array of numbers representing the daily readings.
+ * @param level - The target level to cross.
+ * @returns The count of crossings.
+ */
+export function crossUp(readings: number[], level: number): number {
+    if (!readings || !level) {
+        throw new Error("Both readings and level must be provided.");
+    }
+
+    let crossings = 0;
+    for (let i = 1; i < readings.length; i++) {
+        if (readings[i] > level && readings[i - 1] <= level) {
+            crossings++;
+        }
+    }
+
+    return crossings;
+}
+```
