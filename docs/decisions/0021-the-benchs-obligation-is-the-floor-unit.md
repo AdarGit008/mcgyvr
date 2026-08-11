@@ -72,6 +72,37 @@ work the product does. If that turns out to be the case, that is itself the
 evidence for ruling the 1.5B out — and the ruling stays the owner's, made on a
 measurement, not inferred by whoever is authoring at the time.
 
+## Amendment — 2026-08-11: separation is not a requirement
+
+This record left one question open: `records/measurements/mbpp-plus-1.5b-2026-08-11/`
+measured the 1.5B at 3.7pp behind the 3B on MBPP+ shape, and noted that a band
+the floor unit can be *measured* on may not *separate* it from the rung above —
+ADR-0021's obligation met, #224's requirement possibly not.
+
+> **DECIDED (2026-08-11, owner).** Separation between models is **not** a
+> requirement of this bench. Floor coverage is. If a band that covers the floor
+> unit cannot tell the 1.5B from the 3B, that is a result and it is reported as
+> one — it does not disqualify the band or send it back for re-aiming.
+>
+> **The 30–50% aim stands, and it is satisfied against the smallest model.**
+> Not against the 3B, not against a pooled figure, not on average. Upstream is
+> easier and less important: a larger model reading high, or ceilinged, on the
+> floor band is an accepted outcome and not a defect to design around.
+>
+> A finding that the 1.5B matches the 3B on the work we actually dispatch is a
+> reason to **deploy the 1.5B**, not a reason to distrust the bench.
+
+So where this record's Decision (3) permits overlapping benches, that permission
+is not to be spent building a second band whose purpose is separating models.
+The ladder's upper range already exists in the 220 admitted problems, and
+nothing further upstream is authored until a model actually ceilings on what is
+there — clause (4), unchanged and now load-bearing.
+
+Note what this does *not* say: #224 still asks where a small worker neither
+floors nor ceilings, and it may need material this bench does not provide. That
+is #224's problem to state when it gets there, and it is no longer a constraint
+on the floor band's design.
+
 ## Consequences
 
 - **The 1.5B is measured before it is designed for.** It has never been swept.
