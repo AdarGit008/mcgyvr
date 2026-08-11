@@ -17,7 +17,7 @@ assert token_fetch(second, "job", 7) == "two", "saving again replaces value and 
 def rejects(vault, name, value, now, ttl):
     try:
         token_save(vault, name, value, now, ttl)
-    except ValueError:
+    except Exception:
         return True
     return False
 

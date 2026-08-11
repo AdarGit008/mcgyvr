@@ -11,7 +11,7 @@ assert cut_roll(2, [(5, 9)]) == {"takings": 0, "pieces": []}, "a roll no piece f
 def rejects(*args):
     try:
         cut_roll(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

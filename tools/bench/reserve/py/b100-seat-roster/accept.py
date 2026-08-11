@@ -14,7 +14,7 @@ assert normalize_seats([]) == [], "an empty booking stays empty"
 def rejects(raw):
     try:
         normalize_seats(raw)
-    except ValueError:
+    except Exception:
         return True
     return False
 

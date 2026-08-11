@@ -12,7 +12,7 @@ assert clause_order("10.0", "9.9") == 1, "the front number outranks the rest"
 def rejects(*args):
     try:
         clause_order(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

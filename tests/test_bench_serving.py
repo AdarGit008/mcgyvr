@@ -90,3 +90,57 @@ def test_the_tree_the_manifest_and_the_split_rule_agree() -> None:
     every recorded split agrees with the pre-declared rule.
     """
     assert gate.verify_manifest() == []
+
+
+def test_the_two_arms_accept_the_same_breadth_of_rejection() -> None:
+    """ADR-0023: a checker tests what the contract states, and no more.
+
+    The contracts say "reject ... with an error" and never name an exception
+    type, but 104 bench and 106 reserve py checkers caught only `ValueError`
+    while their ts twins use `assert.throws(fn, Error, ...)`, which any Error
+    subclass satisfies. So the idiomatic Python answer to "reject a non-string
+    argument" — a `TypeError` — failed the py arm and passed the ts one, on
+    problems that are supposed to be the same problem twice. Every ts/py
+    contrast the campaign draws sat on top of that, #226's most of all.
+
+    Pinned as a rule rather than a fix: the generator writes new checkers from
+    the same template, so this is the seam a future tranche would reintroduce
+    it through.
+    """
+    narrow: list[str] = []
+    bench = REPO / "tools" / "bench"
+    for root in (bench / "tasks", bench / "reserve"):
+        for accept in sorted((root / "py").glob("*/accept.py")):
+            body = accept.read_text(encoding="utf-8")
+            if "except ValueError" in body or "except (ValueError)" in body:
+                narrow.append(f"{root.name}/{accept.parent.name}")
+    assert narrow == [], (
+        "py checkers pin an exception type their contract never states, so "
+        f"they are stricter than their ts twins: {narrow[:5]}"
+    )
+
+
+def test_the_ts_arm_still_accepts_any_error() -> None:
+    """The other half of the parity, so the fix cannot be undone from that side.
+
+    Narrowing the ts checkers would close the same gap in the wrong direction:
+    both arms would then test an exception taxonomy the contracts never state.
+    """
+    pinned: list[str] = []
+    bench = REPO / "tools" / "bench"
+    for root in (bench / "tasks", bench / "reserve"):
+        for accept in sorted((root / "ts").glob("*/accept.mjs")):
+            body = accept.read_text(encoding="utf-8")
+            for line in body.splitlines():
+                if "assert.throws" in line and "Error" in line:
+                    subclass = [
+                        name
+                        for name in ("TypeError", "RangeError", "SyntaxError")
+                        if name in line
+                    ]
+                    if subclass:
+                        where = f"{root.name}/{accept.parent.name}"
+                        pinned.append(f"{where}: {subclass[0]}")
+    assert pinned == [], (
+        f"ts checkers pin an Error subclass the contract never states: {pinned[:5]}"
+    )

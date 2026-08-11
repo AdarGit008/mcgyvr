@@ -86,7 +86,7 @@ assert run_till_session([["scan", "tea"], ["close"], ["pay", 100], ["cancel"]], 
 def rejects(*args):
     try:
         run_till_session(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

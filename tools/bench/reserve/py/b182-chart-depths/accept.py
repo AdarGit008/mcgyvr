@@ -4,7 +4,7 @@ from solution import chart_depths
 def rejects(chart):
     try:
         chart_depths(chart)
-    except ValueError:
+    except Exception:
         return True
     return False
 

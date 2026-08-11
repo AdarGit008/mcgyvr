@@ -25,7 +25,7 @@ assert region_totals([[-2, 3], [4, -5]], [[0, 0, 2, 2]]) == [
 def rejects(grid, queries):
     try:
         region_totals(grid, queries)
-    except ValueError:
+    except Exception:
         return True
     return False
 

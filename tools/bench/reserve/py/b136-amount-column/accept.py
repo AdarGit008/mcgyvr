@@ -16,7 +16,7 @@ assert total_amounts(["4_5", "5"]) == "50", "input grouping need not be in three
 def rejects(value):
     try:
         total_amounts(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

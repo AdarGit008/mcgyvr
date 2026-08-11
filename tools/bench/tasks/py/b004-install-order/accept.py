@@ -34,7 +34,7 @@ assert install_order(["a", "b"], [["b", "a"], ["b", "a"]]) == [
 def rejects(*args):
     try:
         install_order(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

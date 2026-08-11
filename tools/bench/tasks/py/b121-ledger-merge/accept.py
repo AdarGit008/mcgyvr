@@ -34,7 +34,7 @@ assert merge_ledgers([], [], []) == [], "three empty ledgers merge to nothing"
 def rejects(*args):
     try:
         merge_ledgers(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

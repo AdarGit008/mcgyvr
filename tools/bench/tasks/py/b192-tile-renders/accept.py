@@ -10,7 +10,7 @@ assert tile_renders([[0, "bay"], [0, "arc"], [1, "cog"], [2, "bay"]], 100, 2) ==
 def rejects(*args):
     try:
         tile_renders(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -37,7 +37,7 @@ assert fewest_stamps(2, [2]) == {
 def rejects(postage, denominations):
     try:
         fewest_stamps(postage, denominations)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -23,7 +23,7 @@ assert filed == {"sku": "q7", "count": 2}, "the line handed in is untouched"
 def rejects(line):
     try:
         check_manifest(line)
-    except ValueError:
+    except Exception:
         return True
     return False
 

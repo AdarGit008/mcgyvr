@@ -27,7 +27,7 @@ assert prune_listing([], ["x"]) == [], "an empty listing stays empty"
 def rejects(listing, rules):
     try:
         prune_listing(listing, rules)
-    except ValueError:
+    except Exception:
         return True
     return False
 

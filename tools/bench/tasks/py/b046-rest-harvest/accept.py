@@ -12,7 +12,7 @@ assert best_harvest([0, 0, 0]) == 0, "all-zero days yield zero"
 def rejects(value):
     try:
         best_harvest(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

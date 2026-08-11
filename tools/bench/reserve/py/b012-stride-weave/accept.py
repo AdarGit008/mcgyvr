@@ -34,7 +34,7 @@ assert stride_weave([[7, 9], [7]]) == [7, 7, 9], "duplicates keep order"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

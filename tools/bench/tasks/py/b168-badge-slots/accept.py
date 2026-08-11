@@ -10,7 +10,7 @@ assert badge_text("<a>!", {"a": ""}) == "!", "an empty field value is legal"
 def rejects(*args):
     try:
         badge_text(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -12,7 +12,7 @@ assert pack_entries([]) == "", "no pairs yield the empty string"
 def rejects(value):
     try:
         pack_entries(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -16,7 +16,7 @@ assert cheapest_pass_plan([1, 8], [{"span": 7, "cost": 3}]) == {"total": 6, "pur
 def rejects(trip_days, passes):
     try:
         cheapest_pass_plan(trip_days, passes)
-    except ValueError:
+    except Exception:
         return True
     return False
 

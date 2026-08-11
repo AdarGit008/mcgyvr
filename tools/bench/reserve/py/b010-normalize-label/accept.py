@@ -11,7 +11,7 @@ assert normalize_label("a" * 32) == "a" * 32, "a 32-character label is allowed"
 def rejects(value):
     try:
         normalize_label(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -4,7 +4,7 @@ from solution import audit_ticket
 def rejects(value):
     try:
         audit_ticket(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

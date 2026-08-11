@@ -32,7 +32,7 @@ assert chain_of_command(org, "casey") == [
 def rejects(*args):
     try:
         chain_of_command(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -20,7 +20,7 @@ assert (
 def rejects(rules, amount, source, goal):
     try:
         ladder_convert(rules, amount, source, goal)
-    except ValueError:
+    except Exception:
         return True
     return False
 

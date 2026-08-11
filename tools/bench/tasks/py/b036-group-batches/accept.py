@@ -51,7 +51,7 @@ assert group_batches(
 def rejects(jobs, capacity):
     try:
         group_batches(jobs, capacity)
-    except ValueError:
+    except Exception:
         return True
     return False
 

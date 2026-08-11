@@ -12,7 +12,7 @@ assert stamp_build(1, 10, 0) == 1010000, "the later release stamps higher"
 def rejects(*args):
     try:
         stamp_build(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

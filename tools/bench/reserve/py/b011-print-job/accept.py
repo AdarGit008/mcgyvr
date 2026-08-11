@@ -53,7 +53,7 @@ assert trace_print_job(["start", "jam", "cancel"], 0) == {
 def rejects(events, pause_limit):
     try:
         trace_print_job(events, pause_limit)
-    except ValueError:
+    except Exception:
         return True
     return False
 

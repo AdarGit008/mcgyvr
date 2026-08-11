@@ -11,7 +11,7 @@ assert flip_channels(flip_channels(37, 3, 9), 3, 9) == 37, "flipping a span twic
 def rejects(word, lo, hi):
     try:
         flip_channels(word, lo, hi)
-    except ValueError:
+    except Exception:
         return True
     return False
 

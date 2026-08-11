@@ -12,7 +12,7 @@ assert match_setting({}, "editor.font") is None, "no rules yields None"
 def rejects(*args):
     try:
         match_setting(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

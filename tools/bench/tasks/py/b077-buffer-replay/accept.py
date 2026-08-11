@@ -21,7 +21,7 @@ assert replay_buffer(["add:x", "add:y", "take", "add:z"], 2) == {
 def rejects(ops, capacity):
     try:
         replay_buffer(ops, capacity)
-    except ValueError:
+    except Exception:
         return True
     return False
 

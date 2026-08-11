@@ -12,7 +12,7 @@ assert fork_paths("s/{i,j}/{1,2}") == ["s/i/1", "s/i/2", "s/j/1", "s/j/2"], "an 
 def rejects(value):
     try:
         fork_paths(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

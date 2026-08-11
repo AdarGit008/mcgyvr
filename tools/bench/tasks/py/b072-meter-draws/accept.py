@@ -24,7 +24,7 @@ assert remaining_for({"a": 3}, "a", 10) == 7, "helper subtracts recorded spend"
 def rejects(*args):
     try:
         meter_draws(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

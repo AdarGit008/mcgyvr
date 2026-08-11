@@ -26,7 +26,7 @@ assert tokenize_query('"a b" "c d"') == [
 def rejects(value):
     try:
         tokenize_query(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

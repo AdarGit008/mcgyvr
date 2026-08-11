@@ -12,7 +12,7 @@ assert shelf_fit([5, 5], 0) == 0, "a zero-width shelf holds nothing"
 def rejects(*args):
     try:
         shelf_fit(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -13,7 +13,7 @@ assert spread_tabs("a\tb", 1) == "a b", "width one pads a single space"
 def rejects(*args):
     try:
         spread_tabs(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

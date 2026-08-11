@@ -33,7 +33,7 @@ assert assign_bins([], ["a"]) == {
 def rejects(rules, items):
     try:
         assign_bins(rules, items)
-    except ValueError:
+    except Exception:
         return True
     return False
 

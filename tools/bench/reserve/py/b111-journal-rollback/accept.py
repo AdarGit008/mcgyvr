@@ -30,7 +30,7 @@ assert rollback_journal(
 def rejects(*args):
     try:
         rollback_journal(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

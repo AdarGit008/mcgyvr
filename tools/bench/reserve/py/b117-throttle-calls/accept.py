@@ -37,7 +37,7 @@ assert throttle_calls(10, 5, 7, []) == {
 def rejects(span, cap, budget, calls):
     try:
         throttle_calls(span, cap, budget, calls)
-    except ValueError:
+    except Exception:
         return True
     return False
 

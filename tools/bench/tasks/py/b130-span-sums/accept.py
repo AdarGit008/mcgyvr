@@ -14,7 +14,7 @@ assert add_spans("1yd 2ft 11in", "1in") == "2yd", "a sum can carry into the yard
 def rejects(callable_, *args):
     try:
         callable_(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

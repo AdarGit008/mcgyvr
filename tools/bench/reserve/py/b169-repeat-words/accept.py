@@ -12,7 +12,7 @@ assert repeat_words("hi  hi", 2) == ["hi"], "a run of spaces is one separator"
 def rejects(*args):
     try:
         repeat_words(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

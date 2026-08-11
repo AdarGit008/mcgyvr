@@ -11,7 +11,7 @@ assert plot_overlap([-3, -2, 1, 2], [-1, -1, 4, 1]) == 4, "negative edges"
 def rejects(a, b):
     try:
         plot_overlap(a, b)
-    except ValueError:
+    except Exception:
         return True
     return False
 

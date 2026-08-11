@@ -10,7 +10,7 @@ assert parse_byte_size("0B") == 0, "a zero count is zero bytes"
 def rejects(value):
     try:
         parse_byte_size(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

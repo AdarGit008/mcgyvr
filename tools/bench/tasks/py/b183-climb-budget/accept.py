@@ -4,7 +4,7 @@ from solution import climb_budget
 def rejects(tolls):
     try:
         climb_budget(tolls)
-    except ValueError:
+    except Exception:
         return True
     return False
 

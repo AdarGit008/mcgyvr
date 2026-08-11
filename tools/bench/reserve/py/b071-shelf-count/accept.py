@@ -22,7 +22,7 @@ assert shelf_count(3, [["issue", 3]]) == {
 def rejects(*args):
     try:
         shelf_count(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

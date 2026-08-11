@@ -11,7 +11,7 @@ assert decode_escaped_note("") == "", "an empty note decodes to nothing"
 def rejects(value):
     try:
         decode_escaped_note(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

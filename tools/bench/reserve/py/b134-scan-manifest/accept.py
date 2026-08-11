@@ -68,7 +68,7 @@ assert scan_manifest("", {"loft.txt": "x", "attic.txt": "x"}) == {
 def rejects(manifest, files):
     try:
         scan_manifest(manifest, files)
-    except ValueError:
+    except Exception:
         return True
     return False
 

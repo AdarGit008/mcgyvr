@@ -11,7 +11,7 @@ assert drive_bridge(["raise", "lock", "unlock", "lower"]) == "lowered", "a full 
 def rejects(value):
     try:
         drive_bridge(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

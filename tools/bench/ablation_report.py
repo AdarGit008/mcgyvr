@@ -53,9 +53,23 @@ difference is the seven self-contradicting prompts. The default here is the
 pre-registered set for that reason, and ``--set dispatched`` is available for
 anyone who wants the other number with its name attached.
 
+**Two sets of verdicts exist for these rows, and the reader names which it
+used.** ``--rows as-measured`` (the default) reads what the sweep recorded on
+the day. ``--rows regraded`` reads ``tools/bench/regrade.py``'s re-score of the
+same saved completions under the checkers as they stand now — the same model
+output judged again. That is not a hypothetical: ADR-0023 found 104 bench py
+checkers accepting only ``ValueError`` where their ts twins accept any
+``Error``, and correcting it moved 40 py cells and no ts cell at all. Both
+numbers are real and they answer different questions, so neither is silently
+preferred and the heading always says which one is on screen.
+
 Usage::
 
     uv run --no-sync python tools/bench/ablation_report.py \\
+        --run records/measurements/bench-scaffold-ablation-3b-2026-08-11
+
+    # the same rows under the corrected checkers
+    uv run --no-sync python tools/bench/ablation_report.py --rows regraded \\
         --run records/measurements/bench-scaffold-ablation-3b-2026-08-11
 """
 
@@ -111,9 +125,21 @@ def declared_sets() -> dict[str, list[str]]:
     }
 
 
-def counts(run: Path, condition: str, arm: str) -> dict[str, tuple[int, int]]:
+#: Which file a cell's verdicts are read from. ``as-measured`` is the row the
+#: sweep wrote on the day, under the checker of the day. ``regraded`` is
+#: ``tools/bench/regrade.py``'s re-score of the same saved completions under the
+#: checkers as they stand now — the same model output, a different judge. They
+#: are separate files and separate options because they answer different
+#: questions, and because a reader that silently preferred one would make the
+#: choice invisible in the output.
+ROW_SOURCES = {"as-measured": "results.jsonl", "regraded": "regrade.jsonl"}
+
+
+def counts(
+    run: Path, condition: str, arm: str, rows: str = "as-measured"
+) -> dict[str, tuple[int, int]]:
     """Per problem: (passes, draws) for one cell, or {} if it has not run."""
-    path = run / condition / arm / "results.jsonl"
+    path = run / condition / arm / ROW_SOURCES[rows]
     if not path.is_file():
         return {}
     tally: dict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -187,6 +213,7 @@ def report_contrast(
     blurb: str,
     run: Path,
     keep: set[str],
+    rows: str = "as-measured",
 ) -> list[dict[str, Any]]:
     """One contrast, per language arm and pooled per problem."""
     print(f"\n### {name}: {left} vs {right} — {blurb}")
@@ -195,7 +222,7 @@ def report_contrast(
     pooled_seen: dict[str, int] = defaultdict(int)
 
     for arm in ARMS:
-        a, b = counts(run, left, arm), counts(run, right, arm)
+        a, b = counts(run, left, arm, rows), counts(run, right, arm, rows)
         shared = sorted(
             t for t in keep if t in a and t in b and a[t][1] == b[t][1] and a[t][1] > 0
         )
@@ -277,6 +304,15 @@ def main(argv: list[str] | None = None) -> int:
         "declaration.",
     )
     parser.add_argument(
+        "--rows",
+        choices=sorted(ROW_SOURCES),
+        default="as-measured",
+        help="which verdicts to read. `as-measured` is what the sweep recorded "
+        "on the day. `regraded` is tools/bench/regrade.py's re-score of the "
+        "same saved completions under the checkers as they stand now — same "
+        "model output, different judge. Default: as-measured.",
+    )
+    parser.add_argument(
         "--json", type=Path, default=None, help="also write the rows here"
     )
     args = parser.parse_args(argv)
@@ -298,17 +334,18 @@ def main(argv: list[str] | None = None) -> int:
         source = f"from {path}"
 
     print(f"# scaffold ablation — {args.run.name}")
+    print(f"# verdicts: {args.rows} ({ROW_SOURCES[args.rows]})")
     print(f"# analysis set: {len(keep)} problems ({source})")
     print("# cells present:")
     for condition, arm in product(CONDITIONS, ARMS):
-        cell = counts(args.run, condition, arm)
+        cell = counts(args.run, condition, arm, args.rows)
         got = sum(n for _, n in cell.values())
         if cell:
             print(f"#   {condition}/{arm}: {len(cell)} problems, {got} draws")
 
     rows: list[dict[str, Any]] = []
     for name, left, right, blurb in CONTRASTS:
-        rows += report_contrast(name, left, right, blurb, args.run, keep)
+        rows += report_contrast(name, left, right, blurb, args.run, keep, args.rows)
     if args.json:
         args.json.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
     return 0

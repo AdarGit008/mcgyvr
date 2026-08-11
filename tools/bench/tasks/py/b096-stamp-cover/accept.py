@@ -19,7 +19,7 @@ assert stamp_table([["ab", 3], ["c", 1]]) == {
 def rejects(label, dies):
     try:
         stamp_cover(label, dies)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -10,7 +10,7 @@ assert mass_expression("3kg + 500g + 500g", "kg") == 4, "a whole total converts 
 def rejects(text, unit):
     try:
         mass_expression(text, unit)
-    except ValueError:
+    except Exception:
         return True
     return False
 

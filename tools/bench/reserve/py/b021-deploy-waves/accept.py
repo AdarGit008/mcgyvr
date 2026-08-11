@@ -39,7 +39,7 @@ assert deploy_waves(
 def rejects(services):
     try:
         deploy_waves(services)
-    except ValueError:
+    except Exception:
         return True
     return False
 

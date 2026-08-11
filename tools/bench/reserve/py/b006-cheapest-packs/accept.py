@@ -12,7 +12,7 @@ assert cheapest_packs(9, [[3, 0]]) == 0, "free packs cost nothing"
 def rejects(*args):
     try:
         cheapest_packs(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

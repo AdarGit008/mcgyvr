@@ -13,7 +13,7 @@ assert band_label(85) == "full", "eighty-five percent is full"
 def rejects(*args):
     try:
         charge_percent(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

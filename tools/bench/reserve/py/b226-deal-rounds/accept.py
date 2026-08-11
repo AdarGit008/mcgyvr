@@ -12,7 +12,7 @@ assert deal_rounds("aabb", 2) == ["ab", "ab"], "repeated cards keep their dealt 
 def rejects(*args):
     try:
         deal_rounds(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

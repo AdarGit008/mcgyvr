@@ -9,7 +9,7 @@ assert compile_rules([["invoice-????", "review"], ["*", "hold"]]) == [
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

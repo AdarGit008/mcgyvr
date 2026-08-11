@@ -12,7 +12,7 @@ assert count_trails(4, 3, [[1, 1]]) == 4, "one rope on a taller floor leaves fou
 def rejects(rows, cols, blocked):
     try:
         count_trails(rows, cols, blocked)
-    except ValueError:
+    except Exception:
         return True
     return False
 

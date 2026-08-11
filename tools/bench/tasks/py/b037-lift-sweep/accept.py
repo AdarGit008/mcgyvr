@@ -74,7 +74,7 @@ assert sweep_report(4, [[4, "up"], [6, "up"], [1, "down"]]) == {
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

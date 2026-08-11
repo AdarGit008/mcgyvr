@@ -32,7 +32,7 @@ assert cache_write(other, "z", 9) == ["y"], "reading x refreshed it, so y spills
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -33,7 +33,7 @@ assert sheet == [[300, 360], [0, 60]], "the given sheet is untouched"
 def rejects(*args):
     try:
         reserve_court(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

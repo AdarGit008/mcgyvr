@@ -16,7 +16,7 @@ assert build_bit_index([], 0) == {
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

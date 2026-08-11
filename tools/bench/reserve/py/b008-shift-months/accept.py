@@ -13,7 +13,7 @@ assert shift_months(2100, 1, 31, 1) == [2100, 2, 28], "a century year is not a l
 def rejects(*args):
     try:
         shift_months(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

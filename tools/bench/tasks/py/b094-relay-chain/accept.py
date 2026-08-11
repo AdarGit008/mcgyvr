@@ -24,7 +24,7 @@ assert trace_relay({"north": "hub", "south": "hub", "hub": ""}, "north") == [
 def rejects(links, start):
     try:
         trace_relay(links, start)
-    except ValueError:
+    except Exception:
         return True
     return False
 

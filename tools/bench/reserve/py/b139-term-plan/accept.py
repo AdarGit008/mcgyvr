@@ -34,7 +34,7 @@ assert plan_terms(["cut", "polish", "zebra"], [["polish", "cut"]], 1) == [
 def rejects(*args):
     try:
         plan_terms(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

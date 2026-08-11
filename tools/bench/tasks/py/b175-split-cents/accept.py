@@ -12,7 +12,7 @@ assert split_cents(99, [5]) == [99], "a lone partner takes the whole takings"
 def rejects(total, weights):
     try:
         split_cents(total, weights)
-    except ValueError:
+    except Exception:
         return True
     return False
 

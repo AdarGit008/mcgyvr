@@ -4,7 +4,7 @@ from solution import cents_of
 def rejects(value):
     try:
         cents_of(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

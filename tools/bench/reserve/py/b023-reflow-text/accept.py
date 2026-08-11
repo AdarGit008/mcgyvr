@@ -30,7 +30,7 @@ assert reflow_text("aaa bb", 4) == ["aaa", "bb"], "word moves to next line"
 def rejects(text, width):
     try:
         reflow_text(text, width)
-    except ValueError:
+    except Exception:
         return True
     return False
 

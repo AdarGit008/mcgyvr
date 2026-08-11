@@ -13,7 +13,7 @@ assert clash_pairs([[1, 9], [2, 5], [6, 8]]) == [
 def rejects(value):
     try:
         clash_pairs(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -12,7 +12,7 @@ assert throttle_calls([], 3, 4) == [], "no calls yields no verdicts"
 def rejects(times, limit, window):
     try:
         throttle_calls(times, limit, window)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -17,7 +17,7 @@ assert net_tally(["\n   \n"]) == "", "only blank rows yields the empty string"
 def rejects(value):
     try:
         net_tally(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

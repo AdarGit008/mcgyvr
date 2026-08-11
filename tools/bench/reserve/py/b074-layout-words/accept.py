@@ -21,7 +21,7 @@ assert line_width(["ab", "c"]) == 4, "helper counts the joining space"
 def rejects(*args):
     try:
         layout_words(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

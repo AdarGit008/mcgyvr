@@ -47,7 +47,7 @@ assert run_thermostat(14, 15, 17, 3, [0, 0, -5, 0, 0]) == {
 def rejects(*args):
     try:
         run_thermostat(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

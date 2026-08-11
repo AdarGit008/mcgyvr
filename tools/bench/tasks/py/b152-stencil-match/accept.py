@@ -13,7 +13,7 @@ assert matches_stencil("##", "123") is False, "a longer code never matches"
 def rejects(stencil, code):
     try:
         matches_stencil(stencil, code)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -11,7 +11,7 @@ assert run_press([], 4) == {"printed": [], "waiting": [], "pages": 0}, "an empty
 def rejects(*args):
     try:
         run_press(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

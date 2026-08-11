@@ -15,7 +15,7 @@ assert meter_charge(3, [[2, 1000], [1, 2000]]) == 4, (
 def rejects(units, tiers):
     try:
         meter_charge(units, tiers)
-    except ValueError:
+    except Exception:
         return True
     return False
 

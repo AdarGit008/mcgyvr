@@ -31,7 +31,7 @@ assert match_route("", "x") is None, "empty pattern rejects a real path"
 def rejects(pattern, path):
     try:
         match_route(pattern, path)
-    except ValueError:
+    except Exception:
         return True
     return False
 

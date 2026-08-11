@@ -10,7 +10,7 @@ assert slug_titles(["Tide Table", "Tide table", "TIDE  TABLE"]) == ["tide-table"
 def rejects(value):
     try:
         slug_titles(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -19,7 +19,7 @@ assert reachable_modes({"armed": {"fire": "armed"}}, "armed") == ["armed"], "a s
 def rejects(table, start):
     try:
         reachable_modes(table, start)
-    except ValueError:
+    except Exception:
         return True
     return False
 

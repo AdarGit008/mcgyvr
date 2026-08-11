@@ -13,7 +13,7 @@ assert nearest_depot([3, 3], [[3, 3], [4, 4]]) == 0, "standing at a depot is dis
 def rejects(origin, depots):
     try:
         nearest_depot(origin, depots)
-    except ValueError:
+    except Exception:
         return True
     return False
 

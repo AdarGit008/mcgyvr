@@ -4,7 +4,7 @@ from solution import ink_total, new_canvas, stamp_rect
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

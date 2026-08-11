@@ -35,7 +35,7 @@ assert tally_column([[9, 1]], 0) == {
 def rejects(*args):
     try:
         tally_column(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

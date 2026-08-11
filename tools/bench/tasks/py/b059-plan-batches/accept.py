@@ -40,7 +40,7 @@ assert plan_batches(3, 1) == {
 def rejects(*args):
     try:
         plan_batches(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

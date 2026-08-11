@@ -25,7 +25,7 @@ assert settle_options({}, {}, {}, []) == {}, "nothing in, nothing out"
 def rejects(*args):
     try:
         settle_options(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

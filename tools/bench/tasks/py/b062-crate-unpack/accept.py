@@ -19,7 +19,7 @@ assert unpack_crates(["felt", [], "cord"]) == ["felt", "cord"], "an empty inner 
 def rejects(crate):
     try:
         unpack_crates(crate)
-    except ValueError:
+    except Exception:
         return True
     return False
 

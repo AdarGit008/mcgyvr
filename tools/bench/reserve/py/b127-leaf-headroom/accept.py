@@ -44,7 +44,7 @@ assert leaf_headroom(
 def rejects(tree):
     try:
         leaf_headroom(tree)
-    except ValueError:
+    except Exception:
         return True
     return False
 

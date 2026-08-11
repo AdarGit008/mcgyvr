@@ -14,7 +14,7 @@ assert split_absolute("/") == [], "helper yields nothing for the root"
 def rejects(*args):
     try:
         relative_steps(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

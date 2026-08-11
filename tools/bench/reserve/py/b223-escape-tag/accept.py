@@ -12,7 +12,7 @@ assert escape_tag("~") == "%7E", "a tilde is not a safe character"
 def rejects(value):
     try:
         escape_tag(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

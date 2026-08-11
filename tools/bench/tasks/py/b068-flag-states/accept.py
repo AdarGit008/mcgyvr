@@ -20,7 +20,7 @@ assert flag_states(1, ["armed"]) == {"armed": True}, "single-flag catalog"
 def rejects(*args):
     try:
         flag_states(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

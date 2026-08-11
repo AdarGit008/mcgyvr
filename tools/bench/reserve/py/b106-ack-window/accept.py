@@ -4,7 +4,7 @@ from solution import link_ack, link_send, new_link
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

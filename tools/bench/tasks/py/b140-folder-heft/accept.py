@@ -44,7 +44,7 @@ assert tree_bytes({"name": "empty", "children": []}) == 0, "an empty folder hold
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

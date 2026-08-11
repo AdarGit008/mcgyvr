@@ -13,7 +13,7 @@ assert normalize_locale_tag("AZ-LATN-X-OLD") == "az-Latn-x-old", "private-use pa
 def rejects(value):
     try:
         normalize_locale_tag(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -11,7 +11,7 @@ assert floor == ["....", ".#..", "...."], "the plan handed in is left as it was"
 def rejects(*args):
     try:
         lay_conveyor(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

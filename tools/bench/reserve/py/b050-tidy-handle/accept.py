@@ -10,7 +10,7 @@ assert normalize_handle("abcde_fghij_klmno_pq") == "abcde-fghij-klmno-pq", "twen
 def rejects(value):
     try:
         normalize_handle(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

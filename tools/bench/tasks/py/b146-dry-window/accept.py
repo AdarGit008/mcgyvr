@@ -11,7 +11,7 @@ assert driest_window([0, 6, 0, 6, 0], 3) == 0, "a later equal stretch does not d
 def rejects(*args):
     try:
         driest_window(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

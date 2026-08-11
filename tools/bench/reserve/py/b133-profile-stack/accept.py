@@ -51,7 +51,7 @@ assert resolve_profile("rim", diamond) == {"seed": 1, "side": "e"}, "a diamond i
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

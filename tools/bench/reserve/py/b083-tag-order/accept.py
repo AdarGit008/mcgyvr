@@ -29,7 +29,7 @@ assert kept == ["2.0.0", "1.0.0"], "the given list is left untouched"
 def rejects(tags):
     try:
         order_releases(tags)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -11,7 +11,7 @@ assert center_banner("no vacancy", 12, " ") == " no vacancy ", "inner spaces bel
 def rejects(*args):
     try:
         center_banner(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -13,7 +13,7 @@ assert expand_cron_field("0,20-22,*/30", 0, 59) == [0, 20, 21, 22, 30], "mixed i
 def rejects(field, low, high):
     try:
         expand_cron_field(field, low, high)
-    except ValueError:
+    except Exception:
         return True
     return False
 

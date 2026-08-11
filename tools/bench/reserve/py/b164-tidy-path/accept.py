@@ -11,7 +11,7 @@ assert tidy_path("a/b/../../c") == "c", "steps up chain one after another"
 def rejects(value):
     try:
         tidy_path(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

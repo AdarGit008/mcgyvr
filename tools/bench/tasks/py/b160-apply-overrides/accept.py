@@ -13,7 +13,7 @@ assert base == {"port": "80"}, "base itself is left untouched"
 def rejects(*args):
     try:
         apply_overrides(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

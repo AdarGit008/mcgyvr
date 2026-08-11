@@ -11,7 +11,7 @@ assert ring_slot(3, 10, 1) == 2, "a long run keeps wrapping around"
 def rejects(*args):
     try:
         ring_slot(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

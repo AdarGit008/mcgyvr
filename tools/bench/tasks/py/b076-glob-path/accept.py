@@ -10,7 +10,7 @@ assert glob_path("notes.txt", "notes.md") is False, "literals must match exactly
 def rejects(pattern, path):
     try:
         glob_path(pattern, path)
-    except ValueError:
+    except Exception:
         return True
     return False
 

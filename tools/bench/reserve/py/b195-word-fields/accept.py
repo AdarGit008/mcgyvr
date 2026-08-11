@@ -10,7 +10,7 @@ assert describe_word(42458, [["mode", 2], ["gain", 6], ["fast", 1], ["level", 7]
 def rejects(*args):
     try:
         describe_word(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

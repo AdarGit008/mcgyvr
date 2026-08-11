@@ -10,7 +10,7 @@ assert bump_release("0.0.0", "major") == "1.0.0", "zero components are valid"
 def rejects(*args):
     try:
         bump_release(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

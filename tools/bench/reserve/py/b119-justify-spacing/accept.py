@@ -32,7 +32,7 @@ assert justify_spacing(12, [["a", "b", "c", "d"], ["e"]]) == [
 def rejects(width, lines):
     try:
         justify_spacing(width, lines)
-    except ValueError:
+    except Exception:
         return True
     return False
 

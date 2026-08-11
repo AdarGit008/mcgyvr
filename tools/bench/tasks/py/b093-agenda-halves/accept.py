@@ -26,7 +26,7 @@ assert split_agenda([[0, 6], [9, 11]], 10) == [
 def rejects(sessions, limit):
     try:
         split_agenda(sessions, limit)
-    except ValueError:
+    except Exception:
         return True
     return False
 

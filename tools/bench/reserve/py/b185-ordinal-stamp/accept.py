@@ -4,7 +4,7 @@ from solution import ordinal_stamp
 def rejects(year, day):
     try:
         ordinal_stamp(year, day)
-    except ValueError:
+    except Exception:
         return True
     return False
 

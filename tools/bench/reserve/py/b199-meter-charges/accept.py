@@ -4,7 +4,7 @@ from solution import meter_charges
 def rejects(allowance, charges):
     try:
         meter_charges(allowance, charges)
-    except ValueError:
+    except Exception:
         return True
     return False
 

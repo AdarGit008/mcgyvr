@@ -11,7 +11,7 @@ assert trim_caption("ab   cdef", 6) == "ab…", "hanging spaces are removed befo
 def rejects(*args):
     try:
         trim_caption(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

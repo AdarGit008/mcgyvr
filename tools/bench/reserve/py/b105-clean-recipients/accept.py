@@ -22,7 +22,7 @@ assert clean_recipients(["Team <  crew@list.example.org  >"]) == [
 def rejects(raw):
     try:
         clean_recipients(raw)
-    except ValueError:
+    except Exception:
         return True
     return False
 

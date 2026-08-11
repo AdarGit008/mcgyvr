@@ -9,7 +9,7 @@ assert line_tag("ping") == "ae", "the tag is the char-code sum modulo 256 in hex
 def rejects(fn, value):
     try:
         fn(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

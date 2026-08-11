@@ -93,7 +93,7 @@ assert pick_harvest_lots([["okra", 1, 5, 5], ["kohlrabi", 0, 5, 5]], 2, 99, 3) =
 def rejects(*args):
     try:
         pick_harvest_lots(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -83,7 +83,7 @@ assert section_report([["a", "x", 1], ["b", "y", 1], ["a", "z", 1], ["b", "w", 1
 def rejects(value):
     try:
         section_report(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

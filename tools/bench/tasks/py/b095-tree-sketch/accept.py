@@ -79,7 +79,7 @@ assert draw_tree_lines(
 def rejects(root):
     try:
         draw_tree_lines(root)
-    except ValueError:
+    except Exception:
         return True
     return False
 

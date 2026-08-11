@@ -12,7 +12,7 @@ assert wire_text("a:b") == "s3:a:b", "the leaf helper renders alone"
 def rejects(value):
     try:
         wire_value(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

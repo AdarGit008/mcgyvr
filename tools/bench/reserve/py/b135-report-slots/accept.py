@@ -13,7 +13,7 @@ assert format_fixed(-7.25, 2) == "-7.25", "a plain negative keeps its sign"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

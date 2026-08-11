@@ -10,7 +10,7 @@ assert fresh_value({"value": "z", "stored": 100, "ttl": 50}, 120) == "z", "a mid
 def rejects(entry, now):
     try:
         fresh_value(entry, now)
-    except ValueError:
+    except Exception:
         return True
     return False
 

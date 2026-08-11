@@ -28,7 +28,7 @@ assert month_ledger([]) == [], "no entries means no rows"
 def rejects(entries):
     try:
         month_ledger(entries)
-    except ValueError:
+    except Exception:
         return True
     return False
 

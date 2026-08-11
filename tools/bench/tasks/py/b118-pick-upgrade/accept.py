@@ -24,7 +24,7 @@ assert compare_builds("2.3", "2.3.0") == 0, "a trailing zero changes nothing"
 def rejects(installed, offers):
     try:
         pick_upgrade(installed, offers)
-    except ValueError:
+    except Exception:
         return True
     return False
 

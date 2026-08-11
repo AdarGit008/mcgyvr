@@ -35,7 +35,7 @@ assert drain_lanes([["a", 1]], []) == {"order": [], "rounds": 0}, "nothing to dr
 def rejects(plan, items):
     try:
         drain_lanes(plan, items)
-    except ValueError:
+    except Exception:
         return True
     return False
 

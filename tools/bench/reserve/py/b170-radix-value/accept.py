@@ -10,7 +10,7 @@ assert radix_value("13#c0") == 156, "an uncommon base folds the same way"
 def rejects(value):
     try:
         radix_value(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

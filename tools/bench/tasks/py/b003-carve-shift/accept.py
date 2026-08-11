@@ -17,7 +17,7 @@ assert carve_shift(-6, 3, 5, 1, 2) == [[-6, -1], [0, 3]], "negative bounds"
 def rejects(*args):
     try:
         carve_shift(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

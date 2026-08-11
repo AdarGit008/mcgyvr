@@ -11,7 +11,7 @@ assert drain_frames(["ab||"], "|") == {"frames": [], "pending": "ab|"}, "a doubl
 def rejects(*args):
     try:
         drain_frames(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

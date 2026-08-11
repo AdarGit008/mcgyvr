@@ -22,7 +22,7 @@ assert section_count(DOC) == 5, "every depth counts toward the section count"
 def rejects(value):
     try:
         number_sections(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

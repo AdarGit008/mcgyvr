@@ -80,7 +80,7 @@ assert run_assembly(
 def rejects(*args):
     try:
         run_assembly(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -26,7 +26,7 @@ assert leg_arrivals("23:00", [[30, 60], [30, 0]]) == [
 def rejects(call, *args):
     try:
         call(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

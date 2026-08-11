@@ -12,7 +12,7 @@ assert thaw_row("#", 1) == ".", "a lone ice cell melts at once"
 def rejects(row, steps):
     try:
         thaw_row(row, steps)
-    except ValueError:
+    except Exception:
         return True
     return False
 

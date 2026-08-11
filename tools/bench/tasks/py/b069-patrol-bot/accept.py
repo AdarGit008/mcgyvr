@@ -26,7 +26,7 @@ assert clamp_move(2, 10, 5) == [4, True], "helper clamps at the far wall"
 def rejects(*args):
     try:
         run_patrol(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

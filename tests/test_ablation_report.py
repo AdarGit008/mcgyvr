@@ -125,6 +125,50 @@ def test_a_dispatch_error_row_is_not_counted_as_a_draw(tmp_path: Path) -> None:
     assert report.counts(tmp_path, "stock", "bench-ts") == {"b001-x": (1, 2)}
 
 
+def test_the_two_row_sources_are_read_apart(tmp_path: Path) -> None:
+    """A re-score is a different judge on the same output, not a correction.
+
+    `results.jsonl` is what the sweep recorded on the day, under the checker of
+    the day; `regrade.jsonl` is `tools/bench/regrade.py`'s verdict under the
+    checkers as they stand now. They must never be silently merged or silently
+    preferred — ADR-0023's `ValueError` fix moved 40 py cells, and a reader that
+    chose a file on its own would make it impossible to tell which number a
+    table was quoting.
+    """
+    cell = tmp_path / "stock" / "bench-py"
+    cell.mkdir(parents=True)
+    cell.joinpath("results.jsonl").write_text(
+        json.dumps({"task": "b001-x", "passed": False}) + "\n", encoding="utf-8"
+    )
+    cell.joinpath("regrade.jsonl").write_text(
+        json.dumps({"task": "b001-x", "passed": True, "regraded": True}) + "\n",
+        encoding="utf-8",
+    )
+    assert report.counts(tmp_path, "stock", "bench-py") == {"b001-x": (0, 1)}
+    assert report.counts(tmp_path, "stock", "bench-py", "as-measured") == {
+        "b001-x": (0, 1)
+    }
+    assert report.counts(tmp_path, "stock", "bench-py", "regraded") == {
+        "b001-x": (1, 1)
+    }
+
+
+def test_asking_for_a_regrade_that_was_never_run_reads_as_an_absent_cell(
+    tmp_path: Path,
+) -> None:
+    """Absent is absent: a missing re-score must not fall back to the old rows.
+
+    Falling back would report as-measured numbers under a `regraded` heading,
+    which is precisely the confusion the two files exist to prevent.
+    """
+    cell = tmp_path / "stock" / "bench-py"
+    cell.mkdir(parents=True)
+    cell.joinpath("results.jsonl").write_text(
+        json.dumps({"task": "b001-x", "passed": True}) + "\n", encoding="utf-8"
+    )
+    assert report.counts(tmp_path, "stock", "bench-py", "regraded") == {}
+
+
 # --- the analysis set: declared apart from the numbers, and re-derived here ---
 
 

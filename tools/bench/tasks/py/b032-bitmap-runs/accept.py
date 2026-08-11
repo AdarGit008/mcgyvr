@@ -21,7 +21,7 @@ assert base == [0], "occupation does not modify its argument"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

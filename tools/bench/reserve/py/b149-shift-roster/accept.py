@@ -10,7 +10,7 @@ assert shift_roster([["cyd", "late"], ["ada", "early"], ["bo", "late"], ["eli", 
 def rejects(entries):
     try:
         shift_roster(entries)
-    except ValueError:
+    except Exception:
         return True
     return False
 

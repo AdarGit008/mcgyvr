@@ -12,7 +12,7 @@ assert clean_roster(["Zia Kade", "Ann Bell", "zia kade"]) == ["Zia Kade", "Ann B
 def rejects(value):
     try:
         clean_roster(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

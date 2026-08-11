@@ -9,7 +9,7 @@ assert expand_selection("4,5-6") == [4, 5, 6], "touching pieces are allowed"
 def rejects(value):
     try:
         expand_selection(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

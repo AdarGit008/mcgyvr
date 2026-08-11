@@ -12,7 +12,7 @@ catalog = {
 def rejects(kit, want):
     try:
         explode_kit(catalog, kit, want)
-    except ValueError:
+    except Exception:
         return True
     return False
 

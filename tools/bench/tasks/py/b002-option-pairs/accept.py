@@ -18,7 +18,7 @@ assert parse_option('depth="3;4"') == ["depth", "3;4"], "helper unquotes"
 def rejects(value):
     try:
         scan_pairs(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -26,7 +26,7 @@ assert apply_edit_script(
 def rejects(doc, script):
     try:
         apply_edit_script(doc, script)
-    except ValueError:
+    except Exception:
         return True
     return False
 

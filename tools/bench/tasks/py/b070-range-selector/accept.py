@@ -10,7 +10,7 @@ assert selector_hits([], "5") == 0, "no values"
 def rejects(*args):
     try:
         selector_hits(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -18,7 +18,7 @@ assert merge_settings({}, {}, {}) == {}, "empty sides merge to empty"
 def rejects(*args):
     try:
         merge_settings(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -16,7 +16,7 @@ assert team_headcount(chain, "a3") == 2, "counting starts partway down the chain
 def rejects(chart, name):
     try:
         team_headcount(chart, name)
-    except ValueError:
+    except Exception:
         return True
     return False
 

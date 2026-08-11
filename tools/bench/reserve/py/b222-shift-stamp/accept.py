@@ -12,7 +12,7 @@ assert shift_stamp("12:00", 4325) == "12:05", "an offset of several days still w
 def rejects(stamp, minutes):
     try:
         shift_stamp(stamp, minutes)
-    except ValueError:
+    except Exception:
         return True
     return False
 

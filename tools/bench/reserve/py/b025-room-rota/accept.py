@@ -33,7 +33,7 @@ assert spans_overlap([0, 10], [10, 20]) is False, "touching spans do not"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

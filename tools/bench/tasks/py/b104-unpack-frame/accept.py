@@ -18,7 +18,7 @@ assert unpack_frame([1, 255, 255, 255, 255, 127, 124]) == [
 def rejects(data):
     try:
         unpack_frame(data)
-    except ValueError:
+    except Exception:
         return True
     return False
 

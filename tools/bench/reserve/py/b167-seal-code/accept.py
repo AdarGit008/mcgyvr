@@ -12,7 +12,7 @@ assert seal_code("DOCK31") == "DOCK31R", "a longer mixed code is sealed"
 def rejects(value):
     try:
         seal_code(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

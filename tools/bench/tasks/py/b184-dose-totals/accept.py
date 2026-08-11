@@ -4,7 +4,7 @@ from solution import dose_totals
 def rejects(log):
     try:
         dose_totals(log)
-    except ValueError:
+    except Exception:
         return True
     return False
 

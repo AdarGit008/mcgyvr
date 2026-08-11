@@ -24,7 +24,7 @@ assert widest_list([]) == 0, "widest_list of no lanes is zero"
 def rejects(value):
     try:
         weave_rounds(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

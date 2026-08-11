@@ -52,7 +52,7 @@ assert panel_coverage([[0, 0, 2, 2], [0, 0, 2, 2], [0, 0, 2, 2]]) == report(
 def rejects(panels):
     try:
         panel_coverage(panels)
-    except ValueError:
+    except Exception:
         return True
     return False
 

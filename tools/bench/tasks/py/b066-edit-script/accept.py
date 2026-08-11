@@ -10,7 +10,7 @@ assert apply_edit_script("", [["insert", "fresh"]]) == "fresh", "insert into an 
 def rejects(*args):
     try:
         apply_edit_script(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

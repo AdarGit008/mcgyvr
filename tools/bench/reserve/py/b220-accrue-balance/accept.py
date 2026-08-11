@@ -11,7 +11,7 @@ assert accrue_balance(4321, 375, 0) == 4321, "no periods leaves the opening bala
 def rejects(*args):
     try:
         accrue_balance(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

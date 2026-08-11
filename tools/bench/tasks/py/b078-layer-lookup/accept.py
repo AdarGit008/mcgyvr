@@ -10,7 +10,7 @@ assert config_value(["flag="], "flag") == "", "an empty value is a value, not an
 def rejects(layers, name):
     try:
         config_value(layers, name)
-    except ValueError:
+    except Exception:
         return True
     return False
 

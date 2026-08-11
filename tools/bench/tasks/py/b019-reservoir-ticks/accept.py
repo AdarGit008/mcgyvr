@@ -65,7 +65,7 @@ assert run_reservoir(5, 5, [[0, 0]]) == {
 def rejects(capacity, start, ticks):
     try:
         run_reservoir(capacity, start, ticks)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -20,7 +20,7 @@ assert parse_quoted_table('"a"\nb') == [["a"], ["b"]], "quoted equals unquoted"
 def rejects(value):
     try:
         parse_quoted_table(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

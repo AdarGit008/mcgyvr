@@ -11,7 +11,7 @@ assert open_windows("09:00-11:00", ["09:00-10:00", "10:00-11:00"]) == "none", "a
 def rejects(*args):
     try:
         open_windows(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

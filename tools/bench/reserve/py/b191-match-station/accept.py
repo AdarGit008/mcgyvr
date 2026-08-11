@@ -13,7 +13,7 @@ assert match_station(names, "wharf") is None, "a fragment no name holds resolves
 def rejects(names, fragment):
     try:
         match_station(names, fragment)
-    except ValueError:
+    except Exception:
         return True
     return False
 

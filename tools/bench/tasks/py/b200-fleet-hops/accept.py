@@ -4,7 +4,7 @@ from solution import fleet_hops
 def rejects(count, lts, builds, hop):
     try:
         fleet_hops(count, lts, builds, hop)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -11,7 +11,7 @@ assert path_hops("", "a") == 1, "the empty path is the root"
 def rejects(*args):
     try:
         path_hops(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

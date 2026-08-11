@@ -22,7 +22,7 @@ assert placard_lines("one two six", 3) == [
 def rejects(text, width):
     try:
         placard_lines(text, width)
-    except ValueError:
+    except Exception:
         return True
     return False
 

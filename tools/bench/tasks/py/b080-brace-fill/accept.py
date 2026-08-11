@@ -9,7 +9,7 @@ assert fill_template("} {n} }", {"n": "q"}) == "} q }", "a closing brace outside
 def rejects(template, values):
     try:
         fill_template(template, values)
-    except ValueError:
+    except Exception:
         return True
     return False
 

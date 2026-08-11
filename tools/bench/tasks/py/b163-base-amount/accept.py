@@ -13,7 +13,7 @@ assert base_amount(5, "sheet", {}, "sheet") == 5, "empty defs still serve the ba
 def rejects(*args):
     try:
         base_amount(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

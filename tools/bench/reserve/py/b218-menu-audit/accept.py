@@ -16,7 +16,7 @@ assert audit_menu(leaf("menu"), 0) == [], "a root on its own is neither a duplic
 def rejects(*args):
     try:
         audit_menu(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

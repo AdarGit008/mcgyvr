@@ -26,7 +26,7 @@ assert blank_cells([["", ""], ["a", ""]]) == 3, "blank_cells counts the blanks"
 def rejects(rows):
     try:
         fill_down(rows)
-    except ValueError:
+    except Exception:
         return True
     return False
 

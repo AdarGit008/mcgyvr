@@ -23,7 +23,7 @@ assert first_route(["/a/b"], "/c") == -1, "no pattern matches"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

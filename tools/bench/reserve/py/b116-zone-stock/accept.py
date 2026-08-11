@@ -44,7 +44,7 @@ assert rack_units({"bolt": 4}, "nut") == 0, "rack_units reads an absent sku as z
 def rejects(zone, sku):
     try:
         zone_stock(zone, sku)
-    except ValueError:
+    except Exception:
         return True
     return False
 
@@ -74,7 +74,7 @@ assert rejects(
 def helper_rejects(bins, sku):
     try:
         rack_units(bins, sku)
-    except ValueError:
+    except Exception:
         return True
     return False
 

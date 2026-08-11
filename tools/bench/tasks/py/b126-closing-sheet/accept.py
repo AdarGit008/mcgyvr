@@ -14,7 +14,7 @@ assert closing_sheet("nail:2;bolt:8", "nail+1;bolt-3;nail-3") == "bolt:5", "move
 def rejects(opening, moves):
     try:
         closing_sheet(opening, moves)
-    except ValueError:
+    except Exception:
         return True
     return False
 

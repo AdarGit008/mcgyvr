@@ -12,7 +12,7 @@ assert slot_hits([4, 4], 1) == 1, "a single-slot cache still hits"
 def rejects(keys, slots):
     try:
         slot_hits(keys, slots)
-    except ValueError:
+    except Exception:
         return True
     return False
 

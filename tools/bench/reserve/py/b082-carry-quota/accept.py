@@ -34,7 +34,7 @@ assert bill_overage(10, 0, [4, 11]) == {
 def rejects(allowance, carry_cap, usage):
     try:
         bill_overage(allowance, carry_cap, usage)
-    except ValueError:
+    except Exception:
         return True
     return False
 

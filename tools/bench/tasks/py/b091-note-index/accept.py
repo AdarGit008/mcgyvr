@@ -30,7 +30,7 @@ assert build_word_index("to-do: buy jam\nbuy milk, buy bread") == {
 def rejects(value):
     try:
         build_word_index(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

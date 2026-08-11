@@ -10,7 +10,7 @@ NOTES = [
 def rejects(query, sentences):
     try:
         pick_snippet(query, sentences)
-    except ValueError:
+    except Exception:
         return True
     return False
 

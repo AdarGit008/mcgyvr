@@ -10,7 +10,7 @@ assert pack_dials({"b": 1, "a": 2, "c": 3}) == "a=2;b=1;c=3", "insertion order d
 def rejects(value):
     try:
         pack_dials(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

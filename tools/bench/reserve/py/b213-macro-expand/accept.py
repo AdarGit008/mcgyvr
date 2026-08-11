@@ -6,7 +6,7 @@ BOOK = {"who": "world", "greet": "hello $(who)", "loud": "$(greet)!"}
 def rejects(text, macros):
     try:
         expand_macro(text, macros)
-    except ValueError:
+    except Exception:
         return True
     return False
 

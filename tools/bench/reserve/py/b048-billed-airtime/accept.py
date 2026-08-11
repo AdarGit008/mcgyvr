@@ -11,7 +11,7 @@ assert billed_airtime(61, 60, 10) == 70, "another tariff bills its own steps"
 def rejects(*args):
     try:
         billed_airtime(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

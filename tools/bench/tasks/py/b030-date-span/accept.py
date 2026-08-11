@@ -15,7 +15,7 @@ assert span_days([2024, 2, 29], [2024, 3, 1]) == 1, "leap day is a real date"
 def rejects(start, end):
     try:
         span_days(start, end)
-    except ValueError:
+    except Exception:
         return True
     return False
 

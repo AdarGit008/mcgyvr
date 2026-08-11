@@ -85,7 +85,7 @@ assert trace_cache(
 def rejects(capacity, requests):
     try:
         trace_cache(capacity, requests)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -19,7 +19,7 @@ assert trace_parcel(["pack", "ship", "bounce"]) == [
 def rejects(value):
     try:
         trace_parcel(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

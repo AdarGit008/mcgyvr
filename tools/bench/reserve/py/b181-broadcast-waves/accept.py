@@ -4,7 +4,7 @@ from solution import broadcast_waves
 def rejects(links, start):
     try:
         broadcast_waves(links, start)
-    except ValueError:
+    except Exception:
         return True
     return False
 

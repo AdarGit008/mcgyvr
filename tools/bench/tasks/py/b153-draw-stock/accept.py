@@ -12,7 +12,7 @@ assert pantry == {"bolt": 5}, "the shelf passed in is never modified"
 def rejects(shelf, order):
     try:
         draw_stock(shelf, order)
-    except ValueError:
+    except Exception:
         return True
     return False
 

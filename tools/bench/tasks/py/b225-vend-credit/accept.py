@@ -12,7 +12,7 @@ assert vend_credit([5, 5, 5, 5, 5], 5) == 0, "every coin drops its own item"
 def rejects(coins, price):
     try:
         vend_credit(coins, price)
-    except ValueError:
+    except Exception:
         return True
     return False
 

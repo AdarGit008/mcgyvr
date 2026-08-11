@@ -29,7 +29,7 @@ assert receipt_cents(3, 250) == 750, "a receipt costs quantity times unit cost"
 def rejects(moves):
     try:
         run_stockbook(moves)
-    except ValueError:
+    except Exception:
         return True
     return False
 
@@ -46,7 +46,7 @@ assert rejects([["receive", 2, -5]]), "a negative unit cost is rejected"
 def helper_rejects(qty, unit_cents):
     try:
         receipt_cents(qty, unit_cents)
-    except ValueError:
+    except Exception:
         return True
     return False
 

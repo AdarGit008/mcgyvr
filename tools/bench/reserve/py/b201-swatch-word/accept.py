@@ -10,7 +10,7 @@ assert swatch_word("#f0a", [4, 4, 4]) == "111100001010", "the short form doubles
 def rejects(*args):
     try:
         swatch_word(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

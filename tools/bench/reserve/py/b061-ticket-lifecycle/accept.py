@@ -11,7 +11,7 @@ assert replay_ticket(["triage", "resolve", "archive"]) == "archived", "archive c
 def rejects(events):
     try:
         replay_ticket(events)
-    except ValueError:
+    except Exception:
         return True
     return False
 

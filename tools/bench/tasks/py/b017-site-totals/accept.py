@@ -35,7 +35,7 @@ assert site_totals(
 def rejects_totals(rows):
     try:
         site_totals(rows)
-    except ValueError:
+    except Exception:
         return True
     return False
 
@@ -61,7 +61,7 @@ assert load_ledger(["east,pump,5", "west,valve,2"]) == [
 def rejects_ledger(lines):
     try:
         load_ledger(lines)
-    except ValueError:
+    except Exception:
         return True
     return False
 

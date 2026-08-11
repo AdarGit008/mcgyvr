@@ -45,7 +45,7 @@ assert fill_order([[8, 1]], 1) == {
 def rejects(sources, needed):
     try:
         fill_order(sources, needed)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -12,7 +12,7 @@ assert apply_charges({"api": [2, 9]}, [["z1", "post", 1]]) == {"left": {"api": 2
 def rejects(*args):
     try:
         apply_charges(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

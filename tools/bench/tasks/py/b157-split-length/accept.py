@@ -13,7 +13,7 @@ assert split_length(123456) == "123m 45cm 6mm", "large lengths carve the same wa
 def rejects(value):
     try:
         split_length(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

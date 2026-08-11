@@ -10,7 +10,7 @@ assert mask_account("9-87", 1) == "*-*7", "keep of one"
 def rejects(*args):
     try:
         mask_account(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

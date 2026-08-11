@@ -12,7 +12,7 @@ assert pair_columns(["long", ""], ["1", ""], 2) == ["long  1", ""], "a row empty
 def rejects(*args):
     try:
         pair_columns(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

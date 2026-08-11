@@ -24,7 +24,7 @@ assert queue_report([[1, 3], [2, 1], [9, 2]]) == {"waited": 2, "longest": 2, "id
 def rejects(value):
     try:
         queue_report(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

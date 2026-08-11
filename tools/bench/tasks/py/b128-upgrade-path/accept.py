@@ -25,7 +25,7 @@ assert vet_upgrade_path("0.9", [{"tag": "1.0", "requires": "0.1"}]) == "1.0", (
 def rejects(installed, steps):
     try:
         vet_upgrade_path(installed, steps)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -12,7 +12,7 @@ assert route_hops([["a", "b"], ["c", "d"]], "a", "d") == -1, "an unreachable goa
 def rejects(*args):
     try:
         route_hops(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

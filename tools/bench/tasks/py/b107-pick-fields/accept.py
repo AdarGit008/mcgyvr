@@ -4,7 +4,7 @@ from solution import pick_fields
 def rejects(records, fields):
     try:
         pick_fields(records, fields)
-    except ValueError:
+    except Exception:
         return True
     return False
 

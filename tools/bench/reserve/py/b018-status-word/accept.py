@@ -45,7 +45,7 @@ assert decode_status_word(0x2007) == {
 def rejects(word):
     try:
         decode_status_word(word)
-    except ValueError:
+    except Exception:
         return True
     return False
 

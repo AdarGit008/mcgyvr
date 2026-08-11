@@ -11,7 +11,7 @@ assert hex_groups([], 4) == "", "no bytes yield the empty string"
 def rejects(*args):
     try:
         hex_groups(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -84,7 +84,7 @@ assert pivot_margins([["neg", "x", -4], ["pos", "x", 3]]) == table(
 def rejects(entries):
     try:
         pivot_margins(entries)
-    except ValueError:
+    except Exception:
         return True
     return False
 

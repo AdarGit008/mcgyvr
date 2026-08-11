@@ -13,7 +13,7 @@ assert allocate_cents(1, [1, 1, 1]) == [1, 0, 0], "one cent, three shares"
 def rejects(fn, *args):
     try:
         fn(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

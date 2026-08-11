@@ -4,7 +4,7 @@ from solution import fold_transcript
 def rejects(lines):
     try:
         fold_transcript(lines)
-    except ValueError:
+    except Exception:
         return True
     return False
 

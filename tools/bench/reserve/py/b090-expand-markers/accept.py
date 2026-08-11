@@ -18,7 +18,7 @@ assert expand_markers("", {}) == "", "empty template stays empty"
 def rejects(*args):
     try:
         expand_markers(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

@@ -4,7 +4,7 @@ from solution import raw_tally
 def rejects(recipes, item, batches):
     try:
         raw_tally(recipes, item, batches)
-    except ValueError:
+    except Exception:
         return True
     return False
 

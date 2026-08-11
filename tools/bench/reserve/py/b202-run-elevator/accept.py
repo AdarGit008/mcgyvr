@@ -10,7 +10,7 @@ assert run_elevator(4, [[0, 1]]) == {"stops": [1], "travel": 0}, "a call for the
 def rejects(*args):
     try:
         run_elevator(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

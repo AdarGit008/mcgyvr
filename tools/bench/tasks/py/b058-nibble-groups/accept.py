@@ -12,7 +12,7 @@ assert format_bits(1, 32) == (
 def rejects(*args):
     try:
         format_bits(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

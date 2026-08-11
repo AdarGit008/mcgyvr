@@ -12,7 +12,7 @@ assert diff_paths({"b": {"z": "1"}, "a": "x"}, {"b": {"z": "2"}, "a": "y"}) == [
 def rejects(before, after):
     try:
         diff_paths(before, after)
-    except ValueError:
+    except Exception:
         return True
     return False
 

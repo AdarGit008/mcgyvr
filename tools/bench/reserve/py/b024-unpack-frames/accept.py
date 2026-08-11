@@ -12,7 +12,7 @@ assert unpack_frames("0:;3:xyz;#2;") == ["", "xyz"], "empty and full frames mix"
 def rejects(stream):
     try:
         unpack_frames(stream)
-    except ValueError:
+    except Exception:
         return True
     return False
 

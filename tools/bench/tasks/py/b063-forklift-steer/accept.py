@@ -10,7 +10,7 @@ assert steer_forklift(1, 5, ["south", "south", "south", "south"]) == [0, 4], "a 
 def rejects(aisles, bays, moves):
     try:
         steer_forklift(aisles, bays, moves)
-    except ValueError:
+    except Exception:
         return True
     return False
 

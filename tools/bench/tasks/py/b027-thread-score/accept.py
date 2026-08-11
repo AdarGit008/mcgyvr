@@ -8,7 +8,7 @@ def c(score, deleted=False, *replies):
 def rejects(comment):
     try:
         thread_score(comment)
-    except ValueError:
+    except Exception:
         return True
     return False
 

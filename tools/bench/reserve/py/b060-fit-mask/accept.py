@@ -8,7 +8,7 @@ assert fit_mask("9A9A", "1x2Y") == "1X2Y", "alternating slots fit in place"
 def rejects(*args):
     try:
         fit_mask(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

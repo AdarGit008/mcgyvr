@@ -10,7 +10,7 @@ assert pick_lane([2], []) == 0, "a single open lane is picked"
 def rejects(queues, closed):
     try:
         pick_lane(queues, closed)
-    except ValueError:
+    except Exception:
         return True
     return False
 

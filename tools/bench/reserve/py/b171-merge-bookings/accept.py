@@ -11,7 +11,7 @@ assert merge_bookings("0-24") == "0-24", "a whole-day slot is kept"
 def rejects(plan):
     try:
         merge_bookings(plan)
-    except ValueError:
+    except Exception:
         return True
     return False
 

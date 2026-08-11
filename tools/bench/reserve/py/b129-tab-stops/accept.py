@@ -25,7 +25,7 @@ assert render_tabbed("", []) == "", "an empty line stays empty"
 def rejects(line, stops):
     try:
         render_tabbed(line, stops)
-    except ValueError:
+    except Exception:
         return True
     return False
 

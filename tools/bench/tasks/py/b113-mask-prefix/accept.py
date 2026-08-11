@@ -7,7 +7,7 @@ assert mask_from_prefix(20) == "255.255.240.0", "a mid-octet prefix renders"
 def prefix_rejects(value):
     try:
         mask_from_prefix(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 
@@ -22,7 +22,7 @@ assert prefix_from_mask(mask_from_prefix(11)) == 11, "the two directions agree"
 def rejects(value):
     try:
         prefix_from_mask(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

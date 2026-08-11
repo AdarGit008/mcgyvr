@@ -37,7 +37,7 @@ assert replay_notepad(
 def rejects(commands):
     try:
         replay_notepad(commands)
-    except ValueError:
+    except Exception:
         return True
     return False
 

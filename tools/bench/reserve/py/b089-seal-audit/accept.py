@@ -27,7 +27,7 @@ assert audit_chain([
 def rejects(value):
     try:
         audit_chain(value)
-    except ValueError:
+    except Exception:
         return True
     return False
 

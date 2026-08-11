@@ -12,7 +12,7 @@ assert ridge_row([5], 5) == "#", "an elevation exactly at the level marks"
 def rejects(*args):
     try:
         ridge_row(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

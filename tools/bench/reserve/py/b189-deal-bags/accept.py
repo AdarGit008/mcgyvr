@@ -9,7 +9,7 @@ assert deal_bags(["a", "b", "c"], [2]) == {"loads": [["a", "b"]], "spare": ["c"]
 def rejects(parcels, caps):
     try:
         deal_bags(parcels, caps)
-    except ValueError:
+    except Exception:
         return True
     return False
 

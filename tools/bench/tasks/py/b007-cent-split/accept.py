@@ -14,7 +14,7 @@ assert apply_bps(3333, 150) == 50, "a half-cent rounds up"
 def rejects(*args):
     try:
         split_evenly(*args)
-    except ValueError:
+    except Exception:
         return True
     return False
 

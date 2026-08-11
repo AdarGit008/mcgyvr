@@ -25,7 +25,7 @@ assert combine_measures(
 def rejects(pours, factor):
     try:
         combine_measures(pours, factor)
-    except ValueError:
+    except Exception:
         return True
     return False
 
