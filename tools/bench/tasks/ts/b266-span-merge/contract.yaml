@@ -1,0 +1,15 @@
+id: b266-span-merge
+task_type: function_implementation
+task: >-
+  Implement spanMerge. Given booking spans as a start and an end each,
+  combine every span that overlaps another, or merely touches it end
+  to start, into a single span. Return what is left ordered by start.
+  Spans arrive in no particular order.
+target: solution.ts
+interface: "export function spanMerge(spans: number[][]): number[][]"
+stop_conditions:
+  - Whether a span whose end precedes its start is possible is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

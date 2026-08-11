@@ -1,0 +1,26 @@
+id: b258-lap-best
+task_type: bug_fix
+task: >-
+  lap_best reports the quickest lap of a session, where a lap recorded
+  as zero means the lap was never completed and must not count. It
+  counts those zeros and so calls every session zero. Fix it. A
+  session with no completed lap at all reports zero. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def lap_best(laps: list) -> int:
+      """The quickest completed lap of a session."""
+      if not laps:
+          return 0
+      best = laps[0]
+      for lap in laps:
+          if lap < best:
+              best = lap
+      return best
+interface: "def lap_best(laps: list) -> int"
+stop_conditions:
+  - Whether a negative lap time should be treated as uncompleted too is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

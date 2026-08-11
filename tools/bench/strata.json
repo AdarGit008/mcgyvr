@@ -395,6 +395,33 @@
       "against_the_pre_registered_stop_conditions": "The brief declared: inside 30-50% -> author the remaining tranches unchanged; below 30% -> lower the budget; above 50% -> raise it toward 4-5 behaviours. The POINT ESTIMATE says raise. The INTERVAL does not license acting on that, and re-designing off n = 7 would repeat in miniature the error that produced two failed re-aims - changing the material on evidence too thin to carry the change. Recommended instead: buy resolution on the design that exists before altering it.",
       "also_settled": "The 1.5B now has a measurement on current bench material, which ADR-0023 recorded as missing: 2.8% ts / 8.3% py on the 109 older bench problems, against the 3B's ~4%. The floor unit and the rung above it are equally floored on the old shape, which is what made that shape useless as an instrument for either.",
       "limits": "n = 7 problems per arm, and the two arms are the same 7 problems rendered twice - so the 4/7 agreement across arms is NOT two independent samples and must not be read as replication. Greedy, one draw, one model, one rig. The f1 problems are not a stratum and #224 must not read this band as a band point."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "floor band f1, resolution tranche \u2014 the aim is met",
+      "source": [
+        "records/measurements/bench-calibration-15b-f1-2026-08-11/ (b228-b243, 7 bench)",
+        "records/measurements/bench-calibration-15b-f1b-2026-08-11/ (b244-b267, 13 bench)"
+      ],
+      "brief": "records/sessions/lane/225/2026-08-11-floor-band-f1-brief.md \u2014 UNCHANGED between the two tranches, which is what makes them poolable",
+      "model": "qwen2.5-coder:1.5b",
+      "endpoint": "http://srv2:11434",
+      "draws": 0,
+      "max_output_tokens": 2048,
+      "why_a_second_tranche": "The first read was 8/14 = 57.1% with a 95% Wilson interval of 33-79%: it contained the whole 30-50% aim AND a large overshoot, so it could not say which. The pre-registered stop condition for 'above 50%' said raise the behaviour budget. That was NOT done. Re-designing material off n=7 is the error that produced two failed re-aims, and the cheaper move was to buy resolution on the design that already existed. 24 more problems were authored to the SAME brief, with nothing altered.",
+      "cells": {
+        "batch 1 (b228-b243, 7 problems) ts": "4/7 = 57.1%",
+        "batch 1 py": "4/7 = 57.1%",
+        "batch 2 (b244-b267, 13 problems) ts": "6/13 = 46.2%",
+        "batch 2 py": "4/13 = 30.8%",
+        "f1 all ts": "10/20 = 50.0%, 95% Wilson 30-70%",
+        "f1 all py": "8/20 = 40.0%, 95% Wilson 22-61%",
+        "f1 POOLED": "18/40 = 45.0%, 95% Wilson 31-60%"
+      },
+      "failure_modes": "0 cap overruns, 0 parse errors, 0 dispatch errors across all 40 observations, both tranches.",
+      "reading": "THE AIM IS MET. The floor unit reads 45.0% on the f1 band against 5.5% on the 109 problems built to the old shape - the same model, the same rig, the same week. The pre-registered stop condition for 'inside 30-50%' is satisfied and its instruction is to author the remaining tranches to this brief unchanged. ADR-0023's dial is confirmed twice over: once by the size of the move, and once by the second tranche reproducing the band without any adjustment to the brief.",
+      "the_honest_caveats": "(1) The 95% interval is 31-60% and still reaches past 50%; the point estimate is inside the aim and the interval is not entirely. (2) Batch 1 read 57.1% and batch 2 read 38.5%. That drop was PREDICTED before the second sweep ran, and for a stated reason: batch 1's seven measured problems happened to contain zero error-path problems, all three having landed in the reserve half. The pooled 45% is the better estimate and the single-tranche 57% should not be quoted. (3) ts reads 50.0% and py 40.0%; at n=20 per arm that gap is not resolvable and is not claimed.",
+      "limits": "20 problems, greedy, one draw, one model, one rig. f1 is a steering band and NOT a stratum - #224 must not read 45% as a band point. The two arms are the same 20 problems rendered twice, so arm agreement is not replication."
     }
   ]
 }

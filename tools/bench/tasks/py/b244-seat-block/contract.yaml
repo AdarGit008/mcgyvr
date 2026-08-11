@@ -1,0 +1,15 @@
+id: b244-seat-block
+task_type: function_implementation
+task: >-
+  Implement seat_block. A seat label is a row number followed by a
+  single capital letter, like 12C. Return the row as a number and the
+  letter separately, in that order. Reject anything that is not a run
+  of digits followed by exactly one capital letter with an error.
+target: solution.py
+interface: "def seat_block(label: str) -> list"
+stop_conditions:
+  - Whether a lower-case seat letter should be accepted and upper-cased is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

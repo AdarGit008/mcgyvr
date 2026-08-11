@@ -1,0 +1,31 @@
+id: b265-till-float
+task_type: bug_fix
+task: >-
+  tillFloat works out how many of each coin to hand back for an
+  amount, always reaching for the largest coin it can, and it reaches
+  wrongly: having used a coin once it moves straight on to the next
+  one. Fix it so it uses as many of each coin as will fit. Coins
+  arrive largest first. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** How many of each coin to hand back, largest coin first. */
+  export function tillFloat(amount: number, coins: number[]): number[] {
+    const counts: number[] = [];
+    let left = amount;
+    for (const coin of coins) {
+      if (left >= coin) {
+        counts.push(1);
+        left -= coin;
+      } else {
+        counts.push(0);
+      }
+    }
+    return counts;
+  }
+interface: "export function tillFloat(amount: number, coins: number[]): number[]"
+stop_conditions:
+  - Whether an amount that cannot be made exactly should be reported somehow is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b252-swipe-dedupe
+task_type: function_implementation
+task: >-
+  Implement swipeDedupe. Given card swipes in the order they were
+  recorded, drop any swipe that simply repeats the one immediately
+  before it, keeping the first of each such run. A card swiped again
+  later, with a different card in between, is kept.
+target: solution.ts
+interface: "export function swipeDedupe(swipes: string[]): string[]"
+stop_conditions:
+  - Whether two swipes far apart in time should ever be collapsed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

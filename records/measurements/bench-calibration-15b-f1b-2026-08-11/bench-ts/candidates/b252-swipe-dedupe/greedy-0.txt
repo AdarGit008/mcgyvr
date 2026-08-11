@@ -1,0 +1,14 @@
+```ts
+export function swipeDedupe(swipes: string[]): string[] {
+  if (swipes.length === 0) return [];
+
+  const dedupedSwipes: string[] = [swipes[0]];
+  for (let i = 1; i < swipes.length; i++) {
+    if (swipes[i] !== dedupedSwipes[dedupedSwipes.length - 1]) {
+      dedupedSwipes.push(swipes[i]);
+    }
+  }
+
+  return dedupedSwipes;
+}
+```

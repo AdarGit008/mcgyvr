@@ -1,0 +1,15 @@
+id: b248-hop-chain
+task_type: function_implementation
+task: >-
+  Implement hop_chain. Given a list of hops, each a pair naming where
+  it starts and where it ends, say whether they form one unbroken
+  chain: every hop must start where the hop before it ended. A list of
+  one hop, and a list of none, are both unbroken.
+target: solution.py
+interface: "def hop_chain(hops: list) -> bool"
+stop_conditions:
+  - Whether a chain that returns to where it began should be treated any differently is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

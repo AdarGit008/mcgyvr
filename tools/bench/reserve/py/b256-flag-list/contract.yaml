@@ -1,0 +1,23 @@
+id: b256-flag-list
+task_type: bug_fix
+task: >-
+  flag_list reads a command line and returns the short flag letters on
+  it without their leading dash, and it forgets to strip the dash. Fix
+  it. Words that do not begin with a dash are not flags and are left
+  out entirely. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def flag_list(line: str) -> list:
+      """The short flags on a command line, without their dashes."""
+      flags = []
+      for word in line.split(" "):
+          if word.startswith("-"):
+              flags.append(word)
+      return flags
+interface: "def flag_list(line: str) -> list"
+stop_conditions:
+  - How a long flag written with two dashes should be treated is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+id: b251-soak-run
+task_type: function_implementation
+task: >-
+  Implement soakRun. Given moisture readings in order and a floor,
+  return the length of the longest unbroken stretch of readings
+  sitting at or above that floor. Any reading below the floor ends the
+  stretch. Readings that never reach the floor give a stretch of zero.
+target: solution.ts
+interface: "export function soakRun(readings: number[], floor: number): number"
+stop_conditions:
+  - Which stretch is meant when two stretches tie for longest is not stated, only its length.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

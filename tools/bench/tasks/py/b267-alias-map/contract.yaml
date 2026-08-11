@@ -1,0 +1,15 @@
+id: b267-alias-map
+task_type: function_implementation
+task: >-
+  Implement alias_resolve and alias_names. alias_resolve turns a name
+  into whatever it stands for, following one hop and no further, and
+  hands back the name itself when it stands for nothing. alias_names
+  lists every name that stands for something, in alphabetical order.
+target: solution.py
+interface: "def alias_resolve(aliases: dict, name: str) -> str\ndef alias_names(aliases: dict) -> list"
+stop_conditions:
+  - Whether a name standing for itself should be reported as an alias is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

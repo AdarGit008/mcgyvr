@@ -1,0 +1,35 @@
+id: b250-shuffle-deal
+task_type: bug_fix
+task: >-
+  shuffleDeal deals cards round the table one at a time into a number
+  of hands, and dealCounts reports how many cards each hand holds.
+  shuffleDeal deals wrongly: it hands out consecutive blocks instead
+  of going round. Fix it. Dealing into no hands at all yields nothing.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Deal cards into hands, and count what each hand holds. */
+  export function shuffleDeal(cards: string[], hands: number): string[][] {
+    if (hands === 0) {
+      return [];
+    }
+    const dealt: string[][] = [];
+    for (let i = 0; i < hands; i += 1) {
+      dealt.push([]);
+    }
+    for (let i = 0; i < cards.length; i += 1) {
+      dealt[Math.floor(i / hands)].push(cards[i]);
+    }
+    return dealt;
+  }
+
+  export function dealCounts(dealt: string[][]): number[] {
+    return dealt.map((hand) => hand.length);
+  }
+interface: "export function shuffleDeal(cards: string[], hands: number): string[][]\nexport function dealCounts(dealt: string[][]): number[]"
+stop_conditions:
+  - Which hand should receive the first card when dealing begins is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,9 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "data_structure",
+  "steering_band": "f1",
+  "target_symbol": {
+    "ts": "glossFind",
+    "py": "gloss_find"
+  }
+}

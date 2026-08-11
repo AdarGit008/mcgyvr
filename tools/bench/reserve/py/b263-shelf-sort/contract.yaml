@@ -1,0 +1,15 @@
+id: b263-shelf-sort
+task_type: function_implementation
+task: >-
+  Implement shelf_sort. A shelf label is a word followed by a number,
+  like row2. Put labels in order by that number rather than by their
+  text, so row10 falls after row9. Labels carrying the same number
+  keep the order they arrived in.
+target: solution.py
+interface: "def shelf_sort(labels: list) -> list"
+stop_conditions:
+  - What should happen to a label carrying no number at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

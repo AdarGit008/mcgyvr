@@ -1,0 +1,19 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (colour.length !== 7 || !/^[a-fA-F]{6}$/.test(colour)) {
+    throw new Error('Invalid colour format');
+  }
+  return [
+    colour.slice(0, 2),
+    colour.slice(2, 4),
+    colour.slice(4, 6)
+  ];
+}
+
+export function hexJoin(parts: string[]): string {
+  if (parts.length !== 3) {
+    throw new Error('Invalid number of parts');
+  }
+  return `${parts[0]}${parts[1]}${parts[2]}`;
+}
+```
