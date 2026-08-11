@@ -182,3 +182,38 @@ def _write_run(out: Path, condition: str) -> dict[str, object]:
         (out / "run.json").read_text(encoding="utf-8")
     )
     return written
+
+
+def test_the_plan_condition_keeps_the_approach_and_drops_the_code() -> None:
+    """The three-way split: `planonly` is the scaffold's comments, nothing else.
+
+    `noscaffold` removes the typing *and* the recipe, because every scaffold
+    in this bench states its approach in a comment. Reported as one number
+    that would read as a size effect and be wrong.
+    """
+    contract = _contract()
+    planned = breadth.ablate(contract, breadth.PLAN_ONLY)
+    user = build_prompt(planned).user
+
+    assert "TODO: implement" in user, "the plan must survive"
+    assert "return 0;" not in user, "the code must not"
+    assert "export function countTicks" not in planned.target_content
+
+    # And it is a strict middle: less than stock, more than nothing.
+    assert planned.target_content
+    assert len(planned.target_content) < len(contract.target_content)
+
+
+def test_a_commentless_scaffold_degenerates_to_no_scaffold() -> None:
+    """Honest about its own floor: nothing to keep means nothing is kept."""
+    assert breadth.plan_of("export function f() { return 1; }\n") == ""
+
+
+def test_every_condition_is_a_distinct_render() -> None:
+    """Three conditions must produce three prompts, or a cell is a duplicate."""
+    contract = _contract()
+    rendered = {
+        condition: build_prompt(breadth.ablate(contract, condition)).user
+        for condition in breadth.CONDITIONS
+    }
+    assert len(set(rendered.values())) == len(breadth.CONDITIONS)

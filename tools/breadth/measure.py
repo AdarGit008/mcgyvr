@@ -182,8 +182,12 @@ BENCH_TIERS = ("bench-ts", "bench-py")
 # one. #113 owns the general condition matrix; this is one named knob it will
 # subsume, not a framework.
 STOCK = "stock"
+PLAN_ONLY = "planonly"
 NO_SCAFFOLD = "noscaffold"
-CONDITIONS = (STOCK, NO_SCAFFOLD)
+CONDITIONS = (STOCK, PLAN_ONLY, NO_SCAFFOLD)
+
+# Comment openers, by the two languages the bench arms speak.
+_COMMENT = ("//", "#")
 
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
@@ -355,9 +359,42 @@ def ablate(contract: Any, condition: str) -> Any:
     """
     if condition == STOCK:
         return contract
-    if condition != NO_SCAFFOLD:
-        raise bundle.MeasureError(f"unknown condition {condition!r}")
-    return replace(contract, target_content="")
+    if condition == NO_SCAFFOLD:
+        return replace(contract, target_content="")
+    if condition == PLAN_ONLY:
+        return replace(contract, target_content=plan_of(contract.target_content))
+    raise bundle.MeasureError(f"unknown condition {condition!r}")
+
+
+def plan_of(target_content: str) -> str:
+    """The scaffold's comment lines alone — its plan, with its code removed.
+
+    Every scaffold in this bench states an approach in a comment ("build a
+    prefix-sum table, then validate each query", "find the cheapest
+    combination of passes covering every trip"), which means ``noscaffold``
+    removes *two* things at once: the code the model would have typed, and
+    the recipe telling it what to do. That is the two-knob confound this
+    experiment exists to avoid, and it would have been reported as a size
+    effect.
+
+    Keeping the comments and dropping the code splits the difference into
+    two paired contrasts on the same problems: ``stock`` against
+    ``planonly`` is the code the scaffold saved, and ``planonly`` against
+    ``noscaffold`` is the plan it stated.
+
+    One honest limit: these comments often name what to *validate* as well
+    as what to compute, so the plan contrast is "being told the approach,
+    including its rejections" rather than pure algorithmic insight. A
+    scaffold with no comments at all degenerates to ``noscaffold``, which is
+    a concordant pair and dilutes the test — the caller selects the eligible
+    set, exactly as for ``noscaffold``.
+    """
+    kept = [
+        line
+        for line in target_content.splitlines()
+        if line.strip().startswith(_COMMENT)
+    ]
+    return "\n".join(kept) + "\n" if kept else ""
 
 
 def measure_task(
