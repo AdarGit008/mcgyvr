@@ -1,0 +1,53 @@
+```ts
+/** Drain labelled items across planned lanes, round by round. */
+export function drainLanes(
+  plan: [string, number][],
+  items: [string, string][]): { order: string[]; rounds: number } {
+  if (plan.length === 0) {
+    throw new Error("Plan cannot be empty.");
+  }
+
+  const queues = new Map<string, string[]>();
+  for (const [lane] of plan) {
+    if (!/^[a-zA-Z]+$/.test(lane)) {
+      throw new Error(`Invalid lane name: ${lane}`);
+    }
+    if (queues.has(lane)) {
+      throw new Error(`Lane declared twice: ${lane}`);
+    }
+    queues.set(lane, []);
+  }
+
+  for (const [label, lane] of items) {
+    if (!/^[a-zA-Z]+$/.test(label) || !/^[a-zA-Z]+$/.test(lane)) {
+      throw new Error(`Invalid label or lane name: ${label} or ${lane}`);
+    }
+    const queue = queues.get(lane);
+    if (queue !== undefined) {
+      queue.push(label);
+    } else {
+      throw new Error(`Lane not declared in plan: ${lane}`);
+    }
+  }
+
+  const order: string[] = [];
+  let rounds = 0;
+  while (true) {
+    rounds += 1;
+    for (const [lane, quota] of plan) {
+      const queue = queues.get(lane) as string[];
+      if (!queue || queue.length === 0) continue;
+
+      let taken = 0;
+      while (taken < quota && queue.length > 0) {
+        order.push(queue.shift() as string);
+        taken += 1;
+      }
+
+      if (taken < quota) {
+        return { order, rounds };
+      }
+    }
+  }
+}
+```

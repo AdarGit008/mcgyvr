@@ -1,0 +1,38 @@
+```python
+def trace_parcel(events: list) -> list:
+    """
+    Trace the state changes of a parcel through a fixed handling protocol.
+
+    :param events: List of event names in the order they happened.
+    :return: List of states the parcel passes through, starting with 'created'.
+    """
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list.")
+    
+    states = ["created"]
+    current_state = "created"
+    
+    for event in events:
+        if event not in ["pack", "ship", "deliver", "bounce"]:
+            raise ValueError(f"Invalid event: {event}.")
+        
+        if current_state == "created":
+            if event != "pack":
+                raise ValueError("Event 'pack' must follow 'created'.")
+            current_state = "packed"
+        elif current_state == "packed":
+            if event != "ship":
+                raise ValueError("Event 'ship' must follow 'packed'.")
+            current_state = "shipped"
+        elif current_state == "shipped":
+            if event not in ["deliver", "bounce"]:
+                raise ValueError(f"Invalid event after 'shipped': {event}.")
+            current_state = "delivered" if event == "deliver" else "returned"
+        else:
+            # Final states
+            raise ValueError("Event cannot be fired in a final state.")
+        
+        states.append(current_state)
+    
+    return states
+```

@@ -1,0 +1,52 @@
+```python
+def group_batches(jobs: list, capacity: int) -> list:
+    """
+    Schedules jobs into batches based on their priority and weight.
+
+    :param jobs: List of job tuples [name, group, priority, weight].
+    :param capacity: Maximum weight capacity for each batch.
+    :return: List of lists, where each sublist is a batch of job names.
+    """
+    if not isinstance(jobs, list):
+        raise ValueError("Jobs must be a list.")
+    
+    if not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("Each job must be a four-item list.")
+    
+    for name, group, priority, weight in jobs:
+        if not isinstance(name, str) or not isinstance(group, str) or not name or not group:
+            raise ValueError("Name and group must be non-empty strings.")
+        if not isinstance(priority, int):
+            raise ValueError("Priority must be an integer.")
+        if not isinstance(weight, int) or weight < 1 or weight > capacity:
+            raise ValueError(f"Weight must be an integer between 1 and {capacity}.")
+    
+    job_map = {}
+    for name, group, priority, weight in jobs:
+        if group not in job_map:
+            job_map[group] = []
+        job_map[group].append((name, priority, weight))
+    
+    batches = []
+    while job_map:
+        # Sort eligible heads by priority descending, then earlier arrival
+        eligible_heads = sorted(
+            [(group, name, priority, weight) for group in job_map for name, priority, weight in job_map[group]],
+            key=lambda x: (-x[2], x[1])
+        )
+        
+        batch = []
+        current_capacity = capacity
+        
+        for group, name, priority, weight in eligible_heads:
+            if weight <= current_capacity:
+                batch.append(name)
+                current_capacity -= weight
+                job_map[group].remove((name, priority, weight))
+                if not job_map[group]:
+                    del job_map[group]
+        
+        batches.append(batch)
+    
+    return batches
+```

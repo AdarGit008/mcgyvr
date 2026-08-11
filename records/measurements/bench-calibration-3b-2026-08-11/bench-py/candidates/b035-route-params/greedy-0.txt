@@ -1,0 +1,64 @@
+```python
+def split_segments(path: str) -> list:
+    if not isinstance(path, str) or path == "":
+        raise ValueError("Path must be a non-empty string.")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash.")
+    
+    segments = []
+    current_segment = ""
+    for char in path[1:]:
+        if char == "/":
+            if current_segment:
+                segments.append(current_segment)
+                current_segment = ""
+            else:
+                raise ValueError("Empty segment found in the path.")
+        elif char == "*":
+            if current_segment:
+                segments.append(current_segment)
+                current_segment = ""
+            segments.append("*")
+        elif char == "**":
+            if current_segment:
+                segments.append(current_segment)
+                current_segment = ""
+            segments.append("**")
+        else:
+            current_segment += char
+    
+    if current_segment:
+        segments.append(current_segment)
+    
+    if path.endswith("/"):
+        raise ValueError("Trailing slash found in the path.")
+    
+    return segments
+
+def match_route(pattern: str, path: str) -> dict | None:
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    
+    if len(segments) != len(pattern_segments):
+        return None
+    
+    capture_names = {}
+    for i, (segment, pattern_segment) in enumerate(zip(segments, pattern_segments)):
+        if segment == pattern_segment:
+            continue
+        elif pattern_segment.startswith(":"):
+            name = pattern_segment[1:]
+            if not name.isalnum() or name in capture_names:
+                raise ValueError("Invalid capture name.")
+            capture_names[name] = segment
+        elif pattern_segment != "*":
+            return None
+    
+    return capture_names
+
+def first_route(patterns: list, path: str) -> int:
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    return -1
+```

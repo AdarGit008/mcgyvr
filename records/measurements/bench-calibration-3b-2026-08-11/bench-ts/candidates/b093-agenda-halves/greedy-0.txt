@@ -1,0 +1,40 @@
+```ts
+export function splitAgenda(sessions: number[][], limit: number): number[][] {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    throw new Error("Sessions array must be non-empty.");
+  }
+  if (typeof limit !== "number" || limit <= 0 || !Number.isInteger(limit)) {
+    throw new Error("Limit must be a whole number greater than zero.");
+  }
+
+  const result: number[][] = [];
+  let currentStart = 0;
+
+  for (const [start, end] of sessions) {
+    if (!Array.isArray(start) || start.length !== 2 || !Array.isArray(end) || end.length !== 2) {
+      throw new Error("Session bounds must be arrays of two whole numbers.");
+    }
+    if (typeof start[0] !== "number" || typeof start[1] !== "number" || typeof end[0] !== "number" || typeof end[1] !== "number") {
+      throw new Error("Session bounds must contain only numbers.");
+    }
+    if (start[0] >= start[1]) {
+      throw new Error("Session start cannot precede its end.");
+    }
+    if (currentStart > start) {
+      throw new Error("Sessions must be in chronological order.");
+    }
+
+    let sessionLength = end - start;
+    while (sessionLength > limit) {
+      const mid = Math.floor(sessionLength / 2);
+      result.push([start, start + mid]);
+      start += mid + 1;
+      sessionLength -= mid + 1;
+    }
+    result.push([start, end]);
+    currentStart = end;
+  }
+
+  return result;
+}
+```

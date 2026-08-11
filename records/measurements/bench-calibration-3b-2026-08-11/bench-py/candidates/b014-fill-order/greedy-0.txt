@@ -1,0 +1,35 @@
+```python
+def fill_order(sources: list, needed: int) -> dict:
+    if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("Needed must be a positive integer.")
+    
+    for source in sources:
+        if not isinstance(source, tuple) or len(source) != 2:
+            raise ValueError("Each source must be a pair of a positive integer cost and stock.")
+        
+        unit_cost, stock = source
+        if not (isinstance(unit_cost, int) and isinstance(stock, int) and unit_cost > 0 and stock > 0):
+            raise ValueError("Cost and stock must be positive integers.")
+    
+    total_stock = sum(stock for _, stock in sources)
+    if needed > total_stock:
+        raise ValueError("Total stock cannot cover the order.")
+    
+    order = sorted(range(len(sources)), key=lambda index: (sources[index][0], -index))
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    for index in order:
+        if remaining <= 0:
+            break
+        unit_cost, stock = sources[index]
+        units_to_take = min(stock, remaining)
+        taken[index] = units_to_take
+        cost += units_to_take * unit_cost
+        remaining -= units_to_take
+    
+    leftover = [sources[i][1] - taken[i] for i in range(len(sources))]
+    
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

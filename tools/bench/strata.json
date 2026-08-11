@@ -42,6 +42,52 @@
       },
       "reading": "The bands interpolate the d3-to-pool cliff as designed — rates fall monotonically-ish from ~17% to ~0% as reference size climbs — but the whole ladder landed lower than steered: g1, aimed 'just above d3-class', reads AT d3-class (ts 1/6 vs the floor probe's 16.7%), and both upper bands sit at ~0. The interior requirement holds (s1 and s2 are interior on both arms, so #119's attempts arm is not foreclosed), and never-passers exist in quantity under pinned ids for #162's no-rung-fixes-this cell.",
       "phase4_steering": "If the campaign wants a stratum reading 30-50% on the floor tier (a band point clearly above the cliff edge, where regressions as well as gains can show), it must steer a band EASIER than the pilot's g1 — roughly ts 20-30 reference lines, d2-class unit of work — because size-to-difficulty came out steeper than the pilot's targets assumed. Recorded here as the calibration's implication; the re-aim itself is Phase 4's steering decision, taken before its first batch."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "tranche 1 calibration (Phase 4)",
+      "source": "records/measurements/bench-calibration-3b-2026-08-11",
+      "model": "qwen2.5-coder:3b",
+      "endpoint": "http://srv1:11434",
+      "protocol": "openai",
+      "draws": "greedy only (--draws 0)",
+      "max_output_tokens": 2048,
+      "failure_modes": "All failing arms are acceptance failures: 0 of 136 arm-draws overran the cap (max completion 740 of 2048 tokens), 0 parse errors. The rates below are capability, not censoring (#212's check, run before believing any 0).",
+      "assignment_rule": "Provisional: stratum = steering band, held until campaign scale. Tranche 1 (b041-b140, 100 admitted, 46 bench / 54 reserve by the blind rule) executed the Phase 4 steering decision (owner, 2026-08-11): band g0 (ts 20-30 reference lines, d2-class unit of work, aimed 30-50%) joined the ladder and g4 stopped generating — its pilot problems stay pinned and reported. The ids listed are the bench half only — the reserve is never measured (design doc section 2).",
+      "strata": {
+        "s0": {
+          "steering_band": "g0",
+          "steered_at": "ts 20-30 reference lines, 7-11 asserts/arm — d2-class, aimed 30-50% on the floor tier",
+          "bench_ids": ["b041-trim-caption", "b045-outline-labels", "b046-rest-harvest", "b049-hex-groups", "b051-parcel-trace", "b054-lane-pick", "b056-merge-settings", "b058-nibble-groups", "b059-plan-batches", "b062-crate-unpack", "b063-forklift-steer", "b065-slot-hits", "b066-edit-script", "b068-flag-states", "b069-patrol-bot", "b070-range-selector", "b072-meter-draws", "b073-bump-release", "b076-glob-path", "b077-buffer-replay", "b078-layer-lookup", "b079-tag-check", "b080-brace-fill"],
+          "rate": {"bench-ts": "1/23", "bench-py": "5/23"}
+        },
+        "s1": {
+          "steering_band": "g1",
+          "steered_at": "ts 30-45 reference lines, 10-14 asserts/arm — just above d3-class",
+          "bench_ids": ["b002-option-pairs", "b003-carve-shift", "b004-install-order", "b005-command-chain", "b007-cent-split", "b009-pack-entries", "b084-placard-lines", "b091-note-index", "b093-agenda-halves", "b094-relay-chain", "b095-tree-sketch", "b096-stamp-cover", "b099-wire-nest"],
+          "rate": {"bench-ts": "2/13", "bench-py": "2/13"}
+        },
+        "s2": {
+          "steering_band": "g2",
+          "steered_at": "ts 45-60 lines, 13-17 asserts/arm — lower gap",
+          "bench_ids": ["b013-region-totals", "b014-fill-order", "b015-recency-cache", "b017-site-totals", "b019-reservoir-ticks", "b020-route-pattern", "b104-unpack-frame", "b107-pick-fields", "b108-stamp-canvas", "b112-net-tally", "b113-mask-prefix", "b114-heat-band", "b118-pick-upgrade", "b120-mass-expression"],
+          "rate": {"bench-ts": "2/14", "bench-py": "1/14"}
+        },
+        "s3": {
+          "steering_band": "g3",
+          "steered_at": "ts 60-80 lines, 16-20 asserts/arm — upper gap",
+          "bench_ids": ["b022-allocate-cents", "b027-thread-score", "b028-pass-plan", "b030-date-span", "b121-ledger-merge", "b122-section-report", "b126-closing-sheet", "b128-upgrade-path", "b130-span-sums", "b131-prune-listing", "b132-drain-lanes", "b140-folder-heft"],
+          "rate": {"bench-ts": "0/12", "bench-py": "0/12"}
+        },
+        "s4": {
+          "steering_band": "g4",
+          "steered_at": "ts 80-120 lines, 18-26 asserts/arm — pool-class and past it (pilot only; not generated further)",
+          "bench_ids": ["b032-bitmap-runs", "b033-till-session", "b034-notepad-replay", "b035-route-params", "b036-group-batches", "b037-lift-sweep"],
+          "rate": {"bench-ts": "0/6", "bench-py": "1/6"}
+        }
+      },
+      "reading": "The re-aim undershot. g0, steered a full class easier than g1 and aimed at 30-50%, reads 4.3% (ts) / 21.7% (py): size-to-difficulty on this instrument is steeper still than the pilot implied, and the retired rulers' rates do not transfer to matching reference size (the floor probe's d2 read 41.7%; the bench's shape-strict checkers and enumerated rejections price the same file size higher). The language asymmetry is material and consistent with MBPP+ and the pool: py reads above ts at the easy end (g0 5/23 vs 1/23). Interior strata exist on both arms (ts: g1 2/13, g2 2/14; py: g0 5/23, g1 2/13), so #119's attempts arm stays open; never-passers are plentiful (g3 0/12 on both arms). Rates at these n carry ±10-20pp binomial CIs — locators, not anchors.",
+      "phase4_steering": "If the bench still wants a stratum at 30-50% on the floor tier, tranche 2 must steer a band easier than g0 — roughly ts 12-20 reference lines, 5-8 asserts/arm, one small behaviour with few enumerated rejections — OR the 30-50% aim is dropped and the ladder's easy anchor is g0-py at ~20%. Recorded as the calibration's implication; the choice is the operator's at the tranche-1 checkpoint. Carried to tranche 2 either way: g0's bench-half mix skew (bug_fix 2/23, multi_symbol 5/23 against ~30% generated) wants refill rows leaning bug_fix and multi_symbol so realized bench quotas recover in expectation; the split rule stays untouched."
     }
   ]
 }

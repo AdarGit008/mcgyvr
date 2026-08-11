@@ -1,0 +1,39 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  if (!Array.isArray(steps)) {
+    throw new Error("steps must be an array");
+  }
+
+  for (const step of steps) {
+    const { tag, requires } = step;
+
+    if (typeof tag !== "string" || typeof requires !== "string") {
+      throw new Error(`step ${tag} and requires ${requires} must be strings`);
+    }
+
+    const partsTag = tag.split(".");
+    const partsRequires = requires.split(".");
+
+    if (partsTag.length !== 2 || partsRequires.length !== 2) {
+      throw new Error(`tag ${tag} and requires ${requires} must have exactly two dot-separated parts`);
+    }
+
+    for (const part of [tag, requires]) {
+      if (!/^\d+$/.test(part)) {
+        throw new Error(`tag ${tag} and requires ${requires} must be strings of plain decimal numbers without leading zeros`);
+      }
+    }
+
+    const numTag = parseInt(tag, 10);
+    const numRequires = parseInt(requires, 10);
+
+    if (numTag >= numRequires) {
+      throw new Error(`step ${tag} is not an upgrade from ${requires}`);
+    }
+  }
+
+  return installed;
+}
+```

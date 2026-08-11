@@ -1,0 +1,35 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """
+    Unpacks all items from nested crates into a flat list.
+
+    :param crate: A list of strings or lists representing nested crates.
+    :return: A list containing all item names in the order they appear.
+    """
+    result = []
+    for item in crate:
+        if isinstance(item, str) and item:
+            result.append(item)
+        elif isinstance(item, list):
+            result.extend(unpack_crates(item))
+        else:
+            raise ValueError("Invalid entry: must be a non-empty string or a list.")
+    return result
+
+def crate_depth(crate: list) -> int:
+    """
+    Calculates the deepest nesting level of a nested crate.
+
+    :param crate: A list of strings or lists representing nested crates.
+    :return: The depth of the crate, where 1 is for no nesting and higher values indicate deeper levels.
+    """
+    if not crate:
+        return 0
+    max_depth = 0
+    for item in crate:
+        if isinstance(item, list):
+            depth = crate_depth(item)
+            if depth > max_depth:
+                max_depth = depth
+    return max_depth + 1
+```

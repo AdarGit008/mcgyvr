@@ -1,0 +1,44 @@
+```ts
+export function fillOrder(
+  sources: [number, number][],
+  needed: number,
+): { cost: number; taken: number[]; leftover: number[] } {
+  if (needed <= 0 || !Number.isInteger(needed)) {
+    throw new Error("Needed must be a positive integer.");
+  }
+
+  for (const source of sources) {
+    const [cost, stock] = source;
+    if (!Number.isInteger(cost) || cost <= 0 || !Number.isInteger(stock) || stock <= 0) {
+      throw new Error("Each source must be a pair of a positive integer cost and a positive integer stock.");
+    }
+  }
+
+  let totalStock = sources.reduce((sum, [_, theCost, stock]) => sum + stock, 0);
+  if (totalStock < needed) {
+    throw new Error("Total stock cannot cover the order.");
+  }
+
+  const order = [...sources].map((source, index) => ({ cost: source[0], index }));
+  order.sort((a, b) => a.cost - b.cost);
+
+  const taken = sources.map(() => 0);
+  let cost = 0;
+  let remaining = needed;
+
+  for (const { cost: unitCost, index } of order) {
+    if (remaining <= 0) {
+      break;
+    }
+    const stock = sources[index][1];
+    const unitsToTake = Math.min(stock, remaining);
+    taken[index] = unitsToTake;
+    cost += unitsToTake * unitCost;
+    remaining -= unitsToTake;
+  }
+
+  const leftover = sources.map((source, index) => source[1] - taken[index]);
+
+  return { cost, taken, leftover };
+}
+```

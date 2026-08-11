@@ -1,0 +1,43 @@
+```ts
+export function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][] {
+  if (!Array.isArray(base) || !base.every(([account, cents]) => typeof account === 'string' && typeof cents === 'number')) {
+    throw new Error('Invalid base ledger');
+  }
+  if (!Array.isArray(ours) || !ours.every(([account, cents]) => typeof account === 'string' && typeof cents === 'number')) {
+    throw new Error('Invalid ours ledger');
+  }
+  if (!Array.isArray(theirs) || !theirs.every(([account, cents]) => typeof account === 'string' && typeof cents === 'number')) {
+    throw new Error('Invalid theirs ledger');
+  }
+
+  const merged: Record<string, number> = {};
+
+  // Merge base into merged
+  for (const [account, cents] of base) {
+    if (!merged[account]) {
+      merged[account] = cents;
+    }
+  }
+
+  // Merge ours into merged
+  for (const [account, cents] of ours) {
+    if (!merged[account]) {
+      merged[account] = cents;
+    } else {
+      merged[account] += cents;
+    }
+  }
+
+  // Merge theirs into merged
+  for (const [account, cents] of theirs) {
+    if (!merged[account]) {
+      merged[account] = cents;
+    } else {
+      merged[account] += cents;
+    }
+  }
+
+  // Convert merged back to array and sort by account name
+  return Object.entries(merged).sort(([a1], [a2]) => a1.localeCompare(a2));
+}
+```

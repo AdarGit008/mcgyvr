@@ -1,0 +1,36 @@
+```python
+"""Walks a courier relay directory station by station."""
+
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(start, str):
+        raise ValueError("start must be a string")
+    
+    if start == "":
+        raise ValueError("empty string is not allowed as a starting station")
+    
+    if start not in links:
+        raise ValueError(f"unknown starting station: {start}")
+    
+    path = []
+    current = start
+    visited = set()
+    
+    for _ in range(len(links)):
+        if current in visited:
+            raise ValueError("relay contains a circular chain or broken link")
+        
+        path.append(current)
+        visited.add(current)
+        
+        target = links.get(current, "")
+        if not isinstance(target, str):
+            raise ValueError(f"invalid link value: {target}")
+        
+        if target == "":
+            return path
+        
+        current = target
+    
+    return path
+```

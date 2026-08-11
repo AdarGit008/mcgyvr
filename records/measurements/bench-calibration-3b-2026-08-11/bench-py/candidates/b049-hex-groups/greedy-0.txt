@@ -1,0 +1,17 @@
+```python
+def hex_groups(values: list, width: int) -> str:
+    if not isinstance(values, list):
+        raise ValueError("Input must be a list.")
+    
+    for value in values:
+        if not isinstance(value, int) or not (0 <= value <= 255):
+            raise ValueError("Each byte must be an integer between 0 and 255.")
+    
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    
+    hex_values = [format(value, '02x') for value in values]
+    groups = [' '.join(hex_values[i:i + width]) for i in range(0, len(hex_values), width)]
+    
+    return ' '.join(groups)
+```

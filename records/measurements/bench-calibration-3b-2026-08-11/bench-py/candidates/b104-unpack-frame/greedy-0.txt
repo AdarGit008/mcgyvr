@@ -1,0 +1,87 @@
+```python
+def unpack_frame(data: list) -> list:
+    """
+    Decode a sensor record frame from a list of byte values.
+
+    :param data: List of integers 0 through 255 representing the frame.
+    :return: List of readings in order.
+    :raises ValueError: If input is invalid or frame is malformed.
+    """
+
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list.")
+
+    def read_varint(start: int) -> tuple[int, int]:
+        """
+        Read a varint from the data starting at the given index.
+
+        :param start: Starting index in the data.
+        :return: Tuple of (value, new index).
+        :raises ValueError: If varint is malformed.
+        """
+        value = 0
+        shift = 0
+        while True:
+            byte = data[start]
+            if byte & 0x80 == 0:
+                break
+            if shift >= 35:
+                raise ValueError("Varint too long.")
+            value |= (byte & 0x7F) << shift
+            start += 1
+            shift += 7
+        return value, start
+
+    def read_trailer(start: int) -> tuple[int, int]:
+        """
+        Read the trailer byte from the data starting at the given index.
+
+        :param start: Starting index in the data.
+        :return: Tuple of (trailer, new index).
+        :raises ValueError: If trailer is invalid or frame is malformed.
+        """
+        if start >= len(data):
+            raise ValueError("Trailer not found.")
+        trailer = data[start]
+        return trailer, start + 1
+
+    def read_readings(start: int) -> tuple[list[int], int]:
+        """
+        Read readings from the data starting at the given index.
+
+        :param start: Starting index in the data.
+        :return: Tuple of (readings, new index).
+        :raises ValueError: If frame is malformed.
+        """
+        count_varint = read_varint(start)
+        if count_varint[0] < 0:
+            raise ValueError("Invalid reading count.")
+        readings = []
+        for _ in range(count_varint[0]):
+            value_varint = read_varint(count_varint[1])
+            if value_varint[0] < 0:
+                raise ValueError("Invalid reading value.")
+            readings.append(value_varint[0])
+            count_varint = value_varint
+        return readings, count_varint[1]
+
+    def validate_trailer(trailer: int) -> None:
+        """
+        Validate the trailer byte.
+
+        :param trailer: Trailer byte to validate.
+        :raises ValueError: If trailer is invalid or frame is malformed.
+        """
+        if trailer < 0 or trailer > 255:
+            raise ValueError("Invalid trailer value.")
+        expected_trailer = sum(data) % 256
+        if trailer != expected_trailer:
+            raise ValueError("Trailer does not match byte sum.")
+
+    start = 0
+    readings, end = read_readings(start)
+    validate_trailer(end - 1)
+    if end < len(data):
+        raise ValueError("Extra bytes after trailer.")
+    return readings
+```

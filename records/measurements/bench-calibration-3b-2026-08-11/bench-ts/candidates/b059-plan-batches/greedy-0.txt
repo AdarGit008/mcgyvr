@@ -1,0 +1,27 @@
+```typescript
+export function planBatches(units: number, capacity: number): { loads: number[]; splits: number; rounds: number } {
+  if (!Number.isInteger(units) || units <= 0) {
+    throw new Error("Units must be a positive integer.");
+  }
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const planBatchesHelper = (units: number, capacity: number, rounds: number): { loads: number[]; splits: number } => {
+    if (units <= capacity) {
+      return { loads: [units], splits: 0, rounds };
+    }
+    const half1 = Math.ceil(units / 2);
+    const half2 = units - half1;
+    const result1 = planBatchesHelper(half1, capacity, rounds + 1);
+    const result2 = planBatchesHelper(half2, capacity, rounds + 1);
+    return {
+      loads: [...result1.loads, ...result2.loads],
+      splits: result1.splits + result2.splits,
+      rounds
+    };
+  };
+
+  return planBatchesHelper(units, capacity, 0);
+}
+```

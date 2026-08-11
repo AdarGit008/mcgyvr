@@ -1,0 +1,67 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    if not isinstance(prices, dict):
+        raise ValueError("prices must be a dictionary")
+
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+
+    cart = {}
+    total = 0
+    paid = 0
+    state = OPEN
+
+    for event in events:
+        if len(event) != 2:
+            raise ValueError("event must be a list of two elements")
+
+        action, payload = event
+
+        if action not in ["scan", "void", "close", "pay", "cancel"]:
+            raise ValueError(f"unknown action: {action}")
+
+        if state == CANCELLED or (state == PAID and action != "cancel"):
+            raise ValueError("session is already paid or cancelled")
+
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError(f"item '{payload}' not found in price list")
+            cart[payload] = cart.get(payload, 0) + 1
+            total += prices[payload]
+        elif action == "void":
+            if payload not in cart or cart[payload] == 0:
+                raise ValueError(f"cannot void item '{payload}' from empty cart")
+            cart[payload] -= 1
+            total -= prices[payload]
+            if cart[payload] == 0:
+                del cart[payload]
+        elif action == "close":
+            if not cart:
+                raise ValueError("cannot close session with an empty cart")
+            state = PAYMENT
+        elif action == "pay":
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer")
+            paid += payload
+            change = paid - total
+            if paid >= total:
+                state = PAID
+        elif action == "cancel":
+            state = CANCELLED
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change,
+    }
+```

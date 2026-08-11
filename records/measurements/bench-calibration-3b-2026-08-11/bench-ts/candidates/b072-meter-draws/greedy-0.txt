@@ -1,0 +1,33 @@
+```ts
+export function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] } {
+  if (typeof allowance !== 'number' || allowance <= 0) {
+    throw new Error('Allowance must be a positive integer.');
+  }
+
+  const ledger: Record<string, number> = {};
+  const denied: number[] = [];
+
+  for (const [key, units] of draws) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('Key must be a non-empty string.');
+    }
+    if (typeof units !== 'number' || units <= 0) {
+      throw new Error('Units count must be a positive integer.');
+    }
+
+    const remaining = remainingFor(ledger, key, allowance);
+    if (units > remaining) {
+      denied.push(draws.indexOf([key, units]));
+    } else {
+      ledger[key] = (ledger[key] || 0) + units;
+    }
+  }
+
+  return { used: ledger, denied };
+}
+
+export function remainingFor(used: Record<string, number>, key: string, allowance: number): number {
+  const currentSpend = used[key] || 0;
+  return Math.max(allowance - currentSpend, 0);
+}
+```

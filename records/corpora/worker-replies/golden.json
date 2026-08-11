@@ -2,10 +2,10 @@
   "record": "reply-corpus/2",
   "issue": 184,
   "totals": {
-    "replies": 12375,
-    "parses": 11976,
+    "replies": 12511,
+    "parses": 12112,
     "refusals": 399,
-    "instrument_replies": 9217
+    "instrument_replies": 9353
   },
   "instruments": {
     "declared": "tools/instruments.json",
@@ -23,6 +23,20 @@
         ],
         "primary": "bench-ts",
         "why": "bench-ts: 22 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+      },
+      "bench-calibration-3b-2026-08-11/bench-py": {
+        "sets": [
+          "bench-py"
+        ],
+        "primary": "bench-py",
+        "why": "bench-py: 68 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+      },
+      "bench-calibration-3b-2026-08-11/bench-ts": {
+        "sets": [
+          "bench-ts"
+        ],
+        "primary": "bench-ts",
+        "why": "bench-ts: 68 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "breadth-2026-08-06": {
         "sets": [
@@ -1149,6 +1163,1638 @@
       "expect": {
         "content_sha256": "d21a95bc447361448592af5004a6b820d9e54ca53446fcd8f02b13068b6ad726",
         "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b002-option-pairs/greedy-0.txt",
+      "sha256": "bf79776e18b8b4bb6ccc1354ae48869d1be28056a0aa82fb2dabb8f6b308c05a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a1fd516c8807422ecbc960adb3d1876c290eb8910b06a013dc4c29c1685edf00",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b003-carve-shift/greedy-0.txt",
+      "sha256": "26c93bdc97c1868d74c14d4a767f3de4d41f6963cd62c05e91b50e55cb67512f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6bf2d4f3693bc975afbbe27f15e7e608138b97b7a18d47de1ecbcdc9708482cc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b004-install-order/greedy-0.txt",
+      "sha256": "8c3f1a14cd548878d098e086cc68b9bdca52365494950fd7fa22f59d73886c8e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5526035926da56c5c12c09e66c373e2029a0cd6f574e4aa8df1649dbe5b2176d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b005-command-chain/greedy-0.txt",
+      "sha256": "079d435b876eb82cda7c2955c43645ede69dd7e7f1f94532bb27e69f7d118bc3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e115965eea5ec8fcf87ed2b10fd74f2b72f3b131142955903aab05c8a2fe95fe",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b007-cent-split/greedy-0.txt",
+      "sha256": "5e18526167e4c38b4de342c89c3c6836992aafd5721538407884ea26fb449a12",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "06ed026a30b90a64d44ee4b8866076f0a6748f3fef6d38796943548ec8e14577",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b009-pack-entries/greedy-0.txt",
+      "sha256": "1358983ff3a7129c08c87bea23da5f8765a4dc185d6c833530321c0becd12355",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5c81a68eb358a9988a4db3542507f6d1a9613da3461c92a56b3d7edd5ba4e974",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b013-region-totals/greedy-0.txt",
+      "sha256": "1637da15a1700480c54c2051c02ee1421009eccd4bf82cd3f0b8ed5b5e768170",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3430fc1244b1af4ea09fc4aa8de3e7566e327bb364165e81adb46acd721656c4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b014-fill-order/greedy-0.txt",
+      "sha256": "c616209131eaa986b01a5b875a41116c990316f7ff09f67001d2e54778d2d19e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2c33c68e817f89f5c04b02d715d9904b6f74259bc281da51eec446ccb667eee3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b015-recency-cache/greedy-0.txt",
+      "sha256": "4b5832f7115d85aed4224a44bd9b1e4d910ebab6a97c24d7544b3b74cedccef1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "510e2873dfed3360b66d72273bf65d35979bd9d3b749e541552e278502f27412",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b017-site-totals/greedy-0.txt",
+      "sha256": "abaec9003198ee69809c844da54d72adba4adc63414eb97948d6cf65d954add9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "05e65fe0d3d0596d3eaa729b1880d872cd374658878a3ceeb3d1254a6c124674",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b019-reservoir-ticks/greedy-0.txt",
+      "sha256": "443d6a2a6cc744c6a5aadeda69f0e8c5163968b83f60282e0e5c2e335b66080e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "43046ea9e0a38dfa7798191e1c26ef71f8da1e38e59a6c9edf565463f1972c95",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b020-route-pattern/greedy-0.txt",
+      "sha256": "15150bf933e147f70df1574f32ca325627fa3f866f83c19233f9e4b10dadb362",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "34a286c73a267ab1faadd1cca20fad6801eebf06e191592a8b14626fbc9c0bfb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b022-allocate-cents/greedy-0.txt",
+      "sha256": "3666cfe4c71ec60ea8c8781afb213d6368d2669e7c309a587df2f31ba67d7763",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fd31c16f3438f673638b70824a0adf087a062697777e761fc4761a82753856af",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b027-thread-score/greedy-0.txt",
+      "sha256": "18e68133b85754f97112781b5821acb0e52ad4fd00cb45cac39b6cd5a33f5cc3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "af1892cde664d9ace79b140d584bc3eda13d9341d12096bd18bb2661a8d88557",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b028-pass-plan/greedy-0.txt",
+      "sha256": "50129159026cfa6dcf918651e6506deea7125ca616e1918bbbe33c529f9138f5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6e236d3c67d30da822c3a04b58fb3e019623dabe436635e5f9a1e5efb37b031f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b030-date-span/greedy-0.txt",
+      "sha256": "80afc1094d171f390d004f3f1abe765d1a7ec1227e23bedc6c1e158f2f7565b8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "78349c49eacd1e67d21e3c9a35972bcb6e773a08c330a6b4d009fe7d6e92e95c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b032-bitmap-runs/greedy-0.txt",
+      "sha256": "5938bb582aafc8d5c86ab4563acdd264e988e55f208e46685c06eff59019cdd9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1721d13255c75359b3505864989271c169446963319327e2bbe3caa60c095d85",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b033-till-session/greedy-0.txt",
+      "sha256": "a74af7fa0f59c288e2958618565fed01dce3724028b3b0a85892f6045fed31a3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "059869c502554ed905e57f0b2f1510c6016b02998408c53f8459806f1b438668",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b034-notepad-replay/greedy-0.txt",
+      "sha256": "90f7181bd3c4c53f2dac41203381e15ec08f0b6f47fc0fa83eecf9acb9cea2a5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9cf34d6f8f7557eca6564216f12c08c9e5c4dbd0682ced1bdd9f3d7113adc511",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b035-route-params/greedy-0.txt",
+      "sha256": "5d05c6adfe267f622774592fc96ec1e8972ba83661a191fda4ac2d9de32edc58",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "94ceb776a56df0318e5733b03aa93804bcb98c963c1cb1e7b2268c82a5d9a7ce",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b036-group-batches/greedy-0.txt",
+      "sha256": "cbb461d00a00a7becd9ff72eed05d87df574d1c8c3ce4be4b812723d5b574963",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0b3d0bb7ecc4cba677426ff38093c17052add812792b85390a8af1d5ae202dd2",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b037-lift-sweep/greedy-0.txt",
+      "sha256": "5e5faf1ddb9a4faead8e6f1114456c278ccf9bf9b1b8f56dcf275056b6b0165b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "95c5276cf27830ea8b9ab003b9386c8fc905d1db8fac6da2e67c768e599ba199",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b041-trim-caption/greedy-0.txt",
+      "sha256": "e56441efb7d82648aadb9bcfe80b20ae00f360cef24fed55fc4a9ecceb6d1954",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1f3d2c2178e6a21deaa234dfa9d4fd7e481f3b08f7b0d697c83f83ac96ac480a",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b045-outline-labels/greedy-0.txt",
+      "sha256": "7d01c346299418aeb9e898c1bfa5f24adb24bf65d3ea3fa5bf985e4b4f5f89f1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a1cb429565b0239fa2ab0858bc1c85c2978287e366d9a367b88d8c0ee12e57a4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b046-rest-harvest/greedy-0.txt",
+      "sha256": "6fc6c797629c0a51b1913b4a7c3a51714f95a6b6fbf7589f3642ebdf55120825",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "47779b29e359f16ffd0ac2d0035d30f9d6ed2af6e6dcd13d15c046e548820423",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b049-hex-groups/greedy-0.txt",
+      "sha256": "406584895afbf6a798b9e8dabb613c87fb9b08f9a67da9cff85e770fecaa70a6",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5f180508ea02479fa736c2d74002eb963ac06ee38bf341dac94472947fac7b2b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b051-parcel-trace/greedy-0.txt",
+      "sha256": "bdefb4581cbc1d9d48c1d0ac6f4500a51740972c97011fa1b59b21c879b4e107",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f2100884f90ff0c5cdf5bcf16e1e2f22b10a5ef7d394cc38841e7762404f6c3b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b054-lane-pick/greedy-0.txt",
+      "sha256": "ca13eff42333f875cfdb326b241b48cdace122d2e086a920b9f1ad5a7dac7417",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cbe7c2403c3b52e5ed75121ee6e03ef548a279f15e60f80eb6d6304db1fa22c3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b056-merge-settings/greedy-0.txt",
+      "sha256": "6eafc2a3d27acdf3a34313d9e5a22e51a3d5cfeb17e332070f3589728dc56317",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7d17310b4d1a9e735c060eb7e0e7b108e348f14972b89e246d4b869039230193",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b058-nibble-groups/greedy-0.txt",
+      "sha256": "a61e5f9b8deed8011e83ee882d82b642e18f534e0952fa1abfb7ff72db7267ad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "61484ac0c01467e34b2cda4a5c0332fe348b72074814a85fc5148137de977ba1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b059-plan-batches/greedy-0.txt",
+      "sha256": "e6d34b46f63ba33effe2cec087539f88a3b89a90afc67b3ad9cf4382d5e693f4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "021f00b7fb0e4c1f2af95e6cb05d1e67827c84f7dc583ee798988042019ffbf1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b062-crate-unpack/greedy-0.txt",
+      "sha256": "b7bcc22acaf2f3fdd889ccfbd0b3b6399fa93737dbff6e752dadc0365a1c8924",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "980dbb4a00963a985c790305f1057ebdba9628e5e2abc84fd9ad8665fc682356",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b063-forklift-steer/greedy-0.txt",
+      "sha256": "7d8ea24a6b279e6fbf20a4928895b7aa4c49374fd9f0ccd4a2742853a2f3ca34",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "794ff35893c4183b5ee2acd9203e3230aa8092756907331fd37760ea2bc7e835",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b065-slot-hits/greedy-0.txt",
+      "sha256": "69033c2cfd2708f7c47a48d7b8158ffc1f210d8a247afaa5bfb7b12ebe4a0de6",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5c0c982b13e593c305286a5783867aced71fc765fc9b839692de2e81758bce2b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b066-edit-script/greedy-0.txt",
+      "sha256": "9306f7e395e0b53695420cf9ae098d21c835090b646f6c1c74efcfd0483e3669",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "51087189aaed595f5066685c7aaf127301c4b7206e065040b54f0ef515498e35",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b068-flag-states/greedy-0.txt",
+      "sha256": "17bf139e1b6dddc78d905581929b45e68b91ac11892b91c5535b26bf48af2a59",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9a3760d7ce1bb18162edf1621e38da934ab03e07ac68f2f3bbd65f87d41de1e8",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b069-patrol-bot/greedy-0.txt",
+      "sha256": "f7e972b1e22aa310a8c7fbe10d26a7fb2438a5999fcf5f5a44fcc7a96d475b43",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e69da804bd2279211c62bde6fbf95c693151df5407ee84018e71bc7ad4400a68",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b070-range-selector/greedy-0.txt",
+      "sha256": "17610b679725a9e6240de0b2df0010d43ab1ce3d558c77d790cfdcd594c4af35",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b53f225bb94ee0814acfcf236fa3372cb36df8a3c95fab6e87dea34351a66820",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b072-meter-draws/greedy-0.txt",
+      "sha256": "821680e1a96923bbb290c4d33814a39007278563e8d9df654a2862ba8702b2a8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f35b0f7942a187dc538df2ad480012d6de5866b32645b39a693864a134056002",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b073-bump-release/greedy-0.txt",
+      "sha256": "2a6e2ecc4c8765d822c474e18b0afea7af0e3799c962fb64f6d0dca408f4dc6f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cb427f5a66dbc99841b46bec0ab70bef9db13f42c5046d00daf46f550df23176",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b076-glob-path/greedy-0.txt",
+      "sha256": "2933196488c8047763ae7405547ff9b7022c9548ffb7c987d7be7c2f98e08b9f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "dbca245c97caaa473d1f4aebbe90991bc3e9f21866faccf8b2935bfb1e354bf8",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b077-buffer-replay/greedy-0.txt",
+      "sha256": "ddbd8b51ad3678e734abc04bc10629f931f7fc7f8d186bc1456504063b26aeb3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a4eb24c61dcd554cb5ad1199909c94e2e81b6fd1a8d061cf579768b93e7728ed",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b078-layer-lookup/greedy-0.txt",
+      "sha256": "689948fab951935fd96084b65563739d820a07157bc47633a3d7ef4cd0240dee",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "81b0de55fba3c88be573c0020d3bf4da899243147e196e5ff082c9e1d50d2fbb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b079-tag-check/greedy-0.txt",
+      "sha256": "93b30a6b11675ab1447f5df94b57e6b9bd8d9b4bfec0747b8b68d6d97dd1ec6b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "eef72fc3aea8877939d3ab0f127a8853568580af5f35d90e893d2dfdcb70b113",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b080-brace-fill/greedy-0.txt",
+      "sha256": "8957b965c7c3cac8920102468bc03adb31a2206a806746bb3ea3fa8453435d39",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7109991a6bfc757534964ebf162825cb2f59c35ecace6fb020c0ad7d20b0ab0f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b084-placard-lines/greedy-0.txt",
+      "sha256": "a8548b9b1c5173e373b766a43569b156d70db2de61f2cc36b82f191ee52b87ef",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b42b4cb256644878780262e5adbd3655249b6e129d0178aede1a078c9f1f17ab",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b091-note-index/greedy-0.txt",
+      "sha256": "c4947b00b9211e582327d813dd319269cc4f2c966ea1f19c9ca7801796df1509",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e779215c6ff6348b17ae20a2c9d2965b24a3d4613e059e6a0c831e768d3e9732",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b093-agenda-halves/greedy-0.txt",
+      "sha256": "80f29231e35f6c6b8c2be5f51f100a68fe3e0dd5b13350a165f3a38bb0bbbed3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ff16d2853b6d802b97a26698f906e0340f7e13d11f93d036c38f94481f64cdf4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b094-relay-chain/greedy-0.txt",
+      "sha256": "6ede7a4e9ede25cd24fb20bd31a1299c744a815771ab8e4d564bdbc7cde9cc95",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1baf9e180b038bedbad335045f6cda6e1a31c208473af9c338205e5054550efa",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b095-tree-sketch/greedy-0.txt",
+      "sha256": "7bf528c4fd2e5547f5fcf12005e3529a06508782ad417bdc24622974d37a5cb7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3c272483d076008ca607e62f12d4b42b7980ca956c3e9e34f4bab1b308a7a1f5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b096-stamp-cover/greedy-0.txt",
+      "sha256": "12c7b283eb9ace6110f00d568c14e947e15328eab9bac4a016bdb186e29fd295",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0b4cf759e161e19a140fcbc5f6c6691d4e3022320eabcd015d304a132640c0d7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b099-wire-nest/greedy-0.txt",
+      "sha256": "05c4f42ec390e208552732bfb262429ac814564c2f2ea1dff4067c5d1180055d",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9c765a1f2ef21571e29a2dc139c548aa51cf0b04aaf0976715787c6a11a63fcc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b104-unpack-frame/greedy-0.txt",
+      "sha256": "ea09eeafa0637488a0bfb51e15ed59203d98b8d060f5e0429bd33483129236a6",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4e607de38a134231e81ac744f9f122702638b09c555185fbf2e0cde29b9180ed",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b107-pick-fields/greedy-0.txt",
+      "sha256": "dafd5b948b572d4fdd121be3cdd6d2fd274935a719eba1a6fbba3ad1fc0ccf4a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "97e897dd74292bfca876b636742a68b85011fd3fbf48af3bff7d2edf51a83301",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b108-stamp-canvas/greedy-0.txt",
+      "sha256": "feb8e0712464d1ffbddb8b186e9cd41e5211e6ae7fa66820a05b6daa153846cf",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f82c46f4be312b5f785b0cc625f3ea8efb96e10c097f761afdeda3e3cc1b29ea",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b112-net-tally/greedy-0.txt",
+      "sha256": "da9964d55c56146b5e581ead211da8ff27e3174b6e205f07785c3650b9b52c39",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3ed6073b9ff5491f3f0aaf53c6d9028c7ca7d6219a82aaae9e1d33cb6f2e13d9",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b113-mask-prefix/greedy-0.txt",
+      "sha256": "b0718da1ff7e63e7905959b6e7dc268273226445eb71eda2d9d2fa9127d0a412",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e291992ed7aec793e6503cdfa56f08b8b0dc131a67780dda789f2c93d9ef5218",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b114-heat-band/greedy-0.txt",
+      "sha256": "5de4153a6c627a846213751b0084b5476ed06fa5f115adab14bbb61596ebc0da",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c8ca1a8cb27823da53a8b7058e34934a1a3f1ab06719d6eefa687ac07cc8b893",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b118-pick-upgrade/greedy-0.txt",
+      "sha256": "8c5194e1f9eae3b7075c0806b481066c2a7df7d1f9432a65c5dd41591103ff29",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f6d2ee0fe355f303d7d377f26b0b29868493d11f650fecfcde858b5a3e08613d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b120-mass-expression/greedy-0.txt",
+      "sha256": "490e5e9e2a3614deee098376e473ab6e44dde66155ff0b81d9851440fa24542a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cac0aae6ed595de330234fc7c4db77e4bd29134f0235998b00527f0718f0abce",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b121-ledger-merge/greedy-0.txt",
+      "sha256": "aad6580141759ea0b207dc51ee75ace1572b8961abbb279e40f50affb6e68d1d",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1753a3634fef146fb3e86ed51a35dad5916ddd0e59fdb81a213ed3ef48cde243",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b122-section-report/greedy-0.txt",
+      "sha256": "d732f99ec36083e99d2180d693ac9b36e4c8c6d52ae9151cf1c1a566daeb0042",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e1d2f574c5d6474d0c935206aec29f09dfbe110ac2835ae12ad369d1eabd92e5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b126-closing-sheet/greedy-0.txt",
+      "sha256": "983d69d52aef5110db434a179751a3cf50e25be9a273bbb776bbd8d6cdd7a555",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0379488f3283dc2a34d63b5a583d9a1a1ea1a5a848bb257b0a400dfef3576e08",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b128-upgrade-path/greedy-0.txt",
+      "sha256": "19bd1f27fff8e1e16206f74bedda2cb67fe00f77bb2fd9981f728900b90539de",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5cb45d5add499af3ee24b6f11e6fdeec83c9fc226a4bc76381a19cf3cbb60969",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b130-span-sums/greedy-0.txt",
+      "sha256": "f1542975d8f0482541571252fedd1d8fcd5ccc86250ef19e67dc587c1e2eeceb",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2009714906377b5ce0fb7e4c06e47857aa51f840b1887066fa2e2197c6bae31e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b131-prune-listing/greedy-0.txt",
+      "sha256": "1f912cd6c3ebd9da3322a432c14c1c243a4095770aeb1525ff54986ded671e87",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "56db3daa03cea5f5968c222b30ba5f8d2ab66710d90a8ac93db9ee1ceb48ec3f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b132-drain-lanes/greedy-0.txt",
+      "sha256": "4d1e0f794cac0d4b17313b83c2101f6a5097626ad976d21b8049090849c57d52",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4e94021441ecf17b4c418695cd5a1d77298f62881bd35f15907964d03fb79973",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-py",
+      "file": "candidates/b140-folder-heft/greedy-0.txt",
+      "sha256": "00e6c63ae706f68f9fe00a350797b9cf55ec36e48e63ad4c1133bb522650e996",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9eba609a5402314fd9b34df5168d53cd3c1405be3da195c1256cb1a1f3836c0f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b002-option-pairs/greedy-0.txt",
+      "sha256": "d290706c5254bbd3750415fe61e7e2b75b0c7445fd0a4b6f2e02f05158f44628",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4bb6e052a9ea2e5f7cd601ab31397fe0170873ee5b9db36d3ee1f56dbcb2d419",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b003-carve-shift/greedy-0.txt",
+      "sha256": "609c3d4099c7606cdc56d27a28d69118d5f9b641515640ae536533519696e611",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a8f8c18db275b6ab14b21934f237661351af355bad3998a364ca6c35516aa53e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b004-install-order/greedy-0.txt",
+      "sha256": "06bedbd3595c75d3b53b47798f4db532820a545665ebef861d96275c01a765e2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "72c09c3a75705b037da8be033993712386888f09f2e27f623d5dae9bca14a488",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b005-command-chain/greedy-0.txt",
+      "sha256": "45ae5f5eacb21592672be0dfb39e66ad860903ac00034f457765fc8f89d0ad5f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f3c0154c83e8ab4be39fbb86d6f46700f48f5ae8863187f8f59f65674267e1f1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b007-cent-split/greedy-0.txt",
+      "sha256": "52063dd5c9e5860d5cdc6cae07fc617d77c99279aa00dac192e5e32f1ec10d6f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "be7f1962e4ee325e1c079a3109da2dc677a1b6f226bc03a15d7190acaa0ae12f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b009-pack-entries/greedy-0.txt",
+      "sha256": "271b3b9059f77aedf080210a6a29229513af11e774ee39ca5e693f72aa643d7c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b6a5ade8cad33320759ed2c9700793e32c2c16e09a09f8915f1dfbfab69a9035",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b013-region-totals/greedy-0.txt",
+      "sha256": "42a906c0cbb3ca6a2eb16fe3f3d66dbf15b9412d71292f217752d95e08e97849",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e52c867b367a77f1876fcba012980f92d0a43e846de7ff822ff9b783d66071bc",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b014-fill-order/greedy-0.txt",
+      "sha256": "4991d0486ba2500911f6860df5816244f7ed5b3013a95fa75aa91d864c9aac18",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "656a5b35a2253d711f9bc15852befe99df265a758b6895eeb71fd5a07d882767",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b015-recency-cache/greedy-0.txt",
+      "sha256": "d495a7b56b43ada49c25029ef31817db04a2b7f7da04ec28b25f181effa29d76",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b5ad1789713c7b5cb07b135dc9bb5da1d6e2cd4d496dd7bc84bb4c43f9a5f9e9",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b017-site-totals/greedy-0.txt",
+      "sha256": "a92b4f28d6216e2f80e1283923d56a24343115dfff5262cc7e64d51c1005f7a9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c48a3eb8ef668d4e537bde83ca6da7fe4fc2de58cb4c2c0b297b5f715cccfea4",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b019-reservoir-ticks/greedy-0.txt",
+      "sha256": "62a58892cadbf94b23e0a5749132e936abedfa13b6b055478d78f6e487cada0f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "46f5a3b8780da69f195349df6e62de33016bcada73fda6a09f07e203f5151f6f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b020-route-pattern/greedy-0.txt",
+      "sha256": "5be3180ddb1369865cf29a1d4c2b57c915788b38d9cf6e44e36175c88832c2fd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ae94eba164654be557046fefe4c8f14b271e6ed840ed8aa51af99d6e66aad42d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b022-allocate-cents/greedy-0.txt",
+      "sha256": "c8b381013d622e902eb39ef388a7ae5aa2aba0200b40cdae33a176067a1faaa0",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "786174b30479426fa71f3bbc6f51cfd45b1cd44da7c31694031e4058d493beb3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b027-thread-score/greedy-0.txt",
+      "sha256": "6e7ef7b0b172ab90facfc5a0e968ae0c0cc03cca113a5dcea2ae05dd2397033f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bdb8a874f81bbd980297136cdbf4d6ded397a46362b559b854e8bb16943cb835",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b028-pass-plan/greedy-0.txt",
+      "sha256": "7d30565dabc081f3835d0bf3478ac03a8d88344c75d1f9b586c61691f3b35f24",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "88be829fa45127486f40f4bd26470392f4010ac28762f42e3ceb558540cd3232",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b030-date-span/greedy-0.txt",
+      "sha256": "1c312bd48fce1a320ae5bfae50c19de9f29ff3bb36692906decd9fafe4b0fc91",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ca8e4daa397e412270cb0bb96a7c8c09cedda7443661ba24fe52527f9907de43",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b032-bitmap-runs/greedy-0.txt",
+      "sha256": "80def6447abfb4010495d3c808d0318a00e857a5e013c2cef14fdd6587d6d598",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "aed9ce990a389b833ce5fc55ff741de2f3d4a1a873cfebfe7b7b4e632395981b",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b033-till-session/greedy-0.txt",
+      "sha256": "e0e775c6099e48feb821482e3fca4ab966040844a3ae014fb13da72104a6797a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "da39efee991c204383211c553a9afa5f04874b342e05fc5cfc21ae82d28ddd47",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b034-notepad-replay/greedy-0.txt",
+      "sha256": "4b4af1aa01cb592c6d7fd353f065d2fdc83a137d2845add80ac71ebb1bdcdf3f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "79ce45c64aa5922da666677d1a1b886f5faeb654378445c1b6d201b4b79aa387",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b035-route-params/greedy-0.txt",
+      "sha256": "76b52c19a7e1f1bd092361a02f35cab5edf3b98e613263a10ca13acf8c9846ea",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8c807e5ffae6ae9e2a32a8573a0dd78f94c9efac33f3d1854299156b133a6317",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b036-group-batches/greedy-0.txt",
+      "sha256": "5317991289f3f8f92d049cb9fb0307de35ac5766496514700671b8d4da8e01e4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7287b15fb5586f98cc354bae45e2db34f098d820b5a29f6627bb172f77bcec78",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b037-lift-sweep/greedy-0.txt",
+      "sha256": "0cd8d5893c4822916be938abd109c8e8c5df204d1f6de3072f2f0dd8d7b08901",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d21a95bc447361448592af5004a6b820d9e54ca53446fcd8f02b13068b6ad726",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b041-trim-caption/greedy-0.txt",
+      "sha256": "e24de8617f61bbfc83756e8e6aa8fb9337cd705d65c452cff89d097474e2fce1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "af2cc5832bc54ad148607547ed47d53f288efe55b5dc284c6d116288dd381d01",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b045-outline-labels/greedy-0.txt",
+      "sha256": "9a8eb980c52819fb2833f8ed0a186f41a090d268d2d98f6d6efecee856dd5d4b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "71f073c9aea110e5b2bf05aeae8eed55e22b926c901cfe722becebb57e75cfa8",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b046-rest-harvest/greedy-0.txt",
+      "sha256": "aa00f2be07c1844141313c4c437b49c08dc7a48a611244e2460b2af560c1bde4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c32d4d1b4ef86f2cd2cbe4d92cc2e639437fe7f94b88d22c00d2e9c48d80f700",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b049-hex-groups/greedy-0.txt",
+      "sha256": "9e76909a81a861caec3508d5cf059b15e109911d8a2c7e096ccc4f5493834ab9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d377636ba72fcb4d7aa18faaca8fff1911ca3e691936508258988140566ec580",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b051-parcel-trace/greedy-0.txt",
+      "sha256": "42b48eb2b0aa25b2e94300245256a0fc37db7352b96b472c309413b813c0d5f9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "407be9cc3bc480cc1d3b5d36c85776c2bc3ab6a4ebdd6d2603d6e3185c2185d7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b054-lane-pick/greedy-0.txt",
+      "sha256": "94c1cb070dc2afc0f2921abe9133c49e1f35d6b9178f3cd5885dc8a5e056a814",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fe8f779fc33901d4de223c4bb7e269c59b20753820e21289649201bd7c1b9437",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b056-merge-settings/greedy-0.txt",
+      "sha256": "72d325f2281afd5df2e0d9a799f89481e645a7313a485048731e6a82c6e50887",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "dba54e9b2e6c9fabdf89a0c8177d4818b4184c33ac11f7fd1cafc453ac0eb40b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b058-nibble-groups/greedy-0.txt",
+      "sha256": "f4f19e7aeed90ab2063b67844b76a2086e7f5ca406cd6c75e30b6f029a0d8f52",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8b0c247c81feaeb082515514342fc53f2923d6e3f2bf8756939f34f1b2cfa101",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b059-plan-batches/greedy-0.txt",
+      "sha256": "85f35f7b8e747c0e8258fca7f9d7dcee9f13331975b2c7a5746a9231d11f5e80",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "175fcbceeade05ac27c02ede906f84d3ac871fc7c0760d53a653787ab7fde3f4",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b062-crate-unpack/greedy-0.txt",
+      "sha256": "216b563c5016f2f67b6ad7171a70898c94af8d711c04649c155010412b28a6e8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4eb86c965e25749f7785cf76c7582b49f1073d71c1d116d149b13aee0aef6cd0",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b063-forklift-steer/greedy-0.txt",
+      "sha256": "b305b98d518f0fbed089b72ae77e829e49f309d3f2f2ca54423a5589c5c48707",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c4679322d23612ad3712a339f885a95fc7bab3756ac94259106ee5cd322cb84f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b065-slot-hits/greedy-0.txt",
+      "sha256": "ed22a8a1ef6e5686c78525ac45fd08422c703faa7b484c359d09cdecc66c1705",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "813019448a8590911f89ddf8577567b529434b32e6e3e2a004e8857d19ab6b93",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b066-edit-script/greedy-0.txt",
+      "sha256": "9174f5602a4269b9882d43776f4cfb380859de7d5d4f5527c5f3f712df0a7eea",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c6a710956aaa5dab80894ba8f935b342ab966fe9c92ec46a1c1e3faee2f26f0c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b068-flag-states/greedy-0.txt",
+      "sha256": "5e382ffe09f3e29da2b9f8f0769244807ac17edc8482b17a2ecdf8f7685a9da8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "05a88641d002eeec81b80823e60a4702f0471efd8b51053fa5d1d22acba99367",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b069-patrol-bot/greedy-0.txt",
+      "sha256": "5f35ef11aec4b4274e2619659591ddd8fdc071899d8c54e6551c144b8ca35192",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "266f343f866412add1b819a3727a612a63efc0a2335f2228e1d840f1e078c122",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b070-range-selector/greedy-0.txt",
+      "sha256": "2db5381c1c4149c9ad59f7d5a601251f1314c62483b83a120f7174e55758ac55",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ad0016394e4539fb6a008ae479a8d4a4fd90a66f4cb295f3372a6723d4416da7",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b072-meter-draws/greedy-0.txt",
+      "sha256": "33f7d7fcfb2ae0a60d9942f30c38eaf37a5addf1578835fd2543e2af845d6fd1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4ed61b9dfd99d367c5b70ffd754fed46ce67595c6bcdcf77318cdab5656d7623",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b073-bump-release/greedy-0.txt",
+      "sha256": "e9750d116f3303519b2ee991313770f4838b5122b6c172fab90529d80f9f07c3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d012c40631b122795c1c110708c78e61acf88e0a30f5769edf535429382b606",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b076-glob-path/greedy-0.txt",
+      "sha256": "c24288b1d2b9980ff65a9804e22af3e66a863d15c69a7b6f5c0b53a8d6f7c252",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b1953a2b45a52c8220e423f65e237a43043ce087c397947a2cef1fb053085795",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b077-buffer-replay/greedy-0.txt",
+      "sha256": "5e6b73abc83c01f46a65a264a1b881837da6486bd29eb49104b5daaf98db214a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "02a49863f92f4927d2df30019f0085661386e17b004c9c8813f2c42acb445a0e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b078-layer-lookup/greedy-0.txt",
+      "sha256": "54b0159d81115d9bf0b0a9ccba1dba5f7a7e10b2ef37f353b79d94dbcacb84ae",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "aae9e52e59195ab1486046dd274cc2adffd1c442e2607f99e4f28798268313fa",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b079-tag-check/greedy-0.txt",
+      "sha256": "b4b4499ee00ee65ad435f908a1cdb021a0a84a1b757bbcc15e8992911adc98ea",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "58e4625bff289c4e5bb6039fca0836bbc18c8ef24faa98d4469041013f6ea864",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b080-brace-fill/greedy-0.txt",
+      "sha256": "0b981285721b7600caddbb48afb57a200c4935d6cdc35a9f97f5ecafc87863d9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "932f24222c264cc6344b4fc3aa2bf19724a407e5af2328f6bb9add72d191d2d1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b084-placard-lines/greedy-0.txt",
+      "sha256": "c951f2f6badf07397f13dbdad22a7bd0b320b839819cd211b06ec01c1e632c7e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "56e5c592631edca1d0f664bf82590e5657b495f4b9458bc5b4a2060d933d12ed",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b091-note-index/greedy-0.txt",
+      "sha256": "4ac1233cbe44c7664dfb9c79746d46730e1b625d59759b7372108be0784f0445",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e25a5f068c28474452ddcb3307a04e6991a776ac3d739676d52d4f329568fc6a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b093-agenda-halves/greedy-0.txt",
+      "sha256": "cdd7d7bc051f29adc9573b0767698597fd1ecba151a3fb7b1fea502f73f8c4c3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "afa2e08ab02bf48ef73dcb5b3d103176587bef4840af527fa2ab8f84c649cb62",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b094-relay-chain/greedy-0.txt",
+      "sha256": "07981c142586cf1232a7e6d61fbafa8f9c213b99b7c79b8947b6e2a35f866128",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fa6f9f672157d48a85c23a6f88aba825a52c7bbeca281f4087101d33f481894b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b095-tree-sketch/greedy-0.txt",
+      "sha256": "d2993a5585d53d41ff6dc15f5b4a39b4a78425567dba3d0d02d010b6bfdf8fd0",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "23e080f5171ef6fc6f73ddffd88c6bb569cf567e4ae63fbfc5bd9e9a50c0cfc7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b096-stamp-cover/greedy-0.txt",
+      "sha256": "a7baf9e65e44a5af668a42255a78e415ad777c2af4c9a8e0087732c103b5b9ee",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e1c8465691f5fd38c805c9365b4c211c123d01a13c3f9d82ba768b6e7c983c8",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b099-wire-nest/greedy-0.txt",
+      "sha256": "f89dd10ba33c59b21127288c30fa28c793409772beddcc8075b66725c88ab128",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c68c3a6b7f14e376b222e1393097387dfb38e92e8f43f1c36733d4e6bea6c335",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b104-unpack-frame/greedy-0.txt",
+      "sha256": "de50d2a7dc06dcf64ffcc50b663143a3f6ddab42a07eaa794df63b5c013328af",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8534384d1c475d78d56f2799a11ce1228266816e05b2e1aef05653648617099f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b107-pick-fields/greedy-0.txt",
+      "sha256": "c1e7208acc7eb5f4b2dff9397bbe22000468912cbdf32aa92fee670aea68117c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0e64f9906fcbc7530914143a7cccf5abe7b25d094400b24ec81c8575b7cf6905",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b108-stamp-canvas/greedy-0.txt",
+      "sha256": "1c8bbc82d3879fcf7acf242e1a3866885d19ca2cddbc70e7c53789380a65d9b5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c36d822177a2385fa55cf2b5f92f0fd9022a84113c47bb6e42d72a1655b82f35",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b112-net-tally/greedy-0.txt",
+      "sha256": "fd7038318d6512a31e1e97e2981bf03fc14430a2cc5db664c22d0b231d0399fc",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e0e7c027bcc1751fe4109153743d44b92dd28e8d2dda696e96ea3af81b9cf28f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b113-mask-prefix/greedy-0.txt",
+      "sha256": "c83f5982c1e55a1e4439b7cb19dad62398f817d1086987c09cc5ccaf8dbebe44",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "223d0911bcdc65bf3f97614d483cf7a971688e58087617676d29b9d9be0832a3",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b114-heat-band/greedy-0.txt",
+      "sha256": "d0f4ca811087457fa647d5f3557de16fbfcb21487a4105560b25f211e06ab13c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3c2e0f2a978bc2a98c7e7c8890089d3bab4dbb7d808244a38f8cc34bc9496202",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b118-pick-upgrade/greedy-0.txt",
+      "sha256": "6613710492f3c612be3192600861c8f165ece0871de3391a5a72e92d57a08b3a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6f0e1750842f863483d804cff40ac3a053a1d361a3328f20df1834eac7d29657",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b120-mass-expression/greedy-0.txt",
+      "sha256": "67e12fb98e1ac15eeb303f544f354d3caaf3f26d3e317bd5655dfd1399f651e7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3a964d5e823507d9935b12784723d7fab3580c8efa07539f2cd5728e06f8a816",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b121-ledger-merge/greedy-0.txt",
+      "sha256": "55760e44c28247d6a7183084203112d721ff0ba9ab693c9fce4ca172ef988b1a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b3f8dfbbe4d474fa7038d671a769c8b01f4457c3b7ae0612cbce02247413eee3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b122-section-report/greedy-0.txt",
+      "sha256": "452f1e5aaa9ef832eaa0b8f1d2a0d9a4117fdc9ec9cbca15fc4f1906ef18daaa",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f29f129a2746ea8865dfb3f331021ad917741aed5dd3ebc3b683b760b6ddac6d",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b126-closing-sheet/greedy-0.txt",
+      "sha256": "a9d65c4aaa7cbcdcca33eeb1b0d8eeca77c05a02a1fc4f22aec292e76467337a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3c6742b2e3f33e615e88f1771eae433c12124fbc6feb0d61d8cee81724c9baeb",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b128-upgrade-path/greedy-0.txt",
+      "sha256": "90f08e1587dab315e74141ad9eebccf124409b65185b4481ac81114dc7f03a2b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7120d164c2e92d352ad73dd4c64bddc484ede727185a0a0a8202fe31c8d2f774",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b130-span-sums/greedy-0.txt",
+      "sha256": "689776a1784d5b74a7ed0e65675a28b921923e4eb5bd33efe34fb67507ab7fa3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3b7cbaaeb5928faa773d1d80e05582f4cfedec1405b6e27ff559debf085484fd",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b131-prune-listing/greedy-0.txt",
+      "sha256": "7fd20406c3e89f0d7233c771e9b059cc711a8256302bf4d9c0a807d976970aba",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6d1d72322bf97012139d7a8eefc979cf25373f23e2c5cf24b8b43c09f23634bd",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b132-drain-lanes/greedy-0.txt",
+      "sha256": "4b8ca0839a4073285095b6067865cac0f4489d41f640eb821505de165d110d61",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7c7b4364c8b0134528e9bdc5866e1f79c9bd225153634c6f9104537871bfc608",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-3b-2026-08-11/bench-ts",
+      "file": "candidates/b140-folder-heft/greedy-0.txt",
+      "sha256": "0f61c6b4db70c55ffb6e0cf26692a258c55d4f1c69e5f4d2ed65e0d92ba696de",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "911f68cb1b378a78d4b25ba23ccf921a76de9358d1375a80f4f5f0b7b81830fa",
+        "info_string": "ts"
       }
     },
     {

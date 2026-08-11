@@ -1,0 +1,46 @@
+```ts
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) throw new Error("Input must be a list of strings.");
+
+  const tallyMap = new Map<string, { sold: number; returned: number }>();
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== "string") throw new Error("Each sheet must be a string.");
+    const rows = sheet.split("\n").filter(row => row.trim() !== "");
+
+    for (const row of rows) {
+      const [item, soldStr, returnedStr] = row.split("|").map(field => field.trim());
+      if (!item || !soldStr || !returnedStr)
+        throw new Error("Each row must have exactly three fields.");
+
+      const sold = parseFloat(soldStr);
+      const returned = parseFloat(returnedStr);
+
+      if (isNaN(sold) || isNaN(returned))
+        throw new Error("Sold and returned fields must be strings of decimal digits.");
+
+      if (returned > sold)
+        throw new Error(`Returned quantity cannot exceed sold for item: ${item}`);
+
+      tallyMap.set(item, {
+        sold: (tallyMap.get(item)?.sold ?? 0) + sold,
+        returned: (tallyMap.get(item)?.returned ?? 0) + returned
+      });
+    }
+  }
+
+  const items = Array.from(tallyMap.keys()).sort((a, b) => a.localeCompare(b));
+  const maxLength = Math.max(...items.map(item => item.length));
+
+  let report = "";
+  for (const item of items) {
+    const net = tallyMap.get(item)?.sold - tallyMap.get(item)?.returned ?? 0;
+    report += `${item.padEnd(maxLength + 2)}${net}\n`;
+  }
+
+  const totalNet = items.reduce((sum, item) => sum + tallyMap.get(item)?.sold - tallyMap.get(item)?.returned ?? 0, 0);
+  report += `total ${" ".repeat(maxLength + 2)}${totalNet}`;
+
+  return report;
+}
+```

@@ -1,0 +1,23 @@
+```ts
+export function flagStates(mask: number, catalog: string[]): Record<string, boolean> {
+  if (typeof mask !== 'number' || !Number.isInteger(mask) || mask < 0) {
+    throw new Error('Mask must be a non-negative integer.');
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Catalog must be a non-empty array of strings.');
+  }
+  const uniqueFlags = [...new Set(catalog)];
+  if (uniqueFlags.length !== catalog.length) {
+    throw new Error('Catalog cannot contain duplicate flag names.');
+  }
+  if (catalog.some(name => typeof name !== 'string' || name.trim() === '')) {
+    throw new Error('Each flag name must be a non-empty string.');
+  }
+
+  const result: Record<string, boolean> = {};
+  for (const [index, name] of catalog.entries()) {
+    result[name] = Boolean(mask & (1 << index));
+  }
+  return result;
+}
+```

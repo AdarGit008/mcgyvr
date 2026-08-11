@@ -1,0 +1,51 @@
+```ts
+export function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) throw new Error("Outline must be a list");
+
+  const result: string[] = [];
+  let currentNumber = 1;
+
+  function processSection(section: object, depth: number): void {
+    if (typeof section !== "object" || !section) throw new Error("Invalid section");
+    if (!Object.keys(section).includes("heading")) throw new Error("Missing heading");
+
+    const { heading } = section;
+    if (typeof heading !== "string" || heading.trim() === "") throw new Error("Heading must be a non-empty string");
+
+    result.push(`${currentNumber} ${heading}`);
+    currentNumber++;
+
+    if (!Array.isArray(section.children)) throw new Error("Children must be a list");
+    for (const child of section.children) {
+      processSection(child, depth + 1);
+    }
+  }
+
+  sections.forEach((section, index) => {
+    processSection(section, index + 1);
+  });
+
+  return result;
+}
+
+export function sectionCount(sections: object[]): number {
+  if (!Array.isArray(sections)) throw new Error("Outline must be a list");
+
+  let count = 0;
+
+  function countSections(section: object): void {
+    if (typeof section !== "object" || !section) throw new Error("Invalid section");
+    if (!Object.keys(section).includes("children")) throw new Error("Missing children");
+
+    count++;
+
+    for (const child of section.children) {
+      countSections(child);
+    }
+  }
+
+  sections.forEach(countSections);
+
+  return count;
+}
+```

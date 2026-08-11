@@ -1,0 +1,62 @@
+```ts
+export function chainOfCommand(root: object, person: string): string[] {
+  if (typeof root !== 'object' || typeof person !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const result: string[] = [];
+  const stack: { node: object; path: string[] }[] = [{ node: root, path: [] }];
+
+  while (stack.length > 0) {
+    const { node, path } = stack.pop()!;
+    if (!node || typeof node.name !== 'string') {
+      throw new Error('Invalid node');
+    }
+    result.push(node.name);
+    if (node.name === person) {
+      return result;
+    }
+    if (Array.isArray(node.reports)) {
+      for (const report of node.reports) {
+        stack.push({ node: report, path: [...path, node.name] });
+      }
+    }
+  }
+
+  throw new Error('Person not found');
+}
+
+export function headcount(root: object): number {
+  const count = (node: object): number => {
+    if (!node || typeof node !== 'object') {
+      return 0;
+    }
+    let total = 1; // Count the current node
+    if (Array.isArray(node.reports)) {
+      for (const report of node.reports) {
+        total += count(report);
+      }
+    }
+    return total;
+  };
+
+  return count(root);
+}
+
+export function widestTeam(root: object): number {
+  const maxReports = (node: object): number => {
+    if (!node || typeof node !== 'object') {
+      return 0;
+    }
+    let max = 0;
+    if (Array.isArray(node.reports)) {
+      for (const report of node.reports) {
+        max = Math.max(max, 1 + maxReports(report));
+      }
+    }
+    return max;
+  };
+
+  return maxReports(root);
+}
+```
