@@ -1,0 +1,16 @@
+```ts
+export function shortNum(value: number): string {
+  if (value === null || value === undefined) throw new Error("Value cannot be null or undefined");
+  if (!Number.isInteger(value)) throw new Error("Value must be an integer");
+
+  const units = ["", "k", "m"];
+  let result = `${Math.floor(value)}`;
+
+  if (result.length > 3) {
+    const decimalIndex = Math.max(0, result.length - 4);
+    result = `${Math.floor(value / Math.pow(10, decimalIndex))}.${result.slice(decimalIndex)}`;
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def swipe_dedupe(swipes: List[str]) -> List[str]:
+    if not swipes:
+        return []
+
+    deduped_swipes = [swipe]
+    for swipe in swipes[1:]:
+        if swipe != deduped_swipes[-1]:
+            deduped_swipes.append(swipe)
+
+    return deduped_swipes
+```

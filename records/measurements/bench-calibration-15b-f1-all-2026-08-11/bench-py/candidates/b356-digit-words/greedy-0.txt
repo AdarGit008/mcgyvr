@@ -1,0 +1,24 @@
+```python
+def digit_word(digit: int) -> str:
+    """Names a single digit in English."""
+    if not isinstance(digit, int):
+        raise ValueError("digit must be an integer")
+    return {
+        0: "zero",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine"
+    }.get(digit, "")
+
+def digit_words(digits: str) -> str:
+    """Names every digit of a run of digits in order, joined by single spaces."""
+    if not isinstance(digits, str):
+        raise ValueError("digits must be a string")
+    return ' '.join(digit_word(int(d)) for d in digits)
+```

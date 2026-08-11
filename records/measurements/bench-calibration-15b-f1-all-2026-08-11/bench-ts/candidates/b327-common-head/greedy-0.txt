@@ -1,0 +1,20 @@
+```ts
+export function commonHead(words: string[]): string {
+  if (words.length === 0) return '';
+
+  const firstWord = words[0];
+  let commonPrefix = '';
+
+  for (let i = 0; i < firstWord.length; i++) {
+    const char = firstWord[i];
+
+    if (!words.every(word => word.startsWith(char))) {
+      break;
+    }
+
+    commonPrefix += char;
+  }
+
+  return commonPrefix;
+}
+```

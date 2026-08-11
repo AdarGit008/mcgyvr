@@ -1,0 +1,12 @@
+```ts
+export function indexMap(labels: string[]): Record<string, number[]> {
+  const result: Record<string, number[]> = {};
+  labels.forEach((label, index) => {
+    if (!result[label]) {
+      result[label] = [];
+    }
+    result[label].push(index);
+  });
+  return result;
+}
+```
