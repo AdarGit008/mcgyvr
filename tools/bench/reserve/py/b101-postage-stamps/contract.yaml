@@ -1,0 +1,39 @@
+id: b101-postage-stamps
+task_type: bug_fix
+task: >-
+  fewest_stamps counts the stamps that make exact postage incorrectly.
+  Each denomination may be used any number of times, and the goal is the
+  smallest number of stamps whose values sum to exactly the postage. The
+  current code grabs the largest denomination that still fits, which
+  overcounts whenever skipping a large stamp wins — for denominations 1, 3
+  and 4 and postage 6 it reports three stamps where two threes suffice —
+  and when no exact combination exists it still reports whatever partial
+  pile it gathered instead of failing. Fix it: return a mapping with
+  count, the true minimum, and stamps, the stamp values of one minimal
+  combination in non-increasing order, taking the largest possible stamp
+  at every step when several minimal combinations exist. Zero postage
+  yields count 0 and no stamps, and a postage no combination reaches
+  raises an error. Also add the missing validation: reject a postage that
+  is not a non-negative integer, an empty denomination list, a
+  denomination that is not a positive integer, and a repeated
+  denomination, with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """The fewest stamps that make exact postage from given denominations."""
+
+
+  def fewest_stamps(postage, denominations):
+      stamps = []
+      remaining = postage
+      for stamp in sorted(denominations, reverse=True):
+          while stamp <= remaining:
+              remaining -= stamp
+              stamps.append(stamp)
+      return {"count": len(stamps), "stamps": stamps}
+interface: "def fewest_stamps(postage: int, denominations: list) -> dict"
+stop_conditions:
+  - No bound on the size of the postage or the number of denominations is stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

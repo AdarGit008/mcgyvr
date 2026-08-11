@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "iteration",
+  "steering_band": "g3",
+  "target_symbol": {"ts": "heavyFolders", "py": "heavy_folders"}
+}

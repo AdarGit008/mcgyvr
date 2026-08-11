@@ -1,0 +1,42 @@
+id: b043-clash-pairs
+task_type: function_implementation
+task: >-
+  Implement clashPairs; the argument checks are already written. The input
+  is a list of appointment bookings, each a [start, end] pair of integers
+  running from start up to but not including end. Return every pair of
+  bookings that overlap in time as [i, j] pairs of positions in the input,
+  i before j, the pairs ordered by i and then by j; bookings that merely
+  touch do not overlap, and no bookings or a lone booking yields an empty
+  list. Reject a bookings argument that is not a list, a booking that is
+  not a two-item list, a bound that is not an integer, and a booking whose
+  start does not precede its end, with an error.
+target: solution.ts
+target_content: |
+  /** Which appointment bookings collide with one another. */
+  export function clashPairs(bookings: number[][]): number[][] {
+    if (!Array.isArray(bookings)) {
+      throw new Error("clashPairs expects a list of bookings");
+    }
+    for (const booking of bookings) {
+      if (!Array.isArray(booking) || booking.length !== 2) {
+        throw new Error("a booking must be a [start, end] pair");
+      }
+      const [start, end] = booking;
+      if (!Number.isInteger(start) || !Number.isInteger(end)) {
+        throw new Error("booking bounds must be integers");
+      }
+      if (start >= end) {
+        throw new Error("booking start must precede its end");
+      }
+    }
+    // TODO: report every overlapping pair of bookings as [i, j] with
+    // i < j, ordered by i and then by j; touching bookings do not clash.
+    throw new Error("not implemented");
+  }
+interface: "export function clashPairs(bookings: number[][]): number[][]"
+stop_conditions:
+  - An upper bound on how many bookings a caller may pass is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

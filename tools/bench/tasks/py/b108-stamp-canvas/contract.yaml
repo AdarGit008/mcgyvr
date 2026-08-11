@@ -1,0 +1,54 @@
+id: b108-stamp-canvas
+task_type: bug_fix
+task: >-
+  stamp_rect inks a rectangular stamp onto a canvas but overreports its
+  work and trusts its rect blindly: as written it counts every cell under
+  the stamp, already inked or not, and applies whatever bounds it is
+  handed. Fix it. new_canvas builds the canvas — a mapping holding rows,
+  cols and cells, a rows-by-cols grid of zeros — rejecting dimensions
+  that are not positive integers, and ink_total counts the inked cells;
+  both already behave. stamp_rect takes the canvas and a rect [top, left,
+  bottom, right], sets every cell in rows top up to but not including
+  bottom and columns left up to but not including right to 1, and must
+  return only the count of cells that went from blank to inked — a stamp
+  overlapping earlier ink reports just the fresh cells, and a stamp over
+  solid ink reports zero. Add the missing validation: reject a rect that
+  is not a list of exactly four integers, a rect covering no cells
+  because top does not sit strictly above bottom or left strictly before
+  right, and a rect reaching off the canvas, with an error. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def new_canvas(rows, cols):
+      for side in (rows, cols):
+          if isinstance(side, bool) or not isinstance(side, int) or side < 1:
+              raise ValueError("canvas dimensions must be positive integers")
+      cells = [[0] * cols for _ in range(rows)]
+      return {"rows": rows, "cols": cols, "cells": cells}
+
+
+  def stamp_rect(canvas, rect):
+      top, left, bottom, right = rect
+      inked = 0
+      for r in range(top, bottom):
+          for c in range(left, right):
+              canvas["cells"][r][c] = 1
+              inked += 1
+      return inked
+
+
+  def ink_total(canvas):
+      total = 0
+      for row in canvas["cells"]:
+          total += sum(row)
+      return total
+interface: |-
+  def new_canvas(rows: int, cols: int) -> dict
+  def stamp_rect(canvas: dict, rect: list) -> int
+  def ink_total(canvas: dict) -> int
+stop_conditions:
+  - How large a canvas must be supported is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

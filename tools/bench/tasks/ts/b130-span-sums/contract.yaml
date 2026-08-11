@@ -1,0 +1,73 @@
+id: b130-span-sums
+task_type: function_implementation
+task: >-
+  Implement parseSpan, the reader of a small tape-measure module whose two
+  companions you must also provide. A span is written in yards, feet and
+  inches as space-separated parts in that order, like 2yd 1ft 4in: each
+  part is a value directly followed by its unit yd, ft or in, the units
+  largest to smallest, each at most once, any of them omittable, at least
+  one part present; a value is a plain decimal integer with no leading zero
+  (zero itself written 0). parseSpan turns span text into total inches — 36
+  to the yard, 12 to the foot — and accepts unnormalized values like 17in.
+  formatSpan renders a non-negative integer of total inches canonically:
+  largest units first, feet held under 3, inches held under 12, zero-valued
+  parts left out, plain 0in for zero. addSpans takes two span texts and
+  returns their sum in that canonical form. Reject, in any of the three, a
+  span argument that is not a string, an empty span, an unknown unit, units
+  repeated or out of order, a bare value, a bare unit, a value with a
+  leading zero, and — in formatSpan — inches that are not a non-negative
+  integer, with an error.
+target: solution.ts
+target_content: |
+  /** Tape-measure spans: parse to inches, format canonically, and add. */
+
+  const INCHES: Record<string, number> = { yd: 36, ft: 12, in: 1 };
+  const ORDER = ["yd", "ft", "in"];
+
+  export function parseSpan(text: string): number {
+    // TODO: validate the span text against the part grammar and unit
+    // order, then total its parts in inches.
+    let total = 0;
+    for (const part of text.split(" ")) {
+      total += Number(part.slice(0, -2));
+    }
+    return total;
+  }
+
+  export function formatSpan(inches: number): string {
+    if (!Number.isInteger(inches) || inches < 0) {
+      throw new Error("inches must be a non-negative integer");
+    }
+    if (inches === 0) {
+      return "0in";
+    }
+    const parts: string[] = [];
+    const yards = Math.floor(inches / 36);
+    const feet = Math.floor((inches % 36) / 12);
+    const rest = inches % 12;
+    if (yards > 0) {
+      parts.push(`${yards}yd`);
+    }
+    if (feet > 0) {
+      parts.push(`${feet}ft`);
+    }
+    if (rest > 0) {
+      parts.push(`${rest}in`);
+    }
+    return parts.join(" ");
+  }
+
+  export function addSpans(first: string, second: string): string {
+    const total = parseSpan(first) + parseSpan(second);
+    return formatSpan(total);
+  }
+interface: |-
+  export function parseSpan(text: string): number
+  export function formatSpan(inches: number): string
+  export function addSpans(first: string, second: string): string
+stop_conditions:
+  - Whether runs of more than one space between parts are accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

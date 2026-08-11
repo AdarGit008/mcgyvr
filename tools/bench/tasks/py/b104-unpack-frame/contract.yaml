@@ -1,0 +1,26 @@
+id: b104-unpack-frame
+task_type: function_implementation
+task: >-
+  Implement unpack_frame. The input is a list of byte values, integers 0
+  through 255, holding one sensor record frame. The frame opens with a
+  header varint giving how many readings follow, then carries that many
+  reading varints, then closes with exactly one trailer byte equal to the
+  sum of every byte before it modulo 256. A varint stores a non-negative
+  integer in base 128, least significant group first, seven value bits per
+  byte; every byte of a varint except its last has its high bit set, the
+  final byte of a multi-byte varint is never zero, and no varint runs past
+  five bytes — so [150, 1] holds the value 150 in two bytes. Decode the
+  frame and return its readings in order; a frame declaring zero readings
+  yields an empty list. Reject an argument that is not a list, a byte that
+  is not an integer from 0 to 255, a frame that ends inside a varint or
+  before its trailer, a varint whose final byte is a wasted zero, a varint
+  longer than five bytes, a trailer that does not equal the byte sum, and
+  bytes left over after the trailer, with an error.
+target: solution.py
+interface: "def unpack_frame(data: list) -> list"
+stop_conditions:
+  - Whether a stream may carry several frames back to back is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

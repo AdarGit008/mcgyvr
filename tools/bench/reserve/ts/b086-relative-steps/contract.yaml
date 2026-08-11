@@ -1,0 +1,48 @@
+id: b086-relative-steps
+task_type: function_implementation
+task: >-
+  Implement relativeSteps, whose helper splitAbsolute is already written.
+  An absolute path is the root "/" alone or a "/" followed by
+  slash-separated segments: splitAbsolute returns the segment list — the
+  root yields an empty list — and rejects a non-string argument, a path
+  that does not begin with a slash, an empty segment left by a doubled or
+  trailing slash, and a segment that is "." or "..", with an error.
+  relativeSteps validates both of its arguments with splitAbsolute, then
+  returns the walk that leads from the first location, a directory, to the
+  second, its destination: drop the longest shared run of leading
+  segments, climb out of each remaining directory segment with "..", then
+  descend through the remaining destination segments, everything joined
+  with slashes. When nothing remains on either side the two coincide and
+  the walk is ".".
+target: solution.ts
+target_content: |
+  export function splitAbsolute(path: string): string[] {
+    if (typeof path !== "string" || path[0] !== "/") {
+      throw new Error("expected an absolute path");
+    }
+    if (path === "/") {
+      return [];
+    }
+    const segments = path.slice(1).split("/");
+    for (const segment of segments) {
+      if (segment === "" || segment === "." || segment === "..") {
+        throw new Error("bad segment: " + segment);
+      }
+    }
+    return segments;
+  }
+
+  export function relativeSteps(fromDir: string, toPath: string): string {
+    // TODO: validate both arguments with splitAbsolute, drop the shared
+    // leading segments, climb with ".." and descend into what is left.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function relativeSteps(fromDir: string, toPath: string): string
+  export function splitAbsolute(path: string): string[]
+stop_conditions:
+  - Whether a segment may contain spaces or other unusual characters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

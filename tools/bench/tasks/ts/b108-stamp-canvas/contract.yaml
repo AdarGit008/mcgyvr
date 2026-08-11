@@ -1,0 +1,66 @@
+id: b108-stamp-canvas
+task_type: bug_fix
+task: >-
+  stampRect inks a rectangular stamp onto a canvas but overreports its
+  work and trusts its rect blindly: as written it counts every cell under
+  the stamp, already inked or not, and applies whatever bounds it is
+  handed. Fix it. newCanvas builds the canvas — a mapping holding rows,
+  cols and cells, a rows-by-cols grid of zeros — rejecting dimensions
+  that are not positive integers, and inkTotal counts the inked cells;
+  both already behave. stampRect takes the canvas and a rect [top, left,
+  bottom, right], sets every cell in rows top up to but not including
+  bottom and columns left up to but not including right to 1, and must
+  return only the count of cells that went from blank to inked — a stamp
+  overlapping earlier ink reports just the fresh cells, and a stamp over
+  solid ink reports zero. Add the missing validation: reject a rect that
+  is not a list of exactly four integers, a rect covering no cells
+  because top does not sit strictly above bottom or left strictly before
+  right, and a rect reaching off the canvas, with an error. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  type Canvas = { rows: number; cols: number; cells: number[][] };
+
+  export function newCanvas(rows: number, cols: number): Canvas {
+    if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
+      throw new Error("canvas dimensions must be positive integers");
+    }
+    const cells: number[][] = [];
+    for (let r = 0; r < rows; r += 1) {
+      cells.push(new Array(cols).fill(0));
+    }
+    return { rows, cols, cells };
+  }
+
+  export function stampRect(canvas: Canvas, rect: number[]): number {
+    const [top, left, bottom, right] = rect;
+    let inked = 0;
+    for (let r = top; r < bottom; r += 1) {
+      for (let c = left; c < right; c += 1) {
+        canvas.cells[r][c] = 1;
+        inked += 1;
+      }
+    }
+    return inked;
+  }
+
+  export function inkTotal(canvas: Canvas): number {
+    let total = 0;
+    for (const row of canvas.cells) {
+      for (const cell of row) {
+        total += cell;
+      }
+    }
+    return total;
+  }
+interface: |-
+  type Canvas = { rows: number; cols: number; cells: number[][] };
+  export function newCanvas(rows: number, cols: number): Canvas
+  export function stampRect(canvas: Canvas, rect: number[]): number
+  export function inkTotal(canvas: Canvas): number
+stop_conditions:
+  - How large a canvas must be supported is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

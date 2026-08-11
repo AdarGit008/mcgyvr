@@ -1,0 +1,62 @@
+id: b131-prune-listing
+task_type: function_implementation
+task: >-
+  Implement prune_listing. The listing is a list of relative slash-separated
+  file paths and rules is an ordered list of patterns deciding which paths
+  survive. A pattern is slash-separated segments where a star matches any
+  run of zero or more characters inside one segment and every other
+  character matches only itself. A rule matches a path when each pattern
+  segment matches the corresponding leading path segment, whether that
+  consumes the whole path or only a directory prefix of it, so a matched
+  directory covers everything beneath it. A rule beginning with an
+  exclamation mark is a keep rule; any other rule is a drop rule. For each
+  path the last matching rule decides its fate, and a path no rule matches
+  survives. Return the surviving paths in their original order. Reject a
+  path or rule that is not a string, an empty path, an empty rule or a bare
+  exclamation mark, and a path or pattern holding an empty segment left by
+  a leading, trailing or doubled slash, with an error.
+target: solution.py
+target_content: |
+  """Prune a file listing with ordered drop and keep rules."""
+
+
+  def prune_listing(listing, rules):
+      def segment_fits(pattern, text):
+          p = t = mark = 0
+          star = -1
+          while t < len(text):
+              if p < len(pattern) and pattern[p] == "*":
+                  star = p
+                  mark = t
+                  p += 1
+              elif p < len(pattern) and pattern[p] == text[t]:
+                  p += 1
+                  t += 1
+              elif star >= 0:
+                  p = star + 1
+                  mark += 1
+                  t = mark
+              else:
+                  return False
+          while p < len(pattern) and pattern[p] == "*":
+              p += 1
+          return p == len(pattern)
+
+      def split_strict(text, what):
+          if not isinstance(text, str) or text == "":
+              raise ValueError(f"{what} must be a non-empty string")
+          segments = text.split("/")
+          if any(segment == "" for segment in segments):
+              raise ValueError(f"{what} has an empty segment: {text}")
+          return segments
+
+      # TODO: validate every rule and path with split_strict, then keep each
+      # path the last matching rule allows; a path no rule matches survives.
+      return list(listing)
+interface: "def prune_listing(listing: list, rules: list) -> list"
+stop_conditions:
+  - Whether the same path may appear twice in the listing is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,31 @@
+id: b124-assembly-faults
+task_type: function_implementation
+task: >-
+  Implement run_assembly. A workshop runs a build plan against its parts
+  bins. The first argument maps part names to non-negative integer stock
+  counts; the second is the plan, a list of steps, each a three-item
+  [name, needs, critical] triple: the step's name, a mapping from part
+  names to how many of each the step consumes, and a flag marking it
+  critical. Steps run in order. A step whose needed parts are all in stock
+  consumes them and its name joins built; a step short of any part
+  consumes nothing and is recorded in faults as [name, part], naming the
+  alphabetically first part that ran short. A fault on a critical step
+  additionally halts the run, and every later step is left unattempted.
+  Return {built, faults, halted, leftover}: built and faults in order of
+  occurrence, halted naming the halting step or holding a null result, and
+  leftover listing the remaining stock as [part, count] pairs sorted by
+  part name. A shortage is a runtime condition, but a malformed input is
+  an error: reject a stock count that is not a non-negative integer, a bin
+  name that is not a non-empty string, a step that is not a three-item
+  triple, a step name that is not a non-empty string, a needs entry naming
+  a part absent from the bins, a needed count that is not a positive
+  integer, and a critical flag that is not a boolean, before any step
+  runs.
+target: solution.py
+interface: "def run_assembly(bins: dict, steps: list) -> dict"
+stop_conditions:
+  - Whether the bins mapping may be empty is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

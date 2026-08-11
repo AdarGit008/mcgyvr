@@ -1,0 +1,50 @@
+id: b096-stamp-cover
+task_type: function_implementation
+task: >-
+  Implement stampCover, whose helper stampTable is already written. An
+  engraving die prints one fixed text fragment and costs its listed price
+  every time it is pressed; the dies argument lists [fragment, price]
+  entries. stampTable turns that list into a lookup of fragment to price,
+  rejecting a fragment that is not a non-empty string, a price that is
+  not a positive integer, and a fragment listed twice, with an error.
+  stampCover returns the cheapest total price of any sequence of die
+  presses whose fragments, laid end to end, spell the label exactly; a
+  die may be pressed any number of times, and the cheapest plan may skip
+  the longest die — for the label aaaa with aaa priced 1, aa priced 2 and
+  a priced 5, pressing aa twice costs 4 while any plan using aaa pays at
+  least 6. Reject a label that is not a non-empty string and a label that
+  no sequence of dies can spell, with an error.
+target: solution.ts
+target_content: |
+  export function stampTable(dies: [string, number][]): Map<string, number> {
+    const table = new Map<string, number>();
+    for (const [fragment, price] of dies) {
+      if (typeof fragment !== "string" || fragment.length === 0) {
+        throw new Error("a die fragment must be a non-empty string");
+      }
+      if (!Number.isInteger(price) || price <= 0) {
+        throw new Error("a die price must be a positive integer");
+      }
+      if (table.has(fragment)) {
+        throw new Error("die listed twice: " + fragment);
+      }
+      table.set(fragment, price);
+    }
+    return table;
+  }
+
+  export function stampCover(label: string, dies: [string, number][]): number {
+    // TODO: validate the label, build the table with stampTable, and find
+    // the cheapest sequence of die presses spelling the label exactly;
+    // reject a label no sequence can spell.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function stampCover(label: string, dies: [string, number][]): number
+  export function stampTable(dies: [string, number][]): Map<string, number>
+stop_conditions:
+  - How long a label the engraver may be asked to price is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

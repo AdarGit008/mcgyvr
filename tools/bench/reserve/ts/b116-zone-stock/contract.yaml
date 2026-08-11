@@ -1,0 +1,27 @@
+id: b116-zone-stock
+task_type: function_implementation
+task: >-
+  Implement zoneStock, with its helper rackUnits. A storeroom is a tree
+  of zones: a zone carries a name, its bins — a mapping from sku to the
+  units racked right there — and its children, a list of sub-zones.
+  rackUnits takes one zone's bins and a sku and returns the units the
+  bins record for that sku, zero when the sku is not listed; it rejects
+  a sku that is not a non-empty string and a listed count for that sku
+  that is not a positive integer, with an error. zoneStock walks the
+  tree from the given zone, each zone before its children and the
+  children in order, and returns {total, holders}: total the units of
+  the sku racked across the whole tree, holders the names of the zones
+  whose own bins list the sku, in visiting order. Reject a zone that is
+  not such a record, a zone name that is missing or not a non-empty
+  string, bins that are not a mapping, children that are not a list,
+  and one name on two zones anywhere in the tree, with an error.
+target: solution.ts
+interface: |-
+  export function zoneStock(zone: Record<string, unknown>, sku: string): { total: number; holders: string[] }
+  export function rackUnits(bins: Record<string, number>, sku: string): number
+stop_conditions:
+  - Whether counts recorded for skus other than the requested one are validated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

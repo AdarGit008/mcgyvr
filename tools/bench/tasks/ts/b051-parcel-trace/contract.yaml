@@ -1,0 +1,22 @@
+id: b051-parcel-trace
+task_type: function_implementation
+task: >-
+  Implement traceParcel. A parcel moves through a fixed handling protocol:
+  it starts in state created; the event pack moves created to packed, ship
+  moves packed to shipped, deliver moves shipped to delivered, and bounce
+  moves shipped to returned; delivered and returned are final states that
+  allow no further event. The input is the list of event names in the order
+  they happened. Return the list of states the parcel passes through,
+  starting with created and adding one state per event; no events yields
+  the single-state list. Reject an argument that is not a list, an event
+  that is not one of the four event names, and an event fired in a state
+  that does not allow it — including any event after a final state — with
+  an error.
+target: solution.ts
+interface: "export function traceParcel(events: string[]): string[]"
+stop_conditions:
+  - Whether event names are case-sensitive is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "string",
+  "steering_band": "g0",
+  "target_symbol": {"ts": "checkLine", "py": "check_line"}
+}

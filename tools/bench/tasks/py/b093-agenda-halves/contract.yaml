@@ -1,0 +1,24 @@
+id: b093-agenda-halves
+task_type: function_implementation
+task: >-
+  Implement split_agenda. The first argument lists a day's coaching
+  sessions in chronological order as [start, end] pairs of whole minutes:
+  a session covers start up to but not including end, the numbers may be
+  negative, and a session may begin exactly where the one before it ends
+  but never earlier. The second argument is the longest block one coach
+  will take, in minutes. A session no longer than limit stays whole; a
+  longer one is cut at its midpoint, the front half taking the extra
+  minute when the length is odd, and each half is then treated the same
+  way again until every block fits within limit. Return the blocks of
+  every session, in order, as [start, end] pairs. Reject a limit that is
+  not a whole number of at least one, a session bound that is not a whole
+  number, a session whose start does not precede its end, and a session
+  starting before the previous session ends, with an error.
+target: solution.py
+interface: "def split_agenda(sessions: list, limit: int) -> list"
+stop_conditions:
+  - An upper bound on how long one session may run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

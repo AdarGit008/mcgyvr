@@ -1,0 +1,25 @@
+id: b134-scan-manifest
+task_type: function_implementation
+task: >-
+  Implement scanManifest. A manifest records what file contents should be:
+  each non-blank line is a four-digit lowercase hexadecimal digest, one
+  space, then the file name, which may itself contain spaces. The digest of
+  a content string starts at zero and, for each character in order, becomes
+  thirty-one times itself plus the character code, modulo 65521; an empty
+  content therefore digests to 0000. Compare the manifest against files, a
+  mapping from name to held content, and return a mapping of four
+  alphabetically sorted name lists: intact, the listed files whose held
+  digest matches; altered, the listed files whose digest differs; lost, the
+  listed files not held at all; and strays, the held files the manifest
+  never lists. Reject a manifest that is not a string, a line with no
+  space, a digest that is not exactly four lowercase hex digits, a line
+  naming no file, a file listed twice, and held content that is not a
+  string, with an error.
+target: solution.ts
+interface: "export function scanManifest(manifest: string, files: Record<string, string>): { intact: string[]; altered: string[]; lost: string[]; strays: string[] }"
+stop_conditions:
+  - Whether manifest lines may end with carriage returns is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

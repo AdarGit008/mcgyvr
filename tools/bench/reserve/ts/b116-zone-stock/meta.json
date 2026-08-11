@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "recursion",
+  "steering_band": "g2",
+  "target_symbol": {"ts": "zoneStock", "py": "zone_stock"}
+}

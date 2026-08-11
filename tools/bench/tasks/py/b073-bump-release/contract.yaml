@@ -1,0 +1,21 @@
+id: b073-bump-release
+task_type: function_implementation
+task: >-
+  Implement bump_release. A release tag is three dot-separated numeric
+  components, major.minor.patch, each written as a plain decimal integer
+  with no leading zero, zero itself written as 0. Given a tag and the name
+  of the part to advance — major, minor or patch — return the next tag:
+  advancing major sends minor and patch back to 0, advancing minor keeps
+  major and sends patch back to 0, and advancing patch changes nothing
+  else, so bumping minor on 2.9.4 gives 2.10.0. Reject a tag that is not a
+  string, a tag without exactly three components, a component that is
+  empty, carries a leading zero or holds anything but digits, and a part
+  name other than the three above, with an error.
+target: solution.py
+interface: "def bump_release(version: str, part: str) -> str"
+stop_conditions:
+  - Whether a component value has an upper bound is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

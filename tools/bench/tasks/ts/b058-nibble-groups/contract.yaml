@@ -1,0 +1,29 @@
+id: b058-nibble-groups
+task_type: function_implementation
+task: >-
+  Implement formatBits. Render value as unsigned binary in exactly width
+  bits: most significant bit first, left-padded with zeros to the full
+  width, and split into groups of four bits joined by single spaces, so
+  300 at width 12 renders as "0001 0010 1100". Reject a value that is
+  not a non-negative integer, a width that is not a positive multiple
+  of four or exceeds 32, and a value that does not fit in width bits,
+  with an error.
+target: solution.ts
+target_content: |
+  /** Render a value as fixed-width unsigned binary, nibble-grouped. */
+  export function formatBits(value: number, width: number): string {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error("value must be a non-negative integer");
+    }
+    // TODO: reject a bad width and a value that does not fit, then build
+    // the nibble groups from the most significant bit down and join them
+    // with single spaces.
+    throw new Error("not implemented");
+  }
+interface: "export function formatBits(value: number, width: number): string"
+stop_conditions:
+  - Whether numeric strings are accepted in place of the integer value is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

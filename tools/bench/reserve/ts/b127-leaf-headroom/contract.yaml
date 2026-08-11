@@ -1,0 +1,27 @@
+id: b127-leaf-headroom
+task_type: function_implementation
+task: >-
+  Implement leafHeadroom. A shared request allowance is carved into a tree
+  of quota groups. Every node carries limit, a non-negative integer of
+  request units; a node with a children field is a group, children mapping
+  child names to nodes, and a node without children is a leaf carrying used,
+  the units it has already burned; the root is always a group. Each node
+  from the root down to a leaf constrains that leaf: the node's limit minus
+  the units burned across the node's whole subtree, a leaf's own burn being
+  its used. A leaf's headroom is the smallest of those slacks, floored at
+  zero when some enclosure is overspent. Return a flat mapping from each
+  leaf's path — the child names from the root down, joined with slashes —
+  to its headroom; a group with no children contributes no leaves. Reject a
+  root that is not a group, a node that is not a plain object, a limit that
+  is not a non-negative integer, a group that carries used, a children field
+  that is not a mapping of names to nodes, a leaf whose used is missing or
+  not a non-negative integer, an empty child name, and a child name holding
+  a slash, with an error.
+target: solution.ts
+interface: "export function leafHeadroom(tree: unknown): Record<string, number>"
+stop_conditions:
+  - Whether extra fields on a node beyond limit, children and used are tolerated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

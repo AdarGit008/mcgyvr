@@ -1,0 +1,36 @@
+id: b079-tag-check
+task_type: function_implementation
+task: >-
+  Implement check_line, whose helper line_tag is already written. A tagged
+  line carries its own integrity check: line_tag computes the tag of a body
+  as the sum of its character codes modulo 256, rendered as exactly two
+  lowercase hexadecimal digits, zero-padded, and rejects a non-string body
+  with an error. check_line verifies a tagged line and returns its body:
+  the third-from-last character must be a tilde and the last two
+  characters must equal the tag line_tag yields for everything before that
+  tilde; the body may itself contain tildes, and an empty body is legal.
+  Reject a non-string line, a line shorter than three characters, a line
+  whose third-from-last character is not a tilde, and a line whose tag
+  does not match its body, with an error.
+target: solution.py
+target_content: |
+  def line_tag(body):
+      if not isinstance(body, str):
+          raise ValueError("line_tag expects a string")
+      return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+  def check_line(line):
+      # TODO: validate the line, split the two-character tag off after the
+      # tilde separator, compare it with line_tag's answer for the body,
+      # and return the body.
+      raise NotImplementedError
+interface: |-
+  def check_line(line: str) -> str
+  def line_tag(body: str) -> str
+stop_conditions:
+  - How a character outside the basic ASCII range is counted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

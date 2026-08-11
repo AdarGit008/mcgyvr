@@ -1,0 +1,32 @@
+id: b106-ack-window
+task_type: function_implementation
+task: >-
+  Implement linkAck, the acknowledging half of a send window created by
+  newLink and drained by linkSend. newLink takes the window size and
+  returns the link state: a mapping holding size, next — the sequence
+  number the next send will take, starting at zero — pending, the
+  sent-but-unacknowledged frames as [sequence, payload] pairs oldest
+  first, and delivered, a count of frames freed so far; it rejects a size
+  that is not a positive integer, with an error. linkSend appends its
+  payload as a new pending frame, advances next, and returns the sequence
+  number the frame took; it rejects a payload that is not a non-empty
+  string, and any send while pending already holds size frames, with an
+  error. linkAck applies a cumulative acknowledgement in place: every
+  pending frame whose sequence is at or below ack is freed, the freed
+  payloads are returned oldest first, and delivered grows by the number
+  freed; an ack of -1, or one naming only frames already freed, changes
+  nothing and returns an empty list. linkAck rejects an ack that is not
+  an integer, an ack below -1, and an ack at or past next — a frame that
+  was never sent — with an error.
+target: solution.ts
+interface: |-
+  type LinkState = { size: number; next: number; pending: [number, string][]; delivered: number };
+  export function newLink(size: number): LinkState
+  export function linkSend(link: LinkState, payload: string): number
+  export function linkAck(link: LinkState, ack: number): string[]
+stop_conditions:
+  - Whether payloads may repeat across frames is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

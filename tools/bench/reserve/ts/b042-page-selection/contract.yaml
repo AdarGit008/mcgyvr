@@ -1,0 +1,48 @@
+id: b042-page-selection
+task_type: function_implementation
+task: >-
+  Implement expandSelection, whose helper readSpan is already written. A
+  page selection is the comma-separated form print dialogs use, like
+  1-3,7,10-12: each piece is either one page number or a low-high span
+  joined by a dash, every number a positive whole number. readSpan turns
+  one piece into its [low, high] pair — a lone page repeats as both
+  ends — and errors on a piece that is not digits or digits-dash-digits
+  and on a span whose high end sits below its low end. expandSelection
+  splits the selection on commas, expands every piece through readSpan,
+  and returns the selected pages as one flat ascending list; each piece
+  must start past the highest page already selected, so pieces may touch —
+  4,5-6 selects 4, 5 and 6 — but never overlap or run backwards. Reject a
+  selection that is not a string or is empty, a malformed piece — an empty
+  piece included — a backwards span, and a piece that does not move the
+  selection forward, with an error.
+target: solution.ts
+target_content: |
+  /** Print-dialog page selections, "1-3,7" style, expanded to page lists. */
+  export function readSpan(segment: string): number[] {
+    const m = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(segment);
+    if (m === null) {
+      throw new Error("malformed piece: " + segment);
+    }
+    const low = Number(m[1]);
+    const high = m[2] === undefined ? low : Number(m[2]);
+    if (high < low) {
+      throw new Error("span runs backwards: " + segment);
+    }
+    return [low, high];
+  }
+
+  export function expandSelection(spec: string): number[] {
+    // TODO: validate the input, split it on commas, expand every piece
+    // with readSpan, and reject a piece that does not start past the
+    // highest page already selected.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function expandSelection(spec: string): number[]
+  export function readSpan(segment: string): number[]
+stop_conditions:
+  - Whether a page number may carry leading zeros is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

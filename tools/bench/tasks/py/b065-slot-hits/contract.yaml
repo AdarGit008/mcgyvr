@@ -1,0 +1,31 @@
+id: b065-slot-hits
+task_type: function_implementation
+task: >-
+  Implement slot_hits. It replays a stream of integer cache keys
+  against a direct-mapped cache with a given number of slots, all
+  slots starting empty. Every key belongs to exactly one slot: the
+  remainder of the key divided by the slot count, taken non-negative,
+  so key -3 with four slots belongs to slot 1. A request is a hit when
+  its slot currently holds exactly that key; otherwise it is a miss
+  and the key takes the slot over, evicting whatever the slot held.
+  Return the total number of hits. Reject a slot count that is not a
+  positive integer and any key that is not an integer, with an error.
+target: solution.py
+target_content: |
+  """Count the hits a key stream scores on a direct-mapped cache."""
+
+
+  def slot_hits(keys: list, slots: int) -> int:
+      # TODO: reject a bad slot count and non-integer keys, then replay
+      # the stream against the slot table, counting hits and evicting
+      # on every miss.
+      held = [None] * slots
+      hits = 0
+      return hits
+interface: "def slot_hits(keys: list, slots: int) -> int"
+stop_conditions:
+  - How a keys argument that is not a list is treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: b075-byte-size
+task_type: function_implementation
+task: >-
+  Implement parse_byte_size. A storage size is written as a whole-number
+  count followed directly by a binary unit suffix: B for bytes, KiB for
+  1024 bytes, MiB for 1024 KiB and GiB for 1024 MiB, so "4KiB" is 4096 and
+  "3MiB" is 3145728. The count is a run of decimal digits and may be 0.
+  Return the size in bytes. The suffixes are case-sensitive, and "KB",
+  "kib" and every other spelling not listed above is unknown. Reject a
+  non-string argument, the empty string, a missing count, a missing or
+  unknown unit, and any character beyond the count and its suffix, with an
+  error.
+target: solution.py
+target_content: |
+  import re
+
+  FACTORS = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3}
+
+
+  def parse_byte_size(text):
+      # TODO: validate the input, split the leading count from its unit
+      # suffix, look the unit up in FACTORS and return their product.
+      raise ValueError("not implemented")
+interface: "def parse_byte_size(text: str) -> int"
+stop_conditions:
+  - Whether leading zeros in the count are accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,27 @@
+id: b072-meter-draws
+task_type: function_implementation
+task: >-
+  Implement meterDraws, with its helper remainingFor. A metering ledger
+  records the units each key has spent against a shared per-key allowance.
+  remainingFor takes the ledger, a key and the allowance and returns what
+  the key may still spend: the allowance minus the spend the ledger records
+  for it, the full allowance for a key not yet in the ledger. meterDraws
+  replays draws in order, each a [key, units] pair, against a fresh ledger:
+  a draw whose units fit within that key's remaining allowance adds them to
+  the key's spend, and a draw that would push the key past the allowance is
+  refused — the spend keeps its value and the draw's position in the list
+  is recorded. A key enters the ledger with zero spend on its first draw
+  even when that draw is refused. Return {used, denied}: the final ledger
+  and the refused positions in order. Reject an allowance that is not a
+  positive integer, a key that is not a non-empty string, and a units count
+  that is not a positive integer, with an error.
+target: solution.ts
+interface: |-
+  export function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] }
+  export function remainingFor(used: Record<string, number>, key: string, allowance: number): number
+stop_conditions:
+  - Whether keys are compared case-sensitively is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,47 @@
+id: b057-fill-down
+task_type: bug_fix
+task: >-
+  fillDown fills the blank cells of a grid incorrectly. The grid is a
+  list of rows of strings and a blank cell is the empty string;
+  blankCells, which counts the blanks, is correct and must not change.
+  A blank cell must take the value of the nearest filled cell above it
+  in its own column, so a run of blanks under one value all take that
+  value, and a later filled cell resets what the blanks below it
+  inherit; the current code copies whatever the row directly above
+  originally held, so only the first blank of a run gets filled and the
+  rest stay blank. fillDown must return a new grid and leave its
+  argument unmodified. Also add the missing validation: reject rows
+  that do not all share one width, and a blank cell with no filled cell
+  above it in its column, with an error. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  /** Fill-down for a rectangular grid of strings: blanks inherit from above. */
+
+  export function blankCells(rows: string[][]): number {
+    let blanks = 0;
+    for (const row of rows) {
+      blanks += row.filter((cell) => cell === "").length;
+    }
+    return blanks;
+  }
+
+  export function fillDown(rows: string[][]): string[][] {
+    return rows.map((row, r) =>
+      row.map((cell, i) => {
+        if (cell === "" && r > 0) {
+          return rows[r - 1][i];
+        }
+        return cell;
+      }),
+    );
+  }
+interface: |-
+  export function fillDown(rows: string[][]): string[][]
+  export function blankCells(rows: string[][]): number
+stop_conditions:
+  - Whether a cell of only whitespace counts as blank is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

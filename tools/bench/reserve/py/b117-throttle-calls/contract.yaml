@@ -1,0 +1,28 @@
+id: b117-throttle-calls
+task_type: function_implementation
+task: >-
+  Implement throttle_calls. A gateway meters its calls through a sliding
+  window and a spending budget. The arguments are the window span in
+  seconds, the cap of units the window may carry, the budget of units
+  the whole replay may spend, and the calls in arrival order, each a
+  [time, units] pair, times in whole seconds that never decrease. A call
+  passes only when two things hold: the units of every already-passed
+  call timed later than its own time minus the span, together with its
+  own units, stay within the cap, and its units still fit inside the
+  unspent budget. A passing call spends its units from the budget; a
+  dropped call spends nothing and never counts against a later window.
+  Return {verdicts, remaining}: one "pass" or "drop" per call in order,
+  and the budget left after the replay. Reject a span that is not a
+  positive integer, a cap that is not a positive integer, a budget that
+  is not a non-negative integer, a call that is not a two-item pair, a
+  time that is not a non-negative integer, a units count that is not a
+  positive integer, and a time earlier than the call before it, with an
+  error.
+target: solution.py
+interface: "def throttle_calls(span: int, cap: int, budget: int, calls: list) -> dict"
+stop_conditions:
+  - Whether the calls argument itself must be a list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

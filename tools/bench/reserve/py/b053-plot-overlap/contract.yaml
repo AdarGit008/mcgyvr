@@ -1,0 +1,20 @@
+id: b053-plot-overlap
+task_type: function_implementation
+task: >-
+  Implement plot_overlap. Each argument describes a rectangular garden plot
+  on an integer grid as a list of four integers [left, bottom, right, top],
+  with left strictly less than right and bottom strictly less than top;
+  edges may be negative. Return the number of whole grid squares the two
+  plots share: plots that are disjoint, and plots that touch only along an
+  edge or at a corner, share zero. Reject a plot that is not a list of
+  exactly four entries, an edge that is not an integer, and a plot whose
+  left is not less than its right or whose bottom is not less than its top,
+  with an error.
+target: solution.py
+interface: "def plot_overlap(a: list, b: list) -> int"
+stop_conditions:
+  - Whether the two arguments may be the same list object is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

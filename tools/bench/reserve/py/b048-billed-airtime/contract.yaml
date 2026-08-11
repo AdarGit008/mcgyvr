@@ -1,0 +1,36 @@
+id: b048-billed-airtime
+task_type: function_implementation
+task: >-
+  Implement billed_airtime. A telephone tariff bills a call by its
+  measured duration in whole seconds: a zero-second call bills nothing,
+  any other call up to the initial block long bills the whole initial
+  block, and past the initial block airtime is billed in whole steps,
+  every started step charged in full. Under an initial block of 30 and a
+  step of 6, a 1-second call bills 30 seconds, a 31-second call bills 36
+  and a 42-second call bills 42. Return the billed seconds. Reject a
+  duration that is not a non-negative integer, an initial block that is
+  not a positive integer, and a step that is not a positive integer,
+  with an error.
+target: solution.py
+target_content: |
+  """Billable airtime for a metered call, in whole seconds."""
+
+
+  def billed_airtime(duration, initial, step):
+      if isinstance(duration, bool) or not isinstance(duration, int) or duration < 0:
+          raise ValueError("duration must be a non-negative integer")
+      if isinstance(initial, bool) or not isinstance(initial, int) or initial <= 0:
+          raise ValueError("initial block must be a positive integer")
+      if isinstance(step, bool) or not isinstance(step, int) or step <= 0:
+          raise ValueError("billing step must be a positive integer")
+      # TODO: a zero-second call bills nothing; a call inside the initial
+      # block bills the whole block; past it, bill whole steps, any
+      # started step charged in full.
+      raise NotImplementedError
+interface: "def billed_airtime(duration: int, initial: int, step: int) -> int"
+stop_conditions:
+  - No upper bound on the measured duration is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

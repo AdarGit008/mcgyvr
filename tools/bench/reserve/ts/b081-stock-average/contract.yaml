@@ -1,0 +1,64 @@
+id: b081-stock-average
+task_type: bug_fix
+task: >-
+  runStockbook replays one warehouse item's stockbook and costs its issues
+  wrongly. A move is a list opening with its action: a receive move,
+  ["receive", quantity, cost], books quantity units bought at cost cents
+  each, and an issue move, ["issue", quantity], sends quantity units out.
+  The book returns {held, worth, issued} after the final move: held the
+  units on hand, worth the cents the held stock cost, issued the cents
+  relieved by everything sent out. Under moving-average costing an issue
+  relieves the floor of worth times its quantity divided by held; the
+  current code prices issues at the most recent receive's unit cost
+  instead, so the book drifts whenever receives arrived at different
+  prices, and nothing stops an issue from overdrawing the stock. Fix the
+  costing and add the missing validation: reject an issue of more units
+  than are held and an issue quantity that is not a positive integer, with
+  an error. The helper receiptCents is correct — it already rejects a
+  receive quantity that is not a positive integer and a unit cost that is
+  not a non-negative integer of cents — and must not change. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** One warehouse item's stockbook under moving-average costing. */
+
+  export function receiptCents(qty: number, unitCents: number): number {
+    if (!Number.isInteger(qty) || qty <= 0) {
+      throw new Error("receive quantity must be a positive integer");
+    }
+    if (!Number.isInteger(unitCents) || unitCents < 0) {
+      throw new Error("unit cost must be a non-negative integer of cents");
+    }
+    return qty * unitCents;
+  }
+
+  export function runStockbook(moves: (string | number)[][]): { held: number; worth: number; issued: number } {
+    let held = 0;
+    let worth = 0;
+    let issued = 0;
+    let lastUnit = 0;
+    for (const move of moves) {
+      if (move[0] === "receive") {
+        const qty = move[1] as number;
+        worth += receiptCents(qty, move[2] as number);
+        held += qty;
+        lastUnit = move[2] as number;
+      } else if (move[0] === "issue") {
+        const qty = move[1] as number;
+        const relief = qty * lastUnit;
+        worth -= relief;
+        issued += relief;
+        held -= qty;
+      }
+    }
+    return { held, worth, issued };
+  }
+interface: |-
+  export function runStockbook(moves: (string | number)[][]): { held: number; worth: number; issued: number }
+  export function receiptCents(qty: number, unitCents: number): number
+stop_conditions:
+  - How a move whose action is neither receive nor issue is handled is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

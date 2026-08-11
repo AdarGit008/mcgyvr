@@ -1,0 +1,91 @@
+id: b135-report-slots
+task_type: bug_fix
+task: >-
+  fillReport lays out numeric report lines and leans on formatFixed, whose
+  rounding is wrong at the edges. Fix formatFixed: it renders a finite
+  number with exactly the requested count of fraction digits — no dot when
+  the count is zero — rounding half away from zero, where today a half can
+  land one step toward zero or toward positive infinity instead; and a
+  negative value whose rendering rounds to nothing must drop its minus
+  sign, where today -0.00 escapes. Also add the missing validation: reject
+  a value that is not a finite number and a decimals count that is not an
+  integer from zero to six, with an error. fillReport already walks its
+  template correctly and must keep doing so: a slot is an opening square
+  bracket, then a name of letters or underscores, a width and a decimals
+  count separated by colons, then a closing square bracket; the named value
+  is rendered by formatFixed and padded on the left with spaces up to
+  width, never truncated when it comes out wider; every other character, a
+  lone closing bracket included, passes through untouched. A slot never
+  closed, a slot not of exactly three parts, a malformed name, a width that
+  is not a positive integer, and a name missing from the values are errors.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Fixed-point rendering and the report slots that lay the numbers out. */
+
+  export function formatFixed(value: number, decimals: number): string {
+    const scale = 10 ** decimals;
+    const scaled = Math.round(value * scale);
+    const magnitude = Math.abs(scaled);
+    const whole = Math.floor(magnitude / scale);
+    const sign = value < 0 ? "-" : "";
+    if (decimals === 0) {
+      return sign + String(whole);
+    }
+    const fraction = String(magnitude % scale).padStart(decimals, "0");
+    return `${sign}${whole}.${fraction}`;
+  }
+
+  export function fillReport(
+    template: string,
+    values: Record<string, number>,
+  ): string {
+    if (typeof template !== "string") {
+      throw new Error("template must be a string");
+    }
+    let out = "";
+    let at = 0;
+    while (at < template.length) {
+      const ch = template[at];
+      if (ch !== "[") {
+        out += ch;
+        at += 1;
+        continue;
+      }
+      const close = template.indexOf("]", at + 1);
+      if (close < 0) {
+        throw new Error("slot never closed");
+      }
+      const parts = template.slice(at + 1, close).split(":");
+      if (parts.length !== 3) {
+        throw new Error("a slot is name:width:decimals");
+      }
+      const [name, widthText, decimalsText] = parts;
+      if (!/^[A-Za-z_]+$/.test(name)) {
+        throw new Error(`malformed slot name: ${name}`);
+      }
+      if (!/^\d+$/.test(widthText) || Number(widthText) < 1) {
+        throw new Error("width must be a positive integer");
+      }
+      if (!/^\d+$/.test(decimalsText)) {
+        throw new Error("decimals must be digits");
+      }
+      if (!(name in values)) {
+        throw new Error(`no value for slot: ${name}`);
+      }
+      const rendered = formatFixed(values[name], Number(decimalsText));
+      const width = Number(widthText);
+      out += rendered.length >= width ? rendered : rendered.padStart(width, " ");
+      at = close + 1;
+    }
+    return out;
+  }
+interface: |-
+  export function formatFixed(value: number, decimals: number): string
+  export function fillReport(template: string, values: Record<string, number>): string
+stop_conditions:
+  - Whether negative zero keeps its minus sign is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

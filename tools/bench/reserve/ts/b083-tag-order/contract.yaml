@@ -1,0 +1,23 @@
+id: b083-tag-order
+task_type: function_implementation
+task: >-
+  Implement orderReleases. A release tag is three dot-separated numbers
+  like 2.10.4, optionally carrying a candidate suffix -rc.<n> like
+  2.10.4-rc.3; the three version numbers are non-negative and written
+  without leading zeros, and the candidate number is positive, also
+  without leading zeros. Put the tags oldest first: compare the three
+  numbers numerically, so 1.2.9 precedes 1.2.10; on the same three
+  numbers every candidate precedes the finished release, and candidates
+  order among themselves by their number, so rc.2 precedes rc.10. Return
+  the ordered tags as a new list and leave the given list as it was.
+  Reject an argument that is not a list, a tag that is not a string, a
+  tag not of the exact form above, and a tag that appears twice, with an
+  error.
+target: solution.ts
+interface: "export function orderReleases(tags: string[]): string[]"
+stop_conditions:
+  - Whether release channels other than rc ever appear is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

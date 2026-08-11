@@ -1,0 +1,71 @@
+id: b122-section-report
+task_type: bug_fix
+task: >-
+  sectionReport builds a sectioned report incorrectly. Each row is a
+  [section, label, amount] triple: an integer amount booked under a label
+  inside a section. The report is {lines, sections, grand}. lines must
+  group the rows by section in order of each section's first appearance: a
+  section's ["item", section, label, amount] lines in input order, then its
+  ["section", section, "", subtotal] row, and after every section one final
+  ["grand", "", "", grand] row, present even when there are no rows at all.
+  sections must hold one [section, count, subtotal] entry per section,
+  ranked by subtotal descending and by section name ascending on ties, and
+  grand is the sum of every amount. At present the code walks the rows
+  emitting a section row whenever the section of consecutive rows changes,
+  so a section returning after an interruption is reported as several
+  fragments, and its subtotal accumulator is never reset between sections,
+  so later section rows and entries carry a running total of everything
+  seen so far instead of their own sum. Fix the grouping and the subtotals.
+  Also add the missing validation: reject a rows argument that is not a
+  list, a row that is not a three-item list, a section or label that is not
+  a non-empty string, and an amount that is not an integer, with an error.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A sectioned sales report: item lines, subtotals, and a ranked summary. */
+
+  function ranked(a: [string, number, number], b: [string, number, number]): number {
+    if (a[2] !== b[2]) {
+      return b[2] - a[2];
+    }
+    return a[0] < b[0] ? -1 : 1;
+  }
+
+  export function sectionReport(rows: [string, string, number][]): {
+    lines: [string, string, string, number][];
+    sections: [string, number, number][];
+    grand: number;
+  } {
+    const lines: [string, string, string, number][] = [];
+    const sections: [string, number, number][] = [];
+    let current = "";
+    let subtotal = 0;
+    let count = 0;
+    let grand = 0;
+    for (const [section, label, amount] of rows) {
+      if (current !== "" && section !== current) {
+        lines.push(["section", current, "", subtotal]);
+        sections.push([current, count, subtotal]);
+        count = 0;
+      }
+      current = section;
+      lines.push(["item", section, label, amount]);
+      subtotal += amount;
+      count += 1;
+      grand += amount;
+    }
+    if (current !== "") {
+      lines.push(["section", current, "", subtotal]);
+      sections.push([current, count, subtotal]);
+    }
+    lines.push(["grand", "", "", grand]);
+    sections.sort(ranked);
+    return { lines, sections, grand };
+  }
+interface: "export function sectionReport(rows: [string, string, number][]): { lines: [string, string, string, number][]; sections: [string, number, number][]; grand: number }"
+stop_conditions:
+  - Whether amounts have any magnitude bound is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

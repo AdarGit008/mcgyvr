@@ -1,0 +1,44 @@
+id: b128-upgrade-path
+task_type: bug_fix
+task: >-
+  vetUpgradePath walks a device's proposed firmware upgrade path and
+  misjudges which release tag is newer. A tag is two dot-separated numbers,
+  line.point, each a plain decimal with no leading zero (zero itself written
+  0); tags compare numerically, line before point. The device starts on the
+  installed tag. Each step is a {tag, requires} record: the step is lawful
+  only when the tag the device then carries is at least requires and
+  strictly older than the step's tag, and the device then carries the
+  step's tag. Return the tag carried after the final step, the installed
+  tag for an empty path. At present tags are compared as text, so a point
+  release past 9 derails the walk: a lawful climb from 2.9 to 2.10 is
+  refused as a downgrade, while a genuine downgrade like 10.2 to 9.9 slips
+  through as an ascent. The code also checks no shapes at all. Fix the
+  comparison and add the missing validation: reject a tag anywhere that is
+  not a string or not of the exact form above — wrong number of parts, an
+  empty part, stray characters, a leading zero — a path that is not a list,
+  and a step that is not a {tag, requires} record, with an error. Return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+  export function vetUpgradePath(installed: string, steps: any[]): string {
+    let carried = installed;
+    for (const step of steps) {
+      if (carried < step.requires) {
+        throw new Error(`step ${step.tag} requires at least ${step.requires}`);
+      }
+      if (step.tag <= carried) {
+        throw new Error(`step ${step.tag} is not an upgrade from ${carried}`);
+      }
+      carried = step.tag;
+    }
+    return carried;
+  }
+interface: "export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string"
+stop_conditions:
+  - Whether a requires floor newer than its own step's tag is itself rejected is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

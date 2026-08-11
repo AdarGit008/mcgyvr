@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { closingSheet } from "./solution.ts";
+
+assert.equal(closingSheet("bolt:12;washer:4", ""), "bolt:12;washer:4", "no moves leaves the sheet");
+assert.equal(closingSheet("washer:4;bolt:12", ""), "bolt:12;washer:4", "entries come back sorted by name");
+assert.equal(closingSheet("", ""), "", "empty sheet and no moves");
+assert.equal(closingSheet("", "nail+25"), "nail:25", "receive onto an empty sheet");
+assert.equal(closingSheet("nail:5", "nail+7"), "nail:12", "receive adds to the count");
+assert.equal(closingSheet("nail:5;screw:9", "screw-4"), "nail:5;screw:5", "issue draws the count down");
+assert.equal(closingSheet("nail:5", "nail-5"), "", "an item drawn to zero is dropped");
+assert.equal(closingSheet("bolt:0", ""), "", "an opening zero count is dropped");
+assert.equal(closingSheet("nail:2;bolt:8", "nail+1;bolt-3;nail-3"), "bolt:5", "moves apply in order");
+assert.throws(() => closingSheet(7, ""), Error, "non-string sheet is rejected");
+assert.throws(() => closingSheet("nail:5", 7), Error, "non-string moves are rejected");
+assert.throws(() => closingSheet("nail5", ""), Error, "entry without a colon is rejected");
+assert.throws(() => closingSheet("nail:05", ""), Error, "leading zero count is rejected");
+assert.throws(() => closingSheet("nail:5;nail:2", ""), Error, "duplicate name is rejected");
+assert.throws(() => closingSheet("nail:5", "nail*2"), Error, "unknown move mark is rejected");
+assert.throws(() => closingSheet("nail:5", "nail+0"), Error, "zero quantity is rejected");
+assert.throws(() => closingSheet("nail:5", "screw-1"), Error, "issue of an absent item is rejected");
+assert.throws(() => closingSheet("nail:5", "nail-6"), Error, "overdrawn issue is rejected");
+console.log("ok");

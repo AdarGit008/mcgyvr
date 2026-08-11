@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "numeric",
+  "steering_band": "g2",
+  "target_symbol": {"ts": "pickUpgrade", "py": "pick_upgrade"}
+}

@@ -1,0 +1,53 @@
+id: b114-heat-band
+task_type: function_implementation
+task: >-
+  Implement runThermostat. Simulate a heater under a two-point thermostat
+  tick by tick. Temperatures are integers: the room starts at start, and
+  the thermostat holds the band from low up to high, low strictly below
+  high. The heater starts off. Each tick reads the temperature first:
+  strictly below low it switches the heater on, at or above high it
+  switches it off, and anywhere between leaves it as it was. The
+  temperature then moves by the tick's drift, a signed integer, plus
+  power — a positive integer — whenever the heater is on for that tick.
+  After the last tick return {temp, heated, switches, coldest}: the final
+  temperature, how many ticks the heater ran, how many times it switched
+  state either way, and the lowest temperature seen, counting the start
+  and every post-tick value. No ticks leaves both counts at zero with
+  temp and coldest at start. Reject a start, low or high that is not an
+  integer, a low that does not lie strictly below high, a power that is
+  not a positive integer, a drifts argument that is not a list, and a
+  drift that is not an integer, with an error.
+target: solution.ts
+target_content: |
+  export function runThermostat(
+    start: number,
+    low: number,
+    high: number,
+    power: number,
+    drifts: number[],
+  ): { temp: number; heated: number; switches: number; coldest: number } {
+    for (const bound of [start, low, high]) {
+      if (!Number.isInteger(bound)) {
+        throw new Error("temperatures must be integers");
+      }
+    }
+    if (low >= high) {
+      throw new Error("low must lie strictly below high");
+    }
+    if (!Number.isInteger(power) || power <= 0) {
+      throw new Error("power must be a positive integer");
+    }
+    if (!Array.isArray(drifts)) {
+      throw new Error("drifts must be a list");
+    }
+    // TODO: walk the drifts, switching the heater by the two-point rule,
+    // and track the heated ticks, the switches and the coldest reading.
+    return { temp: start, heated: 0, switches: 0, coldest: start };
+  }
+interface: "export function runThermostat(start: number, low: number, high: number, power: number, drifts: number[]): { temp: number; heated: number; switches: number; coldest: number }"
+stop_conditions:
+  - Whether a ceiling on how hot the room may get is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

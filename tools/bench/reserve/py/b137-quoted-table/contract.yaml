@@ -1,0 +1,25 @@
+id: b137-quoted-table
+task_type: function_implementation
+task: >-
+  Implement parse_quoted_table. The input text holds one table row per
+  newline-separated line, the fields of a row separated by commas. A field
+  may be wrapped in double quotes: inside them a comma or newline is an
+  ordinary character and a doubled quote stands for one literal quote;
+  outside them a field runs to the next comma, newline, or the end of the
+  text and may not contain a quote. After a field's closing quote only a
+  comma, a newline, or the end of the text may follow. One final newline
+  after the last row is allowed and opens no new row. Return the rows in
+  order, each the list of its field texts with the quoting removed; every
+  row must carry as many fields as the first row. Reject an argument that
+  is not a string or is empty, a carriage return anywhere, a quote inside
+  an unquoted field, a quoted field never closed, another character
+  directly after a closing quote, and a row whose field count differs from
+  the first row's, with an error.
+target: solution.py
+interface: "def parse_quoted_table(text: str) -> list"
+stop_conditions:
+  - Whether spaces around an unquoted field are trimmed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

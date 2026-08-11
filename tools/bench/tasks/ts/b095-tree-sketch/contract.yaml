@@ -1,0 +1,23 @@
+id: b095-tree-sketch
+task_type: function_implementation
+task: >-
+  Implement drawTreeLines. A folder panel draws a tree of nodes, each
+  node a mapping holding name and children, its list of child nodes in
+  display order. Return the drawing as a list of lines. The root's line
+  is its name alone. Every other node's line is its connector followed by
+  its name: "|-- " when later siblings follow it, "'-- " when it is the
+  last child. In front of the connector comes one four-character column
+  per ancestor below the root: "|   " where that ancestor has later
+  siblings and four spaces where it does not, so a vertical bar traces
+  every branch that is still open. Each parent is followed directly by
+  its whole subtree, children in list order. At any depth, reject a name
+  that is not a non-empty string, a name holding a newline, and a
+  children value that is not a list, with an error.
+target: solution.ts
+interface: "export function drawTreeLines(root: object): string[]"
+stop_conditions:
+  - How deep the tree may nest is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

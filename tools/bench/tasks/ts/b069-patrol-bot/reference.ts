@@ -1,0 +1,30 @@
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  if (!Number.isInteger(width) || width < 1) {
+    throw new Error("width must be a positive integer");
+  }
+  if (!Number.isInteger(position) || position < 0 || position >= width) {
+    throw new Error("position must sit inside the corridor");
+  }
+  if (!Number.isInteger(delta) || delta === 0) {
+    throw new Error("a move must be a non-zero integer");
+  }
+  const raw = position + delta;
+  const landed = Math.min(width - 1, Math.max(0, raw));
+  return [landed, landed !== raw];
+}
+
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Array.isArray(moves)) {
+    throw new Error("moves must be a list");
+  }
+  const seen = new Set<number>([start]);
+  let position = start;
+  let bumps = 0;
+  for (const move of moves) {
+    const [landed, bumped] = clampMove(position, move, width);
+    position = landed;
+    seen.add(landed);
+    if (bumped) bumps += 1;
+  }
+  return { position, bumps, visited: seen.size };
+}

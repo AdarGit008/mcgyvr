@@ -1,0 +1,45 @@
+id: b069-patrol-bot
+task_type: function_implementation
+task: >-
+  Implement run_patrol; clamp_move is already written. A patrol bot walks a
+  corridor of width cells numbered 0 to width minus one. clamp_move applies
+  one signed move to a position: the bot lands at position plus delta,
+  except that a wall stops it at cell 0 or at cell width minus one, and it
+  reports the landing cell together with a flag telling whether a wall cut
+  the move short. It rejects a width that is not a positive integer, a
+  position that is not an integer inside the corridor, and a move that is
+  not a non-zero integer, with an error. run_patrol starts the bot at start
+  and applies the moves in order through clamp_move, so those rejections
+  carry through; it additionally rejects a moves argument that is not a
+  list, with an error. Return {position, bumps, visited}: the final cell,
+  how many moves a wall cut short, and how many distinct cells the bot has
+  stood on after a move, counting the start; cells passed over mid-move do
+  not count, and no moves leaves the bot at its start with one cell
+  visited.
+target: solution.py
+target_content: |
+  def clamp_move(position, delta, width):
+      if not isinstance(width, int) or width < 1:
+          raise ValueError("width must be a positive integer")
+      if not isinstance(position, int) or not 0 <= position < width:
+          raise ValueError("position must sit inside the corridor")
+      if not isinstance(delta, int) or delta == 0:
+          raise ValueError("a move must be a non-zero integer")
+      landed = min(width - 1, max(0, position + delta))
+      return [landed, landed != position + delta]
+
+
+  def run_patrol(width, start, moves):
+      # TODO: reject a non-list moves argument, then walk the moves with
+      # clamp_move, counting wall bumps and the distinct cells stood on
+      # (the start counts), and report the summary mapping.
+      raise NotImplementedError
+interface: |-
+  def run_patrol(width: int, start: int, moves: list) -> dict
+  def clamp_move(position: int, delta: int, width: int) -> list
+stop_conditions:
+  - How large the corridor may grow is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,71 @@
+id: b131-prune-listing
+task_type: function_implementation
+task: >-
+  Implement pruneListing. The listing is a list of relative slash-separated
+  file paths and rules is an ordered list of patterns deciding which paths
+  survive. A pattern is slash-separated segments where a star matches any
+  run of zero or more characters inside one segment and every other
+  character matches only itself. A rule matches a path when each pattern
+  segment matches the corresponding leading path segment, whether that
+  consumes the whole path or only a directory prefix of it, so a matched
+  directory covers everything beneath it. A rule beginning with an
+  exclamation mark is a keep rule; any other rule is a drop rule. For each
+  path the last matching rule decides its fate, and a path no rule matches
+  survives. Return the surviving paths in their original order. Reject a
+  path or rule that is not a string, an empty path, an empty rule or a bare
+  exclamation mark, and a path or pattern holding an empty segment left by
+  a leading, trailing or doubled slash, with an error.
+target: solution.ts
+target_content: |
+  /** Prune a file listing with ordered drop and keep rules. */
+
+  function segmentFits(pattern: string, text: string): boolean {
+    let p = 0;
+    let t = 0;
+    let star = -1;
+    let mark = 0;
+    while (t < text.length) {
+      if (p < pattern.length && pattern[p] === "*") {
+        star = p;
+        mark = t;
+        p += 1;
+      } else if (p < pattern.length && pattern[p] === text[t]) {
+        p += 1;
+        t += 1;
+      } else if (star >= 0) {
+        p = star + 1;
+        mark += 1;
+        t = mark;
+      } else {
+        return false;
+      }
+    }
+    while (p < pattern.length && pattern[p] === "*") {
+      p += 1;
+    }
+    return p === pattern.length;
+  }
+
+  function splitStrict(text: string, what: string): string[] {
+    if (typeof text !== "string" || text === "") {
+      throw new Error(`${what} must be a non-empty string`);
+    }
+    const segments = text.split("/");
+    if (segments.some((segment) => segment === "")) {
+      throw new Error(`${what} has an empty segment: ${text}`);
+    }
+    return segments;
+  }
+
+  export function pruneListing(listing: string[], rules: string[]): string[] {
+    // TODO: validate every rule and path with splitStrict, then keep each
+    // path the last matching rule allows; a path no rule matches survives.
+    return listing.slice();
+  }
+interface: "export function pruneListing(listing: string[], rules: string[]): string[]"
+stop_conditions:
+  - Whether the same path may appear twice in the listing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

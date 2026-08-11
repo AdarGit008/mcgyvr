@@ -1,0 +1,66 @@
+id: b130-span-sums
+task_type: function_implementation
+task: >-
+  Implement parse_span, the reader of a small tape-measure module whose two
+  companions you must also provide. A span is written in yards, feet and
+  inches as space-separated parts in that order, like 2yd 1ft 4in: each
+  part is a value directly followed by its unit yd, ft or in, the units
+  largest to smallest, each at most once, any of them omittable, at least
+  one part present; a value is a plain decimal integer with no leading zero
+  (zero itself written 0). parse_span turns span text into total inches — 36
+  to the yard, 12 to the foot — and accepts unnormalized values like 17in.
+  format_span renders a non-negative integer of total inches canonically:
+  largest units first, feet held under 3, inches held under 12, zero-valued
+  parts left out, plain 0in for zero. add_spans takes two span texts and
+  returns their sum in that canonical form. Reject, in any of the three, a
+  span argument that is not a string, an empty span, an unknown unit, units
+  repeated or out of order, a bare value, a bare unit, a value with a
+  leading zero, and — in format_span — inches that are not a non-negative
+  integer, with an error.
+target: solution.py
+target_content: |
+  """Tape-measure spans: parse to inches, format canonically, and add."""
+
+  INCHES = {"yd": 36, "ft": 12, "in": 1}
+  ORDER = ("yd", "ft", "in")
+
+
+  def parse_span(text: str) -> int:
+      # TODO: validate the span text against the part grammar and unit
+      # order, then total its parts in inches.
+      total = 0
+      for part in text.split(" "):
+          total += int(part[:-2])
+      return total
+
+
+  def format_span(inches: int) -> str:
+      if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+          raise ValueError("inches must be a non-negative integer")
+      if inches == 0:
+          return "0in"
+      parts = []
+      yards, rest = divmod(inches, 36)
+      feet, rest = divmod(rest, 12)
+      if yards:
+          parts.append(f"{yards}yd")
+      if feet:
+          parts.append(f"{feet}ft")
+      if rest:
+          parts.append(f"{rest}in")
+      return " ".join(parts)
+
+
+  def add_spans(first: str, second: str) -> str:
+      total = parse_span(first) + parse_span(second)
+      return format_span(total)
+interface: |-
+  def parse_span(text: str) -> int
+  def format_span(inches: int) -> str
+  def add_spans(first: str, second: str) -> str
+stop_conditions:
+  - Whether runs of more than one space between parts are accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

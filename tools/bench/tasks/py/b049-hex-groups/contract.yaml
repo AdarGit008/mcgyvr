@@ -1,0 +1,20 @@
+id: b049-hex-groups
+task_type: function_implementation
+task: >-
+  Implement hex_groups. The first argument is a list of byte values,
+  integers from 0 to 255; the second is a group width. Render every byte
+  as exactly two lowercase hexadecimal digits, zero-padded, run the bytes
+  together into groups of width bytes each — the last group may fall
+  short — and join the groups with single spaces, so hex_groups([10, 255,
+  3], 2) is "0aff 03". An empty list yields the empty string. Reject an
+  argument that is not a list, a byte that is not an integer or lies
+  outside 0 to 255, and a width that is not a positive integer, with an
+  error.
+target: solution.py
+interface: "def hex_groups(values: list, width: int) -> str"
+stop_conditions:
+  - No limit on how many bytes one line may carry is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

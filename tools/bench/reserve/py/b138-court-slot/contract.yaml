@@ -1,0 +1,41 @@
+id: b138-court-slot
+task_type: bug_fix
+task: >-
+  reserve_court admits a requested slot into a court's booking sheet
+  incorrectly. Fix it: the sheet lists the day's bookings as [start, end]
+  pairs of whole minutes, each running from start up to but not including
+  end, in no particular order; hours is the [open, close] pair of opening
+  hours and slot the requested pair. The slot must lie entirely inside
+  opening hours — at present a slot is admitted even when it runs past
+  closing — and must not overlap any booking, though it may touch one — at
+  present a slot that merely touches a booking is refused. Return a new
+  sheet holding every booking and the slot, ordered by start, leaving the
+  given list untouched. Also add the missing validation: reject an hours,
+  slot or booking that is not a two-item list, a bound anywhere that is
+  not a whole number, an hours, slot or booking whose start does not
+  precede its end, and existing bookings that overlap one another, with an
+  error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Insert a requested slot into a court's booking sheet for the day."""
+
+
+  def reserve_court(booked: list, slot: list, hours: list) -> list:
+      open_at = hours[0]
+      wanted_from, wanted_until = slot
+      if wanted_from < open_at:
+          raise ValueError("slot must lie inside opening hours")
+      for start, end in booked:
+          if wanted_from <= end and start <= wanted_until:
+              raise ValueError("slot overlaps an existing booking")
+      sheet = [[entry[0], entry[1]] for entry in booked]
+      sheet.append([wanted_from, wanted_until])
+      sheet.sort()
+      return sheet
+interface: "def reserve_court(booked: list, slot: list, hours: list) -> list"
+stop_conditions:
+  - Whether a booking may lie outside the opening hours is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

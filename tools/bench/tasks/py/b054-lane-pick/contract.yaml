@@ -1,0 +1,29 @@
+id: b054-lane-pick
+task_type: bug_fix
+task: >-
+  pick_lane chooses which checkout lane a customer should join and chooses
+  badly: it can point at a closed lane and it loses ties. Fix it: the first
+  argument lists how many people wait in each lane, index by index; the
+  second lists the indexes of the closed lanes. Return the index of the
+  open lane with the fewest people waiting, and when several open lanes tie
+  for fewest, the lowest index among them wins; a closed lane must never be
+  returned, not even the first one. Also add the missing validation: reject
+  a queues argument that is not a non-empty list, a queue length that is
+  not a non-negative integer, a closed index that is not an integer
+  pointing at a lane, and a call in which every lane is closed, with an
+  error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def pick_lane(queues, closed):
+      best = 0
+      for lane in range(1, len(queues)):
+          if queues[lane] <= queues[best] and lane not in closed:
+              best = lane
+      return best
+interface: "def pick_lane(queues: list, closed: list) -> int"
+stop_conditions:
+  - Whether the closed list may name the same lane twice is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,44 @@
+id: b084-placard-lines
+task_type: bug_fix
+task: >-
+  placardLines lays a notice's text into the lines of a hallway placard
+  and gets the fit wrong: it forgets that a word added to a line costs a
+  joining space as well, so a line comes out one character wider than the
+  placard whenever that space is what tips it over. It also performs no
+  validation at all, so ill-formed input garbles the layout silently
+  instead of failing. Fix it: the text is words separated by single
+  spaces; fill greedily, each line taking the next word whenever the line
+  stays within the width, words on a line joined by single spaces, and a
+  word exactly as wide as the placard standing alone on its line. Return
+  the lines in order. Add the missing validation: reject a text that is
+  not a non-empty string, a width that is not a positive integer, a text
+  with a leading space, a trailing space or two spaces in a row, and a
+  word wider than the placard, with an error. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  /** Lay a notice's text into placard lines. */
+
+  export function placardLines(text: string, width: number): string[] {
+    const lines: string[] = [];
+    let line = "";
+    for (const word of text.split(" ")) {
+      if (line.length === 0) {
+        line = word;
+      } else if (line.length + word.length <= width) {
+        line = line + " " + word;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+    return lines;
+  }
+interface: "export function placardLines(text: string, width: number): string[]"
+stop_conditions:
+  - Whether the text may contain tab or newline characters is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,45 @@
+id: b109-pick-snippet
+task_type: function_implementation
+task: >-
+  Implement pickSnippet. The query is a string of search words and
+  sentences is a non-empty list of sentence strings. Words are maximal
+  runs of ASCII letters and digits, compared lowercased, so matching
+  ignores case and punctuation and only whole words count. Score each
+  sentence by how many distinct query words appear among its words —
+  repeats add nothing. Return the sentence with the highest score; when
+  two sentences tie, the one with fewer words in total wins, and a tie on
+  that too falls to the earlier sentence. Reject a query that is not a
+  string, a query with no words in it, a sentences argument that is not a
+  non-empty list, a sentence that is not a non-empty string, and a query
+  no sentence matches at all, with an error.
+target: solution.ts
+target_content: |
+  function wordsOf(text: string): string[] {
+    const found = text.toLowerCase().match(/[a-z0-9]+/g);
+    return found === null ? [] : found;
+  }
+
+  export function pickSnippet(query: string, sentences: string[]): string {
+    if (typeof query !== "string") {
+      throw new Error("query must be a string");
+    }
+    const wanted = new Set(wordsOf(query));
+    if (wanted.size === 0) {
+      throw new Error("query holds no words");
+    }
+    if (!Array.isArray(sentences) || sentences.length === 0) {
+      throw new Error("sentences must be a non-empty list");
+    }
+    // TODO: check each sentence is a non-empty string, score it by how
+    // many distinct query words it holds, and return the best scorer —
+    // fewer total words breaks a tie, then the earlier sentence; reject
+    // when no sentence holds any query word.
+    return sentences[0];
+  }
+interface: "export function pickSnippet(query: string, sentences: string[]): string"
+stop_conditions:
+  - Whether letters beyond ASCII count as word characters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,22 @@
+id: b059-plan-batches
+task_type: function_implementation
+task: >-
+  Implement plan_batches. A consignment of units parcels leaves on
+  courier runs that each carry at most capacity parcels. A consignment
+  that fits within capacity ships whole as a single load. Otherwise it
+  splits into two halves, the half rounded up before the half rounded
+  down, and each half is planned the same way. Return a mapping with
+  loads, the final load sizes in planning order; splits, how many
+  splits were performed in total; and rounds, the depth of splitting,
+  where a consignment that ships whole has rounds 0 and a split
+  consignment sits one round above the deeper of its two halves. Reject
+  a units count that is not a positive integer and a capacity that is
+  not a positive integer, with an error.
+target: solution.py
+interface: "def plan_batches(units: int, capacity: int) -> dict"
+stop_conditions:
+  - How deep the splitting may recurse for very large consignments is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

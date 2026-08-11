@@ -1,0 +1,26 @@
+id: b121-ledger-merge
+task_type: function_implementation
+task: >-
+  Implement mergeLedgers. A ledger is a list of [account, cents] pairs with
+  no account repeated; cents is an integer and may be negative. The three
+  arguments are a common base ledger and two independently edited copies of
+  it, ours and theirs. Merge them account by account: an account present in
+  all three merges to the base value plus both copies' deltas against the
+  base, so edits from the two sides combine; an account added by exactly
+  one copy keeps that copy's value, and an account added by both copies
+  merges to the sum of the two added values. An account the base holds but
+  one copy dropped is deleted when the other copy left it at the base
+  value, and survives at the other copy's value when that copy changed it;
+  an account both copies dropped is deleted. Return the merged ledger as
+  [account, cents] pairs sorted by account name. Reject a ledger that is
+  not a list, an entry that is not a two-item [account, cents] pair, an
+  account name that is not a non-empty string, a cents value that is not an
+  integer, and an account repeated inside one ledger, with an error.
+target: solution.ts
+interface: "export function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][]"
+stop_conditions:
+  - Whether account names are case-sensitive is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

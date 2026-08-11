@@ -1,0 +1,55 @@
+id: b111-journal-rollback
+task_type: bug_fix
+task: >-
+  rollback_journal restores an earlier state of a line-based document
+  incorrectly. The document is a list of lines and the journal records the
+  edits already applied to it, oldest first: an insert entry
+  ["insert", index, text] recorded that text became the line at index, a
+  delete entry ["delete", index, text] recorded that the line text was
+  removed from index, and a replace entry ["replace", index, before, after]
+  recorded that the line at index changed from before to after. Rolling
+  back count edits must unwind the newest count entries one at a time,
+  newest first, each by applying its inverse: an insert is undone by
+  removing its line, a delete by putting its line back, a replace by
+  restoring its before text. At present the entries are unwound oldest
+  first, so a rollback spanning entries that touch nearby indexes corrupts
+  the document, and undoing a replace writes the after text back instead of
+  the before text. rollback_journal must return the rolled-back document as
+  a new list, leaving its argument unmodified, and it already rejects a
+  lines argument that is not a list of strings and a journal that is not a
+  list — keep those rejections. Also add the missing validation: reject a
+  count that is not an integer from 0 to the journal length, an entry that
+  is not a list opening with a known kind and carrying exactly its fields
+  with string texts, an entry index that is not an integer addressing the
+  document, an insert entry whose text does not equal the line it should
+  remove, and a replace entry whose after text does not equal the line it
+  should rewrite, with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def rollback_journal(lines, journal, count):
+      if not isinstance(lines, list) or any(
+          not isinstance(line, str) for line in lines
+      ):
+          raise ValueError("lines must be a list of strings")
+      if not isinstance(journal, list):
+          raise ValueError("journal must be a list")
+      doc = list(lines)
+      first = max(0, len(journal) - count)
+      for entry in journal[first:]:
+          kind, index = entry[0], entry[1]
+          if kind == "insert":
+              del doc[index]
+          elif kind == "delete":
+              doc.insert(index, entry[2])
+          elif kind == "replace":
+              doc[index] = entry[3]
+          else:
+              raise ValueError("unknown journal entry kind")
+      return doc
+interface: "def rollback_journal(lines: list, journal: list, count: int) -> list"
+stop_conditions:
+  - Whether an entry text may be the empty string is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

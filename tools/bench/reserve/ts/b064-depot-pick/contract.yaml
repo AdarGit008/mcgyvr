@@ -1,0 +1,47 @@
+id: b064-depot-pick
+task_type: bug_fix
+task: >-
+  nearestDepot picks the wrong depot for a courier on the city grid.
+  The courier stands at origin, an [x, y] pair of integer block
+  coordinates, and each depot in the list is an [x, y] pair of the
+  same kind. The distance to a depot is the taxi distance: the
+  magnitude of the x difference plus the magnitude of the y
+  difference, exactly what the helper taxiDistance already computes
+  correctly. nearestDepot must return the index of the depot with the
+  smallest taxi distance from the origin, an equal-distance tie going
+  to the lowest index. The current code trusts raw coordinate
+  differences without taking magnitudes, so a depot lying west or
+  north of the origin can be reported nearer than it really is. Fix
+  the selection so it measures true taxi distance. Also add the
+  missing validation: reject an empty depot list and any coordinate of
+  the origin or of a depot that is not an integer, with an error.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Choose the depot a courier should ride to on the city grid. */
+
+  export function taxiDistance(a: number[], b: number[]): number {
+    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+  }
+
+  export function nearestDepot(origin: number[], depots: number[][]): number {
+    let best = 0;
+    let bestDistance = depots[0][0] - origin[0] + (depots[0][1] - origin[1]);
+    for (let i = 1; i < depots.length; i++) {
+      const distance = depots[i][0] - origin[0] + (depots[i][1] - origin[1]);
+      if (distance < bestDistance) {
+        best = i;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+interface: |-
+  export function nearestDepot(origin: number[], depots: number[][]): number
+  export function taxiDistance(a: number[], b: number[]): number
+stop_conditions:
+  - Whether coordinates have any bound on their magnitude is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,26 @@
+id: b099-wire-nest
+task_type: function_implementation
+task: >-
+  Implement wire_value and wire_text, the writers of a wire notation for
+  nested values. wire_text renders one text leaf as the letter s, the
+  text's length in decimal, a colon, then the text itself, so a:b
+  becomes s3:a:b; it rejects a non-string argument and a text holding a
+  newline, because frames on the wire are line-delimited, with an error.
+  wire_value renders any supported value: a text leaf through wire_text; a
+  whole number as the letter n, its decimal digits with a leading minus
+  when negative, then a semicolon; and a list as an opening square
+  bracket, every element rendered in order by these same rules, then a
+  closing square bracket, nested lists rendering recursively to any
+  depth, so [1, ["x", []], "yz"] becomes [n1;[s1:x[]]s2:yz]. Reject a
+  boolean, a number that is not whole, and any value that is not a
+  text, a whole number or a list, with an error.
+target: solution.py
+interface: |-
+  def wire_value(value) -> str
+  def wire_text(text: str) -> str
+stop_conditions:
+  - How the length of a text holding non-ASCII characters is measured is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

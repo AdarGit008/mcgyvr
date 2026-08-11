@@ -1,0 +1,22 @@
+id: b056-merge-settings
+task_type: function_implementation
+task: >-
+  Implement merge_settings. A settings snapshot is a flat mapping from
+  string keys to string values. Given base, the common ancestor, and the
+  two descendants ours and theirs, merge them key by key: a key where
+  ours and theirs agree keeps their shared state, present or absent; a
+  key that only one side changed — edited, added, or deleted relative to
+  base — takes that side's version; and a key both sides changed in
+  different ways is a conflict. Absence counts as a version here, so an
+  edit on one side colliding with a deletion on the other is also a
+  conflict. Return the merged mapping. Reject a side that is not a flat
+  mapping of string values, a conflict of two different edits, and a
+  conflict of an edit against a deletion, with an error.
+target: solution.py
+interface: "def merge_settings(base: dict, ours: dict, theirs: dict) -> dict"
+stop_conditions:
+  - Whether a key that is not a string can appear in a side is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

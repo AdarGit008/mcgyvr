@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "string",
+  "steering_band": "g2",
+  "target_symbol": {"ts": "prefixFromMask", "py": "prefix_from_mask"}
+}

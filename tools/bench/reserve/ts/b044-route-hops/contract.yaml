@@ -1,0 +1,43 @@
+id: b044-route-hops
+task_type: bug_fix
+task: >-
+  routeHops answers how many links a rider must travel between two
+  stations of a transit map, and it wrongly treats every link as one-way,
+  so a trip the map allows can come back unreachable or longer than it
+  is. Fix it: a link joins two stations that may be ridden in either
+  direction, the result is the smallest number of links leading from the
+  origin to the goal, an origin equal to the goal costs zero links, and a
+  goal no chain of links reaches yields -1; the map may hold rings, which
+  must not trap the search. Also add the missing validation: reject an
+  origin or goal that is not a non-empty string, a link that is not a
+  two-item list, and a link station that is not a non-empty string, with
+  an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Fewest links to ride between two stations of a transit map. */
+  export function routeHops(links: string[][], origin: string, goal: string): number {
+    const next = new Map<string, string[]>();
+    for (const link of links) {
+      next.set(link[0], [...(next.get(link[0]) ?? []), link[1]]);
+    }
+    const seen = new Set<string>([origin]);
+    const queue: [string, number][] = [[origin, 0]];
+    for (let i = 0; i < queue.length; i++) {
+      const [station, hops] = queue[i];
+      if (station === goal) return hops;
+      for (const neighbour of next.get(station) ?? []) {
+        if (!seen.has(neighbour)) {
+          seen.add(neighbour);
+          queue.push([neighbour, hops + 1]);
+        }
+      }
+    }
+    return -1;
+  }
+interface: "export function routeHops(links: string[][], origin: string, goal: string): number"
+stop_conditions:
+  - Whether a link may join a station to itself is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

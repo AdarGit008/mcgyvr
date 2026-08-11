@@ -1,0 +1,48 @@
+id: b138-court-slot
+task_type: bug_fix
+task: >-
+  reserveCourt admits a requested slot into a court's booking sheet
+  incorrectly. Fix it: the sheet lists the day's bookings as [start, end]
+  pairs of whole minutes, each running from start up to but not including
+  end, in no particular order; hours is the [open, close] pair of opening
+  hours and slot the requested pair. The slot must lie entirely inside
+  opening hours — at present a slot is admitted even when it runs past
+  closing — and must not overlap any booking, though it may touch one — at
+  present a slot that merely touches a booking is refused. Return a new
+  sheet holding every booking and the slot, ordered by start, leaving the
+  given list untouched. Also add the missing validation: reject an hours,
+  slot or booking that is not a two-item list, a bound anywhere that is
+  not a whole number, an hours, slot or booking whose start does not
+  precede its end, and existing bookings that overlap one another, with an
+  error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Insert a requested slot into a court's booking sheet for the day. */
+
+  export function reserveCourt(
+    booked: number[][],
+    slot: number[],
+    hours: number[],
+  ): number[][] {
+    const [openAt] = hours;
+    const [from, until] = slot;
+    if (from < openAt) {
+      throw new Error("slot must lie inside opening hours");
+    }
+    for (const [start, end] of booked) {
+      if (from <= end && start <= until) {
+        throw new Error("slot overlaps an existing booking");
+      }
+    }
+    const sheet = booked.map((entry) => [entry[0], entry[1]]);
+    sheet.push([from, until]);
+    sheet.sort((a, b) => a[0] - b[0]);
+    return sheet;
+  }
+interface: "export function reserveCourt(booked: number[][], slot: number[], hours: number[]): number[][]"
+stop_conditions:
+  - Whether a booking may lie outside the opening hours is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

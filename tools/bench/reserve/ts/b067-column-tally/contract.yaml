@@ -1,0 +1,44 @@
+id: b067-column-tally
+task_type: bug_fix
+task: >-
+  tallyColumn summarises one column of a numeric table incorrectly. The
+  table is a non-empty list of rows, each row a list of numbers sharing
+  one length, and the column argument names which column to read. The
+  summary reports count, the number of rows; total, the sum of the
+  column's values; and low and high, the smallest and largest value in
+  the column, as {count, total, low, high}. At present a zero sitting in
+  the column is dropped from every statistic as though the cell were
+  missing, a column whose values are all above zero still reports a low
+  of 0, and a column whose values are all below zero reports a high of 0.
+  Fix the aggregation so every cell of the chosen column counts and the
+  extremes come from the data alone. Also add the missing validation:
+  reject a table with no rows, rows that do not share one length, a
+  column index that is not an integer from 0 to the row width minus one,
+  and a cell in the chosen column that is not a number, with an error.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function tallyColumn(table: number[][], column: number): Record<string, number> {
+    let count = 0;
+    let total = 0;
+    let low = 0;
+    let high = 0;
+    for (const row of table) {
+      const value = row[column];
+      if (!value) {
+        continue;
+      }
+      count += 1;
+      total += value;
+      if (value < low) low = value;
+      if (value > high) high = value;
+    }
+    return { count, total, low, high };
+  }
+interface: "export function tallyColumn(table: number[][], column: number): Record<string, number>"
+stop_conditions:
+  - How a row that is not a list at all is treated is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

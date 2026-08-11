@@ -1,0 +1,22 @@
+id: b070-range-selector
+task_type: function_implementation
+task: >-
+  Implement selectorHits. A selector picks integers by pattern: it is a
+  comma-separated run of terms, where a term is either a single
+  non-negative integer like 25, matching exactly that value, or a range
+  like 10-40, matching every integer from its low end to its high end
+  inclusive. selectorHits counts how many of the given values match at
+  least one term; a value matched by several terms still counts once, and
+  an empty values list counts zero. Reject a values argument that is not a
+  list of integers, a selector that is not a non-empty string, a term that
+  is neither a bare non-negative integer nor two of them joined by a
+  hyphen — an empty term included — and a range whose low end exceeds its
+  high end, with an error.
+target: solution.ts
+interface: "export function selectorHits(values: number[], selector: string): number"
+stop_conditions:
+  - Whether a term may carry a leading plus sign or leading zeros is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

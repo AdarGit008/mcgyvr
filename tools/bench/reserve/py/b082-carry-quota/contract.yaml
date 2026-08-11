@@ -1,0 +1,39 @@
+id: b082-carry-quota
+task_type: function_implementation
+task: >-
+  Implement bill_overage. A metered plan grants a fixed allowance of units
+  each period, and units left unspent roll into the next period, though
+  never more than the carry cap. The arguments are the allowance, the
+  carry cap, and the per-period usage list, oldest period first. Walk the
+  periods with a carried balance that starts at zero: a period may spend
+  its allowance plus what was carried in; consumption beyond that is
+  billed as the period's overage and leaves nothing to carry, while a
+  period within its means bills zero and carries forward the smaller of
+  its unspent units and the carry cap. Return {billed, carried}: billed
+  the per-period overage list, carried what remains after the final
+  period; no periods bills nothing and carries nothing. Reject an
+  allowance that is not a non-negative integer, a carry cap that is not a
+  non-negative integer, a usage argument that is not a list, and a usage
+  entry that is not a non-negative integer, with an error.
+target: solution.py
+target_content: |
+  """Bill a metered plan's per-period overage under capped carry-over."""
+
+
+  def bill_overage(allowance, carry_cap, usage):
+      if not isinstance(allowance, int) or allowance < 0:
+          raise ValueError("allowance must be a non-negative integer")
+      if not isinstance(carry_cap, int) or carry_cap < 0:
+          raise ValueError("carry cap must be a non-negative integer")
+      if not isinstance(usage, list):
+          raise ValueError("usage must be a list")
+      # TODO: walk the periods with the carried balance, bill each period's
+      # overage, and cap what carries forward.
+      raise NotImplementedError("bill_overage is not implemented")
+interface: "def bill_overage(allowance: int, carry_cap: int, usage: list) -> dict"
+stop_conditions:
+  - Whether the allowance or the carry cap may change between periods is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

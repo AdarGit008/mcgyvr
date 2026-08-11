@@ -1,0 +1,32 @@
+id: b123-bit-index
+task_type: function_implementation
+task: >-
+  Implement select_one; build_bit_index and rank_ones complete the module.
+  A bit index answers rank and select queries over a fixed bitmap.
+  build_bit_index takes the bitmap as words, a list of 32-bit words —
+  integers from 0 to 4294967295, bit i of the bitmap living in word i div
+  32 at bit position i mod 32 — together with the bitmap's length in bits,
+  and returns the index {words, length, prefix}, where prefix holds one
+  entry per word counting the set bits in all earlier words, plus a final
+  entry counting them all. It rejects a length that is not a non-negative
+  integer, a word that is not an integer inside the 32-bit range, a word
+  list whose size is not the number of words needed for length bits — a
+  zero length means no words — and a set bit at or beyond length, with an
+  error. rank_ones returns how many set bits lie strictly below bit
+  position pos, where 0 <= pos <= length, using the prefix table and a
+  partial scan of at most one word, and rejects a pos that is not an
+  integer in that range. select_one returns the bit position of the k-th
+  set bit, counting k from zero upward in position order, and rejects a k
+  that is not an integer, is negative, or is not below the total number of
+  set bits, with an error.
+target: solution.py
+interface: |-
+  def build_bit_index(words: list, length: int) -> dict
+  def rank_ones(index: dict, pos: int) -> int
+  def select_one(index: dict, k: int) -> int
+stop_conditions:
+  - Whether an index may be queried after the caller mutates the word list it was built from is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

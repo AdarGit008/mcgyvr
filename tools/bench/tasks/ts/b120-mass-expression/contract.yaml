@@ -1,0 +1,25 @@
+id: b120-mass-expression
+task_type: function_implementation
+task: >-
+  Implement massExpression. A goods tally is written as terms joined by
+  " + " and " - ", each term a whole count sitting directly on its unit,
+  the units g, kg and t: "2kg + 300g" comes to 2300 grams, "1t - 200kg"
+  to 800000. A kg is 1000 g and a t is 1000 kg; counts are plain decimal
+  integers without leading zeros, zero written 0. Work through the tally
+  left to right from the first term, adding and drawing as the operators
+  say, and give back the final amount counted in the goal unit named by
+  the second argument. Reject a tally that is not a non-empty string, a
+  tally whose terms and operators do not alternate ending on a term, a
+  term that is not a plain count directly on one of the three units — a
+  leading zero, an unknown or miscased unit, or any stray character — an
+  operator other than + and -, a draw that dips the running amount below
+  zero, a goal unit that is not one of the three, and a total that does
+  not come out whole in the goal unit, with an error.
+target: solution.ts
+interface: "export function massExpression(text: string, unit: string): number"
+stop_conditions:
+  - Whether an upper bound on counts or on the number of terms applies is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

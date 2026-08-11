@@ -1,0 +1,25 @@
+id: b110-part-tally
+task_type: function_implementation
+task: >-
+  Implement rawTally. recipes maps an assembly name to the non-empty list
+  of component names one unit of it consumes, and a name with no entry in
+  recipes is a raw part; components may repeat in a list — a wheel listed
+  twice means two wheels — and different assemblies may share
+  subassemblies. Return a mapping from each raw part to how many units of
+  it go into building batches units of item; an item that is itself raw
+  tallies as batches of itself. Recipes nest deep — the checker builds a
+  chain forty levels tall whose counts double at every level — so compute
+  each assembly's tally once and reuse it, or the deepest case will not
+  finish inside the time limit. Reject an item that is not a non-empty
+  string, a batches count that is not a positive integer, a component
+  name that is not a non-empty string, an empty component list, and an
+  assembly that depends on itself directly or through intermediates,
+  with an error.
+target: solution.ts
+interface: "export function rawTally(recipes: Record<string, string[]>, item: string, batches: number): Record<string, number>"
+stop_conditions:
+  - Whether recipe entries never reached from the requested item are validated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

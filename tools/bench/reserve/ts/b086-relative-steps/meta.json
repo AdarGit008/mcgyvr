@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "iteration",
+  "steering_band": "g1",
+  "target_symbol": {"ts": "relativeSteps", "py": "relative_steps"}
+}

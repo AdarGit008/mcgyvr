@@ -1,0 +1,26 @@
+id: b045-outline-labels
+task_type: function_implementation
+task: >-
+  Implement number_sections and section_count over a document outline. An
+  outline is a list of sections, each a mapping holding heading, its
+  title, and children, the list of sections nested under it, to any
+  depth. number_sections returns one label per section in document order —
+  a section before its children, children before the next sibling — where
+  a top-level section is numbered by its 1-based position, a child's
+  number is its parent's number, a dot, and its own 1-based position, and
+  the label is the number, one space, and the heading: "1 Intro",
+  "1.2 Terms", "1.2.1 Symbols". An empty outline yields an empty list.
+  section_count returns how many sections the outline holds at every
+  depth. Reject an outline argument that is not a list, a section that is
+  not a mapping or whose children is not a list, and a heading that is
+  not a non-empty string, with an error, at any depth.
+target: solution.py
+interface: |-
+  def number_sections(sections: list) -> list
+  def section_count(sections: list) -> int
+stop_conditions:
+  - An upper bound on nesting depth is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

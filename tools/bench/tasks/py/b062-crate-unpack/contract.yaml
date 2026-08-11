@@ -1,0 +1,24 @@
+id: b062-crate-unpack
+task_type: function_implementation
+task: >-
+  Implement unpack_crates and crate_depth over nested shipping crates.
+  A crate is a list whose entries are either item names, which are
+  non-empty strings, or nested crates of the same shape, nested to any
+  depth. unpack_crates returns every item name in one flat list, in
+  the order the names appear when the crate is read left to right,
+  descending into a nested crate before moving past it; an empty crate
+  at any level contributes nothing. It rejects an entry that is
+  neither a non-empty string nor a list, counting the empty string as
+  invalid, with an error. crate_depth returns the deepest nesting
+  level of the crate: a crate containing no nested crate has depth 1,
+  and each further level of nesting adds one; item names add no depth.
+target: solution.py
+interface: |-
+  def unpack_crates(crate: list) -> list
+  def crate_depth(crate: list) -> int
+stop_conditions:
+  - What the depth helper reports for a crate holding an invalid entry is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

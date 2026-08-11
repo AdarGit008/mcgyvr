@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "data_structure",
+  "steering_band": "g1",
+  "target_symbol": {"ts": "auditChain", "py": "audit_chain"}
+}

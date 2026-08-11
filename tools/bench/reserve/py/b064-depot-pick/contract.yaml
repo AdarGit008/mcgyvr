@@ -1,0 +1,45 @@
+id: b064-depot-pick
+task_type: bug_fix
+task: >-
+  nearest_depot picks the wrong depot for a courier on the city grid.
+  The courier stands at origin, an [x, y] pair of integer block
+  coordinates, and each depot in the list is an [x, y] pair of the
+  same kind. The distance to a depot is the taxi distance: the
+  magnitude of the x difference plus the magnitude of the y
+  difference, exactly what the helper taxi_distance already computes
+  correctly. nearest_depot must return the index of the depot with the
+  smallest taxi distance from the origin, an equal-distance tie going
+  to the lowest index. The current code trusts raw coordinate
+  differences without taking magnitudes, so a depot lying west or
+  north of the origin can be reported nearer than it really is. Fix
+  the selection so it measures true taxi distance. Also add the
+  missing validation: reject an empty depot list and any coordinate of
+  the origin or of a depot that is not an integer, with an error.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Choose the depot a courier should ride to on the city grid."""
+
+
+  def taxi_distance(a: list, b: list) -> int:
+      return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+  def nearest_depot(origin: list, depots: list) -> int:
+      best = 0
+      best_distance = depots[0][0] - origin[0] + (depots[0][1] - origin[1])
+      for i in range(1, len(depots)):
+          distance = depots[i][0] - origin[0] + (depots[i][1] - origin[1])
+          if distance < best_distance:
+              best = i
+              best_distance = distance
+      return best
+interface: |-
+  def nearest_depot(origin: list, depots: list) -> int
+  def taxi_distance(a: list, b: list) -> int
+stop_conditions:
+  - Whether coordinates have any bound on their magnitude is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

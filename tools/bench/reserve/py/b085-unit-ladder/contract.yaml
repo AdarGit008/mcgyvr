@@ -1,0 +1,28 @@
+id: b085-unit-ladder
+task_type: function_implementation
+task: >-
+  Implement ladder_convert. A measure ladder arrives as unordered rules,
+  each rule a [bigger, smaller, factor] triple declaring that one of the
+  bigger unit makes factor of the smaller, the factor an integer of at
+  least 2: [["cup", "tbsp", 16], ["tbsp", "tsp", 3]] says a cup is 16
+  tablespoons and a tablespoon 3 teaspoons. Linked bigger-to-smaller, the
+  rules must form one single ladder — no unit may sit on the bigger side
+  of two rules or on the smaller side of two rules, and walking down from
+  the top must reach every rule. Convert an amount, a non-negative
+  integer, from a source unit to a goal unit, both named by the ladder:
+  converting downward multiplies by every factor passed, converting
+  upward divides and is lawful only when the division comes out whole,
+  and converting a unit to itself returns the amount unchanged. Return
+  the converted whole number. Reject an amount that is not a non-negative
+  integer, a factor that is not an integer of at least 2, a unit sitting
+  twice on the same side, rules that do not form one single ladder, a
+  source or goal unit the ladder does not name, and an upward conversion
+  that does not come out whole, with an error.
+target: solution.py
+interface: "def ladder_convert(rules: list, amount: int, source: str, goal: str) -> int"
+stop_conditions:
+  - Whether unit names are case-sensitive is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

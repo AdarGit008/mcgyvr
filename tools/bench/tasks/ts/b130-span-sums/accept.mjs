@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { parseSpan, formatSpan, addSpans } from "./solution.ts";
+
+assert.equal(parseSpan("2yd 1ft 4in"), 88, "a full span totals in inches");
+assert.equal(parseSpan("17in"), 17, "an unnormalized value is accepted");
+assert.equal(parseSpan("0in"), 0, "a zero span is zero inches");
+assert.equal(parseSpan("3yd 11in"), 119, "a middle unit may be left out");
+assert.equal(formatSpan(88), "2yd 1ft 4in", "inches render largest unit first");
+assert.equal(formatSpan(0), "0in", "zero inches render as 0in");
+assert.equal(formatSpan(47), "1yd 11in", "a zero-valued part is left out");
+assert.equal(addSpans("1ft 6in", "8in"), "2ft 2in", "a sum carries inches into feet");
+assert.equal(addSpans("1yd 2ft 11in", "1in"), "2yd", "a sum can carry into the yards");
+assert.throws(() => parseSpan(4), Error, "a non-string span is rejected");
+assert.throws(() => parseSpan(""), Error, "an empty span is rejected");
+assert.throws(() => parseSpan("4m"), Error, "an unknown unit is rejected");
+assert.throws(() => parseSpan("1in 1ft"), Error, "units out of order are rejected");
+assert.throws(() => parseSpan("1ft 2ft"), Error, "a repeated unit is rejected");
+assert.throws(() => parseSpan("12"), Error, "a bare value is rejected");
+assert.throws(() => parseSpan("ft"), Error, "a bare unit is rejected");
+assert.throws(() => parseSpan("01ft"), Error, "a leading zero is rejected");
+assert.throws(() => formatSpan(-3), Error, "negative inches are rejected");
+console.log("ok");

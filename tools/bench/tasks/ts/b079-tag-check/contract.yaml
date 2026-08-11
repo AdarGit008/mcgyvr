@@ -1,0 +1,42 @@
+id: b079-tag-check
+task_type: function_implementation
+task: >-
+  Implement checkLine, whose helper lineTag is already written. A tagged
+  line carries its own integrity check: lineTag computes the tag of a body
+  as the sum of its character codes modulo 256, rendered as exactly two
+  lowercase hexadecimal digits, zero-padded, and rejects a non-string body
+  with an error. checkLine verifies a tagged line and returns its body:
+  the third-from-last character must be a tilde and the last two
+  characters must equal the tag lineTag yields for everything before that
+  tilde; the body may itself contain tildes, and an empty body is legal.
+  Reject a non-string line, a line shorter than three characters, a line
+  whose third-from-last character is not a tilde, and a line whose tag
+  does not match its body, with an error.
+target: solution.ts
+target_content: |
+  export function lineTag(body: string): string {
+    if (typeof body !== "string") {
+      throw new Error("lineTag expects a string");
+    }
+    let sum = 0;
+    for (const ch of body) {
+      sum = (sum + ch.codePointAt(0)!) % 256;
+    }
+    return sum.toString(16).padStart(2, "0");
+  }
+
+  export function checkLine(line: string): string {
+    // TODO: validate the line, split the two-character tag off after the
+    // tilde separator, compare it with lineTag's answer for the body, and
+    // return the body.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function checkLine(line: string): string
+  export function lineTag(body: string): string
+stop_conditions:
+  - How a character outside the basic ASCII range is counted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
