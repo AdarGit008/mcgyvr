@@ -1,0 +1,52 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    """
+    Calculate the total mass from a string representing a goods tally in grams,
+    kilograms, or tonnes, and convert to the specified goal unit.
+
+    :param text: A string representing the goods tally.
+    :param unit: The target unit for conversion ('g', 'kg', 't').
+    :return: The total mass in the specified unit as an integer.
+    """
+    if not isinstance(text, str) or not text:
+        raise ValueError("Input must be a non-empty string.")
+
+    # Define conversion factors
+    conversion_factors = {
+        'g': 1,
+        'kg': 1000,
+        't': 1000000
+    }
+
+    if unit not in conversion_factors:
+        raise ValueError(f"Unsupported unit: {unit}. Supported units are g, kg, and t.")
+
+    # Split the text into terms and operators
+    parts = text.split()
+    if len(parts) % 2 != 1 or parts[-1] == '+':
+        raise ValueError("Invalid tally format. Terms must alternate ending on a term.")
+
+    total_mass = 0
+    for i in range(0, len(parts), 2):
+        count_str = parts[i]
+        operator = parts[i + 1]
+
+        if not count_str.isdigit() or (count_str.startswith('0') and len(count_str) > 1):
+            raise ValueError(f"Invalid term: {count_str}. Must be a plain count.")
+
+        count = int(count_str)
+        factor = conversion_factors[unit]
+
+        if operator == '+':
+            total_mass += count * factor
+        elif operator == '-':
+            total_mass -= count * factor
+        else:
+            raise ValueError(f"Unsupported operator: {operator}")
+
+    # Check if the total mass is a whole number in the goal unit
+    if total_mass % conversion_factors[unit] != 0:
+        raise ValueError("Total mass does not come out whole in the goal unit.")
+
+    return total_mass
+```

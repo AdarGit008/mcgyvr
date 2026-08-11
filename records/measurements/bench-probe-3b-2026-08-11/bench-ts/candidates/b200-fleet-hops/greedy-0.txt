@@ -1,0 +1,20 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (count <= 0 || hop < 0) throw new Error("Invalid input: count and hop must be positive numbers.");
+  if (!Array.isArray(lts) || !Array.isArray(builds)) throw new Error("Invalid input: lts and builds must be arrays.");
+
+  const sortedLts = [...lts].sort((a, b) => a - b);
+  const validBuilds = builds.filter(build => build >= 0 && build < count);
+
+  if (validBuilds.length === 0) return 0;
+
+  let totalHops = 0;
+  for (const build of validBuilds) {
+    const index = sortedLts.findIndex(lt => lt > build);
+    const nextRelease = index !== -1 ? sortedLts[index] : count;
+    totalHops += Math.min(hop, nextRelease - build);
+  }
+
+  return totalHops;
+}
+```

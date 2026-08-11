@@ -1,0 +1,62 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+def replay_notepad(commands):
+    buffer = ""
+    past = []
+    future = []
+
+    def validate_command(command):
+        if not isinstance(command, list) or len(command) != 2:
+            raise ValueError("Command must be a list of two elements.")
+        
+        action = command[0]
+        if action == "type":
+            text = command[1]
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError("Type text must be a non-empty string.")
+        elif action == "erase":
+            n = command[1]
+            if not isinstance(n, int) or n <= 0:
+                raise ValueError("Erase count must be a positive integer.")
+        elif action == "replace":
+            old = command[1]
+            new = command[2]
+            if not isinstance(old, str) or not isinstance(new, str) or not old.strip() or not new.strip():
+                raise ValueError("Replace texts must be non-empty strings.")
+            if old not in buffer:
+                raise ValueError(f"Replace text '{old}' does not occur in the buffer.")
+        elif action == "undo":
+            k = command[1]
+            if not isinstance(k, int) or k <= 0:
+                raise ValueError("Undo count must be a positive integer.")
+        elif action == "redo":
+            k = command[1]
+            if not isinstance(k, int) or k <= 0:
+                raise ValueError("Redo count must be a positive integer.")
+
+    for command in commands:
+        validate_command(command)
+
+        action = command[0]
+        if action == "type":
+            past.append(buffer)
+            buffer += command[1]
+        elif action == "erase":
+            past.append(buffer)
+            buffer = buffer[: len(buffer) - command[1]]
+        elif action == "replace":
+            past.append(buffer)
+            buffer = buffer.replace(command[1], command[2])
+        elif action == "undo":
+            for _ in range(min(k, len(past))):
+                future.append(buffer)
+                buffer = past.pop()
+        elif action == "redo":
+            for _ in range(min(k, len(future))):
+                past.append(buffer)
+                buffer = future.pop()
+
+    return buffer
+```

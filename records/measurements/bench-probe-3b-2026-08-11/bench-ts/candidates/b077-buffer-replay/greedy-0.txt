@@ -1,0 +1,32 @@
+```ts
+export function replayBuffer(
+  ops: string[],
+  capacity: number,
+): { held: string[]; taken: string[] } {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("capacity must be a positive integer");
+  }
+
+  const held: string[] = [];
+  const taken: string[] = [];
+
+  for (const op of ops) {
+    if (op.startsWith("add:")) {
+      if (held.length >= capacity) {
+        throw new Error("buffer is full");
+      }
+      held.push(op.slice(4));
+    } else if (op === "take") {
+      if (held.length === 0) {
+        taken.push(null); // or handle missing value as needed
+      } else {
+        taken.push(held.shift()!);
+      }
+    } else {
+      throw new Error("unknown operation: " + op);
+    }
+  }
+
+  return { held, taken };
+}
+```

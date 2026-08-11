@@ -1,0 +1,28 @@
+```python
+def meter_draws(draws: list, allowance: int) -> dict:
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    
+    used = {}
+    denied = []
+    
+    for draw in draws:
+        key, units = draw
+        if not isinstance(key, str) or not key:
+            raise ValueError("Key must be a non-empty string.")
+        
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Units count must be a positive integer.")
+        
+        remaining = remaining_for(used, key, allowance)
+        
+        if units > remaining:
+            denied.append(draw)
+        else:
+            used[key] = used.get(key, 0) + units
+    
+    return {"used": used, "denied": denied}
+
+def remaining_for(used: dict, key: str, allowance: int) -> int:
+    return max(allowance - (used.get(key, 0) if key in used else 0), 0)
+```

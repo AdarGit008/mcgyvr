@@ -1,0 +1,35 @@
+```python
+def driest_window(rain: list, width: int) -> int:
+    """
+    Find the starting index of the width-day stretch with the smallest sum in the rain readings.
+
+    :param rain: List of non-negative integers representing daily rainfall readings.
+    :param width: Positive integer representing the number of consecutive days to consider.
+    :return: Starting index of the driest window.
+    :raises ValueError: If rain is not a list, any reading is not an integer, any reading is negative,
+                       width is not a positive whole number, or width is larger than the number of days.
+    """
+    if not isinstance(rain, list):
+        raise ValueError("rain must be a list")
+    
+    for reading in rain:
+        if not isinstance(reading, int) or reading < 0:
+            raise ValueError("all readings must be non-negative integers")
+    
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("width must be a positive whole number")
+    
+    if width > len(rain):
+        raise ValueError("width cannot be larger than the number of days")
+    
+    min_sum = float('inf')
+    min_start = 0
+    
+    for i in range(len(rain) - width + 1):
+        current_sum = sum(rain[i:i+width])
+        if current_sum < min_sum:
+            min_sum = current_sum
+            min_start = i
+    
+    return min_start
+```

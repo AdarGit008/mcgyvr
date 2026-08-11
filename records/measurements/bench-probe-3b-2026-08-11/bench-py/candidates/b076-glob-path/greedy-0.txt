@@ -1,0 +1,35 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    """
+    Match a glob pattern against a slash-separated relative path.
+
+    :param pattern: A string representing the glob pattern to match.
+    :param path: A string representing the relative path to be matched.
+    :return: True if the pattern matches the path, False otherwise.
+    """
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings.")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty.")
+
+    def match_segment(segment: str, pattern: str) -> bool:
+        if not segment:
+            return False
+        if pattern == "?":
+            return len(segment) == 1 and segment != "/"
+        elif pattern == "*":
+            return True
+        else:
+            return segment == pattern
+
+    segments = path.split("/")
+    pattern_segments = pattern.split("/")
+
+    for i in range(len(segments)):
+        if i >= len(pattern_segments):
+            return False
+        if not match_segment(segments[i], pattern_segments[i]):
+            return False
+
+    return True
+```

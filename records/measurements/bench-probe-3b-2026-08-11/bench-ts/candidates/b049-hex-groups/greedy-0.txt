@@ -1,0 +1,20 @@
+```ts
+export function hexGroups(values: number[], width: number): string {
+  if (!Array.isArray(values) || !values.every(v => typeof v === 'number' && v >= 0 && v <= 255)) {
+    throw new Error("Invalid values array");
+  }
+  if (typeof width !== 'number' || width <= 0) {
+    throw new Error("Width must be a positive integer");
+  }
+
+  return values
+    .map(v => v.toString(16).padStart(2, '0'))
+    .reduce((acc, hex, index) => {
+      if (index % width === 0 && acc.length > 0) {
+        acc += " ";
+      }
+      acc += hex;
+      return acc;
+    }, "");
+}
+```

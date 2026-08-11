@@ -1,0 +1,31 @@
+```typescript
+type Tally = { first: number; second: number; taken: number[] };
+
+export function endGrab(cards: number[]): Tally {
+  if (cards.length === 0) return { first: 0, second: 0, taken: [] };
+  
+  let firstTotal = 0;
+  let secondTotal = 0;
+  const taken: number[] = [];
+
+  while (cards.length > 0) {
+    const [leftCard, rightCard] = cards.slice(0, 2);
+    
+    if (leftCard === undefined || rightCard === undefined) {
+      throw new Error("Invalid input: cards array must contain at least two elements.");
+    }
+
+    if (leftCard >= rightCard) {
+      firstTotal += leftCard;
+      taken.push(leftCard);
+      cards = cards.slice(1);
+    } else {
+      secondTotal += rightCard;
+      taken.push(rightCard);
+      cards = cards.slice(2);
+    }
+  }
+
+  return { first: firstTotal, second: secondTotal, taken };
+}
+```

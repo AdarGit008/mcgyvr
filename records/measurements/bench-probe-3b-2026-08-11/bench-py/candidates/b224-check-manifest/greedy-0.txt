@@ -1,0 +1,36 @@
+```python
+def check_manifest(line: dict) -> dict:
+    """
+    Vets a shipping manifest line for valid keys and values.
+    
+    Args:
+        line (dict): The manifest line to vet.
+
+    Returns:
+        dict: A fresh mapping holding exactly sku, count, and note.
+    """
+    if not isinstance(line, dict):
+        raise ValueError("Input must be a dictionary.")
+    
+    required_keys = {'sku', 'count', 'note'}
+    missing_keys = required_keys - line.keys()
+    extra_keys = line.keys() - required_keys
+    
+    if missing_keys:
+        raise ValueError(f"Missing keys: {missing_keys}")
+    if extra_keys:
+        raise ValueError(f"Extra keys: {extra_keys}")
+    
+    sku = line.get('sku', '')
+    count = line.get('count', 0)
+    note = line.get('note', '')
+    
+    if not isinstance(sku, str) or not sku.strip():
+        raise ValueError("Invalid sku: must be a non-empty string.")
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("Invalid count: must be a positive whole number.")
+    if not isinstance(note, str):
+        raise ValueError("Invalid note: must be a string.")
+    
+    return {'sku': sku.strip(), 'count': count, 'note': note}
+```

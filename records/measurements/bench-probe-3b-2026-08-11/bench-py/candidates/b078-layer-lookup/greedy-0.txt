@@ -1,0 +1,38 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    """
+    Retrieve the effective value of a configuration name from ordered layers.
+
+    :param layers: List of strings representing configuration layers.
+    :param name: String representing the configuration name to retrieve.
+    :return: The effective value as a string or None if not found or unset.
+    """
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("Layers must be a list of strings.")
+    
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string.")
+
+    config = {}
+    current_layer = 0
+
+    while current_layer < len(layers):
+        lines = layers[current_layer].splitlines()
+        
+        for line in lines:
+            trimmed_line = line.strip()
+
+            if not trimmed_line or trimmed_line.startswith('#'):
+                continue
+
+            if '=' in trimmed_line:
+                key, value = trimmed_line.split('=', 1)
+                config[key.strip()] = value.strip()
+            elif trimmed_line.startswith('!'):
+                if trimmed_line[1:].strip() in config:
+                    del config[trimmed_line[1:].strip()]
+
+        current_layer += 1
+
+    return config.get(name, None)
+```

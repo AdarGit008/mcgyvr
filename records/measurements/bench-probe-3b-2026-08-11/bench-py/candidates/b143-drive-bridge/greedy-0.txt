@@ -1,0 +1,30 @@
+```python
+def drive_bridge(commands: list) -> str:
+    """
+    Apply a sequence of commands to a canal drawbridge and return its final state.
+
+    :param commands: List of strings representing bridge commands ('raise', 'lower', 'lock', 'unlock').
+    :return: The final state of the bridge as a string ('lowered', 'raised', 'locked').
+    """
+    if not isinstance(commands, list):
+        raise ValueError("Commands must be a list.")
+    
+    states = ['lowered']
+    for command in commands:
+        if command not in ['raise', 'lower', 'lock', 'unlock']:
+            raise ValueError(f"Invalid command: {command}.")
+        
+        current_state = states[-1]
+        if command == 'raise' and current_state != 'lowered':
+            raise ValueError("Cannot raise a raised span.")
+        elif command == 'lower' and current_state != 'raised':
+            raise ValueError("Cannot lower a lowered span.")
+        elif command == 'lock' and current_state != 'raised':
+            raise ValueError("Cannot lock a raised span.")
+        elif command == 'unlock' and current_state != 'locked':
+            raise ValueError("Cannot unlock a locked span.")
+        
+        states.append(command)
+    
+    return states[-1]
+```

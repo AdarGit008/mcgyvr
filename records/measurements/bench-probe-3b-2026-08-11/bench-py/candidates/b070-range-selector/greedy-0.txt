@@ -1,0 +1,37 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    """
+    Counts how many values in the given list match at least one term in the selector.
+    
+    :param values: List of integers to be checked against the selector.
+    :param selector: String representing terms separated by commas. Each term is either a single integer or two integers joined by a hyphen.
+    :return: Number of values that match at least one term in the selector.
+    """
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("values must be a list of integers.")
+    
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string.")
+    
+    def parse_term(term: str) -> tuple[int, int]:
+        parts = term.split('-')
+        if len(parts) != 2:
+            raise ValueError(f"Invalid term format: {term}")
+        
+        low, high = map(int, parts)
+        if low > high:
+            raise ValueError(f"Range low end exceeds high end in term: {term}")
+        
+        return (low, high)
+    
+    def matches(value: int, terms: list[tuple[int, int]]) -> bool:
+        for low, high in terms:
+            if low <= value <= high:
+                return True
+        return False
+    
+    terms = [parse_term(term) for term in selector.split(',')]
+    count = sum(matches(value, terms) for value in values)
+    
+    return count
+```

@@ -1,0 +1,78 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  // Validate every rule and path with splitStrict
+  rules.forEach((rule, index) => {
+    if (typeof rule !== "string" || rule === "") {
+      throw new Error(`Rule at index ${index} must be a non-empty string`);
+    }
+    const segments = splitStrict(rule, `Rule at index ${index}`);
+    if (!segments.every(segment => segment !== "")) {
+      throw new Error(`Rule at index ${index} has an empty segment: ${rule}`);
+    }
+  });
+
+  listing.forEach((path, index) => {
+    if (typeof path !== "string" || path === "") {
+      throw new Error(`Path at index ${index} must be a non-empty string`);
+    }
+    const segments = splitStrict(path, `Path at index ${index}`);
+    if (!segments.every(segment => segment !== "")) {
+      throw new Error(`Path at index ${index} has an empty segment: ${path}`);
+    }
+  });
+
+  // Prune the listing
+  return rules.reduce((acc, rule) => {
+    const keep = rule.startsWith("!");
+    const segments = splitStrict(rule, "Rule");
+    if (keep) {
+      return acc.filter(path => {
+        const pathSegments = splitStrict(path, "Path");
+        return pathSegments.every((segment, i) => segment === segments[i] || segments[i] === "*");
+      });
+    } else {
+      return acc.filter(path => !segments.some((segment, i) => segment !== "*" && segment !== pathSegments[i]));
+    }
+  }, listing);
+}
+```

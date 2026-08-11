@@ -1,0 +1,51 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || !text) {
+    throw new Error('Invalid input: must be a non-empty string.');
+  }
+
+  const units = { g: 1000, kg: 1, t: 1000000 };
+  const validUnits = Object.keys(units);
+
+  if (!validUnits.includes(unit)) {
+    throw new Error(`Invalid unit: ${unit}. Must be one of ${validUnits.join(', ')}`);
+  }
+
+  const terms = text.split(' ');
+  if (terms.length % 2 !== 1) {
+    throw new Error('Invalid tally format: terms and operators must alternate ending on a term.');
+  }
+
+  let total = 0;
+  for (let i = 0; i < terms.length; i += 2) {
+    const countStr = terms[i];
+    const operator = terms[i + 1];
+
+    if (!/^\d+$/.test(countStr)) {
+      throw new Error(`Invalid term: ${countStr}. Must be a plain count.`);
+    }
+
+    const count = parseInt(countStr, 10);
+    if (isNaN(count) || count < 0) {
+      throw new Error('Invalid term: count must be a non-negative integer.');
+    }
+
+    let unitMultiplier = units[unit];
+    if (operator === '-') {
+      unitMultiplier *= -1;
+    }
+
+    total += count * unitMultiplier;
+
+    // Check for draw below zero
+    if (total < 0) {
+      throw new Error('Invalid tally: cannot dip below zero.');
+    }
+  }
+
+  const goalUnitMultiplier = units[unit];
+  const result = Math.round(total / goalUnitMultiplier);
+
+  return result;
+}
+```

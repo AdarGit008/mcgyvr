@@ -1,0 +1,59 @@
+```ts
+export function forkPaths(pattern: string): string[] {
+  if (typeof pattern !== 'string' || !pattern) {
+    throw new Error('Pattern must be a non-empty string');
+  }
+
+  const paths: string[] = [];
+  let currentPath = '';
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (char === '{') {
+      // Start of a fork
+      if (currentPath) {
+        paths.push(currentPath);
+        currentPath = '';
+      }
+      let options: string[] = [];
+      let option = '';
+
+      while (i < pattern.length && pattern[i] !== '}') {
+        const nextChar = pattern[++i];
+        if (nextChar === ',') {
+          // End of an option
+          options.push(option);
+          option = '';
+        } else if (nextChar === '{' || nextChar === '}' || nextChar === ',') {
+          throw new Error('Invalid character inside a fork');
+        } else {
+          // Add to the current option
+          option += nextChar;
+        }
+      }
+
+      if (!option) {
+        throw new Error('Empty option in fork');
+      }
+      options.push(option);
+
+      for (const opt of options) {
+        paths.push(currentPath + opt);
+      }
+    } else if (char === '}') {
+      // End of a fork
+      throw new Error('Unmatched closing curly brace');
+    } else {
+      // Add to the current path
+      currentPath += char;
+    }
+  }
+
+  if (currentPath) {
+    paths.push(currentPath);
+  }
+
+  return paths;
+}
+```

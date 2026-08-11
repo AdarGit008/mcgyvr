@@ -1,0 +1,20 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error('Invalid tag format');
+  }
+
+  const [major, minor, patch] = version.split('.').map(Number);
+
+  switch (part) {
+    case 'major':
+      return `${major + 1}.0.0`;
+    case 'minor':
+      return `${major}.${minor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${patch + 1}`;
+    default:
+      throw new Error('Invalid part name');
+  }
+}
+```

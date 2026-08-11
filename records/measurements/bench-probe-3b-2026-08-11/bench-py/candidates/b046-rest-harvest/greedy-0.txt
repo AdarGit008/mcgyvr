@@ -1,0 +1,28 @@
+```python
+def best_harvest(yields: list) -> int:
+    """
+    Calculate the maximum total yield from an orchard's daily yields,
+    given that no two consecutive days can be worked.
+    
+    :param yields: List of non-negative integers representing daily yields in kilos.
+    :return: Maximum total yield possible under the given constraints.
+    """
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    
+    for yield_ in yields:
+        if not isinstance(yield_, int) or yield_ < 0:
+            raise ValueError("Yields must be non-negative integers.")
+    
+    # Initialize the maximum yield and the current yield
+    max_yield = 0
+    current_yield = 0
+    
+    # Iterate over the yields, skipping every second day
+    for i in range(0, len(yields), 2):
+        current_yield += yields[i]
+        if current_yield > max_yield:
+            max_yield = current_yield
+    
+    return max_yield
+```

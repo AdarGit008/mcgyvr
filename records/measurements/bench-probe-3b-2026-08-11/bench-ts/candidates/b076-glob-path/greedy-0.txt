@@ -1,0 +1,43 @@
+```ts
+export function globPath(pattern: string, path: string): boolean {
+  if (typeof pattern !== 'string' || typeof path !== 'string') {
+    throw new Error('Both pattern and path must be strings.');
+  }
+  if (!pattern || !path) {
+    throw new Error('Pattern and path cannot be empty.');
+  }
+
+  const patternParts = pattern.split('*');
+  const pathParts = path.split('/');
+
+  if (patternParts.length !== pathParts.length + 1) {
+    return false;
+  }
+
+  for (let i = 0; i < patternParts.length - 1; i++) {
+    const part = patternParts[i];
+    const segment = pathParts[i];
+
+    if (part === '?') {
+      if (!segment || segment.includes('/')) {
+        return false;
+      }
+    } else if (part !== segment) {
+      return false;
+    }
+  }
+
+  const lastPart = patternParts[patternParts.length - 1];
+  const lastSegment = pathParts[pathParts.length - 1];
+
+  if (lastPart === '*') {
+    return true;
+  } else if (!lastSegment || lastSegment.includes('/')) {
+    return false;
+  } else if (lastPart !== lastSegment) {
+    return false;
+  }
+
+  return true;
+}
+```

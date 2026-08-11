@@ -1,0 +1,45 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    """
+    Merge two independently edited copies of a ledger into one.
+
+    :param base: The common base ledger.
+    :param ours: A copy of the ledger with edits made by 'ours'.
+    :param theirs: A copy of the ledger with edits made by 'theirs'.
+    :return: The merged ledger sorted by account name.
+    """
+    if not all(isinstance(x, list) and len(x) == 2 for x in [base, ours, theirs]):
+        raise ValueError("All inputs must be lists of two-item pairs.")
+
+    def parse_ledger(ledger):
+        accounts = {}
+        for entry in ledger:
+            account, cents = entry
+            if not isinstance(account, str) or not account.strip():
+                raise ValueError("Account name must be a non-empty string.")
+            if not isinstance(cents, int):
+                raise ValueError("Cents value must be an integer.")
+            accounts[account] = cents
+        return accounts
+
+    base_accounts = parse_ledger(base)
+    ours_accounts = parse_ledger(ours)
+    theirs_accounts = parse_ledger(theirs)
+
+    merged_accounts = {}
+
+    for account in set(base_accounts.keys()).union(set(ours_accounts.keys())).union(set(theirs_accounts.keys())):
+        if account in base_accounts and account in ours_accounts and account in theirs_accounts:
+            merged_accounts[account] = base_accounts[account] + ours_accounts[account] + theirs_accounts[account]
+        elif account in base_accounts and account in ours_accounts:
+            merged_accounts[account] = base_accounts[account] + ours_accounts[account]
+        elif account in base_accounts and account in theirs_accounts:
+            merged_accounts[account] = base_accounts[account] + theirs_accounts[account]
+        elif account in ours_accounts and account in theirs_accounts:
+            merged_accounts[account] = ours_accounts[account] + theirs_accounts[account]
+        else:
+            if account in base_accounts or account in ours_accounts or account in theirs_accounts:
+                merged_accounts[account] = 0
+
+    return sorted(merged_accounts.items(), key=lambda x: x[0])
+```

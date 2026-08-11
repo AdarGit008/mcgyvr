@@ -1,0 +1,44 @@
+```ts
+export function countTrails(rows: number, cols: number, blocked: number[][]): number {
+  if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
+    throw new Error("rows and cols must be whole numbers of at least one.");
+  }
+
+  const blockedSet = new Set<string>();
+  for (const [row, col] of blocked) {
+    if (!Array.isArray(blocked[row]) || blocked[row].length !== 2) {
+      throw new Error("Each blocked entry must be a two-item list.");
+    }
+    if (blocked[row][0] < 0 || blocked[row][0] >= rows || blocked[row][1] < 0 || blocked[row][1] >= cols) {
+      throw new Error("Blocked cell outside the grid.");
+    }
+    if ((row === 0 && col === 0) || (row === rows - 1 && col === cols - 1)) {
+      throw new Error("Rope across the entrance or exit cell.");
+    }
+    blockedSet.add(`${row},${col}`);
+  }
+
+  const memo: Map<string, number> = new Map();
+
+  function countTrailsHelper(row: number, col: number): number {
+    if (row === rows - 1 && col === cols - 1) return 1;
+    if (blockedSet.has(`${row},${col}`)) return 0;
+
+    const key = `${row},${col}`;
+    if (memo.has(key)) return memo.get(key)!;
+
+    let count = 0;
+    if (row < rows - 1) {
+      count += countTrailsHelper(row + 1, col);
+    }
+    if (col < cols - 1) {
+      count += countTrailsHelper(row, col + 1);
+    }
+
+    memo.set(key, count);
+    return count;
+  }
+
+  return countTrailsHelper(0, 0);
+}
+```

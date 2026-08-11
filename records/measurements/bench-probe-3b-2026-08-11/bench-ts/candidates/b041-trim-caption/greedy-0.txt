@@ -1,0 +1,24 @@
+```ts
+export function trimCaption(text: string, limit: number): string {
+  if (typeof text !== 'string' || typeof limit !== 'number') {
+    throw new Error('Invalid input types');
+  }
+  if (limit <= 0) {
+    throw new Error('Limit must be a positive whole number');
+  }
+
+  const trimmedText = text.trim();
+  if (trimmedText.length <= limit) {
+    return trimmedText;
+  }
+
+  let result = trimmedText.slice(0, limit - 1);
+  const lastSpaceIndex = result.lastIndexOf(' ');
+
+  if (lastSpaceIndex !== -1 && lastSpaceIndex < limit - 2) {
+    result = result.slice(0, lastSpaceIndex + 1);
+  }
+
+  return result + '…';
+}
+```

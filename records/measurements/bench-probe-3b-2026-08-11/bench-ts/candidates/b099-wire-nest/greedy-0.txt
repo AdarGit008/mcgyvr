@@ -1,0 +1,21 @@
+```ts
+export function wireText(text: string): string {
+  if (typeof text !== 'string' || /\n/.test(text)) {
+    throw new Error('Invalid text');
+  }
+  return `s${text.length}:${text}`;
+}
+
+export function wireValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return wireText(value);
+  } else if (typeof value === 'number' && Number.isInteger(value)) {
+    const sign = value < 0 ? '-' : '';
+    return `n${sign}${Math.abs(value)}`;
+  } else if (Array.isArray(value)) {
+    return `[${value.map(wireValue).join(';')}]`;
+  } else {
+    throw new Error('Invalid value');
+  }
+}
+```

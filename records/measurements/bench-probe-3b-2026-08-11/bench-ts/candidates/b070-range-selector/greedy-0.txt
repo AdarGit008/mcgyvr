@@ -1,0 +1,29 @@
+```typescript
+export function selectorHits(values: number[], selector: string): number {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) {
+    throw new Error("Values must be a list of integers.");
+  }
+  if (typeof selector !== "string" || selector.trim() === "") {
+    throw new Error("Selector must be a non-empty string.");
+  }
+
+  const terms = selector.split(",").map(term => term.trim());
+  for (const term of terms) {
+    if (!/^\d+(-\d+)?$/.test(term)) {
+      throw new Error(`Invalid term: ${term}`);
+    }
+  }
+
+  let count = 0;
+  for (const value of values) {
+    if (terms.some(term => {
+      const [low, high] = term.split("-").map(Number);
+      return low <= value && (high === undefined || value <= high);
+    })) {
+      count++;
+    }
+  }
+
+  return count;
+}
+```

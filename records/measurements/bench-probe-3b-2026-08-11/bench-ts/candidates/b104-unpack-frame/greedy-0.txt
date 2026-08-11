@@ -1,0 +1,21 @@
+```ts
+export function unpackFrame(bytes: number[]): number[] {
+  if (!Array.isArray(bytes) || bytes.length === 0) {
+    throw new Error("Input must be a non-empty array of numbers.");
+  }
+
+  const [headerVarint, ...readingVarints] = bytes;
+  const trailerByte = readingVarints.pop();
+
+  if (trailerByte === undefined) {
+    throw new Error("Frame must end with exactly one trailer byte.");
+  }
+
+  const totalSum = headerVarint + readingVarints.reduce((sum, varint) => sum + varint, 0);
+  if (totalSum !== trailerByte) {
+    throw new Error("Trailer does not equal the byte sum.");
+  }
+
+  return readingVarints;
+}
+```

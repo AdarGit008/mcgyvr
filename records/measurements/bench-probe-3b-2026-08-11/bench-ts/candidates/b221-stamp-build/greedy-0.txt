@@ -1,0 +1,21 @@
+```ts
+export function stampBuild(major: number, minor: number, patch: number): number {
+  if (
+    typeof major !== 'number' ||
+    typeof minor !== 'number' ||
+    typeof patch !== 'number' ||
+    !Number.isInteger(major) ||
+    !Number.isInteger(minor) ||
+    !Number.isInteger(patch) ||
+    major < 0 ||
+    minor < 0 ||
+    patch < 0 ||
+    minor >= 1000 ||
+    patch >= 1000
+  ) {
+    throw new Error('Invalid component: must be a whole number, not negative, and within valid range.');
+  }
+
+  return patch + (minor * 1000) + (major * 1000000);
+}
+```

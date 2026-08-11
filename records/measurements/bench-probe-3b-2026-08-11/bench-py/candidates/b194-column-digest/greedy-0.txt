@@ -1,0 +1,28 @@
+```python
+def column_digest(rows: list, column: int) -> dict:
+    """
+    Summarize the column at the given zero-based index in a sheet of ragged rows.
+
+    :param rows: List of lists containing numbers, where each inner list represents a row.
+    :param column: Zero-based index of the column to summarize.
+    :return: A dictionary with fields 'count', 'min', 'max', 'mean', and 'median'.
+    """
+    if not rows or column < 0:
+        raise ValueError("Invalid input: rows must be non-empty and column must be non-negative.")
+
+    values = [row[column] for row in rows if len(row) > column]
+    
+    count = len(values)
+    min_value = float('inf') if count == 0 else min(values)
+    max_value = float('-inf') if count == 0 else max(values)
+    mean_value = sum(values) / count if count > 0 else 0
+    median_value = sorted(values)[count // 2] if count % 2 != 0 else (sorted(values)[count // 2 - 1] + sorted(values)[count // 2]) / 2
+
+    return {
+        'count': count,
+        'min': round(min_value, 2),
+        'max': round(max_value, 2),
+        'mean': round(mean_value, 2),
+        'median': round(median_value, 2)
+    }
+```

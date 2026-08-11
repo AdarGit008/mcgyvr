@@ -1,0 +1,29 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    def parse_mark(mark: str) -> list[int]:
+        if not isinstance(mark, str):
+            raise ValueError("Mark must be a string.")
+        
+        parts = mark.split('.')
+        if not all(part.isdigit() for part in parts):
+            raise ValueError("Mark contains invalid characters.")
+        
+        return [int(part) for part in parts]
+
+    try:
+        mark_a = parse_mark(a)
+        mark_b = parse_mark(b)
+
+        for i in range(max(len(mark_a), len(mark_b))):
+            if i >= len(mark_a):
+                return 1
+            elif i >= len(mark_b):
+                return -1
+            if mark_a[i] != mark_b[i]:
+                return mark_a[i] - mark_b[i]
+
+        return 0
+
+    except ValueError as e:
+        raise ValueError(f"Invalid mark: {e}")
+```

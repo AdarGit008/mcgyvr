@@ -1,0 +1,22 @@
+```ts
+export function orderReleaseTags(tags: string[]): string[] {
+  return tags.slice().sort((a, b) => {
+    const [ma, mi, pa] = a.split('.').map(Number);
+    const [mb, mi2, pa2] = b.split('.').map(Number);
+
+    if (ma !== mb) return ma - mb;
+    if (mi !== mi2) return mi - mi2;
+    if (pa !== pa2) return pa - pa2;
+
+    // Handle preview labels
+    const [aPreviewLabel, aNumber] = a.match(/-(\w+)(\d*)/)?.[1] && [a.match(/-(\w+)(\d*)/)[1], parseInt(a.match(/-(\w+)(\d*)/)[2])] || ['', 0];
+    const [bPreviewLabel, bNumber] = b.match(/-(\w+)(\d*)/)?.[1] && [b.match(/-(\w+)(\d*)/)[1], parseInt(b.match(/-(\w+)(\d*)/)[2])] || ['', 0];
+
+    if (aPreviewLabel !== bPreviewLabel) return aPreviewLabel.localeCompare(bPreviewLabel);
+    if (aNumber !== bNumber) return aNumber - bNumber;
+
+    // If all else fails, tags are equal
+    return 0;
+  });
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function pathHops(start: string, goal: string): number {
+  const parsePath = (path: string): string[] => {
+    return path.split('/').filter(segment => segment !== '' && segment !== '.');
+  };
+
+  const reducePath = (path: string[]): string[] => {
+    let i = 0;
+    while (i < path.length && path[i] === '..') {
+      if (i > 0) path.splice(i - 1, 2);
+      else throw new Error("Invalid path: cannot climb above the shared root");
+      i--;
+    }
+    return path;
+  };
+
+  const findSharedPrefix = (path1: string[], path2: string[]): number => {
+    let j = 0;
+    while (j < path1.length && j < path2.length && path1[j] === path2[j]) j++;
+    return j;
+  };
+
+  const startSegments = reducePath(parsePath(start));
+  const goalSegments = reducePath(parsePath(goal));
+
+  const sharedPrefixLength = findSharedPrefix(startSegments, goalSegments);
+
+  return (startSegments.length - sharedPrefixLength) + (goalSegments.length - sharedPrefixLength);
+}
+```

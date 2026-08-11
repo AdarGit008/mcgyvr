@@ -1,0 +1,27 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if count <= 0 or hop < 0:
+        raise ValueError("count and hop must be positive integers")
+    
+    # Convert lts to a set for O(1) lookups
+    lts_set = set(lts)
+    
+    total_hops = 0
+    
+    for build in builds:
+        if not (0 <= build < count):
+            raise ValueError(f"build {build} is out of range")
+        
+        # Find the lowest long-term-support release strictly above build
+        next_lts = min([release for release in lts_set if release > build], default=count)
+        
+        # Calculate hops needed to reach the next LTS or the newest release
+        hops_to_next_lts = next_lts - build
+        
+        # If hop is greater than 0, use it; otherwise, use the calculated hops
+        hops = min(hop, hops_to_next_lts)
+        
+        total_hops += hops
+    
+    return total_hops
+```

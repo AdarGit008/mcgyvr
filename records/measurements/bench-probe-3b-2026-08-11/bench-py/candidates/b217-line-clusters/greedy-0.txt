@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def line_clusters(stops: List[str], links: List[tuple[str, str]]) -> List[List[str]]:
+    """
+    Return clusters of stops based on track segments. Each cluster is a list of stop names sorted alphabetically,
+    and the clusters are ordered by their alphabetically first stop.
+    """
+    if not stops:
+        return []
+
+    # Create a set for quick lookup
+    stop_set = set(stops)
+
+    # Build an adjacency list to represent the graph
+    graph = {stop: [] for stop in stop_set}
+    for from_stop, to_stop in links:
+        graph[from_stop].append(to_stop)
+        graph[to_stop].append(from_stop)
+
+    def dfs(stop, visited):
+        if stop not in visited:
+            visited.add(stop)
+            clusters.append([stop])
+            for neighbor in graph[stop]:
+                dfs(neighbor, visited)
+
+    # Find all connected components
+    clusters = []
+    for stop in stop_set:
+        if stop not in visited:
+            dfs(stop, set())
+
+    # Sort each cluster alphabetically and return the list of clusters
+    return sorted(clusters, key=lambda x: x[0])
+```

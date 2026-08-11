@@ -1,0 +1,22 @@
+```ts
+type Digest = { count: number; min: number; max: number; mean: number; median: number };
+
+export function columnDigest(rows: number[][], column: number): Digest {
+  if (column < 0) throw new Error("Column index must be non-negative");
+
+  const values = rows.flatMap(row => row.slice(0, column + 1)).filter(Boolean);
+
+  if (values.length === 0) return { count: 0, min: 0, max: 0, mean: 0, median: 0 };
+
+  const count = values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const sum = values.reduce((acc, val) => acc + val, 0);
+  const mean = parseFloat(sum / count.toFixed(2));
+  const median = (count % 2 === 1)
+    ? values[Math.floor(count / 2)]
+    : (values[count / 2 - 1] + values[count / 2]) / 2;
+
+  return { count, min, max, mean, median };
+}
+```

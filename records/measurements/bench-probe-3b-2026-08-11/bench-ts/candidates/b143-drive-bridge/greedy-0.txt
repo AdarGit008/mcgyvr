@@ -1,0 +1,39 @@
+```ts
+export function driveBridge(commands: string[]): string {
+  if (!Array.isArray(commands)) {
+    throw new Error("commands must be an array");
+  }
+
+  const states = ["lowered", "raised", "locked"];
+  let currentState = "lowered";
+
+  for (const command of commands) {
+    if (!states.includes(command)) {
+      throw new Error(`Invalid command: ${command}`);
+    }
+
+    switch (currentState) {
+      case "lowered":
+        if (command !== "raise") {
+          throw new Error(`Cannot perform command: ${command} in lowered state`);
+        }
+        currentState = "raised";
+        break;
+      case "raised":
+        if (command === "lock" || command === "unlock") {
+          throw new Error(`Cannot perform command: ${command} in raised state`);
+        }
+        currentState = command;
+        break;
+      case "locked":
+        if (command !== "unlock") {
+          throw new Error(`Cannot perform command: ${command} in locked state`);
+        }
+        currentState = "raised";
+        break;
+    }
+  }
+
+  return currentState;
+}
+```

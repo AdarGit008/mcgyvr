@@ -1,0 +1,35 @@
+```python
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    """
+    Calculate the number of distinct routes from the top-left to the bottom-right cell
+    on a grid, avoiding roped-off cells. Returns 0 if no valid paths exist.
+    """
+
+    # Validate input parameters
+    if not isinstance(rows, int) or rows < 1:
+        raise ValueError("rows must be a whole number of at least one.")
+    if not isinstance(cols, int) or cols < 1:
+        raise ValueError("cols must be a whole number of at least one.")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists.")
+    for row, col in blocked:
+        if not (0 <= row < rows and 0 <= col < cols):
+            raise ValueError(f"Blocked cell ({row}, {col}) is outside the grid.")
+        if row == 0 and col == 0 or row == rows - 1 and col == cols - 1:
+            raise ValueError("Rope cannot cross the entrance or exit cell.")
+
+    # Initialize a DP table to store the number of trails
+    dp = [[0] * (cols + 1) for _ in range(rows + 1)]
+
+    # Base case: there is one trail from the top-left corner to itself
+    dp[0][0] = 1
+
+    # Fill the DP table
+    for r in range(1, rows + 1):
+        for c in range(1, cols + 1):
+            if (r, c) not in blocked:
+                dp[r][c] = dp[r - 1][c] + dp[r][c - 1]
+
+    # The number of trails from the top-left to the bottom-right is stored in dp[rows][cols]
+    return dp[rows][cols]
+```

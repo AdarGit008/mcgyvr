@@ -1,0 +1,17 @@
+```typescript
+export function checkManifest(line: Record<string, unknown>): Record<string, unknown> {
+  if (typeof line !== 'object' || Array.isArray(line)) {
+    throw new Error('Input must be an object');
+  }
+
+  const sku = typeof line.sku === 'string' ? line.sku.trim() : '';
+  if (!sku || !/^[a-zA-Z0-9]+$/.test(sku)) {
+    throw new Error('Invalid SKU format');
+  }
+
+  const count = typeof line.count === 'number' && Number.isInteger(line.count) && line.count > 0 ? line.count : 0;
+  const note = typeof line.note === 'string' ? line.note : '';
+
+  return { sku, count, note };
+}
+```

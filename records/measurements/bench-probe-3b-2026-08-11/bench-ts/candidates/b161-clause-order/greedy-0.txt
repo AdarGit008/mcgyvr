@@ -1,0 +1,44 @@
+```ts
+export function clauseOrder(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both inputs must be strings.');
+  }
+
+  const parseMark = (mark: string): [number[], boolean] => {
+    const parts = mark.split('.');
+    const numbers: number[] = [];
+    let hasLeadingZero = false;
+
+    for (const part of parts) {
+      if (!part.match(/^\d+$/)) {
+        throw new Error('Invalid character in mark.');
+      }
+      const num = parseInt(part, 10);
+      if (num < 0 || num === NaN) {
+        throw new Error('Mark contains a negative number or NaN.');
+      }
+      numbers.push(num);
+    }
+
+    return [numbers, hasLeadingZero];
+  };
+
+  const [aNumbers, aHasLeadingZero] = parseMark(a);
+  const [bNumbers, bHasLeadingZero] = parseMark(b);
+
+  if (aHasLeadingZero && !bHasLeadingZero) {
+    return -1;
+  }
+  if (!aHasLeadingZero && bHasLeadingZero) {
+    return 1;
+  }
+
+  for (let i = 0; i < Math.min(aNumbers.length, bNumbers.length); i++) {
+    if (aNumbers[i] !== bNumbers[i]) {
+      return aNumbers[i] > bNumbers[i] ? 1 : -1;
+    }
+  }
+
+  return aNumbers.length === bNumbers.length ? 0 : aNumbers.length > bNumbers.length ? 1 : -1;
+}
+```

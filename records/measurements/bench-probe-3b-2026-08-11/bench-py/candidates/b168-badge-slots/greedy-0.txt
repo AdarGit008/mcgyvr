@@ -1,0 +1,46 @@
+```python
+def badge_text(pattern: str, fields: dict) -> str:
+    """
+    Print a visitor badge from a pattern with slots replaced by field values.
+
+    :param pattern: A string containing slots in the format <field_name>.
+    :param fields: A dictionary mapping field names to their corresponding values.
+    :return: The printed text after replacing slots with field values.
+    :raises ValueError: If the pattern is invalid or contains errors.
+    """
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string.")
+    
+    # Check for closing angle brackets outside any slot
+    if pattern.count('>') != pattern.count('<'):
+        raise ValueError("Closing angle bracket outside any slot.")
+    
+    # Check for opening angle brackets that are never closed
+    open_brackets = [i for i, char in enumerate(pattern) if char == '<']
+    close_brackets = [i for i, char in enumerate(pattern) if char == '>']
+    if len(open_brackets) != len(close_brackets):
+        raise ValueError("Opening angle bracket is never closed.")
+    
+    # Check slot names
+    slots = pattern.split('<')
+    for slot in slots:
+        if not slot or not slot.islower():
+            raise ValueError(f"Invalid slot name: {slot}")
+    
+    # Replace slots with field values
+    result = []
+    i = 0
+    for char in pattern:
+        if char == '<':
+            field_name = ''
+            while i < len(pattern) and pattern[i].islower():
+                field_name += pattern[i]
+                i += 1
+            if field_name not in fields:
+                raise ValueError(f"Field name {field_name} does not exist.")
+            result.append(fields[field_name])
+        else:
+            result.append(char)
+    
+    return ''.join(result)
+```

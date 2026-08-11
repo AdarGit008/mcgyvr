@@ -1,0 +1,20 @@
+```ts
+export function shelfFit(widths: number[], shelf: number): number {
+  if (!Array.isArray(widths) || widths.some((w) => typeof w !== 'number' || w <= 0)) {
+    throw new Error('Invalid widths list');
+  }
+  if (typeof shelf !== 'number' || shelf < 0) {
+    throw new Error('Invalid shelf width');
+  }
+
+  let totalWidth = 0;
+  for (const width of widths) {
+    if (totalWidth + width > shelf) {
+      break;
+    }
+    totalWidth += width;
+  }
+
+  return totalWidth === shelf ? widths.length : totalWidth / shelf;
+}
+```

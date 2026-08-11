@@ -1,0 +1,66 @@
+```ts
+/** The cheapest set of travel passes covering every trip day. */
+
+function validatePlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+
+  const n = tripDays.length;
+  if (n === 0) return { total: 0, purchases: [] };
+
+  // Sort passes by cost and then span
+  passes.sort((a, b) => a.cost - b.cost || a.span - b.span);
+
+  let dp = Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (const pass of passes) {
+    const { span, cost } = pass;
+    for (let i = n; i >= span; i--) {
+      dp[i] = Math.min(dp[i], dp[i - span] + cost);
+    }
+  }
+
+  let total = dp[n];
+  if (total === Infinity) throw new Error("no valid plan found");
+
+  const purchases: number[][] = [];
+  for (let i = n; i > 0; i--) {
+    if (dp[i] !== dp[i - 1]) {
+      purchases.push([i - span + 1, span]);
+      total -= cost;
+    }
+  }
+
+  return { total, purchases };
+}
+```

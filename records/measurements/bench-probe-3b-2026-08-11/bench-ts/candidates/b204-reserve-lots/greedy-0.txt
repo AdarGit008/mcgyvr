@@ -1,0 +1,45 @@
+```ts
+export function reserveLots(lots: [string, string, number][], orders: [string, number][]): { picks: [string, string, number][]; short: [string, number][] } {
+  if (!Array.isArray(lots) || !Array.isArray(orders)) {
+    throw new Error("Input must be arrays of strings and numbers.");
+  }
+
+  const picks: [string, string, number][] = [];
+  const short: [string, number][] = [];
+
+  // Sort lots by use-by date and then lot id
+  lots.sort((a, b) => {
+    if (a[1] === b[1]) {
+      return a[0].localeCompare(b[0]);
+    }
+    return new Date(a[1]).getTime() - new Date(b[1]).getTime();
+  });
+
+  for (const [orderId, unitsWanted] of orders) {
+    let totalUnits = 0;
+    let found = false;
+
+    for (let i = 0; i < lots.length && !found; i++) {
+      const [lotId, useByDate, unitsOnHand] = lots[i];
+
+      if (unitsOnHand > 0) {
+        const unitsToTake = Math.min(unitsWanted, unitsOnHand);
+        totalUnits += unitsToTake;
+        picks.push([orderId, lotId, unitsToTake]);
+
+        if (totalUnits >= unitsWanted) {
+          found = true;
+        } else {
+          lots[i][2] -= unitsToTake; // Update the remaining units in the lot
+        }
+      }
+    }
+
+    if (!found) {
+      short.push([orderId, unitsWanted - totalUnits]);
+    }
+  }
+
+  return { picks, short };
+}
+```

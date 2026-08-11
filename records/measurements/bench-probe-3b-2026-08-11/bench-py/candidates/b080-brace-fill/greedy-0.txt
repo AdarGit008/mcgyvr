@@ -1,0 +1,21 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    def is_valid_placeholder(name: str) -> bool:
+        return name.isalnum() and len(name) > 0
+    
+    def replace_placeholder(match: re.Match) -> str:
+        placeholder_name = match.group(1)
+        if placeholder_name not in values:
+            raise ValueError(f"Unknown placeholder '{placeholder_name}'")
+        return values[placeholder_name]
+    
+    # Use regex to find all placeholders and replace them
+    import re
+    pattern = r'\{([a-zA-Z0-9_]+)\}'
+    result = re.sub(pattern, replace_placeholder, template)
+    
+    return result
+```

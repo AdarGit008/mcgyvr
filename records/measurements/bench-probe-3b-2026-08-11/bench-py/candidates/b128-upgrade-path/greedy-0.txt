@@ -1,0 +1,46 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    def is_valid_tag(tag: str) -> bool:
+        parts = tag.split('.')
+        if len(parts) != 2:
+            return False
+        for part in parts:
+            if not part.isdigit() or (part == '0' and len(part) > 1):
+                return False
+        return True
+
+    def compare_tags(tag1: str, tag2: str) -> int:
+        parts1 = list(map(int, tag1.split('.')))
+        parts2 = list(map(int, tag2.split('.'))
+        for part1, part2 in zip(parts1, parts2):
+            if part1 != part2:
+                return part1 - part2
+        return 0
+
+    if not isinstance(installed, str) or not is_valid_tag(installed):
+        raise ValueError("installed must be a valid tag (two dot-separated numbers)")
+
+    if not isinstance(steps, list):
+        raise ValueError("steps must be a list of {tag, requires} records")
+
+    carried = installed
+    for step in steps:
+        if not isinstance(step, dict) or "tag" not in step or "requires" not in step:
+            raise ValueError("each step must be a {tag, requires} record")
+        
+        if not is_valid_tag(step["tag"]) or not is_valid_tag(step["requires"]):
+            raise ValueError("both tag and requires must be valid tags")
+
+        if compare_tags(carried, step["requires"]) >= 0:
+            raise ValueError(f"step {step['tag']} requires at least {step['requires']}")
+        
+        if compare_tags(carried, step["tag"]) <= 0:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+
+        carried = step["tag"]
+
+    return carried
+```

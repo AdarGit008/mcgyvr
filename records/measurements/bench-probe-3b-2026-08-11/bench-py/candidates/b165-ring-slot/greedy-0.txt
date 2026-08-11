@@ -1,0 +1,8 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or writes < 0 or k < 0 or k >= min(writes, capacity):
+        raise ValueError("Invalid input parameters")
+    
+    # Calculate the slot number for the k-th oldest survivor
+    return (writes - 1 - k) % capacity
+```

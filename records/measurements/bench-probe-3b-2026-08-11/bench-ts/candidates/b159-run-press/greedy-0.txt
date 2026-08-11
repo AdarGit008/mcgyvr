@@ -1,0 +1,37 @@
+```ts
+export function runPress(jobs: [string, number][], budget: number): { printed: string[]; waiting: string[]; pages: number } {
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    throw new Error("Jobs must be a non-empty list of [name, pages] pairs.");
+  }
+
+  for (const job of jobs) {
+    const [name, pages] = job;
+    if (typeof name !== "string" || typeof pages !== "number") {
+      throw new Error("Each job must be a two-item pair where the first item is a non-empty string and the second item is a positive whole number.");
+    }
+    if (pages <= 0) {
+      throw new Error("Page count must be a positive whole number.");
+    }
+  }
+
+  if (typeof budget !== "number" || budget < 0) {
+    throw new Error("Budget must be a non-negative whole number.");
+  }
+
+  const printed: string[] = [];
+  const waiting: string[] = [...jobs];
+  let pagesSpent = 0;
+
+  while (waiting.length > 0 && pagesSpent <= budget) {
+    const [name, pages] = waiting.shift()!;
+    if (pages <= budget - pagesSpent) {
+      printed.push(name);
+      pagesSpent += pages;
+    } else {
+      break;
+    }
+  }
+
+  return { printed, waiting, pages: pagesSpent };
+}
+```

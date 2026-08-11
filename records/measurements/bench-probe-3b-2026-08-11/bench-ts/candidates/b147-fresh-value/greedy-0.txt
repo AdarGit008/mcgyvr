@@ -1,0 +1,21 @@
+```typescript
+type CacheEntry = { value: string; stored: number; ttl: number };
+
+export function freshValue(entry: CacheEntry, now: number): string {
+  if (
+    typeof entry !== "object" ||
+    !entry || 
+    typeof entry.value !== "string" ||
+    typeof entry.stored !== "number" ||
+    typeof entry.ttl !== "number" ||
+    entry.stored < 0 ||
+    entry.ttl <= 0 ||
+    now < entry.stored ||
+    now >= entry.stored + entry.ttl
+  ) {
+    throw new Error("Invalid cache entry or parameters");
+  }
+  
+  return entry.value;
+}
+```
