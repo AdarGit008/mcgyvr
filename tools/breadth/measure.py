@@ -82,7 +82,7 @@ import tempfile
 import time
 import types
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -166,6 +166,24 @@ POOL_TIERS = ("pool-ts", "pool-py")
 BENCH_ROOT = HERE.parent / "bench" / "tasks"
 BENCH_MANIFEST = HERE.parent / "bench" / "admissions.jsonl"
 BENCH_TIERS = ("bench-ts", "bench-py")
+
+# Prompt conditions (#225's driver question, answered paired rather than as
+# separate cohorts). `stock` renders what production would dispatch;
+# `noscaffold` removes the target's current content from the user message, so
+# the model must produce the whole file instead of completing a partial one.
+# Same problem, same checker, same prose — only the volume of required output
+# moves, which is what makes the comparison paired and the pairs discordant.
+#
+# A condition is part of run identity, not a local flag: the ablated render is
+# a different experiment on the same material, exactly the cap's argument, and
+# `bundle_sha256` would not notice because it hashes the *system* prompt while
+# the ablation lands in the *user* message. Names stay hyphen-free so they can
+# never collide with `pin.py`'s stem parsing if a capture path ever carries
+# one. #113 owns the general condition matrix; this is one named knob it will
+# subsume, not a framework.
+STOCK = "stock"
+NO_SCAFFOLD = "noscaffold"
+CONDITIONS = (STOCK, NO_SCAFFOLD)
 
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
@@ -318,6 +336,30 @@ def tier_digests(tier: str) -> dict[str, str]:
     }
 
 
+def ablate(contract: Any, condition: str) -> Any:
+    """The contract as the named condition renders it.
+
+    ``stock`` is the contract untouched. ``noscaffold`` empties
+    ``target_content``, which is the single field
+    :func:`~mcgyvr.worker.prompt.render_user_message` turns into the "CURRENT
+    CONTENT OF <target>" section — so the ablation removes exactly one
+    section and changes nothing else about the task, the interface, the stop
+    conditions or the checker.
+
+    On a contract that carries no ``target_content`` the ablation is a no-op
+    by construction, which is why the eligible set has to be selected by the
+    caller: an ineligible task would contribute a concordant pair to a paired
+    test and dilute it. ``bug_fix`` is ineligible for a stronger reason — its
+    ``target_content`` is the buggy file the task exists to fix, so removing
+    it does not lighten the task, it deletes it.
+    """
+    if condition == STOCK:
+        return contract
+    if condition != NO_SCAFFOLD:
+        raise bundle.MeasureError(f"unknown condition {condition!r}")
+    return replace(contract, target_content="")
+
+
 def measure_task(
     task: Any,
     runner: Any,
@@ -327,6 +369,7 @@ def measure_task(
     already: set[tuple[str, str, int]],
     plan: list[tuple[str, int, float]] | None = None,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    condition: str = STOCK,
 ) -> list[dict[str, object]]:
     """Every draw of one task, each a row — and never an early exit.
 
@@ -334,8 +377,12 @@ def measure_task(
     result, and stopping at the first pass would truncate every observation at
     its own answer. Every failure mode is a row rather than an exception, for
     the bundle rig's reason — a vanished cell silently shrinks a denominator.
+
+    ``condition`` names the ablation the prompt is rendered under. It is part
+    of the run identity rather than a local flag, because the ablated render
+    is a different experiment on the same material — the cap's argument.
     """
-    prompt = build_prompt(task.contract)
+    prompt = build_prompt(ablate(task.contract, condition))
     rows: list[dict[str, object]] = []
     for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
@@ -594,6 +641,7 @@ def record_run(
     draws: int = DRAWS,
     sampled_temperature: float = SAMPLED_TEMPERATURE,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    condition: str = STOCK,
 ) -> None:
     """Write, or extend, the provenance beside the rows.
 
@@ -620,6 +668,7 @@ def record_run(
         "greedy_temperature": GREEDY_TEMPERATURE,
         "sampled_temperature": sampled_temperature,
         "max_output_tokens": max_output_tokens,
+        "condition": condition,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
@@ -863,6 +912,16 @@ def main() -> int:
         "written stay, so the resume refills them.",
     )
     parser.add_argument(
+        "--condition",
+        choices=CONDITIONS,
+        default=STOCK,
+        help=f"prompt condition (default {STOCK}, what production dispatches). "
+        f"{NO_SCAFFOLD} removes the target's current content from the user "
+        "message, so the model writes the whole file rather than completing a "
+        "partial one — #225's paired size manipulation. Part of the run "
+        "identity: a directory measured under one condition refuses the other.",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="run every reference against its own acceptance and stop; needs no worker",
@@ -1014,6 +1073,7 @@ def main() -> int:
                 already,
                 plan=plan,
                 max_output_tokens=args.max_output_tokens,
+                condition=args.condition,
             )
             for row in rows:
                 handle.write(json.dumps(row) + "\n")
