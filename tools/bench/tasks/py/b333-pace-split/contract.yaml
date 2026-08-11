@@ -1,0 +1,16 @@
+id: b333-pace-split
+task_type: function_implementation
+task: >-
+  Implement pace_of and pace_list. pace_of returns the seconds taken
+  per kilometre on a leg, rounded down. pace_list returns the pace of
+  every leg of a run, given each leg's seconds and its distance, in
+  order. Reject a leg covering no ground with an error.
+target: solution.py
+interface: "def pace_of(seconds: int, kilometres: int) -> int
+def pace_list(legs: list) -> list"
+stop_conditions:
+  - Whether a leg's distance may be given as a fraction of a kilometre is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

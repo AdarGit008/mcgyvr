@@ -1,0 +1,15 @@
+id: b320-quarter-hour
+task_type: function_implementation
+task: >-
+  Implement quarterHour. Bring a number of minutes down to the quarter
+  of an hour it falls in, so anything from fifteen up to twenty-nine
+  becomes fifteen. Minutes already sitting on a quarter are left
+  alone. Reject a count of minutes below zero with an error.
+target: solution.ts
+interface: "export function quarterHour(minutes: number): number"
+stop_conditions:
+  - Whether minutes past a whole day should be brought within the day first is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

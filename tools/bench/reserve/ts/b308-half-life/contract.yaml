@@ -1,0 +1,15 @@
+id: b308-half-life
+task_type: function_implementation
+task: >-
+  Implement halfLife. A sample halves at every step and any fraction
+  is discarded. Given a starting count and a number of steps, return
+  what is left. Asking for no steps leaves the sample exactly as it
+  was, and a sample that has reached zero stays there.
+target: solution.ts
+interface: "export function halfLife(count: number, steps: number): number"
+stop_conditions:
+  - Whether a starting count below zero should halve in the same way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

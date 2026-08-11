@@ -1,0 +1,15 @@
+id: b319-short-num
+task_type: function_implementation
+task: >-
+  Implement short_num. Write a whole number in short form: below a
+  thousand it is written as it stands, a thousand or more takes a k,
+  and a million or more takes an m. A shortened number keeps one
+  decimal place, rounded down.
+target: solution.py
+interface: "def short_num(value: int) -> str"
+stop_conditions:
+  - Whether a number of a thousand million or more should take a further letter is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

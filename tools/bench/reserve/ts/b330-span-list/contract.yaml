@@ -1,0 +1,17 @@
+id: b330-span-list
+task_type: function_implementation
+task: >-
+  Implement rangeText and spanList. rangeText writes a run of
+  consecutive numbers as its first and its last joined by a hyphen, or
+  as the number alone when the run holds only one. spanList turns a
+  list of numbers already in increasing order into those runs, in
+  order.
+target: solution.ts
+interface: "export function rangeText(first: number, last: number): string
+export function spanList(numbers: number[]): string[]"
+stop_conditions:
+  - Whether a repeated number should break a run or be ignored is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b325-code-hash
+task_type: function_implementation
+task: >-
+  Implement codeHash. Add up the alphabet position of every letter of
+  a code, counting a as one and ignoring case, then return that total
+  within a stated number of buckets. Characters that are not letters
+  add nothing. Reject a bucket count of zero or less with an error.
+target: solution.ts
+interface: "export function codeHash(code: string, buckets: number): number"
+stop_conditions:
+  - Whether two codes landing in one bucket should be told apart is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

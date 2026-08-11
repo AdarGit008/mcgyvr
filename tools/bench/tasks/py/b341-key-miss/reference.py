@@ -1,0 +1,5 @@
+def look_up(store: dict, key: str, fallback: str) -> str:
+    """A mapping's value for a key, or a fallback when it is absent."""
+    if key in store:
+        return store[key]
+    return fallback

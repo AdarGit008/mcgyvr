@@ -1,0 +1,16 @@
+id: b334-mask-parts
+task_type: function_implementation
+task: >-
+  Implement mask_word and mask_line. mask_word replaces every
+  character of a word except its first and its last with a dot,
+  leaving a word of two characters or fewer as it is. mask_line does
+  that to every word of a line, keeping a single space between them.
+target: solution.py
+interface: "def mask_word(word: str) -> str
+def mask_line(line: str) -> str"
+stop_conditions:
+  - Whether a punctuation mark inside a word should be masked like a letter is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,29 @@
+id: b345-hour-rate
+task_type: bug_fix
+task: >-
+  hourRate returns what one hour is worth at a stated rate. weekPay
+  pays that rate for up to forty hours and half as much again for
+  every hour beyond, and it pays the higher rate on all the hours
+  worked. Fix weekPay. Anything paid is rounded down. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function hourRate(rate: number): number {
+    return rate;
+  }
+
+  /** Pay for a week, with overtime beyond forty hours. */
+  export function weekPay(hours: number, rate: number): number {
+    if (hours > 40) {
+      return Math.floor((hours * hourRate(rate) * 3) / 2);
+    }
+    return hours * hourRate(rate);
+  }
+interface: "export function hourRate(rate: number): number
+export function weekPay(hours: number, rate: number): number"
+stop_conditions:
+  - Whether hours beyond a second threshold should be paid more again is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

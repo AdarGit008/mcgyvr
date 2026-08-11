@@ -1,0 +1,16 @@
+id: b336-odds-pay
+task_type: function_implementation
+task: >-
+  Implement payout and settle_all. payout returns what a winning bet
+  hands back: the stake multiplied by the odds. settle_all returns the
+  total handed back across a list of bets, counting the winners only.
+  Reject a stake below zero with an error.
+target: solution.py
+interface: "def payout(stake: int, odds: int) -> int
+def settle_all(bets: list) -> int"
+stop_conditions:
+  - Whether a losing bet's stake should be taken off the total is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

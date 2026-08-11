@@ -1,0 +1,15 @@
+id: b319-short-num
+task_type: function_implementation
+task: >-
+  Implement shortNum. Write a whole number in short form: below a
+  thousand it is written as it stands, a thousand or more takes a k,
+  and a million or more takes an m. A shortened number keeps one
+  decimal place, rounded down.
+target: solution.ts
+interface: "export function shortNum(value: number): string"
+stop_conditions:
+  - Whether a number of a thousand million or more should take a further letter is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

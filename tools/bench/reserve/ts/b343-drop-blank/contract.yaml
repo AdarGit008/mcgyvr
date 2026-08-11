@@ -1,0 +1,20 @@
+id: b343-drop-blank
+task_type: bug_fix
+task: >-
+  dropBlank removes the empty labels from a list, and it removes
+  labels made only of spaces as well, which is more than it was asked
+  to do. Fix it so only a label with no characters at all goes, and
+  what is left keeps its order. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The labels that are not empty, in order. */
+  export function dropBlank(labels: string[]): string[] {
+    return labels.filter((label) => label.trim() !== "");
+  }
+interface: "export function dropBlank(labels: string[]): string[]"
+stop_conditions:
+  - Whether a label of a single tab should count as empty is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

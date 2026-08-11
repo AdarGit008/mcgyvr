@@ -1,0 +1,15 @@
+id: b309-line-trim
+task_type: function_implementation
+task: >-
+  Implement line_trim. Given a block of text, remove the spaces at the
+  end of every line, leaving the line breaks and any leading spaces
+  exactly as they were. A block holding no text at all comes back
+  empty.
+target: solution.py
+interface: "def line_trim(block: str) -> str"
+stop_conditions:
+  - Whether a tab at the end of a line should be removed as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,19 @@
+id: b340-case-flip
+task_type: bug_fix
+task: >-
+  swap_case returns text with the case of every letter turned over,
+  and it raises everything to upper case instead. Fix it. A character
+  that is not a letter is left exactly as it is. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def swap_case(text: str) -> str:
+      """Text with the case of every letter turned over."""
+      return text.upper()
+interface: "def swap_case(text: str) -> str"
+stop_conditions:
+  - Whether a letter outside the English alphabet should turn too is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+id: b328-warm-up
+task_type: function_implementation
+task: >-
+  Implement warm_up. A run of readings opens with a warm-up that must
+  be discarded: drop readings from the start for as long as they sit
+  below a floor, and return everything from the first reading that
+  reaches it. A run that never reaches the floor gives an empty list.
+target: solution.py
+interface: "def warm_up(readings: list, floor: int) -> list"
+stop_conditions:
+  - Whether a dip below the floor after the warm-up should end the run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

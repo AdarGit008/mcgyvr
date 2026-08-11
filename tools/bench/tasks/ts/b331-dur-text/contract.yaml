@@ -1,0 +1,17 @@
+id: b331-dur-text
+task_type: function_implementation
+task: >-
+  Implement durHours and durText. durHours returns the whole hours in
+  a count of minutes, discarding what is left over. durText writes the
+  count as hours and minutes joined, like 1h30m; a whole number of
+  hours drops the minutes, a count under an hour drops the hours, and
+  zero is 0m.
+target: solution.ts
+interface: "export function durHours(minutes: number): number
+export function durText(minutes: number): string"
+stop_conditions:
+  - Whether a count of minutes below zero should be written with a sign is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

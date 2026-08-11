@@ -1,0 +1,15 @@
+id: b328-warm-up
+task_type: function_implementation
+task: >-
+  Implement warmUp. A run of readings opens with a warm-up that must
+  be discarded: drop readings from the start for as long as they sit
+  below a floor, and return everything from the first reading that
+  reaches it. A run that never reaches the floor gives an empty list.
+target: solution.ts
+interface: "export function warmUp(readings: number[], floor: number): number[]"
+stop_conditions:
+  - Whether a dip below the floor after the warm-up should end the run is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

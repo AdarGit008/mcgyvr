@@ -1,0 +1,16 @@
+id: b336-odds-pay
+task_type: function_implementation
+task: >-
+  Implement payout and settleAll. payout returns what a winning bet
+  hands back: the stake multiplied by the odds. settleAll returns the
+  total handed back across a list of bets, counting the winners only.
+  Reject a stake below zero with an error.
+target: solution.ts
+interface: "export function payout(stake: number, odds: number): number
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number"
+stop_conditions:
+  - Whether a losing bet's stake should be taken off the total is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+id: b335-book-slot
+task_type: function_implementation
+task: >-
+  Implement slotFree and freeSlots. slotFree says whether a slot
+  number is still free, given the slots already booked. freeSlots
+  returns every free slot from one up to a stated last slot, in
+  increasing order.
+target: solution.ts
+interface: "export function slotFree(slot: number, booked: number[]): boolean
+export function freeSlots(last: number, booked: number[]): number[]"
+stop_conditions:
+  - Whether a booked slot lying outside the range should be reported as a mistake is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

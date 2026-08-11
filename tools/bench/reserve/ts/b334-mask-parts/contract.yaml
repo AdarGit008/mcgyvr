@@ -1,0 +1,16 @@
+id: b334-mask-parts
+task_type: function_implementation
+task: >-
+  Implement maskWord and maskLine. maskWord replaces every character
+  of a word except its first and its last with a dot, leaving a word
+  of two characters or fewer as it is. maskLine does that to every
+  word of a line, keeping a single space between them.
+target: solution.ts
+interface: "export function maskWord(word: string): string
+export function maskLine(line: string): string"
+stop_conditions:
+  - Whether a punctuation mark inside a word should be masked like a letter is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

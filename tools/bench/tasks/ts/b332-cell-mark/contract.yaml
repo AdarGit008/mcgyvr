@@ -1,0 +1,16 @@
+id: b332-cell-mark
+task_type: function_implementation
+task: >-
+  Implement liveCount and liveNext. liveCount returns how many of a
+  cell's given neighbours are alive. liveNext says whether the cell is
+  alive in the next round: a living cell survives on two or three
+  living neighbours, and a dead one comes alive on exactly three.
+target: solution.ts
+interface: "export function liveCount(neighbours: boolean[]): number
+export function liveNext(alive: boolean, neighbours: boolean[]): boolean"
+stop_conditions:
+  - Whether a cell at the edge of a grid should be given fewer neighbours or dead ones is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

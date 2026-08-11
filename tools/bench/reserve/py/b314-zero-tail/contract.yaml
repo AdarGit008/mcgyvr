@@ -1,0 +1,15 @@
+id: b314-zero-tail
+task_type: function_implementation
+task: >-
+  Implement zero_tail. Return how many zeros a whole number ends in,
+  counting from the right and stopping at the first digit that is not
+  a zero. A number not ending in a zero ends in none of them, and zero
+  itself counts as ending in one.
+target: solution.py
+interface: "def zero_tail(value: int) -> int"
+stop_conditions:
+  - Whether a negative number should be counted in the same way is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

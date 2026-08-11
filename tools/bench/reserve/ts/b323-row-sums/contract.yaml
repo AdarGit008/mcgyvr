@@ -1,0 +1,15 @@
+id: b323-row-sums
+task_type: function_implementation
+task: >-
+  Implement rowSums. Given a grid written as a list of rows, return
+  the total of each row in the order the rows appear. A row holding no
+  values totals zero, and a grid with no rows at all gives an empty
+  list.
+target: solution.ts
+interface: "export function rowSums(grid: number[][]): number[]"
+stop_conditions:
+  - Whether every row must hold the same number of values is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

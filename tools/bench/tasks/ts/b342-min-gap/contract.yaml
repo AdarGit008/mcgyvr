@@ -1,0 +1,30 @@
+id: b342-min-gap
+task_type: bug_fix
+task: >-
+  minGap returns the smallest difference between any two of the values
+  it is given, and it only ever compares neighbours without putting
+  the values in order first. Fix it. Fewer than two values have no gap
+  and give back minus one. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The smallest difference between any two values. */
+  export function minGap(values: number[]): number {
+    if (values.length < 2) {
+      return -1;
+    }
+    let smallest = Math.abs(values[1] - values[0]);
+    for (let i = 1; i < values.length; i += 1) {
+      const gap = Math.abs(values[i] - values[i - 1]);
+      if (gap < smallest) {
+        smallest = gap;
+      }
+    }
+    return smallest;
+  }
+interface: "export function minGap(values: number[]): number"
+stop_conditions:
+  - Whether the two values making the smallest gap should be reported as well is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
