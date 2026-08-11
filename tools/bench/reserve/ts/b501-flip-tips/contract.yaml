@@ -1,0 +1,16 @@
+id: b501-flip-tips
+task_type: function_implementation
+task: >-
+  Implement flipTips. In every word of a line, put the closing
+  character where the opening one stood and the opening one where the
+  closing stood, leaving everything between them alone. A word of
+  fewer than two characters is left as it is. Words are parted by
+  single spaces.
+target: solution.ts
+interface: "export function flipTips(line: string): string"
+stop_conditions:
+  - Whether runs of more than one space between words should be kept is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

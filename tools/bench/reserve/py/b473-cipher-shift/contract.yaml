@@ -1,0 +1,15 @@
+id: b473-cipher-shift
+task_type: function_implementation
+task: >-
+  Implement cipher_shift. Move every small letter forward through the
+  alphabet by a given step, running back to the start after the last
+  letter. Characters that are not small letters stay as they are, and
+  a step of nothing leaves the whole text unchanged.
+target: solution.py
+interface: "def cipher_shift(text: str, step: int) -> str"
+stop_conditions:
+  - Whether a step below nothing should move letters the other way is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

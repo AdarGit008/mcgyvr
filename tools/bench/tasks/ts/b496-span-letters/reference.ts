@@ -1,0 +1,15 @@
+export function spanLetters(span: string): string {
+  if (span.length !== 3 || span[1] !== "-") {
+    return span;
+  }
+  const from = span.charCodeAt(0);
+  const to = span.charCodeAt(2);
+  if (from > to) {
+    return span;
+  }
+  let out = "";
+  for (let code = from; code <= to; code += 1) {
+    out += String.fromCharCode(code);
+  }
+  return out;
+}

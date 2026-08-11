@@ -1,0 +1,15 @@
+id: b494-carry-add
+task_type: function_implementation
+task: >-
+  Implement carry_add. Add two counts held as runs of single figures,
+  the weightiest figure first, and give the answer in the same form.
+  Work from the light end, carrying into the next place where a pair
+  reaches ten. The two runs need not be the same length.
+target: solution.py
+interface: "def carry_add(left: list[int], right: list[int]) -> list[int]"
+stop_conditions:
+  - Whether a run opening with a figure of nothing should be tidied is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

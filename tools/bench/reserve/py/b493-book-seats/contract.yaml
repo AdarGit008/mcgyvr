@@ -1,0 +1,16 @@
+id: b493-book-seats
+task_type: function_implementation
+task: >-
+  seat_row names the row a seat code belongs to, which is its opening
+  character. book_seats gathers seat codes under their row, each row
+  holding its seats in the order they arrived. Implement book_seats.
+  Reject a seat code arriving a second time with an error.
+target: solution.py
+interface: "def seat_row(seat: str) -> str
+def book_seats(seats: list[str]) -> dict[str, list[str]]"
+stop_conditions:
+  - Whether a seat code holding nothing should be rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

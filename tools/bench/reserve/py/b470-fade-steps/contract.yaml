@@ -1,0 +1,15 @@
+id: b470-fade-steps
+task_type: function_implementation
+task: >-
+  Implement fade_steps. From a starting level, give the run of levels
+  reached by repeatedly taking half and dropping any part below a
+  whole, ending once nothing is left. The starting level opens the
+  run, and the closing nothing is left out.
+target: solution.py
+interface: "def fade_steps(level: int) -> list[int]"
+stop_conditions:
+  - Whether a starting level below nothing should give an empty run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+id: b481-base-write
+task_type: function_implementation
+task: >-
+  Implement base_write. Write a whole count in a given base, using the
+  figures nought to nine and then the small letters a onward for the
+  values above nine. A count of nothing is written as a single nought.
+  Reject a base standing outside two to sixteen with an error.
+target: solution.py
+interface: "def base_write(value: int, base: int) -> str"
+stop_conditions:
+  - Whether a count below nothing should be written with a leading sign is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

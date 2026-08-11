@@ -1,0 +1,15 @@
+id: b507-stack-pop
+task_type: function_implementation
+task: >-
+  Implement stackPop. Work through a run of orders against a pile. The
+  order to take removes whatever went on last; every other order puts
+  its own text on the pile. Give back the pile that is left, oldest
+  first. Reject an order to take from an empty pile with an error.
+target: solution.ts
+interface: "export function stackPop(orders: string[]): string[]"
+stop_conditions:
+  - Whether an order holding nothing should be put on the pile is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

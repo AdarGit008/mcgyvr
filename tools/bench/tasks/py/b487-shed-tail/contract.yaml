@@ -1,0 +1,15 @@
+id: b487-shed-tail
+task_type: function_implementation
+task: >-
+  Implement shed_tail. Take a closing piece off the end of a text
+  again and again, for as long as the text still closes with it. A
+  text that never closes with the piece is given back whole, and a
+  piece holding nothing leaves the text alone.
+target: solution.py
+interface: "def shed_tail(text: str, piece: str) -> str"
+stop_conditions:
+  - Whether a text made up only of the piece should come back holding nothing is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

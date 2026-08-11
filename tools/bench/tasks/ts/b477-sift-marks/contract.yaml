@@ -1,0 +1,15 @@
+id: b477-sift-marks
+task_type: function_implementation
+task: >-
+  Implement siftMarks. Sort entries into two runs: those opening with
+  a given mark, and those that do not. Each run holds its entries in
+  the order they arrived. Give back the two runs together, the marked
+  run first. Entries holding nothing at all give back two empty runs.
+target: solution.ts
+interface: "export function siftMarks(entries: string[], mark: string): string[][]"
+stop_conditions:
+  - Whether a mark holding nothing should count as opening every entry is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

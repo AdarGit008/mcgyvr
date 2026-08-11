@@ -1,0 +1,15 @@
+id: b483-first-repeat
+task_type: function_implementation
+task: >-
+  Implement firstRepeat. Give back the first entry that arrives having
+  already been seen earlier in the run, judged by where its second
+  arrival falls. A run where every entry arrives once gives back a
+  text holding nothing.
+target: solution.ts
+interface: "export function firstRepeat(entries: string[]): string"
+stop_conditions:
+  - Whether an entry holding nothing should be able to count as a repeat is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

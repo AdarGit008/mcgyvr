@@ -1,0 +1,27 @@
+id: b476-baton-race
+task_type: bug_fix
+task: >-
+  batonRace totals a race from the time of each leg and the cost of
+  one handover. A handover falls between two legs, so it is paid once
+  less often than there are legs, never before the first or after the
+  last. Fix batonRace. A race with no legs totals nothing. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function batonRace(legs: number[], handover: number): number {
+    if (legs.length === 0) {
+      return 0;
+    }
+    let total = 0;
+    for (const leg of legs) {
+      total += leg;
+    }
+    return total + handover * legs.length;
+  }
+interface: "export function batonRace(legs: number[], handover: number): number"
+stop_conditions:
+  - Whether a handover cost below nothing should be rejected is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

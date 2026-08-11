@@ -1,0 +1,16 @@
+id: b502-good-codes
+task_type: function_implementation
+task: >-
+  code_sum totals the figures written in a code, passing over anything
+  that is not a figure. good_codes keeps the codes whose total divides
+  evenly by three, in the order they arrived. Implement good_codes. A
+  code holding no figures totals nothing, which divides evenly.
+target: solution.py
+interface: "def code_sum(code: str) -> int
+def good_codes(codes: list[str]) -> list[str]"
+stop_conditions:
+  - Whether a code holding a figure written as a word should count is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

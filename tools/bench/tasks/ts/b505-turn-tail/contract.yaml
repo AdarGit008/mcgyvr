@@ -1,0 +1,27 @@
+id: b505-turn-tail
+task_type: bug_fix
+task: >-
+  turnTail turns round the closing stretch of a run, leaving
+  everything before it standing as it was. A count reaching past the
+  run turns the whole of it. Fix turnTail. A count of nothing leaves
+  the run alone. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function turnTail(entries: string[], count: number): string[] {
+    const out: string[] = [];
+    const stop = count > entries.length ? entries.length : count;
+    for (let i = stop - 1; i >= 0; i -= 1) {
+      out.push(entries[i]);
+    }
+    for (let i = stop; i < entries.length; i += 1) {
+      out.push(entries[i]);
+    }
+    return out;
+  }
+interface: "export function turnTail(entries: string[], count: number): string[]"
+stop_conditions:
+  - Whether a count below nothing should turn the opening stretch instead is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

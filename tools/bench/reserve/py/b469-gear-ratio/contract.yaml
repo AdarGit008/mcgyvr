@@ -1,0 +1,15 @@
+id: b469-gear-ratio
+task_type: function_implementation
+task: >-
+  Implement gear_ratio. Write the relation between two whole counts in
+  its smallest form, as the two numbers joined by a colon. Both are
+  brought down by the largest amount that divides each of them
+  exactly. Reject a second count of nothing with an error.
+target: solution.py
+interface: "def gear_ratio(first: int, second: int) -> str"
+stop_conditions:
+  - Whether a count below nothing should be carried into the written form is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b484-zone-fare
+task_type: function_implementation
+task: >-
+  stopZone names the zone a stop sits in. zoneFare charges two hundred
+  cents for every different zone the journey touches, however many
+  stops fall in each. Implement zoneFare. A journey calling at no
+  stops is charged nothing.
+target: solution.ts
+interface: "export function stopZone(stop: string): number
+export function zoneFare(stops: string[]): number"
+stop_conditions:
+  - Whether a journey calling at the same stop twice should be charged twice is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

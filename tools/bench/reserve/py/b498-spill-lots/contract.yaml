@@ -1,0 +1,14 @@
+id: b498-spill-lots
+task_type: function_implementation
+task: >-
+  Implement spill_lots. Tip every lot out into one run, lot by lot
+  and, inside a lot, entry by entry in the order they stand. An entry
+  holding nothing is left behind. A lot holding nothing adds nothing.
+target: solution.py
+interface: "def spill_lots(lots: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether an entry standing in two lots should be tipped out twice is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

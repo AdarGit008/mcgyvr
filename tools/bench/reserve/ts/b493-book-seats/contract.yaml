@@ -1,0 +1,16 @@
+id: b493-book-seats
+task_type: function_implementation
+task: >-
+  seatRow names the row a seat code belongs to, which is its opening
+  character. bookSeats gathers seat codes under their row, each row
+  holding its seats in the order they arrived. Implement bookSeats.
+  Reject a seat code arriving a second time with an error.
+target: solution.ts
+interface: "export function seatRow(seat: string): string
+export function bookSeats(seats: string[]): Record<string, string[]>"
+stop_conditions:
+  - Whether a seat code holding nothing should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

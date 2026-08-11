@@ -1,0 +1,22 @@
+id: b506-hug-text
+task_type: bug_fix
+task: >-
+  hugText puts a mark on both ends of a text. A text already carrying
+  the mark at both ends is left alone; carrying it at one end only is
+  not enough to be left alone. Fix hugText. A text holding nothing
+  takes a mark at each end. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function hugText(text: string, mark: string): string {
+    if (text.startsWith(mark)) {
+      return text;
+    }
+    return mark + text + mark;
+  }
+interface: "export function hugText(text: string, mark: string): string"
+stop_conditions:
+  - Whether a mark holding nothing should leave the text untouched is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

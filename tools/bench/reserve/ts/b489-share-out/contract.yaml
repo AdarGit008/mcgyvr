@@ -1,0 +1,15 @@
+id: b489-share-out
+task_type: function_implementation
+task: >-
+  Implement shareOut. Break a whole amount into a given number of
+  parts, as near to even as they go. Where something is left over, it
+  is handed one apiece to the parts standing earliest. Reject a count
+  of parts below one with an error.
+target: solution.ts
+interface: "export function shareOut(amount: number, parts: number): number[]"
+stop_conditions:
+  - Whether an amount below nothing should be broken up at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

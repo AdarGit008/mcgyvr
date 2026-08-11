@@ -1,0 +1,15 @@
+id: b478-turn-text
+task_type: function_implementation
+task: >-
+  Implement turn_text. Say whether the second text can be reached from
+  the first by moving some number of characters off the front and
+  adding them to the back in the same order. Texts of unlike length
+  never match, and two texts holding nothing do.
+target: solution.py
+interface: "def turn_text(first: str, second: str) -> bool"
+stop_conditions:
+  - Whether a text should be counted as a turn of itself is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+id: b499-line-up
+task_type: function_implementation
+task: >-
+  Implement lineUp. Follow a name up through a book of links, each
+  naming the one standing above it, and give back the whole line from
+  the name given to the one with nobody above it. The name given opens
+  the line. Reject links running in a circle with an error.
+target: solution.ts
+interface: "export function lineUp(links: Record<string, string>, start: string): string[]"
+stop_conditions:
+  - Whether a name the book does not know at all should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,29 @@
+id: b485-box-lots
+task_type: bug_fix
+task: >-
+  boxLots packs entries into lots of a given size, filling each lot in
+  the order the entries arrive before opening the next. A closing lot
+  that does not fill is still packed and given back with the rest. Fix
+  boxLots. A run holding nothing packs nothing. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function boxLots(entries: string[], size: number): string[][] {
+    const packed: string[][] = [];
+    let lot: string[] = [];
+    for (const entry of entries) {
+      lot.push(entry);
+      if (lot.length === size) {
+        packed.push(lot);
+        lot = [];
+      }
+    }
+    return packed;
+  }
+interface: "export function boxLots(entries: string[], size: number): string[][]"
+stop_conditions:
+  - Whether a lot size below one should be rejected is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

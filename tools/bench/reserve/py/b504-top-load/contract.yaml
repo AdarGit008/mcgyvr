@@ -1,0 +1,17 @@
+id: b504-top-load
+task_type: function_implementation
+task: >-
+  kind_weight names what one item of a kind weighs. top_load names the
+  kind carrying the greatest weight once every item of that kind is
+  counted together. Implement top_load. Where two kinds carry the same
+  weight the one arriving earliest is named, and a load of nothing
+  names nothing.
+target: solution.py
+interface: "def kind_weight(kind: str) -> int
+def top_load(kinds: list[str]) -> str"
+stop_conditions:
+  - Whether a kind weighing nothing should be able to be named is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b491-clean-tags
+task_type: function_implementation
+task: >-
+  tag_ok says whether a tag may be kept: it must hold something, and
+  every character must be a letter or a dash. clean_tags keeps the
+  tags that may be, lowers them, and drops any that has already been
+  kept. Implement clean_tags. The kept tags hold their arriving order.
+target: solution.py
+interface: "def tag_ok(tag: str) -> bool
+def clean_tags(tags: list[str]) -> list[str]"
+stop_conditions:
+  - Whether a tag opening or closing with a dash should be kept is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]
