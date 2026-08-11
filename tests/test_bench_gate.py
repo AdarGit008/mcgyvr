@@ -276,3 +276,158 @@ def test_a_function_implementation_declares_acceptance_not_demonstration(
     assert "target_symbol" not in sidecar, (
         "single_definition takes its target from the interface, not the sidecar"
     )
+
+
+# --- the two screens the gate is structurally unable to run ----------------
+#
+# Both catch material the gate passes happily, because in both the references
+# are correct — they are correct about the wrong thing. See emit.py's docstring.
+
+
+def _emit_module() -> types.ModuleType:
+    return _by_path("bench_emit", REPO / "tools" / "bench" / "emit.py")
+
+
+def _spec(**over: Any) -> dict[str, Any]:
+    spec: dict[str, Any] = {
+        "id": "b902-screen-probe",
+        "type": "function_implementation",
+        "file_shape": "single_definition",
+        "shape": "numeric",
+        "steering_band": "f1",
+        "prose_ts": "Implement widgetThree.",
+        "prose_py": "Implement widget_three.",
+        "iface_ts": "export function widgetThree(x: number): number",
+        "iface_py": "def widget_three(x: int) -> int",
+        "stop": "Something the prose leaves unstated.",
+        "ref_ts": "export function widgetThree(x: number): number {\n  return x;\n}\n",
+        "ref_py": "def widget_three(x: int) -> int:\n    return x\n",
+        "acc_ts": "assert.equal(widgetThree(1), 1);\n",
+        "acc_py": "assert widget_three(1) == 1\n",
+    }
+    spec.update(over)
+    return spec
+
+
+def _fatal(findings: list[Any]) -> list[str]:
+    return [f.detail for f in findings if f.fatal]
+
+
+def test_a_rounding_rule_the_two_languages_disagree_about_is_refused() -> None:
+    """round(4.5) is 4 in python and 5 in JavaScript.
+
+    A problem whose prose states how a half rounds is two different problems,
+    and the idiomatic py answer fails what the idiomatic ts answer passes —
+    an arm difference that reads as a language finding and is really a defect
+    in the material. Same class as the ValueError-versus-Error checker defect.
+    """
+    emit = _emit_module()
+    assert _fatal(emit.divergences(_spec(ref_py="    return round(x / 2)\n")))
+    assert _fatal(emit.divergences(_spec(ref_ts="  return Math.round(x / 2);\n")))
+    assert not emit.divergences(_spec(ref_ts="  return Math.floor(x / 2);\n")), (
+        "floor and // agree, which is why the brief prefers them"
+    )
+
+
+def test_a_bare_sort_is_refused_over_numbers_and_allowed_over_keys() -> None:
+    """JavaScript's bare .sort() orders by string: [2, 10] becomes [10, 2].
+
+    Over strings the two languages agree, and sorting keys is the commonest
+    correct use in this tree, so the refusal is narrowed to a visibly numeric
+    receiver rather than fired at every bare sort.
+    """
+    emit = _emit_module()
+    numeric = (
+        "export function widgetThree(xs: number[]): number[] {\n"
+        "  return xs.sort();\n}\n"
+    )
+    assert _fatal(emit.divergences(_spec(ref_ts=numeric)))
+
+    keys = (
+        "export function widgetThree(m: Record<string, number>): string[] {\n"
+        "  return Object.keys(m).sort();\n}\n"
+    )
+    assert not emit.divergences(_spec(ref_ts=keys)), "keys are strings; the two agree"
+
+    stringly = (
+        "export function widgetThree(xs: string[]): string[] {\n"
+        "  return xs.sort();\n}\n"
+    )
+    assert not emit.divergences(_spec(ref_ts=stringly))
+
+
+def test_a_remainder_reached_by_a_negative_warns_but_never_refuses() -> None:
+    """-7 % 3 is 2 in python and -1 in JavaScript.
+
+    Whether a negative actually reaches the operator is a dataflow question
+    and this screen is a regex, so it must not refuse. The suppressions keep
+    the warning worth reading: Math.abs upstream, a divisibility test, and the
+    ((x % n) + n) % n idiom all make it safe.
+    """
+    emit = _emit_module()
+    reaches = _spec(
+        ref_ts=(
+            "export function widgetThree(x: number): number {\n  return x % 360;\n}\n"
+        ),
+        acc_ts="assert.equal(widgetThree(-30), 330);\n",
+    )
+    findings = emit.divergences(reaches)
+    assert findings and not _fatal(findings), "a dataflow guess never refuses"
+
+    for safe in (
+        "  return ((x % 360) + 360) % 360;\n",
+        "  return Math.abs(x) % 360;\n",
+        "  return x % 4 === 0 ? 1 : 0;\n",
+    ):
+        probe = _spec(ref_ts=safe, acc_ts="assert.equal(widgetThree(-30), 1);\n")
+        assert not emit.divergences(probe), safe
+
+
+def test_unicode_aware_predicates_warn_because_the_ts_twin_is_ascii() -> None:
+    emit = _emit_module()
+    findings = emit.divergences(_spec(ref_py="    return x.isdigit()\n"))
+    assert findings and not _fatal(findings), (
+        "latent: the arms part company outside ASCII, which a checker may never test"
+    )
+
+
+def test_the_same_problem_in_another_domain_is_caught_by_its_shape() -> None:
+    """The gate screens prose at 0.55 Jaccard and cannot see a re-skinned twin.
+
+    "the next fan speed, wrapping to the first" and "who takes the next shift,
+    wrapping to the first" share almost no vocabulary and are one problem.
+    What they share is the shape of their reference, so that is what is
+    screened — identifiers, literals and types erased.
+    """
+    emit = _emit_module()
+    original = (
+        "export function rotaNext(names: string[], current: string): string {\n"
+        "  const place = names.indexOf(current);\n"
+        "  if (place === names.length - 1) {\n    return names[0];\n  }\n"
+        "  return names[place + 1];\n}\n"
+    )
+    reskinned = original.replace("rotaNext", "ventCycle").replace("names", "settings")
+    known = {"b241-rota-next": {"ts": emit.skeleton(original, "ts")}}
+
+    score, name, arm = emit.siblings(_spec(ref_ts=reskinned), known)[0]
+    assert name == "b241-rota-next" and arm == "ts"
+    assert score > emit.REFUSE_AT, f"renaming is not a new problem (scored {score})"
+    assert _fatal(emit.check(_spec(ref_ts=reskinned), known))
+
+    unrelated = "export function widgetThree(x: number): number {\n  return x * 2;\n}\n"
+    assert not emit.check(_spec(ref_ts=unrelated), known)
+
+
+def test_the_screens_refuse_the_write_rather_than_warning_past_it(
+    tmp_path: Path,
+) -> None:
+    """A screen with an override is a screen that gets overridden."""
+    emit = _emit_module()
+    spec = _spec(ref_py="    return round(x / 2)\n")
+    try:
+        emit.emit(spec, root=tmp_path)
+    except emit.EmitError:
+        pass
+    else:  # pragma: no cover - the assertion below reports it
+        raise AssertionError("a fatal finding must refuse the write")
+    assert not (tmp_path / "ts" / spec["id"]).exists(), "nothing is written"

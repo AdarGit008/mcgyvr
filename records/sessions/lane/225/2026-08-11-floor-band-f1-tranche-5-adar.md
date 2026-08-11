@@ -81,7 +81,17 @@ failed identically and the gate caught it before the manifest saw it — which i
 the gate's whole job, and worth recording as evidence that the self-test arm
 works rather than as an embarrassment.
 
-## Two design traps avoided, recorded because they will recur
+## Two design traps — now screened by the emitter, not remembered
+
+Both were first written down here as prose. Prose is a note a future session has
+to remember to read, so both are now screens in `tools/bench/emit.py`, refusing
+the write rather than advising against it. Neither can be waived by an argument:
+a screen with an override is a screen that gets overridden at the moment it
+matters.
+
+They live in the emitter and not in the gate because the gate is *structurally
+unable* to catch either. In both, the material is perfectly correct — it is
+correct about the wrong thing, so executing it proves nothing.
 
 **1. A rounding rule that is not the same rule in both languages.** The first
 draft of `b298` was "the mean, with a half rounding up". Python's `round()` is
@@ -96,9 +106,70 @@ answer the boundary the same way.**
 **2. Domain collision inside the band.** Roughly a third of the first draft was
 discarded against the 40 problems already in `f1` — a cyclic-next (b241), a
 mask-the-tail (b237), a round-robin deal (b250), a longest-run (b251), a clamp
-(b254), an interval merge (b266), a title-case (b242). The Jaccard screen at
-0.55 is the backstop, not the method; reading the existing prose first is the
-method, and it is cheaper than a gate rejection.
+(b254), an interval merge (b266), a title-case (b242). **Rule: read the existing
+prose before drafting.** The 0.55 prose Jaccard is the backstop, not the method,
+and it cannot see this class at all: "the next fan speed, wrapping to the first"
+and "who takes the next shift, wrapping to the first" share almost no vocabulary
+and are one problem.
+
+What they do share is the shape of their reference, so `siblings()` screens the
+reference's **token skeleton** — identifiers, literals and types erased, kept as
+3-grams. Renaming `rotaNext` to `ventCycle` and `names` to `settings` scores
+**1.00** against the original.
+
+## What the screens found in the corpus that already exists
+
+Calibration was done against all 300 admitted problems rather than by picking a
+number. Skeleton similarity runs at a median of 0.14 (py) and 0.20 (ts), p99 of
+0.34 and 0.41. Refusal sits at **0.70** and a warning at **0.55**.
+
+Run over the tree, the screens refuse **three problems, and all three are one
+finding**:
+
+> **`b080-brace-fill`, `b090-expand-markers` and `b168-badge-slots` are the same
+> problem three times.** Substitute `{name}`, `%name%` and `<name>` from a
+> mapping while walking the template once, rejecting a malformed name, an
+> unclosed opener and a name the mapping lacks. Different delimiter, same task,
+> and the prose screen never saw it because the vocabulary differs.
+
+`b080` and `b168` are **both in the bench half**, so both are scored, and a
+model that solves one has effectively seen the other. `b090` sits in **reserve**
+— a twin across the split, which is precisely the recontamination
+`admit.py`'s docstring says "dies here". It did not. `b080` is also the one of
+the three carrying an `ablation-sets.json` and `strata.json` entry, though the
+ablation used only it, so no ablation cell held two copies.
+
+All three are in the **old 220** — the ladder's top under ADR-0021 clause 5, not
+the floor band this campaign is building. `f1` itself has one milder pair,
+`b259-gloss-lookup` and `b267-alias-map` at 0.59 (look one up in a mapping with
+a fallback, then list the keys alphabetically) — inside the warning band, below
+refusal, one in each half.
+
+**This is reported and not acted on.** Removing admitted, pinned, previously
+measured problems changes manifest digests and touches material the ablation
+record cites; that is the owner's call, not the author's. The 45.0% read is
+unaffected either way — the trio is not in `f1`.
+
+## What the screens do not claim
+
+Fatal means **decidable from the text**. Everything needing dataflow warns and
+never refuses:
+
+- `%` reached by a negative (`-7 % 3` is `2` in python, `-1` in JavaScript) is a
+  warning, because `Math.abs` upstream, a divisibility test against zero, or an
+  addend chosen to keep the numerator positive all make it safe and none is
+  visible to a regex. An earlier draft refused on this and was wrong about
+  `b240-hue-band`, which already writes `((degrees % 360) + 360) % 360`.
+- A bare `.sort()` refuses only over a **visibly `number[]`** receiver. Over
+  strings the two languages agree, and `Object.keys(m).sort()` is the commonest
+  correct use in this tree — an earlier draft refused 46 problems by missing
+  that, most of them sorting keys.
+- Unicode-aware `str.is*()` against an ASCII `ts` regex, `Math.trunc` against
+  `//`, and `localeCompare` against code-point order are all latent: the arms
+  part company outside ASCII or below zero, where a checker may never go.
+
+The audit currently stands at **3 refusals and 60 warnings** over 300 problems.
+The warnings are a reading list, not a defect count.
 
 ## State after this tranche
 
