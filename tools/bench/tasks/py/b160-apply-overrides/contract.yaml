@@ -1,0 +1,29 @@
+id: b160-apply-overrides
+task_type: function_implementation
+task: >-
+  Implement apply_overrides. A tool's effective settings start from base,
+  a flat mapping of setting names to string values, and command-line
+  overrides land on top. Each override is one string of a name, an
+  equals sign, and the value — the value may be empty, and it may itself
+  hold equals signs, so only the first equals sign splits the pair.
+  Apply the overrides in order to a copy of base, a later override
+  beating an earlier one for the same name, and return that copy; base
+  itself must come out of the call exactly as it went in. Reject an
+  overrides argument that is not a list, an override that is not a
+  string, an override holding no equals sign, an override whose name is
+  empty, and an override whose name base does not already hold, with an
+  error.
+target: solution.py
+target_content: |
+  def apply_overrides(base: dict, overrides: list) -> dict:
+      merged = dict(base)
+      # TODO: check overrides is a list; split each override on its first
+      # equals sign, validate it, and apply it to merged.
+      return merged
+interface: "def apply_overrides(base: dict, overrides: list) -> dict"
+stop_conditions:
+  - What characters a setting name may hold beyond being non-empty is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

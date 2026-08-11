@@ -1,0 +1,21 @@
+id: b171-merge-bookings
+task_type: function_implementation
+task: >-
+  Implement merge_bookings. A meeting room's day plan arrives as one string of
+  comma-separated slots, each written as two whole hour numbers joined by a
+  hyphen, as in "9-11,13-14"; the slots arrive in no particular order and may
+  overlap. Return the tidied plan as one string holding the same booked time
+  in as few slots as possible: sort the slots by start hour, fuse any two that
+  overlap or merely touch at an hour into one, and render the result as
+  start-end pairs joined by commas with no spaces. Hours run from 0 to 24.
+  Reject a plan that is not a string, an empty plan, a slot that is not two
+  whole numbers around one hyphen, a slot whose end hour is not after its
+  start hour, and an hour past 24, with an error.
+target: solution.py
+interface: "def merge_bookings(plan: str) -> str"
+stop_conditions:
+  - Whether whitespace around a slot inside the plan is accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

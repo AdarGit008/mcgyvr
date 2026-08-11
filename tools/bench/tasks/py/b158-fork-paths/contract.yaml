@@ -1,0 +1,23 @@
+id: b158-fork-paths
+task_type: function_implementation
+task: >-
+  Implement fork_paths. A deployment pattern names several concrete
+  slash-separated paths at once: each segment between slashes is either
+  a literal name or a fork — an opening curly brace, comma-separated
+  options, and a closing curly brace spanning the whole segment. Expand
+  the pattern into the full list of paths it names, each fork
+  contributing exactly one of its options per path: options appear in
+  their written order, and an earlier fork's choice changes slower than
+  a later one's, so "s/{i,j}/{1,2}" yields "s/i/1", "s/i/2", "s/j/1",
+  "s/j/2". A pattern holding no fork yields itself alone. Reject a
+  pattern that is not a non-empty string, an empty segment, an empty
+  option, and a curly brace or comma sitting inside a literal segment
+  or an option, with an error.
+target: solution.py
+interface: "def fork_paths(pattern: str) -> list"
+stop_conditions:
+  - No upper bound on the number of forks, or on the number of paths a pattern may name, is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

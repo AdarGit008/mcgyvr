@@ -1,0 +1,42 @@
+id: b184-dose-totals
+task_type: function_implementation
+task: >-
+  Implement doseTotals. A lab's pour log is a list of [reagent, amount]
+  entries in pour order, each amount a decimal string of millilitres: an
+  optional leading minus, one or more digits, and optionally a point with
+  one, two or three more digits. Total each reagent exactly — count in
+  thousandths of a millilitre so no binary fraction ever rounds — and
+  return a mapping from reagent to its total written back as a decimal
+  string. A total is printed with as many places after the point as the
+  finest entry that reagent received, so a reagent poured only in whole
+  millilitres prints with no point at all, and a negative total keeps a
+  single leading minus. An empty log totals nothing. Reject an amount that
+  does not fit that written form with an error.
+target: solution.ts
+target_content: |
+  /** Exact per-reagent totals of a pour log, counted in thousandths. */
+  export function doseTotals(log: [string, string][]): Record<string, string> {
+    const thousandths: Record<string, number> = {};
+    const places: Record<string, number> = {};
+    for (const [reagent, amount] of log) {
+      const written = /^-?\d+(?:\.(\d{1,3}))?$/.exec(amount);
+      if (written === null) {
+        throw new Error("amount is not a decimal of at most three places: " + amount);
+      }
+      const digits = written[1] ?? "";
+      const sign = amount.startsWith("-") ? -1 : 1;
+      const bare = amount.replace("-", "").replace(".", "");
+      thousandths[reagent] = (thousandths[reagent] ?? 0) + sign * Number(bare) * Math.pow(10, 3 - digits.length);
+      places[reagent] = Math.max(places[reagent] ?? 0, digits.length);
+    }
+    const totals: Record<string, string> = {};
+    // TODO: write each total back out with that reagent's finest place count.
+    return totals;
+  }
+interface: "export function doseTotals(log: [string, string][]): Record<string, string>"
+stop_conditions:
+  - Whether an amount may be written with a leading plus sign is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

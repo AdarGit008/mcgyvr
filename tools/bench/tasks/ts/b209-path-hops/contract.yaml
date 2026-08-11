@@ -1,0 +1,24 @@
+id: b209-path-hops
+task_type: function_implementation
+task: >-
+  Implement pathHops. Two slash-separated paths name directories under one
+  shared root. Reduce each path to its list of segments: an empty segment and
+  a segment that is a single dot are ignored, and a segment of two dots drops
+  the segment standing before it. Then count the hops that walk from the
+  start directory to the goal directory: one hop for every segment the
+  reduced start holds beyond the longest run of segments the two reduced
+  paths share from the beginning — each of those is a step up towards the
+  root — plus one hop for every segment the reduced goal holds beyond that
+  same shared run, each of those a step back down. So a/b is two hops from
+  a/b/c/d, and a/b/c is four hops from a/x/y. Two paths that reduce to the
+  same segments are zero hops apart, and the empty path is the root itself.
+  Reject a path whose two dots have no segment left to drop, since it climbs
+  above the shared root, with an error.
+target: solution.ts
+interface: "export function pathHops(start: string, goal: string): number"
+stop_conditions:
+  - Whether a segment of three or more dots is read as an ordinary name is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

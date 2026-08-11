@@ -1,0 +1,22 @@
+id: b161-clause-order
+task_type: function_implementation
+task: >-
+  Implement clause_order. A clause mark names a clause's place in a
+  contract as one or more dot-separated numbers: 3, 3.2, 3.2.11. Each
+  number is a plain decimal integer with no leading zero, zero itself
+  written 0. Return -1 when the first mark comes earlier than the second,
+  1 when it comes later, and 0 when the marks are identical. Marks
+  compare number by number from the front, numerically, so 1.10 comes
+  after 1.9; when every shared position agrees, the mark that merely
+  extends the other comes after it, so 3.2 comes before 3.2.1. Reject a
+  mark that is not a string, an empty mark, an empty number left by a
+  stray dot, a number with a leading zero, and any character that is not
+  a digit or a dot, with an error.
+target: solution.py
+interface: "def clause_order(a: str, b: str) -> int"
+stop_conditions:
+  - How many numbers a clause mark may hold at most is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

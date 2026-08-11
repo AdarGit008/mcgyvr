@@ -1,0 +1,36 @@
+id: b198-explode-kit
+task_type: function_implementation
+task: >-
+  Implement explode_kit. A workshop catalog gives every kit a recipe: makes
+  is how many finished units one run of that recipe turns out, and parts
+  lists the (component, count) pairs one run consumes. A component the
+  catalog names is itself a kit; any other component is a base part. To
+  obtain want units of a kit the workshop performs its recipe as many whole
+  runs as are needed, rounding up, so spare units may be left over; each
+  run consumes its own parts, and a component that is a kit is then
+  obtained the same way for as many units as those runs call for. Spare
+  units are never shared between two requirements: each requirement is met
+  by runs of its own. Return a mapping from base part to the total count
+  consumed by an order of want units of kit, a base part reached along
+  several routes summing over them. Reject a kit name the catalog does not
+  define with an error.
+target: solution.py
+target_content: |
+  import math
+
+
+  def explode_kit(catalog, kit, want):
+      """Total the base parts an order of a kit consumes."""
+      if kit not in catalog:
+          raise ValueError(f"the catalog does not define {kit}")
+      totals = {}
+      # TODO: work down from kit, turning each requirement into whole runs
+      # and charging a run's parts to its sub-kits or to the base totals.
+      return totals
+interface: "def explode_kit(catalog: dict, kit: str, want: int) -> dict"
+stop_conditions:
+  - What an order of zero units should report is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

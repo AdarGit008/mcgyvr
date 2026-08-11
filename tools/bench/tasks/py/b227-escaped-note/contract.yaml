@@ -1,0 +1,25 @@
+id: b227-escaped-note
+task_type: function_implementation
+task: >-
+  Implement decode_escaped_note. A note has been stored in a mail-safe
+  escaped form and must be turned back into its original text in two
+  passes. First fold the lines: drop every space and tab that runs to the
+  end of a line, then walk the lines in order, and whenever the text kept
+  so far ends in "=" that "=" and the following line break both disappear
+  and the next line continues the current one directly, while every other
+  line break survives as a single line feed. Then decode escapes in the
+  folded text: an "=" followed by exactly two uppercase hexadecimal digits
+  stands for the character whose code those digits spell, so "=25" is "%"
+  and "=20" is a space, which survives because it is produced after the
+  trimming pass; every other character is copied unchanged. Return the
+  decoded text. Reject an "=" in the folded text that is not followed by
+  two uppercase hexadecimal digits, which includes an "=" left at the very
+  end of the note, with an error.
+target: solution.py
+interface: "def decode_escaped_note(text: str) -> str"
+stop_conditions:
+  - Whether a carriage return before a line feed counts as trailing whitespace is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

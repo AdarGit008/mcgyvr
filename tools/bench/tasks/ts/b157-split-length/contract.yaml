@@ -1,0 +1,27 @@
+id: b157-split-length
+task_type: function_implementation
+task: >-
+  Implement splitLength. Express a length held as a whole count of
+  millimetres in workshop notation: carve off whole metres first, then
+  whole centimetres, then leftover millimetres — a metre is 1000
+  millimetres and a centimetre is 10 — and write each unit whose count
+  came out above zero as its count directly on its symbol, larger units
+  first, the parts joined by single spaces: 1234 becomes "1m 23cm 4mm",
+  30 becomes "3cm", 1005 becomes "1m 5mm". A zero length becomes "0mm".
+  Reject a length that is not a whole number — a fraction, a string, or
+  a boolean — and a negative length, with an error.
+target: solution.ts
+target_content: |
+  const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+  export function splitLength(mm: number): string {
+    // TODO: validate mm, then walk LADDER carving off each unit's count.
+    return "";
+  }
+interface: "export function splitLength(mm: number): string"
+stop_conditions:
+  - No upper bound on the length is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,21 @@
+id: b215-grouped-cents
+task_type: function_implementation
+task: >-
+  Implement cents_of. An amount is written as an optional minus sign, a
+  whole part, and optionally a point with one or two decimal digits. The
+  whole part is either a plain run of digits with no commas at all, or a
+  run grouped in threes, where the first group holds one to three digits
+  and every group after a comma holds exactly three. A single decimal
+  digit counts tenths, so 1,234.5 reads as 123450 cents, 12 reads as 1200
+  cents, and -0.07 reads as -7 cents. Return the amount as a whole number
+  of cents, negative when the minus sign is there. Reject an amount that
+  is not a string and an amount that does not read exactly as described,
+  with an error.
+target: solution.py
+interface: "def cents_of(amount: str) -> int"
+stop_conditions:
+  - Whether an amount may carry a leading plus sign is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,29 @@
+id: b172-trace-relay
+task_type: function_implementation
+task: >-
+  Implement traceRelay. A harbour's night watch is handed from post to post:
+  links maps each post's name to the name of the post it hands the watch on
+  to, and the last post of the night hands on to the empty name. Beginning at
+  start, follow the handoffs and return the list of post names the watch
+  visits, in order, starting with start itself and ending with the post that
+  hands on to the empty name. Reject a links argument that is not a mapping, a
+  start that is not a post named in links, a handoff naming a post that links
+  does not name, and a run of handoffs that comes back to a post already
+  visited, with an error.
+target: solution.ts
+target_content: |
+  export function traceRelay(links: Record<string, string>, start: string): string[] {
+    if (links === null || typeof links !== "object" || Array.isArray(links)) throw new Error("links must be a mapping");
+    if (!(start in links)) throw new Error("start is not a post");
+    const route: string[] = [];
+    let post = start;
+    // TODO: walk the handoffs to the empty name, refusing an unknown post and a watch that comes round again.
+    return route;
+  }
+interface: "export function traceRelay(links: Record<string, string>, start: string): string[]"
+stop_conditions:
+  - Whether posts in links that the walk never reaches must themselves be well formed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

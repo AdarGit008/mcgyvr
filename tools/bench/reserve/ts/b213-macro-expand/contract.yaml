@@ -1,0 +1,38 @@
+id: b213-macro-expand
+task_type: function_implementation
+task: >-
+  Implement expandMacro. A snippet's text may carry macro references, each
+  written as a dollar sign, an opening parenthesis, a name of lowercase
+  letters and digits, an optional colon followed by a fallback, and a
+  closing parenthesis: $(who) or $(who:nobody). A reference to a name the
+  macros mapping holds becomes that macro's value, and the value is itself
+  read for references the same way, so one macro may reach through others
+  to any depth. A reference to a name the mapping does not hold becomes
+  its fallback taken as written — a fallback never carries parentheses —
+  or the empty string when the reference gives none. Every other character
+  of the text passes through untouched. Return the expanded text. Reject a
+  text whose expansion reaches a name already being expanded, a cycle,
+  with an error.
+target: solution.ts
+target_content: |
+  function expandInto(
+    text: string,
+    macros: Record<string, string>,
+    active: string[],
+  ): string {
+    // TODO: swap each $(name) or $(name:fallback) reference for the macro's
+    // expanded value or its fallback, refusing a name already in active.
+    return text;
+  }
+
+  export function expandMacro(text: string, macros: Record<string, string>): string {
+    // TODO: start the expansion with no macro active yet.
+    return text;
+  }
+interface: "export function expandMacro(text: string, macros: Record<string, string>): string"
+stop_conditions:
+  - Whether a reference whose name carries capital letters should be left as written or refused is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

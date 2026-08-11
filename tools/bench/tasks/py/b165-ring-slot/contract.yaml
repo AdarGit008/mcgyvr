@@ -1,0 +1,22 @@
+id: b165-ring-slot
+task_type: function_implementation
+task: >-
+  Implement ring_slot. A telemetry recorder keeps only the newest readings:
+  it has capacity slots numbered 0 through capacity minus 1, and reading
+  number n, counting from 0, is written into slot n mod capacity over
+  whatever sat there. After writes readings have been recorded the
+  survivors are the newest min(writes, capacity) readings. Return the
+  number of the slot now holding the k-th oldest survivor, k counting
+  from 0: with capacity 4 and 6 readings written, the oldest survivor is
+  reading 2 sitting in slot 2, and k of 3 names reading 5 sitting in
+  slot 1. Reject a capacity that is not a positive whole number, a writes
+  that is not a non-negative whole number, a k that is not a non-negative
+  whole number, and a k at or past the survivor count, with an error.
+target: solution.py
+interface: "def ring_slot(capacity: int, writes: int, k: int) -> int"
+stop_conditions:
+  - No upper bound on the number of readings written is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

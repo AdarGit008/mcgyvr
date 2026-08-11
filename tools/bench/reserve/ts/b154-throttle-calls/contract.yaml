@@ -1,0 +1,33 @@
+id: b154-throttle-calls
+task_type: function_implementation
+task: >-
+  Implement throttleCalls. The input is the arrival times of calls in whole
+  seconds, in non-decreasing order, together with a call limit and a window
+  length in seconds. Walk the calls in order and decide each one: a call is
+  accepted when fewer than limit earlier accepted calls still count at its
+  arrival, where an accepted call at time s counts at an arrival t while
+  t - s is less than window, and stops counting once t - s reaches window.
+  Refused calls never count against later arrivals. Return one boolean per
+  call, in order, true for accepted. Reject an arrivals argument that is
+  not a list, an arrival that is not a non-negative whole number, arrivals
+  that decrease, a limit that is not a positive whole number, and a window
+  that is not a positive whole number, with an error.
+target: solution.ts
+target_content: |
+  /** Decide each call against a sliding window of the accepted arrivals. */
+  export function throttleCalls(times: number[], limit: number, window: number): boolean[] {
+    if (!Array.isArray(times)) throw new Error("throttleCalls expects a list of arrival times");
+    if (!Number.isInteger(limit) || limit < 1) throw new Error("limit must be a positive integer");
+    if (!Number.isInteger(window) || window < 1) throw new Error("window must be a positive integer");
+    // TODO: validate the arrivals, then walk them keeping the accepted
+    // times younger than window; accept while fewer than limit remain
+    // counted, and never let a refused call count later.
+    throw new Error("not implemented");
+  }
+interface: "export function throttleCalls(times: number[], limit: number, window: number): boolean[]"
+stop_conditions:
+  - No upper bound on the number of calls or the size of an arrival time is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

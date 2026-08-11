@@ -1,0 +1,19 @@
+id: b149-shift-roster
+task_type: function_implementation
+task: >-
+  Implement shift_roster. The input is a sign-up sheet: a list of entries,
+  each a two-item list of a worker's name and the shift that worker signed
+  up for, both non-empty strings, in sign-up order. Return the roster as a
+  mapping from each shift that received sign-ups to the alphabetically
+  sorted list of its workers' names; no entries yields an empty mapping.
+  Reject an entries argument that is not a list, an entry that is not a
+  two-item list, a name or shift that is not a non-empty string, and a
+  name appearing in more than one entry, with an error.
+target: solution.py
+interface: "def shift_roster(entries: list) -> dict"
+stop_conditions:
+  - How names differing only in letter case are ordered is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

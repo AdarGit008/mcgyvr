@@ -1,0 +1,36 @@
+id: b181-broadcast-waves
+task_type: function_implementation
+task: >-
+  Implement broadcastWaves. A newsroom relays a bulletin through desks: each
+  link string names one hop as sender>receiver, and start names the desk the
+  bulletin leaves from. Report how the bulletin spreads, one wave per hop.
+  The first wave holds start alone; each later wave holds every desk reached
+  by a link from a desk in the wave just before it that no earlier wave
+  already held, sorted alphabetically. Desks the bulletin never reaches do
+  not appear, and links pointing back into an earlier wave add nothing.
+  Render each wave as its desks joined by ", " and join the waves with
+  newlines. Reject a link that is not two non-empty desk names around a
+  single ">" with an error.
+target: solution.ts
+target_content: |
+  /** Report a bulletin's spread through the desks, one wave per hop. */
+  export function broadcastWaves(links: string[], start: string): string {
+    const onward: Record<string, string[]> = {};
+    for (const link of links) {
+      const parts = link.split(">");
+      if (parts.length !== 2 || parts[0] === "" || parts[1] === "") {
+        throw new Error("a link must be written sender>receiver");
+      }
+      (onward[parts[0]] ??= []).push(parts[1]);
+    }
+    const lines: string[] = [];
+    // TODO: step outward from start one hop at a time, sorting each new wave.
+    return lines.join("\n");
+  }
+interface: "export function broadcastWaves(links: string[], start: string): string"
+stop_conditions:
+  - Whether a desk may appear twice inside a single wave's link list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

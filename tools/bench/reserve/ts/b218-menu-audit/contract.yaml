@@ -1,0 +1,23 @@
+id: b218-menu-audit
+task_type: function_implementation
+task: >-
+  Implement auditMenu. A café's menu is a tree of nodes, each node holding
+  label, its wording, and items, the list of nodes filed under it, empty for a
+  plain dish. Walk the tree from the root and return the complaints the menu
+  earns as a list of strings, a node's own complaints before those of anything
+  filed under it and nodes visited in the order they are filed. A node's trail
+  is the labels from the root down to it joined by " > ". Each node earns
+  "<trail>: blank label" when its label is empty or nothing but spaces, then
+  "<trail>: duplicate" when a node filed earlier under the same parent carries
+  the very same label, then "<trail>: too deep" when it sits further below the
+  root than maxDepth allows, the root itself sitting at 0. A menu with nothing
+  to complain about returns an empty list. Reject a maxDepth that is not a
+  whole number of at least 0 with an error.
+target: solution.ts
+interface: "export function auditMenu(root: MenuNode, maxDepth: number): string[]"
+stop_conditions:
+  - Whether labels differing only in letter case count as the same label is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

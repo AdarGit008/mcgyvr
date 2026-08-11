@@ -1,0 +1,31 @@
+id: b145-ridge-row
+task_type: function_implementation
+task: >-
+  Implement ridgeRow. A survey team plots a mountain transect as a
+  character grid, one column per station. The heights argument lists each
+  station's elevation in grid cells, one non-negative integer per station,
+  and level names one horizontal row of the plot counted upward from the
+  ground, the ground row being level 1. Return that row as a string, one
+  character per station in order: a hash mark "#" where the station's
+  elevation is at least the level, a dot "." where it is not. An empty
+  heights list gives the empty string, and a level above every elevation
+  gives all dots. Reject a heights argument that is not a list, an
+  elevation that is not a non-negative integer, and a level that is not a
+  positive integer, with an error.
+target: solution.ts
+target_content: |
+  /** One row of a transect plot: "#" where a station reaches the level. */
+  export function ridgeRow(heights: number[], level: number): string {
+    if (!Array.isArray(heights)) throw new Error("ridgeRow expects a list of elevations");
+    if (!Number.isInteger(level) || level < 1) throw new Error("level must be a positive integer");
+    let row = "";
+    // TODO: walk the stations, validate each elevation, and mark or dot the row.
+    return row;
+  }
+interface: "export function ridgeRow(heights: number[], level: number): string"
+stop_conditions:
+  - No upper bound on an elevation or on the number of stations is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

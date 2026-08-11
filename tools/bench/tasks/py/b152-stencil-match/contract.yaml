@@ -1,0 +1,20 @@
+id: b152-stencil-match
+task_type: function_implementation
+task: >-
+  Implement matches_stencil. A stencil vets a code position by position: the
+  stencil character "#" stands for one digit 0 to 9, "@" stands for one
+  ASCII letter of either case, "?" stands for any single character, and
+  every other stencil character stands only for itself, matched
+  case-sensitively. Return True when the code has exactly the stencil's
+  length and every position of the code satisfies the stencil character
+  above it, and False otherwise, a length mismatch included. Reject a
+  stencil that is not a string, an empty stencil, and a code that is not a
+  string, with an error.
+target: solution.py
+interface: "def matches_stencil(stencil: str, code: str) -> bool"
+stop_conditions:
+  - No way to match a literal "#", "@" or "?" character is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

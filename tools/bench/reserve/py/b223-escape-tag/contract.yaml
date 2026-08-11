@@ -1,0 +1,28 @@
+id: b223-escape-tag
+task_type: function_implementation
+task: >-
+  Implement escape_tag. A depot prints its shelf labels into tag URLs, so
+  every label is percent-encoded first. Walk the label once: a character
+  that is an ASCII letter, a digit, a hyphen or an underscore stands for
+  itself, and every other character is replaced by a percent sign
+  followed by exactly two uppercase hexadecimal digits giving its
+  character code, zero-padded to two digits — a space becomes "%20", a
+  percent sign becomes "%25", a tilde becomes "%7E" and a tab becomes
+  "%09". Return the encoded label. Reject a label that is not a string,
+  an empty label, and a label holding any character whose code passes
+  127, with an error.
+target: solution.py
+target_content: |
+  SAFE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+
+
+  def escape_tag(label: str) -> str:
+      # TODO: reject a bad label, then walk its characters building the encoding.
+      return ""
+interface: "def escape_tag(label: str) -> str"
+stop_conditions:
+  - Whether a label that already holds percent escapes is encoded again is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

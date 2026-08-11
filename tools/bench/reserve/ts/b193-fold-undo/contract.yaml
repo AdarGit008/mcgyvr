@@ -1,0 +1,25 @@
+id: b193-fold-undo
+task_type: function_implementation
+task: >-
+  Implement foldUndo. An editor records every change as a three-item list
+  of the field's name, the field's value before the change and its value
+  after, in the order the changes were made. Build the undo stack from
+  them, bottom entry first, holding at most depth entries. Each change
+  becomes an entry pushed on top, except that a change touching the same
+  field as the entry already on top replaces it instead, the merged entry
+  keeping the older entry's before value beside the newer change's after
+  value. An entry whose before and after values are equal records nothing
+  and never reaches the stack, so the change after it may in turn merge
+  with whatever entry the removal uncovered. When a push would leave more
+  than depth entries on the stack, the bottom entry falls off. Return the
+  stack as a list of three-item lists.
+target: solution.ts
+interface: |-
+  type Change = [string, string, string];
+  export function foldUndo(changes: Change[], depth: number): Change[]
+stop_conditions:
+  - Whether a depth of zero can hold an entry at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

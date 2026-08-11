@@ -1,0 +1,21 @@
+id: b156-spread-tabs
+task_type: function_implementation
+task: >-
+  Implement spread_tabs. Lay text out for a fixed-pitch printer by
+  replacing every tab character with spaces. Tab stops sit every width
+  columns — at column width, twice width, and so on — and each character
+  other than a tab advances the column by one, a newline instead
+  returning the column to zero. A tab becomes exactly the spaces needed
+  to reach the next stop: always at least one, and a full width of them
+  when the column already sits on a stop. Text holding no tab, and the
+  empty string, come back unchanged. Reject a text that is not a string
+  and a width that is not a positive whole number — zero, a fraction, or
+  a string — with an error.
+target: solution.py
+interface: "def spread_tabs(text: str, width: int) -> str"
+stop_conditions:
+  - Whether a carriage return also returns the column to zero is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

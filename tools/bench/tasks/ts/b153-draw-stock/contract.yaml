@@ -1,0 +1,20 @@
+id: b153-draw-stock
+task_type: function_implementation
+task: >-
+  Implement drawStock. The shelf maps each item name to a count on hand,
+  and the order is a list of [item, count] lines to pull from the shelf,
+  applied first to last. Return a new mapping of what remains on the shelf,
+  every shelf item still present even when its count reaches zero; the
+  shelf passed in is never modified. Reject a shelf count that is not a
+  non-negative whole number, an order that is not a list, a line whose
+  count is not a positive whole number, a line naming an item the shelf
+  does not hold, and a line pulling more of an item than the earlier lines
+  left, with an error.
+target: solution.ts
+interface: "export function drawStock(shelf: Record<string, number>, order: [string, number][]): Record<string, number>"
+stop_conditions:
+  - Whether an order line may carry a shape other than exactly an item and a count is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

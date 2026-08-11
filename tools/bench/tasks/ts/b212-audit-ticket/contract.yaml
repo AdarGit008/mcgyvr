@@ -1,0 +1,22 @@
+id: b212-audit-ticket
+task_type: function_implementation
+task: >-
+  Implement auditTicket. A depot ticket reads as two capital letters, a
+  hyphen, four digits, a hyphen, and one check digit, as in AB-1234-3. The
+  check digit is the last digit of a total: each of the two letters adds
+  its place in the alphabet, A counting 1 through Z counting 26, and each
+  of the four digits adds its face value times its position in that run of
+  four, 1 through 4. Name the first fault the ticket carries. Return
+  "shape" when the ticket does not read exactly as described, "check" when
+  it reads correctly but its check digit is not the last digit of the
+  total, and "ok" when neither fault is present. So AB-1234-3 is ok, since
+  the letters add 3 and the digits add 30. Reject a ticket that is not a
+  string with an error.
+target: solution.ts
+interface: "export function auditTicket(ticket: string): string"
+stop_conditions:
+  - Whether a ticket padded with surrounding spaces should be trimmed before its shape is judged is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

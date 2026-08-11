@@ -1,0 +1,34 @@
+id: b145-ridge-row
+task_type: function_implementation
+task: >-
+  Implement ridge_row. A survey team plots a mountain transect as a
+  character grid, one column per station. The heights argument lists each
+  station's elevation in grid cells, one non-negative integer per station,
+  and level names one horizontal row of the plot counted upward from the
+  ground, the ground row being level 1. Return that row as a string, one
+  character per station in order: a hash mark "#" where the station's
+  elevation is at least the level, a dot "." where it is not. An empty
+  heights list gives the empty string, and a level above every elevation
+  gives all dots. Reject a heights argument that is not a list, an
+  elevation that is not a non-negative integer, and a level that is not a
+  positive integer, with an error.
+target: solution.py
+target_content: |
+  """One row of a transect plot: "#" where a station reaches the level."""
+
+
+  def ridge_row(heights, level):
+      if not isinstance(heights, list):
+          raise ValueError("ridge_row expects a list of elevations")
+      if isinstance(level, bool) or not isinstance(level, int) or level < 1:
+          raise ValueError("level must be a positive integer")
+      row = ""
+      # TODO: walk the stations, validate each elevation, and mark or dot the row
+      return row
+interface: "def ridge_row(heights: list, level: int) -> str"
+stop_conditions:
+  - No upper bound on an elevation or on the number of stations is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

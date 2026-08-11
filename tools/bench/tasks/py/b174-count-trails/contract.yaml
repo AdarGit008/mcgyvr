@@ -1,0 +1,20 @@
+id: b174-count-trails
+task_type: function_implementation
+task: >-
+  Implement count_trails. A museum's gallery floor is a grid of rows rows by
+  cols columns; a visitor enters at the top-left cell, leaves at the
+  bottom-right cell, and every step moves one cell right or one cell down.
+  blocked lists the roped-off cells the visitor may not enter, each a two-item
+  list holding a row index then a column index, both counted from zero. Return
+  how many distinct routes cross the floor, which is zero when the ropes leave
+  no way through. Reject a rows or cols that is not a whole number of at least
+  one, a blocked entry that is not a two-item list, a blocked cell outside the
+  grid, and a rope across the entrance or the exit cell, with an error.
+target: solution.py
+interface: "def count_trails(rows: int, cols: int, blocked: list) -> int"
+stop_conditions:
+  - Whether blocked may name the same cell more than once is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

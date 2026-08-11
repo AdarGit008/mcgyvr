@@ -1,0 +1,28 @@
+id: b172-trace-relay
+task_type: function_implementation
+task: >-
+  Implement trace_relay. A harbour's night watch is handed from post to post:
+  links maps each post's name to the name of the post it hands the watch on
+  to, and the last post of the night hands on to the empty name. Beginning at
+  start, follow the handoffs and return the list of post names the watch
+  visits, in order, starting with start itself and ending with the post that
+  hands on to the empty name. Reject a links argument that is not a mapping, a
+  start that is not a post named in links, a handoff naming a post that links
+  does not name, and a run of handoffs that comes back to a post already
+  visited, with an error.
+target: solution.py
+target_content: |
+  def trace_relay(links, start):
+      if not isinstance(links, dict): raise ValueError("links must be a mapping")
+      if start not in links: raise ValueError("start is not a post")
+      route = []
+      post = start
+      # TODO: walk the handoffs to the empty name, refusing an unknown post and a watch that comes round again.
+      return route
+interface: "def trace_relay(links: dict, start: str) -> list"
+stop_conditions:
+  - Whether posts in links that the walk never reaches must themselves be well formed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

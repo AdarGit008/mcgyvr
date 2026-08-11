@@ -1,0 +1,34 @@
+id: b163-base-amount
+task_type: function_implementation
+task: >-
+  Implement baseAmount. A stockroom counts goods in nested units: defs
+  maps a unit name to a pair [factor, finer] meaning one of that unit
+  holds factor of the finer unit, and every chain of definitions ends at
+  the base unit named base, which has no entry of its own. Convert
+  amount of unit into the base unit by unwinding one definition at a
+  time: an amount of the base unit is already converted, and otherwise
+  amount of unit is amount times factor of the finer unit, converted
+  onward. With defs of ream holding [20, quire] and quire holding
+  [25, sheet] and base sheet, 2 reams come to 1000 sheets. Reject an
+  amount that is not a non-negative whole number, a unit that is neither
+  the base nor defined in defs, a factor that is not a positive whole
+  number, and a chain that loops so it can never reach the base, with an
+  error.
+target: solution.ts
+target_content: |
+  export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+    if (!Number.isInteger(amount) || amount < 0) {
+      throw new Error("amount must be a non-negative integer");
+    }
+    // TODO: unwind the definition chain from unit down to base,
+    // multiplying by each step's factor; reject an unknown unit, a bad
+    // factor, and a chain that loops.
+    throw new Error("not implemented");
+  }
+interface: "export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number"
+stop_conditions:
+  - Whether a defs entry for the base unit itself, never consulted, is an error is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

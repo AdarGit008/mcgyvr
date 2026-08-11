@@ -1,0 +1,20 @@
+id: b182-chart-depths
+task_type: function_implementation
+task: >-
+  Implement chart_depths. A crew chart maps every member's name to the name
+  of the member they answer to; exactly one member, the chief, answers to
+  the empty string. Return a mapping from every name in the chart to its
+  rung: the chief sits at 0 and anyone else sits one above whoever they
+  answer to. The chart's entries arrive in no particular order, so a member
+  may be listed before the one they answer to. An empty chart has no rungs.
+  Reject a chart naming someone who answers to a member the chart does not
+  list, and a chart whose answering chain circles back on itself, with an
+  error.
+target: solution.py
+interface: "def chart_depths(chart: dict) -> dict"
+stop_conditions:
+  - Whether a chart holding two separate chiefs is meaningful is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

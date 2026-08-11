@@ -1,0 +1,22 @@
+id: b168-badge-slots
+task_type: function_implementation
+task: >-
+  Implement badge_text. A visitor badge is printed from a pattern holding
+  slots: a slot is an opening angle bracket, a field name of one or more
+  lowercase letters, and a closing angle bracket. Walk the pattern once,
+  left to right: plain characters pass through untouched, and each slot is
+  replaced by the value the fields mapping holds under its name; the same
+  field may feed several slots, and a value may be the empty string.
+  Return the printed text. Reject a pattern that is not a string, a
+  closing angle bracket sitting outside any slot, an opening angle bracket
+  that is never closed, a slot name that is empty or holds anything but
+  lowercase letters, and a slot name the fields mapping does not hold,
+  with an error.
+target: solution.py
+interface: "def badge_text(pattern: str, fields: dict) -> str"
+stop_conditions:
+  - Whether a substituted value holding angle brackets is itself scanned for slots is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

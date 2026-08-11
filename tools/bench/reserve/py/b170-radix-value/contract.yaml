@@ -1,0 +1,22 @@
+id: b170-radix-value
+task_type: function_implementation
+task: >-
+  Implement radix_value. A hash literal spells a number in its own base: a
+  base written in decimal, a hash mark, then the digits, as in 2#1011 or
+  16#ff. The base runs from 2 to 16. A digit is one of 0 to 9, worth its
+  face value, or lowercase a to f, worth 10 to 15, and every digit's worth
+  must lie strictly below the base. The value folds left to right,
+  multiplying the running total by the base and adding each worth: 2#1011
+  is 11, 16#ff is 255, and leading zeros are legal, so 2#0011 is 3. Return
+  the integer value. Reject a literal that is not a string, a literal
+  without a hash mark, a base part that is not a decimal number from 2 to
+  16, an empty digit part, and a digit whose worth does not lie below the
+  base — an uppercase F included — with an error.
+target: solution.py
+interface: "def radix_value(literal: str) -> int"
+stop_conditions:
+  - No upper bound on the value a literal may spell is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,24 @@
+id: b199-meter-charges
+task_type: function_implementation
+task: >-
+  Implement meter_charges. A quota service meters callers over one billing
+  period: allowance maps each caller to the units granted for the period,
+  and charges is the period's activity in order, each entry a caller and a
+  cost. Return a report holding an entry for every granted caller, those
+  with no activity included, each entry giving used, left and refused. A
+  cost of zero or more is accepted when it is at most the caller's
+  remaining units, which moves that many units from left to used; when it
+  is larger nothing is spent and refused rises by one, and no charge is
+  ever met in part, so a smaller cost later in the period may still be
+  accepted. A cost below zero is a credit that returns units, but never
+  more units than the caller has already used: used falls by the units
+  returned and left rises by the same. Reject a charge naming a caller the
+  allowance does not grant with an error.
+target: solution.py
+interface: "def meter_charges(allowance: dict, charges: list) -> dict"
+stop_conditions:
+  - Whether a caller may be granted a negative allowance is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

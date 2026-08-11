@@ -1,0 +1,50 @@
+id: b219-cut-roll
+task_type: function_implementation
+task: >-
+  Implement cutRoll. A mill sells a fabric roll of length whole metres by
+  cutting it into sellable pieces. board lists what the pieces fetch as
+  [metres, price] pairs, each metres a positive whole number listed once and
+  each price a non-negative whole number; metres the mill does not cut into a
+  piece are scrap and fetch nothing. Return {takings, pieces}: the greatest
+  price the roll can fetch and the metre lengths of a cut that fetches it,
+  largest first. Build the answer up from a roll of 0 metres, which fetches 0:
+  for a roll of some length, weigh cutting each board piece that fits off its
+  end against scrapping its last metre, and keep the best — on a tie prefer
+  cutting a piece to scrapping, and the longer piece to the shorter. A roll of
+  0 metres, and a roll no board piece fits, fetch 0 with no pieces. Reject a
+  length that is not a non-negative whole number with an error.
+target: solution.ts
+target_content: |
+  interface Cut { takings: number; pieces: number[] }
+  /** Cut a fabric roll for the greatest takings the price board allows. */
+  export function cutRoll(length: number, board: [number, number][]): Cut {
+    if (!Number.isInteger(length) || length < 0) {
+      throw new Error("length must be a non-negative whole number");
+    }
+    const order = [...board].sort((a, b) => b[0] - a[0]);
+    const best: number[] = new Array(length + 1).fill(0);
+    const taken: number[] = new Array(length + 1).fill(0);
+    for (let metres = 1; metres <= length; metres++) {
+      best[metres] = -1;
+      for (const [piece, price] of order) {
+        if (piece <= metres && price + best[metres - piece] > best[metres]) {
+          best[metres] = price + best[metres - piece];
+          taken[metres] = piece;
+        }
+      }
+      if (best[metres - 1] > best[metres]) {
+        best[metres] = best[metres - 1];
+        taken[metres] = 0;
+      }
+    }
+    const pieces: number[] = [];
+    // TODO: walk back from the full roll, collecting the piece cut at each step.
+    return { takings: best[length], pieces };
+  }
+interface: "export function cutRoll(length: number, board: [number, number][]): Cut"
+stop_conditions:
+  - Whether a piece longer than the roll itself may appear on the board is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

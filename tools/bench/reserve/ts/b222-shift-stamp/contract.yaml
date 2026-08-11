@@ -1,0 +1,21 @@
+id: b222-shift-stamp
+task_type: function_implementation
+task: >-
+  Implement shiftStamp. A duty roster moves the start of a shift by a
+  whole number of minutes, which may be negative. A stamp writes a time
+  of day on a 24-hour clock as exactly two digits for the hour, a colon,
+  and exactly two digits for the minute, both zero-padded. Return the
+  stamp reached after the move, written in that same two-digit form and
+  wrapped around midnight as many times as the offset needs, so "23:50"
+  moved 20 minutes reads "00:10" and "00:05" moved -10 reads "23:55".
+  Reject a stamp that is not a string, a stamp outside the two-digit
+  colon two-digit form, an hour above 23, a minute above 59, and an
+  offset that is not a whole number, with an error.
+target: solution.ts
+interface: "export function shiftStamp(stamp: string, minutes: number): string"
+stop_conditions:
+  - No upper bound on the size of the offset is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

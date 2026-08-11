@@ -1,0 +1,33 @@
+id: b207-pair-columns
+task_type: function_implementation
+task: >-
+  Implement pairColumns. Lay two blocks of text side by side. Each line of
+  the left block is padded on its right with spaces up to the width of the
+  longest line in that block, then exactly gap spaces follow, then the line
+  of the right block standing at the same row. The result holds one line per
+  row of the taller block; where a block has no line for a row, that side
+  counts as empty, so a row past the end of the right block carries only the
+  left text while a row past the end of the left block still carries the full
+  padding ahead of the right text. Spaces left hanging at the end of a
+  finished line are removed, so a row empty on both sides comes out as the
+  empty string, and two empty blocks give no lines at all. Reject a gap that
+  is not a whole number of zero or more with an error.
+target: solution.ts
+target_content: |
+  /** Lay two blocks of text side by side with a fixed gap between them. */
+  export function pairColumns(left: string[], right: string[], gap: number): string[] {
+    if (!Number.isInteger(gap) || gap < 0) {
+      throw new Error("gap must be a non-negative integer");
+    }
+    // TODO: measure the widest left line, then walk both blocks down to the
+    // taller one, padding each left line to that width, laying the gap
+    // between the sides, and dropping the spaces left hanging at the end.
+    return [];
+  }
+interface: "export function pairColumns(left: string[], right: string[], gap: number): string[]"
+stop_conditions:
+  - Whether a tab or other wide character counts as a single column is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

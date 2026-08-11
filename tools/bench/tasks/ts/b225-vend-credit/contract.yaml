@@ -1,0 +1,22 @@
+id: b225-vend-credit
+task_type: function_implementation
+task: >-
+  Implement vendCredit. A vending machine's coin acceptor takes coins of
+  5, 10, 25 and 100 cents and nothing else. The coins argument lists the
+  coins pushed in, in the order they went in, and price is what one item
+  costs in cents. The credit starts at zero; each coin in turn adds its
+  value to the credit, and while the credit stands at or above the price
+  one item drops and the price comes off the credit — so against a price
+  of 30 a single 100 cent coin drops three items and leaves 10 in
+  credit. Return the credit still standing once the last coin has been
+  handled. Reject a coin the acceptor does not take, a price that is not
+  a whole number, a price of zero or less, and a price that is not a
+  multiple of 5, with an error.
+target: solution.ts
+interface: "export function vendCredit(coins: number[], price: number): number"
+stop_conditions:
+  - Whether the machine also reports how many items dropped is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

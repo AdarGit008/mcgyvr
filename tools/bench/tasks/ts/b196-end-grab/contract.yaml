@@ -1,0 +1,21 @@
+id: b196-end-grab
+task_type: function_implementation
+task: >-
+  Implement endGrab. Two players clear a row of numbered cards by turns,
+  the first player opening. On a turn the player takes one card from an end
+  of the row, always the larger of the two end cards, and takes the left
+  one whenever the two ends carry the same number; a row of one card leaves
+  that card as both ends. The row shrinks by one card a turn until none are
+  left. Return a mapping of three fields: first and second, the totals the
+  opening player and the following player collected, and taken, the numbers
+  in the order they left the row.
+target: solution.ts
+interface: |-
+  type Tally = { first: number; second: number; taken: number[] };
+  export function endGrab(cards: number[]): Tally
+stop_conditions:
+  - Whether a card may carry a number that is not whole is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

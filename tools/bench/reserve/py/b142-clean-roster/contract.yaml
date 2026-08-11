@@ -1,0 +1,32 @@
+id: b142-clean-roster
+task_type: function_implementation
+task: >-
+  Implement clean_roster. A tool crib's sign-out sheet accumulates borrower
+  names typed in a hurry. Normalize the sheet: trim each entry's leading
+  and trailing whitespace and collapse every internal run of whitespace to
+  a single space; then drop repeats — two cleaned entries that match
+  ignoring letter case count as the same borrower — keeping each
+  borrower's first cleaned spelling, in first-appearance order. Return the
+  cleaned list. Reject an argument that is not a list, an entry that is
+  not a string, and an entry that is empty or only whitespace, with an
+  error.
+target: solution.py
+target_content: |
+  """Tidy a sign-out sheet: collapse spacing, drop repeats, keep first spellings."""
+
+
+  def clean_roster(names):
+      if not isinstance(names, list):
+          raise ValueError("clean_roster expects a list of names")
+      seen = set()
+      kept = []
+      for raw in names:
+          pass  # TODO: reject a bad entry, tidy its spacing, keep only first appearances
+      return kept
+interface: "def clean_roster(names: list) -> list"
+stop_conditions:
+  - How letter case beyond ASCII letters compares between two entries is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

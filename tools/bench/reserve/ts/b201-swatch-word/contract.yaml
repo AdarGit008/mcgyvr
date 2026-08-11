@@ -1,0 +1,23 @@
+id: b201-swatch-word
+task_type: function_implementation
+task: >-
+  Implement swatchWord. The first argument is a colour written as "#"
+  followed by either six hexadecimal digits, two per channel in red, green,
+  blue order, or three digits in the short form where each digit stands for
+  a channel and is doubled to make its byte, so "#f0a" means "#ff00aa". The
+  second argument is a list of exactly three bit depths, one per channel,
+  each a whole number from 1 to 8. Reduce every channel byte to its top
+  depth bits, then pack the three reduced channels into one word with red
+  in the most significant position and blue in the least, each channel
+  filling exactly its own depth. Return that word written in binary, padded
+  with leading zeros to the summed depth. Reject a colour that is not in
+  one of those two hexadecimal forms, and a depth list that is not three
+  whole numbers from 1 to 8, with an error.
+target: solution.ts
+interface: "export function swatchWord(hex: string, depths: number[]): string"
+stop_conditions:
+  - Whether upper-case hexadecimal digits are accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

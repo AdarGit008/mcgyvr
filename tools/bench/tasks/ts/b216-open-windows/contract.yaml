@@ -1,0 +1,39 @@
+id: b216-open-windows
+task_type: function_implementation
+task: >-
+  Implement openWindows. A clinic's day is described by span, its opening
+  stretch written as two clock times joined by a hyphen in the form
+  HH:MM-HH:MM, and by booked, the appointments of the day written the same
+  way. The appointments arrive in no particular order, never overlap one
+  another, and always sit inside the span. Return the free stretches of the
+  day — the parts of the span no appointment covers — each rendered
+  HH:MM-HH:MM with two digits for the hour and two for the minute, in time
+  order and joined by ", ". Appointments that meet exactly leave no free
+  stretch between them, and a day whose span is covered end to end returns
+  the word "none". Reject a span or an appointment that is not two such
+  clock times around a single hyphen with an error.
+target: solution.ts
+target_content: |
+  /** Report the stretches of a clinic's day that no appointment covers. */
+  export function openWindows(span: string, booked: string[]): string {
+    const clock = /^\d{2}:\d{2}$/;
+    const minutes = (range: string): number[] => {
+      const parts = range.split("-");
+      if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+        throw new Error("a range must be written HH:MM-HH:MM: " + range);
+      }
+      return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+    };
+    const stamp = (at: number): string =>
+      String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+    const free: string[] = [];
+    // TODO: sweep the appointments in time order and keep what the span has left over.
+    return free.length === 0 ? "none" : free.join(", ");
+  }
+interface: "export function openWindows(span: string, booked: string[]): string"
+stop_conditions:
+  - Whether an appointment may run past midnight into the next day is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

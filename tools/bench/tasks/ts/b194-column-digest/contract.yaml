@@ -1,0 +1,24 @@
+id: b194-column-digest
+task_type: function_implementation
+task: >-
+  Implement columnDigest. A sheet arrives as a list of rows, each row a
+  list of numbers, and the rows may be ragged. Summarize the column at the
+  given zero-based index, reading a cell only from the rows long enough to
+  reach it and taking those cells in sheet order. Return a mapping of five
+  fields: count, how many cells were read; min and max, the smallest and
+  the largest of them; mean, their average; and median, the middle cell of
+  them once sorted, or the average of the two middle cells when the count
+  is even. Report mean and median cut to two decimals, a value sitting
+  exactly halfway rounding upward, toward the larger value. A column no row
+  is long enough to reach yields a count of 0 with min, max, mean and
+  median all 0.
+target: solution.ts
+interface: |-
+  type Digest = { count: number; min: number; max: number; mean: number; median: number };
+  export function columnDigest(rows: number[][], column: number): Digest
+stop_conditions:
+  - How a negative column index is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,32 @@
+id: b151-thaw-row
+task_type: function_implementation
+task: >-
+  Implement thaw_row. The input is a row of cells written as a string of "#"
+  for ice and "." for meltwater, plus a count of thaw steps. Each step
+  happens everywhere at once: an ice cell melts into "." when it stands at
+  either end of the row or has meltwater directly beside it, while an ice
+  cell walled in by ice on both sides survives the step. Meltwater never
+  refreezes. Return the row after exactly that many steps; zero steps
+  returns the row unchanged. Reject a row that is not a string, an empty
+  row, a row holding any character besides "#" and ".", and a step count
+  that is not a non-negative whole number, with an error.
+target: solution.py
+target_content: |
+  """Melt a row of ice one simultaneous step at a time."""
+
+
+  def thaw_row(row: str, steps: int) -> str:
+      if not isinstance(row, str) or not row:
+          raise ValueError("thaw_row expects a non-empty string row")
+      # TODO: reject a row holding anything besides "#" and "." and a step
+      # count that is not a non-negative whole number, then melt: each step,
+      # ice at either end of the row or beside meltwater turns to water,
+      # every cell at once.
+      raise NotImplementedError
+interface: "def thaw_row(row: str, steps: int) -> str"
+stop_conditions:
+  - No upper bound on the row length or the number of steps is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

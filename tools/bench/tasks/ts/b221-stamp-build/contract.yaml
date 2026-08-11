@@ -1,0 +1,21 @@
+id: b221-stamp-build
+task_type: function_implementation
+task: >-
+  Implement stampBuild. A device fleet ranks firmware releases by a single
+  number instead of by tag text. A release names a major, a minor and a
+  patch component, all whole numbers; its stamp is the patch, plus a
+  thousand for every minor step, plus a million for every major step, so
+  the release 2, 14, 3 stamps as 2014003 and a release that comes later
+  always stamps higher — 1, 9, 9 stamps as 1009009, below 1, 10, 0 at
+  1010000. Return the stamp. Reject a component that is not a whole
+  number — a fraction, a string, or a boolean — a negative component, and
+  a minor or a patch of 1000 or more, since each of those two fills a
+  field only three digits wide, with an error.
+target: solution.ts
+interface: "export function stampBuild(major: number, minor: number, patch: number): number"
+stop_conditions:
+  - No upper bound on the major component is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

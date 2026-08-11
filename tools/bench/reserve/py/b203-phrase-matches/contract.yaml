@@ -1,0 +1,21 @@
+id: b203-phrase-matches
+task_type: function_implementation
+task: >-
+  Implement phrase_matches. A pattern is a run of tokens separated by
+  spaces, matched against a list of words. A star token stands for any run
+  of zero or more words. A question-mark token stands for exactly one word,
+  whatever it is. A token holding vertical bars stands for one word equal
+  to any of the pieces those bars separate. Every other token stands for
+  that one word, matched exactly. The tokens must account for the whole
+  word list with nothing left over on either side: return true when the
+  tokens can be lined up against the words that way, and false when no
+  lining up succeeds. Runs of spaces between tokens are the same as one
+  space.
+target: solution.py
+interface: "def phrase_matches(pattern: str, words: list) -> bool"
+stop_conditions:
+  - Whether a pattern with no tokens at all matches an empty word list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

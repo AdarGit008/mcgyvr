@@ -1,0 +1,34 @@
+id: b210-drain-frames
+task_type: function_implementation
+task: >-
+  Implement drain_frames. A reader takes a stream in chunks and must cut it
+  into frames at a marker character. Join the chunks in the order given, then
+  scan the joined text once from its start: a marker written twice in a row
+  stands for one literal marker sitting inside the frame and never ends it,
+  while a marker standing alone ends the frame being built and opens the
+  next. Whatever follows the last frame that was ended is not a frame yet, so
+  return it as the pending text; and when the joined text finishes with a
+  marker that has nothing after it, that marker could still turn out to be
+  the first half of a doubled pair, so it stays unresolved at the end of the
+  pending text rather than ending a frame. A frame may be empty, as the first
+  one is when the text opens with a lone marker. Return a mapping whose
+  frames key holds the frames that were ended, in order, and whose pending
+  key holds the pending text. Reject a marker that is not a single character
+  with an error.
+target: solution.py
+target_content: |
+  def drain_frames(chunks: list, marker: str) -> dict:
+      if not isinstance(marker, str) or len(marker) != 1:
+          raise ValueError("marker must be a single character")
+      buffer = "".join(chunks)
+      # TODO: scan the buffer once, folding a doubled marker into one literal
+      # marker, ending a frame at a lone marker, and keeping what follows the
+      # last ended frame — a dangling marker included — as the pending text.
+      return {"frames": [], "pending": buffer}
+interface: "def drain_frames(chunks: list, marker: str) -> dict"
+stop_conditions:
+  - No bound on how much text may pile up as pending is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

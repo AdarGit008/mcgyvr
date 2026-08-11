@@ -1,0 +1,49 @@
+id: b205-apply-charges
+task_type: function_implementation
+task: >-
+  Implement applyCharges. Quotas arrive as a mapping from bucket name to a
+  pair of the bucket's whole allowance and the largest single charge that
+  bucket will take. Charges are triples of charge id, bucket name and
+  amount, applied one after another in the order given. A charge naming a
+  bucket the mapping does not hold is refused for the reason "unknown"; a
+  charge whose amount stands above its bucket's largest single charge is
+  refused for "single"; a charge whose amount stands above what its bucket
+  has left is refused for "cap"; any charge surviving those three tests is
+  accepted and its amount comes off what the bucket has left. The tests run
+  in that order and only the first reason that fits is recorded. Return an
+  object holding left, the allowance still standing in every bucket of the
+  mapping, and refused, the pairs of charge id and reason in the order they
+  were refused. Reject an amount that is not a positive whole number with
+  an error.
+target: solution.ts
+target_content: |
+  /** Spend charges against named quota buckets, refusing what will not fit. */
+  function whyRefused(cap: [number, number] | undefined, left: number, amount: number): string {
+    if (cap === undefined) {
+      return "unknown";
+    }
+    if (amount > cap[1]) {
+      return "single";
+    }
+    return amount > left ? "cap" : "";
+  }
+
+  export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+    const left: Record<string, number> = Object.fromEntries(Object.keys(caps).map((name) => [name, caps[name][0]]));
+    const refused: [string, string][] = [];
+    // TODO: put every charge through whyRefused before it is spent, and
+    // send the ones that come back with a reason to the refused list
+    // instead of taking their amount off the bucket. This placeholder
+    // spends every charge blindly.
+    for (const [, bucket, amount] of charges) {
+      left[bucket] -= amount;
+    }
+    return { left, refused };
+  }
+interface: "export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] }"
+stop_conditions:
+  - Whether the same charge id may appear on more than one charge is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
