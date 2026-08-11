@@ -1,0 +1,15 @@
+id: b392-cap-after
+task_type: function_implementation
+task: >-
+  Implement cap_after. Return a passage with the first letter of every
+  sentence in capitals, a sentence beginning at the start of the
+  passage and again after any full stop. Letters anywhere else are
+  left exactly as they are.
+target: solution.py
+interface: "def cap_after(passage: str) -> str"
+stop_conditions:
+  - Whether a question mark should also begin a new sentence is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

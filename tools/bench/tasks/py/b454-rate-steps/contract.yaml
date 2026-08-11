@@ -1,0 +1,16 @@
+id: b454-rate-steps
+task_type: function_implementation
+task: >-
+  Implement step_rate and rate_steps. step_rate returns the charge for
+  one step: a fixed sum plus a whole-percent share of the amount,
+  rounded down. rate_steps returns the charge for each of several
+  amounts, in order.
+target: solution.py
+interface: "def step_rate(amount: int, fixed: int, percent: int) -> int
+def rate_steps(amounts: list, fixed: int, percent: int) -> list"
+stop_conditions:
+  - Whether a charge should ever stand above the amount itself is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,14 @@
+id: b393-esc-char
+task_type: function_implementation
+task: >-
+  Implement esc_char. Return text with a caret placed in front of
+  every occurrence of a stated character, and in front of every caret
+  the text already held. Text carrying neither comes back unchanged.
+target: solution.py
+interface: "def esc_char(text: str, mark: str) -> str"
+stop_conditions:
+  - Whether the marked character may itself be a caret is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

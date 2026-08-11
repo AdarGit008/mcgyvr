@@ -1,0 +1,23 @@
+id: b461-take-down
+task_type: bug_fix
+task: >-
+  takeDown removes a stated amount from a stock figure and returns
+  what is left, and it removes the amount twice over. Fix it. Removing
+  more than is held is rejected with an error. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** What is left after an amount is taken from stock. */
+  export function takeDown(held: number, amount: number): number {
+    if (amount > held) {
+      throw new Error("more than is held cannot be taken");
+    }
+    return held - amount - amount;
+  }
+interface: "export function takeDown(held: number, amount: number): number"
+stop_conditions:
+  - Whether an amount below nothing should add to the stock is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

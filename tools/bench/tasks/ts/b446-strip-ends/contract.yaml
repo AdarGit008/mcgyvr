@@ -1,0 +1,27 @@
+id: b446-strip-ends
+task_type: bug_fix
+task: >-
+  stripEnds removes a stated character from both ends of a text,
+  however many of it stand there, and it removes only one from each
+  end. Fix it. A text made entirely of that character comes back
+  empty. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The text with a character removed from both of its ends. */
+  export function stripEnds(text: string, mark: string): string {
+    let out = text;
+    if (out.startsWith(mark)) {
+      out = out.slice(1);
+    }
+    if (out.endsWith(mark)) {
+      out = out.slice(0, -1);
+    }
+    return out;
+  }
+interface: "export function stripEnds(text: string, mark: string): string"
+stop_conditions:
+  - Whether more than one character could be stripped at once is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

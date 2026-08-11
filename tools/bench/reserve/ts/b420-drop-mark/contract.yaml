@@ -1,0 +1,26 @@
+id: b420-drop-mark
+task_type: bug_fix
+task: >-
+  dropMark removes every occurrence of a marked character from a text,
+  and it removes everything except that character instead. Fix it. A
+  text not holding the character comes back unchanged. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** The text with every occurrence of a marked character removed. */
+  export function dropMark(text: string, mark: string): string {
+    let out = "";
+    for (const ch of text) {
+      if (ch === mark) {
+        out += ch;
+      }
+    }
+    return out;
+  }
+interface: "export function dropMark(text: string, mark: string): string"
+stop_conditions:
+  - Whether the marked character may be more than one character is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

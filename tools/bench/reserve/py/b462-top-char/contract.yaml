@@ -1,0 +1,14 @@
+id: b462-top-char
+task_type: function_implementation
+task: >-
+  Implement top_char. Return the character appearing most often in a
+  text. When two characters appear equally often the one appearing
+  first wins, and an empty text gives empty text.
+target: solution.py
+interface: "def top_char(text: str) -> str"
+stop_conditions:
+  - Whether a space should be able to win is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,17 @@
+```ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length <= 1) return 0;
+
+  const sortedScores = scores.slice().sort((a, b) => a - b);
+  const lowestScore = sortedScores[0];
+
+  let total = 0;
+  for (const score of sortedScores) {
+    if (score !== lowestScore) {
+      total += score;
+    }
+  }
+
+  return total;
+}
+```

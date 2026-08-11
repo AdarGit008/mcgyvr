@@ -1,0 +1,16 @@
+id: b451-field-list
+task_type: function_implementation
+task: >-
+  Implement fieldOr and fieldList. fieldOr returns a record's value
+  for a named field, or a stated stand-in when the record lacks it.
+  fieldList returns that field from every record in order, standing in
+  wherever it is missing.
+target: solution.ts
+interface: "export function fieldOr(record: Record<string, string>, field: string, standIn: string): string
+export function fieldList(records: Record<string, string>[], field: string, standIn: string): string[]"
+stop_conditions:
+  - Whether a field holding empty text should take the stand-in is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

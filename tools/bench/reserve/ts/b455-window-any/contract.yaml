@@ -1,0 +1,16 @@
+id: b455-window-any
+task_type: function_implementation
+task: >-
+  Implement anyOver and windowAny. anyOver says whether any reading in
+  a list stands above a level. windowAny says, for every run of a
+  stated width, whether any reading in it does, returning one answer
+  for each run in order.
+target: solution.ts
+interface: "export function anyOver(readings: number[], level: number): boolean
+export function windowAny(readings: number[], width: number, level: number): boolean[]"
+stop_conditions:
+  - What a width wider than the readings should answer is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

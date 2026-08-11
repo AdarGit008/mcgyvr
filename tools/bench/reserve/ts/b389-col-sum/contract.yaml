@@ -1,0 +1,15 @@
+id: b389-col-sum
+task_type: function_implementation
+task: >-
+  Implement colSum. Given a grid written as a list of rows and the
+  place of a column, return the total of that column. A row too short
+  to reach the column adds nothing, and a grid with no rows totals
+  nothing.
+target: solution.ts
+interface: "export function colSum(grid: number[][], column: number): number"
+stop_conditions:
+  - Whether a column place below zero should count from the right is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

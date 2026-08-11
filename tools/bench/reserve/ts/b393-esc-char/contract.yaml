@@ -1,0 +1,14 @@
+id: b393-esc-char
+task_type: function_implementation
+task: >-
+  Implement escChar. Return text with a caret placed in front of every
+  occurrence of a stated character, and in front of every caret the
+  text already held. Text carrying neither comes back unchanged.
+target: solution.ts
+interface: "export function escChar(text: string, mark: string): string"
+stop_conditions:
+  - Whether the marked character may itself be a caret is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

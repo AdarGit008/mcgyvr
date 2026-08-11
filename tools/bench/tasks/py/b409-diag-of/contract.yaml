@@ -1,0 +1,16 @@
+id: b409-diag-of
+task_type: function_implementation
+task: >-
+  Implement cell_at and diag_of. cell_at returns the value at a row
+  and column of a grid, or nothing at all when either falls outside
+  it. diag_of returns the values running down the grid's main diagonal
+  from the top left, one for each row the grid holds.
+target: solution.py
+interface: "def cell_at(grid: list, row: int, column: int) -> int
+def diag_of(grid: list) -> list"
+stop_conditions:
+  - Whether a grid that is not square should have a main diagonal at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

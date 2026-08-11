@@ -1,0 +1,21 @@
+id: b416-time-in
+task_type: bug_fix
+task: >-
+  timeIn says whether a minute of the day falls inside a window given
+  by an opening and a closing minute, and it fails on a window that
+  runs over midnight, where the closing minute stands below the
+  opening one. Fix it. The opening minute is inside and the closing
+  one is not. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Whether a minute of the day falls inside a window. */
+  export function timeIn(minute: number, opens: number, closes: number): boolean {
+    return minute >= opens && minute < closes;
+  }
+interface: "export function timeIn(minute: number, opens: number, closes: number): boolean"
+stop_conditions:
+  - Whether a window that opens and closes at the same minute is ever open is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b433-link-find
+task_type: function_implementation
+task: >-
+  Implement linkFind. Return every piece of a line standing between a
+  opening and a closing marker, in the order they appear and without
+  the markers themselves. An opening marker never closed yields
+  nothing, and the markers do not nest.
+target: solution.ts
+interface: "export function linkFind(line: string, opens: string, closes: string): string[]"
+stop_conditions:
+  - Whether a closing marker standing alone should be a mistake is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

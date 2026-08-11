@@ -1,0 +1,14 @@
+id: b442-value-keys
+task_type: function_implementation
+task: >-
+  Implement value_keys. Given a store, return the values it holds
+  paired with how many keys hold each one, as a mapping from value to
+  count. A store holding nothing gives a mapping holding nothing.
+target: solution.py
+interface: "def value_keys(store: dict) -> dict"
+stop_conditions:
+  - Whether values differing only in case should be paired together is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

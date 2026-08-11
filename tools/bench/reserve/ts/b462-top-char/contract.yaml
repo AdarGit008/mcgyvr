@@ -1,0 +1,14 @@
+id: b462-top-char
+task_type: function_implementation
+task: >-
+  Implement topChar. Return the character appearing most often in a
+  text. When two characters appear equally often the one appearing
+  first wins, and an empty text gives empty text.
+target: solution.ts
+interface: "export function topChar(text: string): string"
+stop_conditions:
+  - Whether a space should be able to win is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

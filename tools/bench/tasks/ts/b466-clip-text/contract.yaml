@@ -1,0 +1,15 @@
+id: b466-clip-text
+task_type: function_implementation
+task: >-
+  Implement clipText. Return the part of a text standing between two
+  places, the first included and the second not, with places counted
+  from zero. A place past the end is brought back to the end. Reject a
+  first place standing above the second with an error.
+target: solution.ts
+interface: "export function clipText(text: string, from: number, to: number): string"
+stop_conditions:
+  - Whether a place below nothing should count from the end is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+id: b455-window-any
+task_type: function_implementation
+task: >-
+  Implement any_over and window_any. any_over says whether any reading
+  in a list stands above a level. window_any says, for every run of a
+  stated width, whether any reading in it does, returning one answer
+  for each run in order.
+target: solution.py
+interface: "def any_over(readings: list, level: int) -> bool
+def window_any(readings: list, width: int, level: int) -> list"
+stop_conditions:
+  - What a width wider than the readings should answer is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b426-hole-find
+task_type: function_implementation
+task: >-
+  Implement stepsOn and holeFind. stepsOn returns the numbers a
+  sequence should hold, running from a first number for a stated
+  count. holeFind returns the first of those the sequence is missing,
+  or nothing at all when it is missing none.
+target: solution.ts
+interface: "export function stepsOn(first: number, count: number): number[]
+export function holeFind(seen: number[], first: number, count: number): number"
+stop_conditions:
+  - Whether the sequence may hold numbers outside the run is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

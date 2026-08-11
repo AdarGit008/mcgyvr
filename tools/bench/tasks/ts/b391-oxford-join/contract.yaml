@@ -1,0 +1,15 @@
+id: b391-oxford-join
+task_type: function_implementation
+task: >-
+  Implement oxfordJoin. Join a list of names into one phrase. Two
+  names are joined by the word and; three or more take a comma between
+  every pair but the last, which takes the word and. One name stands
+  alone and no names at all give empty text.
+target: solution.ts
+interface: "export function oxfordJoin(names: string[]): string"
+stop_conditions:
+  - Whether a comma should also stand before the word and is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

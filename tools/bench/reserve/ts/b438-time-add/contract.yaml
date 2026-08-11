@@ -1,0 +1,15 @@
+id: b438-time-add
+task_type: function_implementation
+task: >-
+  Implement timeAdd. Add a number of minutes to a time given as an
+  hour and a minute on a 24-hour clock, and return the hour and the
+  minute it reaches. The clock comes round past midnight, and the
+  minutes added may run to more than a day.
+target: solution.ts
+interface: "export function timeAdd(hour: number, minute: number, added: number): number[]"
+stop_conditions:
+  - Whether a number of minutes below nothing should run the clock back is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b425-tag-count
+task_type: function_implementation
+task: >-
+  Implement tagCount. Return how many markers a line holds, a marker
+  being an opening angle bracket and everything up to the next closing
+  one. An opening bracket never closed is not a marker. Reject a line
+  holding an unmatched closing bracket with an error.
+target: solution.ts
+interface: "export function tagCount(line: string): number"
+stop_conditions:
+  - Whether a marker holding no name at all should be counted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

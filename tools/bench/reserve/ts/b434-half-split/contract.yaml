@@ -1,0 +1,15 @@
+id: b434-half-split
+task_type: function_implementation
+task: >-
+  Implement halfSplit. Break a list into two halves, returning the
+  first half and then the second. A list of an odd length gives the
+  spare entry to the first half, and an empty list gives two empty
+  halves.
+target: solution.ts
+interface: "export function halfSplit(entries: string[]): string[][]"
+stop_conditions:
+  - Whether the two halves should ever be returned the other way round is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

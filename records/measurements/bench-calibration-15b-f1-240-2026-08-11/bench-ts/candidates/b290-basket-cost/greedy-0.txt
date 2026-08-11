@@ -1,0 +1,20 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (typeof price !== 'number' || typeof quantity !== 'number') {
+    throw new Error('Both price and quantity must be numbers');
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (!Array.isArray(lines) || lines.some(line => typeof line !== 'object' || !line.price || !line.quantity)) {
+    throw new Error('lines must be an array of objects with price and quantity properties');
+  }
+  const totalCost = lines.reduce((acc, line) => acc + lineCost(line.price, line.quantity), 0);
+  if (discount > 100) {
+    throw new Error('Discount cannot exceed one hundred percent');
+  }
+  const discountAmount = Math.round(totalCost * (discount / 100));
+  return Math.floor(totalCost - discountAmount);
+}
+```

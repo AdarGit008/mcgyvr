@@ -1,0 +1,15 @@
+id: b467-sum-range
+task_type: function_implementation
+task: >-
+  Implement sumRange. Return the total of every whole number from a
+  first up to and including a second. A first standing above the
+  second totals nothing, and the two being the same totals that one
+  number.
+target: solution.ts
+interface: "export function sumRange(first: number, last: number): number"
+stop_conditions:
+  - Whether numbers below nothing should be totalled in the same way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+id: b448-shared-of
+task_type: function_implementation
+task: >-
+  Implement inBoth and sharedOf. inBoth says whether an entry appears
+  in both of two lists. sharedOf returns the entries appearing in
+  both, in the order the first list holds them and with each reported
+  only once.
+target: solution.ts
+interface: "export function inBoth(entry: string, left: string[], right: string[]): boolean
+export function sharedOf(left: string[], right: string[]): string[]"
+stop_conditions:
+  - Whether entries differing only in case should be shared is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,17 @@
+id: b408-group-sum
+task_type: function_implementation
+task: >-
+  Implement keyOf and groupSum. keyOf returns the group a record
+  belongs to, which is its name, or empty text when it carries none.
+  groupSum totals each group's amount across a list of records,
+  returning a mapping from group to total. A record carrying no name
+  is passed over.
+target: solution.ts
+interface: "export function keyOf(record: { name?: string; amount?: number }): string
+export function groupSum(records: { name?: string; amount?: number }[]): Record<string, number>"
+stop_conditions:
+  - Whether a record with a name but no amount should add nothing or be passed over is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

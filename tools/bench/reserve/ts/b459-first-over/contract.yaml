@@ -1,0 +1,25 @@
+id: b459-first-over
+task_type: bug_fix
+task: >-
+  firstOver returns the first reading that stands above a level, or
+  nothing at all when none does, and it returns the position of that
+  reading instead of the reading itself. Fix it. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** The first reading standing above a level, or nothing at all. */
+  export function firstOver(readings: number[], level: number): number {
+    for (let i = 0; i < readings.length; i += 1) {
+      if (readings[i] > level) {
+        return i;
+      }
+    }
+    return 0;
+  }
+interface: "export function firstOver(readings: number[], level: number): number"
+stop_conditions:
+  - Whether nothing at all could also be a real reading is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

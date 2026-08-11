@@ -1,0 +1,14 @@
+id: b440-drop-outer
+task_type: function_implementation
+task: >-
+  Implement drop_outer. Return a list without its first and last
+  entries. A list of two entries comes back empty, and a list of one
+  entry or none comes back empty as well.
+target: solution.py
+interface: "def drop_outer(entries: list) -> list"
+stop_conditions:
+  - Whether the entries dropped should be reported as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b454-rate-steps
+task_type: function_implementation
+task: >-
+  Implement stepRate and rateSteps. stepRate returns the charge for
+  one step: a fixed sum plus a whole-percent share of the amount,
+  rounded down. rateSteps returns the charge for each of several
+  amounts, in order.
+target: solution.ts
+interface: "export function stepRate(amount: number, fixed: number, percent: number): number
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[]"
+stop_conditions:
+  - Whether a charge should ever stand above the amount itself is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

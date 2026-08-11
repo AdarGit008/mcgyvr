@@ -1,0 +1,14 @@
+id: b431-money-text
+task_type: function_implementation
+task: >-
+  Implement money_text. Write an amount of pence as pounds and pence:
+  the pounds, a full stop, and always two digits of pence. An amount
+  under a pound still shows a nought before the stop.
+target: solution.py
+interface: "def money_text(pence: int) -> str"
+stop_conditions:
+  - Whether an amount below nothing should carry its sign is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

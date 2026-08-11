@@ -1,0 +1,15 @@
+id: b425-tag-count
+task_type: function_implementation
+task: >-
+  Implement tag_count. Return how many markers a line holds, a marker
+  being an opening angle bracket and everything up to the next closing
+  one. An opening bracket never closed is not a marker. Reject a line
+  holding an unmatched closing bracket with an error.
+target: solution.py
+interface: "def tag_count(line: str) -> int"
+stop_conditions:
+  - Whether a marker holding no name at all should be counted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

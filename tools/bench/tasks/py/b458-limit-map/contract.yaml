@@ -1,0 +1,29 @@
+id: b458-limit-map
+task_type: bug_fix
+task: >-
+  held_down returns a value brought down to a ceiling, leaving a value
+  already under it alone. limit_map brings every value of a store down
+  that way, and it drops the names whose values were over the ceiling
+  instead of bringing them down. Fix limit_map. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def held_down(value: int, ceiling: int) -> int:
+      return ceiling if value > ceiling else value
+
+
+  def limit_map(store: dict, ceiling: int) -> dict:
+      """Every value of a store brought down to a ceiling."""
+      out = {}
+      for key, value in store.items():
+          if value <= ceiling:
+              out[key] = value
+      return out
+interface: "def held_down(value: int, ceiling: int) -> int
+def limit_map(store: dict, ceiling: int) -> dict"
+stop_conditions:
+  - Whether a ceiling below nothing should be accepted is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

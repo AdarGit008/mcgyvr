@@ -1,0 +1,16 @@
+id: b453-parse-pair
+task_type: function_implementation
+task: >-
+  Implement split_once and parse_pair. split_once breaks a line at the
+  first colon into the part before and the part after. parse_pair
+  returns those two with their surrounding spaces trimmed away. Reject
+  a line holding no colon at all with an error.
+target: solution.py
+interface: "def split_once(line: str) -> list
+def parse_pair(line: str) -> list"
+stop_conditions:
+  - Whether a second colon should be part of the value is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+```python
+def short_num(value: int) -> str:
+    if value < 1000:
+        return str(value)
+    
+    units = ["", "k", "m"]
+    unit_index = 0
+    
+    while value >= 1000 and unit_index < len(units):
+        value /= 1000
+        unit_index += 1
+    
+    rounded_value = round(value, 1)
+    return f"{rounded_value}{units[unit_index]}"
+```

@@ -1,0 +1,15 @@
+id: b465-key-path
+task_type: function_implementation
+task: >-
+  Implement keyPath. Given a store whose names are joined by full
+  stops, return the names standing directly under a stated head,
+  without the head and its stop. Names under a deeper head are left
+  out, in the order the store holds them.
+target: solution.ts
+interface: "export function keyPath(store: Record<string, string>, head: string): string[]"
+stop_conditions:
+  - Whether a name holding no stop at all should ever be under a head is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

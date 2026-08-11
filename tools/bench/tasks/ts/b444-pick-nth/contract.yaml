@@ -1,0 +1,23 @@
+id: b444-pick-nth
+task_type: bug_fix
+task: >-
+  pickNth returns the entry standing at a place in a list, counting
+  places from one, or empty text when the place falls outside the
+  list, and it counts places from zero. Fix it. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** The entry at a place, counting places from one. */
+  export function pickNth(entries: string[], place: number): string {
+    if (place < 0 || place >= entries.length) {
+      return "";
+    }
+    return entries[place];
+  }
+interface: "export function pickNth(entries: string[], place: number): string"
+stop_conditions:
+  - Whether a place below one should count from the end is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,23 @@
+id: b415-unwrap-label
+task_type: bug_fix
+task: >-
+  unwrapLabel removes one surrounding pair of square brackets from a
+  label, and it takes the last character off whether or not that
+  character is a bracket. Fix it. A label not wrapped in a matching
+  pair comes back exactly as it was. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A label with one surrounding pair of brackets removed. */
+  export function unwrapLabel(label: string): string {
+    if (label.startsWith("[")) {
+      return label.slice(1, -1);
+    }
+    return label;
+  }
+interface: "export function unwrapLabel(label: string): string"
+stop_conditions:
+  - Whether brackets nested inside should all be removed is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

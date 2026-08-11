@@ -1,0 +1,11 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+  if (count === null || count === undefined) throw new Error("Count cannot be null or undefined");
+  if (width === null || width === undefined) throw new Error("Width cannot be null or undefined");
+
+  const bar = Array.from({ length: Math.min(count, width) }, () => '#');
+  const cutBar = count > width ? '>' : '';
+
+  return `${bar.join('')} ${cutBar}`;
+}
+```

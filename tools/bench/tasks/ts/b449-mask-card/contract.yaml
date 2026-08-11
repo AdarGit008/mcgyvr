@@ -1,0 +1,16 @@
+id: b449-mask-card
+task_type: function_implementation
+task: >-
+  Implement lastFour and maskCard. lastFour returns the last four
+  characters of a card number, or the whole of it when it is shorter.
+  maskCard returns the number with everything but its last four
+  replaced by stars, one star for each character hidden.
+target: solution.ts
+interface: "export function lastFour(number: string): string
+export function maskCard(number: string): string"
+stop_conditions:
+  - Whether spaces inside a card number should be hidden too is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

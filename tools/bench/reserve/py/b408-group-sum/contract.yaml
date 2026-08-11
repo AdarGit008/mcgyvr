@@ -1,0 +1,17 @@
+id: b408-group-sum
+task_type: function_implementation
+task: >-
+  Implement key_of and group_sum. key_of returns the group a record
+  belongs to, which is its name, or empty text when it carries none.
+  group_sum totals each group's amount across a list of records,
+  returning a mapping from group to total. A record carrying no name
+  is passed over.
+target: solution.py
+interface: "def key_of(record: dict) -> str
+def group_sum(records: list) -> dict"
+stop_conditions:
+  - Whether a record with a name but no amount should add nothing or be passed over is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

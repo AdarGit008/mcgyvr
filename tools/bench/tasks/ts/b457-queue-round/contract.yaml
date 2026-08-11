@@ -1,0 +1,33 @@
+id: b457-queue-round
+task_type: bug_fix
+task: >-
+  servedBy returns who is served on a given turn of a queue that comes
+  round again once it reaches the end. queueRound returns who is
+  served on each turn up to a stated count, and it stops at the end of
+  the queue instead of coming round. Fix queueRound. Reject an empty
+  queue with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function servedBy(queue: string[], turn: number): string {
+    if (queue.length === 0) {
+      throw new Error("a queue needs somebody in it");
+    }
+    return queue[turn % queue.length];
+  }
+
+  /** Who is served on each turn, the queue coming round again. */
+  export function queueRound(queue: string[], turns: number): string[] {
+    const served: string[] = [];
+    for (let turn = 0; turn < turns && turn < queue.length; turn += 1) {
+      served.push(servedBy(queue, turn));
+    }
+    return served;
+  }
+interface: "export function servedBy(queue: string[], turn: number): string
+export function queueRound(queue: string[], turns: number): string[]"
+stop_conditions:
+  - Whether a turn below nothing should count backward is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,28 @@
+id: b447-run-total
+task_type: bug_fix
+task: >-
+  run_total reports the total of every run of readings that stay at or
+  above a floor, one total for each run, and it adds every reading it
+  meets whether or not the run has ended. Fix it. A run that never
+  reaches the floor gives no totals. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def run_total(readings: list, floor: int) -> list:
+      """One total for each run of readings at or above a floor."""
+      totals = []
+      running = 0
+      for reading in readings:
+          running += reading
+          if reading < floor and running > 0:
+              totals.append(running)
+              running = 0
+      if running > 0:
+          totals.append(running)
+      return totals
+interface: "def run_total(readings: list, floor: int) -> list"
+stop_conditions:
+  - Whether a run of a single reading should be reported is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,14 @@
+id: b399-fill-between
+task_type: function_implementation
+task: >-
+  Implement fillBetween. Return a list with a filler placed between
+  every two neighbouring entries, so three entries come back as five.
+  A list of one entry, or none at all, takes no filler.
+target: solution.ts
+interface: "export function fillBetween(entries: string[], filler: string): string[]"
+stop_conditions:
+  - Whether the filler may equal one of the entries is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

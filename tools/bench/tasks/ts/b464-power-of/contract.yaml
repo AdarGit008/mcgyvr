@@ -1,0 +1,14 @@
+id: b464-power-of
+task_type: function_implementation
+task: >-
+  Implement powerOf. Raise a base to a whole power by multiplying it
+  by itself that many times. A power of nothing gives one, whatever
+  the base. Reject a power below nothing with an error.
+target: solution.ts
+interface: "export function powerOf(base: number, power: number): number"
+stop_conditions:
+  - Whether a base below nothing should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b402-part-check
+task_type: function_implementation
+task: >-
+  Implement part_check. Say whether a stated total matches the sum of
+  its parts closely enough, the two being allowed to differ by no more
+  than a stated tolerance in either direction. No parts at all sum to
+  nothing.
+target: solution.py
+interface: "def part_check(total: int, parts: list, tolerance: int) -> bool"
+stop_conditions:
+  - Whether a tolerance below zero should ever be satisfied is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

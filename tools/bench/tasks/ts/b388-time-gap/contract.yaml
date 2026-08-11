@@ -1,0 +1,15 @@
+id: b388-time-gap
+task_type: function_implementation
+task: >-
+  Implement timeGap. Two times are each given as an hour and a minute
+  on a 24-hour clock. Return the minutes from the first to the second,
+  taking the second as falling on the following day whenever it is not
+  later than the first.
+target: solution.ts
+interface: "export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number"
+stop_conditions:
+  - Whether an hour outside zero to twenty-three should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

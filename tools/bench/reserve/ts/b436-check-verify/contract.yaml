@@ -1,0 +1,15 @@
+id: b436-check-verify
+task_type: function_implementation
+task: >-
+  Implement checkVerify. A code carries its checking digit last: the
+  digits before it must add up, together with that digit, to a
+  multiple of ten. Say whether a code checks out. A code of one digit
+  checks out only when that digit is a nought.
+target: solution.ts
+interface: "export function checkVerify(code: string): boolean"
+stop_conditions:
+  - Whether a code holding no digits at all should check out is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,14 @@
+id: b441-char-run
+task_type: function_implementation
+task: >-
+  Implement char_run. Return the length of the longest run of one
+  character repeated without a break in a text. An empty text has a
+  longest run of nothing.
+target: solution.py
+interface: "def char_run(text: str) -> int"
+stop_conditions:
+  - Whether two characters differing only in case should join one run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

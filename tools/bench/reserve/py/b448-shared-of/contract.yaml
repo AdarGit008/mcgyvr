@@ -1,0 +1,16 @@
+id: b448-shared-of
+task_type: function_implementation
+task: >-
+  Implement in_both and shared_of. in_both says whether an entry
+  appears in both of two lists. shared_of returns the entries
+  appearing in both, in the order the first list holds them and with
+  each reported only once.
+target: solution.py
+interface: "def in_both(entry: str, left: list, right: list) -> bool
+def shared_of(left: list, right: list) -> list"
+stop_conditions:
+  - Whether entries differing only in case should be shared is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

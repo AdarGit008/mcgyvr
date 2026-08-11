@@ -2,10 +2,10 @@
   "record": "reply-corpus/2",
   "issue": 184,
   "totals": {
-    "replies": 16441,
-    "parses": 16040,
+    "replies": 16711,
+    "parses": 16310,
     "refusals": 401,
-    "instrument_replies": 13283
+    "instrument_replies": 13553
   },
   "instruments": {
     "declared": "tools/instruments.json",
@@ -23,6 +23,20 @@
         ],
         "primary": "bench-ts",
         "why": "bench-ts: 115 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+      },
+      "bench-calibration-15b-f1-240-2026-08-11/bench-py": {
+        "sets": [
+          "bench-py"
+        ],
+        "primary": "bench-py",
+        "why": "bench-py: 243 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+      },
+      "bench-calibration-15b-f1-240-2026-08-11/bench-ts": {
+        "sets": [
+          "bench-ts"
+        ],
+        "primary": "bench-ts",
+        "why": "bench-ts: 243 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-calibration-15b-f1-all-2026-08-11/bench-py": {
         "sets": [
@@ -3556,6 +3570,3246 @@
       "output_schema": "whole_file",
       "expect": {
         "content_sha256": "03965399977db52a878582dda40d7887c926c9993051da8177307ac70220eefe",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b228-tide-marks/greedy-0.txt",
+      "sha256": "5a920c1944c09247a9b01dae185beb3150f0af383db7cc25564712b7f6a5205e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e239d35cf6efd1722f4717603579a6b8a60d86debc8b67ade1aac82059e59284",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b230-crate-fill/greedy-0.txt",
+      "sha256": "af02b03d75246580ec8ebf808266b16f57314f478cf95b9c6495ea5efb1ce0ac",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "730f159ade4bca6cc0806083eac3221491dde08b87eb08405273b8bcd1605355",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b232-tag-trim/greedy-0.txt",
+      "sha256": "052c1f7f670c4622ac0d36688ee9797efb3b88e230b1821e1e2c357e9a2ebf25",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a8e3812de69333d1646a000c413f34385dcdaa8527ad4153c7cc001bb16f9f40",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b233-slot-pack/greedy-0.txt",
+      "sha256": "62befea83c2e9df3ffc29f9cf90273c7deb455d05d9ae3866e2b83414ff892ef",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a922be7c322dfb9f7ced5065b398005273e8dfb71e322d9d43e3e20b6e2e7e23",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b235-crumb-path/greedy-0.txt",
+      "sha256": "6c1627a91f579b1269e4d65d1d3e97ce017b8c8ae578fdef64a16f0d444c76f5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "07b1d6947271b337211e45d96c7886aabff4202d9ade55e2e7a20397fdbaf5fe",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b240-hue-band/greedy-0.txt",
+      "sha256": "ee02c25c64b56159edf9e0b7b01bb6de60462791a4cf366bc1ec569e7b4433aa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "eba8a280e79a2331b9ae2f59d04a88f6d84b3800fbde0d8d1162711a7728b2e5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b243-bin-spill/greedy-0.txt",
+      "sha256": "ea033fab5897a451c7c1b2c37144df6ed4a605332445450d720db50401f579b4",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a18ea701f1c0a39ab89dde6cb500cb33e77d35035defa16a868e820668b71496",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b244-seat-block/greedy-0.txt",
+      "sha256": "84071c09e2ba2f871c3364c3e085f1eaa31d4d1fd58a41b8e32b188b2be9333e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "717ecd0fb058f2be2185abd0408c2f441a0c8a541b6b06663dd58122e31a6e04",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b245-kettle-hold/greedy-0.txt",
+      "sha256": "583f89cb7a3a33278cb54d26b0a574eb071720d4f1fb640e2b16f98da456abf9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "81506f1e769db3eda76b04c6ad422547cee6a725b5ef8a03ff7272779acdeeee",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b248-hop-chain/greedy-0.txt",
+      "sha256": "2183481eed6b60c9f0fd3c459666c3b6b0e3d2a3e9341bb075d0504eaab10dd8",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b905f3ce94e9a9ee96f4caf7d4e88efad33d320b90ab14bea371c51640de37c5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b249-check-digit/greedy-0.txt",
+      "sha256": "ada3d67c67f6c6123d4e3c2c557568708dd01fad67cd2d1200754b7e87fd1460",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "19d44f451088a4967752840600133b7dc6fdb68fc73b88277279aab566f23bba",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b252-swipe-dedupe/greedy-0.txt",
+      "sha256": "d680f3f781d86dfa907f4929caeba520bffd06dea2b8f242f2bbe9d769da473d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bd873fb65ba0ef673c7307e936d3f9e42f0a58d4b88ccfb64bed4ea2e7f89846",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b253-route-stops/greedy-0.txt",
+      "sha256": "ba3e8e3ca40397e8937c4526bf1d063f0b5ff269ca8e9c2aa743000b06ea158a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "da794dfeb5c3e8eb2083adc69a28bfec4af2f137236f12047b81e9b755d1c175",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b254-font-clamp/greedy-0.txt",
+      "sha256": "7240d0560a4357cc81b057199d9d6f27d8b4bb8903e3648c560bf541e4330f18",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f8e4679e0205494185bed9725072d2059e4371bf938fd413dd5a1474e26ea37a",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b258-lap-best/greedy-0.txt",
+      "sha256": "f26a209477c9e167dc7a661a66244298840518766d63218177a3d6ea05277dba",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "62b25ef1534181f2f3ed98b899678323d74f37fe4012e406d5b07ca52640ad20",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b261-hex-pair/greedy-0.txt",
+      "sha256": "ace3adc88f734128ab11ebfc6155d1708fbdfa9331d35ed45dd75023824fb171",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "aa6de789f9baf823139407a5714a13a36f6663d6d591b6472678f250543f4f66",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b264-cloud-code/greedy-0.txt",
+      "sha256": "3078c5289002d46d8d479a6e92d476d0e38e626740860081b624b1478df380c7",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1b9f1945bc22d7465a7c328ce099113b60cd10b4e51816ee5f0e4dc6ac95d7b1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b265-till-float/greedy-0.txt",
+      "sha256": "6421bc054d4a42af15f88eaea4754f3a4fe709921296dcf5863487fe97548e43",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bea4805e68ec1217f7c0917efa679a21c62f76860ce150cd3ef7e68da96445bf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b266-span-merge/greedy-0.txt",
+      "sha256": "0a320fbf999bdd2945c3eee261f69a00424ebc0c9c05f29f84c304fc6b45570c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6df6b73379b39eb074e23200b0e282215e6e49ad5a7e2b4226afcfa89199cf3f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b267-alias-map/greedy-0.txt",
+      "sha256": "5ec8cf27bf2a69908a07a69e664451f54ce1a3f236fa791d76225b9496c75bcf",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d4134beb768833bbd3b9f5ff6c9e56af4b53c0334a3493f9d636b27efaac6f14",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b268-score-drop/greedy-0.txt",
+      "sha256": "e45ce5931667f707e2f93534e380428d6eb0ace61f35aab0199cccf459c46b7a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4a41f29852eb7ba2ebfebfa7bc99535041b9af95a3d316348453b68894df7851",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b269-crust-slice/greedy-0.txt",
+      "sha256": "a6db11d6dff6c57742acc7f67cd52b1a954802d1eb8d36327fcd82fc20c1965b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "20e0faa62ab13bf6fe8eec6880b6e4aca6d2e06c2632a605b2abd28ea7019e51",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b273-stall-turns/greedy-0.txt",
+      "sha256": "43bdad38c1f3c1c675e674807c92f8d5bf866b3161e594fa9de1af9941b79336",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "eea1edd70a11c039cbee65f67a2265ba6642c078a5a01a27ba9ec605577f3a3f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b274-tint-mix/greedy-0.txt",
+      "sha256": "91e1a98830a1710f8c11ccca726060c24e4651fdca375ae39df39a706e5c1396",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c253046d63f8e7c77a805451e93d105ef1a7768872382ce734bf1ece736ac723",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b275-camel-break/greedy-0.txt",
+      "sha256": "7e29fc3ba0c4240485e764925447cb16fbfea556e92af40b1e66e946dde32937",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a169dcba35c93c3cb3741737a747eb28dc3c9b0ca3e3560c672b0c4fcacaefff",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b276-swap-keys/greedy-0.txt",
+      "sha256": "1b9248c6062716d6ccf60a874f7340753b9557f4c4dbbd0ad337c09a875bb1fb",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cded434ffa6c18ff3dc1de904007b88433645ed4f54febc242171983219f5ece",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b277-fuel-legs/greedy-0.txt",
+      "sha256": "2cfa2b366a93097c03ad5c96e9058d3e95246cb5bc538b80b21fb1ed25c7c820",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "957b447cec21ce6630d82c53aa83354c1aba53ea42da3965dd94fbf9fb532ce2",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b279-menu-pick/greedy-0.txt",
+      "sha256": "7209167bbd8a8f9745c22a721f93a783e0f207afbf21a5f40505abc85ce5c9aa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "60072e65bfacea81fc44b52df6e885520fcc814cca0beaae364aab18cfba6355",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b280-step-back/greedy-0.txt",
+      "sha256": "6d764f751e6f141422ad5eeb099ae3e3a1ae2ed6418dcc8644885bfde6caebf5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b259559f53ab3e9683c32e5e8c8d088e0b9b1be8d03fa0308110eebfb4c25efc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b281-tier-cost/greedy-0.txt",
+      "sha256": "6f0dd7d57139e4af8493ddf30876503fb97ee17d5e457a16a8919e52ad47dc88",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a468c54dae1d49d3b62eb7e403905944f8afa685eeac63bc2b7d85a9d4d3edf0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b284-poll-gaps/greedy-0.txt",
+      "sha256": "43f468b2c02d4ae385154f48b7a0c23bba6b2d9d921bbb1a7e7d38158b2a015b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cede8befc75c247817aaa8ef326b2a74c6fb96d3a7bb3fc2067de4ccdb5b068a",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b287-drift-check/greedy-0.txt",
+      "sha256": "52a7a56b95af78b0dfbb8d2f4e61c1e225bbed2306baaa2160cac773e157ac07",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9d22edc943519fdce493399b1a559c70aecd9cad5b8ec3e5f419786cdef68d1b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b289-plural-of/greedy-0.txt",
+      "sha256": "11d812b2ebc2813acaf61c805595afad5aafc1595926047d0d3f78a2d9c42d23",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5fa0610e12c6fe7d3a4a128cd80561922d66e28ad628042a5329a9a1ccf203e9",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b290-basket-cost/greedy-0.txt",
+      "sha256": "26103e4c18d0e6e4882eef630fdc7ddfa1cca7c15c98e2408d50d0c5b034a184",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c3771d49dffb67b6f82a80356cf983fa6d0fe2fef1c2607d748418cbe3793738",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b291-climb-gain/greedy-0.txt",
+      "sha256": "0524f3dae0bc49ffb62cd2c90425df5f50d34a7adb19bf7281346007c7a4331c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "85d08443ed1a35f4ad083673de795e1fc6ef8b2538c604c7fd7471601fb229bb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b292-index-rows/greedy-0.txt",
+      "sha256": "df887161bc12f4bbf4106e819092a67c90ce7e852b5c56e60ef0fcdefa849f43",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "04eb9266c87993545b61333bae8145efe3e2472cc671935dff865a1dcc482c85",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b293-slug-make/greedy-0.txt",
+      "sha256": "8bdcaeb257cbcac834f47ad7ba529b0c96ee9daf181b19a36b9f61244147ec80",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2f9bf4deea1eaf03cd0e9923047fb89b57a06aa0dd06588d20d2acbd1e37d914",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b294-ramp-plan/greedy-0.txt",
+      "sha256": "be2e9fc722c5fa7e262db557297988a32e3e5b0d4a221f78f5da1df40378958e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "04bc981632d725a6f97861f169f680035573ce773e29174b85fd1b42c262b80e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b295-grid-cell/greedy-0.txt",
+      "sha256": "669bcdac74b819ada0048e63c5a0bb7202dbad23d915d9754978833af423eadd",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "04fe597f0528d4825a4cb8e8f693a67f5d76f3054efe1774a251779992c78649",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b296-tag-pair/greedy-0.txt",
+      "sha256": "a5e225276eebea37e1d96001ddee91729654a2db3e66eb4b96a2da7c87d6897a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6efa6e2f867a305b5a557f1994288dbbb4806ec444d574a20b33921610da37e0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b297-tile-grid/greedy-0.txt",
+      "sha256": "c906905f19585c54d72a9644bf44f38d8f421eea4f888b4d5ac0f72306b1e3a9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6df957a6fa3f911f09cb5c8e93b5b8934a7c62eab2de718e31cb9b202229de71",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b298-price-vat/greedy-0.txt",
+      "sha256": "d2e13ca1ae7b2bd6819e34b894f9834937679a5944e9c121c1f256cd228d47a1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5594275a6eeb0ec66545a1b9fcd29138ed65f607688cab49dfd1441d9ef4186d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b301-tick-drop/greedy-0.txt",
+      "sha256": "b5858c501a082e2314da5b5b99d019642640548237d697635a43e27c39c3633f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f0e03073c88421eb85dca8a585bf2e5b260f0a2c0a65569a482c715d4babe9b2",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b302-stock-take/greedy-0.txt",
+      "sha256": "f3ec374b3f6b3b20cf1b2ce04e958f968044bcbf32a295a9acfc49a80809d6a3",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0f87e4be0ecbf0819eaf3bc55ce02167648e99ca533b022fb4a950ebe588b5b6",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b304-pad-code/greedy-0.txt",
+      "sha256": "948e69f1dbe00cbfeecd382afa2d716b65dac053228957798989d9b768627af6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5dbb30206743a8a3b2fb0730142a7143b409c339d0e78e4e53fafe32daf3a489",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b305-hop-cost/greedy-0.txt",
+      "sha256": "59148e3373eca08d7bcd5cd510372de16c69d4a53062e5b7519ccdd4fdd58826",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f441a66ef9b4f6c7a8efafef3b2432471669075d22403a3fa706fa9cd06537e0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b306-fill-gaps/greedy-0.txt",
+      "sha256": "3980127868bd0599c85012ca421d5c9a224db9af9695966802c25145708ae583",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2830112eb7fa7f6c876db29a6fef49fade5d2630f660947bf49f8fcee9dde4bd",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b307-unit-label/greedy-0.txt",
+      "sha256": "82467158fd163e0d5267b4f3f322830b2872bb769eb39d51a6e0b812e91e7426",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3a56e8aecf4a56056df61786ac28d40b8df46ff039bb8829c6f20415b624318c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b312-hold-queue/greedy-0.txt",
+      "sha256": "7e38c707ac26290f8260d1633abea996cf7f9d8b185ae14bb52d42c9e0a5e334",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a95176cba8120f95ee06288b577dea9ede5d1f356292fc19798c00835f58ed67",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b313-move-stock/greedy-0.txt",
+      "sha256": "89105cdbba426447f89e3202cada94811dd0a519d52dfd930af1f4d5eaf524d5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "77fd14253e640110c77c6cd3362800566e47bec6e8124ece40172d3bc84d9085",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b315-long-word/greedy-0.txt",
+      "sha256": "1b7f21695e840581c0d86f48c88d18219b8210329daf710e96a5d4567eafc3e5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c97e052a33c0fca6df5449eebcbd27fbcfc25dd513b2defac0b3dace396a8ef0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b317-mean-window/greedy-0.txt",
+      "sha256": "37090db1b5f6f8fbd25a81827723681b69d5dc2d7faead1ae371d42923f78339",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "17fdbdf73377da8228ecb8f2fe8a198886451bec05f90e165777696ab1ba5f68",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b319-short-num/greedy-0.txt",
+      "sha256": "e29729aa7c3499518a02d6131badfb7bfc0ebf98cbc95db8f6bd1d6f58580b86",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "84e835252c33dd26618d5556f8707cd400245a2b5916e31e7aa0d8615aab697d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b322-fit-budget/greedy-0.txt",
+      "sha256": "c780948925eb4ecff4021380dd8b04802e8847ca258720781248e9b0c8ca17c1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "39a0d7e512c0de82a2e2e04c92c9d83e5299651f8c915617ebb2d46f65700f81",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b324-grid-flip/greedy-0.txt",
+      "sha256": "5852867ead39aa056ea1fbe9dcc4404bd8702284dee0816e156227b4223fcf20",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7b9ad5af5b52040205717215f84805a538602c1f2dddaa9d50dfa0cdb8b39961",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b326-seat-run/greedy-0.txt",
+      "sha256": "005848f71d0edceb286f703bb8e54518a4ed0ffc1670e95dc9692730e07bea27",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b1e3b44dbe592553d7ee5a06ccf4addc8367b4a93a7449298028403346b3d802",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b327-common-head/greedy-0.txt",
+      "sha256": "1f7c231f461bb48971fd0df9eaf906106784aeffcd9dbd5c8b4236e3b04d8986",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8ae774603a15ffeaf37d7778418df6f7fc794976ee6c05912a7098dc329a18e0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b328-warm-up/greedy-0.txt",
+      "sha256": "87528f508d4d0afd816bff8acf215b5dcb99990102c2f25d6d449c98c366932c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4da48cd58bdf7bed5d958133eeba9130b9a9fdb264502b9aac290921ea105b31",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b331-dur-text/greedy-0.txt",
+      "sha256": "15afb0b42ba714c1e4cb2f4cde7b50e835dcf1ae41f46fff6cf1dc312a86b5e9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "87ba5fd79e67a2415ac2f4bd6a5525ec37575bbf8b4ebdde00b7e7082d961f12",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b332-cell-mark/greedy-0.txt",
+      "sha256": "348a5306d278b344e669fa19e979ca0033bda609baae8564f759a7c70886272d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b798523b093635342892214e688e32a73ccd7370cab6e82a6590c2fae89c5ab7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b333-pace-split/greedy-0.txt",
+      "sha256": "42bf508ef6a45125f8b8e7669d1a8d5a8c71ea49b3aaea2e2b9c47d9a5aa05f0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "530c492ed4ccf6df71a1c708b0306af5ad1b6e4300f7672631e0d164c4b8abeb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b336-odds-pay/greedy-0.txt",
+      "sha256": "9d6d831dee3cf85627bacd39012d2c85e4180beb2512085730da29f14b510d8d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89d9c647f6c0ea3b53f6281795d2c51f8045b7af42e864c65e6b82e2accbcb4e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b337-char-swap/greedy-0.txt",
+      "sha256": "73ca175f0aab599585e814d2e66556b4313b13f651464fdb4898b7d8e47d61af",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0b7645228badeda5d4de5b6598e7746cee0e381ac09f67292760603df74590e3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b338-count-back/greedy-0.txt",
+      "sha256": "e2d9fe30d9d3c2a468fecb17251e490952913520924d8881c0882643266c4e83",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f9a222358ad512b74c0f1a066c10144b02e01045c5fedb204d957c33c606dfa5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b339-net-pay/greedy-0.txt",
+      "sha256": "b58b02f088dfd289ad58ba4e21e7cbc9b0b4e819ef0957ac945edac14b3140e0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a82879f74c0efd6870fc20360cbf94ba53a86d8cc707b51fcb29dd1d6a052fed",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b340-case-flip/greedy-0.txt",
+      "sha256": "66513cb4aed633329138ef65ef46614aba1c764c6997f4da39588651ac370df4",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "98a0ec5cf5875de86a1ccff6bdc03aef2797d5596add07c265d7aa4b35687987",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b341-key-miss/greedy-0.txt",
+      "sha256": "9b6532ee637c52bbb050aa82c5030926f0180a9f9e6bd2e3251c1ad755a96f88",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1e77191dc2684152dd79f11ed0afec2aa08b28bbc3f498c6e975beaa3bf91536",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b342-min-gap/greedy-0.txt",
+      "sha256": "4a4b402c9693186d1e02000c3873c7cdbbbf4c310e8f95f6840dc85cfbba31e5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "81c4ed63bffa9f3c9a09f73c7d3c8c6ff381f04fb0fd80b7c33aaaca4effb235",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b344-head-of/greedy-0.txt",
+      "sha256": "60a376f24eebb0eecfd3852a2a96e33072c481cc5453ac31eaa7971078d124f6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "be015bd0169e114fb1f0ac435393aaf54c0e3c412e90867983199e0c44b483d1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b345-hour-rate/greedy-0.txt",
+      "sha256": "f38955e054062680367253a9834eafeed49b7db5e676dd47485c6f661a352b18",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "01f1582c7f43122d317cc3d77d2bbc99a92afb7b5a382f159df9db6f430bb969",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b346-rank-list/greedy-0.txt",
+      "sha256": "2eacd73892c28bb6b11a2627d04507581121412b1090a0e8575af8ce4e98b4d6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "37c336051e6ba9f7781b666cbb30e600407404da1ed69a4daadcae59fb4b1cae",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b347-file-size/greedy-0.txt",
+      "sha256": "bdd4bfc5bb3847f26195f3e18decb6fa01456322397df2e4adb508600c4e3f06",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "258e16d9468d2fd2965a097fc726ae7f59afc586bb5e49bb4a144b8815546e36",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b348-bill-split/greedy-0.txt",
+      "sha256": "490b84598afd1da58880c6ea9b4143ab543ae043d15c1a77846763b1def448c6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b35594cb0955f3413a018c19a0f64eb11423aeff067992fa27c969b8bc3b3c0a",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b350-rate-cap/greedy-0.txt",
+      "sha256": "31a014d5d3b4e38b50daa6144514cc3688da7e6a5c199e562ebad24aa7da2dda",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a56c93fdf4fdebbe6be0cc113eaa0e7932189370c85ea353e19646cbedf3adbf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b351-vat-back/greedy-0.txt",
+      "sha256": "dd33f7b13ec67ace18c7db9ae8b006218d959b3e9181234020dcda2e34dbd3cb",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3b2d5fa5e95bd2494dee246419a86311c764dbadec5e4ee801a01885c9533c42",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b352-score-scale/greedy-0.txt",
+      "sha256": "e7dfbfbb9bbfe5109e69c97cdff083e5c642a6e5cd40f6b57e24edd553a5de65",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8f4dc725ddc691d88c718ae76b2ca0cadf7298952c096462db0ce17a93c314d5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b353-strip-tags/greedy-0.txt",
+      "sha256": "b8ff55ffe107bc2b73d92ccbcc4fd0dff6f10307eb2ad897bf848c51750283f8",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "90b89c2b7787b8066a140e142f8667bd4209e1b5bd856e0278db2e99122a1408",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b354-word-reverse/greedy-0.txt",
+      "sha256": "9d25bde8c9efbc7bb568629811d8ab45e8a3d6cf1e3d95225dc814a81d975028",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4c8597f43421821ea233377e490966a3317460dafd1739fe4599b985edb85a65",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b355-trim-to/greedy-0.txt",
+      "sha256": "b8d3752cbb022b310263102e1e7f495b4981fb0225faf95acfd6390f76e632d6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ae3012eb3aa8e8ecb49c96b2a4e63b3c944bf494573d3200958410db4c554f08",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b356-digit-words/greedy-0.txt",
+      "sha256": "d09bbfd1244cfb125d6b48c1e963c356ca7ee94d724b5947f2680e966c84b985",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "30c3c5104bc92b3b24c4dd5063781cb5848921d3ef5470377a98c73211474314",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b357-line-number/greedy-0.txt",
+      "sha256": "2f09715ea43c84aa11bec67207f5a153d4b4babb99fb04a397c6f04c64b04858",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c5e272a138c8578e281145a74e6ce9bc7e81f4cb132414e8b68e1e886d490a4e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b358-sentence-split/greedy-0.txt",
+      "sha256": "bfc4ba4f08e05da135d54ba290d1e7c74634a5199a7668a1a7d3eebe493be3b2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b35231a748550d023786c805c2f29c772b828f8e20bd434bf22e54d7b08a2600",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b359-case-count/greedy-0.txt",
+      "sha256": "637e03d4f6f4b869ceae016c9358150441a3ee7267cacf7e420e2b24ce74b9bd",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "02f52bd9075fd7fe4982d6c80226dc209c37fda1371130413ea50b694709faaf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b361-repeat-text/greedy-0.txt",
+      "sha256": "277b504329bf11c8bb1443e45f3a8c411de81ac2dfe7ee9c28018d666919ea7c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "04b15aaf929f4d6dda8a69bf7db0186120cb84352f0b81b08484707c07062fcc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b366-batch-ends/greedy-0.txt",
+      "sha256": "3f1999ceff9cf772daf1d9470a8629ca4ca09812df1727431fa317a86c459d2f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "726ad39ad374824b82d05d3e09c6bded97847c3444f6be4e8faf31d26258e934",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b367-wave-count/greedy-0.txt",
+      "sha256": "861366520e25b22aa5a224d74421abf5e72296aa5806786957d6130cd43d2b9c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "847b11ff3ab9f09accd088b3340bc927b590a89a681b395852e5b65c116c02b2",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b373-set-minus/greedy-0.txt",
+      "sha256": "a2dd2ff5c5ed2b39fc611f8c5cd7af52ff92a70dded42a959041a1418c276b52",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "24c451f618e4b1555f1187dabc07d69069184abc57f3acf33f408f0b88ecdff7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b375-index-map/greedy-0.txt",
+      "sha256": "6ef318fa705bf89b2466c2420bcfb9d6d6acdc2638c342c41c513e199c7d3639",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6333e01922363f21dd5375c14608b3b2504f0356c79097c015f023ab56db248c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b376-count-by/greedy-0.txt",
+      "sha256": "c9c108d6842136a7234f562d8059e027d92f141b1603d3336ec7a5aa4bd93917",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c5946eeafd32875ff5daad4cdaf63274ce542f4c3c09fcae265b09b76a0a4df7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b379-hide-values/greedy-0.txt",
+      "sha256": "25c77ed6d2df72f3ff775680a4e80247c93b31eed1cd89a233226db82f868904",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c77f8803e20f9ff61ff1c3f1f7dfa8eb55c7a33c5d7c7302ff4d445c2b7db931",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b380-pair-flip/greedy-0.txt",
+      "sha256": "5460dffe8dc108ff3892ebc48a10ae1ad8a02cdc6495975d719fea69f99f917e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e56349eef04d591cb31fe051b852f0e966df3d508abca1411f16c1814e5ca16",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b381-merge-tally/greedy-0.txt",
+      "sha256": "35200ff8d7d4fa806bc76dc303f400f720a7cc030dcf676f70ce6a2f0357f831",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0184247d12a30cf6b6f8e2db4d0334d794cbb14e78a36b680a71340e1082c673",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b382-sort-pairs/greedy-0.txt",
+      "sha256": "fea215eb2ec0e1a3ce2f2ed882936e766bfe86ec874f1c5dcf01b464b227207e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e48cbe729e4681d4c7d523d6a870b0e647480599429e51e531d707da85a0dd02",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b386-drop-keys/greedy-0.txt",
+      "sha256": "56e45178764b68cbac8233ba2a5de4d144fd8ed289754f4996cbe95519391490",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6af21e2649f88c8eab9fec8d27fe690d287983b497cf4a730c183af1c07a6e7e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b387-tag-index/greedy-0.txt",
+      "sha256": "10e7368d632597f2f8f27cdb1d3867984f4626839aaa532ed8682b2447f4fa85",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "31aae8a9d5eb3fa24bf3bcba19aba79b55f138bdd1317ed130e953adeaefe8d0",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b388-time-gap/greedy-0.txt",
+      "sha256": "47d2cdfd2e7805063c2001166affc97dabe76fa7da8727e6dde9859541a62557",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "75ec1779ad35f9c4104c6e276ed09c1cebd10daf3d9445fcf7ef9c61334dd0dc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b390-cell-count/greedy-0.txt",
+      "sha256": "eb04153723c67c1f82b0d1330edceabd16f15784aec04b6ae422861c81d61261",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f4a450f04e59932f0e1d06af0af8bca9fde5af334e6d1a0706aaf3fe5913ecee",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b391-oxford-join/greedy-0.txt",
+      "sha256": "84294626931586698cea0da052839f28424dca657853facc72da0fd2d7c07f93",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a782c88723c6075feed6407ca6c1a87e6f80d9ce93963524ffd972a7b378bc5d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b392-cap-after/greedy-0.txt",
+      "sha256": "faedf0e243f48f5e26882c4145d06ad76b28dba0564796f851f921fc3029cb92",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0f8b02aaf778b355071b9e48833b1a3ea1cda12ed2777d5dceb04c5b5af509d4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b395-cross-up/greedy-0.txt",
+      "sha256": "b3887ddf23c69953fee01e9ca06adb8105cb5660d687b4d2bb6f56d3441a6bf0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ebf45a23e04de334a3ceecce18afdcdd70e58c1507b6a35cf3bcf64750f955db",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b396-field-mean/greedy-0.txt",
+      "sha256": "da7dfffd8c7275d8de4745ce0aca660d4269bd505f5494c4d8c2df802f73bc92",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "24b08b5fdc719ae414400645d921c036aa4619505f7e9999942ebd7f34b9cc63",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b398-split-at/greedy-0.txt",
+      "sha256": "37a9cd3473ae891d48b7c5e221955803147bb44b311e912524000e9cefade088",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1d712388c14752f0392cd4172ac9ee436bbb8211e76d8bb94b2b57f662acea1b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b399-fill-between/greedy-0.txt",
+      "sha256": "6b8c3961ecb115d4252b4ec4e70e7a29f7a59b4aac90b79f1b24f93c99324e36",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "016e43e133c5a83dc897b68a946ffa80d0ecbf774c6423be5dddde204cf7dc34",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b400-path-clean/greedy-0.txt",
+      "sha256": "0e19e1b5ef797d2293771396b98c553d348f1c3678dd8b7a62a578f5bed8abeb",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fdd501dfd6e937b4b112a222c786be7adbf2ca6e53e22b893f698fa2ca99157c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b401-code-valid/greedy-0.txt",
+      "sha256": "339c83dd21b008bb7fb21d0b95c78ac3128ae1a3770f31669eb8a112393d4666",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4834fd0733c0ef5ed5ff810e6a6f2bf1bc3da4da7cfe447a0f4a0df9047809bc",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b403-range-check/greedy-0.txt",
+      "sha256": "3413f3ef2ec19585760eb7950b189a1ad535aedd116cbb9578e10eed35c4ea09",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f4936f4694c89e3603285a014cf3a70b008fbf3e2c5f5abcf93f505b3fb3e885",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b404-digit-count/greedy-0.txt",
+      "sha256": "128da08e0c7293bb50248abd4ff1ed336b532612637f1d0360776de050c33837",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6b750c2ac0631db187adce6b0c37f652a91a77779b30cd45eeea8434fc1b36d1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b409-diag-of/greedy-0.txt",
+      "sha256": "92977c512dcdad0717cfcb43306bdcb3cd6439baf29c13fbbfd8246bbcf6280a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "888c3a0cdf081221b2490020750576df6e9c6c9ff8ac530e83661c062c3953dd",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b410-quote-split/greedy-0.txt",
+      "sha256": "cf5c34a34a50608130de0454e6719d5ed0c4812d1be936dc5544da221afbf670",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "60e187a9cc4fe944fac34d7cae2cd3ed76eeaf3b6c615a38f931bbd659b48a92",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b412-step-plan/greedy-0.txt",
+      "sha256": "1948bd42a90975c5c9de4c58b2e7786e566779db9a8fca4568aaed587f7ce8e8",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "80450f369d6dd1ec41fd61fe3b874ae8cc385919b2a8e64f59177202ca7657dd",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b415-unwrap-label/greedy-0.txt",
+      "sha256": "8672d844223a4cb9a7a0066a3fddd06d4b29e90d16fcb0926955d85fd624c9c5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "dd3baa9c3f87f52b86f45061bb68af7a46ea6c1244cd2cd0aebd86e6d3fb7541",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b417-mark-list/greedy-0.txt",
+      "sha256": "ec5f30b3284c70e018756384b7b2dcaf4ba6d574ec91a82d2854e15c0008dd71",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3b672041a7c6b00f412391a80ac8aa19946142495536d2969562a52dc11da2e4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b418-over-count/greedy-0.txt",
+      "sha256": "d3cf4be5e13e661e631a3a48550bd2784dae9efd3aaaa5d109b7d807f6f73130",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "167f0b2d15c7c88449a5ca5f913d5aa0fb51770ba15204e53f849fe787bbca5a",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b423-scan-tally/greedy-0.txt",
+      "sha256": "ad6bb31fc6d75fed9bd93aeef7c550c56ca3cc7a7b75de05b4a4a22690de0977",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a0b5ad96239b63049b5c8221bcf4d09ea6d5efa7e201a2d7bcb4e74abd84b124",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b424-mid-pair/greedy-0.txt",
+      "sha256": "af893a358b5f8344db7401772bee10f98ed577a910770eb6da5e6804e6c3e1f9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "aa438257eb322a107b70f8ad68699d61df4b553a467cc5ecc37fee5d571b938b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b425-tag-count/greedy-0.txt",
+      "sha256": "1b7d3aa9ebde4e56dbfbb153c86060366d907d261ec2533a7282d90a48091cd7",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "282a44b388229d42da46c5031d662d80c527fa5fb969f3c8ec16e70a3e7b380d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b426-hole-find/greedy-0.txt",
+      "sha256": "d896d26f9f1d83315d4a938cbf4b603a73e27cf6c8367c6b2ac087b55318083e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2c0f7fbeb069960953cbf56c9afddd0ccd9285d78eff42726f6d5698c30db573",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b428-run-decode/greedy-0.txt",
+      "sha256": "9d683bbbeeb71fc9366ce33d65b5d0438e885b0b766a84e67333724dd8bb0f88",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b8239521a53b9d15609549626eb8cd24bbc2f42b29f9bc34a9e9ed4d4342720",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b430-sort-by-len/greedy-0.txt",
+      "sha256": "10aa95c962910b1ce85e56a6e795466efae771215828defb607832db90029c7b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0e99634b73ddfbe45c56b5ad9e150a3264a5b8a0ceb4487ddb0c1931fa60fdbf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b433-link-find/greedy-0.txt",
+      "sha256": "0610a25fba7c4c53a9bd7ea6baf2e7a46f7b4dd0a94d117d712b8ee1c88a9e6d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "217a850c8d8789b6936d8728f64aef7921a01c1414d9461b1e84729147d81abe",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b439-tally-bar/greedy-0.txt",
+      "sha256": "fd0361d4b11010f26f7b9098c85bd6c0182508f9dd62a6269caed136a8b081e0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d365a27670501d7e328699c9537a692d1b5b50984d593eb97a73c59dc55a915c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b442-value-keys/greedy-0.txt",
+      "sha256": "9a694192da9e3b7dcff2f54d901ee3cbece7e22f3be0413113fe095d4c8eee65",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e77ee182ce7791570ae30bc72838b16a8d4b975bed8308b1863c21d745a76ed4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b443-fold-ends/greedy-0.txt",
+      "sha256": "f66a940eec9eb172adad5a39f8ba9835a2337357910c2fc759baa2bd2b7660c7",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8b54f5eef4c824170ebd62b9eefbe14a992c8568181bd6f937394d485f0a380b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b444-pick-nth/greedy-0.txt",
+      "sha256": "02aa203635e818fe5f47c6df020c1f534aa0cc0ab3683f07f20f37a2e2f40c63",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3a5653bfac2d526d0396bf044ed9eac1ac27dc88733dd208fe13d50004c242f3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b446-strip-ends/greedy-0.txt",
+      "sha256": "73cc9ea96030c78b36514bd149ce902ca83db68a5607232aed791c719449619d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bed52a0935a44b5c39610ebb4d4092ad1c42c87b3e9c3d6491a83005f2ed66f5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b449-mask-card/greedy-0.txt",
+      "sha256": "9d5007d81db54d5287e597b733914146077f015fbf4a6ec27f53e71e5da0269a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6678d49d660b421f7911c712cc5c3323aa1767f620c47b57a1c505041b1a472c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b452-grid-find/greedy-0.txt",
+      "sha256": "3699da03b420acab09a9901c2446f847452f4e3a14a9126b9821b96158da3539",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b31bc6538d838a8dfc0e76353828ee4d694a69b7ef31b0e86e992f760a6e9c17",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b454-rate-steps/greedy-0.txt",
+      "sha256": "a36e0f5a8dee1a2c22431cd731c0cfaa584bdbb373d4771b97cd9dd4b27f393d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3e77b9dd62aeee17ab891d4b7ffd5c70c7c530430a716734fc547c2cfbe382b4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b456-merge-rows/greedy-0.txt",
+      "sha256": "d16e5f11ef196ccfd8f88547ad0cd5c7cd3eab4492713424e9b444996cc8deca",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ef57285aee3677178e2eff127d8337710ea50dea8e9912371838dde6e70675f3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b457-queue-round/greedy-0.txt",
+      "sha256": "757bae09f992aeab70207c5257be139434ee7876fd17dfaf71cdaed400a3a67d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ef4391871f14083b70584f132b86ba3861398faee88da01bf6e7ae4a90b6ef96",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b458-limit-map/greedy-0.txt",
+      "sha256": "3ed36b27d309d777a15da1ab8d7022c16e7c559432d9ae44100cb1532a3a0804",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cd8a7d0bf20ffa59495790c0d136b4d80e173f8478c510ffa1c752fefb0f6973",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b463-take-back/greedy-0.txt",
+      "sha256": "5ef60380843abb5e8655d3463a80b8a1bd8230b6ee93742818e1031cf8b45c3d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a49c162e4651cf390c60213ad119022f641129c704154c2ffd5ec6b7b73335b2",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b464-power-of/greedy-0.txt",
+      "sha256": "fa99380f0f8fdd11009a03ae0076573ad281603f6720391d9dbea2a1a11326db",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "217b17be7e7e4a8674b56455de96971217c8f2c98fab726eead1bc5e7308c045",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b465-key-path/greedy-0.txt",
+      "sha256": "da7a604760865765e0436312dffa6405460dfb408533e1a9b05f2250cb7862d9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bd276fff2bcff85586352c0ef76caf167f53a1eebb4562373021030327b269a7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-py",
+      "file": "candidates/b466-clip-text/greedy-0.txt",
+      "sha256": "14dafa87296df564aad0d9e118040bf9fe85cbddec26b2456e281598e49e6bd0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c75d3a7fe48f7ba5523f3859ee3577c6cd223a37ea8a5f46b656219dae356ab7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b228-tide-marks/greedy-0.txt",
+      "sha256": "a90e0c24e1b37feb50f4d63aeea42acfb6515a4a37c61d4979f2d12900ef645a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "42230fbaf9e95359e73d2e9fcc157c95e4096ff7be425f5ad602900b63e05400",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b230-crate-fill/greedy-0.txt",
+      "sha256": "57edbd6c5e17f583cacac3428cdbc78609c69fcf09ce8ae2ee42aee08d16ec44",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "72f9881639d359b2423ef335eb2a4e54b0dff0affe27377d7528eb0bb4878b5d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b232-tag-trim/greedy-0.txt",
+      "sha256": "4362b770275d8977228a1363eda3de0652c989949a586ed673ec48a06e55be64",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6939db3b6d473207d908882fdd3857299dc1d36b62b4689e767ec63d8d96ea00",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b233-slot-pack/greedy-0.txt",
+      "sha256": "ea81e124ca07d358741c616f5267229e3e5c70acc2bb94221e2e6a24f9239d02",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "44d08ae86a6dba473f2acb3368063444f86c4e95ad52089e0e63947ea349cbd0",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b235-crumb-path/greedy-0.txt",
+      "sha256": "ebfba4f14cfdd9a707e117719b1e3dffd71621b74a85aa65b568c71bf82d8806",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "99b1040a1c08c926ff1211202531c82a2a327ccb0316cc4d8031df9494e7c5c9",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b240-hue-band/greedy-0.txt",
+      "sha256": "02634ce1b13ebc8825ecd11ec1a2f148ad0459439139e9fa8d524cd448beef94",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b7590fe13cd60a69623497b877a201ce09fdb578c97c1ddc65ccfd4ad73b3c8d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b243-bin-spill/greedy-0.txt",
+      "sha256": "1ccf9294c4e4bcadb638e5de5a97de771650572d303c6927ac35c99e2da387fd",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "03965399977db52a878582dda40d7887c926c9993051da8177307ac70220eefe",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b244-seat-block/greedy-0.txt",
+      "sha256": "ccce628f06a3ed80745c530af9200aca1537b5b8f6a59f7768e7e5be6139612d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e0828bbf31c138b051b5bd05a9928e2a5db74727609332c60610027a4155cb1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b245-kettle-hold/greedy-0.txt",
+      "sha256": "335c70d9c986a47259c2090c9c0bf1527dafe5fcdf2b597dfcdc92e93bbcbe5d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "80d9a08ccaa79adbbfeb030ac2723bc3b2856eb391698191ef4cb53912ccc239",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b248-hop-chain/greedy-0.txt",
+      "sha256": "af80f67263294a3eeb1a340962948cb0633e0d2346d5c6ae87935a5ede3b085b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0f65faaa8d0adb4cce1d1db28b072a30ee438d5dc1264e4cf13400f08955818f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b249-check-digit/greedy-0.txt",
+      "sha256": "6215ba195d2eff4d443f40a0e81073f47f26efdc7b5ce50ab53448fc13bf2a9e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a9c3d6b67488243ffbffadacaaaa10b903fa3d9907e5ab70d909751c5e257a95",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b252-swipe-dedupe/greedy-0.txt",
+      "sha256": "ae2a61e2ea762e168f67d3a75c73facbc3da6e5dc1eb32f83972e6725d7eea3a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "29b6923c5bc9ccd6f4ab3de4449c144dc15961b31d962acccdfdb09b7070226d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b253-route-stops/greedy-0.txt",
+      "sha256": "ca9092c57d107f1c0543c2235ab33c7e4357e2afa5d1fffc8b24894e0afb2c60",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3aebeed1b03d46e44c76e54380156129d8445707aa2db9c4a55dae4f3d88bc1b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b254-font-clamp/greedy-0.txt",
+      "sha256": "bcb18661cbfa0c89c85cd241a145968bd09e8ec35bc55faa9b8f40a3bd40ff88",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1b5be337efe62291f5d345729aca93329b745cce3fe5fc181bfcadf59cea3036",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b258-lap-best/greedy-0.txt",
+      "sha256": "713ea93f2fdde36f44bd321c91c125e670c91106e2fa68919bc33066b699f95d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "856e02280c1e56ffe24d98f7f4a912f3bbcd7fc254764cac82e7b0988b9b4314",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b261-hex-pair/greedy-0.txt",
+      "sha256": "cbf0dc51d048cda21ea177cd45ed9f4a029a45c432d67573b056f9a04d6e1385",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "88ea6ff2ee8fd27a69a89aee2104814b4dd0c0b4cea33f38fc65c055b254c9d4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b264-cloud-code/greedy-0.txt",
+      "sha256": "1bddec4436133402a80e745ebb9f876ca8107163d0131edf10bd3cac9b46a1ae",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3d589d8851a972a425073d4baf2e615c8fca43292195ed1f48dd34beaa7f9aa3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b265-till-float/greedy-0.txt",
+      "sha256": "a7e657c99decdc9c79d9d446db43b75687e55f40b62c446288db8acc7adea367",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b30e32fb050de176ac1718306347005c57498c511ad184603681f7f83695fba1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b266-span-merge/greedy-0.txt",
+      "sha256": "3ae522e144507ebaa5f644f76ecd32f60bcb6cb03ab6598914de37a1599d72ba",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f93a651bb35763ea3d9aabb487ee243091f2ce60365c48703a373687be479b31",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b267-alias-map/greedy-0.txt",
+      "sha256": "a27e538b0dd9adb47fc4e339dabf91f143f41245b9988c15e3cf26f51692bef9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "481c5c69597276c6ad37d7b3400df7a23184fa222baf4df60e31bab60f651279",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b268-score-drop/greedy-0.txt",
+      "sha256": "31422dd61cf5f37633ead55cee3f8bd5a107c1cf286755553a64a673f738e716",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f9b62d8101774f758e9cbc2a82670f18a28722e588223f367e991fa1e65f91a2",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b269-crust-slice/greedy-0.txt",
+      "sha256": "9762163a81e72b9a9db88942a678e07d7dd440d7711582a39332249434e3e3bc",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "28622f5c9ee62d5d2f928a1c3242bf171bd56a6d3f68cd8d0a9a09d316e05135",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b273-stall-turns/greedy-0.txt",
+      "sha256": "78ece3c9c4b0de4f8e0e97a5c8dd063c123d5d71e8fcda58fb64f116e3ed638d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "46a4bcae97d703b32d4d4adbb168028c938350e8e3ad37b2cf654e7a610c1013",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b274-tint-mix/greedy-0.txt",
+      "sha256": "82f2445706ddd2ec506bcbef4b023b7fc9e559c2801599e5c52e66054c388ac1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7c813c10e07b70d376e87ba4002923aecc9bc2da8c66d6e7b451f045c6d88eaa",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b275-camel-break/greedy-0.txt",
+      "sha256": "a88429aed82144ba1f1cd08ecda3163d07cd913ba00f2c6e371c09e54957e33f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "821745ac3f11d6d54a4c7d69426ddd689ffc3dc72d76653d4ebf55a88fd87494",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b276-swap-keys/greedy-0.txt",
+      "sha256": "5d5cda47ee574c4b933b3ba85a0f40d17b137efe21e4895f457e2b1835cd76cd",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "71ca118e81110b46eaea714e0665a7c34111bed138b50336df86307d570d998d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b277-fuel-legs/greedy-0.txt",
+      "sha256": "29d850d0774ba3259e989c3b16429e3393fd95f7fecae89c68ade4265f416ba2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4941c10b6de291b76679424f1439ab7e6482fdcf2a8eef323aa4855f8e5ccf7a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b279-menu-pick/greedy-0.txt",
+      "sha256": "23359b2c658ea27ff02f72a14b4fc7ed89ae74f080dc17b4f7f8d988c2f5ae4f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "46d75afdd8129ae591d7908450f92e1d9e6c0aa7f3b7743f53d8d271689c2be4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b280-step-back/greedy-0.txt",
+      "sha256": "aa8fcae5d9c6b2ff4ab6f0067ad55ba3880aeab454d9b65ad351631f4d18d8c9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "93e3eb7f96f7dc3e2195a3f8161a959aec176deb2f9b153ab87168b2af33156a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b281-tier-cost/greedy-0.txt",
+      "sha256": "53e4dd00462382d9e2b9d908b8ad86ea763d19031cc5b8694abb240b26674fb0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c9e8cec430ff3e850e316ecf00aad6e3b93296642180535fedf99bd14bf89f64",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b284-poll-gaps/greedy-0.txt",
+      "sha256": "10a8900641977dd80db724c322d4e53ea0d85df77848b18c6deeb8e67ad0b950",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cfd88bf3cc137ddb6d26269b0e024c948f2edff57a763810258a14d9f551a65d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b287-drift-check/greedy-0.txt",
+      "sha256": "c37ef24a8848d77031bfeea727c59efd6331dec42404c8b7725a5707f3dd67fa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "03c5b3579647de2c2c7842cd1452997237acf8f71786d095e6aa78abbecab74e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b289-plural-of/greedy-0.txt",
+      "sha256": "d02e635987a03c9856c1d4fbec81e224d223befc6ef15fed3ad6be2b6e391105",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c5857d20e0f9140e8bad3ed00c984bc05950c419886c03b1f6e9acf27b9d78e7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b290-basket-cost/greedy-0.txt",
+      "sha256": "f8fddf40a3b571bbf8949166c8ce236f240002433960701e15cf964df27f3ae1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ec473e70e493cdf0e481b3bc47bb0e0d10fa8d413428ec674ca77c020d68706b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b291-climb-gain/greedy-0.txt",
+      "sha256": "cb771c577957661600185de8007cdcd9333c145a636eda4a421f113d2caa1238",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "47470c45ffc757cab641e39fc64406d0604a96e9275fe5f9b750f4efce785d00",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b292-index-rows/greedy-0.txt",
+      "sha256": "2c457243db98b0f6d7b9ffca430ab193e9c7bd570c7e26fa44c26394072e9a05",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "eb9f370cb17c73087e64b00268c764b251b5336fcfbf2ddf99250604717ba911",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b293-slug-make/greedy-0.txt",
+      "sha256": "7650a212c74d2bde2f8dc18c5d29017119a6fd82c04563bd9495d3ea08029b4c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8e22b378db8bed83144007365ca7cb9c03689875176423c818566b186df48dd7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b294-ramp-plan/greedy-0.txt",
+      "sha256": "f51708eab9c44fa971cc194eac8d37eb847cc5ec55efc76a18bd132fb97b4701",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "edccd57f1bc3d7fcefe82cbe1c74536c42bff176c2116014cac6b169a4e76c59",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b295-grid-cell/greedy-0.txt",
+      "sha256": "377af203415055d5efd7ed751ae789f5668046dd8afb23e8ec1097b7ce3eec77",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "084738e07d14214fd3714094041ede116610f597da75a546a7b92d494b0b0611",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b296-tag-pair/greedy-0.txt",
+      "sha256": "37b97f19ca2dc5211bbdb84c245de011c9d691fa16cf7a9f3f6a532c68a04512",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1b59e2656ab7255efb68b863f88302c089d03eab2b46d6db973c41e7f29801eb",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b297-tile-grid/greedy-0.txt",
+      "sha256": "6679baf301e5752ec84f273c4b4f2898901152df904a7e547657ef83dcc47996",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "163b7cdd5451342d30292219880ad339dc58d12f35a47d6d820851afb35092bb",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b298-price-vat/greedy-0.txt",
+      "sha256": "63ee11e8350bb1cdf7fde8daf51557f179bbe43d4ee93191aa16c3ac9f03fb71",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8b63d3dcfd8fec8cee957d5b9f2005b0c34f850a999cbe7bf38d9182e8dc027e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b301-tick-drop/greedy-0.txt",
+      "sha256": "2cd250a682f744d8adbf5e40f4602f93a5b65e4f019ae1c4e41db385675a71f3",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e331974442e0820baf03485154c93199dbc4129c87a55359a5b9b0057f5f1301",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b302-stock-take/greedy-0.txt",
+      "sha256": "bd79798a6c26ee4cad5534929226fcccb862354e1f610b7a2a780d9ae318fb60",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "06787fa82f6c57e62b97734d2f6272a4da61e227667fcb9271fb9867b9feea33",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b304-pad-code/greedy-0.txt",
+      "sha256": "416002e1880dafc5d8ae6243ed47060fa80d1ef1b69a1706b341a81ec7c26461",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d8e307629c66fbca7f820608a0aed394f9ad9fd1a21665a20166162cde89f991",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b305-hop-cost/greedy-0.txt",
+      "sha256": "29c25d942e73ae8369b8aa4e5f120ae8182f8402a881247169910dc6e7ff812f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4f15dd25059f9cd2cb19604756669dece073d0deaf133d5f36763066f11f1fc1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b306-fill-gaps/greedy-0.txt",
+      "sha256": "d2536b62762a1656ef498bc76533a8a3b5984e06bdc4465d3934331be97b7e03",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "02580a7bc1e31020f900c90d66cfa0da10f7d90b194b9e3c8fa17e3eb24a99f7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b307-unit-label/greedy-0.txt",
+      "sha256": "b26245c2051e28484810d0b662f800e8e53268ec014b3ec8460c99e47edbfeea",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "25fa370531ca982a4d45b5feac6b0899c55bd1a9732c5a067c9c1e932ba0e17a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b312-hold-queue/greedy-0.txt",
+      "sha256": "aad452fc41c9d93df45ad0ad24f50c4072bc0f9d63a5fa2c21f1e4e203cdf74e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "27c3ee2ca105c22ebb845b3a79b4f0db256e671f9b8a5236e8e02710427b0720",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b313-move-stock/greedy-0.txt",
+      "sha256": "f366a655bcd386ca968e9ea91c84f59a5451a8e72e5b11e4872ca97508ede5bc",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "22b23abebccce9c9d411de3d4ae5c8e6131df82bfef8fcfa30a60a94f6e0bf52",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b315-long-word/greedy-0.txt",
+      "sha256": "6d9b3c5e9e33800e4de34d730041c57c558a934be1567839d7ff58d741538da9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e93c4fa938e308646bd1acb775e886e48a888333305a2e688bc954da55dd42af",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b317-mean-window/greedy-0.txt",
+      "sha256": "c13e8b881c548b83483140abb1a9acc85f2e856bf34f151b918c671a3e9514fa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2aac632f854aa6e8ee4b9668399c99642a04c4c210029b482cd269e5c2e81c93",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b319-short-num/greedy-0.txt",
+      "sha256": "bf80208995bd73ab9840e02b0ce8863eb85e497fa28cff446978387737786ba0",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2e1014fee0862bf1ef36d485c862aca4e24f6e79c8734f7fc1cc67dcd390bee0",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b322-fit-budget/greedy-0.txt",
+      "sha256": "2e07037af6f11ae26f46b280f003667ba613ebe7bd746b7ec8e844eac1f0eb8a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c34e5500253b38b386a610bff5e4d7af3fc847988672ea276f57e8a71dd4a30a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b324-grid-flip/greedy-0.txt",
+      "sha256": "144bda3a692e9571346c4711306d5915498d2fc21026657a11e561b9c29798b7",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f785c779932749512301b04cfa679c1041e339359fd76364dc4489e4287818a6",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b326-seat-run/greedy-0.txt",
+      "sha256": "f5e3b9b4974d97c49a3d662015b446575ed69aff499bd24aa99a89e618b192aa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b7d7e6ba2ff0048bf2ab5f09b5abd99b7f7da6c29dee66e44b4ee4551a3d7f60",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b327-common-head/greedy-0.txt",
+      "sha256": "e39a654ffe851ec2a5825e57cf08103e1c4c8d6885ed687aad0f0fa4733d5829",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "02a1d6483b262990df25133a385248799df4d1ee85f64468cb1132214a92c65f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b328-warm-up/greedy-0.txt",
+      "sha256": "b5ab28652f41c25f286d2412309e2747d27ca75ae678fee30b87177c3c67e79e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0a6714243cf3f9761570899c5792284bcceaaf179cf16583d1878f15bb813457",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b331-dur-text/greedy-0.txt",
+      "sha256": "727c07e1f17ed0a475ff95d10317431a97b159b006595c1a702ff5f97d3ace4e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6c7b688f82c98cc1e66dfcc96c9fcd7542c67fc2f631b7c0934ce4ccb8310979",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b332-cell-mark/greedy-0.txt",
+      "sha256": "53f32d1e439b1889205ba416823598aebef4f0972d284dcb290772b4c537be7c",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4e9116238bde250410bf36639319cb7e53dbee884df8d18332dfe71b8323b2e9",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b333-pace-split/greedy-0.txt",
+      "sha256": "084ac4b4e1560665005e4510198d5bb1cd5ee82b10ce7f8147d8a03888620454",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2aed257faf5e322c1caa679d62022de2da7924c7e965db45a79e3992169934d5",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b336-odds-pay/greedy-0.txt",
+      "sha256": "930bd17bd244e0c35fbe8b61086cbdb314c7bfd83d1614df123e5ce7437b790d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "acff9286c3cec96c8a2257a146b6b61575b09d6e86252f06af7022c289ddd74c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b337-char-swap/greedy-0.txt",
+      "sha256": "79ac95817ff43a91e7dd86ac320e3e077fe2d700fd039b9ffc3587a19839601f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9c512c3f65518bd7d9c0105f7f3580892572a4b0a7c23ec61bf302ac917ef328",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b338-count-back/greedy-0.txt",
+      "sha256": "b3def2ce3bce231b25c0b442ef5a238a1d9014316b6947d172cc182d3425aa3a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "57cbd71172860686766ae4c7aa16166ae93198f99b72b98e01a55468121f169a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b339-net-pay/greedy-0.txt",
+      "sha256": "c64281f919325cdd220255578c3c9e5a3dcaf2671fc8fceaeecbd11fb1e341f1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "750ac378c740c0528b493ab8661093067f1c7270defb44d6d72cdc1551f12aac",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b340-case-flip/greedy-0.txt",
+      "sha256": "a5153ceb31b62335a5aa99ee25ece40f8ed375036d15ed22847b80063a59a74d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bc2ab1df800a520af01772469484e20cd8b2bdaf7295ca93207a1420dc9ed09c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b341-key-miss/greedy-0.txt",
+      "sha256": "7fba2208d05bdbe723d7e2063afda7fdbe15e46fc89df6a91dab28150868b3e3",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3fe65242c4b71cc954bddfdb60f18667294f740f3247f0472a1e99171db72e88",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b342-min-gap/greedy-0.txt",
+      "sha256": "510c09d34df1ab2fe0b62b3669d605a8a438a369bbb50a687234022c2c4e703d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f07fee73bf05eb3cf05a177ee6e183a1fbb1b60c1b018ec0ded7b99416785839",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b344-head-of/greedy-0.txt",
+      "sha256": "76dc6b2b4ac6abe0ba8a90e6ec7698d782b4fc5fe007a2196b124d20690aafdf",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "21691fc7cec4f27ae219419cd74b3ca0e3311904f4da5e4448effcf372e3a4d4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b345-hour-rate/greedy-0.txt",
+      "sha256": "75f785df06fbd8053caac748161faacbf81e415262ad907d6e78706908b455ec",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b402dcaf5335ee8be771086c039f58baa4edd5d0f63c528a269f961f2bb1886",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b346-rank-list/greedy-0.txt",
+      "sha256": "161905438eddd154f747e88ea149c5445311b904e0296bc7f014fa0cb3a5ed2d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b1d7897c0ad943d88476b63d89510c69b8e0558f98a249d3502f11d2285de059",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b347-file-size/greedy-0.txt",
+      "sha256": "4b1d3030bfbcd6b6dea4a127ffc253ca7bd69b142d3b1c46e5ad830b06d1cf9b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d612eae5a745b8124a4c9252ae20f7275f97bde51250bcd72e0d3126785065fa",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b348-bill-split/greedy-0.txt",
+      "sha256": "60a33d4bf0995cf50ee45f1339b27a127621ad80f41b981493888d4079429f4d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9221113ec87136c9cc26ca34390fd485294bd80a53901c234c9b8640e4ded8d3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b350-rate-cap/greedy-0.txt",
+      "sha256": "118605939c5bf101deb1fe84c9d9b40f8edb0b0b75ce72c2b63f5a8dd82e4311",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0084eba8749cb83964d55da4978d456a2bf34a41c82cf702fed1a0ab03778408",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b351-vat-back/greedy-0.txt",
+      "sha256": "2abd7ae7664742162a2057d3220549565fecc77eb60cc80fb2e98045635f731e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "176d0c1398c24597e0a4c74405a8cec78bb3ea6874b6e427b49c15e44ec2ca4f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b352-score-scale/greedy-0.txt",
+      "sha256": "e264a56532c5adc34e504efb1e1a2cf6267ae2a39d619c27c3017a2954092ffa",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0ed946fb95c564c3f20573b09fd4db48e211c3612e3e2f7a9cdd8f702e1f1b18",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b353-strip-tags/greedy-0.txt",
+      "sha256": "32f5c2a5532f531edc48fe69d82c76e247f34279ad3d0b0b47904f3843eb5282",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9c4f219243c5abd638b9e3f7c7137fb975599c8ae06637f23e556d07488c633c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b354-word-reverse/greedy-0.txt",
+      "sha256": "4fec6ddb2341fa4af55a351ea5d872fbd8d471e779139b76cddf0ea9d2958684",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5a453ed19100248f40a8469156ba4f7ef6f62a9b56e8863d4d05e7fd3a5d023b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b355-trim-to/greedy-0.txt",
+      "sha256": "96dfac037ba305c9918f4802ad988df70e44bfdf2882f566694e9a8ec4825137",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4617e3e8a44fc415e0175d63ed1177b8fa80fc43bd4b0010e6cea539682ff794",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b356-digit-words/greedy-0.txt",
+      "sha256": "050535209c29be600c0dde3f9c339a714da259afe22a49d9c04c05f807bff47e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c548d13e70ac605c318bfd9adecaff9b72e95fadedc7b03ec4b23bce6eff7bab",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b357-line-number/greedy-0.txt",
+      "sha256": "593aca25c13528b8da0230efacc4b564d8d3317b9936a5feaea3114d965484a9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d18d84f5b27b382a88d183ef88c341d7641014ac4a3a1674824580c87416475",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b358-sentence-split/greedy-0.txt",
+      "sha256": "bfaa09477a4bf210115ca0476a892dc816e49068fae2a87971f4ca031019e5cb",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "42da63150653c533789ef3fc3c58b190cd40f0a81e4171236c823593a0d9219a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b359-case-count/greedy-0.txt",
+      "sha256": "2bc10ad248ecfb1024ec0c0185cb04cf51605e39126013b7de9ddd78aa3ec91e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fc7cb48cf785eda77ef9c1529573da3c68b6794ea532892b34829cee6bff0277",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b361-repeat-text/greedy-0.txt",
+      "sha256": "b9c7a2bcb8726877045fa53f573dd7dc644bd8fd8ce673997568ba34d976c3ed",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "919b89c530c63f01154bc13f5135a29a1ebcbb87b01d1b72430466601a580fad",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b366-batch-ends/greedy-0.txt",
+      "sha256": "ea38ef12194d73933c61a718b0e26288d54ecf67135f1deeebac396bdb4c09c2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a83a8d66e2c609c6058d1b4aca6bd8e37da78c813eb0571eccffdfa7ea80e449",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b367-wave-count/greedy-0.txt",
+      "sha256": "bacf302093ec57f8457a4463369bea8acaea1ada8d183d8d72ef4cfe715ea514",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "75c50005fb92341d8316e77d410facde4f719e8ecfb2ab992b0cc559be6445b5",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b373-set-minus/greedy-0.txt",
+      "sha256": "ce6840ab6f7f679b69fe323a23ee5b3516a85384154bcf944f0df2f6f35de2b6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "25d186018c6f87b0657440fcee1471d5330c34a71c78c32f361e51505a112b72",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b375-index-map/greedy-0.txt",
+      "sha256": "e6f7d32a81674134d74feca31d0870265eca0caa205ed925edcad543262f2aa6",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8ee58d8f4e418d650b0b585a7f12bfb65ad2b9bf7fc4e565e0af3bab511077c6",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b376-count-by/greedy-0.txt",
+      "sha256": "6a1059773853ff8ca9966b200a03cb4ac1def0a8d4df528ec1c51debb2a63a77",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "346e2c74f3944f655837471f808e1167ad201b31f95e499eb215494810efb2db",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b379-hide-values/greedy-0.txt",
+      "sha256": "f890c4fcdba3c0a4918575a860bc9cfcf039b033064ff9370dcedcbd478ecf13",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cc6912cfb9f909c17203d8424ad9459160d1fbc054fdbc23aa86b683a8b4f97c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b380-pair-flip/greedy-0.txt",
+      "sha256": "d4ac2defd1b80c94cd7ddabf4072f682115e174a4b5b3b112e9662f12d7b1ad5",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "33c26e6d347d6302adc411f0719c52ae5aff93c4ad0fb476de4e54849fa0064a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b381-merge-tally/greedy-0.txt",
+      "sha256": "2ff6649e24470d60c25c02fd83fce886340fe4bfba651d7da9d7298aa5093f95",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "69a05a28f7fed06eea3426cac3e06b446b47df39dee4ad6f782fe51c1515d716",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b382-sort-pairs/greedy-0.txt",
+      "sha256": "62b31659f868e4379f1d5e2dc6a0ae0cb81868ba0287c1702b4bbeeabb6c6050",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cfff275f006491f679a640f1ba1241540124e63d5ae9cef50db3a517b620219a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b386-drop-keys/greedy-0.txt",
+      "sha256": "01226a8c5dcac645101c23387c80ce3fc8e3a1599afb4f6b0ae5410dae473a7a",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5a7400343e2108949c533f17010f8023aaa763995b1eab0080374152809c5b0f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b387-tag-index/greedy-0.txt",
+      "sha256": "c5a39f3e31caa1075c5828a2ea7152078e85f0bdc4ccfc1b9d19c5a34a90d63e",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "008f72b1e2aa410e4e6ce28b91cae0007c82bc229315abb0fd9c3f3292600fdc",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b388-time-gap/greedy-0.txt",
+      "sha256": "c111ab89f40df770dcd04afc6786d0b133b7355578b13b6c48f9343c91006230",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "19890b04de30f1ea9b5c047dc650cb4190106e420a06125c7358707d973cfbf3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b390-cell-count/greedy-0.txt",
+      "sha256": "983c42aa2638c82a42d92d6d6f58989cb889fed06c9462dd368ec65501f49dae",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6b35f82b00c05c4000ecad7cbef5cce75b566f7a3c4c1e05bb9d2efcba964597",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b391-oxford-join/greedy-0.txt",
+      "sha256": "3a178dcaf1cac33bd4528996683e6424c2575e9d6ce2aa33746f8d32d370c2da",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "13cb0f5ecec9329f46d119a33e411f77caf0129bad7092049239ba6d14adc16e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b392-cap-after/greedy-0.txt",
+      "sha256": "822537019beb6219dd45dd438e5db0a956988d34cf22a9acd2aeb4bc3862b2af",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3a24034a4aeec476d29bb50282b595f2cde51caa6976e18fd655377779abe6ee",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b395-cross-up/greedy-0.txt",
+      "sha256": "eceb51bccc7b4c4746a8f6dd0e8ae1224ad1b58ef7214c532cd7dfd5ac3f19c4",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "74e3f213c213019ea36ab2d749feea741c4afd28c230f1ba657dbece9ac767e0",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b396-field-mean/greedy-0.txt",
+      "sha256": "62c2fcea95f5aaa5e0a4de044f580c08854be6e419a380b8de6eb1d4a5761bb4",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "096f9103131b10a6ecfefef71c6e6fdb8da29d8c39ab4c2fd5263f04253c62b0",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b398-split-at/greedy-0.txt",
+      "sha256": "5fa7a23b1d859d909ea49b6a2c2d460c37c58cb3909669499c743eaccc80e5b2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f230bc80b76905bb89f9b3c2390b2bab202b604197ad3a69d8d090476be58958",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b399-fill-between/greedy-0.txt",
+      "sha256": "9714ce3e7d3b459b662c98c21ee29e9913f791dc703f36a95d8ec8c0f52ad44d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2438b0c1963677f4d1b6dc5dedc8d1d3e4ba2f4de54ae4c4e341f0812cc5ded4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b400-path-clean/greedy-0.txt",
+      "sha256": "fbaa3015b3208654841b1f42692995f94a1b50285f7e948fbcd8e0732f366435",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "853516ac7f454848f59f07f2e246573e485ca43aded5ff3cf3b3994d4d1ad16f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b401-code-valid/greedy-0.txt",
+      "sha256": "3f592be7e1275fdeba3c0a433be729ab27f0a48f4fcddbf8fd8e403095f1edd9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "17084b2104ad8f66856165e45e8cb01528be386423900a4dbc374b5e71e96622",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b403-range-check/greedy-0.txt",
+      "sha256": "c570f33f20a0581e839b7b120a5a0619a99461e73ce600ab4b6775ae4a3b74ad",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0ba381186720134bc0ce82772b57dedb295e78cf27c044fd6d45357d2f4c2f32",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b404-digit-count/greedy-0.txt",
+      "sha256": "66c7c1c9feb51f667c39214f25198fdb462e781d3620c085e94d80d525c77c7d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6bf343c492e5898e073bdee50e5b6d8c3c2eb9b1cbda035d51ca9638a1100e7a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b409-diag-of/greedy-0.txt",
+      "sha256": "9db1f393362f9a51d3f859635ac5531fd50077e764f96b72758befc190078af2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d471ed45adfc23d751ade4397d3b1d1a86e17bf816f600c7601969dd18277753",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b410-quote-split/greedy-0.txt",
+      "sha256": "ff3f7bf2e27d2a1f6edc64b133866cfa93565d5fca3d49d7ee6de6fdceff6176",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d9ad1c27fc799f2b020d91482df0a480dc47a19d6581599ece3138bc26f31b5e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b412-step-plan/greedy-0.txt",
+      "sha256": "e57c1d8aaf1122702f4d73071d654c935e8ba88eb85ec01f8b792639cdd49b8d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "dd394a3e07c0158ff2df856cd6f99ce486274cdaf3971ec769ebc7b2a0bdb2cd",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b415-unwrap-label/greedy-0.txt",
+      "sha256": "49e6b825d7d8315907d357ed8ee1ca49bba8d733102ab3ff85bfb94256f67ef1",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c5dc0e360f4bf405897f8671f0b583357ac296fe9ad8e6d07cbc4d08bf3e7646",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b417-mark-list/greedy-0.txt",
+      "sha256": "41dfb3125b44b2fbd54ecd28791a820dcd1e7a34ea488694056545df1b451473",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "96ce09bb40df832f9b4cff2fcadf32a1e8f26722a9817f2ea19992925e9209d4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b418-over-count/greedy-0.txt",
+      "sha256": "d8cef6d2c066e7e981ac4dd12f52aab30b6d8ffebe2129c75374a057a550cddc",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e4f55d7efda79fc27d10b67dfb0b2ab30876c0b0ede49431a8dad3e518308ef5",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b423-scan-tally/greedy-0.txt",
+      "sha256": "d94a8ffba99d27f5680bba8f0c82055e4f1e719ac8bb04627619608a42c2e11b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f09261540c1758d6859968162b1b6bcc5f85676a93fef71995c0bebdc36b8026",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b424-mid-pair/greedy-0.txt",
+      "sha256": "dd4f4d8827d807ea4c633cca9ff2ec220216395d97ad80d029ead0d2e5eba064",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a1dd0f6bf971691c38b7f2e616513f6351f05a1045549dd2d16907111abfcffb",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b425-tag-count/greedy-0.txt",
+      "sha256": "fc48acdc144fe2820ea07b9652d0c9146145dd45882b846bf1a13efd62657716",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5f4214a518c775177940b371c3ddca78ccd3d43af52fc55f1908d53e0ef02306",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b426-hole-find/greedy-0.txt",
+      "sha256": "aa661bf6f0a6524c3e3bf6102aef1e2a4d527a18eec5c45cd1eb63132fe62ff8",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a4a705285b548b17e2e219a1b98b7926871728f63f923da7fb2e217451d08ac2",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b428-run-decode/greedy-0.txt",
+      "sha256": "e9bb12deaf29d72182b2920c293c9877cfbefadb748cf75e6ec7671b47a5d041",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1860847665293fb8446a91e6e0c5a691d966a1db0619d83cedf6aa8a94b5161f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b430-sort-by-len/greedy-0.txt",
+      "sha256": "ee26cbb1d3aa6552900015c532773ede45e901046a4860fb5fbbc5410e0faa71",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5848388e43a766f0343a897ccd8bba81c35b5ad3c3428d50f6ce3f298b5888af",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b433-link-find/greedy-0.txt",
+      "sha256": "0ac93fdc3fbae443f8d4a0c683a7dcebbbb684cb40547d73e39ad8a1f0ec5763",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "df442f309838cfced70314f9592bc37aa156ded12c365c077139375bc566d26c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b439-tally-bar/greedy-0.txt",
+      "sha256": "b3806b46a7c9359b951c8e0db5d4533ad2dcba453494a425653db674345ca5ed",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c44fe0a7a8f297a43f34c221c2574925e95330d25a63ae439bf6ea5e7a6bd53a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b442-value-keys/greedy-0.txt",
+      "sha256": "4f82a327b4d8364067f97fa6309ea81d74e74a9e2e723a692990c93f6bda7486",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "14ba94beb2b07a0c0129106b95d48b800fa6b4ff386d4912319939e6003975d4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b443-fold-ends/greedy-0.txt",
+      "sha256": "ca610579c1c98131c1827f39a174eef9ec08e497404eb6b8592e9defce972a2f",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c98b6d1e0c84e9dff13f91398b979c413720391bc7d3f07be5b3a0cf5b998612",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b444-pick-nth/greedy-0.txt",
+      "sha256": "9a30b29ef6627a1bd99c6855e49d59f2c98d54ed06adb545e359b6467c893b7b",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "395cdf9f369fb7caf6d14e1fa98d830d78d84d5e57fa17a414379043ae308d62",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b446-strip-ends/greedy-0.txt",
+      "sha256": "ee5fe61d15e92563f11b915aee0a789bbfc01b0fac597275a6bd20d1d1706f07",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d0e3c508f5af37e967ee0cb57ba59555292241c12f582b4de8120e6cde860b2",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b449-mask-card/greedy-0.txt",
+      "sha256": "678eb8fd04aa3fee2eb21fce313fc6b26bce07d9a4409a2a652f2c5453df7dc4",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3170f4306fdcea02f1fc0c326a8f61060fcaff23fa0a90d76a2e6d19310db0ef",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b452-grid-find/greedy-0.txt",
+      "sha256": "dde0e2d1c9a6d248c29c8f8dbe3662c3379af8ab4c62875d39e25ebbe5d46c9d",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e2d44adf4458912bd8c64e1d047e264c5ace841e6ece07387b54b459c59a4505",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b454-rate-steps/greedy-0.txt",
+      "sha256": "f7d7d8a3e336efe24e4a5abd608e032bb119432361e53d0bdf208c7bfbede3b2",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f41558209b81a464d3bf8dc35f5ef00a70770e5301636fcaca39e3ed0bd42dff",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b456-merge-rows/greedy-0.txt",
+      "sha256": "ba53ba432fdbf461075b1f9fb5fd02efce36dbc690ee836e262dd8b795f73a45",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bb194f385748db308865edf8240e4de3b412e069fbbd519c0123716d79281b1f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b457-queue-round/greedy-0.txt",
+      "sha256": "a7eb1bdee3e581f1264a8dd595711a38810280914638c499b728977baeeb75b9",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b5ea6f216a93c6ca494e3c96c24e76f659c6183105a885319a0e30a121c7d16d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b458-limit-map/greedy-0.txt",
+      "sha256": "cddcc8481b613c8ff45a9a246278ebf574acc40821b971d771490e350fa131cf",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "42d0a79c17918e4b65646f8b202ed53091b3963707241e342655f2eb45701de8",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b463-take-back/greedy-0.txt",
+      "sha256": "eb08f57a581fbce95d0b377f6dcc6b73c6e7afbebefa9716bd5b656932198910",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b508e6bfc62024479b4d61eb3c62372b00b551fa686be4e3581cc91046552a12",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b464-power-of/greedy-0.txt",
+      "sha256": "0e13a3ff06334d5bbfe676aa057c4a6f33e1926bfe63df239e462db887c81806",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bbe33f3688ed16a4486f0b78f3cfd958c666f86a8d8ebf763231f07638700549",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b465-key-path/greedy-0.txt",
+      "sha256": "fa4eaaff9a4ba30f89ce75ef042163605c240be61e609b414b13f63b6b15a486",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f9dbc30a355248173dc6b608eac5fce40fbdfa6f6ecbe719730a7d3904f56fa7",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "bench-calibration-15b-f1-240-2026-08-11/bench-ts",
+      "file": "candidates/b466-clip-text/greedy-0.txt",
+      "sha256": "81d1b28db1d58f0f8604876ba1443a583d190a94b39f026d2e09d12a34051fed",
+      "model": "qwen2.5-coder:1.5b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bc14f76422c2781d2ad1fad46f755d99ab41356c7a9d729ddb2a664f07b2f7f6",
         "info_string": "ts"
       }
     },

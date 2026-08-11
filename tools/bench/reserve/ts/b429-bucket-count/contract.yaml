@@ -1,0 +1,15 @@
+id: b429-bucket-count
+task_type: function_implementation
+task: >-
+  Implement bucketCount. Given readings and a bucket width, return how
+  many readings fall into each bucket, counting from zero upward, as a
+  mapping from the bucket's lowest reading to its count. Buckets
+  nothing falls into are left out.
+target: solution.ts
+interface: "export function bucketCount(readings: number[], width: number): Record<number, number>"
+stop_conditions:
+  - What a bucket width of zero or less should produce is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

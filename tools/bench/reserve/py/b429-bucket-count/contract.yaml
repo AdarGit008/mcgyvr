@@ -1,0 +1,15 @@
+id: b429-bucket-count
+task_type: function_implementation
+task: >-
+  Implement bucket_count. Given readings and a bucket width, return
+  how many readings fall into each bucket, counting from zero upward,
+  as a mapping from the bucket's lowest reading to its count. Buckets
+  nothing falls into are left out.
+target: solution.py
+interface: "def bucket_count(readings: list, width: int) -> dict"
+stop_conditions:
+  - What a bucket width of zero or less should produce is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

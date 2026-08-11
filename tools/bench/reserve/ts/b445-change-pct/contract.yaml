@@ -1,0 +1,23 @@
+id: b445-change-pct
+task_type: bug_fix
+task: >-
+  changePct reports the change from an old value to a new one as a
+  whole percentage of the old value, rounded down, and it takes the
+  percentage of the new value instead. Fix it. An old value of nothing
+  reports no change. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The change from an old value to a new one, as a percentage of the old. */
+  export function changePct(old: number, fresh: number): number {
+    if (old === 0) {
+      return 0;
+    }
+    return Math.floor(((fresh - old) * 100) / fresh);
+  }
+interface: "export function changePct(old: number, fresh: number): number"
+stop_conditions:
+  - Whether a value below nothing should be accepted is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

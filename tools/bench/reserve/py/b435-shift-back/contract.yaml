@@ -1,0 +1,15 @@
+id: b435-shift-back
+task_type: function_implementation
+task: >-
+  Implement shift_back. Move every small letter of a text back through
+  the alphabet by a stated number of places, coming round from a to z
+  when it runs off the front. Characters that are not small letters
+  are left exactly as they are.
+target: solution.py
+interface: "def shift_back(text: str, places: int) -> str"
+stop_conditions:
+  - Whether a number of places above twenty-six should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

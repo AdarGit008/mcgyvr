@@ -1,0 +1,36 @@
+```ts
+export function cellName(row: number, column: number): string {
+  if (row < 0 || column < 0) {
+    throw new Error("Row and column must be non-negative");
+  }
+
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let name = "";
+
+  while (column >= 26) {
+    const remainder = column % 26;
+    name = letters[remainder] + name;
+    column = Math.floor(column / 26) - 1;
+  }
+
+  name = letters[column] + name;
+
+  return `${name}${row + 1}`;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows < 0 || columns < 0) {
+    throw new Error("Rows and columns must be non-negative");
+  }
+
+  const cells: string[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      cells.push(cellName(row, col));
+    }
+  }
+
+  return cells;
+}
+```

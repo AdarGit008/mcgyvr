@@ -1,0 +1,15 @@
+id: b407-enter-count
+task_type: function_implementation
+task: >-
+  Implement enterCount. Given the states a machine passed through in
+  order, return how many times it entered a stated state, an entry
+  being a step at which it holds that state without having held it at
+  the step immediately before.
+target: solution.ts
+interface: "export function enterCount(states: string[], wanted: string): number"
+stop_conditions:
+  - Whether two entries separated only by an unknown state should count as one is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

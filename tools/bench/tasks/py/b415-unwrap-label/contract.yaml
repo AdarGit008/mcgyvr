@@ -1,0 +1,21 @@
+id: b415-unwrap-label
+task_type: bug_fix
+task: >-
+  unwrap_label removes one surrounding pair of square brackets from a
+  label, and it takes the last character off whether or not that
+  character is a bracket. Fix it. A label not wrapped in a matching
+  pair comes back exactly as it was. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def unwrap_label(label: str) -> str:
+      """A label with one surrounding pair of brackets removed."""
+      if label.startswith("["):
+          return label[1:-1]
+      return label
+interface: "def unwrap_label(label: str) -> str"
+stop_conditions:
+  - Whether brackets nested inside should all be removed is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

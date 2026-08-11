@@ -1,0 +1,14 @@
+id: b394-toggle-run
+task_type: function_implementation
+task: >-
+  Implement toggle_run. A switch begins off. Given instructions in
+  order, each of them on, off or flip, say whether the switch ends up
+  on. An instruction that is none of the three is ignored.
+target: solution.py
+interface: "def toggle_run(steps: list) -> bool"
+stop_conditions:
+  - Whether the switch could be started on instead is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

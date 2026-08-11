@@ -1,0 +1,17 @@
+id: b413-slice-plan
+task_type: function_implementation
+task: >-
+  Implement slice_end and slice_plan. slice_end returns where a slice
+  starting at a place and running a stated width ends, never past the
+  total. slice_plan returns the start and end of every slice needed to
+  cover a total, the last one short if the width does not divide
+  evenly.
+target: solution.py
+interface: "def slice_end(start: int, width: int, total: int) -> int
+def slice_plan(total: int, width: int) -> list"
+stop_conditions:
+  - What a width of zero or less should plan is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

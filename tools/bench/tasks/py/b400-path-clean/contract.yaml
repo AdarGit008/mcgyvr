@@ -1,0 +1,15 @@
+id: b400-path-clean
+task_type: function_implementation
+task: >-
+  Implement path_clean. A path is segments joined by slashes. Remove
+  every segment of two dots by dropping it together with the segment
+  standing before it, and return what remains joined by slashes. Two
+  dots with nothing before them are dropped alone.
+target: solution.py
+interface: "def path_clean(path: str) -> str"
+stop_conditions:
+  - Whether a single dot segment should be dropped as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

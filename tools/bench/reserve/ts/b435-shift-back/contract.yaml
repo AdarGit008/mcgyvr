@@ -1,0 +1,15 @@
+id: b435-shift-back
+task_type: function_implementation
+task: >-
+  Implement shiftBack. Move every small letter of a text back through
+  the alphabet by a stated number of places, coming round from a to z
+  when it runs off the front. Characters that are not small letters
+  are left exactly as they are.
+target: solution.ts
+interface: "export function shiftBack(text: string, places: number): string"
+stop_conditions:
+  - Whether a number of places above twenty-six should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

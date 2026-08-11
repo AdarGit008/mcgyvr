@@ -1,0 +1,34 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error("Input must be a single digit between 0 and 9.");
+  }
+  return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][digit];
+}
+
+export function digitWords(digits: string): string {
+  if (!digits || typeof digits !== 'string') {
+    throw new Error("Input must be a non-empty string.");
+  }
+
+  const words = [];
+  let currentDigit = '';
+  for (const char of digits) {
+    if (/^\d$/.test(char)) {
+      currentDigit += char;
+    } else {
+      if (currentDigit.length > 0) {
+        words.push(digitWord(parseInt(currentDigit)));
+        currentDigit = '';
+      }
+      words.push(char);
+    }
+  }
+
+  if (currentDigit.length > 0) {
+    words.push(digitWord(parseInt(currentDigit)));
+  }
+
+  return words.join(' ');
+}
+```

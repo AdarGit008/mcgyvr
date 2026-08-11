@@ -1,0 +1,16 @@
+id: b453-parse-pair
+task_type: function_implementation
+task: >-
+  Implement splitOnce and parsePair. splitOnce breaks a line at the
+  first colon into the part before and the part after. parsePair
+  returns those two with their surrounding spaces trimmed away. Reject
+  a line holding no colon at all with an error.
+target: solution.ts
+interface: "export function splitOnce(line: string): string[]
+export function parsePair(line: string): string[]"
+stop_conditions:
+  - Whether a second colon should be part of the value is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
