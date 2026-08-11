@@ -481,11 +481,11 @@ class _DeadRunner:
         )
 
 
-def _sweep_argv(out: Path, tasks: str, draws: int = 1) -> list[str]:
+def _sweep_argv(out: Path, tasks: str, draws: int = 1, tier: str = "d1") -> list[str]:
     return [
         "measure.py",
         "--tier",
-        "d1",
+        tier,
         "--tasks",
         tasks,
         "--out",
@@ -702,6 +702,48 @@ def test_a_run_directory_this_rig_did_not_write_is_not_judged(tmp_path: Path) ->
     )
     assert breadth.missing_cells(tmp_path) is None
     assert breadth.missing_cells(tmp_path / "absent") is None
+
+
+def test_the_condition_the_run_records_is_the_condition_it_dispatched(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """#225, and the cap's test one level on: the two halves must not drift.
+
+    ``--condition`` reached ``measure_task`` and not ``record_run``, so every
+    ablated sweep wrote ``"condition": "stock"`` beside rows drawn without a
+    scaffold. Nothing failed loudly — the rows were right and the manifest was
+    wrong — and the resume refusal written to catch exactly this would have
+    waved through a directory holding two renders, because the field it
+    compares never carried anything but the default. Eight run directories
+    were mislabelled that way before a reader noticed — every ablated cell of
+    #225's scaffold experiment, on both models.
+
+    The two assertions are deliberately the pair: what the manifest says, and
+    what the worker was actually sent. Either alone is the defect.
+    """
+    out = tmp_path / "run"
+    runner = _CountingRunner()
+    _scorable_arm(monkeypatch)
+    _always_passes(monkeypatch)
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: runner)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *_sweep_argv(out, "b002-option-pairs", tier="bench-ts"),
+            "--condition",
+            breadth.NO_SCAFFOLD,
+        ],
+    )
+    assert breadth.main() == 0
+
+    recorded = json.loads((out / "run.json").read_text())
+    assert recorded["condition"] == breadth.NO_SCAFFOLD
+
+    assert runner.requests, "the fixture must dispatch at least one draw"
+    assert all(
+        "CURRENT CONTENT" not in request.prompt for request in runner.requests
+    ), "the ablated section reached the worker's prompt, or this proves nothing"
 
 
 def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:

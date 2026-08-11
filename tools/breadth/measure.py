@@ -1080,6 +1080,7 @@ def main() -> int:
             draws=args.draws,
             max_output_tokens=args.max_output_tokens,
             sampled_temperature=args.sampled_temperature,
+            condition=args.condition,
         )
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
