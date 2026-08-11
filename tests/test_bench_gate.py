@@ -18,6 +18,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.contract import loads
+
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -177,3 +179,100 @@ def test_verify_flags_a_moved_problem(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setattr(gate, "RESERVE", tmp_path / "reserve")
     messages = gate.verify_manifest()
     assert any("the rule says" in m for m in messages)
+
+
+def test_the_emitter_writes_what_the_strict_schema_and_the_gate_read(
+    tmp_path: Path,
+) -> None:
+    """#225: the file shapes b228-b267 were emitted through, pinned by a test.
+
+    The emitter is not a generator — every word of a problem is authored by
+    hand — but it owns the mechanical half: the folded `task:` scalar, the
+    `demonstration`-versus-`acceptance` split that a bug_fix turns on, and the
+    ts-arm-only sidecar. Those are exactly the parts whose breakage costs a
+    gate rejection per problem, and the f1 band has tranches left to author.
+    """
+    emit = _by_path("bench_emit", REPO / "tools" / "bench" / "emit.py")
+
+    pid = "b900-emit-probe"
+    spec: dict[str, Any] = {
+        "id": pid,
+        "type": "bug_fix",
+        "file_shape": "multi_symbol",
+        "shape": "numeric",
+        "steering_band": "f1",
+        "prose_ts": "widgetOne is wrong. Fix it. Return the complete fixed file.",
+        "prose_py": "widget_one is wrong. Fix it. Return the complete fixed file.",
+        "iface_ts": "export function widgetOne(x: number): number",
+        "iface_py": "def widget_one(x: int) -> int",
+        "stop": "Something the prose leaves unstated.",
+        "buggy_ts": "export function widgetOne(x: number): number {\n  return x;\n}\n",
+        "buggy_py": "def widget_one(x: int) -> int:\n    return x\n",
+        "ref_ts": (
+            "export function widgetOne(x: number): number {\n  return x + 1;\n}\n"
+        ),
+        "ref_py": "def widget_one(x: int) -> int:\n    return x + 1\n",
+        "acc_ts": 'import assert from "node:assert/strict";\n',
+        "acc_py": "from solution import widget_one\n",
+        "target_symbol": {"ts": "widgetOne", "py": "widget_one"},
+    }
+    emit.emit(spec, root=tmp_path)
+
+    for arm, solution, command in (
+        ("ts", "solution.ts", "node accept.mjs"),
+        ("py", "solution.py", "python accept.py"),
+    ):
+        text = (tmp_path / arm / pid / "contract.yaml").read_text()
+        parsed = loads(text)
+        assert parsed.id == pid
+        assert parsed.target == solution
+        # A bug_fix declares its command under `demonstration`, never
+        # `acceptance` — it must fail on the task's own starting file (#183).
+        assert list(parsed.demonstration) == [command]
+        assert list(parsed.acceptance) == []
+        assert parsed.target_content == spec[f"buggy_{arm}"]
+
+    sidecar = json.loads((tmp_path / "ts" / pid / "meta.json").read_text())
+    assert sidecar == {
+        "file_shape": "multi_symbol",
+        "shape": "numeric",
+        "steering_band": "f1",
+        "target_symbol": {"ts": "widgetOne", "py": "widget_one"},
+    }
+    assert not (tmp_path / "py" / pid / "meta.json").exists(), (
+        "the sidecar belongs to the ts arm alone"
+    )
+
+
+def test_a_function_implementation_declares_acceptance_not_demonstration(
+    tmp_path: Path,
+) -> None:
+    """The other half of the split, so neither can drift into the other."""
+    emit = _by_path("bench_emit", REPO / "tools" / "bench" / "emit.py")
+    pid = "b901-emit-probe"
+    spec: dict[str, Any] = {
+        "id": pid,
+        "type": "function_implementation",
+        "file_shape": "single_definition",
+        "shape": "string",
+        "steering_band": "f1",
+        "prose_ts": "Implement widgetTwo.",
+        "prose_py": "Implement widget_two.",
+        "iface_ts": "export function widgetTwo(x: string): string",
+        "iface_py": "def widget_two(x: str) -> str",
+        "stop": "Something the prose leaves unstated.",
+        "ref_ts": "export function widgetTwo(x: string): string {\n  return x;\n}\n",
+        "ref_py": "def widget_two(x: str) -> str:\n    return x\n",
+        "acc_ts": 'import assert from "node:assert/strict";\n',
+        "acc_py": "from solution import widget_two\n",
+    }
+    emit.emit(spec, root=tmp_path)
+
+    parsed = loads((tmp_path / "ts" / pid / "contract.yaml").read_text())
+    assert list(parsed.acceptance) == ["node accept.mjs"]
+    assert list(parsed.demonstration) == []
+    assert parsed.target_content == "", "no starting file to repair"
+    sidecar = json.loads((tmp_path / "ts" / pid / "meta.json").read_text())
+    assert "target_symbol" not in sidecar, (
+        "single_definition takes its target from the interface, not the sidecar"
+    )
