@@ -1,0 +1,16 @@
+id: b272-locker-gap
+task_type: function_implementation
+task: >-
+  Implement locker_gap. Given the numbers of the lockers already in
+  use, return the lowest locker number from one upward that is still
+  free. The numbers may arrive in any order and the same one may
+  appear more than once. When every locker from one up to the highest
+  in use is taken, the answer is the next number above it.
+target: solution.py
+interface: "def locker_gap(used: list) -> int"
+stop_conditions:
+  - Whether a locker number of zero or below should be treated as in use is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

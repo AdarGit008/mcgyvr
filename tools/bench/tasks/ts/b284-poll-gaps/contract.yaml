@@ -1,0 +1,16 @@
+id: b284-poll-gaps
+task_type: function_implementation
+task: >-
+  Implement pollGaps. A monitor was meant to run every minute. Given
+  the minutes on which it actually ran, in increasing order, return
+  the minutes between the first and the last on which it did not run,
+  in increasing order. Fewer than two runs means there is nothing to
+  report.
+target: solution.ts
+interface: "export function pollGaps(minutes: number[]): number[]"
+stop_conditions:
+  - Whether a minute recorded twice should be treated as a single run is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

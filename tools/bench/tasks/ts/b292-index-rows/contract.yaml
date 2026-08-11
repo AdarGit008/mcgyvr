@@ -1,0 +1,16 @@
+id: b292-index-rows
+task_type: function_implementation
+task: >-
+  Implement rowKey and indexRows. rowKey returns the first letter of a
+  name in upper case. indexRows files names under their rowKey, each
+  group holding its names in the order they arrived. An empty list of
+  names gives an empty index.
+target: solution.ts
+interface: "export function rowKey(name: string): string
+export function indexRows(names: string[]): Record<string, string[]>"
+stop_conditions:
+  - What key a name beginning with a digit should be filed under is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b288-weigh-in
+task_type: function_implementation
+task: >-
+  Implement weighIn. Convert a weight given in whole grams into
+  kilograms and grams, returning the kilograms first and the grams
+  left over second. A weight under one kilogram gives no kilograms at
+  all. Reject a weight below zero with an error.
+target: solution.ts
+interface: "export function weighIn(grams: number): number[]"
+stop_conditions:
+  - Whether a weight of many thousands of kilograms should be reported in tonnes is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

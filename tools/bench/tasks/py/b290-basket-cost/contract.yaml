@@ -1,0 +1,16 @@
+id: b290-basket-cost
+task_type: function_implementation
+task: >-
+  Implement line_cost and basket_cost. line_cost returns what one line
+  comes to: its unit price times its quantity. basket_cost adds up
+  every line and then takes off a whole-percent discount, rounding
+  what is left down to whole pence. An empty basket costs nothing.
+target: solution.py
+interface: "def line_cost(price: int, quantity: int) -> int
+def basket_cost(lines: list, discount: int) -> int"
+stop_conditions:
+  - Whether a discount above one hundred percent should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

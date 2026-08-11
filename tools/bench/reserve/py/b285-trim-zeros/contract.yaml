@@ -1,0 +1,15 @@
+id: b285-trim-zeros
+task_type: function_implementation
+task: >-
+  Implement trim_zeros. Remove the leading zeros from a number written
+  as text, always leaving at least one digit behind. A leading minus
+  sign stays in front of the result. Text that is not a run of digits,
+  with or without that sign, comes back exactly as it was.
+target: solution.py
+interface: "def trim_zeros(text: str) -> str"
+stop_conditions:
+  - Whether a leading plus sign should be handled in the same way as a minus is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

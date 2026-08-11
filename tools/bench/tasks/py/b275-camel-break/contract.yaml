@@ -1,0 +1,16 @@
+id: b275-camel-break
+task_type: function_implementation
+task: >-
+  Implement camel_break. An identifier is written with its words run
+  together, each word after the first beginning with a capital. Return
+  those words in order, all in lower case. A capital at the very start
+  does not produce an empty first word, and an identifier holding no
+  capitals comes back as a single word.
+target: solution.py
+interface: "def camel_break(name: str) -> list"
+stop_conditions:
+  - How a run of consecutive capitals, as in an abbreviation, should be divided is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

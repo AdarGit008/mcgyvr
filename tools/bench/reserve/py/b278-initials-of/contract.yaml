@@ -1,0 +1,15 @@
+id: b278-initials-of
+task_type: function_implementation
+task: >-
+  Implement initials_of. Given a full name, return its initials: the
+  first letter of each word in upper case, separated by dots and
+  closed with a final dot. Any run of spaces between words counts as
+  one break, and a name holding no words at all gives back empty text.
+target: solution.py
+interface: "def initials_of(name: str) -> str"
+stop_conditions:
+  - Whether a hyphenated double-barrelled word should yield one initial or two is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

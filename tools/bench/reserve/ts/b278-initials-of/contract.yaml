@@ -1,0 +1,15 @@
+id: b278-initials-of
+task_type: function_implementation
+task: >-
+  Implement initialsOf. Given a full name, return its initials: the
+  first letter of each word in upper case, separated by dots and
+  closed with a final dot. Any run of spaces between words counts as
+  one break, and a name holding no words at all gives back empty text.
+target: solution.ts
+interface: "export function initialsOf(name: string): string"
+stop_conditions:
+  - Whether a hyphenated double-barrelled word should yield one initial or two is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+id: b282-wrap-words
+task_type: function_implementation
+task: >-
+  Implement wrap_words. Break a sentence into lines no longer than a
+  given width, breaking only between words and keeping the words in
+  order. Each line holds as many words as will fit. A word longer than
+  the width sits alone on its own line. An empty sentence gives no
+  lines.
+target: solution.py
+interface: "def wrap_words(sentence: str, width: int) -> list"
+stop_conditions:
+  - Whether a line should ever be padded out to the full width is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

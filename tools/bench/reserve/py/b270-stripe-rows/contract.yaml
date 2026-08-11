@@ -1,0 +1,16 @@
+id: b270-stripe-rows
+task_type: function_implementation
+task: >-
+  Implement stripe_rows. A wall is painted row by row from the top
+  using a repeating list of colours, taken in order and starting again
+  at the first once the list runs out. Given the number of rows and
+  the colours, return the colour of each row. Asking for no rows gives
+  an empty list.
+target: solution.py
+interface: "def stripe_rows(rows: int, colours: list) -> list"
+stop_conditions:
+  - What should happen when no colours are supplied at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

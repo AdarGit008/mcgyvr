@@ -1,0 +1,17 @@
+id: b291-climb-gain
+task_type: function_implementation
+task: >-
+  Implement leg_gain and climb_gain. leg_gain returns the height
+  gained on one leg: the rise when the ground goes up, and zero when
+  it goes down or stays level. climb_gain adds the gains of every leg
+  of a walk, given the heights in order. A walk of fewer than two
+  heights gains nothing.
+target: solution.py
+interface: "def leg_gain(start: int, end: int) -> int
+def climb_gain(heights: list) -> int"
+stop_conditions:
+  - Whether a rise smaller than the accuracy of the measurement should be ignored is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

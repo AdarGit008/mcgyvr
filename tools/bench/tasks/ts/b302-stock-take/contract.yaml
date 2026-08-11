@@ -1,0 +1,23 @@
+id: b302-stock-take
+task_type: bug_fix
+task: >-
+  unitPrice returns the price of one unit given a total price and a
+  count, in whole pence rounded down, and it divides the count by the
+  total instead of the total by the count. Fix it. A count of zero is
+  rejected with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The price of one unit, in whole pence. */
+  export function unitPrice(total: number, count: number): number {
+    if (count === 0) {
+      throw new Error("count cannot be zero");
+    }
+    return Math.floor(count / total);
+  }
+interface: "export function unitPrice(total: number, count: number): number"
+stop_conditions:
+  - Whether a total below zero should be rejected as well is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

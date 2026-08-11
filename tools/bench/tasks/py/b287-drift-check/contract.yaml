@@ -1,0 +1,16 @@
+id: b287-drift-check
+task_type: function_implementation
+task: >-
+  Implement drift_check. Given sensor readings in the order they were
+  taken and an allowed step, return the position of the first reading
+  that differs from the one immediately before it by more than that
+  step, in either direction. Return minus one when every reading stays
+  inside the allowed step.
+target: solution.py
+interface: "def drift_check(readings: list, step: int) -> int"
+stop_conditions:
+  - Whether readings taken further apart in time should be allowed a larger step is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

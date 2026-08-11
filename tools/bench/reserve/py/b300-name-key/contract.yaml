@@ -1,0 +1,22 @@
+id: b300-name-key
+task_type: bug_fix
+task: >-
+  sort_key builds the key a list of names is ordered by — the surname,
+  then a space, then the forename, both lowered — and it builds the
+  two parts the wrong way round. Fix it. A name holding no space is
+  used as it stands, lowered. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def sort_key(name: str) -> str:
+      """The key a list of names is ordered by."""
+      parts = name.split(" ", 1)
+      if len(parts) == 1:
+          return name.lower()
+      return (parts[0] + " " + parts[1]).lower()
+interface: "def sort_key(name: str) -> str"
+stop_conditions:
+  - Whether two names differing only in their accents should produce the same key is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

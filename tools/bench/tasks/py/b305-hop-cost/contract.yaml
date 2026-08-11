@@ -1,0 +1,28 @@
+id: b305-hop-cost
+task_type: bug_fix
+task: >-
+  step_cost returns what one hop of a journey costs: its distance
+  times a rate. trip_cost adds the hops up and applies a minimum
+  charge to the trip, and it applies that minimum to every hop instead
+  of to the trip as a whole. Fix trip_cost. A trip with no hops still
+  costs the minimum. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def step_cost(distance: int, rate: int) -> int:
+      return distance * rate
+
+
+  def trip_cost(hops: list, rate: int, minimum: int) -> int:
+      """The cost of a whole trip, never below the minimum charge."""
+      total = 0
+      for hop in hops:
+          total += max(step_cost(hop, rate), minimum)
+      return total
+interface: "def step_cost(distance: int, rate: int) -> int
+def trip_cost(hops: list, rate: int, minimum: int) -> int"
+stop_conditions:
+  - Whether the minimum charge should be waived for a trip of one very short hop is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

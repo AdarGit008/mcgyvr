@@ -1,0 +1,16 @@
+id: b282-wrap-words
+task_type: function_implementation
+task: >-
+  Implement wrapWords. Break a sentence into lines no longer than a
+  given width, breaking only between words and keeping the words in
+  order. Each line holds as many words as will fit. A word longer than
+  the width sits alone on its own line. An empty sentence gives no
+  lines.
+target: solution.ts
+interface: "export function wrapWords(sentence: string, width: number): string[]"
+stop_conditions:
+  - Whether a line should ever be padded out to the full width is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

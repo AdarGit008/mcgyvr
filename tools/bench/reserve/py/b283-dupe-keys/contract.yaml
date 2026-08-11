@@ -1,0 +1,15 @@
+id: b283-dupe-keys
+task_type: function_implementation
+task: >-
+  Implement dupe_keys. Given a list of record identifiers, return
+  those that appear more than once, each reported a single time and in
+  the order of its first appearance. Identifiers seen only once are
+  left out, and a list with no repeats gives an empty result.
+target: solution.py
+interface: "def dupe_keys(ids: list) -> list"
+stop_conditions:
+  - Whether identifiers differing only in case should count as the same one is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

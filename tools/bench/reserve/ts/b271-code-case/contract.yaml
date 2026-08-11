@@ -1,0 +1,15 @@
+id: b271-code-case
+task_type: function_implementation
+task: >-
+  Implement codeCase. Return a product code tidied for storage: the
+  spaces around it removed and every letter in upper case. Spaces
+  inside the code are kept exactly as they are. Reject with an error a
+  code that is empty, or one that holds nothing but spaces.
+target: solution.ts
+interface: "export function codeCase(code: string): string"
+stop_conditions:
+  - Whether a tab counts as a surrounding space is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

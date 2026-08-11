@@ -1,0 +1,17 @@
+id: b295-grid-cell
+task_type: function_implementation
+task: >-
+  Implement cell_name and grid_cells. cell_name turns a row and a
+  column, both counted from zero, into a spreadsheet name: a column
+  letter from A upward followed by a row number counted from one.
+  grid_cells returns the names of every cell in a grid of a given
+  size, row by row.
+target: solution.py
+interface: "def cell_name(row: int, column: int) -> str
+def grid_cells(rows: int, columns: int) -> list"
+stop_conditions:
+  - What a column beyond the twenty-sixth should be named is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

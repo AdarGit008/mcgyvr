@@ -1,0 +1,10 @@
+def step_cost(distance: int, rate: int) -> int:
+    return distance * rate
+
+
+def trip_cost(hops: list, rate: int, minimum: int) -> int:
+    """The cost of a whole trip, never below the minimum charge."""
+    total = 0
+    for hop in hops:
+        total += step_cost(hop, rate)
+    return max(total, minimum)

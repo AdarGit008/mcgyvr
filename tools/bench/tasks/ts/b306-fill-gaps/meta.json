@@ -1,0 +1,9 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "iteration",
+  "steering_band": "f1",
+  "target_symbol": {
+    "ts": "fillGaps",
+    "py": "fill_gaps"
+  }
+}

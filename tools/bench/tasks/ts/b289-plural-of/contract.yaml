@@ -1,0 +1,15 @@
+id: b289-plural-of
+task_type: function_implementation
+task: >-
+  Implement pluralOf. Return the plural of an English noun. A noun
+  ending in s, x, ch or sh takes es. A noun ending in y after a
+  consonant loses the y and takes ies instead. Every other noun simply
+  takes s.
+target: solution.ts
+interface: "export function pluralOf(noun: string): string"
+stop_conditions:
+  - Whether an irregular noun forming its plural by a vowel change should be handled is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

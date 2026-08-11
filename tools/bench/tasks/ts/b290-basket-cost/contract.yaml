@@ -1,0 +1,16 @@
+id: b290-basket-cost
+task_type: function_implementation
+task: >-
+  Implement lineCost and basketCost. lineCost returns what one line
+  comes to: its unit price times its quantity. basketCost adds up
+  every line and then takes off a whole-percent discount, rounding
+  what is left down to whole pence. An empty basket costs nothing.
+target: solution.ts
+interface: "export function lineCost(price: number, quantity: number): number
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number"
+stop_conditions:
+  - Whether a discount above one hundred percent should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

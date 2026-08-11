@@ -1,0 +1,28 @@
+id: b303-swap-ends
+task_type: bug_fix
+task: >-
+  swapEnds returns a list with its first and last entries exchanged,
+  and it exchanges them inside the list it was given rather than
+  returning a new one, so the caller's list is altered. Fix it. A list
+  shorter than two entries comes back unchanged. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** A list with its first and last entries exchanged. */
+  export function swapEnds(items: string[]): string[] {
+    if (items.length < 2) {
+      return items;
+    }
+    const last = items.length - 1;
+    const first = items[0];
+    items[0] = items[last];
+    items[last] = first;
+    return items;
+  }
+interface: "export function swapEnds(items: string[]): string[]"
+stop_conditions:
+  - Whether the returned list should share its inner entries with the one it was given is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

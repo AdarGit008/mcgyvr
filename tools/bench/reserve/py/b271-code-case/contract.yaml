@@ -1,0 +1,15 @@
+id: b271-code-case
+task_type: function_implementation
+task: >-
+  Implement code_case. Return a product code tidied for storage: the
+  spaces around it removed and every letter in upper case. Spaces
+  inside the code are kept exactly as they are. Reject with an error a
+  code that is empty, or one that holds nothing but spaces.
+target: solution.py
+interface: "def code_case(code: str) -> str"
+stop_conditions:
+  - Whether a tab counts as a surrounding space is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

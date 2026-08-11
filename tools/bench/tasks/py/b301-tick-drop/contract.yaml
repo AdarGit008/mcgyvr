@@ -1,0 +1,19 @@
+id: b301-tick-drop
+task_type: bug_fix
+task: >-
+  every_other returns every second entry of a log, beginning with the
+  first, and it begins with the second instead. Fix it. A log holding
+  one entry returns that entry, and an empty log returns nothing.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def every_other(entries: list) -> list:
+      """Every second entry of a log, beginning with the first."""
+      return entries[1::2]
+interface: "def every_other(entries: list) -> list"
+stop_conditions:
+  - Whether the entries should be counted from the newest end of the log instead is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,24 @@
+id: b300-name-key
+task_type: bug_fix
+task: >-
+  sortKey builds the key a list of names is ordered by — the surname,
+  then a space, then the forename, both lowered — and it builds the
+  two parts the wrong way round. Fix it. A name holding no space is
+  used as it stands, lowered. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The key a list of names is ordered by. */
+  export function sortKey(name: string): string {
+    const cut = name.indexOf(" ");
+    if (cut === -1) {
+      return name.toLowerCase();
+    }
+    return (name.slice(0, cut) + " " + name.slice(cut + 1)).toLowerCase();
+  }
+interface: "export function sortKey(name: string): string"
+stop_conditions:
+  - Whether two names differing only in their accents should produce the same key is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

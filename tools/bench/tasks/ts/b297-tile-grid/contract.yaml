@@ -1,0 +1,17 @@
+id: b297-tile-grid
+task_type: function_implementation
+task: >-
+  Implement tilesAcross and tilesNeeded. tilesAcross returns how many
+  tiles of a given size cover a length, rounding up so that a part
+  tile still counts as one. tilesNeeded returns the tiles for a wall
+  of a width and a height, adding a whole-percent allowance for
+  breakages and rounding up again.
+target: solution.ts
+interface: "export function tilesAcross(length: number, tile: number): number
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number"
+stop_conditions:
+  - Whether an offcut from one edge of a wall could be used again on the opposite edge is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

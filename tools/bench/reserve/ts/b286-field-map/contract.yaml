@@ -1,0 +1,16 @@
+id: b286-field-map
+task_type: function_implementation
+task: >-
+  Implement fieldMap. Given settings written as a key and a value
+  joined by an equals sign, return a mapping from key to value. Only
+  the first equals sign separates the two, so a value may contain more
+  of them. An entry carrying no equals sign is skipped, and a later
+  entry replaces an earlier one sharing its key.
+target: solution.ts
+interface: "export function fieldMap(entries: string[]): Record<string, string>"
+stop_conditions:
+  - Whether spaces around a key or a value should be trimmed away is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

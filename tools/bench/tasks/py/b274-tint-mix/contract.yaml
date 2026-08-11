@@ -1,0 +1,16 @@
+id: b274-tint-mix
+task_type: function_implementation
+task: >-
+  Implement tint_mix. Two tins of paint each hold a whole number of
+  millilitres at a strength given as a percentage. Return the strength
+  of the mixture once both tins are poured together, rounded down to a
+  whole percent. Pouring two empty tins together gives a strength of
+  zero.
+target: solution.py
+interface: "def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int"
+stop_conditions:
+  - Whether a strength above one hundred percent should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

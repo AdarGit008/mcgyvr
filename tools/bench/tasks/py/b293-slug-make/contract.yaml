@@ -1,0 +1,16 @@
+id: b293-slug-make
+task_type: function_implementation
+task: >-
+  Implement slug_word and slug_make. slug_word lowers a word and drops
+  every character that is not a letter or a digit. slug_make joins the
+  slugged words of a phrase with single hyphens, leaving out any word
+  that slugs away to nothing.
+target: solution.py
+interface: "def slug_word(word: str) -> str
+def slug_make(phrase: str) -> str"
+stop_conditions:
+  - Whether an accented letter should be folded to its plain form or dropped altogether is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

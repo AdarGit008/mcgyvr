@@ -103,6 +103,40 @@ floors nor ceilings, and it may need material this bench does not provide. That
 is #224's problem to state when it gets there, and it is no longer a constraint
 on the floor band's design.
 
+## Amendment — 2026-08-11: overlap may be total, and the aim is met per model
+
+Decision (3) says benches overlap. It does not say how much, and the floor
+band's first 40 problems made the question concrete: b228–b267 are the 1.5B's
+first 40 of 400, and nothing here stated whether the 3B's 400 must be different
+problems, a superset, or the same forty.
+
+> **DECIDED (2026-08-11, owner).** Overlap between one model's set and
+> another's may be **full or partial**, with no upper bound. The same problem
+> counts toward two models' 400s.
+>
+> **The 400 stays intact per model** — this amendment buys no relief from
+> Decision (2)'s count. What it removes is the assumption that a second model
+> needs 400 *newly authored* problems.
+>
+> The binding constraint is per model and unchanged: each model's 400 must meet
+> **its own** 30–50% aim.
+
+The consequence is that overlap is settled by **measurement, never by
+assumption**. A problem earns its second slot by reading in-band twice; a
+problem the floor unit sits mid-band on and the rung above ceilings on belongs
+to the floor unit's 400 and not to the other's. So a second model's authoring
+bill is its *shortfall* — the problems it ceilings on — and that bill cannot be
+known until it is swept against what already exists.
+
+This is stricter than "author 400 once and reuse it" and cheaper than "author
+400 twice." It also makes the upstream sweep a step of the method rather than a
+curiosity: it is the only way to learn what the overlap is. That does not
+reorder the work — the floor unit's 400 is completed first, per Decision (4)'s
+floor-before-ceiling rule.
+
+Nothing here weakens the previous amendment. Separation is still not required,
+and a shared problem is not evidence of a defective band.
+
 ## Consequences
 
 - **The 1.5B is measured before it is designed for.** It has never been swept.

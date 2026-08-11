@@ -1,0 +1,21 @@
+id: b302-stock-take
+task_type: bug_fix
+task: >-
+  unit_price returns the price of one unit given a total price and a
+  count, in whole pence rounded down, and it divides the count by the
+  total instead of the total by the count. Fix it. A count of zero is
+  rejected with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def unit_price(total: int, count: int) -> int:
+      """The price of one unit, in whole pence."""
+      if count == 0:
+          raise ValueError("count cannot be zero")
+      return count // total
+interface: "def unit_price(total: int, count: int) -> int"
+stop_conditions:
+  - Whether a total below zero should be rejected as well is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

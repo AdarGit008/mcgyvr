@@ -1,0 +1,16 @@
+id: b293-slug-make
+task_type: function_implementation
+task: >-
+  Implement slugWord and slugMake. slugWord lowers a word and drops
+  every character that is not a letter or a digit. slugMake joins the
+  slugged words of a phrase with single hyphens, leaving out any word
+  that slugs away to nothing.
+target: solution.ts
+interface: "export function slugWord(word: string): string
+export function slugMake(phrase: string): string"
+stop_conditions:
+  - Whether an accented letter should be folded to its plain form or dropped altogether is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

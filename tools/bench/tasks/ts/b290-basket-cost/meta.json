@@ -1,0 +1,9 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "numeric",
+  "steering_band": "f1",
+  "target_symbol": {
+    "ts": "basketCost",
+    "py": "basket_cost"
+  }
+}

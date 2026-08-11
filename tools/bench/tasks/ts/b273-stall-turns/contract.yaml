@@ -1,0 +1,17 @@
+id: b273-stall-turns
+task_type: function_implementation
+task: >-
+  Implement stallTurns. A market stall serves customers in the order
+  they arrive and hands over at most a fixed number of items in one
+  turn. A turn is never shared between two customers, so a customer
+  wanting more than the limit takes as many turns as it takes. Given
+  each customer's item count and the limit, return the turns needed to
+  serve everyone. A customer wanting nothing takes no turn.
+target: solution.ts
+interface: "export function stallTurns(counts: number[], limit: number): number"
+stop_conditions:
+  - What the stall should do when the per-turn limit is zero or below is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

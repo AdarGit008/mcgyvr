@@ -1,0 +1,16 @@
+id: b280-step-back
+task_type: function_implementation
+task: >-
+  Implement step_back. A walker starts at zero and follows a line of
+  moves, F stepping one forward and B stepping one back. Return the
+  furthest forward position reached at any point during the walk. A
+  walk that never goes forward reaches zero, and any letter that is
+  neither F nor B is ignored.
+target: solution.py
+interface: "def step_back(moves: str) -> int"
+stop_conditions:
+  - Whether a lower-case f or b should count as a move is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]
