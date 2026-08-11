@@ -431,3 +431,46 @@ def test_the_screens_refuse_the_write_rather_than_warning_past_it(
     else:  # pragma: no cover - the assertion below reports it
         raise AssertionError("a fatal finding must refuse the write")
     assert not (tmp_path / "ts" / spec["id"]).exists(), "nothing is written"
+
+
+# --- retirement -------------------------------------------------------------
+
+
+def test_a_retired_problem_is_gone_from_the_tree_and_the_manifest() -> None:
+    """Retirement is a withdrawal, not a flag: no files, no admission record.
+
+    The precedent is b155, b176-b180 and b186, which hold no manifest entry at
+    all. What `retired.json` adds over deleting them is the argument and the
+    date, so anything that already measured the problem can find out why it
+    went.
+    """
+    withdrawn = gate.retired()
+    assert withdrawn, "the declaration is the mechanism"
+    admitted = {str(e["id"]) for e in gate.manifest_entries()}
+    for name, entry in withdrawn.items():
+        assert name not in admitted, f"{name} still holds an admission record"
+        for root in (
+            REPO / "tools" / "bench" / "tasks",
+            REPO / "tools" / "bench" / "reserve",
+        ):
+            for arm in ("ts", "py"):
+                assert not (root / arm / name).exists(), f"{name} still on disk"
+        assert entry["kept"] in admitted, (
+            f"{name} was retired in favour of {entry['kept']}, which must remain"
+        )
+        assert entry["date"] and entry["why"], f"{name} needs a dated argument"
+
+
+def test_a_retired_id_is_never_a_candidate_again() -> None:
+    """Ids are not reused, so a retired one must not be re-admitted or re-emitted."""
+    withdrawn = gate.retired()
+    victim = sorted(withdrawn)[0]
+    assert victim not in gate.candidates()
+
+    emit = _emit_module()
+    try:
+        emit.emit({"id": victim}, root=REPO / "does-not-exist")
+    except emit.EmitError as error:
+        assert victim in str(error)
+    else:  # pragma: no cover - the assertion below reports it
+        raise AssertionError("the emitter must refuse a retired id")

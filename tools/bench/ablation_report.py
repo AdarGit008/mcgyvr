@@ -103,6 +103,19 @@ DISCORDANT_WALL = 6
 # and this one changes the answer (see the declaration's own `why`).
 SETS = HERE / "ablation-sets.json"
 
+# Problems withdrawn from the bench after they were measured. Their rows stay
+# in the run records, which are evidence of what ran on the day; they are
+# dropped here, where a figure is derived. See tools/bench/retired.json.
+RETIRED = HERE / "retired.json"
+
+
+def retired_ids() -> frozenset[str]:
+    """Ids withdrawn after admission, whose rows no figure may count."""
+    if not RETIRED.is_file():
+        return frozenset()
+    doc = json.loads(RETIRED.read_text(encoding="utf-8"))
+    return frozenset(str(entry["id"]) for entry in doc["ids"])
+
 
 def declared_sets() -> dict[str, list[str]]:
     """The three sets, two of them derived so they cannot drift apart.
@@ -114,7 +127,12 @@ def declared_sets() -> dict[str, list[str]]:
     and not a question anyone registered.
     """
     doc = json.loads(SETS.read_text(encoding="utf-8"))
-    dispatched = list(doc["dispatched"]["ids"])
+    withdrawn = retired_ids()
+    # A retired problem leaves every set, including `dispatched`. That set is
+    # "a fact about the run", but a withdrawn problem is a fact about the
+    # bench, and the two disagreeing would put a permanently empty cell in
+    # every table.
+    dispatched = [i for i in doc["dispatched"]["ids"] if i not in withdrawn]
     excluded = {entry["id"] for entry in doc["excluded"]["ids"]}
     borderline = {entry["id"] for entry in doc["borderline"]["ids"]}
     analysis = [i for i in dispatched if i not in excluded]
@@ -142,6 +160,7 @@ def counts(
     path = run / condition / arm / ROW_SOURCES[rows]
     if not path.is_file():
         return {}
+    withdrawn = retired_ids()
     tally: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -149,6 +168,8 @@ def counts(
         row = json.loads(line)
         if row.get("dispatch_error"):
             continue  # a draw nobody saw is not a draw (#217)
+        if row["task"] in withdrawn:
+            continue  # withdrawn after the run; see tools/bench/retired.json
         tally[row["task"]][0] += bool(row.get("passed"))
         tally[row["task"]][1] += 1
     return {task: (p, n) for task, (p, n) in tally.items()}
@@ -332,6 +353,13 @@ def main(argv: list[str] | None = None) -> int:
         keep = {i.strip() for i in path.read_text(encoding="utf-8").split(",")}
         keep.discard("")
         source = f"from {path}"
+
+    # A set file is written by hand and may still name a withdrawn problem.
+    # Dropping it silently would be the "no silent caps" rule broken by the
+    # tool that reports the caps.
+    if dropped := sorted(keep & retired_ids()):
+        keep -= set(dropped)
+        print(f"# retired, dropped from this set: {', '.join(dropped)}")
 
     print(f"# scaffold ablation — {args.run.name}")
     print(f"# verdicts: {args.rows} ({ROW_SOURCES[args.rows]})")

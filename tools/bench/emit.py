@@ -141,6 +141,18 @@ class EmitError(Exception):
     """A spec that must not be written as it stands."""
 
 
+#: Problems withdrawn after admission. An id is never reused, so re-emitting
+#: one would give a new problem a retired one's measurement history.
+RETIRED = HERE / "retired.json"
+
+
+def _retired() -> dict[str, Any]:
+    if not RETIRED.is_file():
+        return {}
+    doc = json.loads(RETIRED.read_text(encoding="utf-8"))
+    return {str(entry["id"]): entry for entry in doc["ids"]}
+
+
 class Finding(NamedTuple):
     """One screen's complaint. ``fatal`` findings refuse the write."""
 
@@ -545,6 +557,14 @@ def emit(spec: dict[str, Any], root: Path | None = None) -> list[Path]:
     Runs :func:`check` first and refuses on a fatal finding. Warnings go to
     stderr and are the author's to answer.
     """
+    withdrawn = _retired()
+    if spec.get("id") in withdrawn:
+        entry = withdrawn[spec["id"]]
+        raise EmitError(
+            f"{spec['id']} was retired on {entry['date']} in favour of "
+            f"{entry['kept']}; ids are never reused"
+        )
+
     for finding in check(spec):
         line = f"{spec.get('id')}: {finding.screen}: {finding.detail}"
         if finding.fatal:

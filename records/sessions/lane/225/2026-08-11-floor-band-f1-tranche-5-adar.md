@@ -145,10 +145,69 @@ the floor band this campaign is building. `f1` itself has one milder pair,
 a fallback, then list the keys alphabetically) — inside the warning band, below
 refusal, one in each half.
 
-**This is reported and not acted on.** Removing admitted, pinned, previously
-measured problems changes manifest digests and touches material the ablation
-record cites; that is the owner's call, not the author's. The 45.0% read is
-unaffected either way — the trio is not in `f1`.
+### The owner's ruling: keep one, remove the duplication
+
+**Decided (2026-08-11, owner): keep one, and take the duplicates out of the
+bench and out of the results.** `b080-brace-fill` stays — it is the copy
+`ablation-sets.json` and `strata.json` already cite, so keeping either of the
+others would have rewritten citations to no benefit. `b090-expand-markers` and
+`b168-badge-slots` are retired.
+
+**Retired means withdrawn, not flagged.** Both are gone from the tree and from
+`admissions.jsonl`, which is the precedent b155, b176–b180 and b186 set: a
+retired id holds no admission record and is never reused. What
+`tools/bench/retired.json` adds over deleting them is the argument, the date,
+and the id kept instead, so anything that already measured one can find out why
+it went. The gate refuses to re-admit a retired id and the emitter refuses to
+write one; two tests hold both.
+
+**Bench: 300 → 298 admitted.** `f1` is untouched at 80.
+
+### Where "remove from results" was applied, and where it was not
+
+The run records under `records/measurements/` are **not** edited. A `run.json`
+pins a `tasks_sha256` per task and a `results.jsonl` states what was dispatched;
+both are evidence of what happened on the day, and a retirement afterwards does
+not change that it ran. `regrade.py`'s own docstring already settles this —
+*"the original rows are never rewritten … a record that changes when the tooling
+changes is not a record"* — and it is the same reasoning as #230's instrument
+pin, which stamps rather than excludes.
+
+So the removal is applied **where figures are derived**: `ablation_report.py`
+drops retired rows from every cell and from every declared set, `regrade.py`
+marks them `retired` rather than the vaguer `not in tier`, and a set file naming
+one has the drop printed rather than silently applied. Four tests pin it.
+
+**Every figure `b168` touched, re-derived.** It was scored six times and failed
+all six, so no reported rate loses a pass and every change is a denominator:
+
+| figure | before | after |
+|---|---:|---:|
+| 1.5B, pooled old-shape | 12/218 = **5.5%** | 12/216 = **5.6%** |
+| 1.5B old-shape, ts | 3/109 = 2.8% | 3/108 = 2.8% |
+| 1.5B old-shape, py | 9/109 = 8.3% | 9/108 = 8.3% |
+| 3B probe ts (as-measured / regraded) | 14/109 = 12.8% | 14/108 = 13.0% |
+| 3B probe py, as-measured | 15/109 = 13.8% | 15/108 = 13.9% |
+| 3B probe py, regraded | 16/109 = 14.7% | 16/108 = 14.8% |
+
+**The 45.0% floor-band read is unchanged at 18/40** — `b168` is not in `f1`, and
+the re-derivation confirms it rather than assuming it. **The ablation is
+unchanged**: `b168` was never in its dispatched set, and the report still prints
++5.1pp ts / +4.6pp py on the code contrast.
+
+The figure quoted as **5.5%** in commit `d55392ea` is now **5.6%**. That commit
+message is not rewritten; it was true when written, and this record is where the
+correction lives.
+
+`b090` needed no re-derivation: it sat in reserve and appears in no file under
+`records/measurements/` at all.
+
+The audit is now **0 refusals**. `f1`'s milder pair, `b259-gloss-lookup` and
+`b267-alias-map` at 0.59, is kept: case-insensitive lookup returning nothing
+when absent, versus one-hop resolution returning the name itself when absent,
+are different behaviours. Only their second function — list the keys
+alphabetically — is shared, which is why they sit in the warning band and not
+above the line.
 
 ## What the screens do not claim
 
@@ -173,7 +232,7 @@ The warnings are a reading list, not a defect count.
 
 ## State after this tranche
 
-- **Bench: 300 admitted**, `f1` at **80** (48 bench / 32 reserve).
+- **Bench: 298 admitted** after the two retirements below (300 at pin time), `f1` at **80** (48 bench / 32 reserve).
 - The 48/32 split is the pre-declared salted hash doing what a blind rule does
   at n=80. It is not chosen and is not corrected.
 - The 1.5B's 400: **80 down, 320 to go**, at 40 a tranche.

@@ -260,3 +260,38 @@ def test_a_set_file_survives_being_newline_terminated(tmp_path: Path) -> None:
     path.write_text(",".join(ids) + "\n", encoding="utf-8")
     run = REPO / "records" / "measurements" / "bench-scaffold-ablation-3b-2026-08-11"
     assert report.main(["--run", str(run), "--set", str(path)]) == 0
+
+
+def test_a_retired_problems_rows_reach_no_figure(tmp_path: Path) -> None:
+    """A problem withdrawn from the bench must not survive in a derived rate.
+
+    Its rows stay in the run record — `results.jsonl` states what was
+    dispatched on the day, and `regrade.py`'s docstring is explicit that a
+    record which changes with the tooling is not a record. Removal happens
+    here, where a figure is computed, which is the same reasoning as #230's
+    instrument pin stamping rather than excluding.
+    """
+    retired = sorted(report.retired_ids())
+    assert retired, "the declaration is the mechanism; an empty one is a no-op"
+    victim = retired[0]
+
+    cell = tmp_path / "stock" / "bench-ts"
+    cell.mkdir(parents=True)
+    rows = [
+        {"task": "b001-x", "passed": True},
+        {"task": victim, "passed": True},
+        {"task": victim, "passed": False},
+    ]
+    cell.joinpath("results.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8"
+    )
+    assert report.counts(tmp_path, "stock", "bench-ts") == {"b001-x": (1, 1)}, (
+        "a retired problem contributes neither a pass nor a draw"
+    )
+
+
+def test_a_retired_problem_leaves_every_declared_set() -> None:
+    """Including `dispatched`, which would otherwise hold a permanently empty cell."""
+    withdrawn = report.retired_ids()
+    for name, ids in report.declared_sets().items():
+        assert not (set(ids) & withdrawn), name

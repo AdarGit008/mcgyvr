@@ -1,0 +1,26 @@
+{
+  "record": "bench/retired/1",
+  "issue": 225,
+  "why": "Problems withdrawn from the bench after admission, declared here rather than only deleted, because a deletion is invisible to anything that already measured them. The gate refuses to re-admit a retired id, the emitter refuses to write one, and every reader drops its rows and says how many it dropped. An id is never reused, so a later problem can never inherit a retired one's history. This file is for withdrawal after admission; a candidate that never passed the gate simply has no manifest entry and belongs nowhere.",
+  "run_records": "Run records under records/measurements/ are NOT edited. A run.json pins a tasks_sha256 per task and a results.jsonl states what was dispatched; both are evidence of what happened on the day, and a retirement afterwards does not change that it ran. Removal happens where figures are derived, not where they were recorded, which is the same reasoning as #230's instrument pin stamping rather than excluding.",
+  "ids": [
+    {
+      "id": "b168-badge-slots",
+      "date": "2026-08-11",
+      "kept": "b080-brace-fill",
+      "half": "bench",
+      "measured": true,
+      "why": "One of three problems that were the same problem: substitute a delimited name from a mapping while walking a template once, rejecting a malformed name, an unclosed opener, and a name the mapping does not hold. b080 uses {name}, b090 uses %name% and b168 uses <name>. b080 and b168 were BOTH in the bench half, so a model that solved one had effectively seen the other and both were scored. The gate's prose screen could not see it: the delimiters give the three almost no shared vocabulary. tools/bench/emit.py's sibling screen scores b168 at 0.74 of b080's reference shape.",
+      "figures": "Scored 6 times and failed all 6, so no reported rate loses a pass. The 1.5B's pooled old-shape read moves 12/218 = 5.5% to 12/216 = 5.6%; the 3B probe moves 12.8% to 13.0% (ts) and 13.8% to 13.9% (py, as-measured) and 14.7% to 14.8% (py, regraded). It is not in ablation-sets.json, so no ablation cell is touched, and it is not in f1, so the 45.0% floor-band read is unchanged."
+    },
+    {
+      "id": "b090-expand-markers",
+      "date": "2026-08-11",
+      "kept": "b080-brace-fill",
+      "half": "reserve",
+      "measured": false,
+      "why": "The third copy of the same problem, using %name%. It sat in reserve while b080 sat in the bench half — a twin across the split, which is the recontamination tools/bench/admit.py's docstring says dies at the gate. It did not: the screen that would have caught it reads prose, and the prose differs. Never swept, so no figure changes.",
+      "figures": "None. It appears in no file under records/measurements/."
+    }
+  ]
+}

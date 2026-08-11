@@ -126,15 +126,26 @@ def rescore_dir(measured: Path, write: bool = True) -> dict[str, Any]:
     tier = str(manifest["tier"])
     tasks = {task.id: task for task in breadth.load_tier_tasks(tier)}
     rows = breadth.read_rows(measured / "results.jsonl")
+    retired_path = HERE / "retired.json"
+    withdrawn = (
+        {
+            str(entry["id"])
+            for entry in json.loads(retired_path.read_text(encoding="utf-8"))["ids"]
+        }
+        if retired_path.is_file()
+        else set()
+    )
 
     rescored: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="mcgyvr-regrade-") as tmp:
         for row in rows:
             task = tasks.get(str(row["task"]))
             if task is None:
-                rescored.append(
-                    dict(row) | {"regraded": False, "regrade_skipped": "not in tier"}
-                )
+                # A retired problem is also "not in tier" — its directory is
+                # gone — but saying so by name keeps the re-score record from
+                # reading like a missing file. See tools/bench/retired.json.
+                why = "retired" if str(row["task"]) in withdrawn else "not in tier"
+                rescored.append(dict(row) | {"regraded": False, "regrade_skipped": why})
                 continue
             rescored.append(rescore_row(row, task, measured / "candidates", Path(tmp)))
 

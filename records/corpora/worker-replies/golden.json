@@ -15,28 +15,28 @@
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 116 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 115 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-calibration-15b-f1-2026-08-11/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 116 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 115 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-calibration-15b-f1b-2026-08-11/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 129 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 128 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-calibration-15b-f1b-2026-08-11/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 129 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 128 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-calibration-3b-2026-08-10/bench-py": {
         "sets": [
@@ -71,98 +71,98 @@
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-probe-3b-2026-08-11/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/noscaffold/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/noscaffold/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/planonly/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/planonly/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/stock/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-3b-2026-08-11/stock/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/noscaffold/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/noscaffold/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/planonly/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/planonly/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/stock/bench-py": {
         "sets": [
           "bench-py"
         ],
         "primary": "bench-py",
-        "why": "bench-py: 109 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
+        "why": "bench-py: 108 contract digest(s) identical to it; bench-py: tier 'bench-py' is declared as it"
       },
       "bench-scaffold-ablation-7b-2026-08-11/stock/bench-ts": {
         "sets": [
           "bench-ts"
         ],
         "primary": "bench-ts",
-        "why": "bench-ts: 109 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
+        "why": "bench-ts: 108 contract digest(s) identical to it; bench-ts: tier 'bench-ts' is declared as it"
       },
       "breadth-2026-08-06": {
         "sets": [

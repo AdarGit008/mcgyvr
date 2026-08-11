@@ -658,14 +658,34 @@ def cell_report() -> dict[str, dict[str, int]]:
 # --- entry point ----------------------------------------------------------
 
 
+#: Problems withdrawn after admission, with the argument for each. Read from a
+#: file rather than a constant so a retirement is a declaration with a reason
+#: and a date, not a line someone deleted.
+RETIRED = HERE / "retired.json"
+
+
+def retired() -> dict[str, dict[str, Any]]:
+    """``{id: the declaration}`` for every problem withdrawn after admission."""
+    if not RETIRED.is_file():
+        return {}
+    doc = json.loads(RETIRED.read_text(encoding="utf-8"))
+    return {str(entry["id"]): entry for entry in doc["ids"]}
+
+
 def candidates() -> list[str]:
-    """Unpinned problem dirs under the candidate roots, both arms or not."""
+    """Unpinned problem dirs under the candidate roots, both arms or not.
+
+    A retired id is never a candidate again. Ids are not reused, so this is
+    belt and braces — but the braces are cheap and the failure it prevents is
+    a withdrawn problem walking back in under its own name with a fresh
+    admission record.
+    """
     pinned = {str(entry["id"]) for entry in manifest_entries()}
     found: set[str] = set()
     for arm in ARMS:
         if arm.root.is_dir():
             found.update(p.name for p in arm.root.iterdir() if p.is_dir())
-    return sorted(found - pinned)
+    return sorted(found - pinned - set(retired()))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -709,6 +729,16 @@ def main(argv: list[str] | None = None) -> int:
     if not names:
         print("nothing to judge: no unpinned candidates", file=sys.stderr)
         return 0
+    withdrawn = retired()
+    if named := [n for n in names if n in withdrawn]:
+        for name in named:
+            entry = withdrawn[name]
+            print(
+                f"{name} was retired on {entry['date']} in favour of "
+                f"{entry['kept']}; ids are never reused",
+                file=sys.stderr,
+            )
+        return 2
     if args.pin and not args.provenance:
         print("--pin requires --provenance", file=sys.stderr)
         return 2
