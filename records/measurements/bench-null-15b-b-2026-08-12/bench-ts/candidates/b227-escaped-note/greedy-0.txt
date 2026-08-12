@@ -1,0 +1,60 @@
+```ts
+export function decodeEscapedNote(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let foldedText = '';
+  let currentLine = '';
+
+  for (const char of text) {
+    if (char === '\n') {
+      if (currentLine.endsWith('=')) {
+        currentLine = currentLine.slice(0, -2);
+      } else {
+        foldedText += currentLine + '\n';
+      }
+      currentLine = '';
+    } else if (char === ' ') {
+      if (!currentLine) {
+        continue;
+      }
+      currentLine = currentLine.trimEnd();
+    } else {
+      currentLine += char;
+    }
+  }
+
+  if (currentLine.endsWith('=')) {
+    currentLine = currentLine.slice(0, -2);
+  } else {
+    foldedText += currentLine + '\n';
+  }
+
+  let decodedText = '';
+
+  for (const line of foldedText.split('\n')) {
+    if (!line) {
+      continue;
+    }
+    const parts = line.match(/=([A-Fa-f]{2})?/g);
+    if (!parts) {
+      throw new Error('Invalid escaped note');
+    }
+
+    let decodedLine = '';
+    for (const part of parts) {
+      if (part === '=') {
+        continue;
+      }
+      const hexCode = part.toUpperCase();
+      const charCode = parseInt(hexCode, 16);
+      decodedLine += String.fromCharCode(charCode);
+    }
+
+    decodedText += decodedLine + '\n';
+  }
+
+  return decodedText.trimEnd();
+}
+```

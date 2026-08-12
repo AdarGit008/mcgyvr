@@ -1,0 +1,44 @@
+```ts
+/** Match a slash-separated route pattern against a request path. */
+export function matchRoute(
+  pattern: string,
+  path: string,
+): Record<string, string> | null {
+  const pats = pattern === "" ? [] : pattern.split("/");
+  const parts = path === "" ? [] : path.split("/");
+  return matchFrom(pats, 0, parts, 0, {});
+}
+
+function matchFrom(
+  pats: string[],
+  pi: number,
+  parts: string[],
+  si: number,
+  caps: Record<string, string>,
+): Record<string, string> | null {
+  if (pi === pats.length) {
+    return si === parts.length ? caps : null;
+  }
+  const seg = pats[pi];
+  if (seg === "**") {
+    for (let take = si + 1; take <= parts.length; take++) {
+      const found = matchFrom(pats, pi + 1, parts, take, caps);
+      if (found !== null) {
+        return found;
+      }
+    }
+    return null;
+  }
+  if (si === parts.length) {
+    return null;
+  }
+  if (seg.startsWith(":")) {
+    const next = { ...caps, [seg.slice(1)]: parts[si] };
+    return matchFrom(pats, pi + 1, parts, si + 1, next);
+  }
+  if (seg === parts[si]) {
+    return matchFrom(pats, pi + 1, parts, si + 1, caps);
+  }
+  return null;
+}
+```

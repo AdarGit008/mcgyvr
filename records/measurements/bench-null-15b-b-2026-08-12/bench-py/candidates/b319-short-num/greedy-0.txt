@@ -1,0 +1,17 @@
+```python
+def short_num(value: int) -> str:
+    if value < 1000:
+        return str(value)
+    
+    thousands = value // 1000
+    remainder = value % 1000
+    
+    if remainder == 0:
+        return f"{thousands}k"
+    
+    rounded_remainder = round(remainder / 10, 1)
+    if rounded_remainder < 10:
+        return f"{thousands}k{rounded_remainder:.1f}"
+    
+    return f"{thousands}m{rounded_remainder:.1f}"
+```

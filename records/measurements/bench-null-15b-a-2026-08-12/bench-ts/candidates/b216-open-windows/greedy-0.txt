@@ -1,0 +1,42 @@
+```ts
+/** Report the stretches of a clinic's day that no appointment covers. */
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  const minutes = (range: string): number[] => {
+    const parts = range.split("-");
+    if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+      throw new Error("a range must be written HH:MM-HH:MM: " + range);
+    }
+    return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+  };
+  const stamp = (at: number): string =>
+    String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  const free: string[] = [];
+  let currentStart = minutes(span.split("-")[0]);
+  let currentEnd = minutes(span.split("-")[1]);
+
+  for (const appointment of booked) {
+    const start = minutes(appointment.split("-")[0]);
+    const end = minutes(appointment.split("-")[1]);
+
+    if (start < currentStart) {
+      free.push(stamp(currentStart) + "-" + stamp(start - 1));
+    }
+    if (end > currentEnd) {
+      free.push(stamp(end + 1) + "-" + stamp(currentEnd));
+    }
+
+    currentStart = Math.max(currentStart, start);
+    currentEnd = Math.min(currentEnd, end);
+  }
+
+  if (currentStart < minutes(span.split("-")[0])) {
+    free.push(stamp(currentStart) + "-" + stamp(minutes(span.split("-")[0]) - 1));
+  }
+  if (currentEnd > minutes(span.split("-")[1])) {
+    free.push(stamp(currentEnd + 1) + "-" + stamp(minutes(span.split("-")[1])));
+  }
+
+  return free.length === 0 ? "none" : free.join(", ");
+}
+```

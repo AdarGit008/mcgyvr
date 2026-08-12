@@ -1,0 +1,24 @@
+```ts
+export function teamHeadcount(chart: Record<string, string[]>, name: string): number {
+  if (typeof chart !== 'object' || !chart || typeof name !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const visited = new Set<string>();
+  let count = 0;
+
+  function traverse(name: string) {
+    if (!visited.has(name)) {
+      visited.add(name);
+      count++;
+      for (const subordinate of chart[name] || []) {
+        traverse(subordinate);
+      }
+    }
+  }
+
+  traverse(name);
+
+  return count;
+}
+```

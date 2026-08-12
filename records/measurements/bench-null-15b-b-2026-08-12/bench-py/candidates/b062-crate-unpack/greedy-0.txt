@@ -1,0 +1,26 @@
+```python
+def unpack_crates(crate: list) -> list:
+    def helper(crate):
+        if isinstance(crate, str):
+            return [crate]
+        elif isinstance(crate, list):
+            return sum(helper(item) for item in crate), 1 + max(helper(item) for item in crate)
+        else:
+            raise ValueError("Invalid entry: expected a non-empty string or a list")
+
+    total_items = [], 0
+    _, depth = helper(crate)
+    return total_items[0]
+
+def crate_depth(crate: list) -> int:
+    def helper(crate):
+        if isinstance(crate, str):
+            return 1
+        elif isinstance(crate, list):
+            return 1 + max(helper(item) for item in crate)
+        else:
+            raise ValueError("Invalid entry: expected a non-empty string or a list")
+
+    _, depth = helper(crate)
+    return depth
+```

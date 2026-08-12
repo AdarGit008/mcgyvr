@@ -1,0 +1,29 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  // Ensure both times are within valid range (0-23)
+  if (!isValidTime(fromHour) || !isValidTime(toHour)) {
+    throw new Error("Invalid hour");
+  }
+  if (!isValidTime(fromMinute) || !isValidTime(toMinute)) {
+    throw new Error("Invalid minute");
+  }
+
+  // Convert times to minutes since midnight
+  const fromMinutes = fromHour * 60 + fromMinute;
+  const toMinutes = toHour * 60 + toMinute;
+
+  // If to time is earlier than from time, add 24 hours to the to time
+  if (toMinutes < fromMinutes) {
+    toMinutes += 24 * 60;
+  }
+
+  // Calculate the difference in minutes
+  const difference = toMinutes - fromMinutes;
+
+  return difference;
+}
+
+function isValidTime(time: number): boolean {
+  return time >= 0 && time <= 23;
+}
+```

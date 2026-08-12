@@ -1,0 +1,21 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields) || !yields.every(yield => typeof yield === 'number' && yield >= 0)) {
+    throw new Error('Invalid input');
+  }
+
+  let total = 0;
+  let currentSum = 0;
+
+  for (let i = 0; i < yields.length; i++) {
+    if (currentSum + yields[i] <= yields[i]) {
+      currentSum += yields[i];
+      total += yields[i];
+    } else {
+      currentSum = yields[i];
+    }
+  }
+
+  return total;
+}
+```

@@ -1,0 +1,29 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("Version must be a string")
+    
+    parts = version.split('.')
+    if len(parts) != 3:
+        raise ValueError("Version must have exactly three components")
+    
+    for i in range(3):
+        if not parts[i].isdigit():
+            raise ValueError(f"Component {i+1} must be a decimal integer")
+        if parts[i] == '0':
+            raise ValueError(f"Component {i+1} cannot start with zero")
+    
+    part_index = {'major': 0, 'minor': 1, 'patch': 2}[part]
+    new_parts = list(parts)
+    new_parts[part_index] = str(int(new_parts[part_index]) + 1)
+    
+    if new_parts[part_index] == '0':
+        for i in range(part_index - 1, -1, -1):
+            if parts[i].isdigit():
+                new_parts[i] = str(int(parts[i]) + 1)
+                break
+        else:
+            new_parts.insert(0, '1')
+    
+    return '.'.join(new_parts)
+```

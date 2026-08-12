@@ -1,0 +1,20 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (typeof volumeA !== 'number' || typeof strengthA !== 'number' || typeof volumeB !== 'number' || typeof strengthB !== 'number') {
+    throw new Error('All inputs must be numbers.');
+  }
+
+  if (volumeA < 0 || volumeB < 0) {
+    throw new Error('Volume cannot be negative.');
+  }
+
+  if (strengthA > 100 || strengthB > 100) {
+    throw new Error('Strength cannot exceed 100%.');
+  }
+
+  const totalVolume = volumeA + volumeB;
+  const totalStrength = (volumeA * strengthA + volumeB * strengthB) / totalVolume;
+
+  return Math.floor(totalStrength);
+}
+```

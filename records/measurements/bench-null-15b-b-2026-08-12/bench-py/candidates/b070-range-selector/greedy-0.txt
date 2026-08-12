@@ -1,0 +1,40 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or len(selector) == 0:
+        raise ValueError("selector must be a non-empty string")
+
+    def is_valid_term(term: str) -> bool:
+        parts = term.split('-')
+        if len(parts) != 2:
+            return False
+        try:
+            low, high = map(int, parts)
+            if low > high:
+                return False
+            return True
+        except ValueError:
+            return False
+
+    def is_valid_selector(selector: str) -> bool:
+        terms = selector.split(',')
+        for term in terms:
+            if not is_valid_term(term):
+                return False
+        return True
+
+    if not is_valid_selector(selector):
+        raise ValueError("selector must be a valid pattern")
+
+    count = 0
+    for value in values:
+        for term in selector.split(','):
+            if is_valid_term(term):
+                low, high = map(int, term.split('-'))
+                if low <= value <= high:
+                    count += 1
+                    break
+
+    return count
+```

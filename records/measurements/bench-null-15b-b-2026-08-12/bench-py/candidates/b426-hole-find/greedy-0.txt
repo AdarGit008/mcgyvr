@@ -1,0 +1,18 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a sequence of numbers starting from `first` for `count` elements."""
+    return [first + i for i in range(count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the first missing number in the sequence starting from `first` for `count` elements."""
+    if not seen or len(seen) < count:
+        raise ValueError("The sequence must contain at least `count` elements.")
+    
+    # Find the smallest number that is not in the seen list
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+    
+    # If all numbers are present, return None
+    return None
+```

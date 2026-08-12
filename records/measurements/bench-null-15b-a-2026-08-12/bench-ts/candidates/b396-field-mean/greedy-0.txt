@@ -1,0 +1,20 @@
+```ts
+export function fieldMean(records: Record<string, number>[], field: string): number {
+  if (!field) throw new Error("Field name cannot be empty");
+
+  let sum = 0;
+  let count = 0;
+
+  for (const record of records) {
+    const value = record[field];
+    if (typeof value === "number") {
+      sum += value;
+      count++;
+    }
+  }
+
+  if (!count) return 0; // Avoid division by zero
+
+  return Math.floor(sum / count);
+}
+```

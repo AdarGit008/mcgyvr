@@ -1,0 +1,20 @@
+```ts
+export function flagStates(mask: number, catalog: string[]): Record<string, boolean> {
+  if (typeof mask !== 'number' || mask < 0) {
+    throw new Error('Invalid mask');
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Invalid catalog');
+  }
+
+  const flagMap: Record<string, boolean> = {};
+  for (const name of catalog) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid flag name');
+    }
+    flagMap[name] = mask & (1 << catalog.indexOf(name)) > 0;
+  }
+
+  return flagMap;
+}
+```

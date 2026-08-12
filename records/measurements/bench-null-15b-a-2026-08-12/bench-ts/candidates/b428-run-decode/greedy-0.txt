@@ -1,0 +1,27 @@
+```ts
+export function runDecode(coded: string): string {
+  if (typeof coded !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let decoded = '';
+  for (let i = 0; i < coded.length; i++) {
+    const char = coded[i];
+    const countStr = '';
+
+    while (i + 1 < coded.length && !isNaN(parseInt(coded[i + 1]))) {
+      countStr += coded[i + 1];
+      i++;
+    }
+
+    if (countStr === '') {
+      decoded += char;
+    } else {
+      const count = parseInt(countStr);
+      decoded += char.repeat(count);
+    }
+  }
+
+  return decoded;
+}
+```

@@ -1,0 +1,19 @@
+```ts
+export function capAfter(passage: string): string {
+  if (typeof passage !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const sentences = passage.split('. ');
+  let result = '';
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    const firstLetter = sentence.charAt(0).toUpperCase();
+    const restOfSentence = sentence.slice(1);
+    result += `${firstLetter}${restOfSentence}. `;
+  }
+
+  return result.trim();
+}
+```

@@ -1,0 +1,15 @@
+```python
+def tag_trim(tag: str) -> str:
+    if not tag:
+        return tag
+
+    # Strip leading hash
+    while tag.startswith('#'):
+        tag = tag[1:]
+
+    # Strip trailing colon
+    while tag.endswith(':'):
+        tag = tag[:-1]
+
+    return tag
+```

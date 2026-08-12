@@ -1,0 +1,11 @@
+```ts
+export function crossUp(readings: number[], level: number): number {
+  let count = 0;
+  for (let i = 1; i < readings.length; i++) {
+    if (readings[i] > level && readings[i - 1] <= level) {
+      count++;
+    }
+  }
+  return count;
+}
+```

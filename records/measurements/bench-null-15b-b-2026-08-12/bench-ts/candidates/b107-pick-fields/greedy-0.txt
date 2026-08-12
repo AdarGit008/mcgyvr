@@ -1,0 +1,27 @@
+```ts
+export function pickFields(records: unknown[], fields: string[]): unknown[][] {
+  if (!Array.isArray(records) || !records.every(record => Array.isArray(record))) {
+    throw new Error("Records must be an array of arrays");
+  }
+
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error("Fields list must not be empty");
+  }
+
+  return records.map(record => {
+    const result: unknown[] = [];
+    for (const field of fields) {
+      const stem = field.replace(/\?$/, '');
+      if (!stem) {
+        throw new Error(`Field name "${field}" is invalid`);
+      }
+      const value = record[stem];
+      if (value === undefined && !field.endsWith('?')) {
+        throw new Error(`Record missing required field "${field}"`);
+      }
+      result.push(value);
+    }
+    return result;
+  });
+}
+```

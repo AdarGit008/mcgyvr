@@ -77,6 +77,29 @@ REPLICATES = [
     ("d2 @ qwen3-coder:30b", "breadth-batch-b-2026-08-06/srv2/qwen3-coder-30b"),
 ]
 
+# The same null on the #225 bench, which is the instrument #231 commissions.
+# The breadth rows above hold their replicates as ``sweep-*`` subdirectories of
+# one run; the bench's are two whole run directories, one per replicate, so
+# they are listed as explicit pairs rather than discovered. Both replicates ran
+# back to back against one loaded model, which is what "one backend session"
+# in #231's check 1 means: no unload, no build change, no host change.
+BENCH_REPLICATES = [
+    (
+        "bench-py @ qwen2.5-coder:1.5b",
+        (
+            "bench-null-15b-a-2026-08-12/bench-py/results.jsonl",
+            "bench-null-15b-b-2026-08-12/bench-py/results.jsonl",
+        ),
+    ),
+    (
+        "bench-ts @ qwen2.5-coder:1.5b",
+        (
+            "bench-null-15b-a-2026-08-12/bench-ts/results.jsonl",
+            "bench-null-15b-b-2026-08-12/bench-ts/results.jsonl",
+        ),
+    ),
+]
+
 
 def _rows(rel: str) -> list[dict[str, Any]]:
     with (M / rel).open() as fh:
@@ -113,7 +136,7 @@ def contrasts() -> list[Contrast]:
     out: list[Contrast] = []
     print("## Discordance per contrast — what the statistic was built from\n")
     print(
-        f"{'contrast':<30}{'n':>4}{'gain':>6}{'loss':>6}{'m':>4}"
+        f"{'contrast':<32}{'n':>4}{'gain':>6}{'loss':>6}{'m':>4}"
         f"{'net':>6}{'p':>8}   resolvable?"
     )
     for label, rel in MATRICES:
@@ -131,10 +154,69 @@ def contrasts() -> list[Contrast]:
                 else f"NO — m={k.discordant} < {MIN_DISCORDANT}, p>=.05 at any split"
             )
             print(
-                f"{k.label:<30}{k.n:>4}{k.gained:>6}{k.lost:>6}"
+                f"{k.label:<32}{k.n:>4}{k.gained:>6}{k.lost:>6}"
                 f"{k.discordant:>4}{k.net:>+6}{k.p_value:>8.3f}   {verdict}"
             )
+    out.extend(bench_contrasts())
     print()
+    return out
+
+
+def bench_contrasts() -> list[Contrast]:
+    """Per-lever discordance measured on the #225 bench itself.
+
+    Everything above is a retired instrument (ADR-0020). These rows are the
+    only contrasts this project has run *on the bench*, and they matter
+    because ADR-0021's sizing table has no measured ``psi`` in it at all: its
+    rightmost column is ``psi_draw`` = 0.659, which is resampling sensitivity
+    at temperature and not the discordance rate of a greedy lever contrast.
+
+    These are the **scaffold** lever, not #231's commissioning contrast, and
+    each condition cell is 34 tasks. They anchor the range; they are not D2's
+    ``psi`` input, which must come from the contrast being commissioned.
+    """
+    out: list[Contrast] = []
+    for model in ("3b", "7b"):
+        for arm in ("bench-py", "bench-ts"):
+            root = M / f"bench-scaffold-ablation-{model}-2026-08-11"
+            base_path = root / "stock" / arm / "results.jsonl"
+            if not base_path.exists():
+                continue
+            base, _ = _greedy(base_path)
+            for cond in ("planonly", "noscaffold"):
+                path = root / cond / arm / "results.jsonl"
+                if not path.exists():
+                    continue
+                other, _ = _greedy(path)
+                shared = sorted(set(base) & set(other))
+                gained = sum(1 for t in shared if not base[t] and other[t])
+                lost = sum(1 for t in shared if base[t] and not other[t])
+                k = Contrast(
+                    f"{arm} @ {model} stock->{cond}", len(shared), gained, lost
+                )
+                out.append(k)
+                unresolvable = (
+                    f"NO — m={k.discordant} < {MIN_DISCORDANT}, p>=.05 at any split"
+                )
+                verdict = "yes" if k.can_ever_reject else unresolvable
+                print(
+                    f"{k.label:<32}{k.n:>4}{k.gained:>6}{k.lost:>6}"
+                    f"{k.discordant:>4}{k.net:>+6}{k.p_value:>8.3f}   {verdict}"
+                )
+    if out:
+        by_model: dict[str, list[Contrast]] = {}
+        for k in out:
+            by_model.setdefault(k.label.split(" @ ")[1].split(" ")[0], []).append(k)
+        print("\n  measured psi on the bench, pooled over both arms and both levers:")
+        for model, ks in by_model.items():
+            m = sum(k.discordant for k in ks)
+            n = sum(k.n for k in ks)
+            print(f"    {model}: m = {m} of n = {n} cells, psi = {m / n:.3f}")
+        print(
+            "  Every one is far below psi_draw = 0.659. They are the scaffold\n"
+            "  lever at 34 tasks a cell, so they bound the range rather than\n"
+            "  settling it — #231's commissioning contrast supplies D2's psi."
+        )
     return out
 
 
@@ -152,7 +234,7 @@ def _drift_row(
     spread = (max(rates) - min(rates)) / n
     rate_txt = "-".join(str(r) for r in rates) + f"/{n}"
     print(
-        f"{label:<26}{runs:>5}{n:>4}{rate_txt:>11}"
+        f"{label:<32}{runs:>5}{n:>5}{rate_txt:>13}"
         f"{worst:>9} task{'s' if worst != 1 else ' '}"
         f"{spread * 100:>7.1f}pp{byte_id:>9.0%}"
     )
@@ -161,7 +243,7 @@ def _drift_row(
 def null_drift() -> None:
     print("## Measured null — greedy re-runs of a byte-identical configuration\n")
     print(
-        f"{'instrument':<26}{'runs':>5}{'n':>4}{'pass rate':>11}"
+        f"{'instrument':<32}{'runs':>5}{'n':>5}{'pass rate':>13}"
         f"{'worst pair':>12}{'drift':>8}{'byte-id':>9}"
     )
     for label, rel in REPLICATES:
@@ -217,6 +299,76 @@ def null_drift() -> None:
         f"\n  ({len(shared) - len(kept)} of {len(shared)} pool problems were "
         f"truncated under the old cap and are\n   excluded; their flips are the "
         f"cap, not drift.)\n"
+    )
+    bench_null()
+
+
+def bench_null() -> None:
+    """The #231 null on the bench, per arm and over both arms pooled.
+
+    ADR-0019's D2 asks for ``d`` **per target tier**, and ``bench-py`` and
+    ``bench-ts`` are two tiers; the pooled row is the same number over the
+    denominator ADR-0021's fourth amendment fixes — paired cells actually
+    swept, both arms. It is reported because that is the denominator the
+    sizing table uses, not because it replaces the per-tier rows.
+    """
+    pooled_a: dict[str, bool] = {}
+    pooled_b: dict[str, bool] = {}
+    pooled_sha_a: dict[str, str] = {}
+    pooled_sha_b: dict[str, str] = {}
+    rows: list[tuple[str, int, int, list[int], int, float]] = []
+
+    for label, (rel_a, rel_b) in BENCH_REPLICATES:
+        path_a, path_b = M / rel_a, M / rel_b
+        if not (path_a.exists() and path_b.exists()):
+            continue
+        va, sa = _greedy(path_a)
+        vb, sb = _greedy(path_b)
+        shared = [t for t in va if t in vb]
+        flips = sum(1 for t in shared if va[t] != vb[t])
+        same = sum(1 for t in shared if sa[t] == sb.get(t))
+        rows.append(
+            (
+                label,
+                2,
+                len(shared),
+                sorted({sum(va[t] for t in shared), sum(vb[t] for t in shared)}),
+                flips,
+                same / len(shared) if shared else 0.0,
+            )
+        )
+        arm = label.split(" @ ")[0]
+        for t in shared:
+            pooled_a[f"{arm}/{t}"] = va[t]
+            pooled_b[f"{arm}/{t}"] = vb[t]
+            pooled_sha_a[f"{arm}/{t}"] = sa[t]
+            pooled_sha_b[f"{arm}/{t}"] = sb[t]
+
+    if not rows:
+        return
+    print("\n## The bench's own null (#231 check 1)\n")
+    print(
+        f"{'instrument':<32}{'runs':>5}{'n':>5}{'pass rate':>13}"
+        f"{'worst pair':>12}{'drift':>8}{'byte-id':>9}"
+    )
+    for row in rows:
+        _drift_row(*row)
+    if len(rows) > 1:
+        keys = list(pooled_a)
+        _drift_row(
+            "both arms pooled",
+            2,
+            len(keys),
+            sorted({sum(pooled_a.values()), sum(pooled_b.values())}),
+            sum(1 for k in keys if pooled_a[k] != pooled_b[k]),
+            sum(1 for k in keys if pooled_sha_a[k] == pooled_sha_b[k]) / len(keys),
+        )
+    print(
+        "\n  d is the 'worst pair' column — a count of flipped verdicts, which\n"
+        "  is ADR-0019 D1's layer 2. 'drift' is the net pass-rate spread, and\n"
+        "  it is the smaller number because opposed flips cancel. D2's `d < b`\n"
+        "  compares a bar in pp against a count, so read d as d/n; both are\n"
+        "  printed above and the session record states which one is used.\n"
     )
 
 

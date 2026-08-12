@@ -1,0 +1,25 @@
+```ts
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (typeof phrase !== 'string' || typeof times !== 'number' || typeof between !== 'string') {
+    throw new Error('Invalid argument types');
+  }
+
+  if (times < 0) {
+    throw new Error('Negative count is not allowed');
+  }
+
+  if (between === '') {
+    return phrase.repeat(times);
+  }
+
+  let result = '';
+  for (let i = 0; i < times; i++) {
+    result += phrase;
+    if (i < times - 1) {
+      result += between;
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,14 @@
+```ts
+export function lineNumber(block: string): string {
+  if (block === "") return "";
+  
+  const lines = block.split("\n");
+  let result = "";
+  
+  for (let i = 0; i < lines.length; i++) {
+    result += `${i + 1}: ${lines[i]}\n`;
+  }
+  
+  return result;
+}
+```

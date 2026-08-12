@@ -1,0 +1,13 @@
+```ts
+export function pairOff(marks: string[]): string[] {
+  const left: string[] = [];
+  for (let i = 0; i < marks.length - 1; i++) {
+    if (marks[i] === marks[i + 1]) {
+      continue;
+    }
+    left.push(marks[i]);
+  }
+  left.push(marks[marks.length - 1]); // Add the last mark if it's not paired off
+  return left;
+}
+```

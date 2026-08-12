@@ -1,0 +1,23 @@
+```ts
+export function driestWindow(rain: number[], width: number): number {
+  if (!Array.isArray(rain) || !rain.every(Number.isInteger)) {
+    throw new Error("Invalid input: rain must be an array of non-negative integers");
+  }
+  if (width <= 0 || width > rain.length) {
+    throw new Error("Invalid input: width must be a positive whole number within the range of days");
+  }
+
+  let minSum = Infinity;
+  let start = 0;
+
+  for (let i = 0; i < rain.length - width + 1; i++) {
+    const sum = rain.slice(i, i + width).reduce((acc, val) => acc + val, 0);
+    if (sum < minSum) {
+      minSum = sum;
+      start = i;
+    }
+  }
+
+  return start;
+}
+```

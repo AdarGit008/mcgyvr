@@ -1,0 +1,23 @@
+```ts
+export function lineUp(links: Record<string, string>, start: string): string[] {
+  if (!start || !links[start]) {
+    throw new Error('Invalid start name');
+  }
+
+  const seen = new Set();
+  const result: string[] = [];
+
+  let current = start;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    result.push(current);
+    current = links[current];
+  }
+
+  if (!current) {
+    throw new Error('Circular link detected');
+  }
+
+  return result;
+}
+```

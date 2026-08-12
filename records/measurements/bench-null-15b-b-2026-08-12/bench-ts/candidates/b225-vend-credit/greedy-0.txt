@@ -1,0 +1,20 @@
+```ts
+export function vendCredit(coins: number[], price: number): number {
+  if (!Array.isArray(coins) || !coins.every(c => typeof c === 'number')) {
+    throw new Error('Invalid coins argument');
+  }
+  if (typeof price !== 'number' || price % 5 !== 0 || price <= 0) {
+    throw new Error('Invalid price argument');
+  }
+
+  let credit = 0;
+  for (const coin of coins) {
+    credit += coin;
+    if (credit >= price) {
+      return credit - price;
+    }
+  }
+
+  return credit; // No items dropped, credit still stands
+}
+```
