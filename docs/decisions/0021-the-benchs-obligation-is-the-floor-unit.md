@@ -191,18 +191,36 @@ bench. `f1` stands at 280 authored — **149 bench, 131 reserve**.
 > worth two cells. It is worth **zero** if the split sent it to the reserve.
 
 Re-derive with `uv run python tools/bench/redundancy.py --section denominator`.
-At `psi_draw` = 0.659 and the realized 53.2% bench share:
+At the realized 53.2% bench share, **every column is a forecast conditional on
+`psi`** — the rightmost is `psi_draw`, which is *not* `psi` (see below), and
+0.10–0.45 is the range this project has measured on its other instruments
+(ADR-0019 D5's responsiveness table):
 
-| authored | bench half | swept cells | MDE |
-|---:|---:|---:|---:|
-| 280 (today) | 149 | 298 | **13.4pp** |
-| 400 | 213 | 426 | **11.3pp** |
-| 800 | 426 | 852 | 8.0pp |
+| authored | bench half | swept cells | psi=0.10 | psi=0.20 | psi=0.35 | psi=0.45 | `psi_draw`=0.659 |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 280 (today) | 149 | 298 | 5.4pp | 7.7pp | 10.1pp | 11.4pp | **13.4pp** |
+| 400 | 213 | 426 | 4.5pp | 6.3pp | **8.2pp** | 9.4pp | **11.3pp** |
+| 800 | 426 | 852 | 3.2pp | 4.5pp | 5.9pp | 6.6pp | 8.0pp |
+
+**No cell in this table is a measurement.** `tools/power/mde.py` is arithmetic
+over two inputs; the swept-cell count is now correct and `psi` is not known. The
+row that matters spans **4.5pp to 11.3pp — a 2.5x range on one unmeasured
+number** — and the correction this amendment makes moves the figure by ~3pp
+while `psi`'s plausible range moves it by ~7pp. **The denominator was the
+smaller of the two unknowns.**
 
 **The two errors nearly cancel.** Doubling for arms without halving for the
 split returns almost exactly the 11.8pp the previous amendment was written to
-dispose of. **The completed 400 misses D5's +5 to +8pp rather than sitting at
-its edge**, and 800 swept cells needs roughly **790 authored problems**.
+dispose of. At `psi_draw` **the completed 400 misses D5's +5 to +8pp rather than
+sitting at its edge**, and 800 swept cells needs roughly **790 authored
+problems**.
+
+**And note where 8.2pp reappears.** At `psi` = 0.35 with the *corrected*
+denominator, 400 authored resolves 8.2pp — the withdrawn figure, recovered from
+different inputs. The previous amendment may yet prove right about the number
+while being wrong about both reasons for it. That is a caution against reading
+any row here as settled, not a rehabilitation: *"the alarm was mostly the
+denominator"* was over-confident in both directions and is withdrawn with it.
 
 This is one defect appearing a third time in one chain. This record exists
 because D5 *"stated the number without stating its denominator"*; the amendment

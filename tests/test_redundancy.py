@@ -142,3 +142,51 @@ def test_problems_before_the_band_have_no_tranche() -> None:
 def test_unparseable_ids_are_refused_not_guessed() -> None:
     assert red.tranche_of("bxxx-nonsense") is None
     assert red.tranche_of("") is None
+
+
+def _pp(text: str) -> float:
+    return float(text.removesuffix("pp"))
+
+
+def test_higher_psi_is_worse_not_better() -> None:
+    """The counterintuitive direction the sizing table is read for.
+
+    More discordant pairs means more variance in the net the test reads, so a
+    higher discordance rate needs a *larger* effect to resolve. Reading this
+    backwards would turn ADR-0021's table upside down, and it is the one
+    property of the sizing curve that surprises everyone who meets it.
+    """
+    at = [_pp(red.mde(426, psi)) for psi in red.PSI_CANDIDATES]
+    assert at == sorted(at), f"MDE must rise with psi, got {at}"
+    assert at[0] < at[-1]
+
+
+def test_more_swept_cells_resolve_more() -> None:
+    """And the axis that is not surprising, pinned so a sign flip is caught."""
+    for psi in red.PSI_CANDIDATES:
+        series = [_pp(red.mde(cells, psi)) for cells in (298, 426, 852)]
+        assert series == sorted(series, reverse=True), f"psi={psi}: {series}"
+
+
+def test_the_two_figures_the_record_quotes() -> None:
+    """ADR-0021's third amendment quotes these; a drift here silently rewrites it.
+
+    426 swept cells is 400 authored at the realized 53.2% bench share. The
+    second assertion is the coincidence the record names — the withdrawn 8.2pp
+    reappearing from a corrected denominator and a plausible psi.
+    """
+    assert red.mde(426, 0.659) == "11.3pp"
+    assert red.mde(426, 0.35) == "8.2pp"
+
+
+def test_the_withdrawn_reading_against_the_corrected_one() -> None:
+    """The amendment's whole subject, as two calls that differ only in denominator.
+
+    The withdrawn reading counted 400 authored problems as 800 cells — both
+    arms of every problem, including the ~47% the split sends to a reserve that
+    is never swept. The corrected reading counts only the bench half: 426 cells
+    at the realized 53.2% share. Same bench, same psi, 3.1pp apart.
+    """
+    assert red.mde(800, 0.659) == "8.2pp"  # withdrawn: counted the reserve
+    assert red.mde(426, 0.659) == "11.3pp"  # corrected: bench half only
+    assert _pp(red.mde(426, 0.659)) > _pp(red.mde(800, 0.659))

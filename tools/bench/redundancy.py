@@ -65,6 +65,14 @@ from power.mde import detectable_delta  # noqa: E402
 ADMISSIONS = HERE / "admissions.jsonl"
 ARMS = ("ts", "py")
 
+# Discordance rates the sizing table is priced at. 0.10-0.45 is the range this
+# project has MEASURED, on other instruments (ADR-0019 D5's responsiveness
+# table). 0.659 is `psi_draw` and is NOT `psi` — it is resampling sensitivity,
+# and the contrasts that matter run greedy, which is deterministic. It is
+# carried as a column because the records quote it, not because it is a
+# candidate. #231 measures the real one.
+PSI_CANDIDATES = (0.10, 0.20, 0.35, 0.45, 0.659)
+
 # The tranche a problem was authored in, from its id. `f1` runs b228 upward in
 # forties, numbered from four — the same derivation responsiveness.py uses, and
 # for the same reason: a problem cannot be filed under a tranche it was not
@@ -266,8 +274,20 @@ def redundancy(run: Path) -> None:
     )
 
 
-def denominator(band: str, targets: tuple[int, ...], psi: float) -> None:
-    """What the instrument resolves, counted in cells that are actually swept."""
+def mde(cells_swept: int, psi: float) -> str:
+    delta = detectable_delta(cells_swept, psi)
+    value = delta[1] if isinstance(delta, tuple) else delta
+    return f"{float(value) * 100:.1f}pp" if value else "unreachable"
+
+
+def denominator(band: str, targets: tuple[int, ...], psis: tuple[float, ...]) -> None:
+    """What the instrument resolves, counted in cells that are actually swept.
+
+    Every column is a forecast conditional on `psi`, so the table prints one per
+    candidate rather than one for the default. A single column reads as a
+    property of the bench, which is the misreading this whole record was written
+    about — the spread across a row is the honest figure.
+    """
     rows = [r for r in admissions() if r["steering_band"] == band]
     if not rows:
         print(f"\nNo admitted problems in band {band}.")
@@ -282,14 +302,21 @@ def denominator(band: str, targets: tuple[int, ...], psi: float) -> None:
     print("  The reserve is never swept (docs/bench-design-2026-08-10.md) and")
     print("  serves #222, so an authored problem enters the statistic only if")
     print("  the split rule sent it to the bench half.\n")
-    print(f"{'authored':>9}{'bench':>7}{'swept cells':>13}{'MDE':>9}")
+    print(
+        f"{'authored':>9}{'bench':>7}{'cells':>7}"
+        + "".join(f"{f'psi={p:g}':>12}" for p in psis)
+    )
     for authored in targets:
         bench = round(authored * share)
         cells_swept = bench * 2
-        delta = detectable_delta(cells_swept, psi)
-        value = delta[1] if isinstance(delta, tuple) else delta
-        shown = f"{float(value) * 100:.1f}pp" if value else "unreachable"
-        print(f"{authored:>9}{bench:>7}{cells_swept:>13}{shown:>9}")
+        row = "".join(f"{mde(cells_swept, p):>12}" for p in psis)
+        print(f"{authored:>9}{bench:>7}{cells_swept:>7}{row}")
+    print(
+        "\n  NONE of these is a measurement. detectable_delta is arithmetic over\n"
+        "  two inputs; the swept-cell count is correct and psi is not known.\n"
+        "  psi_draw is resampling sensitivity and the contrasts that matter run\n"
+        "  greedy, which is deterministic — #231 owns the real number."
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -304,8 +331,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--psi",
         type=float,
-        default=0.659,
-        help="discordance rate; the default is psi_draw, which is NOT psi",
+        nargs="+",
+        default=list(PSI_CANDIDATES),
+        help=(
+            "discordance rates to price, one column each. The default spans the "
+            "range measured on this project's other instruments plus psi_draw, "
+            "which is NOT psi"
+        ),
     )
     parser.add_argument(
         "--section",
@@ -319,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.section in ("redundancy", "all"):
         redundancy(args.run)
     if args.section in ("denominator", "all"):
-        denominator(args.band, (280, 320, 360, 400, 500, 600, 800), args.psi)
+        denominator(args.band, (280, 320, 360, 400, 500, 600, 800), tuple(args.psi))
     return 0
 
 
