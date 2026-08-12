@@ -83,12 +83,14 @@ import time
 import types
 import urllib.request
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.gate.preflight import check_prompt_fits
+from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.runner import Request, RunnerError, runner_for
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
@@ -110,6 +112,21 @@ def _bundle_rig() -> types.ModuleType:
 
 
 bundle = _bundle_rig()
+
+
+def _bench_matrix() -> types.ModuleType:
+    """The condition matrix, imported by path for the same reason."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_matrix", HERE.parent / "bench" / "matrix.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+matrix = _bench_matrix()
 
 # The variables of this experiment, all held fixed within a run.
 #
@@ -187,12 +204,24 @@ BENCH_TIERS = ("bench-ts", "bench-py")
 # `bundle_sha256` would not notice because it hashes the *system* prompt while
 # the ablation lands in the *user* message. Names stay hyphen-free so they can
 # never collide with `pin.py`'s stem parsing if a capture path ever carries
-# one. #113 owns the general condition matrix; this is one named knob it will
-# subsume, not a framework.
+# one.
+#
+# #113 has now subsumed these into `tools/bench/matrix.json`, and the runner
+# reads the cells rather than knowing them. The three names below are kept as
+# constants because run identity is recorded under them and every existing run
+# directory on disk carries one; they are asserted against the matrix at import
+# so a rename in the data can never silently orphan a run.
 STOCK = "stock"
 PLAN_ONLY = "planonly"
 NO_SCAFFOLD = "noscaffold"
-CONDITIONS = (STOCK, PLAN_ONLY, NO_SCAFFOLD)
+
+MATRIX = matrix.load()
+CONDITIONS = tuple(MATRIX.cells)
+
+assert MATRIX.baseline.id == STOCK, "the matrix baseline must stay `stock`"
+assert {STOCK, PLAN_ONLY, NO_SCAFFOLD} <= set(CONDITIONS), (
+    "matrix.json dropped a cell that runs on disk are recorded under"
+)
 
 # Comment openers, by the two languages the bench arms speak.
 _COMMENT = ("//", "#")
@@ -364,14 +393,39 @@ def ablate(contract: Any, condition: str) -> Any:
     test and dilute it. ``bug_fix`` is ineligible for a stronger reason — its
     ``target_content`` is the buggy file the task exists to fix, so removing
     it does not lighten the task, it deletes it.
+
+    The cell's levers, their order and their conflicts are
+    ``tools/bench/matrix.json``'s (#113); what stays here is the runner's own
+    knowledge of the scaffold's comment syntax, which the matrix injects rather
+    than duplicates.
     """
-    if condition == STOCK:
-        return contract
-    if condition == NO_SCAFFOLD:
-        return replace(contract, target_content="")
-    if condition == PLAN_ONLY:
-        return replace(contract, target_content=plan_of(contract.target_content))
-    raise bundle.MeasureError(f"unknown condition {condition!r}")
+    try:
+        cell = MATRIX.cell(condition)
+    except matrix.MatrixError as exc:
+        raise bundle.MeasureError(str(exc)) from None
+    return matrix.apply_contract(cell, contract, plan_of=plan_of)
+
+
+def render_for(condition: str, contract: Any) -> Any:
+    """Assemble the dispatch, then apply the cell's message-stage levers.
+
+    Split from :func:`ablate` because the two stages answer different
+    questions: a contract lever changes the task the worker is given, a message
+    lever changes only how it is asked. A cell naming no message lever returns
+    exactly what ``build_prompt`` returned, so the baseline path is untouched.
+
+    The re-cost is not cosmetic. ``norule`` *removes* text, so carrying the
+    assembled token count forward would price the ablation as free on the cost
+    axis #113 asks the report to carry.
+    """
+    prompt = build_prompt(contract)
+    return matrix.apply_message(
+        MATRIX.cell(condition),
+        prompt,
+        contract=contract,
+        estimate=estimate_tokens,
+        check_fits=check_prompt_fits,
+    )
 
 
 def plan_of(target_content: str) -> str:
@@ -427,7 +481,8 @@ def measure_task(
     of the run identity rather than a local flag, because the ablated render
     is a different experiment on the same material — the cap's argument.
     """
-    prompt = build_prompt(ablate(task.contract, condition))
+    ablated = ablate(task.contract, condition)
+    prompt = render_for(condition, ablated)
     rows: list[dict[str, object]] = []
     for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
@@ -996,11 +1051,12 @@ def main() -> int:
         "--condition",
         choices=CONDITIONS,
         default=STOCK,
-        help=f"prompt condition (default {STOCK}, what production dispatches). "
-        f"{NO_SCAFFOLD} removes the target's current content from the user "
-        "message, so the model writes the whole file rather than completing a "
-        "partial one — #225's paired size manipulation. Part of the run "
-        "identity: a directory measured under one condition refuses the other.",
+        help=f"condition cell (default {STOCK}, the baseline — what production "
+        "dispatches). The cells and the levers they name are data in "
+        "tools/bench/matrix.json, not choices this runner knows (#113); a cell "
+        "may name more than one lever, and two levers writing the same slot are "
+        "refused when the matrix loads. Part of the run identity: a directory "
+        "measured under one cell refuses another.",
     )
     parser.add_argument(
         "--selftest",
