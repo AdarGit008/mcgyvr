@@ -52,4 +52,21 @@ carries the decisions and their arguments. What lives here:
   than zero when a single-lever arm is missing: a gap in the run is not
   evidence that two levers are additive.
 
+- **`score.py`** — the bench's scorer (#113). `Gate.run`, not the acceptance
+  command alone: scope, secrets, structured-data and per-adapter rungs get to
+  reject first, so a change that satisfies `accept.py` while writing outside
+  `scope.allow` fails here exactly as it does in the product. Also the
+  **preflight**, which is a positive control rather than a tool inventory —
+  the corpus's reference must pass and a canary must fail, per language, and a
+  paired run is refused when the arms reject by different rung sets. "Installed"
+  is not the property that matters; eslint installs cleanly and is inert on
+  TypeScript without a parser.
+- **`report.py`** — the condition matrix's report (#113). One run directory is
+  one cell; this lays a set of them beside each other with both outcome axes
+  (acceptance **and** tokens), the contrast against the baseline, and the
+  **interaction term** for any multi-lever cell. It refuses two things: a rate
+  for a cell whose manifest cannot name a model, a rig and a bar, and a table
+  whose cells differ in anything but their condition — which is the confound
+  #189 shipped and ADR-0024 closes.
+
 Sweep caps, tier names, and the campaign order are in the design doc.

@@ -925,6 +925,87 @@ def first_pass_indices(
     return indices
 
 
+# The facts a rate has to be quoted with (#113).
+#
+# `serving_build` is deliberately NOT among them. ADR-0024 makes the build part
+# of a run's identity, but `serving_build()` already decided what an unreachable
+# probe means: "an endpoint that does not answer /api/version is not one this
+# project refuses to measure — it is one whose build is unknown, and None says
+# exactly that rather than inventing a value." A recorded "unknown" is a
+# statement, so the header prints it and flags the limit. The risk ADR-0024
+# actually guards — two builds inside one contrast — is caught where it lives,
+# in `report.require_comparable`, which refuses a table mixing them.
+REQUIRED_PROVENANCE = ("model", "endpoint", "tier", "condition")
+
+
+def missing_provenance(recorded: Mapping[str, Any]) -> list[str]:
+    """Which of the facts a quotable rate needs are absent from a manifest."""
+    return [k for k in REQUIRED_PROVENANCE if not recorded.get(k)]
+
+
+def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
+    """The header every figure in a report is quoted under, or ``None``.
+
+    ``None`` means the run cannot be described, and a report that cannot
+    describe its subject must not state a rate for it.
+
+    The tier line is the **single-tier declaration** #113 asks for. This rig
+    dispatches to one model and never escalates, so every figure it produces
+    describes one tier; saying so in the report is what stops a floor rate
+    being read as the ladder's (a floor failure rescued by a higher rung makes
+    the floor invisible, which is the whole reason the mode is named).
+    """
+    if missing_provenance(recorded):
+        return None
+    rungs = recorded.get("gate_rungs")
+    bar = (
+        "acceptance command only (pre-#113 scorer)"
+        if not rungs
+        else "Gate.run [" + ", ".join(rungs) + "]"
+    )
+    build = recorded.get("serving_build")
+    lines = [
+        f"**{recorded['model']}** on {bundle.redact(recorded['endpoint'])} "
+        f"(build {build or 'unknown'}), tier `{recorded['tier']}`, "
+        f"condition `{recorded['condition']}`",
+        "",
+        f"- scored by: {bar}",
+        "- mode: **single-tier** — one model, no escalation, so every rate "
+        "below is that tier's own and not the ladder's",
+    ]
+    if not build:
+        lines.append(
+            "- **the serving build is unknown** — the endpoint did not answer "
+            "`/api/version`, so this run cannot be laid beside one from a "
+            "different build (ADR-0024)"
+        )
+    return lines
+
+
+def cost_axis(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Tokens spent per candidate — the outcome axis beside acceptance.
+
+    Reported over every row that reached a worker, passing or not: the price of
+    a condition is what it costs to *ask*, and a condition that fails cheaply is
+    a different proposition from one that fails expensively.
+    """
+    scored = [
+        r
+        for r in rows
+        if isinstance(r.get("prompt_tokens"), (int, float))
+        and isinstance(r.get("completion_tokens"), (int, float))
+    ]
+    if not scored:
+        return []
+    prompt = sum(r["prompt_tokens"] for r in scored) / len(scored)
+    completion = sum(r["completion_tokens"] for r in scored) / len(scored)
+    return [
+        "",
+        f"cost per candidate: {prompt:.0f} prompt + {completion:.0f} completion "
+        f"tokens (mean over {len(scored)} dispatched draws)",
+    ]
+
+
 def summarise(rows_path: Path) -> str:
     """The distribution, its arms and its price, from the rows on disk.
 
@@ -944,6 +1025,7 @@ def summarise(rows_path: Path) -> str:
         return "no rows"
     draws = DRAWS
     sampled_temperature = SAMPLED_TEMPERATURE
+    recorded: dict[str, Any] = {}
     manifest = rows_path.parent / "run.json"
     if manifest.is_file():
         recorded = json.loads(manifest.read_text(encoding="utf-8"))
@@ -968,6 +1050,25 @@ def summarise(rows_path: Path) -> str:
     elif missing is not None:
         lines.append("complete: an observation reached every cell.")
         lines.append("")
+
+    # Provenance sits between completeness and the first rate, and that order is
+    # two requirements meeting rather than a preference. #217 fixed completeness
+    # as the *first* line, because a holed run's warning is what gets scrolled
+    # past. #113 requires that no rate be stated without a model, a rig and a
+    # bar. Both hold: the hole leads, the subject precedes every figure.
+    provenance = describe_run(recorded)
+    if provenance is None:
+        lines.append(
+            "**NO RATE — this directory cannot say what produced it.** "
+            f"Missing from run.json: {', '.join(missing_provenance(recorded))}. "
+            "A pass rate names a model on a rig under a bar or it names "
+            "nothing, so none is stated below."
+        )
+        lines.append("")
+        lines.append(f"{len(rows)} rows on disk.")
+        return "\n".join(lines)
+    lines.extend(provenance)
+    lines.append("")
 
     greedy = [r for r in rows if r["arm"] == "greedy"]
     sampled = [r for r in rows if r["arm"] == "sampled"]
@@ -1016,6 +1117,12 @@ def summarise(rows_path: Path) -> str:
             f"+ {acceptance:.1f}s acceptance (mean over {len(priced)} sampled "
             "draws)"
         )
+
+    # The second outcome axis (#113, ADR-0018): a pass rate alone cannot rank
+    # levers, because the levers differ far more in price than in effect. Tokens
+    # rather than wall clock, because tokens are what the north star's
+    # denominator counts and what transfers across rigs.
+    lines.extend(cost_axis(rows))
 
     dispatch_errors = sum(1 for r in rows if r.get("dispatch_error"))
     parse_errors = sum(1 for r in rows if r.get("parse_error"))

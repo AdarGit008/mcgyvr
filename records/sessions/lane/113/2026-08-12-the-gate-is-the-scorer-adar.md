@@ -214,6 +214,44 @@ the other tests neither, so `_always_passes` now stubs both and says why.
 That is the positive control working on the first day it existed — against a
 test suite rather than a rig, but working.
 
+## The report (items 2-7)
+
+`tools/bench/report.py` lays a set of run directories beside each other — one
+directory is one cell — and `summarise()` gained the same discipline for a
+single run.
+
+    uv run --no-sync python tools/bench/report.py <cell-dir> <cell-dir> ...
+
+What one output now carries, which is five acceptance items at once: the subject
+(**model, rig, build, tier, condition, and the rungs that scored it**), the
+**single-tier declaration**, n and pass rate per cell, the contrast against the
+baseline, **both outcome axes** (acceptance and prompt/completion tokens), the
+**interaction term** for any multi-lever cell, and a per-rung breakdown of what
+did the rejecting.
+
+**Two refusals carry the weight.** A cell whose manifest cannot name a model, a
+rig and a bar gets no rate at all — the refusal is the report. And cells that
+differ in model, endpoint, build, tier or scoring rungs are not laid beside each
+other: that is the confound #189 shipped and ADR-0024 closes, and it now
+includes a pre-#113 run placed next to a gate-scored one, because they measure
+different things.
+
+### Two corrections the tests forced
+
+**`serving_build` is not required provenance.** The first version refused a rate
+when the build was unknown. `serving_build()`'s own docstring had already
+decided otherwise — *"an endpoint that does not answer `/api/version` is **not**
+one this project refuses to measure ... `None` says exactly that rather than
+inventing a value."* A recorded "unknown" is a statement. The header prints it
+and flags the limit; the risk ADR-0024 actually guards — two builds inside one
+contrast — is caught in `require_comparable`, where it belongs.
+
+**Completeness still leads.** The provenance header initially displaced #217's
+first line, which exists because *"a run missing an observation says so in its
+first line, before any rate it might be quoted for"* — the warning is what gets
+scrolled past. Order is now completeness, then subject, then any figure. Both
+requirements hold rather than one winning.
+
 ## Left open
 
 - ~~**Install `eslint` and `prettier`.**~~ **DONE** (owner direction,
@@ -231,9 +269,11 @@ test suite rather than a rig, but working.
   amendment block.
 - **#231's checks re-run after this**, and the null in PR #245 is now known to
   describe the *old* scorer. It stays open and unmerged for exactly that reason.
-- Three of #113's seven acceptance items remain: the report (n/model/rig, the
-  interaction term, the cost axis), single-tier declaration, and the keyless
-  condition.
+- **#113 stands at 7 of 8.** Only the declared reproducibility bound is open,
+  and the issue itself splits it: *"the report declares the property here; the
+  **number** that fills it comes from #231's null calibration"* — and that
+  number must now be re-measured under this scorer.
+- **The keyless condition (#44)** is a lever in the matrix format and unbuilt.
 
 next: install the JS toolchain, then the report — and decide whether #81's
 reclassification is filed here or as its own issue.
