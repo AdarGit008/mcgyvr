@@ -82,7 +82,8 @@ import tempfile
 import time
 import types
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
@@ -92,6 +93,7 @@ from typing import Any
 from mcgyvr.gate.preflight import check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.runner import Request, RunnerError, runner_for
+from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -127,6 +129,21 @@ def _bench_matrix() -> types.ModuleType:
 
 
 matrix = _bench_matrix()
+
+
+def _bench_score() -> types.ModuleType:
+    """The bench's scorer — Gate.run, not the acceptance command alone."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_score", HERE.parent / "bench" / "score.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+score = _bench_score()
 
 # The variables of this experiment, all held fixed within a run.
 #
@@ -484,6 +501,48 @@ def measure_task(
     ablated = ablate(task.contract, condition)
     prompt = render_for(condition, ablated)
     rows: list[dict[str, object]] = []
+    with _task_sandbox(task, ablated, workdir) as sandbox:
+        rows = _draws(
+            task,
+            runner,
+            model,
+            candidates,
+            already,
+            plan,
+            max_output_tokens,
+            prompt,
+            sandbox,
+        )
+    return rows
+
+
+@contextmanager
+def _task_sandbox(task: Any, ablated: Any, workdir: Path) -> Iterator[Any]:
+    """One sandbox per task, holding the pre-worker tree the gate diffs against.
+
+    The base is staged from the *ablated* contract, so the state the changeset
+    is computed against is the state the worker was shown. Opened once per task
+    and reset per draw: the workspace, its git base commit and the reset are
+    E4's, and paying for them per draw would multiply the cost by the plan.
+    """
+    base = score.stage_dir(task, ablated.target_content, workdir / f"{task.id}-base")
+    with TempDirSandbox(base) as sandbox:
+        yield sandbox
+
+
+def _draws(
+    task: Any,
+    runner: Any,
+    model: str,
+    candidates: Path,
+    already: set[tuple[str, str, int]],
+    plan: list[tuple[str, int, float]] | None,
+    max_output_tokens: int,
+    prompt: Any,
+    sandbox: Any,
+) -> list[dict[str, object]]:
+    """The draw loop, with the sandbox already open."""
+    rows: list[dict[str, object]] = []
     for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
             continue
@@ -539,16 +598,23 @@ def measure_task(
             continue
 
         started = time.monotonic()
-        acceptance = bundle.run_acceptance(
-            task, parsed.content, workdir / f"{task.id}-{arm}-{draw}"
-        )
+        verdict = score.score(task, parsed.content, sandbox)
         rows.append(
             row
             | {
-                "passed": acceptance.passed,
+                "passed": verdict.passed,
                 "parse_error": None,
                 "acceptance_s": round(time.monotonic() - started, 3),
-                "fail_output": None if acceptance.passed else acceptance.output,
+                # Which rung rejected, and whether the acceptance command ran
+                # at all. The gate short-circuits, so a candidate rejected at
+                # lint never reached acceptance and this row cannot say what it
+                # would have done — the acceptance-only rate every earlier
+                # figure was measured at is NOT recoverable from a gate run.
+                # That is why #231 re-runs rather than recomputes.
+                "rejected_by": verdict.rejected_by,
+                "rejected_before_acceptance": verdict.rejected_before_acceptance,
+                "fail_output": None if verdict.passed else "; ".join(verdict.findings),
+                "environment_issues": list(verdict.environment_issues) or None,
             }
         )
     return rows
@@ -804,6 +870,12 @@ def record_run(
         "sampled_temperature": sampled_temperature,
         "max_output_tokens": max_output_tokens,
         "condition": condition,
+        # The bar the rates in this directory were measured against. A run
+        # scored by a different set of rungs is a different instrument, and
+        # every figure on disk before 2026-08-12 was "acceptance" alone —
+        # so a reader can tell the two apart without knowing the date.
+        "gate_rungs": list(score.GATE_RUNGS),
+        "gate_semantic": False,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
@@ -1186,11 +1258,23 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    # Before a single draw is dispatched: can every rung this run declares
+    # actually execute on this material? A missing linter is an *environment
+    # issue* to the gate and not a finding, so the candidate passes and the run
+    # is scored by a quietly smaller bar. That is right for production and
+    # silently wrong for an instrument — see score.preflight.
+    try:
+        score.require_rungs(tasks)
+    except score.RungUnavailableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     print(
         f"measuring {worker.model} at {bundle.redact(worker.endpoint)} "
         f"({worker.protocol.value}), tier {args.tier}, {args.draws} sampled "
         f"draws per task at T={args.sampled_temperature}, "
-        f"cap {args.max_output_tokens}, no early exit",
+        f"cap {args.max_output_tokens}, no early exit, "
+        f"scored by Gate.run [{', '.join(score.GATE_RUNGS)}]",
         file=sys.stderr,
     )
     plan = draw_plan(args.draws, args.sampled_temperature)

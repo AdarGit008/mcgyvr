@@ -84,9 +84,17 @@ def _measure_one(
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     rows: list[dict[str, object]] = breadth.measure_task(
         task, runner, "test-model", tmp_path / "work", tmp_path / "cand", set()
@@ -162,9 +170,17 @@ def test_resume_skips_recorded_draws(tmp_path: Path, monkeypatch: Any) -> None:
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     rows = breadth.measure_task(
         task, runner, "test-model", tmp_path / "work", tmp_path / "cand", already
@@ -411,9 +427,17 @@ def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     breadth.measure_task(
         task,
@@ -520,16 +544,33 @@ def _scorable_arm(monkeypatch: Any) -> None:
 
 
 def _always_passes(monkeypatch: Any) -> None:
-    """Parse and acceptance stubbed out: this is about cells, not verdicts."""
+    """Parse and scoring stubbed out: this is about cells, not verdicts.
+
+    The preflight goes with them, and it has to. ``score.require_rungs`` proves
+    a rung can *reject* by scoring a deliberately malformed canary — through
+    the same ``score.score`` these tests hold at "passed". With the scorer
+    stubbed the canary passes by construction, the preflight correctly reports
+    an instrument that cannot fail, and ``main`` refuses before dispatching a
+    single draw. Stubbing one without the other tests neither.
+    """
+    monkeypatch.setattr(breadth.score, "require_rungs", lambda tasks, gate=None: None)
     monkeypatch.setattr(
         breadth,
         "parse_reply",
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
 
 
