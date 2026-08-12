@@ -1,0 +1,15 @@
+id: b424-mid-pair
+task_type: function_implementation
+task: >-
+  Implement mid_pair. Return the two values standing closest to the
+  middle of a list once it is put in order, the lower one first. A
+  list of an odd length gives its middle value twice, and a list
+  holding nothing gives two nothings.
+target: solution.py
+interface: "def mid_pair(values: list) -> list"
+stop_conditions:
+  - Whether the two values should be averaged instead is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

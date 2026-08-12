@@ -1,0 +1,26 @@
+id: b379-hide-values
+task_type: bug_fix
+task: >-
+  hideValues returns a store with every value starred out, one star
+  for each character it held, and it stars out the keys instead. Fix
+  it. A store holding nothing comes back holding nothing. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** A store with every value starred out. */
+  export function hideValues(
+    store: Record<string, string>,
+  ): Record<string, string> {
+    const hidden: Record<string, string> = {};
+    for (const key of Object.keys(store)) {
+      hidden["*".repeat(key.length)] = store[key];
+    }
+    return hidden;
+  }
+interface: "export function hideValues(store: Record<string, string>): Record<string, string>"
+stop_conditions:
+  - Whether the keys should be hidden too when they carry secrets is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

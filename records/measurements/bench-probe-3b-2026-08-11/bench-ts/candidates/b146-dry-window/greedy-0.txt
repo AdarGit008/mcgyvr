@@ -1,0 +1,23 @@
+```ts
+export function driestWindow(rain: number[], width: number): number {
+  if (!Array.isArray(rain) || rain.some((r) => typeof r !== 'number' || !Number.isInteger(r) || r < 0)) {
+    throw new Error('Invalid rainfall readings');
+  }
+  if (typeof width !== 'number' || !Number.isInteger(width) || width <= 0 || width > rain.length) {
+    throw new Error('Invalid window size');
+  }
+
+  let minSum = Infinity;
+  let startIndex = 0;
+
+  for (let i = 0; i <= rain.length - width; i++) {
+    const currentWindowSum = rain.slice(i, i + width).reduce((sum, r) => sum + r, 0);
+    if (currentWindowSum < minSum) {
+      minSum = currentWindowSum;
+      startIndex = i;
+    }
+  }
+
+  return startIndex;
+}
+```

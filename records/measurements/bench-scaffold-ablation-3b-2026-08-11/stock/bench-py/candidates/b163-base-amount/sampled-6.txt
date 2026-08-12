@@ -1,0 +1,28 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    def is_valid_unit(u, d):
+        return u in d
+    
+    def get_factor(u, d):
+        if not is_valid_unit(u, d):
+            raise ValueError(f"Unknown unit: {u}")
+        return d[u][0]
+    
+    def unwind(amount, unit, d, base):
+        while unit != base:
+            factor = get_factor(unit, d)
+            if factor <= 0 or amount % factor != 0:
+                raise ValueError("Invalid factor or amount")
+            amount //= factor
+            unit = d[unit][1]
+        return amount
+    
+    try:
+        return unwind(amount, unit, defs, base)
+    except ValueError as e:
+        print(e)
+        return None
+```

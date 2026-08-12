@@ -1,0 +1,14 @@
+id: b463-take-back
+task_type: function_implementation
+task: >-
+  Implement take_back. Taking entries from the end of a list toward
+  its start, return how many must be taken before their total reaches
+  a target. Return minus one when the whole list never reaches it.
+target: solution.py
+interface: "def take_back(values: list, target: int) -> int"
+stop_conditions:
+  - Whether a target of nothing should need any entries at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

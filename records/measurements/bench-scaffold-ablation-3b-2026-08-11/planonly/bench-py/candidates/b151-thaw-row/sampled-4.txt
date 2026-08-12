@@ -1,0 +1,38 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Thaws a row of cells in a given number of steps following specific rules for melting ice.
+
+    Parameters:
+        row (str): A string representing the initial state of the row, where "#" indicates ice and "." indicates meltwater.
+        steps (int): The number of steps to apply to the row.
+
+    Returns:
+        str: The resulting row after applying the specified number of thawing steps.
+
+    Raises:
+        ValueError: If the input row is not a string, is empty, contains characters other than "#", ".", or if the step count is negative.
+    """
+    if not isinstance(row, str) or not row:
+        raise ValueError("Input row must be a non-empty string.")
+    
+    valid_chars = {'#', '.'}
+    if any(c not in valid_chars for c in row):
+        raise ValueError("Input row must contain only '#', '.' characters.")
+    
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Step count must be a non-negative integer.")
+    
+    for _ in range(steps):
+        new_row = []
+        for i, cell in enumerate(row):
+            if (i == 0 or cell == '.') and row[i + 1] == '#':
+                new_row.append('.')
+            elif (i == len(row) - 1 or cell == '.') and row[i - 1] == '#':
+                new_row.append('.')
+            else:
+                new_row.append(cell)
+        row = ''.join(new_row)
+    
+    return row
+```

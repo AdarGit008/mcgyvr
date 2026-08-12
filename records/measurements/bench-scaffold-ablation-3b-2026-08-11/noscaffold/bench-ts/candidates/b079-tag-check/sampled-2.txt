@@ -1,0 +1,20 @@
+```typescript
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') throw new Error('Input must be a string');
+  const [body] = line.split('~', 2);
+  return checkLineHelper(body, lineTag(body)) || body;
+}
+
+export function lineTag(body: string): string {
+  return body
+    .split('')
+    .reduce((sum, char) => (sum + char.charCodeAt(0)) % 256, 0)
+    .toString(16).padStart(2, '0');
+}
+
+function checkLineHelper(body: string, expectedTag: string): string | null {
+  if (body.length < 3 || body.charAt(body.length - 2) !== '~') return null;
+  const actualTag = lineTag(body.slice(0, body.length - 2));
+  return actualTag === expectedTag ? body : null;
+}
+```

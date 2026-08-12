@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def split_strict(s: str) -> List[str]:
+    if not isinstance(s, str):
+        raise ValueError("Path and rule must be strings")
+    if s == "":
+        raise ValueError("Empty path or rule is invalid")
+    if s.startswith("/") or s.endswith("/") or ".." in s:
+        raise ValueError("Path with leading, trailing slash, or double dots is invalid")
+    return s.split("/")
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def matches(path_segments: List[str], pattern_segments: List[str]) -> bool:
+        if len(pattern_segments) > 1 and pattern_segments[-1] == "*":
+            return True
+        for path, pattern in zip(path_segments, pattern_segments):
+            if pattern != "*" and path != pattern:
+                return False
+        return len(path_segments) <= len(pattern_segments)
+
+    def apply_rule(path: str, rules: List[str]) -> bool:
+        path_segments = split_strict(path)
+        for rule in rules[::-1]:
+            if rule.startswith("!"):
+                if matches(path_segments, split_strict(rule[1:])):
+                    return True
+            elif matches(path_segments, split_strict(rule)):
+                return False
+        return True
+
+    return [path for path in listing if apply_rule(path, rules)]
+```

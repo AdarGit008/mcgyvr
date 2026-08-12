@@ -1,0 +1,69 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+  const result: string[][] = [];
+  let currentKey: string | null = null;
+  let currentValue: string | null = null;
+  let insideQuotes = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (!insideQuotes) {
+      if (char === ';') {
+        if (currentKey !== null && currentValue !== null) {
+          result.push([currentKey, currentValue]);
+          currentKey = null;
+          currentValue = null;
+        }
+      } else if (char === '"') {
+        insideQuotes = true;
+        continue; // Skip the quote character
+      } else if (i > 0 && input[i - 1] !== '=') {
+        throw new Error('Invalid option format');
+      }
+    }
+
+    if (insideQuotes) {
+      if (char === '"') {
+        insideQuotes = false;
+        continue;
+      }
+    }
+
+    if (currentKey === null) {
+      currentKey = '';
+    } else if (!/[a-zA-Z0-9_]/.test(char)) {
+      throw new Error('Invalid option format');
+    }
+
+    currentKey += char;
+
+    if (char === '=') {
+      currentValue = '';
+    } else {
+      currentValue += char;
+    }
+  }
+
+  if (currentKey !== null && currentValue !== null) {
+    result.push([currentKey, currentValue]);
+  }
+
+  return result;
+}
+
+export function parseOption(segment: string): string[] {
+  const [key, value] = segment.split('=');
+  if (!/^[\w]+$/.test(key)) {
+    throw new Error('Invalid option format');
+  }
+  let parsedValue = value;
+  if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
+    parsedValue = parsedValue.slice(1, -1).replace(/\\"/g, '"');
+  }
+  return [key, parsedValue];
+}
+```

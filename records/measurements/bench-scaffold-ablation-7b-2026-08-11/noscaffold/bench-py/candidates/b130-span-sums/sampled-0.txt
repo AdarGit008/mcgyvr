@@ -1,0 +1,44 @@
+```python
+def parse_span(text: str) -> int:
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    parts = text.split()
+    total_inches = 0
+    seen_units = set()
+
+    for part in parts:
+        if len(part) < 2 or part[-2:] not in units:
+            raise ValueError("Invalid span format")
+
+        value, unit = int(part[:-2]), part[-2:]
+        if value == 0 and unit != 'in':
+            raise ValueError("Zero must be followed by 'in'")
+        if unit in seen_units:
+            raise ValueError("Duplicate unit")
+        seen_units.add(unit)
+
+        total_inches += value * units[unit]
+
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Invalid inches")
+
+    yards = inches // (36 * 12)
+    inches %= 36 * 12
+    feet = inches // 12
+    inches %= 12
+
+    parts = []
+    if yards > 0:
+        parts.append(f"{yards}yd")
+    if feet > 0:
+        parts.append(f"{feet}ft")
+    if inches > 0:
+        parts.append(f"{inches}in")
+
+    return f"{' '.join(parts)}" or "0in"
+
+def add_spans(first: str, second: str) -> str:
+    return format_span(parse_span(first) + parse_span(second))
+```

@@ -1,0 +1,19 @@
+```ts
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres <= 0) {
+    throw new Error('Distance must be greater than zero');
+  }
+  return Math.floor(seconds / kilometres);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  const results: number[] = [];
+  for (const leg of legs) {
+    if (leg.kilometres <= 0 || leg.seconds === 0) {
+      throw new Error('Leg distance must be greater than zero and leg seconds must be greater than zero');
+    }
+    results.push(Math.floor(leg.seconds / leg.kilometres));
+  }
+  return results;
+}
+```

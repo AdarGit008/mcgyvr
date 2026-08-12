@@ -1,0 +1,19 @@
+```ts
+export function rangeCheck(readings: number[], low: number, high: number): boolean {
+  if (low > high) {
+    throw new Error('Low bound is greater than high bound');
+  }
+
+  if (readings.length === 0 || readings.every(r => r === low || r === high)) {
+    return true;
+  }
+
+  for (const reading of readings) {
+    if (reading < low || reading > high) {
+      throw new Error(`Reading ${reading} is outside the range [${low}, ${high}]`);
+    }
+  }
+
+  return true;
+}
+```

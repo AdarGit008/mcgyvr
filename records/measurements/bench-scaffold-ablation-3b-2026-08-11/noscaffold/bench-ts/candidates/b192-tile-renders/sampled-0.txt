@@ -1,0 +1,38 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (size <= 0 || !Number.isInteger(freshFor)) {
+    throw new Error("freshFor and size must be positive whole numbers.");
+  }
+
+  const cache: { [key: string]: [number, string] } = {};
+  const renders: [number, string][] = [];
+
+  for (const [tick, name] of requests) {
+    if (tick < 0 || !Number.isInteger(tick)) {
+      throw new Error("All tick values must be non-negative whole numbers.");
+    }
+
+    // Check if the tile is in cache
+    const cachedRender = cache[name];
+    if (cachedRender?.[0] === tick) {
+      renders.push([tick, name]);
+      continue;
+    } else {
+      // If the cache has reached its size limit and the tile is not already cached,
+      // replace the oldest render with this one.
+      if (Object.keys(cache).length >= size) {
+        const leastRecentTick = Math.min(...Object.values(cache).map(([t]) => t));
+
+        Object.entries(cache).filter(([_, [t]]) => t === leastRecentTick).forEach(([k, _]) => delete cache[k]);
+      }
+
+      // Add the current render to the cache
+      cache[name] = [tick, name];
+    }
+
+    renders.push([tick, name]);
+  }
+
+  return renders;
+}
+```

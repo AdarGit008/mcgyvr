@@ -1,0 +1,58 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+
+def install_order(packages: list, requires: list) -> list:
+    if not packages or not requires:
+        return []
+
+    # Validate package names and requirements
+    for pkg in packages + [pair[0] for pair in requires]:
+        if not isinstance(pkg, str):
+            raise ValueError("Package name must be a string.")
+
+    for pair in requires:
+        if pair[0] not in packages or pair[1] not in packages:
+            raise ValueError(f"Requirement {pair} references non-existent package(s).")
+
+    # Build the graph
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+
+    # Check for cycles using topological sorting
+    def has_cycle(node, visited, stack):
+        if node in stack:
+            return True
+        if node in visited:
+            return False
+
+        visited.add(node)
+        stack.append(node)
+
+        for follower in enables[node]:
+            if has_cycle(follower, visited, stack):
+                return True
+
+        stack.pop()
+        return False
+
+    if any(has_cycle(pkg, set(), []) for pkg in packages):
+        raise ValueError("Cycle detected in requirements.")
+
+    # Topological sort
+    ready = [name for name in packages if needs[name] == 0]
+    order = []
+    while ready:
+        next_name = min(ready)  # Sort alphabetically first
+        order.append(next_name)
+        ready.remove(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+
+    return order
+```

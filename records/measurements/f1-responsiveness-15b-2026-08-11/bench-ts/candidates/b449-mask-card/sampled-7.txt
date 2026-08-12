@@ -1,0 +1,11 @@
+```ts
+export function lastFour(number: string): string {
+  if (!number) throw Error('Invalid input');
+  return number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  if (!number) throw Error('Invalid input');
+  return Array.from(number).map((_, i) => i === number.length - 4 ? '*' : '#').join('');
+}
+```

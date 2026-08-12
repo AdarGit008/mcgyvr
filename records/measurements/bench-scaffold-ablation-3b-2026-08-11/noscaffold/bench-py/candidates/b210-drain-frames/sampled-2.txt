@@ -1,0 +1,32 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Splits a stream of chunks into frames based on a marker character and merges them.
+    Each frame ends with two consecutive markers, while a standalone marker marks the end of a frame.
+    The pending text is any remaining text after the last frame that was ended.
+    Returns a dictionary with frames in order and pending text as the result.
+    """
+    
+    if not chunks:
+        return {"frames": [], "pending": ""}
+    
+    frames = []
+    pending_text = ""
+    
+    for chunk in chunks:
+        # Ensure marker is a single character
+        if len(marker) != 1:
+            raise ValueError("Marker must be a single character.")
+        
+        # Split the chunk into parts based on the marker
+        parts = chunk.split(marker)
+        
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                pending_text += part
+            else:
+                frames.append(pending_text + part)
+                pending_text = ""
+    
+    return {"frames": frames, "pending": pending_text}
+```

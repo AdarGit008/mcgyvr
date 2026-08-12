@@ -1,0 +1,96 @@
+```ts
+/**
+ * Validates the input root for errors.
+ * @param {any} node - The node to validate.
+ * @returns {void}
+ */
+function validateNode(node: any): void {
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node');
+  }
+  Object.keys(node).forEach((key, index) => {
+    if (index === 0 && typeof key !== 'string' || key.includes('/')) {
+      throw new Error('Invalid name');
+    }
+    const value = node[key];
+    if (typeof value === 'object') {
+      validateNode(value);
+    } else if ((typeof value !== 'number' || value < 0) && !Array.isArray(value)) {
+      throw new Error('Invalid bytes or children');
+    }
+  });
+}
+
+/**
+ * Validates the input minBytes for errors.
+ * @param {number} minBytes - The minBytes to validate.
+ * @returns {void}
+ */
+function validateMinBytes(minBytes: number): void {
+  if (typeof minBytes !== 'number' || minBytes < 0 || !Number.isInteger(minBytes)) {
+    throw new Error('Invalid minBytes');
+  }
+}
+
+/**
+ * Walks the storage tree and returns a list of file paths.
+ * @param {object} root - The root of the storage tree.
+ * @returns {string[]} - A list of file paths.
+ */
+export function filePaths(root: object): string[] {
+  validateNode(root);
+  const paths: string[] = [];
+  function walk(node: any, path: string) {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        walk(child, `${path}/${node.name}`);
+      }
+    } else {
+      paths.push(path);
+    }
+  }
+  walk(root, root.name);
+  return paths;
+}
+
+/**
+ * Calculates the total bytes in a node.
+ * @param {object} node - The node to calculate the bytes for.
+ * @returns {number} - The total bytes in the node.
+ */
+export function treeBytes(root: object): number {
+  validateNode(root);
+  let total = 0;
+  if (Array.isArray(root)) {
+    for (const child of root) {
+      total += treeBytes(child);
+    }
+  } else if ('bytes' in root) {
+    total += root.bytes;
+  }
+  return total;
+}
+
+/**
+ * Returns a list of [path, bytes] pairs for every folder reaching minBytes.
+ * @param {object} root - The root of the storage tree.
+ * @param {number} minBytes - The minimum number of bytes required for a folder to be included.
+ * @returns {[string, number][]} - A list of [path, bytes] pairs for every folder reaching minBytes.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  validateNode(root);
+  validateMinBytes(minBytes);
+  const paths: [string, number][] = [];
+  function walk(node: any, path: string, total: number) {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        walk(child, `${path}/${node.name}`, total + treeBytes(child));
+      }
+    } else if ('bytes' in node) {
+      paths.push([path, total + node.bytes]);
+    }
+  }
+  walk(root, root.name, 0);
+  return paths.filter(([_, bytes]) => bytes >= minBytes);
+}
+```

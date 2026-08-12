@@ -1,0 +1,60 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def apply_moves(sheet, moves):
+        for part in moves.split(";"):
+            if not part:
+                continue
+            name, qty_str = part.partition("+")
+            if name == "":
+                name, qty_str = "+".partition(part)  # Handle negative quantity issue
+                if qty_str.startswith("-"):
+                    raise ValueError(f"invalid move: {part}")
+            else:
+                qty_str = qty_str.partition("-")[2]
+            try:
+                qty = int(qty_str)
+                if not (0 <= qty):
+                    raise ValueError("quantity must be non-negative")
+            except ValueError as e:
+                raise ValueError(f"bad quantity in move: {qty_str}") from e
+
+            if name not in sheet:
+                if qty > 0:
+                    sheet[name] = qty
+                else:
+                    continue
+            else:
+                count = sheet[name]
+                if qty <= count:
+                    sheet[name] -= qty
+                elif qty == count + 1:
+                    del sheet[name]
+                else:
+                    raise ValueError(f"issue of more units than the item then holds: {qty} > {count}")
+
+    held = parse_sheet(opening)
+    apply_moves(held, moves)
+    # Render only the entries still on hand.
+    entries = [f"{name}:{held[name]}" for name in sorted(held) if held[name] > 0]
+    return ";".join(entries)
+```

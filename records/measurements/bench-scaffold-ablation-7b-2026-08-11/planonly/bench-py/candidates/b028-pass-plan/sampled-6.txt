@@ -1,0 +1,61 @@
+```python
+def cheapest_pass_plan(trip_days: list[int], passes: list[dict[str, int]]) -> dict:
+    if not trip_days or not passes:
+        raise ValueError("Trip days and passes lists must not be empty")
+    
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be positive integers")
+    
+    for prev_day, curr_day in zip(trip_days, trip_days[1:]):
+        if curr_day <= prev_day:
+            raise ValueError("Trip days must be strictly increasing")
+    
+    for pass_ in passes:
+        if 'span' not in pass_ or 'cost' not in pass_:
+            raise ValueError("Each pass must have a 'span' and 'cost'")
+        span = pass_['span']
+        cost = pass_['cost']
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Pass span must be a positive integer")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Pass cost must be a non-negative integer")
+
+    n_days = trip_days[-1]
+    dp = [float('inf')] * (n_days + 1)
+    dp[0] = 0
+
+    for day in range(1, n_days + 1):
+        if day not in trip_days:
+            dp[day] = dp[day - 1]
+        else:
+            min_cost = float('inf')
+            for pass_ in passes:
+                span = pass_['span']
+                cost = pass_['cost']
+                if day >= span:
+                    min_cost = min(min_cost, dp[day - span] + cost)
+                else:
+                    min_cost = min(min_cost, cost)
+            dp[day] = min_cost
+
+    total = dp[n_days]
+    
+    purchases = []
+    i = 0
+    while i < n_days:
+        if trip_days[i] not in pass_day_to_purchase:
+            pass_day_to_purchase = {}
+            min_cost = float('inf')
+            for pass_ in passes:
+                span = pass_['span']
+                cost = pass_['cost']
+                if i + span <= n_days and dp[i] == dp[i + span - 1] + cost:
+                    if cost < min_cost or (cost == min_cost and passes.index(pass_) < passes.index(next_pass)):
+                        min_cost = cost
+                        next_pass = pass_
+            purchases.append([trip_days[i], next_pass['span']])
+        i += next_pass['span']
+
+    return {'total': total, 'purchases': purchases}
+```

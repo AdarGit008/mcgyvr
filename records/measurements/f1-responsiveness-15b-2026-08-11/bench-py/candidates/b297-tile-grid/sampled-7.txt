@@ -1,0 +1,49 @@
+```python
+from typing import *
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Calculate how many tiles of a given size cover a length, rounding up.
+    
+    :param length: The total length to be covered by tiles.
+    :param tile: The size of each tile.
+    :return: The number of tiles needed, including any whole-percent allowance.
+    """
+    if not length:
+        raise ValueError("Length must be greater than zero.")
+    if not tile:
+        raise ValueError("Tile size must be greater than zero.")
+    
+    coverings = ceil(length / tile)
+    return coverings
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Calculate the total number of tiles needed for a wall with given dimensions,
+    including a whole-percent allowance for breakages and rounding up.
+    
+    :param width: The width of the wall.
+    :param height: The height of the wall.
+    :param tile: The size of each tile.
+    :param spare: The percentage of the total length to be allowed as breakage.
+    :return: The total number of tiles needed, including breakages and rounding up.
+    """
+    if not width:
+        raise ValueError("Width must be greater than zero.")
+    if not height:
+        raise ValueError("Height must be greater than zero.")
+    if not tile:
+        raise ValueError("Tile size must be greater than zero.")
+    
+    # Calculate the total length needed without breakage
+    total_length = (width * height) * tile
+    
+    # Allow a whole-percent allowance for breakages
+    breakage_allowance = total_length * (spare / 100)
+    total_length += breakage_allowance
+    
+    # Calculate the number of tiles needed, including breakage allowance
+    coverings = ceil(total_length / tile)
+    return coverings
+```

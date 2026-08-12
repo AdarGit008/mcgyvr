@@ -1,0 +1,31 @@
+id: b035-route-params
+task_type: function_implementation
+task: >-
+  Implement matchRoute, with splitSegments underneath it and firstRoute on
+  top of it. A path is the root "/" alone or a run of slash-led segments:
+  splitSegments returns the segment list — the root yields an empty list —
+  and rejects a path that is not a non-empty string, a path not starting
+  with a slash, an empty segment inside the path, and a trailing slash,
+  with an error. A route pattern is shaped like a path, but a pattern
+  segment may also be ":name", capturing the path segment it faces under
+  name, "*", matching exactly one segment without capturing, or "**",
+  matching a run of zero or more segments. matchRoute returns the mapping
+  of capture names to the segments they captured when the pattern matches
+  the whole path, and null when it does not. It propagates every
+  splitSegments rejection for either argument and further rejects a
+  capture name that is not a letter or underscore followed by letters,
+  digits or underscores, a capture name repeated within the pattern, and a
+  pattern holding "**" more than once, with an error. firstRoute returns
+  the index of the first pattern in its list matching the path, or -1 when
+  none does.
+target: solution.ts
+interface: |-
+  export function matchRoute(pattern: string, path: string): Record<string, string> | null
+  export function splitSegments(path: string): string[]
+  export function firstRoute(patterns: string[], path: string): number
+stop_conditions:
+  - Whether a literal segment may itself contain a colon or an asterisk after its first character is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

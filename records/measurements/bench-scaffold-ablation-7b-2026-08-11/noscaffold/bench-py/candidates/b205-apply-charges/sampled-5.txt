@@ -1,0 +1,21 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    result = {'left': caps.copy(), 'refused': []}
+    for charge_id, bucket_name, amount in charges:
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+        
+        if bucket_name not in caps:
+            result['refused'].append((charge_id, "unknown"))
+            continue
+        
+        cap, single_cap = caps[bucket_name]
+        if amount > single_cap:
+            result['refused'].append((charge_id, "single"))
+        elif cap < amount:
+            result['refused'].append((charge_id, "cap"))
+        else:
+            result['left'][bucket_name] -= amount
+    
+    return result
+```

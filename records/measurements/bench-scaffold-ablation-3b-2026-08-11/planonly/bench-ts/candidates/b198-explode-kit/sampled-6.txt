@@ -1,0 +1,28 @@
+```typescript
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (want < 0) throw new Error("Want must be non-negative");
+
+  const totalConsumed: Record<string, number> = {};
+
+  function getKitInfo(kitName: string): { makes: number; parts: [string, number][] } | undefined {
+    return catalog[kitName];
+  }
+
+  function calculateConsumption(parts: [string, number][], want: number): void {
+    for (const [component, count] of parts) {
+      const componentInfo = getKitInfo(component);
+      if (!componentInfo) throw new Error(`Unknown component: ${component}`);
+
+      const kitMakes = componentInfo.makes;
+      const neededMakes = Math.ceil(want / kitMakes);
+
+      totalConsumed[component] = (totalConsumed[component] || 0) + neededMakes * count;
+
+      calculateConsumption(componentInfo.parts, neededMakes);
+    }
+  }
+
+  calculateConsumption(catalog[kit].parts, want);
+  return totalConsumed;
+}
+```

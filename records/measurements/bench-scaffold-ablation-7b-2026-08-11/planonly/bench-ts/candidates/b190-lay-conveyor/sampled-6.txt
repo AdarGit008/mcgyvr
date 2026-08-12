@@ -1,0 +1,16 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (length <= 0) throw new Error("Run must cover at least one cell");
+  if (row < 0 || row >= floor.length) throw new Error("Invalid row");
+  const rowLength = floor[row].length;
+  if (col < 0 || col + length > rowLength) throw new Error("Run would leave the plan");
+
+  const result = [...floor];
+  for (let i = 0; i < length; i++) {
+    if (result[row][col + i] !== ".") throw new Error("Run covers a cell that is not open");
+    result[row] = result[row].substring(0, col + i) + "=" + result[row].substring(col + i + 1);
+  }
+
+  return result;
+}
+```

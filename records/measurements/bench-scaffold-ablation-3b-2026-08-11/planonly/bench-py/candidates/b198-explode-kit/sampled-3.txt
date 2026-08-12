@@ -1,0 +1,38 @@
+```python
+from math import ceil
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total parts consumed to produce `want` units of a kit.
+
+    :param catalog: dictionary where keys are kit names and values are tuples (makes, parts list).
+    :param kit: name of the kit to produce.
+    :param want: number of units of the kit to produce.
+    :return: dictionary mapping base part to total count consumed.
+    """
+    def find_total(parts_list):
+        result = {}
+        for component, count in parts_list:
+            if isinstance(component, str) and component in catalog:
+                # If it's a kit, calculate its total parts needed
+                sub_result = find_total(catalog[component])
+                # Sum up the parts consumed by this kit
+                total_parts_needed = count * catalog[component][0]
+                for part, amount in sub_result.items():
+                    if part not in result:
+                        result[part] = 0
+                    result[part] += total_parts_needed * amount
+            else:
+                # If it's a base part, just add the consumption
+                if component not in result:
+                    result[component] = 0
+                result[component] += count
+        return result
+
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' not found in the catalog.")
+
+    total_parts_consumed = find_total(catalog[kit])
+    return total_parts_consumed
+```

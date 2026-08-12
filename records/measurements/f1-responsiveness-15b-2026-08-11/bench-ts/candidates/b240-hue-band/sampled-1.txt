@@ -1,0 +1,22 @@
+```ts
+/**
+ * Given a hue in degrees, name the band it falls into: red below 60, green below 180,
+ * blue below 300, and red again from 300 up. A reading outside zero to 359 wraps around
+ * the circle first, so 400 is read as 40 and a negative reading counts backwards from 360.
+ *
+ * @param degrees - The hue in degrees.
+ * @returns The band name: "red", "green", "blue", or "undefined".
+ */
+export function hueBand(degrees: number): string {
+  if (degrees === undefined || typeof degrees !== 'number') {
+    throw new Error('Invalid argument: degrees must be a number');
+  }
+
+  degrees = degrees % 360; // Wrap around the circle
+  if (degrees < 60) return "red";
+  else if (degrees < 180) return "green";
+  else if (degrees < 240) return "blue";
+  else if (degrees < 300) return "red";
+  else return undefined;
+}
+```

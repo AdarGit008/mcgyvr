@@ -1,0 +1,15 @@
+id: b320-quarter-hour
+task_type: function_implementation
+task: >-
+  Implement quarter_hour. Bring a number of minutes down to the
+  quarter of an hour it falls in, so anything from fifteen up to
+  twenty-nine becomes fifteen. Minutes already sitting on a quarter
+  are left alone. Reject a count of minutes below zero with an error.
+target: solution.py
+interface: "def quarter_hour(minutes: int) -> int"
+stop_conditions:
+  - Whether minutes past a whole day should be brought within the day first is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

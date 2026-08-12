@@ -1,0 +1,64 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Invalid capacity");
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) throw new Error("Word count disagrees with capacity");
+
+  for (let i = 0; i < wordCount; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) throw new Error("Invalid bitmap word");
+  }
+
+  for (let start = 0; start + length <= capacity; start++) {
+    let freeCount = 0;
+    for (let i = 0; i < length / 32; i++) {
+      const wordIndex = start / 32 + i;
+      if (wordIndex >= words.length) throw new Error("Run extends beyond valid range");
+      const word = words[wordIndex];
+      const bitsToCheck = length % 32 === 0 ? 32 : length % 32;
+      let bitIndex = start % 32 + i * 32;
+      for (let j = 0; j < bitsToCheck; j++) {
+        if ((word & (1 << (31 - bitIndex))) === 0) freeCount++;
+        else return -1;
+        bitIndex++;
+      }
+    }
+    if (freeCount === length) return start;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) throw new Error("Invalid run parameters");
+  const wordCount = Math.ceil((start + length) / 32);
+  if (words.length < wordCount) throw new Error("Word count insufficient for run");
+
+  for (let i = 0; i < wordCount; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) throw new Error("Invalid bitmap word");
+  }
+
+  const result = [...words];
+  for (let i = 0; i < length / 32; i++) {
+    let bitIndex = start % 32 + i * 32;
+    if ((start + length - 1) / 32 === i && (length % 32 !== 0)) {
+      for (let j = 0; j < length % 32; j++) {
+        result[i] |= (1 << (31 - bitIndex));
+        bitIndex++;
+      }
+    } else {
+      result[i] = 4294967295;
+    }
+  }
+
+  return result;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index)) throw new Error("Invalid index");
+  const wordIndex = Math.floor(index / 32);
+  if (wordIndex >= words.length) throw new Error("Index out of bounds");
+
+  const word = words[wordIndex];
+  return ((word >> (31 - index % 32)) & 1) as number;
+}
+```

@@ -1,0 +1,51 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    const timePattern = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/;
+    if (!timePattern.test(span)) {
+        throw new Error("Invalid span format");
+    }
+    for (const appointment of booked) {
+        if (!timePattern.test(appointment)) {
+            throw new Error("Invalid appointment format");
+        }
+    }
+
+    const [startHour, startMinute, endHour, endMinute] = span
+        .split("-")
+        .flatMap((part) => part.split(":").map(Number));
+
+    const appointments = booked.map((appointment) => {
+        const [hour, minute, , ] = appointment.split("-");
+        return { hour: Number(hour), minute: Number(minute) };
+    });
+
+    const openIntervals: string[] = [];
+    let currentHour = startHour;
+    let currentMinute = startMinute;
+
+    const compareTime = (a: number[], b: number[]) => {
+        if (a[0] !== b[0]) return a[0] - b[0];
+        return a[1] - b[1];
+    };
+
+    appointments.sort((a, b) => compareTime([a.hour, a.minute], [b.hour, b.minute]));
+
+    for (const { hour, minute } of appointments) {
+        if (compareTime([currentHour, currentMinute], [hour, minute]) < 0) {
+            openIntervals.push(`${padZero(currentHour)}:${padZero(currentMinute)}-${padZero(hour)}:${padZero(minute)}`);
+        }
+        currentHour = hour;
+        currentMinute = minute;
+    }
+
+    if (compareTime([currentHour, currentMinute], [endHour, endMinute]) < 0) {
+        openIntervals.push(`${padZero(currentHour)}:${padZero(currentMinute)}-${padZero(endHour)}:${padZero(endMinute)}`);
+    } else if (appointments.length === 0 && compareTime([startHour, startMinute], [endHour, endMinute]) > 0) {
+        return "none";
+    }
+
+    return openIntervals.join(", ");
+}
+
+const padZero = (num: number): string => num.toString().padStart(2, '0');
+```

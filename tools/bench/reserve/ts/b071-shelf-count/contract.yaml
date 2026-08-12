@@ -1,0 +1,43 @@
+id: b071-shelf-count
+task_type: bug_fix
+task: >-
+  shelfCount replays a stock shelf's movement ledger and reports the shelf
+  wrongly. The first argument is the count already on the shelf, the second
+  a ledger of moves applied in order, each a two-item pair: ["receive",
+  qty] puts qty units onto the shelf and ["issue", qty] draws qty units off
+  it. Return {ending, peak}: the count left at the end and the highest
+  count the shelf held at any moment, the starting count included — an
+  empty ledger reports the starting count for both. At present the peak is
+  tracked from zero rather than from the starting count, so a ledger
+  holding only issues reports a peak of zero however full the shelf began,
+  and an issue larger than the current count silently drives the shelf
+  negative. Also add the missing validation: reject a starting count that
+  is not a non-negative integer, a move that is not a two-item pair, a qty
+  that is not a positive integer, a kind other than receive and issue, and
+  an issue drawing more than the shelf then holds, with an error. Return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  export function shelfCount(
+    onHand: number,
+    moves: [string, number][],
+  ): { ending: number; peak: number } {
+    let ending = onHand;
+    let peak = 0;
+    for (const [kind, qty] of moves) {
+      if (kind === "receive") {
+        ending += qty;
+        if (ending > peak) peak = ending;
+      } else {
+        ending -= qty;
+      }
+    }
+    return { ending, peak };
+  }
+interface: "export function shelfCount(onHand: number, moves: [string, number][]): { ending: number; peak: number }"
+stop_conditions:
+  - Whether a qty has an upper bound is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,15 @@
+id: b350-rate-cap
+task_type: function_implementation
+task: >-
+  Implement rateCap. Raise a price by a whole-percent rate, but never
+  by more than a stated largest increase. Return the new price, with
+  the increase rounded down. A price raised by nothing comes back as
+  it was.
+target: solution.ts
+interface: "export function rateCap(price: number, rate: number, most: number): number"
+stop_conditions:
+  - Whether a rate below zero should lower the price is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

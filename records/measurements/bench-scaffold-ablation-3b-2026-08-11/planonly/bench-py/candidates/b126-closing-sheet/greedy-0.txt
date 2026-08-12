@@ -1,0 +1,35 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not (name.islower() and count.isdigit()):
+            raise ValueError("Invalid sheet entry format")
+        return name, int(count)
+
+    def apply_move(sheet: dict[str, int], move: str) -> None:
+        if not move or move[0] not in "+-":
+            raise ValueError("Invalid move format")
+        name, qty = move.split('+') if move.startswith('+') else move.split('-')
+        qty = int(qty)
+        if name not in sheet:
+            if qty == 0:
+                return
+            raise ValueError(f"Cannot issue {qty} of non-existent item {name}")
+        if sheet[name] < qty:
+            raise ValueError(f"Not enough {name} to issue {qty}")
+
+        sheet[name] += qty if move.startswith('+') else -qty
+
+    def render_sheet(sheet: dict[str, int]) -> str:
+        return ';'.join(f"{name}:{count}" for name, count in sheet.items() if count > 0)
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Invalid argument type")
+
+    try:
+        opening_sheet = {name: int(count) for name, count in (parse_entry(entry) for entry in opening.split(';'))}
+        apply_moves(opening_sheet, moves)
+        return render_sheet(opening_sheet)
+    except ValueError as e:
+        return str(e)
+```

@@ -1,0 +1,15 @@
+id: b400-path-clean
+task_type: function_implementation
+task: >-
+  Implement pathClean. A path is segments joined by slashes. Remove
+  every segment of two dots by dropping it together with the segment
+  standing before it, and return what remains joined by slashes. Two
+  dots with nothing before them are dropped alone.
+target: solution.ts
+interface: "export function pathClean(path: string): string"
+stop_conditions:
+  - Whether a single dot segment should be dropped as well is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

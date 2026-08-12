@@ -1,0 +1,43 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        parts = entry.split(':')
+        if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+            raise ValueError("Malformed sheet entry")
+        return (parts[0], int(parts[1]))
+
+    def parse_moves(moves: str) -> list[tuple[str, int]]:
+        if not moves:
+            return []
+        move_parts = moves.split(';')
+        result = [(parts[0], int(parts[1])) for parts in (move.split('+') for move in move_parts)]
+        result.extend([(parts[0], -int(parts[2])) for parts in (move.split('-') for move in move_parts)])
+        return result
+
+    def process_moves(sheet: dict[str, int], moves: list[tuple[str, int]]) -> dict[str, int]:
+        for item, qty in moves:
+            if item not in sheet:
+                if qty < 0:
+                    raise ValueError("Cannot issue more than the item then holds")
+                sheet[item] = qty
+            else:
+                new_qty = sheet[item] + qty
+                if new_qty < 0 or (new_qty == 0 and qty > 0):
+                    raise ValueError("Cannot issue more than the item then holds")
+                sheet[item] = new_qty
+
+    def format_sheet(sheet: dict[str, int]) -> str:
+        return ';'.join(f"{item}:{qty}" for item, qty in sorted(sheet.items()) if qty > 0)
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Invalid argument type")
+
+    opening_sheet = parse_entry(opening)
+    if len(opening_sheet) != 1:
+        raise ValueError("Malformed opening sheet")
+
+    moves_list = parse_moves(moves)
+    process_moves({}, moves_list)
+
+    return format_sheet({})
+```

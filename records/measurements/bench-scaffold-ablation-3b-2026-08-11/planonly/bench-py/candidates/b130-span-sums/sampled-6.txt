@@ -1,0 +1,47 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split()
+    if len(parts) < 2 or not all(part.endswith(('yd', 'ft', 'in')) for part in parts[:-1]):
+        raise ValueError("Invalid span format: missing or incorrect units.")
+    
+    total_inches = 0
+    unit_mults = {'yd': 36, 'ft': 12, 'in': 1}
+    
+    for i, part in enumerate(parts):
+        value_str, unit = part[:-2], part[-2:]
+        if not value_str.isdigit() or value_str.startswith('0'):
+            raise ValueError("Invalid value: must be a non-negative integer without leading zeros.")
+        
+        value = int(value_str)
+        total_inches += value * unit_mults[unit]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int):
+        raise ValueError("Input must be an integer.")
+    
+    units = [(36, 'yd'), (12, 'ft'), (1, 'in')]
+    result = []
+    
+    for mult, unit in units:
+        value = inches // mult
+        if value > 0:
+            result.append(f"{value}{unit}")
+            inches %= mult
+    
+    if inches == 0:
+        return "0in"
+    
+    return f"{inches}in"
+
+def add_spans(first: str, second: str) -> str:
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Inputs must be strings.")
+    
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

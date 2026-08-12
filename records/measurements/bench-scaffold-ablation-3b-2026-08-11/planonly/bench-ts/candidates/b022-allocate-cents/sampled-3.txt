@@ -1,0 +1,50 @@
+```typescript
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string' || !text.match(/^\d+(\.\d{2})?$/)) {
+    throw new Error('Invalid amount format');
+  }
+  const [integerPart, fractionalPart] = text.split('.');
+  return parseInt(integerPart, 10) * 100 + parseFloat(fractionalPart ?? '0');
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || !Number.isInteger(cents)) {
+    throw new Error('Invalid amount in cents');
+  }
+  const integerPart = Math.floor(cents / 100);
+  const fractionalPart = cents % 100;
+  return `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (typeof totalCents !== 'number' || !Number.isInteger(totalCents) || totalCents < 0) {
+    throw new Error('Invalid total cents');
+  }
+  if (!Array.isArray(weights)) {
+    throw new Error('Weights must be an array');
+  }
+  const sumOfWeights = weights.reduce((acc, weight) => acc + weight, 0);
+  if (sumOfWeights === 0) {
+    throw new Error('Total cannot be zero');
+  }
+  if (!weights.every(weight => typeof weight === 'number' && Number.isInteger(weight) && weight >= 0)) {
+    throw new Error('Invalid weights');
+  }
+
+  const shares = [...weights].sort((a, b) => a - b);
+  for (let i = 0; i < shares.length && totalCents > 0; i++) {
+    if (shares[i] === 0) continue;
+    const share = Math.floor(totalCents / sumOfWeights * shares[i]);
+    totalCents -= share;
+    shares[i] += share;
+  }
+
+  while (totalCents > 0 && shares.length > 0) {
+    const largestRemainderShareIndex = shares.indexOf(Math.max(...shares));
+    shares[largestRemainderShareIndex]++;
+    totalCents--;
+  }
+
+  return shares;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+/**
+ * Draws a tally as many hashes ('#') as specified, but never more than the given width.
+ * If the count exceeds the width, the bar is cut short with '>' at the end to indicate
+ * the partial bar.
+ *
+ * @param count The number of hashes to draw.
+ * @param width The maximum width of the bar.
+ * @returns A string representing the tally bar.
+ */
+export function tallyBar(count: number, width: number): string {
+  if (count > width) {
+    return `#`.repeat(width - 1) + '>';
+  }
+  return '#'.repeat(count);
+}
+```

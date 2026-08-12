@@ -1,0 +1,28 @@
+id: b133-profile-stack
+task_type: function_implementation
+task: >-
+  Implement resolveProfile, with mergeLayers beside it. mergeLayers
+  deep-merges two nested configuration mappings into a fresh mapping
+  without touching either argument: keys from both appear, and where both
+  hold a value under the same key, two mappings merge recursively while any
+  other pairing takes the second mapping's value whole; it rejects an
+  argument that is not a mapping with an error. resolveProfile resolves a
+  named profile from a catalog of profiles: each profile is a mapping that
+  may carry extends, a list of parent profile names, and settings, its own
+  nested mapping. Resolution starts empty, folds in each parent's fully
+  resolved result in list order so later parents override earlier ones,
+  then folds the profile's own settings on top. A profile reached twice
+  along one extends chain is a cycle; a diamond, the same ancestor reached
+  along two separate chains, is fine. Reject an unknown profile name, a
+  cycle, a profile that is not a mapping, an extends that is not a list of
+  strings, and a settings that is not a mapping, with an error.
+target: solution.ts
+interface: |-
+  export function mergeLayers(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown>
+  export function resolveProfile(name: string, profiles: Record<string, unknown>): Record<string, unknown>
+stop_conditions:
+  - Whether a profile may name the same parent twice in one extends list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

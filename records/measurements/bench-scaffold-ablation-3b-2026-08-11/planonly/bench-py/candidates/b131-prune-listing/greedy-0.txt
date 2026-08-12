@@ -1,0 +1,49 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    """
+    Prune a listing of relative slash-separated file paths based on ordered rules.
+    Each rule is a slash-separated pattern where '*' matches any run of zero or more characters,
+    and every other character matches only itself. A rule beginning with '!' keeps the path,
+    otherwise it drops it. Paths are kept if the last matching rule allows, otherwise they survive.
+    """
+    
+    def split_strict(s: str) -> list:
+        """Split a string into segments using '/' as a separator."""
+        if not s or s[0] == '/' or s[-1] == '/':
+            raise ValueError("Path or pattern cannot start or end with a slash.")
+        return [segment for segment in s.split('/') if segment]
+
+    def match_path(path: str, rule: list) -> bool:
+        """Check if a path matches a given rule."""
+        path_segments = split_strict(path)
+        rule_segments = split_strict(rule)
+        
+        if len(path_segments) < len(rule_segments):
+            return False
+        
+        for i in range(len(rule_segments)):
+            if rule_segments[i] == '*':
+                continue
+            elif path_segments[i] != rule_segments[i]:
+                return False
+        
+        return True
+
+    def prune_path(path: str, rules: list) -> bool:
+        """Determine if a path should be pruned based on the given rules."""
+        for rule in rules:
+            if rule.startswith('!'):
+                continue
+            if match_path(path, rule):
+                return True
+        return False
+
+    # Validate inputs
+    if not isinstance(listing, list) or not all(isinstance(p, str) and p for p in listing):
+        raise ValueError("Listing must be a non-empty list of strings.")
+    if not isinstance(rules, list) or not all(isinstance(r, str) and r for r in rules):
+        raise ValueError("Rules must be a non-empty list of strings.")
+
+    # Prune the listing
+    return [path for path in listing if not prune_path(path, rules)]
+```

@@ -1,0 +1,13 @@
+```ts
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (times <= 0) return ""; // Handle zero or negative numbers and NaN separately
+
+  let repeatedPhrase = "";
+  for (let i = 0; i < times; i++) {
+    repeatedPhrase += phrase;
+    repeatedPhrase += i === times - 1 ? "" : between;
+  }
+
+  return repeatedPhrase;
+}
+```

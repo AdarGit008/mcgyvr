@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def count_by(records: List[dict], field: str) -> dict:
+    if not field:
+        raise ValueError("Field name cannot be empty")
+
+    count_dict = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            count_dict[value] = count_dict.get(value, 0) + 1
+    return count_dict
+```

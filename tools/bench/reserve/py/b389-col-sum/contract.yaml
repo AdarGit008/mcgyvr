@@ -1,0 +1,15 @@
+id: b389-col-sum
+task_type: function_implementation
+task: >-
+  Implement col_sum. Given a grid written as a list of rows and the
+  place of a column, return the total of that column. A row too short
+  to reach the column adds nothing, and a grid with no rows totals
+  nothing.
+target: solution.py
+interface: "def col_sum(grid: list, column: int) -> int"
+stop_conditions:
+  - Whether a column place below zero should count from the right is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

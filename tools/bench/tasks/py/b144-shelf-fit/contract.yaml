@@ -1,0 +1,22 @@
+id: b144-shelf-fit
+task_type: function_implementation
+task: >-
+  Implement shelf_fit. The books for a display arrive in a fixed order, and
+  the widths argument lists each spine's width in millimetres, one
+  positive integer per book. Books go onto a single shelf of width shelf,
+  also in millimetres, strictly in arrival order: each next book is placed
+  when its spine still fits beside the ones already shelved, and shelving
+  stops for good at the first book that does not fit, even when a later,
+  thinner book would have. Return how many books end up on the shelf; an
+  empty widths list and a first book too wide both give zero. Reject a
+  widths argument that is not a list, a spine width anywhere in the list
+  that is not a positive integer, and a shelf width that is not a
+  non-negative integer, with an error.
+target: solution.py
+interface: "def shelf_fit(widths: list, shelf: int) -> int"
+stop_conditions:
+  - No upper bound on the number of books or on a spine width is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

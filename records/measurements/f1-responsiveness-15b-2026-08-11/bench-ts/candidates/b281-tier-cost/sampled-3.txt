@@ -1,0 +1,15 @@
+```ts
+// tierCost - units are charged at a first rate up to an included allowance and at a second rate for everything beyond it.
+// Return the cost of a number of units in whole pence. Usage inside the allowance is charged at the first rate only.
+// Reject with an error a number of units below zero.
+
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+    if (units < 0) {
+        throw new Error("Number of units cannot be negative.");
+    }
+
+    const cost = units <= allowance ? units * firstRate : allowance * firstRate + (units - allowance) * laterRate;
+
+    return Math.round(cost);
+}
+```

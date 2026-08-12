@@ -1,0 +1,12 @@
+```python
+from typing import *
+
+def vat_back(gross: int, rate: int) -> int:
+    if rate < 0 or rate > 100:
+        raise ValueError("Invalid tax rate. Rate must be between 0 and 100.")
+    
+    # Calculate the net price before VAT
+    net_price = gross / (1 + rate / 100)
+    
+    return int(net_price)  # Round down to the nearest integer
+```

@@ -1,0 +1,37 @@
+```ts
+/**
+ * Calculates the maximum takings and the pieces for cutting a fabric roll.
+ * @param length - The total length of the fabric roll in metres.
+ * @param board - An array of [metres, price] pairs representing the sellable pieces.
+ * @returns An object containing the greatest price the roll can fetch (takings)
+ * and the metre lengths of the cut that fetches it (pieces), largest first.
+ */
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error('Invalid roll length');
+  }
+
+  const dp = Array.from({ length }, () => ({ takings: 0, pieces: [] as number[] }));
+
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let bestPieces: number[] = [];
+
+    for (const [metres, price] of board) {
+      if (i >= metres && dp[i - metres].takings + price > maxTakings) {
+        maxTakings = dp[i - metres].takings + price;
+        bestPieces = [metres, ...dp[i - metres].pieces];
+      }
+    }
+
+    dp[i] = { takings: maxTakings, pieces: bestPieces };
+  }
+
+  return dp[length];
+}
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+```

@@ -1,0 +1,44 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string")
+    if not isinstance(path, str):
+        raise ValueError("Path must be a string")
+    if pattern == "" or path == "":
+        return False
+
+    def match_char(c1, c2):
+        if c1 == c2:
+            return True
+        elif c1 == "?":
+            return True
+        elif c1 == "*":
+            return True
+        else:
+            return False
+
+    i = 0
+    j = 0
+    while i < len(pattern) and j < len(path):
+        if pattern[i] == "*":
+            # Match zero or more characters in the path
+            while j < len(path) and not match_char(pattern[i], path[j]):
+                j += 1
+            if j >= len(path):
+                return True
+            i += 1
+        elif pattern[i] == "?":
+            # Match exactly one character in the path
+            if j >= len(path):
+                return False
+            i += 1
+            j += 1
+        else:
+            # Match a literal character in the path
+            if pattern[i] != path[j]:
+                return False
+            i += 1
+            j += 1
+
+    return i == len(pattern) and j == len(path)
+```

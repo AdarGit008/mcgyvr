@@ -1,0 +1,17 @@
+id: b330-span-list
+task_type: function_implementation
+task: >-
+  Implement range_text and span_list. range_text writes a run of
+  consecutive numbers as its first and its last joined by a hyphen, or
+  as the number alone when the run holds only one. span_list turns a
+  list of numbers already in increasing order into those runs, in
+  order.
+target: solution.py
+interface: "def range_text(first: int, last: int) -> str
+def span_list(numbers: list) -> list"
+stop_conditions:
+  - Whether a repeated number should break a run or be ignored is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

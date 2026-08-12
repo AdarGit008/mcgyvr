@@ -1,0 +1,90 @@
+```typescript
+import { ceil } from 'mathjs';
+
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not agree with the capacity.");
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+  
+  for (let i = 0; i < words.length; i++) {
+    const wordBitCount = i === words.length - 1 ? capacity % 32 : 32;
+    if (!Number.isInteger(words[i]) || words[i] > Math.pow(2, 32) - 1) {
+      throw new Error("Bitmap word must be an integer from 0 to 4294967295.");
+    }
+    
+    for (let j = 0; j < wordBitCount; j++) {
+      const bitIndex = i * 32 + j;
+      if (bitAt(words, bitIndex) === 1) {
+        continue;
+      } else if (bitIndex + length > capacity) {
+        break;
+      }
+      
+      for (let k = 0; k < length; k++) {
+        const currentBitIndex = bitIndex + k;
+        if (bitAt(words, currentBitIndex) !== 0) {
+          return -1;
+        }
+      }
+      
+      return i * 32;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start)) {
+    throw new Error("Start index must be an integer.");
+  }
+  
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not agree with the capacity.");
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+  
+  for (let i = 0; i < words.length; i++) {
+    const wordBitCount = i === words.length - 1 ? capacity % 32 : 32;
+    if (!Number.isInteger(words[i]) || words[i] > Math.pow(2, 32) - 1) {
+      throw new Error("Bitmap word must be an integer from 0 to 4294967295.");
+    }
+    
+    for (let j = 0; j < wordBitCount; j++) {
+      const bitIndex = i * 32 + j;
+      if (bitIndex >= start && bitIndex < start + length) {
+        words[i] |= (1 << (bitIndex - start));
+      }
+    }
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index)) {
+    throw new Error("Index must be an integer.");
+  }
+
+  const word = words[Math.floor(index / 32)];
+  const bit = index % 32;
+
+  if (word < 0 || word > Math.pow(2, 32) - 1) {
+    throw new Error("Bitmap word must be an integer from 0 to 4294967295.");
+  }
+
+  return (word & (1 << bit)) !== 0 ? 1 : 0;
+}
+```

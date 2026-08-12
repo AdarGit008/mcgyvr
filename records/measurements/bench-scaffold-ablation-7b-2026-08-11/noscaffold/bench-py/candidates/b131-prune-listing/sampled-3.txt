@@ -1,0 +1,31 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    if any(not isinstance(path, str) or path == "" for path in listing + rules):
+        raise ValueError("Invalid path or rule")
+    if any("/" * 2 in path for path in listing + rules):
+        raise ValueError("Path contains empty segment")
+
+    def matches_rule(path: str, rule: str) -> bool:
+        path_segments = path.split("/")
+        rule_segments = rule.split("/")
+        if len(rule_segments) > len(path_segments):
+            return False
+        for i, (path_segment, rule_segment) in enumerate(zip(path_segments, rule_segments)):
+            if rule_segment != "*" and path_segment != rule_segment:
+                return False
+        return True
+
+    def is_keep_rule(rule: str) -> bool:
+        return rule.startswith("!")
+
+    surviving_paths = []
+    for path in listing:
+        last_matching_rule = None
+        for rule in rules:
+            if matches_rule(path, rule):
+                last_matching_rule = rule
+        if last_matching_rule and (is_keep_rule(last_matching_rule) or not is_keep_rule(rule)):
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

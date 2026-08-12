@@ -1,0 +1,24 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative integer")
+    
+    if unit != base and unit not in defs:
+        raise ValueError(f"Unit '{unit}' is neither the base nor defined")
+
+    for _ in range(len(defs)):
+        factor = defs[unit][0]
+        finer_unit = defs[unit][1]
+        
+        # Check for loop detection
+        if finer_unit == base:
+            return amount
+
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError(f"Factor for unit '{unit}' must be a positive integer")
+
+        amount *= factor
+        unit = finer_unit
+
+    raise ValueError("Infinite loop detected while converting to the base unit")
+```

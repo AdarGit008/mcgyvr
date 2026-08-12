@@ -1,0 +1,24 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    """
+    Render value as unsigned binary in exactly width bits: most significant bit first,
+    left-padded with zeros to the full width, and split into groups of four bits joined by single spaces.
+    Reject a value that is not a non-negative integer, a width that is not a positive multiple of four or exceeds 32,
+    and a value that does not fit in width bits.
+    """
+    if value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    
+    if width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    
+    if width % 4 != 0 or width > 32:
+        raise ValueError("Width must be a positive multiple of four and at most 32 bits.")
+    
+    binary_str = bin(value)[2:]  # Get the binary representation without '0b'
+    padded_binary_str = binary_str.zfill(width)  # Pad with leading zeros
+    
+    nibble_groups = [padded_binary_str[i:i+4] for i in range(0, width, 4)]
+    
+    return " ".join(nibble_groups)
+```

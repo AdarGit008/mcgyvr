@@ -1,0 +1,48 @@
+id: b091-note-index
+task_type: bug_fix
+task: >-
+  buildWordIndex indexes a plain-text note incorrectly. Its companion
+  wordsOfLine is correct and must not change: it lowercases one line and
+  returns the maximal runs of ASCII letters and digits in order, so
+  spacing and punctuation only separate words. The note's lines are
+  numbered from one, and the index must map every word wordsOfLine finds
+  in the note to the strictly increasing list of the line numbers holding
+  that word, each number listed once however often the word recurs on its
+  line. As written, a word appearing several times on one line records
+  that line number once per appearance. Fix it. Also add the missing
+  validation: reject a note that is not a string, with an error. Return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A word-to-line index for a plain-text note. */
+
+  export function wordsOfLine(line: string): string[] {
+    const runs = line.toLowerCase().match(/[a-z0-9]+/g);
+    if (runs === null) {
+      return [];
+    }
+    return runs;
+  }
+
+  export function buildWordIndex(text: string): Record<string, number[]> {
+    const index: Record<string, number[]> = {};
+    const rows = text.split("\n");
+    for (let row = 1; row <= rows.length; row++) {
+      for (const word of wordsOfLine(rows[row - 1])) {
+        if (index[word] === undefined) {
+          index[word] = [];
+        }
+        index[word].push(row);
+      }
+    }
+    return index;
+  }
+interface: |-
+  export function buildWordIndex(text: string): Record<string, number[]>
+  export function wordsOfLine(line: string): string[]
+stop_conditions:
+  - An upper bound on the size of the note is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

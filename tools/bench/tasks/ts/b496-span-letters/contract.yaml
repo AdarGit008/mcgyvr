@@ -1,0 +1,32 @@
+id: b496-span-letters
+task_type: bug_fix
+task: >-
+  spanLetters opens out a written span such as a dash between two
+  letters into every letter from the first to the last, the last one
+  included. Anything not written as exactly two letters with a dash
+  between them, or running backward, is given back untouched. Fix
+  spanLetters. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function spanLetters(span: string): string {
+    if (span.length !== 3 || span[1] !== "-") {
+      return span;
+    }
+    const from = span.charCodeAt(0);
+    const to = span.charCodeAt(2);
+    if (from > to) {
+      return span;
+    }
+    let out = "";
+    for (let code = from; code < to; code += 1) {
+      out += String.fromCharCode(code);
+    }
+    return out;
+  }
+interface: "export function spanLetters(span: string): string"
+stop_conditions:
+  - Whether a span written across the two cases should be opened out is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

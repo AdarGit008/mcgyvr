@@ -1,0 +1,16 @@
+id: b452-grid-find
+task_type: function_implementation
+task: >-
+  Implement matchAt and gridFind. matchAt says whether the cell at a
+  row and column of a grid holds a stated value. gridFind returns the
+  row and column of the first cell that does, reading row by row.
+  Reject a grid not holding the value anywhere with an error.
+target: solution.ts
+interface: "export function matchAt(grid: number[][], row: number, column: number, value: number): boolean
+export function gridFind(grid: number[][], value: number): number[]"
+stop_conditions:
+  - Whether the last cell holding the value should be found instead is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,23 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Length must be a non-negative integer.");
+  }
+
+  const ladder = [
+    { unit: "m", millimetersPerUnit: 1000 },
+    { unit: "cm", millimetersPerUnit: 10 },
+  ];
+
+  let result = "";
+  for (const { unit, millimetersPerUnit } of ladder) {
+    const count = Math.floor(mm / millimetersPerUnit);
+    if (count > 0) {
+      result += `${count}${unit} `;
+      mm -= count * millimetersPerUnit;
+    }
+  }
+
+  return result.trim();
+}
+```

@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    if len(minutes) < 2:
+        return []
+
+    first_run = minutes[0]
+    last_run = minutes[-1]
+
+    if last_run - first_run <= 1:
+        return []
+
+    return [last_run - first_run - 1] * (last_run - first_run - 1)
+```

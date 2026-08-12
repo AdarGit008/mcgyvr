@@ -1,0 +1,44 @@
+```typescript
+/**
+ * Thaw a row of cells by melting ice at its ends or beside meltwater.
+ *
+ * @param row - The input row as a string of "#" and ".".
+ * @param steps - The number of thaw steps to perform.
+ * @returns The row after the specified number of steps.
+ */
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row === '') {
+    throw new Error('Invalid row input');
+  }
+  if (!/^[.#]+$/.test(row)) {
+    throw new Error('Row contains invalid characters');
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Invalid step count');
+  }
+
+  let cells = row.split('');
+
+  for (let _ of range(steps)) {
+    const nextCells = cells.slice();
+    for (let i = 0; i < cells.length; i++) {
+      if ((i === 0 || cells[i - 1] === '.') && cells[i] === '#') {
+        nextCells[i] = '.';
+      }
+      if ((i === cells.length - 1 || cells[i + 1] === '.') && cells[i] === '#') {
+        nextCells[i] = '.';
+      }
+    }
+    cells = nextCells;
+  }
+
+  return cells.join('');
+}
+
+// Helper function to generate a range of numbers
+function* range(end: number): Generator<number> {
+  for (let i = 0; i < end; i++) {
+    yield i;
+  }
+}
+```

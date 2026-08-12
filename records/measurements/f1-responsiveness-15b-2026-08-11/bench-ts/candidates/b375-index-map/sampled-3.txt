@@ -1,0 +1,19 @@
+```ts
+export function indexMap(labels: string[]): Record<string, number[]> {
+  const result: Record<string, number[]> = {};
+
+  labels.forEach((label, index) => {
+    if (typeof label !== 'string' || !label.length) {
+      throw new Error('All labels must be strings with length greater than zero');
+    }
+
+    if (!result[label]) {
+      result[label] = [index];
+    } else {
+      result[label].push(index);
+    }
+  });
+
+  return result;
+}
+```

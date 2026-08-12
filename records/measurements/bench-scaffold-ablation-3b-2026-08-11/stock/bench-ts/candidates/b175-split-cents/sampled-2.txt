@@ -1,0 +1,38 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total)) throw new Error("total must be whole cents");
+  if (total < 0) throw new Error("total may not be negative");
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error("weights must be a non-empty list");
+  if (!weights.every((w) => Number.isInteger(w) && w > 0)) throw new Error("a weight is a positive whole number");
+
+  const sumOfWeights = weights.reduce((acc, w) => acc + w, 0);
+  if (total !== Math.floor(total)) throw new Error("total must be a whole number");
+
+  const parts = weights.map((w, i) => {
+    const share = Math.floor((total * w) / sumOfWeights);
+    return { partner: i, share };
+  });
+
+  // Sort by discarded fraction in descending order, ties go to the earlier partner
+  parts.sort((a, b) => {
+    const aDiscardedFraction = (total - (a.share + b.share)) / weights[b.partner];
+    const bDiscardedFraction = (total - (b.share + a.share)) / weights[a.partner];
+    return bDiscardedFraction - aDiscardedFraction || a.partner - b.partner;
+  });
+
+  // Calculate the leftover cents
+  let leftoverCents = total;
+  for (const { partner, share } of parts) {
+    leftoverCents -= share;
+    if (leftoverCents === 0) break;
+    weights[partner]++;
+  }
+
+  const result = parts.map((p) => p.share);
+  // Ensure the sum of parts equals total
+  if (result.reduce((acc, curr) => acc + curr, 0) !== total) {
+    throw new Error("Total after distributing does not match original total");
+  }
+  return result;
+}
+```

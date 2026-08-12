@@ -1,0 +1,33 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  // Check for negative or non-integer amount
+  if (amount < 0 || !Number.isInteger(amount)) {
+    throw new Error('Amount must be a non-negative whole number');
+  }
+
+  // Check if unit is defined and not the base
+  const [factor, finer] = defs[unit];
+  if (!factor || unit === base) {
+    throw new Error('Unit must be defined in defs and not equal to the base');
+  }
+
+  // Convert amount to the base using recursion
+  function convertToBase(amount: number, currentUnit: string): number {
+    const [factor, finer] = defs[currentUnit];
+    if (currentUnit === base) {
+      return amount;
+    }
+    if (!factor || finer === undefined) {
+      throw new Error('Chain loops or unit is not defined in defs');
+    }
+    return convertToBase(amount * factor, finer);
+  }
+
+  try {
+    return convertToBase(amount, unit);
+  } catch (error) {
+    console.error(error); // Output error for debugging purposes
+    throw error;
+  }
+}
+```

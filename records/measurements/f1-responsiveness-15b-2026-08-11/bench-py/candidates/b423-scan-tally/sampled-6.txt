@@ -1,0 +1,22 @@
+```python
+def step_value(step: str) -> int:
+    if step == "+":
+        return 1
+    elif step == "-":
+        return -1
+    else:
+        raise ValueError("Invalid step value. Expected '+' or '-'.")
+
+
+def scan_tally(steps: list) -> list:
+    """The running total after each instruction."""
+    if not steps:
+        return []
+    
+    total = steps[0]
+    for i in range(1, len(steps)):
+        step = steps[i]
+        total += step_value(step)
+    
+    return [total]
+```

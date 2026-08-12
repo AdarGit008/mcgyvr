@@ -1,0 +1,10 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or end > len(text):
+        raise ValueError("Place is out of range.")
+
+    if start > end:
+        start, end = end, start
+
+    return text[start:end]
+```

@@ -1,0 +1,32 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer from 0 to 32")
+    
+    return ".".join(f"{(1 << 8 * (3 - i)) - 1}" for i in range(4))
+
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string")
+    
+    fields = mask.split(".")
+    if len(fields) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields")
+    
+    try:
+        octets = [int(field) for field in fields]
+    except ValueError:
+        raise ValueError("All mask fields must be decimal digits")
+    
+    for octet in octets:
+        if octet < 0 or octet > 255:
+            raise ValueError("Each mask octet must be in the range 0 to 255")
+    
+    prefix = sum(8 * (3 - i) + (octet != 255) for i, octet in enumerate(octets))
+    
+    if any((octets[i] == 0 and octets[i + 1] != 255) for i in range(3)):
+        raise ValueError("Mask must have a continuous run of ones followed by zeros")
+    
+    return prefix
+```

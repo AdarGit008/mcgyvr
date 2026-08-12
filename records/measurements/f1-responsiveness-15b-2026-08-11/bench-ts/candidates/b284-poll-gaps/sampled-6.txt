@@ -1,0 +1,11 @@
+```ts
+/**
+ * Determines the gaps between consecutive runs of the monitor.
+ * @param minutes - An array of numbers representing the minutes on which the monitor ran.
+ * @returns An array of numbers indicating the gaps between consecutive runs, or an empty array if there are fewer than two runs.
+ */
+export function pollGaps(minutes: number[]): number[] {
+  const sortedMinutes = [...minutes].sort((a, b) => a - b);
+  return sortedMinutes.filter((current, index) => index > 0 && current !== sortedMinutes[index - 1]).map((gap) => gap - sortedMinutes[index - 1]);
+}
+```

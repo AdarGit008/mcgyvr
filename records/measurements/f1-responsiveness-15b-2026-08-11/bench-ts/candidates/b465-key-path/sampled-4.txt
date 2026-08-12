@@ -1,0 +1,16 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+    if (!store || typeof store !== 'object' || !head) {
+        throw new Error('Invalid input');
+    }
+
+    const result: string[] = [];
+    for (const name in store) {
+        if (name.startsWith(head + '.')) {
+            result.push(name.slice(head.length + 1));
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,32 @@
+```python
+def clamp_move(position: int, delta: int, width: int) -> list:
+    new_position = position + delta
+    if new_position < 0:
+        return [0, True]
+    elif new_position >= width:
+        return [width - 1, True]
+    else:
+        return [new_position, False]
+
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    if width <= 0 or not isinstance(start, int) or start < 0 or start >= width:
+        raise ValueError("Invalid width or start position")
+    if any(not isinstance(move, int) for move in moves):
+        raise ValueError("All moves must be integers")
+
+    position = start
+    bumps = 0
+    visited = {start}
+
+    for move in moves:
+        new_position, bump = clamp_move(position, move, width)
+        if bump:
+            bumps += 1
+        if new_position not in visited:
+            visited.add(new_position)
+        position = new_position
+
+    return {"position": position, "bumps": bumps, "visited": len(visited)}
+```

@@ -1,0 +1,8 @@
+```python
+def index_map(labels: list) -> dict:
+    if not labels:
+        return {}  # Return an empty dictionary for no input
+
+    label_indices = {label: [i] for i, label in enumerate(labels)}
+    return label_indices
+```

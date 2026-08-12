@@ -1,0 +1,14 @@
+id: b363-alternate-merge
+task_type: function_implementation
+task: >-
+  Implement alternate_merge. Take entries from two lists in turn,
+  starting with the first list, and return them as one list. When one
+  list runs out the rest of the other follows in order.
+target: solution.py
+interface: "def alternate_merge(left: list, right: list) -> list"
+stop_conditions:
+  - Whether the turn should start with the longer list instead is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

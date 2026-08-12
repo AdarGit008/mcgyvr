@@ -1,0 +1,35 @@
+```python
+def stamp_table(dies: list) -> dict:
+    """
+    Create a lookup table from dies list.
+    """
+    die_map = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not fragment:
+            raise ValueError(f"Invalid fragment: {fragment}")
+        if not isinstance(price, int) or price <= 0:
+            raise ValueError(f"Invalid price: {price}")
+        if fragment in die_map:
+            raise ValueError(f"Duplicate fragment: {fragment}")
+        die_map[fragment] = price
+    return die_map
+
+def stamp_cover(label: str, dies: list) -> int:
+    """
+    Calculate the cheapest total price to spell out a label using the given dies.
+    """
+    if not isinstance(label, str) or not label:
+        raise ValueError("Invalid label")
+    
+    die_map = stamp_table(dies)
+    n = len(label)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    
+    for i in range(1, n + 1):
+        for fragment, price in die_map.items():
+            if i >= len(fragment) and label[i - len(fragment):i] == fragment:
+                dp[i] = min(dp[i], dp[i - len(fragment)] + price)
+    
+    return dp[n]
+```

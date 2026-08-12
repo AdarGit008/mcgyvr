@@ -1,0 +1,42 @@
+```ts
+/**
+ * Determines if a character is a quotation mark.
+ * @param ch The character to check.
+ * @returns true if the character is a quotation mark, false otherwise.
+ */
+export function inQuote(ch: string): boolean {
+  return ch === '"' || ch === "'";
+}
+
+/**
+ * Splits a line on commas, except for a comma standing inside quotation marks.
+ * @param line The line to split.
+ * @returns An array of pieces with their quotation marks still in place.
+ */
+export function quoteSplit(line: string): string[] {
+  const result = [];
+  let currentQuoteState = false;
+  let currentWord = '';
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"' || ch === "'") {
+      currentQuoteState = !currentQuoteState;
+      continue;
+    }
+    if (currentQuoteState) {
+      currentWord += ch;
+    } else {
+      if (ch === ',') {
+        result.push(currentWord);
+        currentWord = '';
+      } else {
+        currentWord += ch;
+      }
+    }
+  }
+  if (currentWord) {
+    result.push(currentWord);
+  }
+  return result;
+}
+```

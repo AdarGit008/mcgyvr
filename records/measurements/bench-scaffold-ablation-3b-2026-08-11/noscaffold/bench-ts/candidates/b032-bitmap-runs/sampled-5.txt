@@ -1,0 +1,49 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) throw new Error('Capacity must be a positive integer');
+  const expectedWordCount = Math.ceil(capacity / 32);
+  if (words.length !== expectedWordCount) throw new Error(`Expected ${expectedWordCount} words, found ${words.length}`);
+  for (const word of words) {
+    if (!Number.isInteger(word) || word < 0 || word > 4294967295) throw new Error('Invalid word in bitmap');
+  }
+
+  for (let start = 0; start <= capacity - length; start++) {
+    let freeBlocks = 0;
+    for (let i = 0; i < length; i++) {
+      const index = start + i;
+      if (bitAt(words, index) === 1) {
+        freeBlocks = 0;
+        break;
+      } else {
+        freeBlocks++;
+      }
+    }
+    if (freeBlocks === length) return start;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length) || start < 0 || length <= 0) throw new Error('Start and length must be positive integers');
+  const expectedWordCount = Math.ceil((start + length) / 32);
+  if (words.length !== expectedWordCount) throw new Error(`Expected ${expectedWordCount} words, found ${words.length}`);
+  for (const word of words) {
+    if (!Number.isInteger(word) || word < 0 || word > 4294967295) throw new Error('Invalid word in bitmap');
+  }
+
+  const newWords = [...words];
+  let end = start + length;
+  for (let i = start; i < end; i++) {
+    if (bitAt(newWords, i) === 1) throw new Error(`Cannot occupy block ${i}`);
+    newWords[i >> 5] |= 1 << (i & 31);
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0 || index >= words.length * 32) throw new Error('Index must be an integer within the bounds of the bitmap');
+  const word = words[index >> 5];
+  return (word >>> (index & 31)) & 1;
+}
+```

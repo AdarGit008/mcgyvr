@@ -1,0 +1,15 @@
+```python
+def grid_flip(grid: list) -> list:
+    if not grid:
+        return []
+
+    num_rows = len(grid)
+    num_cols = len(grid[0])
+    flipped_grid = [[None] * num_rows for _ in range(num_cols)]
+
+    for row_idx, row in enumerate(grid):
+        for col_idx, value in enumerate(row):
+            flipped_grid[col_idx][row_idx] = value
+
+    return flipped_grid
+```

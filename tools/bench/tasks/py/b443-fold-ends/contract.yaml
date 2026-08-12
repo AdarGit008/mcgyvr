@@ -1,0 +1,15 @@
+id: b443-fold-ends
+task_type: function_implementation
+task: >-
+  Implement fold_ends. Fold a list onto itself by adding the first
+  entry to the last, the second to the second-last, and so on,
+  returning the totals in that order. A list of an odd length leaves
+  its middle entry as its own total.
+target: solution.py
+interface: "def fold_ends(values: list) -> list"
+stop_conditions:
+  - Whether the totals should be returned from the middle outward is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

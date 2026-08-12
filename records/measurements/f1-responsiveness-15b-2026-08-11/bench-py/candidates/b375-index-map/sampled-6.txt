@@ -1,0 +1,19 @@
+```python
+def index_map(labels: list) -> dict:
+    # Create a dictionary to store the mapping of each label to its positions
+    position_dict = {}
+    
+    # Iterate over the indices and labels
+    for idx, label in enumerate(labels):
+        # Convert the label string into a set to remove duplicates (if any)
+        unique_label = set(label)
+        
+        # If the label is already present in the dictionary, extend the list of positions
+        if label in position_dict:
+            position_dict[label].extend(range(idx))
+        else:
+            # Otherwise, create a new list with just this position
+            position_dict[label] = [idx]
+    
+    return position_dict
+```

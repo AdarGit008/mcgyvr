@@ -1,0 +1,66 @@
+```python
+from typing import *
+from collections.abc import *
+
+def validate(node: dict) -> None:
+    if not isinstance(node, Mapping):
+        raise ValueError("Node must be a mapping.")
+    
+    for key, value in node.items():
+        if not isinstance(key, str) or '/' in key:
+            raise ValueError("Key must be a non-empty string without slashes.")
+        
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            raise ValueError("Node must have either bytes or children.")
+        
+        if 'bytes' in node:
+            if not isinstance(value, int) or value < 0:
+                raise ValueError("Bytes must be a non-negative whole number.")
+        if 'children' in node:
+            if not isinstance(value, list):
+                raise ValueError("Children must be a list.")
+    
+    for child in node.get('children', []):
+        validate(child)
+
+def file_paths(root: dict) -> list:
+    paths = []
+    stack = [(root, [])]
+    while stack:
+        current, path = stack.pop()
+        if 'bytes' in current:
+            paths.append('/'.join(path))
+        if 'children' in current:
+            for child in current['children']:
+                stack.append((child, path + [current['name']]))
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    def recurse(node):
+        total = node.get('bytes', 0)
+        for child in node.get('children', []):
+            total += recurse(child)
+        return total
+    validate(root)
+    return recurse(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number.")
+    
+    paths = file_paths(root)
+    results = []
+    stack = [(root, [])]
+    while stack and len(results) < len(paths):
+        current, path = stack.pop()
+        
+        for child in current.get('children', []):
+            stack.append((child, path + [current['name']]))
+    
+        if 'bytes' in current:
+            results.append(('/'.join(path), tree_bytes(current)))
+    
+    return [(path, total) for path, (total,) in zip(paths, results) if total >= min_bytes]
+```

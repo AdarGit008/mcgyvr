@@ -26,6 +26,7 @@ the worker's change (the same distinction #38 draws for acceptance commands).
 
 from __future__ import annotations
 
+import os
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -152,3 +153,28 @@ def require_tool(tool: str) -> str:
     if found is None:
         raise ToolUnavailableError(tool)
     return found
+
+
+#: Variables by which a surrounding shell tells a tool to colourise even when
+#: its output is a pipe. `NO_COLOR` is the conventional opt-out and every tool
+#: the adapters shell out to honours it.
+_COLOUR_FORCING = ("FORCE_COLOR", "CLICOLOR_FORCE")
+
+
+def plain_env() -> dict[str, str]:
+    """The environment to run a checking tool in, with colour forced off.
+
+    Every adapter reads its tool's output as structured text — a unified diff
+    by its leading ``-`` and ``+``, or a JSON document by its first character.
+    A tool that colourises writes ANSI escapes ahead of exactly those
+    characters, so a `FORCE_COLOR` in the developer's shell does not make a
+    gate fail: it makes the gate **stop reporting**. That is a silent false
+    negative, which is the one failure mode a gate must not have, and it is
+    invisible because the tool still exits with the right status.
+
+    Passing this to every :func:`subprocess.run` in an adapter costs nothing
+    and removes the whole class.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _COLOUR_FORCING}
+    env["NO_COLOR"] = "1"
+    return env

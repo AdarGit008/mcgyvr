@@ -1,0 +1,15 @@
+id: b362-up-runs
+task_type: function_implementation
+task: >-
+  Implement upRuns. Return the length of the longest run of readings
+  that rises at every step, each strictly above the one before it. A
+  reading that does not rise begins a new run, and a list holding
+  nothing has a longest run of nothing.
+target: solution.ts
+interface: "export function upRuns(readings: number[]): number"
+stop_conditions:
+  - Whether two equal readings should continue a run or break it is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

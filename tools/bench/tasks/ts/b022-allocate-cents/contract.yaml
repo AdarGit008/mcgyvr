@@ -1,0 +1,60 @@
+id: b022-allocate-cents
+task_type: function_implementation
+task: >-
+  Implement allocateCents, the allocator of a small fixed-point money
+  module whose two companions you must also provide. parseAmount turns a
+  decimal amount string — digits, optionally followed by a dot and exactly
+  two fraction digits, so "12.34" and "7" are valid — into integer cents,
+  and rejects any other text or a non-string with an error. formatAmount
+  renders non-negative integer cents back into that dotted form with
+  exactly two fraction digits. allocateCents splits totalCents across a
+  list of integer weights proportionally: every share starts at the floor
+  of its exact proportional value, and the cents left over are handed out
+  one apiece to the shares with the largest division remainders, earliest
+  index first on a tie, so the shares always sum exactly to totalCents. A
+  zero weight never receives a cent, and a zero total yields all-zero
+  shares. Reject an empty weight list, a weight that is not a non-negative
+  integer, weights that sum to zero, and a total that is not a
+  non-negative integer, with an error.
+target: solution.ts
+target_content: |
+  /** Fixed-point money helpers: parse, format, and allocate integer cents. */
+
+  export function parseAmount(text: string): number {
+    if (typeof text !== "string") {
+      throw new Error("amount must be a string");
+    }
+    const match = /^(\d+)(?:\.(\d{2}))?$/.exec(text);
+    if (match === null) {
+      throw new Error(`malformed amount: ${text}`);
+    }
+    const whole = Number(match[1]);
+    const cents = match[2] === undefined ? 0 : Number(match[2]);
+    return whole * 100 + cents;
+  }
+
+  export function formatAmount(cents: number): string {
+    if (!Number.isInteger(cents) || cents < 0) {
+      throw new Error("cents must be a non-negative integer");
+    }
+    const whole = Math.floor(cents / 100);
+    const rest = String(cents % 100).padStart(2, "0");
+    return `${whole}.${rest}`;
+  }
+
+  export function allocateCents(totalCents: number, weights: number[]): number[] {
+    // TODO: validate the inputs, then hand out the leftover cents by
+    // largest remainder so the shares sum exactly to totalCents.
+    const sum = weights.reduce((acc, weight) => acc + weight, 0);
+    return weights.map((weight) => Math.floor((totalCents * weight) / sum));
+  }
+interface: |-
+  export function parseAmount(text: string): number
+  export function formatAmount(cents: number): string
+  export function allocateCents(totalCents: number, weights: number[]): number[]
+stop_conditions:
+  - Whether parseAmount accepts leading zeros in the integer part is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

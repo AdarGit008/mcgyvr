@@ -1,0 +1,15 @@
+id: b466-clip-text
+task_type: function_implementation
+task: >-
+  Implement clip_text. Return the part of a text standing between two
+  places, the first included and the second not, with places counted
+  from zero. A place past the end is brought back to the end. Reject a
+  first place standing above the second with an error.
+target: solution.py
+interface: "def clip_text(text: str, start: int, end: int) -> str"
+stop_conditions:
+  - Whether a place below nothing should count from the end is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

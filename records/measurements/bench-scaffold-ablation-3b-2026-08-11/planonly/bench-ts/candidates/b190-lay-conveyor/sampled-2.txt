@@ -1,0 +1,22 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  // Check if the run would pass the last column or cover a cell that is not open
+  const maxCol = floor[0].length;
+  if (col + length > maxCol) {
+    throw new Error("Run would pass the last column");
+  }
+
+  for (let i = col; i < col + length; i++) {
+    if (floor[row][i] !== ".") {
+      throw new Error("Cell is not open");
+    }
+  }
+
+  // Lay the conveyor run
+  const newRow = floor[row].split("");
+  for (let i = col; i < col + length; i++) {
+    newRow[i] = "=";
+  }
+  return [...floor.slice(0, row), newRow.join(""), ...floor.slice(row + 1)];
+}
+```

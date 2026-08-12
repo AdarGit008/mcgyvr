@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    if len(minutes) < 2:
+        return []
+
+    gaps = [minutes[1] - minutes[0]]
+    for i in range(2, len(minutes)):
+        gap = minutes[i] - minutes[i-1]
+        gaps.append(gap)
+
+    return gaps
+```

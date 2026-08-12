@@ -1,0 +1,20 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function camelBreak(name: string): string[] {
+    return name.split(/\b(?=[A-Z])/).map(word => word.toLowerCase());
+}
+
+// Check function to verify the correctness of the solution
+function check() {
+    assert.deepStrictEqual(camelBreak("HelloWorld"), ["hello", "world"]);
+    assert.deepStrictEqual(camelBreak("ThisIsCamelCase"), ["this", "is", "camel", "case"]);
+    assert.deepStrictEqual(camelBreak(""), []);
+    assert.deepStrictEqual(camelBreak("123ABCdefgh"), ["123abc", "defgh"]);
+    assert.deepStrictEqual(camelBreak("aBcDeFg"), ["abcde", "fg"]);
+    console.log("All tests passed!");
+}
+
+// Run the check function to verify the solution
+check();
+```

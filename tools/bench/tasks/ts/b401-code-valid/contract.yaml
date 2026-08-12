@@ -1,0 +1,15 @@
+id: b401-code-valid
+task_type: function_implementation
+task: >-
+  Implement codeValid. A code is valid when it runs to exactly a
+  stated length and holds nothing but capital letters and digits. Say
+  whether a code is valid. Reject a stated length of zero or less with
+  an error.
+target: solution.ts
+interface: "export function codeValid(code: string, length: number): boolean"
+stop_conditions:
+  - Whether a code may hold a space between groups is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,65 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = {
+    state: 'open',
+    items: [] as [string, number][],
+    total: 0,
+    paid: 0,
+    change: 0
+  };
+
+  const session = events.reduce((acc, event) => {
+    switch (event[0]) {
+      case 'scan':
+        if (typeof event[1] !== 'string' || !prices.hasOwnProperty(event[1])) {
+          throw new Error('Invalid scan event');
+        }
+        acc.items.push([event[1], acc.items.find(([name]) => name === event[1]) ? acc.items.find(([name]) => name === event[1])![1] + 1 : 1]);
+        break;
+      case 'void':
+        if (typeof event[1] !== 'string' || !acc.items.some(([name]) => name === event[1])) {
+          throw new Error('Invalid void event');
+        }
+        const itemIndex = acc.items.findIndex(([name]) => name === event[1]);
+        const quantity = acc.items[itemIndex][1];
+        if (quantity > 1) {
+          acc.items[itemIndex] = [event[1], quantity - 1];
+        } else {
+          acc.items.splice(itemIndex, 1);
+        }
+        break;
+      case 'close':
+        if (acc.state !== 'open' || acc.items.length === 0) {
+          throw new Error('Invalid close event');
+        }
+        acc.total = acc.items.reduce((sum, [name]) => sum + prices[name], 0);
+        acc.state = 'payment';
+        break;
+      case 'pay':
+        if (typeof event[1] !== 'number' || !Number.isInteger(event[1]) || event[1] <= 0 || acc.state !== 'payment') {
+          throw new Error('Invalid pay event');
+        }
+        acc.paid += event[1];
+        acc.change = acc.paid - acc.total;
+        if (acc.change < 0) {
+          acc.change = 0;
+        }
+        acc.state = 'paid';
+        break;
+      case 'cancel':
+        acc.state = 'cancelled';
+        break;
+      default:
+        throw new Error('Unknown action');
+    }
+    return acc;
+  }, initialState);
+
+  if (session.state !== 'paid' && session.state !== 'cancelled') {
+    throw new Error('Session not paid or cancelled');
+  }
+
+  const sortedItems = [...session.items].sort((a, b) => a[0].localeCompare(b[0]));
+  return { ...session, items: sortedItems };
+}
+```

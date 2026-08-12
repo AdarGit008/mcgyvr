@@ -1,0 +1,13 @@
+```ts
+function stepBack(moves: string): number {
+  let currentPosition = 0;
+  for (const move of moves) {
+    if (move === 'F') {
+      currentPosition++;
+    } else if (move === 'B') {
+      currentPosition--;
+    }
+  }
+  return Math.max(0, currentPosition);
+}
+```

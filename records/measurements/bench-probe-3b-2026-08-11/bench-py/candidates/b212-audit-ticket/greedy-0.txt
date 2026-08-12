@@ -1,0 +1,31 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Input must be a string.")
+    
+    # Trim leading and trailing spaces
+    ticket = ticket.strip()
+    
+    # Check if the ticket matches the required format
+    if len(ticket) != 10 or ticket[2] != '-' or ticket[6] != '-':
+        return "shape"
+    
+    letters, digits, check_digit = ticket[:2], ticket[3:7], ticket[-1]
+    
+    # Calculate the total for the letters
+    letter_total = sum((ord(char) - ord('A') + 1) * (i + 1) for i, char in enumerate(letters))
+    
+    # Calculate the total for the digits
+    digit_total = sum(int(digit) * (4 - i) for i, digit in enumerate(digits))
+    
+    # Calculate the expected check digit
+    expected_check_digit = (letter_total + digit_total) % 10
+    
+    # Determine the audit result
+    if letter_total == digit_total and check_digit == str(expected_check_digit):
+        return "ok"
+    elif letter_total != digit_total:
+        return "shape"
+    else:
+        return "check"
+```

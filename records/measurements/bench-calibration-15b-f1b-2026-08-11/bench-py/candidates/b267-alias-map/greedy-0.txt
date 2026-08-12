@@ -1,0 +1,9 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    if name in aliases:
+        return aliases[name]
+    raise ValueError(f"Name '{name}' does not resolve to anything.")
+
+def alias_names(aliases: dict) -> list:
+    return sorted([k for k, v in aliases.items() if v is not None])
+```

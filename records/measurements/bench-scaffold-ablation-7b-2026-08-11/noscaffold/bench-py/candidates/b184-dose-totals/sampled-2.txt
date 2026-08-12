@@ -1,0 +1,35 @@
+```python
+def dose_totals(log: list) -> dict:
+    """Total each reagent in a pour log."""
+    from fractions import Fraction
+    
+    if not log:
+        return {}
+    
+    totals = {}
+    
+    for reagent, amount in log:
+        try:
+            # Parse the amount as a decimal string and convert to a fraction
+            amount_frac = Fraction(amount)
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount}")
+        
+        # Add the parsed amount to the total for this reagent
+        if reagent in totals:
+            totals[reagent] += amount_frac
+        else:
+            totals[reagent] = amount_frac
+    
+    # Convert the totals back to decimal strings with the correct precision
+    result = {}
+    for reagent, total in totals.items():
+        if total.denominator == 1:
+            result[reagent] = str(total.numerator)
+        elif total < 0 and total.denominator == -1:
+            result[reagent] = f"-{abs(total).numerator:.{total.denominator+2}f}"
+        else:
+            result[reagent] = f"{total.numerator:.{total.denominator+2}f}"
+    
+    return result
+```

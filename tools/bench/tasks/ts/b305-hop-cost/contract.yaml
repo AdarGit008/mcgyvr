@@ -1,0 +1,34 @@
+id: b305-hop-cost
+task_type: bug_fix
+task: >-
+  stepCost returns what one hop of a journey costs: its distance times
+  a rate. tripCost adds the hops up and applies a minimum charge to
+  the trip, and it applies that minimum to every hop instead of to the
+  trip as a whole. Fix tripCost. A trip with no hops still costs the
+  minimum. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function stepCost(distance: number, rate: number): number {
+    return distance * rate;
+  }
+
+  /** The cost of a whole trip, never below the minimum charge. */
+  export function tripCost(
+    hops: number[],
+    rate: number,
+    minimum: number,
+  ): number {
+    let total = 0;
+    for (const hop of hops) {
+      total += Math.max(stepCost(hop, rate), minimum);
+    }
+    return total;
+  }
+interface: "export function stepCost(distance: number, rate: number): number
+export function tripCost(hops: number[], rate: number, minimum: number): number"
+stop_conditions:
+  - Whether the minimum charge should be waived for a trip of one very short hop is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,23 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    def is_valid_selector(selector):
+        return selector.endswith(".*") and len(selector) > 1
+    
+    def match_exact(rule_name, value):
+        return rule_name == name
+    
+    def match_wildcard(rule_name, value):
+        if not is_valid_selector(rule_name):
+            raise ValueError(f"Invalid wildcard: {rule_name}")
+        prefix = rule_name[:-2]
+        return name.startswith(prefix)
+    
+    for selector, value in rules.items():
+        if isinstance(value, str):
+            if match_exact(selector, value) or (match_wildcard(selector, value) and match_exact(selector[:-2], value)):
+                return value
+    return None
+```

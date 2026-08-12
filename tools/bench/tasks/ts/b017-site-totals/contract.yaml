@@ -1,0 +1,79 @@
+id: b017-site-totals
+task_type: bug_fix
+task: >-
+  siteTotals aggregates a shipment ledger incorrectly. The module parses
+  ledger lines with loadLedger, where each line reads site,item,qty with a
+  non-empty site and item and a qty of decimal digits, and loadLedger
+  rejects a line that does not carry exactly those three fields with an
+  error. busiestSite names the site with the largest total, breaks total
+  ties by taking the alphabetically first site, and yields a null result
+  for an empty ledger. siteTotals must report one [site, total] pair per
+  distinct site, sorted by site name ascending, where total sums every row
+  belonging to that site; the current code instead reports only the
+  quantity of the most recent row whenever a site appears in several rows.
+  Fix the aggregation. Also add the missing validation in siteTotals:
+  reject a row whose qty is not a positive integer, counting booleans,
+  zero, negatives and fractions as invalid, with an error. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** A shipment ledger: parse lines, total by site, find the busiest site. */
+
+  export function loadLedger(
+    lines: string[],
+  ): { site: string; item: string; qty: number }[] {
+    const rows: { site: string; item: string; qty: number }[] = [];
+    for (const line of lines) {
+      const parts = line.split(",");
+      if (parts.length !== 3) {
+        throw new Error("each ledger line is site,item,qty");
+      }
+      const [site, item, raw] = parts;
+      if (site === "" || item === "") {
+        throw new Error("site and item must be non-empty");
+      }
+      if (!/^\d+$/.test(raw)) {
+        throw new Error("qty must be a run of decimal digits");
+      }
+      rows.push({ site, item, qty: Number(raw) });
+    }
+    return rows;
+  }
+
+  export function siteTotals(
+    rows: { site: string; item: string; qty: number }[],
+  ): [string, number][] {
+    const totals = new Map<string, number>();
+    for (const row of rows) {
+      totals.set(row.site, row.qty);
+    }
+    const pairs: [string, number][] = [...totals.entries()];
+    pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    return pairs;
+  }
+
+  export function busiestSite(
+    rows: { site: string; item: string; qty: number }[],
+  ): string | null {
+    const totals = siteTotals(rows);
+    if (totals.length === 0) {
+      return null;
+    }
+    let best = totals[0];
+    for (const pair of totals) {
+      if (pair[1] > best[1]) {
+        best = pair;
+      }
+    }
+    return best[0];
+  }
+interface: |-
+  export function loadLedger(lines: string[]): { site: string; item: string; qty: number }[]
+  export function siteTotals(rows: { site: string; item: string; qty: number }[]): [string, number][]
+  export function busiestSite(rows: { site: string; item: string; qty: number }[]): string | null
+stop_conditions:
+  - Whether site and item fields may contain spaces is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

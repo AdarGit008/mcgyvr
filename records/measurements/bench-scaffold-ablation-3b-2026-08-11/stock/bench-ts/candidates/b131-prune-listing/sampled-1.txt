@@ -1,0 +1,80 @@
+```ts
+
+import { strict as assert } from 'assert';
+
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!listing.every((path) => typeof path === "string" && path.trim() !== "")) {
+    throw new Error("Paths in listing must be non-empty strings");
+  }
+  if (!rules.every((rule) => typeof rule === "string" && rule.trim() !== "" && !/(^\!{2}|!)$/.test(rule))) {
+    throw new Error("Rules must be non-empty strings starting with '!' or '!!'");
+  }
+
+  const rulesMap = rules.map((rule, index) => {
+    if (rule.startsWith("!")) {
+      return { pattern: rule.slice(1), type: "keep" };
+    } else {
+      return { pattern: rule, type: "drop" };
+    }
+  });
+
+  return listing.filter(path => {
+    const segments = splitStrict(path, "path");
+    let matchIndex = rulesMap.findIndex(({ pattern }) =>
+      segments.every((segment, i) => segmentFits(pattern.split("/")[i], segment)));
+    if (matchIndex === -1) {
+      // No match, check for keep rule
+      matchIndex = rulesMap.findIndex(({ type }) => type === "keep" && segments[0] === pattern.split("/")[0]);
+    }
+    return matchIndex > -1;
+  });
+}
+
+// Test cases
+assert.deepStrictEqual(pruneListing([], []), []);
+assert.deepStrictEqual(pruneListing(["file.txt"], ["!file.txt"]), []);
+assert.deepStrictEqual(pruneListing(["dir/file.txt"], ["!/dir/"]), ["dir/file.txt"]);
+assert.deepStrictEqual(pruneListing(["dir/file.txt", "other/file.txt"], ["!/dir/", "!file.txt"]), ["other/file.txt"]);
+assert.deepStrictEqual(pruneListing(["dir/file.txt", "dir2/file.txt"], ["!file.txt", "!dir/"]), ["dir2/file.txt"]);
+assert.deepStrictEqual(pruneListing(["dir/file.txt", "dir2/file.txt"], ["!/dir/!", "!file.txt"]), []);
+```

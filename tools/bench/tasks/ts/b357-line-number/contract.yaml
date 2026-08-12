@@ -1,0 +1,14 @@
+id: b357-line-number
+task_type: function_implementation
+task: >-
+  Implement lineNumber. Return a block of text with each line carrying
+  its number in front, counting from one, written as the number, a
+  colon and a space. A block holding no text at all comes back empty.
+target: solution.ts
+interface: "export function lineNumber(block: string): string"
+stop_conditions:
+  - Whether the numbers should be lined up when they run to different widths is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

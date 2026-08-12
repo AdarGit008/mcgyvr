@@ -1,0 +1,61 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not isinstance(prices, dict):
+        raise ValueError("Invalid price list format. Prices must be a dictionary.")
+    
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+    
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Event must be a non-empty list.")
+        
+        action = event[0]
+        
+        if action == "scan":
+            item = event[1]
+            if item not in prices:
+                raise ValueError(f"Unknown item: {item}")
+            quantity = state.get(item, 0) + 1
+            state["items"].append([item, quantity])
+            state["total"] += prices[item]
+        elif action == "void":
+            item = event[1]
+            if item not in state:
+                raise ValueError(f"Item not found in cart: {item}")
+            quantity = state.get(item, 0) - 1
+            if quantity < 0:
+                raise ValueError("Cannot void more than available.")
+            state["items"].append([item, quantity])
+            state["total"] -= prices[item]
+        elif action == "close":
+            if not state["items"]:
+                raise ValueError("Cannot close an empty cart.")
+            if state["paid"] != state["total"]:
+                raise ValueError("Cannot close a session with unpaid items.")
+            state["paid"] = 0
+            state["change"] = state["total"]
+        elif action == "pay":
+            cents = event[1]
+            if not isinstance(cents, int) or cents < 0:
+                raise ValueError("Payment amount must be a non-negative integer.")
+            if state["paid"] + cents > state["total"]:
+                raise ValueError("Cannot pay more than the session total.")
+            state["paid"] += cents
+            state["change"] = state["total"] - state["paid"]
+        elif action == "cancel":
+            if state.get("paid", 0) or state.get("change", 0):
+                raise ValueError("Cannot cancel a paid or cancelled session.")
+            state = {"items": [], "total": 0, "paid": 0, "change": 0}
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    # Sort items alphabetically
+    state["items"].sort()
+    
+    return state
+```

@@ -14,7 +14,7 @@
     "tools/finetune/build_dataset.py — no reply from a set that is not trainable reaches a training set",
     "tools/bundle/measure.py and tools/breadth/measure.py — no run record may be written for a retired set"
   ],
-  "adding_a_set": "A new measurement set is declared here in the same change that creates it. Until it is declared, the pin cannot stamp it and the builder cannot refuse it. #225's bench half is the next entry this file expects; it arrives retired=null, trainable=false, and its reserved half is not an instrument at all.",
+  "adding_a_set": "A new measurement set is declared here in the same change that creates it. Until it is declared, the pin cannot stamp it and the builder cannot refuse it. #225's bench half arrived 2026-08-10 exactly so — bench-ts/bench-py, retired=null, trainable=false, declared in the change that pinned its first 40 problems; its reserved half (tools/bench/reserve/) is not an instrument at all and is excluded from the bench roots by the pin itself.",
   "sets": [
     {
       "id": "bundle-ts",
@@ -109,6 +109,26 @@
         "scope": "The 164 problems, their solutions, their tests, and anything derived from them, including EvalPlus's augmented suites and any dataset that mirrors them."
       },
       "note": "#189 scored its 2x2 here, which is why that pilot is UNDECIDED on the benchmark it used rather than negative (#229). A suggestive local signal, offered with its confound: qwen2.5-coder:3b reads 78.0% here and 0/50 on the #197 pool (#221). That gap is what contamination looks like; it is also what a difficulty difference looks like, and ADR-0017 attributes it to the pool's whole-problem unit of work sitting above the 3B's ceiling. Neither reading makes the set safe to decide on."
+    },
+    {
+      "id": "bench-ts",
+      "root": "tools/bench/tasks/ts",
+      "language": "jsts",
+      "tiers": ["bench-ts"],
+      "paired_with": ["bench-py"],
+      "retired": null,
+      "trainable": false,
+      "note": "#225's bench, TypeScript arm — the permanent widened bench every lever is judged against (ADR-0018). Generated from zero after #240 released the old sets; the bench half of a pre-declared salted-hash split (tools/bench/split.py), served manifest-pinned only (tools/bench/admissions.jsonl, split == bench). The reserved training half lives at tools/bench/reserve/, outside this root, and is not an instrument. Sweeps in lane/225 run at --max-output-tokens 2048, stated in run.json."
+    },
+    {
+      "id": "bench-py",
+      "root": "tools/bench/tasks/py",
+      "language": "python",
+      "tiers": ["bench-py"],
+      "paired_with": ["bench-ts"],
+      "retired": null,
+      "trainable": false,
+      "note": "#225's bench, Python arm — same problems as bench-ts by construction (paired arms share one prose; a one-armed problem is never admitted). See bench-ts for the split and serving rules."
     }
   ]
 }

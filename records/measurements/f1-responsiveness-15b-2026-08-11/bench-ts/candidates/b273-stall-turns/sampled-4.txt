@@ -1,0 +1,30 @@
+```ts
+import { sort } from "lodash";
+
+/**
+ * Calculates the number of turns needed to serve all customers at a market stall.
+ * A customer can only make a maximum of `limit` items per turn. Customers wanting nothing take no turn.
+ * 
+ * @param counts - The number of items each customer wants to buy.
+ * @param limit - The maximum number of items a single customer can purchase in one turn.
+ * @returns The total number of turns needed to serve all customers.
+ */
+export function stallTurns(counts: number[], limit: number): number {
+    if (limit <= 0) {
+        throw new Error("Limit must be greater than zero");
+    }
+
+    // Sort the counts in descending order to prioritize higher-demand items
+    const sortedCounts = sort(counts).reverse();
+
+    let totalTurns = 0;
+    for (const count of sortedCounts) {
+        if (count === 0) {
+            continue; // Skip customers wanting nothing
+        }
+        totalTurns += Math.ceil(count / limit);
+    }
+
+    return totalTurns;
+}
+```

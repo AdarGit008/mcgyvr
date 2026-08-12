@@ -1,0 +1,17 @@
+```
+"""Render a value as fixed-width unsigned binary, nibble-grouped."""
+
+
+def format_bits(value: int, width: int) -> str:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0 or width <= 0 or width % 4 != 0 or width > 32:
+        raise ValueError("value must be a non-negative integer and width must be a positive multiple of four up to 32")
+    
+    if value == 0:
+        return "0" * width
+    
+    binary_str = bin(value)[2:]  # Convert to binary string without '0b'
+    padded_binary_str = binary_str.zfill(width)  # Pad with zeros to the left
+    nibble_groups = [padded_binary_str[i:i+4] for i in range(0, len(padded_binary_str), 4)]
+    
+    return " ".join(nibble_groups)
+```

@@ -1,0 +1,22 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (!store || typeof head !== 'string') {
+    throw new Error('Invalid input: store must be an object and head must be a string');
+  }
+
+  const parts = head.split('.');
+  let currentStore = store;
+  let result: string[] = [];
+
+  for (const part of parts) {
+    if (!currentStore || !(part in currentStore)) {
+      throw new Error(`Key path error: ${head} does not exist in the store`);
+    }
+
+    currentStore = currentStore[part];
+    result.push(part);
+  }
+
+  return result;
+}
+```

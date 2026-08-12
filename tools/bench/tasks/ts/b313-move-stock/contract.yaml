@@ -1,0 +1,15 @@
+id: b313-move-stock
+task_type: function_implementation
+task: >-
+  Implement moveStock. Starting from an opening quantity, apply each
+  stock movement in order, adding or removing as its sign says. Stock
+  never falls below zero, so a removal larger than what is held
+  empties it instead. Return the closing quantity.
+target: solution.ts
+interface: "export function moveStock(opening: number, moves: number[]): number"
+stop_conditions:
+  - Whether the quantity that could not be removed should be reported as well is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

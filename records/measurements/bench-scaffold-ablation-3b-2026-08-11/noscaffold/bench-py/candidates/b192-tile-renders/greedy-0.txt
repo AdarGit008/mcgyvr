@@ -1,0 +1,24 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not isinstance(fresh_for, int) or not isinstance(size, int):
+        raise ValueError("fresh_for and size must be positive whole numbers.")
+    if fresh_for < 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive whole numbers.")
+
+    cache = {}
+    renders = []
+
+    for tick, tile_name in requests:
+        if tick < 0:
+            raise ValueError("tick cannot be negative.")
+
+        if tick not in cache or tick + fresh_for > cache[tick][1]:
+            # Render the tile again
+            cache[tick] = (tick, tick + fresh_for)
+            renders.append([tick, tile_name])
+        else:
+            # Use the cached render
+            renders.append(cache[tick])
+
+    return renders
+```

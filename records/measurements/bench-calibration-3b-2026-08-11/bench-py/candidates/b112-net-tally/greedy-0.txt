@@ -1,0 +1,49 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("Input must be a list of strings.")
+    
+    item_totals = {}
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("Each sheet must be a string.")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            trimmed_row = row.strip()
+            if not trimmed_row:
+                continue
+            
+            fields = trimmed_row.split('|')
+            if len(fields) != 3:
+                raise ValueError("Each row must contain exactly three pipe-separated fields.")
+            
+            item, sold_str, returned_str = fields
+            if not item or not sold_str.isdigit() or not returned_str.isdigit():
+                raise ValueError("Item name and sold/returned counts must be non-empty strings of decimal digits.")
+            
+            sold = int(sold_str)
+            returned = int(returned_str)
+            net = sold - returned
+            
+            if item in item_totals:
+                item_totals[item] += net
+            else:
+                item_totals[item] = net
+    
+    if not item_totals:
+        return ""
+    
+    max_item_len = max(len(item) for item in item_totals.keys())
+    report_lines = []
+    
+    for item, net in sorted(item_totals.items()):
+        padded_item = item.rjust(max_item_len)
+        report_lines.append(f"{padded_item}  {net}")
+    
+    total_net = sum(item_totals.values())
+    report_lines.append(f"total   {total_net}")
+    
+    return '\n'.join(report_lines)
+```

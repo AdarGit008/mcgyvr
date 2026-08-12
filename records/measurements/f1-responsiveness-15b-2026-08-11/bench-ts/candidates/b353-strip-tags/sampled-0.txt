@@ -1,0 +1,24 @@
+```ts
+export function stripTags(line: string): string {
+    let inSingleQuote = false;
+    let markerStart = -1;
+    let result = '';
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            inSingleQuote = !inSingleQuote;
+        } else if (line[i] === '<' && !inSingleQuote) {
+            markerStart = i;
+        } else if (line[i] === '>' && markerStart !== -1) {
+            // End of a marker, remove it
+            result += line.substring(markerStart + 1, i);
+            markerStart = -1;
+        } else if (markerStart === -1) {
+            // No active marker, add the character to the result
+            result += line[i];
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,23 @@
+```
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str) or len(line) < 3:
+        raise ValueError("check_line expects a non-empty line with at least three characters")
+    
+    tilde_index = line.rfind('~')
+    if tilde_index == -1 or tilde_index < 2 or tilde_index + 1 >= len(line):
+        raise ValueError("check_line expects a line with a tilde as the third-from-last character")
+
+    body = line[:tilde_index]
+    expected_tag = line_tag(body)
+    
+    if line[tilde_index + 2:] != expected_tag:
+        raise ValueError(f"check_line expects the tag to be '{expected_tag}' for the body '{body}', but got '{line[tilde_index + 2:]}'")
+
+    return body
+```

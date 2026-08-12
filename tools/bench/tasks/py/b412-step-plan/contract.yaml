@@ -1,0 +1,17 @@
+id: b412-step-plan
+task_type: function_implementation
+task: >-
+  Implement step_allowed and step_plan. step_allowed says whether
+  moving from one state to another appears among the allowed moves.
+  step_plan returns the position of the first move a run of states
+  makes that is not allowed, or minus one when every move is. Reject a
+  run holding no states with an error.
+target: solution.py
+interface: "def step_allowed(start: str, end: str, allowed: list) -> bool
+def step_plan(states: list, allowed: list) -> int"
+stop_conditions:
+  - Whether a state may move to itself without that move being listed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

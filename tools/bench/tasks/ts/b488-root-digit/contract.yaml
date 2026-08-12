@@ -1,0 +1,29 @@
+id: b488-root-digit
+task_type: bug_fix
+task: >-
+  rootDigit folds a whole count down to a single figure by adding its
+  figures together, then adding the figures of that answer, again and
+  again until one figure is left. Fix rootDigit. A count already
+  standing as one figure is given back as it is. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function rootDigit(value: number): number {
+    let left = value;
+    if (left >= 10) {
+      let sum = 0;
+      while (left > 0) {
+        sum += left % 10;
+        left = Math.floor(left / 10);
+      }
+      left = sum;
+    }
+    return left;
+  }
+interface: "export function rootDigit(value: number): number"
+stop_conditions:
+  - Whether a count below nothing should be folded is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

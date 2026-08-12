@@ -1,0 +1,31 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if len(words) != (capacity + 31) // 32:
+        raise ValueError("Word count disagrees with capacity")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Run length must be a positive integer")
+
+    for start in range(bits):
+        if all(bit_at(words, start + i * 32 + j) == 0 for j in range(length)):
+            return start
+    return -1
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    new_words = words[:]
+    for i in range(length):
+        if bit_at(new_words, start + i * 32) == 1:
+            raise ValueError("Run touches an occupied block")
+        new_words[start // 32] |= 1 << (start % 32)
+    return new_words
+
+def bit_at(words: list[int], index: int) -> int:
+    if not isinstance(index, int):
+        raise ValueError("Index must be an integer")
+    word_index = index // 32
+    bit_position = index % 32
+    if word_index >= len(words) or words[word_index] < 0 or words[word_index] > 4294967295:
+        raise ValueError("Invalid bitmap word")
+    return (words[word_index] >> bit_position) & 1
+```

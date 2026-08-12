@@ -1,0 +1,62 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = { state: "open", items: [], total: 0, paid: 0, change: 0 };
+  let cart: { [item: string]: number } = {};
+  let total = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length < 2) throw new Error("Invalid event format");
+
+    const action = event[0];
+    const payload = event.slice(1);
+
+    switch (action) {
+      case "scan":
+        if (payload.length !== 1 || typeof payload[0] !== "string") throw new Error("Invalid scan event");
+        const item = payload[0];
+        if (!prices[item]) throw new Error(`Unknown item: ${item}`);
+        if (cart[item]) cart[item]++;
+        else cart[item] = 1;
+        total += prices[item];
+        break;
+
+      case "void":
+        if (payload.length !== 1 || typeof payload[0] !== "string") throw new Error("Invalid void event");
+        const itemToVoid = payload[0];
+        if (!cart[itemToVoid]) throw new Error(`Item not in cart: ${itemToVoid}`);
+        cart[itemToVoid]--;
+        if (cart[itemToVoid] === 0) delete cart[itemToVoid];
+        total -= prices[itemToVoid];
+        break;
+
+      case "close":
+        if (state !== "open") throw new Error("Session already closed or paid");
+        if (Object.keys(cart).length === 0) throw new Error("Cannot close an empty cart");
+        state = "payment";
+        break;
+
+      case "pay":
+        if (state !== "payment" || payload.length !== 1 || typeof payload[0] !== "number" || payload[0] <= 0) throw new Error("Invalid pay event");
+        const paidAmount = payload[0];
+        change = Math.max(0, paidAmount - total);
+        state = "paid";
+        break;
+
+      case "cancel":
+        state = "cancelled";
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort(([item1], [item2]) => item1.localeCompare(item2)),
+    total,
+    paid,
+    change
+  };
+}
+```

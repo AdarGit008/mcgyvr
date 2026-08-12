@@ -1,0 +1,25 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """
+    Discard readings from the start until they meet or exceed the floor,
+    then return all subsequent readings that are at least equal to the floor.
+
+    :param readings: List of floating-point numbers representing the readings.
+    :param floor: The minimum acceptable reading for the warm-up period.
+    :return: A list of readings starting from the first one above or equal to the floor.
+    """
+    # Convert readings to float to handle negative numbers properly
+    readings = [float(r) for r in readings]
+    
+    # Find the index where the first reading is at least the floor
+    start_index = next((i for i, r in enumerate(readings) if r >= floor), None)
+    
+    if start_index is None:
+        return []  # Return an empty list if no valid readings are found
+    
+    # Discard all readings before the start index
+    warm_up_readings = readings[start_index:]
+    
+    # Return the first reading that meets or exceeds the floor
+    return [warm_up_readings[0]]
+```

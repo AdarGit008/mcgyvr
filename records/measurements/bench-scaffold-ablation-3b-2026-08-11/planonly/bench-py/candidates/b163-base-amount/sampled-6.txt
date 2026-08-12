@@ -1,0 +1,21 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if amount < 0 or not isinstance(amount, int):
+        raise ValueError("Amount must be a non-negative integer.")
+    if unit not in defs or base not in defs:
+        raise ValueError("Unit or base unit must be defined in definitions.")
+    
+    def find_factor(unit_name: str) -> int:
+        if unit_name == base:
+            return 1
+        factor, finer = defs[unit_name]
+        if factor <= 0:
+            raise ValueError(f"Factor for unit '{unit_name}' must be a positive integer.")
+        return factor * find_factor(finer)
+    
+    try:
+        factor = find_factor(unit)
+        return amount * factor
+    except Exception as e:
+        raise ValueError("Invalid definition chain detected: " + str(e))
+```

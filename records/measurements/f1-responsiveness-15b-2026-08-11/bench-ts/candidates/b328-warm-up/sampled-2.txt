@@ -1,0 +1,15 @@
+```ts
+export function warmUp(readings: number[], floor: number): number[] {
+  let currentReading = readings[0];
+  const result: number[] = [];
+
+  for (let i = 1; i < readings.length && currentReading >= floor; i++) {
+    if (readings[i] >= floor) {
+      currentReading = readings[i];
+      result.push(readings[i]);
+    }
+  }
+
+  return result;
+}
+```

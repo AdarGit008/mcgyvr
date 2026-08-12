@@ -1,0 +1,32 @@
+```python
+from typing import Dict, Union
+
+def match_setting(rules: Dict[str, str], name: str) -> Union[str, None]:
+    """
+    Resolve a dotted option name against style rules to get the winning value,
+    or return None if no selector covers the name. Reject invalid inputs.
+    """
+    if not isinstance(name, str):
+        raise ValueError("Name must be a non-empty string.")
+    
+    if "*" in name:
+        if len(name) != 1 or not name.endswith(".*"):
+            raise ValueError("Invalid star usage: '*' should stand alone or end with '.*'.")
+    
+    if any(not isinstance(rule_value, str) for rule_value in rules.values()):
+        raise ValueError("Rule values must be strings.")
+    
+    def is_covering(selector: str) -> bool:
+        return selector == name or (selector.endswith(".*") and name.startswith(selector[:-2]))
+    
+    best_match = None
+    for selector, value in rules.items():
+        if selector == "*":
+            best_match = value
+            break
+        elif is_covering(selector):
+            if best_match is None or len(selector) > len(best_match):
+                best_match = value
+    
+    return best_match
+```

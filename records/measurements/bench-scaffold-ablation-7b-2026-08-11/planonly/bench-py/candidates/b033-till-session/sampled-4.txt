@@ -1,0 +1,57 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers.")
+    
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open"
+    }
+    
+    cart = {}
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Each event must be a list of exactly two elements.")
+        
+        action, payload = event
+        if action == "scan":
+            if state["status"] != "open" or payload not in prices:
+                raise ValueError(f"Invalid scan event: {event}.")
+            cart[payload] = cart.get(payload, 0) + 1
+            
+        elif action == "void":
+            if state["status"] != "open" or payload not in cart:
+                raise ValueError(f"Invalid void event: {event}.")
+            cart[payload] -= 1
+            if cart[payload] == 0:
+                del cart[payload]
+            
+        elif action == "close":
+            if state["status"] != "open" or not cart:
+                raise ValueError("Invalid close event.")
+            for item, quantity in cart.items():
+                state["items"].append([item, quantity])
+            state["total"] = sum(prices[item] * quantity for item, quantity in cart.items())
+            state["status"] = "payment"
+            
+        elif action == "pay":
+            if state["status"] != "payment" or not payload.isdigit() or int(payload) <= 0:
+                raise ValueError(f"Invalid pay event: {event}.")
+            amount = int(payload)
+            state["paid"] += amount
+            state["change"] = state["paid"] - state["total"]
+            if state["change"] < 0:
+                state["change"] = 0
+            state["status"] = "paid"
+            
+        elif action == "cancel":
+            state["status"] = "cancelled"
+        
+        else:
+            raise ValueError(f"Unknown action: {action}.")
+    
+    return state
+```

@@ -1,0 +1,56 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid argument type');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':').map((part) => part.trim());
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(countStr)) {
+      throw new Error('Malformed sheet entry');
+    }
+    return [name, parseInt(countStr, 10)];
+  };
+
+  const parseMoves = (moves: string): [string, number][] => {
+    if (!moves) return [];
+    return moves.split(';').map((move) => {
+      const [action, qtyStr] = move.split('+').map((part) => part.trim());
+      if (!/^[a-z]+$/.test(action)) {
+        throw new Error('Malformed move');
+      }
+      const qty = parseInt(qtyStr, 10);
+      return [action, qty];
+    });
+  };
+
+  const sheet: Record<string, number> = {};
+  opening.split(';').forEach((entry) => {
+    const [name, count] = parseEntry(entry);
+    if (sheet[name]) {
+      throw new Error('Duplicate name on the opening sheet');
+    }
+    sheet[name] = count;
+  });
+
+  parseMoves(moves).forEach(([action, qty]) => {
+    const item = action.split('-')[0];
+    if (!sheet[item]) {
+      throw new Error(`Issue of an item ${item} the sheet does not hold`);
+    }
+    if (qty > sheet[item]) {
+      throw new Error(`Issue of more units than the item ${item} then holds`);
+    }
+    if (action.startsWith('+')) {
+      sheet[item] += qty;
+    } else {
+      sheet[item] -= qty;
+    }
+  });
+
+  return Object.entries(sheet)
+    .filter(([_, name, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+}
+```

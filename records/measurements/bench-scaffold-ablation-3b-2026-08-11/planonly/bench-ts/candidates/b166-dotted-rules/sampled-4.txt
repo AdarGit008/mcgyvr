@@ -1,0 +1,62 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || !rules) {
+    throw new Error('Rules must be a non-empty object');
+  }
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  const isStar = (str: string): boolean => str === '*';
+  const splitDotted = (str: string): string[] => str.split('.');
+  const isValidSelector = (selector: string): boolean => selector !== '' && !isStar(selector) && (!selector.endsWith('.*') || selector === '*');
+
+  if (!isValidSelector(name)) {
+    throw new Error('Name is not a valid selector');
+  }
+
+  for (const [key, value] of Object.entries(rules)) {
+    const keyParts = splitDotted(key);
+    const nameParts = splitDotted(name);
+
+    // Check if the exact selector matches
+    let matchIndex = -1;
+    for (let i = 0; i < nameParts.length && i < keyParts.length; i++) {
+      if (keyParts[i] !== '*' && keyParts[i] !== nameParts[i]) {
+        break;
+      }
+      if (keyParts[i] === '*') {
+        matchIndex = i;
+      }
+    }
+
+    if (matchIndex === nameParts.length - 1) {
+      return value; // Exact selector matched
+    }
+  }
+
+  for (const [key, value] of Object.entries(rules)) {
+    const keyParts = splitDotted(key);
+    if (keyParts[0] !== '*') continue;
+
+    let matchPrefixLength = 0;
+    for (let i = 1; i < keyParts.length && i < nameParts.length; i++) {
+      if (keyParts[i] === '*' || keyParts[i] === nameParts[i]) {
+        matchPrefixLength++;
+      } else {
+        break;
+      }
+    }
+
+    if (matchPrefixLength > matchIndex) {
+      return value; // Longest prefix wildcard matched
+    }
+  }
+
+  if (rules['*']) {
+    return rules['*']; // Lone star matches
+  }
+
+  return null;
+}
+```

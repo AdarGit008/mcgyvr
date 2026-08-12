@@ -1,0 +1,15 @@
+id: b257-scale-batch
+task_type: function_implementation
+task: >-
+  Implement scale_batch. Multiply every ingredient amount by a scaling
+  factor and round each result up to a whole number, since half an egg
+  cannot be bought. An amount that lands exactly on a whole number
+  stays there. Reject a negative factor with an error.
+target: solution.py
+interface: "def scale_batch(amounts: list, factor: float) -> list"
+stop_conditions:
+  - Whether an ingredient amount may itself be fractional before scaling is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

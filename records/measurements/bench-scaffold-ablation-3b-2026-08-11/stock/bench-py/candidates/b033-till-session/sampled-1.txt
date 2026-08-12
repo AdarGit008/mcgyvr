@@ -1,0 +1,98 @@
+```python
+from typing import Dict, List
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+def run_till_session(events: List[List[str]], prices: Dict[str, int]) -> Dict[str, int]:
+    def is_positive_integer(n):
+        return isinstance(n, int) and n > 0
+
+    # Validate prices
+    for name, price in prices.items():
+        if not is_positive_integer(price):
+            raise ValueError(f"price must be a positive integer: {name}")
+
+    state = {
+        "session_state": OPEN,
+        "cart": {},
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    def scan(item: str) -> None:
+        if item not in prices:
+            raise ValueError(f"unknown item: {item}")
+        if state["session_state"] != OPEN:
+            raise ValueError("scan illegal during session state")
+        cart = state.get("cart", {})
+        cart[item] = cart.get(item, 0) + 1
+        total = cart[item] * prices[item]
+        state.update({"cart": cart, "total": total})
+
+    def void(item: str) -> None:
+        if item not in state.get("cart", {}):
+            raise ValueError(f"unknown or unowned item: {item}")
+        cart = state.get("cart", {})
+        cart[item] = max(0, cart[item] - 1)
+        total = cart[item] * prices[item]
+        change = state["paid"] - total
+        if change < 0:
+            raise ValueError(f"cannot void with negative or zero balance: {item}")
+        state.update({"cart": cart, "total": total, "change": change})
+
+    def close() -> None:
+        if not state.get("cart", {}).values():
+            raise ValueError("close illegal during session state")
+        if state["session_state"] != OPEN:
+            raise ValueError("close illegal during session state")
+        state.update({"session_state": PAYMENT})
+
+    def pay(cents: int) -> None:
+        if not is_positive_integer(cents):
+            raise ValueError(f"payment amount must be a positive integer: {cents}")
+        if state["session_state"] != PAYMENT:
+            raise ValueError("pay illegal during session state")
+        paid = state.get("paid", 0)
+        total = state.get("total", 0)
+        if cents > total:
+            change = cents - total
+            state.update({"paid": paid, "change": change})
+        elif cents == total:
+            state.update({"session_state": PAID, "paid": paid + total})
+        else:
+            raise ValueError(f"payment amount not enough to cover total")
+
+    def cancel() -> None:
+        state.update({"session_state": CANCELLED})
+
+    for event in events:
+        if len(event) != 2 or not isinstance(event[0], str) or not isinstance(event[1], list):
+            raise ValueError("event must be a list of its action and exactly its payload")
+        action, payload = event
+        if action == "scan":
+            scan(payload[0])
+        elif action == "void":
+            void(payload[0])
+        elif action == "close":
+            close()
+        elif action == "pay":
+            pay(payload[0])
+        elif action == "cancel":
+            cancel()
+        else:
+            raise ValueError(f"unknown action: {action}")
+
+    if state["session_state"] != PAID and state["session_state"] != CANCELLED:
+        raise ValueError("event after session is paid or cancelled")
+
+    return {
+        "items": sorted(state.get("cart", {}).items(), key=lambda x: x[0]),
+        "total": state.get("total", 0),
+        "paid": state.get("paid", 0),
+        "change": state.get("change", 0)
+    }
+```

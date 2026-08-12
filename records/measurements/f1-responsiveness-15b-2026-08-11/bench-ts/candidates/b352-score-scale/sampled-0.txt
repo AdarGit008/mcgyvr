@@ -1,0 +1,10 @@
+```ts
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (mark < 0 || mark > nowOutOf) {
+    throw new Error('Mark must be between 0 and nowOutOf');
+  }
+
+  const scaled_mark = Math.floor(mark * nowOutOf / wasOutOf);
+  return Math.min(scaled_mark, nowOutOf);
+}
+```

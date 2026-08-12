@@ -1,0 +1,18 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """
+    Return the entries of one list that do not appear in another, keeping the order they came in and keeping any repeats among them.
+
+    :param entries: List of elements to be compared.
+    :param remove: List of elements to be removed from entries.
+    :return: A new list containing elements from entries that are not present in remove, maintaining their original order and duplicates.
+    """
+    # Convert both lists to sets for efficient lookup
+    set_entries = set(entries)
+    set_remove = set(remove)
+
+    # Use a list comprehension to filter out elements present in remove
+    result = [entry for entry in set_entries if entry not in set_remove]
+
+    return result
+```

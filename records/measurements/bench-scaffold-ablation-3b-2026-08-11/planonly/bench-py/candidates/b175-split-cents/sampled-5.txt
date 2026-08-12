@@ -1,0 +1,40 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """
+    Split the total in the day's takings into parts according to partner shares.
+    
+    Args:
+        total (int): The total takings in whole cents.
+        weights (list): A list of positive whole number weights for each partner.
+        
+    Returns:
+        list: The parts in partner order.
+        
+    Raises:
+        ValueError: If total is not a whole number, negative, weights are invalid, or if the sum of weights does not equal total.
+    """
+    if total % 1 != 0:
+        raise ValueError("Total takings must be a whole number.")
+    if total < 0:
+        raise ValueError("Total takings cannot be negative.")
+    
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list of positive whole numbers.")
+    
+    weight_sum = sum(weights)
+    if weight_sum != total:
+        raise ValueError("Sum of weights must equal the total takings.")
+    
+    parts = [total * weight // weight_sum for weight in weights]
+    leftover_cents = total - sum(parts)
+    
+    # Find partners with the largest discarded fractions
+    fractional_parts = [(part, part / weight) for part, weight in zip(parts, weights)]
+    
+    while leftover_cents > 0:
+        max_discarded_fraction_index = max(range(len(fractional_parts)), key=lambda i: fractional_parts[i][1])
+        parts[max_discarded_fraction_index] += 1
+        leftover_cents -= 1
+    
+    return parts
+```

@@ -1,0 +1,15 @@
+```ts
+export function checkDigit(code: string): number {
+  if (code.length === 0) return 0;
+
+  const sum = code.split('').reduce((acc, digit) => acc + Number(digit), 0);
+
+  if (sum % 10 !== 0) {
+    for (let i = 9; i >= 0; i--) {
+      if ((i + sum) % 10 === 0) return i;
+    }
+  }
+
+  throw new Error('Invalid input: Code must contain only digits.');
+}
+```

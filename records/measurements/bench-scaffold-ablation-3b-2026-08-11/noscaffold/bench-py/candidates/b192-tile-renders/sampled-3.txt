@@ -1,0 +1,31 @@
+```python
+from typing import List
+
+def tile_renders(requests: List[List[int]], fresh_for: int, size: int) -> List[List[int]]:
+    if not isinstance(fresh_for, int) or fresh_for < 0:
+        raise ValueError("fresh_for must be a non-negative integer.")
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive whole number.")
+
+    cache = []
+    result = []
+
+    for tick, name in requests:
+        if tick < last_tick:
+            continue
+        last_tick = tick
+
+        # Check if the tile is already rendered and within fresh_for ticks
+        for stored_tick, stored_name in cache:
+            if stored_name == name and tick - stored_tick <= fresh_for:
+                result.append([tick, name])
+                break
+        else:
+            # If not, add a new render or drop an old one if cache is full
+            if len(cache) >= size:
+                cache.pop(0)
+            cache.append([tick, name])
+            result.append([tick, name])
+
+    return result
+```

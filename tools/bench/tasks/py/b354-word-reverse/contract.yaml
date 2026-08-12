@@ -1,0 +1,15 @@
+id: b354-word-reverse
+task_type: function_implementation
+task: >-
+  Implement word_reverse. Return a line with the letters of each word
+  turned back to front, the words themselves keeping the order they
+  came in. Any run of spaces separates two words, and the words come
+  back joined by a single space.
+target: solution.py
+interface: "def word_reverse(line: str) -> str"
+stop_conditions:
+  - Whether punctuation at the end of a word should move to its front is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

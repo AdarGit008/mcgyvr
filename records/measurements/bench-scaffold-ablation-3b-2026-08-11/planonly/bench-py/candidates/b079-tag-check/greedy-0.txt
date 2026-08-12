@@ -1,0 +1,28 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the integrity check tag for a body string."""
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    
+    return format(sum(ord(char) for char in body), '02x')
+
+def check_line(line: str) -> str:
+    """Validate and extract the body from a tagged line."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    tilde_index = line.rfind('~')
+    if tilde_index == -1 or tilde_index + 2 >= len(line):
+        raise ValueError("Line must contain exactly one '~' and two characters after it.")
+    
+    tag = line[tilde_index + 1:tilde_index + 3]
+    expected_tag = line_tag(line[:tilde_index])
+    
+    if tag != expected_tag:
+        raise ValueError(f"Tag mismatch: {tag} does not match {expected_tag}.")
+    
+    return line[:tilde_index]
+```

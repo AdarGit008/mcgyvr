@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "string",
+  "steering_band": "g1",
+  "target_symbol": {"ts": "stampCover", "py": "stamp_cover"}
+}

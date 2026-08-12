@@ -1,0 +1,54 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    if len(words) != (capacity + 31) // 32:
+        raise ValueError("Word count does not match the capacity.")
+    
+    for word in words:
+        if not isinstance(word, int) or not (0 <= word <= 4294967295):
+            raise ValueError("Invalid bitmap word.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(len(words)):
+        start_index = i * 32
+        end_index = min(start_index + length, len(words[i]))
+        
+        if any(bit_at(words[i], j) != 0 for j in range(start_index, end_index)):
+            continue
+        
+        return start_index
+    
+    return -1
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(index, int):
+        raise ValueError("Index must be an integer.")
+    
+    word_index = index // 32
+    word = words[word_index]
+    
+    if not (0 <= word_index < len(words) and 0 <= word <= 4294967295):
+        raise ValueError("Invalid bitmap word.")
+    
+    bit_position = index % 32
+    return 1 if (word & (1 << bit_position)) else 0
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(start, int):
+        raise ValueError("Start must be an integer.")
+    
+    word_index = start // 32
+    end_index = min(word_index + 1, len(words))
+    
+    if not (0 <= word_index < len(words) and 0 <= word <= 4294967295):
+        raise ValueError("Invalid bitmap word.")
+    
+    for i in range(start_index, end_index):
+        words[i] |= (1 << (start - start_index))
+    
+    return words
+```

@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres == 0:
+        raise ValueError("Leg distance cannot be zero")
+    pace = seconds // kilometres
+    return pace
+
+
+def pace_list(legs: List[List[int]]) -> List[float]:
+    if not legs or not all(isinstance(leg, list) and len(leg) == 2 for leg in legs):
+        raise ValueError("Invalid input format")
+
+    result = []
+    for second, distance in legs:
+        if distance == 0:
+            raise ValueError("Leg distance cannot be zero")
+        pace = second / distance
+        result.append(pace)
+
+    return result
+```

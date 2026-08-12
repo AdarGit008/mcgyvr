@@ -1,0 +1,14 @@
+id: b368-pair-sums
+task_type: function_implementation
+task: >-
+  Implement pair_sums. Return the total of each neighbouring pair of
+  readings, in order, so four readings give three totals. Fewer than
+  two readings hold no pair at all and give an empty list.
+target: solution.py
+interface: "def pair_sums(readings: list) -> list"
+stop_conditions:
+  - Whether a reading may be paired with one further away is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

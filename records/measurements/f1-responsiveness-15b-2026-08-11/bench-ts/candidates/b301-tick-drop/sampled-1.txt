@@ -1,0 +1,9 @@
+```ts
+/** Every second entry of a log, beginning with the first. */
+export function everyOther(entries: string[]): string[] {
+  if (!entries) return [];
+
+  let index = 0;
+  return entries.filter((entry) => index++ % 2 === 1);
+}
+```

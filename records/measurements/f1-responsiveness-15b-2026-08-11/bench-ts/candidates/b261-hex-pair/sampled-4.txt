@@ -1,0 +1,17 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (typeof colour !== 'string' || !/^[0-9A-F]{6}$/i.test(colour)) {
+    throw new Error('Invalid colour format');
+  }
+
+  return colour.match(/../g).map(part => parseInt(part, 16).toString(16).padStart(2, '0').toLowerCase());
+}
+
+export function hexJoin(parts: string[]): string {
+  if (parts.length !== 3) {
+    throw new Error('Invalid number of parts');
+  }
+
+  return parts.join('');
+}
+```

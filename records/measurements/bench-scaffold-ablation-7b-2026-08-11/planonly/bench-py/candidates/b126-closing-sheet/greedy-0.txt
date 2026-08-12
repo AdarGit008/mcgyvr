@@ -1,0 +1,48 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name: {name}")
+        try:
+            count = int(count)
+        except ValueError:
+            raise ValueError(f"Invalid count for item {name}: {count}")
+        return name, count
+
+    def parse_move(move: str) -> tuple[str, int]:
+        if not move:
+            return "", 0
+        name, qty_str = move.split('+') if '+' in move else (move.split('-')[0], '-1')
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name: {name}")
+        try:
+            qty = int(qty_str)
+        except ValueError:
+            raise ValueError(f"Invalid quantity for item {name}: {qty_str}")
+        return name, qty if '+' in move else -qty
+
+    opening_entries = opening.split(';') if opening else []
+    moves_list = moves.split(';') if moves else []
+
+    inventory = {}
+    for entry in opening_entries:
+        name, count = parse_entry(entry)
+        if name in inventory:
+            raise ValueError(f"Duplicate item name: {name}")
+        inventory[name] = count
+
+    for move in moves_list:
+        name, qty = parse_move(move)
+        if name not in inventory:
+            raise ValueError(f"Issue of unknown item: {name}")
+        if (qty > 0 and inventory[name] < qty) or (qty < 0 and -qty > inventory[name]):
+            raise ValueError(f"Insufficient stock for issue: {name} by {abs(qty)}")
+        inventory[name] += qty
+
+    closing_entries = [f"{name}:{count}" for name, count in sorted(inventory.items()) if count > 0]
+    return ';'.join(closing_entries)
+```

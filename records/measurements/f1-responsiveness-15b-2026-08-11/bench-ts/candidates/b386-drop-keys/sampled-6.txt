@@ -1,0 +1,25 @@
+```typescript
+import { strict as assert } from 'assert';
+
+/**
+ * The store without the keys a list names.
+ */
+export function dropKeys(
+  store: Record<string, number>,
+  keys: string[],
+): Record<string, number> {
+  const kept: Record<string, number> = {};
+  for (const key of Object.keys(store)) {
+    if (!keys.includes(key)) {
+      kept[key] = store[key];
+    }
+  }
+  return kept;
+}
+
+// Test cases to verify the correctness of the solution
+assert.deepStrictEqual(dropKeys({}, []), {});
+assert.deepStrictEqual(dropKeys({ a: 1, b: 2 }, ['a', 'c']), { a: 1 });
+assert.deepStrictEqual(dropKeys({ a: 1, b: 2 }, ['b']), { b: 2 });
+assert.deepStrictEqual(dropKeys({ a: 1, b: 2 }, ['a', 'b']), { a: 1, b: 2 });
+```

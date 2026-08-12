@@ -1,0 +1,18 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    def replace_placeholder(match):
+        placeholder = match.group(1)
+        if not placeholder or not placeholder.isalnum():
+            raise ValueError(f"Invalid placeholder: {placeholder}")
+        return values.get(placeholder, "")
+    
+    try:
+        result = re.sub(r'\{(\w+)\}', replace_placeholder, template)
+    except KeyError as e:
+        raise ValueError(str(e))
+    
+    return result
+```

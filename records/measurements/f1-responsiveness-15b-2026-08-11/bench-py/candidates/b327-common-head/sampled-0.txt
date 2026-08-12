@@ -1,0 +1,17 @@
+```python
+def common_head(words: list) -> str:
+    if len(words) == 0:
+        return ""
+
+    # Find the smallest letter that appears in all words
+    min_char = min(word[0] for word in words)
+
+    # Check if all words start with this character
+    all_start_with_min_char = all(word[0] == min_char for word in words)
+
+    # If they do, return the entire list of words
+    if all_start_with_min_char:
+        return " ".join(words)
+    else:
+        return ""
+```

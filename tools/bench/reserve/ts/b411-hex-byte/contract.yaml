@@ -1,0 +1,16 @@
+id: b411-hex-byte
+task_type: function_implementation
+task: >-
+  Implement byteHex and bytesHex. byteHex writes a value from zero to
+  two hundred and fifty-five as exactly two hexadecimal digits in
+  small letters. bytesHex writes a whole list of them one after
+  another with nothing between.
+target: solution.ts
+interface: "export function byteHex(value: number): string
+export function bytesHex(values: number[]): string"
+stop_conditions:
+  - Whether a value outside zero to two hundred and fifty-five should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

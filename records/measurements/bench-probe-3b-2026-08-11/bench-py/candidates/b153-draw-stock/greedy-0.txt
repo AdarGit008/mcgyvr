@@ -1,0 +1,29 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    """
+    Draws items from the shelf based on the given order.
+
+    :param shelf: A dictionary mapping item names to their counts on hand.
+    :param order: A list of [item, count] lines specifying what to pull from the shelf.
+    :return: A new dictionary representing the remaining stock after drawing.
+    """
+    if not isinstance(shelf, dict):
+        raise ValueError("Shelf must be a dictionary.")
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list.")
+
+    result = shelf.copy()  # Create a copy of the shelf to avoid modifying it
+
+    for item, count in order:
+        if item not in result:
+            raise ValueError(f"Item '{item}' is not on the shelf.")
+        if not isinstance(count, int) or count <= 0:
+            raise ValueError("Count must be a positive whole number.")
+
+        if result[item] < count:
+            raise ValueError(f"Not enough of item '{item}' to draw {count} units.")
+
+        result[item] -= count
+
+    return result
+```

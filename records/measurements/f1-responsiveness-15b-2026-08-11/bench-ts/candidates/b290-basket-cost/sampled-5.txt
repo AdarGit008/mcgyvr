@@ -1,0 +1,17 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (price === undefined || price === null || quantity === undefined || quantity === null) {
+    throw new Error("Price and quantity must be non-null numbers.");
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (discount > 100) {
+    throw new Error("Discount cannot be above one hundred percent.");
+  }
+  let totalCost = lines.reduce((acc, line) => acc + line.price * line.quantity, 0);
+  const discountedAmount = Math.round(totalCost * discount / 100);
+  return Math.max(0, Math.floor(totalCost - discountedAmount));
+}
+```

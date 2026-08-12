@@ -1,0 +1,35 @@
+```typescript
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length: must be a positive integer.");
+  }
+
+  const metres = Math.floor(mm / 1000);
+  const centimetres = Math.floor((mm % 1000) / 10);
+  const millimetres = mm % 10;
+
+  const units: Array<[number, string]> = [];
+  if (metres > 0) {
+    units.push([metres, "m"]);
+  }
+  if (centimetres > 0) {
+    units.push([centimetres, "cm"]);
+  }
+  if (millimetres > 0) {
+    units.push([millimetres, "mm"]);
+  }
+
+  return units.map(([count, unit]) => count.toString() + unit).join(" ");
+}
+
+// Edge-case verification:
+console.log(splitLength(1234)); // "1m 23cm 4mm"
+console.log(splitLength(30));   // "3cm"
+console.log(splitLength(1005));  // "1m 5mm"
+console.log(splitLength(0));    // "0mm"
+try {
+  console.log(splitLength(-1));   // Error
+} catch (e) {
+  console.error(e.message); // "Invalid length: must be a positive integer."
+}
+```

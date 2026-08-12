@@ -1,0 +1,33 @@
+```python
+def in_quote(ch: str) -> bool:
+    return ch in '"\''
+
+def quote_split(line: str) -> list:
+    result = []
+    current_quoted = False
+    current_part = ''
+    for char in line:
+        if current_quoted:
+            if char == '"' and not current_part.endswith('"'):
+                current_part += char
+                continue
+            if current_part.endswith('"') and char == '"':
+                current_part += char
+                result.append(current_part)
+                current_quoted = False
+                current_part = ''
+            else:
+                current_part += char
+        else:
+            if char in '":':
+                raise ValueError("Unexpected character inside quotes")
+            if char == ',':
+                if current_part and not current_part.endswith('"'):
+                    result.append(current_part)
+                    current_part = ''
+            else:
+                current_part += char
+    if current_part:
+        result.append(current_part)
+    return result
+```

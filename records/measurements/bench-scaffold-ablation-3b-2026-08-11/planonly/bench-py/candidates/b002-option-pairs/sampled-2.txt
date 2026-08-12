@@ -1,0 +1,49 @@
+```python
+def parse_option(segment: str) -> list:
+    """Parse one key=value segment into [key, value]."""
+    if '=' not in segment or not segment.split('=', 1)[0].isidentifier():
+        raise ValueError("Invalid key=value pair")
+    
+    key, value = segment.split('=', 1)
+    if key == 'value' and value.startswith('"') and value.endswith('"'):
+        return [key, value.strip('"')]
+    else:
+        return [key, value]
+
+def scan_pairs(text: str) -> list:
+    """Split the options string on semicolons outside double quotes."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    if text == "":
+        return []
+    
+    result = []
+    in_quote = False
+    current_key = ""
+    current_value = ""
+    for i, char in enumerate(text):
+        if char == '"':
+            if in_quote:
+                current_value += char
+            else:
+                in_quote = True
+        elif char == ';':
+            if not in_quote:
+                result.append(parse_option(current_key + '=' + current_value))
+                current_key = ""
+                current_value = ""
+            else:
+                current_value += char
+        else:
+            if in_quote:
+                current_value += char
+            else:
+                current_key += char
+    
+    if in_quote or (current_key and not current_value):
+        raise ValueError("Unterminated quote or missing value")
+    
+    result.append(parse_option(current_key + '=' + current_value))
+    return result
+```

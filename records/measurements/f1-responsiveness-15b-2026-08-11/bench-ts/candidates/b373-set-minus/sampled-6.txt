@@ -1,0 +1,9 @@
+```ts
+export function setMinus(entries: string[], remove: string[]): string[] {
+  // Convert entries to a Set for efficient lookup
+  const setEntries = new Set(entries);
+  
+  // Use filter to exclude elements from remove that are present in setEntries
+  return remove.filter(item => !setEntries.has(item));
+}
+```

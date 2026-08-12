@@ -1,0 +1,33 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (!requests.length) return [];
+  if (freshFor <= 0 || !Number.isInteger(freshFor)) throw new Error("Invalid freshFor");
+  if (size <= 0 || !Number.isInteger(size)) throw new Error("Invalid size");
+
+  const cache: { [key: string]: number } = {};
+  const result: [number, string][] = [];
+
+  for (const [tick, tile] of requests) {
+    if (!Number.isInteger(tick) || tick < 0) throw new Error("Invalid tick");
+
+    // Check if the tile is already rendered at or after the current tick
+    const maxRenderTick = cache[tile] ?? -1;
+    if (maxRenderTick >= tick + freshFor) continue;
+
+    // If the cache is full, drop the oldest entry
+    if (Object.keys(cache).length === size) {
+      const oldestKey = Object.entries(cache)
+        .sort((a, b) => a[0] < b[0] ? -1 : 1)[0][0];
+      delete cache[oldestKey];
+    }
+
+    // Store the new render in the cache
+    cache[tile] = tick;
+
+    // Record the render in the result
+    result.push([tick, tile]);
+  }
+
+  return result;
+}
+```

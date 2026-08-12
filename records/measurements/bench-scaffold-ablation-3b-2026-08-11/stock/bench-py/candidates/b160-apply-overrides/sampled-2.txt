@@ -1,0 +1,24 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    merged = base.copy()
+    
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError(f"Override {override} is invalid. Each override must be a string.")
+        
+        parts = override.split('=', 1)
+        if len(parts) != 2 or not parts[0]:
+            raise ValueError(f"Invalid override format: {override}. A setting name must be provided and cannot be empty.")
+        
+        setting_name, value = parts
+        
+        if setting_name in merged:
+            merged[setting_name] = value
+        else:
+            raise ValueError(f"Setting {setting_name} does not exist in base settings.")
+    
+    return merged
+```

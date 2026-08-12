@@ -1,0 +1,20 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if mark < 0 or was_out_of <= 0 or now_out_of <= 0:
+        raise ValueError("Marks cannot be negative.")
+    
+    if mark > now_out_of:
+        return 0
+    
+    if mark == was_out_of:
+        return now_out_of
+    
+    scale = now_out_of / was_out_of
+    scaled_mark = int(mark * scale)
+    
+    # Ensure the result does not exceed the new total
+    if scaled_mark > now_out_of:
+        scaled_mark = now_out_of
+    
+    return scaled_mark
+```

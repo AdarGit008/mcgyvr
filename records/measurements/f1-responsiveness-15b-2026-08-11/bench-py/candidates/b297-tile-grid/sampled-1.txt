@@ -1,0 +1,14 @@
+```python
+# tiles_across returns how many tiles of a given size cover a length, rounding up so that a part tile still counts as one.
+def tiles_across(length: int, tile: int) -> int:
+    if length < 0 or tile <= 0:
+        raise ValueError("Length and tile must be positive integers")
+    return (length + tile - 1) // tile
+
+# tiles_needed returns the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again.
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    if width <= 0 or height <= 0 or tile <= 0 or spare < 0:
+        raise ValueError("Width, height, tile, and spare must be positive integers")
+    total_tiles = (width * height + spare) // tile
+    return tiles_across(total_tiles + spare, tile)
+```

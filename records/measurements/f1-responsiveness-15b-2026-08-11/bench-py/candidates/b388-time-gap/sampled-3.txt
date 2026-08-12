@@ -1,0 +1,31 @@
+```python
+from typing import *
+from collections.abc import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes between two times on a 24-hour clock,
+    considering that the second time should fall on the following day
+    if it is not later than the first.
+
+    Parameters:
+    - from_hour: The hour part of the start time.
+    - from_minute: The minute part of the start time.
+    - to_hour: The hour part of the end time.
+    - to_minute: The minute part of the end time.
+
+    Returns:
+    - The minutes between the two times, considering the wrap-around effect.
+    """
+    # Calculate total minutes for both times
+    from_total = 60 * from_hour + from_minute
+    to_total = 60 * to_hour + to_minute
+
+    # If to_time is earlier in the day than from_time,
+    # add 24 hours (1440 minutes) to ensure it falls on the following day.
+    if to_total < from_total:
+        to_total += 24 * 60
+
+    # Return the difference between the two times
+    return max(to_total - from_total, 0)
+```

@@ -1,0 +1,87 @@
+id: b027-thread-score
+task_type: bug_fix
+task: >-
+  threadScore misreports what a comment thread is worth. A comment is a
+  mapping with score (an integer), deleted (a flag) and replies (a list of
+  further comments nested to any depth). The total must take in the comment
+  itself and every reply however deeply nested, and a deleted comment
+  contributes nothing itself while its replies still count toward the
+  total. The current code adds only the scores of direct replies, so
+  anything nested deeper is ignored, and it also adds a deleted comment's
+  own score as though it were live. Fix threadScore so the whole subtree is
+  walked with deleted comments contributing zero of their own. Also add the
+  missing validation: every comment walked must carry a score that is an
+  integer and not a boolean, otherwise reject with an error. Leave the
+  other functions in the file unchanged. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Utilities over a nested thread of comments, scores and deletions. */
+
+  type ThreadComment = {
+    score: number;
+    deleted: boolean;
+    replies: ThreadComment[];
+  };
+
+  /** Total score of the thread; deleted comments contribute nothing. */
+  export function threadScore(comment: ThreadComment): number {
+    let total = comment.score;
+    for (const reply of comment.replies) {
+      total += reply.score;
+    }
+    return total;
+  }
+
+  /** Depth of the deepest reply chain, 1 for a lone comment. */
+  export function threadDepth(comment: ThreadComment): number {
+    let deepest = 0;
+    for (const reply of comment.replies) {
+      const depth = threadDepth(reply);
+      if (depth > deepest) {
+        deepest = depth;
+      }
+    }
+    return deepest + 1;
+  }
+
+  /** How many live comments in the thread reach the awarding bar. */
+  export function countAwarded(comment: ThreadComment, minScore: number): number {
+    let count = 0;
+    if (!comment.deleted && comment.score >= minScore) {
+      count = 1;
+    }
+    for (const reply of comment.replies) {
+      count += countAwarded(reply, minScore);
+    }
+    return count;
+  }
+
+  /** A copy of the thread without childless deleted comments. */
+  export function pruneDeleted(comment: ThreadComment): ThreadComment | null {
+    const kept: ThreadComment[] = [];
+    for (const reply of comment.replies) {
+      const pruned = pruneDeleted(reply);
+      if (pruned !== null) {
+        kept.push(pruned);
+      }
+    }
+    if (comment.deleted && kept.length === 0) {
+      return null;
+    }
+    return {
+      score: comment.score,
+      deleted: comment.deleted,
+      replies: kept,
+    };
+  }
+interface: >-
+  export function threadScore(comment: ThreadComment): number
+  export function threadDepth(comment: ThreadComment): number
+  export function countAwarded(comment: ThreadComment, minScore: number): number
+  export function pruneDeleted(comment: ThreadComment): ThreadComment | null
+stop_conditions:
+  - Whether a comment missing one of its three fields must be detected is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

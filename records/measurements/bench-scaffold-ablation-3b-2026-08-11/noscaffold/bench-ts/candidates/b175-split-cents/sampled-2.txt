@@ -1,0 +1,58 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+    if (typeof total !== 'number' || !Number.isInteger(total) || total < 0) {
+        throw new Error('Total must be a positive whole number.');
+    }
+
+    if (!Array.isArray(weights)) {
+        throw new Error('Weights must be an array.');
+    }
+
+    if (weights.length === 0) {
+        throw new Error('Weights list cannot be empty.');
+    }
+
+    for (const weight of weights) {
+        if (typeof weight !== 'number' || !Number.isInteger(weight) || weight <= 0) {
+            throw new Error('Each weight must be a positive whole number.');
+        }
+    }
+
+    const sumOfWeights = weights.reduce((sum, weight) => sum + weight, 0);
+    if (total % sumOfWeights !== 0) {
+        throw new Error('Total must be divisible by the sum of all weights.');
+    }
+
+    const parts: number[] = [];
+    let remainingCents = total;
+
+    for (const [index, weight] of weights.entries()) {
+        const share = Math.floor(total * weight / sumOfWeights);
+        parts.push(share);
+
+        remainingCents -= share;
+    }
+
+    while (remainingCents > 0) {
+        const maxFraction = -1;
+        let maxIndex = -1;
+
+        for (let i = 0; i < weights.length && maxIndex === -1; i++) {
+            const currentFraction = (total * weights[i] / sumOfWeights) - parts[i];
+            if (currentFraction > maxFraction) {
+                maxFraction = currentFraction;
+                maxIndex = i;
+            }
+        }
+
+        if (maxIndex !== -1) {
+            parts[maxIndex]++;
+            remainingCents--;
+        } else {
+            throw new Error('Failed to distribute remaining cents.');
+        }
+    }
+
+    return parts;
+}
+```

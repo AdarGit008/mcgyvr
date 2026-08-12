@@ -1,0 +1,17 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Limit must be positive")
+
+    turns = 0
+    remaining_items = sum(counts)
+
+    while remaining_items > 0:
+        if remaining_items <= limit:
+            break
+        else:
+            remaining_items -= limit
+            turns += limit
+
+    return turns
+```

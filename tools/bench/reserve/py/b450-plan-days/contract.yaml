@@ -1,0 +1,17 @@
+id: b450-plan-days
+task_type: function_implementation
+task: >-
+  Implement days_for and plan_days. days_for returns how many whole
+  days a job of a stated size takes at a stated rate a day, rounding
+  up so a part day counts as one. plan_days returns the days each of
+  several jobs takes, in order. Reject a rate of zero or less with an
+  error.
+target: solution.py
+interface: "def days_for(size: int, rate: int) -> int
+def plan_days(sizes: list, rate: int) -> list"
+stop_conditions:
+  - Whether two jobs could share a day is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

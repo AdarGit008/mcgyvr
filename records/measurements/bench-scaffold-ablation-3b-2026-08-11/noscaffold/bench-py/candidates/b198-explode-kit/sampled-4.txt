@@ -1,0 +1,22 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: dict, kit: str, want: int) -> Dict[str, int]:
+    def get_units(k: str, n: int) -> int:
+        if k not in catalog:
+            raise ValueError(f"Kit '{k}' is undefined.")
+        recipe = catalog[k]
+        parts_needed = {component: count * n for component, count in recipe['parts']}
+        
+        total_consumed = 0
+        for part_name, part_count in parts_needed.items():
+            if part_name in catalog:
+                consumed = get_units(part_name, part_count)
+            else:
+                consumed = part_count
+            total_consumed += consumed
+        
+        return int((total_consumed + want - 1) // want)
+    
+    return {part: get_units(kit, want) for part, _ in catalog[kit]['parts']}
+```

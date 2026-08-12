@@ -1,0 +1,50 @@
+```ts
+/**
+ * Returns the paths of all files in the storage tree.
+ */
+export function filePaths(root: object): string[] {
+    if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+    const paths: string[] = [];
+    function traverse(node: any, currentPath: string) {
+        for (const name in node) {
+            if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+            const path = currentPath ? `${currentPath}/${name}` : name;
+            if ('bytes' in node[name]) paths.push(path);
+            else if ('children' in node[name]) traverse(node[name].children, path);
+        }
+    }
+    traverse(root, '');
+    return paths;
+}
+
+/**
+ * Returns the total bytes of all nodes in the storage tree.
+ */
+export function treeBytes(root: object): number {
+    if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+    function traverse(node: any): number {
+        if ('bytes' in node) return node.bytes;
+        else if ('children' in node) return node.children.reduce((acc, child) => acc + traverse(child), 0);
+        else throw new Error('Node must have either bytes or children');
+    }
+    return traverse(root);
+}
+
+/**
+ * Returns the paths of all folders with total bytes at least minBytes.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+    if (typeof minBytes !== 'number' || minBytes < 0 || !Number.isInteger(minBytes)) throw new Error('Invalid minBytes');
+    const folders: [string, number][] = [];
+    function traverse(node: any, currentPath: string, totalBytes: number) {
+        if ('bytes' in node) {
+            const folderPath = currentPath ? `${currentPath}/${node.name}` : node.name;
+            if (totalBytes >= minBytes) folders.push([folderPath, totalBytes]);
+        } else if ('children' in node) {
+            for (const child of node.children) traverse(child, currentPath, totalBytes + treeBytes(child));
+        }
+    }
+    traverse(root, '', 0);
+    return folders;
+}
+```

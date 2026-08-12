@@ -1,0 +1,16 @@
+id: b356-digit-words
+task_type: function_implementation
+task: >-
+  Implement digitWord and digitWords. digitWord names a single digit
+  in English, so 0 is zero and 9 is nine. digitWords names every digit
+  of a run of digits in order, joined by single spaces, and gives
+  empty text for a run holding none.
+target: solution.ts
+interface: "export function digitWord(digit: number): string
+export function digitWords(digits: string): string"
+stop_conditions:
+  - What should happen to a character that is not a digit is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

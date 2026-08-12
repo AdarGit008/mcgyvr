@@ -1,0 +1,17 @@
+```ts
+const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+export function splitLength(mm: number): string {
+  if (typeof mm !== "number" || !Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length");
+  }
+
+  const result = LADDER.filter(([_, factor]) => mm >= factor).map(([unit, factor]) => {
+    const count = Math.floor(mm / factor);
+    mm -= count * factor;
+    return `${count}${unit}`;
+  });
+
+  return result.join(" ");
+}
+```

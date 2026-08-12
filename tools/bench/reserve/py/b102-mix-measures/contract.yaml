@@ -1,0 +1,27 @@
+id: b102-mix-measures
+task_type: function_implementation
+task: >-
+  Implement combine_measures. The first argument is a pour list: each
+  entry a three-item list of an ingredient name and its exact quantity as
+  a numerator and a denominator, so ["milk", 1, 3] pours one third of a
+  unit of milk and a negative numerator pours a correction back out. The
+  second argument is a batch factor, a two-item list of positive integers
+  scaling every quantity, so a factor of [3, 2] turns one half into three
+  quarters. Total the quantities of each distinct name with exact fraction
+  arithmetic — floating point drifts and must not be used — apply the
+  factor, and return one [name, numerator, denominator] entry per name in
+  ascending name order, every fraction in lowest terms with a positive
+  denominator and a zero total reported as 0 over 1. An empty pour list
+  yields an empty list. Reject a pour list that is not a list, an entry
+  that is not a three-item list, a name that is not a non-empty string, a
+  quantity numerator or denominator that is not an integer, a quantity
+  denominator that is not positive, and a factor that is not a two-item
+  list of positive integers, with an error.
+target: solution.py
+interface: "def combine_measures(pours: list, factor: list) -> list"
+stop_conditions:
+  - No bound on the magnitude of a numerator or denominator is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

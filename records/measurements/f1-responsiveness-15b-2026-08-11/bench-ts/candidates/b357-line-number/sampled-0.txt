@@ -1,0 +1,5 @@
+```ts
+export function lineNumber(block: string): string {
+    return !block ? '' : `\n${Array.from({ length: block.length + 1 }, (_, i) => `${i + 1}:`).join('\n')}\n`;
+}
+```

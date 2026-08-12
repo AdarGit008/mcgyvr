@@ -1,0 +1,64 @@
+```ts
+/**
+ * Applies the day's semicolon-separated moves to the sheet,
+ * validating each one, then renders only the entries still on hand.
+ *
+ * @param opening - The stockroom's opening count sheet as a string.
+ * @param moves - The day's stock moves as a string.
+ * @returns The closing sheet as a string, sorted by item name and excluding items with zero count.
+ */
+export function closingSheet(opening: string, moves: string): string {
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || isNaN(Number(countStr)) || Number(countStr) < 0) {
+      throw new Error('Malformed sheet entry');
+    }
+    return [name, Number(countStr)];
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, countStr] = move.split(/[+-]/);
+    if (!/^[a-z]+$/.test(name) || isNaN(Number(countStr)) || Number(countStr) <= 0) {
+      throw new Error('Malformed move');
+    }
+    return [name, Number(countStr)];
+  };
+
+  const validateMove = (sheet: Map<string, number>, name: string, qty: number): void => {
+    if (!sheet.has(name)) {
+      throw new Error(`Item ${name} not found on the sheet`);
+    }
+    if (qty > sheet.get(name)!) {
+      throw new Error(`Cannot issue more units than held for item ${name}`);
+    }
+  };
+
+  const applyMoves = (sheet: Map<string, number>, moves: string[]): void => {
+    moves.forEach(move => {
+      const [name, qty] = parseMove(move);
+      if (/^\+/.test(move)) {
+        sheet.set(name, (sheet.get(name) || 0) + qty);
+      } else {
+        validateMove(sheet, name, qty);
+        sheet.set(name, sheet.get(name)! - qty);
+      }
+    });
+  };
+
+  const toSheetString = (sheet: Map<string, number>): string => {
+    return Array.from(sheet.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .filter(([_, count]) => count > 0)
+      .map(([name, count]) => `${name}:${count}`)
+      .join(';');
+  };
+
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Non-string argument');
+  }
+
+  const sheet = new Map<string, number>(opening.split(';').map(parseEntry));
+  applyMoves(sheet, moves.split(';'));
+  return toSheetString(sheet);
+}
+```

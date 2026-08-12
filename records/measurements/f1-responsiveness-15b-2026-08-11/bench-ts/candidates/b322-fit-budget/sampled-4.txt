@@ -1,0 +1,36 @@
+```ts
+function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error("Amount cannot be negative");
+  }
+
+  prices.sort((a, b) => a - b); // Sort prices in ascending order
+
+  let total = 0;
+  let itemsBought = 0;
+
+  for (const price of prices) {
+    if (total + price > budget) {
+      break; // We can't afford any more items
+    }
+    total += price;
+    itemsBought++;
+  }
+
+  return itemsBought;
+}
+```
+
+### Explanation:
+
+1. **Input Validation**: The function first checks if the `budget` is negative and throws an error if it is.
+2. **Sorting Prices**: The `prices` array is sorted in ascending order to always choose the cheapest item first.
+3. **Iterating Through Prices**:
+   - Total budget is initialized to zero.
+   - Items bought are initialized to zero.
+   - The function iterates through each price:
+     - If adding the current price exceeds the remaining budget, it breaks out of the loop because no more items can be purchased.
+     - Otherwise, it adds the price to the total and increments the count of items bought.
+4. **Return**: Finally, the function returns the total number of items that can be bought.
+
+This implementation ensures that the function handles edge cases such as an empty list of prices or a budget below zero gracefully.

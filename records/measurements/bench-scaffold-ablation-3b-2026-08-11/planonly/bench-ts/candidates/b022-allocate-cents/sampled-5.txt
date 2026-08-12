@@ -1,0 +1,55 @@
+```typescript
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string' || !text.match(/^\d+(\.\d{2})?$/)) {
+    throw new Error('Invalid amount format');
+  }
+  return parseFloat(text) * 100;
+}
+
+export function formatAmount(cents: number): string {
+  if (cents < 0 || cents % 1 !== 0) {
+    throw new Error('Cents must be a non-negative integer');
+  }
+  const dollars = Math.floor(cents / 100);
+  const centsPart = cents % 100;
+  return `$${dollars}.${centsPart.toString().padStart(2, '0')}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (weights.length === 0 || !weights.every(Number.isInteger) || weights.some(weight => weight < 0)) {
+    throw new Error('Invalid weights array');
+  }
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) {
+    throw new Error('Total weight must be non-zero');
+  }
+
+  const shares = weights.map(weight => Math.floor(totalCents * (weight / totalWeight)));
+  const leftover = totalCents - shares.reduce((sum, share) => sum + share, 0);
+
+  let remainderMap: { [remainder: number]: number[] } = {};
+  for (let i = 0; i < shares.length; i++) {
+    const remainder = shares[i] % totalWeight;
+    if (!remainderMap[remainder]) {
+      remainderMap[remainder] = [];
+    }
+    remainderMap[remainder].push(i);
+  }
+
+  let i = 0;
+  while (leftover > 0) {
+    const minRemainder = Math.min(...Object.keys(remainderMap).map(Number));
+    const indices = remainderMap[minRemainder];
+    for (let j = 0; j < indices.length; j++) {
+      shares[indices[j]]++;
+      leftover--;
+      if (leftover === 0) {
+        break;
+      }
+    }
+    delete remainderMap[minRemainder];
+  }
+
+  return shares;
+}
+```

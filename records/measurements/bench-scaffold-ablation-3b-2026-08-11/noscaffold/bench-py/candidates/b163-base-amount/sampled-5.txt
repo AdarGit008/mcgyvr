@@ -1,0 +1,45 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of a given unit into its base unit using a definition dictionary.
+
+    :param amount: The amount of the unit to convert.
+    :param unit: The name of the unit to convert from.
+    :param defs: A dictionary mapping unit names to [factor, finer] pairs.
+    :param base: The base unit name.
+    :return: The converted amount in the base unit.
+    """
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative whole number.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is not defined.")
+
+    if base not in defs:
+        raise ValueError(f"Base unit '{base}' is not defined.")
+
+    factor, finer = defs[unit]
+    if not isinstance(factor, int) or factor <= 0:
+        raise ValueError("Factor must be a positive whole number.")
+    
+    def convert_to_base(amount, unit):
+        nonlocal defs
+        nonlocal base
+
+        if unit == base:
+            return amount
+        
+        if unit not in defs:
+            raise ValueError(f"Unit '{unit}' is not defined.")
+
+        factor, finer = defs[unit]
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError("Factor must be a positive whole number.")
+        
+        return convert_to_base(amount // factor, finer)
+
+    try:
+        return convert_to_base(amount, unit)
+    except RecursionError as e:
+        raise ValueError(f"Chain loops so it can never reach the base. {e}")
+```

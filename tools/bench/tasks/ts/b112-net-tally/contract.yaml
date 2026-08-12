@@ -1,0 +1,28 @@
+id: b112-net-tally
+task_type: function_implementation
+task: >-
+  Implement netTally. The input is a list of tally sheets, each sheet one
+  string holding newline-separated rows; blank and whitespace-only rows are
+  skipped. A row holds three pipe-separated fields, item|sold|returned,
+  each trimmed of surrounding spaces: a non-empty item name, then the units
+  sold and the units returned, both strings of decimal digits. The same
+  item may appear in any number of rows and sheets, and its sold and
+  returned counts sum across all of them. Render one report line per
+  distinct item, sorted by item name: the name padded on the right with
+  spaces to the width of the longest name (never narrower than the word
+  total), two spaces, then the item's net count, sold minus returned. Close
+  the report with a trailer: the word total padded the same way, two
+  spaces, and the sum of every net. Return the report as one
+  newline-joined string; no rows at all yields the empty string with no
+  trailer. Reject a sheets argument that is not a list, a sheet that is not
+  a string, a row without exactly three fields, a row with an empty item
+  name, a sold or returned field that is not a string of decimal digits,
+  and an item whose returned total exceeds its sold total, with an error.
+target: solution.ts
+interface: "export function netTally(sheets: string[]): string"
+stop_conditions:
+  - Whether item names differing only in letter case tally together is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

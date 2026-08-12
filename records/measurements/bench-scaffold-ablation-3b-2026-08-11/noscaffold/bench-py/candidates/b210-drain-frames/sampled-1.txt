@@ -1,0 +1,39 @@
+```python
+from typing import List, Dict
+
+def drain_frames(chunks: List[str], marker: str) -> Dict[str, str]:
+    if not (isinstance(marker, str) and len(marker) == 1):
+        raise ValueError("Marker must be a single character")
+
+    frames = []
+    pending = []
+
+    for chunk in chunks:
+        # Join all chunks into one string
+        joined_text = ''.join(frames + [chunk] + pending)
+
+        i = 0
+        while i < len(joined_text) - 1:
+            if joined_text[i] == marker and joined_text[i + 1] != marker:
+                # Mark the start of a frame
+                frames.append(marker)
+                i += 2
+            elif joined_text[i] == marker and joined_text[i + 1] == marker:
+                # End of an existing frame, move to the next character
+                frames.pop()
+                if frames:
+                    # If there are still frames, continue scanning
+                    pending.append(marker)
+                else:
+                    # No more frames, add remaining text to pending
+                    pending.extend(joined_text[i + 2:])
+                i += 1
+            else:
+                # Move to the next character
+                i += 1
+
+    # Append any remaining characters as pending text
+    pending.extend(joined_text[i:])
+
+    return {'frames': frames, 'pending': ''.join(pending)}
+```

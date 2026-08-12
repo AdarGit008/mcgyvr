@@ -1,0 +1,23 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop === 0) {
+    throw new Error("Hop of zero is not allowed.");
+  }
+
+  let totalHops = 0;
+  for (let i = 0; i < count; i++) {
+    const targetRelease = lts.find(lt => lt > builds[i]);
+    if (!targetRelease) {
+      throw new Error(`Device running release ${builds[i]} is not eligible.`);
+    }
+
+    let currentRelease = builds[i];
+    while (currentRelease < targetRelease && hop > 0) {
+      currentRelease += hop;
+      totalHops++;
+    }
+  }
+
+  return totalHops;
+}
+```

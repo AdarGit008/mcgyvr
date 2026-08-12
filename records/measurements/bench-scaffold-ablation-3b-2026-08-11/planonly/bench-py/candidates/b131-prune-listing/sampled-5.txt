@@ -1,0 +1,50 @@
+```python
+from typing import List
+
+def split_strict(s: str) -> List[str]:
+    segments = s.split('/')
+    if not all(segment for segment in segments):
+        raise ValueError("Segment cannot be empty")
+    return segments
+
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    # Validate every rule and path with split_strict
+    for item in listing + rules:
+        if not isinstance(item, str) or item == "":
+            raise ValueError("Invalid path or rule")
+
+    pruned_list = []
+    for path in listing:
+        matched_rule = None
+        for rule in rules:
+            try:
+                segments_path = split_strict(path)
+                segments_rule = split_strict(rule)
+
+                if rule.startswith("!"):
+                    if len(segments_path) >= len(segments_rule):
+                        match = True
+                        for i, segment in enumerate(segments_rule):
+                            if segment != "*" and segments_path[i] != segment:
+                                match = False
+                                break
+                        if match:
+                            matched_rule = rule
+                else:
+                    if len(segments_path) > len(segments_rule):
+                        match = True
+                        for i, segment in enumerate(segments_rule):
+                            if segment != "*" and segments_path[i] != segment:
+                                match = False
+                                break
+                        if match:
+                            matched_rule = rule
+            except ValueError:
+                raise ValueError("Invalid path or rule")
+
+        if matched_rule is None:
+            pruned_list.append(path)
+
+    return pruned_list
+```

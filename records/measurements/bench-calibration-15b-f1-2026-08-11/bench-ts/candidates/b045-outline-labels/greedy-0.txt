@@ -1,0 +1,67 @@
+```ts
+export function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) {
+    throw new Error("outline argument must be a list");
+  }
+
+  const result: string[] = [];
+  let currentDepth = 0;
+  let currentNumber = 1;
+
+  for (const section of sections) {
+    if (!isSection(section)) {
+      throw new Error("section argument must be a mapping");
+    }
+    if (!Array.isArray(section.children)) {
+      throw new Error("children argument must be a list");
+    }
+
+    const heading = section.heading;
+    if (typeof heading !== "string" || !heading.trim()) {
+      throw new Error("heading argument must be a non-empty string");
+    }
+
+    result.push(createLabel(currentNumber, heading));
+
+    currentDepth++;
+    currentNumber += section.children.length + 1; // Add one for the dot and the number
+  }
+
+  return result;
+}
+
+export function sectionCount(sections: object[]): number {
+  if (!Array.isArray(sections)) {
+    throw new Error("outline argument must be a list");
+  }
+
+  let counts: { [depth: number]: number } = {};
+
+  for (const section of sections) {
+    if (!isSection(section)) {
+      throw new Error("section argument must be a mapping");
+    }
+    if (!Array.isArray(section.children)) {
+      throw new Error("children argument must be a list");
+    }
+
+    const depth = section.depth || 0;
+    counts[depth] = (counts[depth] || 0) + 1;
+
+    currentDepth++;
+    currentNumber += section.children.length + 1; // Add one for the dot and the number
+  }
+
+  return counts;
+}
+
+function isSection(section: object): boolean {
+  return typeof section === "object" && section !== null &&
+         typeof section.heading === "string" && section.heading.trim() &&
+         Array.isArray(section.children);
+}
+
+function createLabel(number: number, heading: string): string {
+  return `${number} ${heading}`;
+}
+```

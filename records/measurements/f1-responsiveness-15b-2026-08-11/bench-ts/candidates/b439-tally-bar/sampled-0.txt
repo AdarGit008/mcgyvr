@@ -1,0 +1,12 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+  if (count < 0 || count > Math.min(width - 1, 0)) {
+    throw new Error("Invalid arguments");
+  }
+  let bar = "";
+  for (let i = 0; i < count; i++) {
+    bar += "#";
+  }
+  return count === 0 ? " #" : `${bar} >`;
+}
+```

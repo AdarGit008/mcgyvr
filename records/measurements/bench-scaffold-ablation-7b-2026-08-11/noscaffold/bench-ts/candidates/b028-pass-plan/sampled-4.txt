@@ -1,0 +1,45 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+    if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+    for (const day of tripDays) {
+        if (!Number.isInteger(day) || day <= 0) throw new Error('Trip days must be strictly increasing positive integers');
+    }
+    if (!Array.isArray(tripDays)) throw new Error('First argument must be an array of numbers');
+    if (tripDays.length > 1 && !tripDays.every((day, i, arr) => i === 0 || day > arr[i - 1])) throw new Error('Trip days must be strictly increasing');
+
+    for (const pass of passes) {
+        if (!Number.isInteger(pass.span) || pass.span <= 0) throw new Error('Pass span must be a positive integer');
+        if (pass.cost < 0) throw new Error('Pass cost must be a non-negative integer');
+    }
+    if (!Array.isArray(passes)) throw new Error('Second argument must be an array of pass objects');
+
+    const n = tripDays.length;
+    const dp: number[] = new Array(n + 1).fill(Infinity);
+    dp[0] = 0;
+
+    for (let i = 0; i < n; i++) {
+        for (const { span, cost } of passes) {
+            if (i + span <= n) {
+                dp[i + span] = Math.min(dp[i + span], dp[i] + cost);
+            }
+        }
+    }
+
+    if (dp[n] === Infinity) throw new Error('No valid pass plan found');
+
+    const purchases: number[][] = [];
+    let i = n;
+    while (i > 0) {
+        for (const { span, cost } of passes) {
+            if (i - span >= 0 && dp[i] === dp[i - span] + cost) {
+                purchases.unshift([tripDays[i - span], span]);
+                i -= span;
+                break;
+            }
+        }
+    }
+
+    return { total: dp[n], purchases };
+}
+```

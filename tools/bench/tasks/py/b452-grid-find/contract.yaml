@@ -1,0 +1,16 @@
+id: b452-grid-find
+task_type: function_implementation
+task: >-
+  Implement match_at and grid_find. match_at says whether the cell at
+  a row and column of a grid holds a stated value. grid_find returns
+  the row and column of the first cell that does, reading row by row.
+  Reject a grid not holding the value anywhere with an error.
+target: solution.py
+interface: "def match_at(grid: list, row: int, column: int, value: int) -> bool
+def grid_find(grid: list, value: int) -> list"
+stop_conditions:
+  - Whether the last cell holding the value should be found instead is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

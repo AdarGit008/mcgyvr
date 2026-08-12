@@ -1,0 +1,16 @@
+```python
+def tag_trim(tag: str) -> str:
+    if not tag or tag[0] != '#' or tag[-1] != ':':
+        return tag
+
+    start_marker = '#'
+    end_marker = ':'
+
+    while len(start_marker) > 0 and start_marker[0] == tag[0]:
+        start_marker = start_marker[1:]
+
+    while len(end_marker) > 0 and end_marker[-1] == tag[-1]:
+        end_marker = end_marker[:-1]
+
+    return start_marker + end_marker
+```

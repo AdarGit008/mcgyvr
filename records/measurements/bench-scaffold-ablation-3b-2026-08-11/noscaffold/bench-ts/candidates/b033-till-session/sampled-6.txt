@@ -1,0 +1,62 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    if (!events || typeof events !== 'object' || !Array.isArray(events)) {
+        throw new Error('Events must be a non-empty array of arrays.');
+    }
+
+    const initialState = { state: 'open', cart: {}, items: [], total: 0, paid: 0, change: 0 };
+    let currentState = { ...initialState };
+
+    events.forEach(event => {
+        if (!Array.isArray(event) || event.length !== 2 || typeof event[0] !== 'string' || !['scan', 'void', 'close', 'pay', 'cancel'].includes(event[0])) {
+            throw new Error('Invalid event format.');
+        }
+
+        const [action, ...payload] = event;
+        switch (action) {
+            case 'scan':
+                if (!prices[payload[0]]) {
+                    throw new Error(`Item not found in price list.`);
+                }
+                currentState.cart[payload[0]] = (currentState.cart[payload[0]] || 0) + 1;
+                break;
+            case 'void':
+                if (!currentState.cart[payload[0]]) {
+                    throw new Error(`Item not in cart.`);
+                }
+                currentState.cart[payload[0]] = Math.max(currentState.cart[payload[0]] - 1, 0);
+                break;
+            case 'close':
+                if (Object.keys(currentState.cart).length === 0) {
+                    throw new Error('Cannot close empty cart.');
+                }
+                currentState.state = 'payment';
+                break;
+            case 'pay':
+                const amount = parseInt(payload[0], 10);
+                if (isNaN(amount) || amount <= 0) {
+                    throw new Error('Pay amount must be a positive integer.');
+                }
+                currentState.paid += amount;
+
+                if (currentState.paid >= currentState.total) {
+                    currentState.state = 'paid';
+                    currentState.change = currentState.paid - currentState.total;
+                }
+                break;
+            case 'cancel':
+                currentState.state = 'cancelled';
+                break;
+            default:
+                throw new Error(`Unknown action: ${action}.`);
+        }
+
+        // Ensure no further events are processed after paid or cancelled
+        if (currentState.state === 'paid' || currentState.state === 'cancelled') {
+            return;
+        }
+    });
+
+    return { ...currentState };
+}
+```

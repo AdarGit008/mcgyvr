@@ -1,0 +1,16 @@
+id: b468-bracket-depth
+task_type: function_implementation
+task: >-
+  Implement bracket_depth. Report the deepest nesting reached by round
+  brackets in a text, with a text holding none reported as nothing.
+  Every other character is passed over. Reject a text where a bracket
+  closes before it opens, or that ends with one still open, with an
+  error.
+target: solution.py
+interface: "def bracket_depth(text: str) -> int"
+stop_conditions:
+  - Whether square or curly brackets should count toward the nesting is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

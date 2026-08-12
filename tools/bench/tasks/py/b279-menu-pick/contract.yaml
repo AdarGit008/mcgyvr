@@ -1,0 +1,15 @@
+id: b279-menu-pick
+task_type: function_implementation
+task: >-
+  Implement menu_pick. Each dish on a menu carries a name and a price
+  in whole pence. Return the names of every dish costing no more than
+  a budget, cheapest first. Two dishes at the same price are ordered
+  by name. A budget below every dish yields an empty list.
+target: solution.py
+interface: "def menu_pick(dishes: list, budget: int) -> list"
+stop_conditions:
+  - Whether two dishes sharing both a price and a name should both be listed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

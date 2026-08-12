@@ -1,0 +1,20 @@
+id: b340-case-flip
+task_type: bug_fix
+task: >-
+  swapCase returns text with the case of every letter turned over, and
+  it raises everything to upper case instead. Fix it. A character that
+  is not a letter is left exactly as it is. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  /** Text with the case of every letter turned over. */
+  export function swapCase(text: string): string {
+    return text.toUpperCase();
+  }
+interface: "export function swapCase(text: string): string"
+stop_conditions:
+  - Whether a letter outside the English alphabet should turn too is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

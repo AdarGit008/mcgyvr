@@ -1,0 +1,19 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """
+    Return a list of numbers from `first` to `first + count - 1`.
+    """
+    return [i for i in range(first, first + count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """
+    Find the first number in the sequence from `first` up to and including
+    `first + count - 1` that is not in the `seen` list.
+    
+    If all numbers are present in `seen`, return None.
+    """
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+    return None
+```

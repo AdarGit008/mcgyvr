@@ -1,0 +1,52 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    // Validate grid size and cell values
+    if (grid.length === 0) throw new Error("Grid must have at least one row");
+    const firstRowLength = grid[0].length;
+    if (firstRowLength === 0) throw new Error("First row must have at least one cell");
+
+    for (let i = 1; i < grid.length; i++) {
+        if (grid[i].length !== firstRowLength) {
+            throw new Error("All rows must have the same length");
+        }
+        for (const cell of grid[i]) {
+            if (!Number.isInteger(cell)) {
+                throw new Error("Cell value must be an integer");
+            }
+        }
+    }
+
+    // Validate queries
+    const validQueries = queries.filter(query => query.length === 4 && Number.isInteger(query[0]) && Number.isInteger(query[1]) && Number.isInteger(query[2]) && Number.isInteger(query[3]));
+
+    for (const query of validQueries) {
+        if (query[0] >= query[2] || query[1] >= query[3]) {
+            throw new Error("Top must be strictly less than bottom and left must be strictly less than right");
+        }
+        const [top, left, bottom, right] = query;
+        if (top < 0 || top >= grid.length || left < 0 || left >= firstRowLength || bottom <= top || right <= left) {
+            throw new Error("Query reaches outside the grid");
+        }
+    }
+
+    // Compute prefix-sum table
+    const prefixSum: number[][] = [];
+    for (let i = 0; i < grid.length + 1; i++) {
+        const row: number[] = [];
+        if (i > 0) {
+            for (let j = 0; j <= firstRowLength; j++) {
+                row.push((prefixSum[i - 1][j] || 0) + (grid[i - 1][j - 1] !== undefined ? grid[i - 1][j - 1] : 0));
+            }
+        }
+        prefixSum.push(row);
+    }
+
+    // Compute block totals using prefix-sum table
+    const blockTotals: number[] = validQueries.map(query => {
+        const [top, left, bottom, right] = query;
+        return prefixSum[bottom + 1][right + 1] - (prefixSum[top][right + 1] || 0) - (prefixSum[bottom + 1][left] || 0) + (prefixSum[top][left] !== undefined ? grid[top][left] : 0);
+    });
+
+    return blockTotals;
+}
+```

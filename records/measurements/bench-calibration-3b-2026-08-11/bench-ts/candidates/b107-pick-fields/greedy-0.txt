@@ -1,0 +1,33 @@
+```ts
+export function pickFields(records: unknown[], fields: string[]): unknown[][] {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error("Field list must be a non-empty array");
+  }
+
+  return records.map(record => {
+    if (!Array.isArray(record)) {
+      throw new Error("Record must be an array");
+    }
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Record must be a mapping from field names to values");
+    }
+
+    const result: unknown[] = [];
+    for (const fieldName of fields) {
+      const stem = fieldName.replace(/\?$/, "");
+      if (!stem) {
+        throw new Error(`Field name cannot have an empty stem`);
+      }
+      if (fieldName.endsWith("?") && stem in record) {
+        result.push(record[stem]);
+      } else if (fieldName in record) {
+        result.push(record[fieldName]);
+      } else {
+        throw new Error(`Record is missing required field: ${fieldName}`);
+      }
+    }
+
+    return result;
+  });
+}
+```

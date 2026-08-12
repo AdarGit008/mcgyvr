@@ -1,0 +1,60 @@
+```
+"""A block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied."""
+
+WORD_BITS = 32
+WORD_MAX = 0xFFFFFFFF
+
+
+def _whole(value):
+    return not isinstance(value, bool) and isinstance(value, int)
+
+
+def _check_words(words):
+    for word in words:
+        if not _whole(word) or word < 0 or word > WORD_MAX:
+            raise ValueError("bitmap words must be integers from 0 to 4294967295")
+
+
+def _bit_of(words, index):
+    return (words[index // WORD_BITS] >> (index % WORD_BITS)) & 1
+
+
+def bit_at(words, index):
+    _check_words(words)
+    if not _whole(index):
+        raise ValueError("bit index must be an integer")
+    if index < 0 or index >= len(words) * WORD_BITS:
+        raise ValueError("bit index is outside the words")
+    return _bit_of(words, index)
+
+
+def occupy_run(words, start, length):
+    _check_words(words)
+    if not _whole(start) or start < 0:
+        raise ValueError("run start must be a non-negative integer")
+    if not _whole(length) or length <= 0:
+        raise ValueError("run length must be a positive integer")
+    if start + length > len(words) * WORD_BITS:
+        raise ValueError("run leaves the words")
+    for i in range(start, start + length):
+        if _bit_of(words, i) == 1:
+            raise ValueError("run touches an occupied block")
+    marked = list(words)
+    for i in range(start, start + length):
+        marked[i // WORD_BITS] |= 1 << (i % WORD_BITS)
+    return marked
+
+
+def find_free_run(words: list, bits: int, length: int) -> int:
+    if not _whole(bits) or bits <= 0:
+        raise ValueError("capacity must be a positive integer")
+    if len(words) * WORD_BITS != bits:
+        raise ValueError("word count disagrees with capacity")
+    if not _whole(length) or length <= 0:
+        raise ValueError("run length must be a positive integer")
+
+    for start in range(bits - length + 1):
+        if all(_bit_of(words, i) == 0 for i in range(start, start + length)):
+            return start
+    return -1
+```

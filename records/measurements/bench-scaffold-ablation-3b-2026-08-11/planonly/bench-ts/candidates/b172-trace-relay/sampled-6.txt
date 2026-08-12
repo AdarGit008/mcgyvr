@@ -1,0 +1,30 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) {
+    throw new Error('Invalid links argument: must be a mapping.');
+  }
+  if (!Object.keys(links).includes(start)) {
+    throw new Error(`Start post '${start}' not found in links.`);
+  }
+
+  const visited = new Set<string>();
+  let currentPost = start;
+  const result: string[] = [currentPost];
+
+  while (currentPost !== '') {
+    if (visited.has(currentPost)) {
+      throw new Error('Watch comes back to a post already visited.');
+    }
+    visited.add(currentPost);
+
+    if (!links.hasOwnProperty(currentPost)) {
+      throw new Error(`Invalid handoff from '${currentPost}': not found.`);
+    }
+
+    currentPost = links[currentPost];
+    result.push(currentPost);
+  }
+
+  return result;
+}
+```

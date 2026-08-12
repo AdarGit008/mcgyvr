@@ -1,0 +1,15 @@
+id: b234-ledger-swing
+task_type: function_implementation
+task: >-
+  Implement ledgerSwing. Given a list of daily closing balances,
+  return the largest change between two consecutive days, as a
+  positive number whichever way the balance moved. A list holding
+  fewer than two balances has no swing at all, which is zero.
+target: solution.ts
+interface: "export function ledgerSwing(balances: number[]): number"
+stop_conditions:
+  - Whether a swing between non-adjacent days could ever count is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

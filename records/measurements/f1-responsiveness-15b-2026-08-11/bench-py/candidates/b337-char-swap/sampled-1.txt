@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def swap_pair(first: str, second: str) -> str:
+    return second + first
+
+def swap_all(text: str) -> str:
+    result = ''
+    for i in range(0, len(text), 2):
+        pair = text[i:i+2]
+        result += swap_pair(*pair)
+    if len(text) % 2 != 0:
+        result += text[-1]
+    return result
+```

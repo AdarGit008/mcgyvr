@@ -1,0 +1,11 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    if items <= 0 or crates <= 0:
+        raise ValueError("Invalid input: items and crates must be positive integers.")
+
+    sizes = [items // crates] * (crates - 1) + [items % crates]
+    return sizes
+
+def crate_total(sizes: list) -> int:
+    return sum(sizes)
+```

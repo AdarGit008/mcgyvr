@@ -1,0 +1,39 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!grid.length || !grid[0].length) throw new Error("Grid must have at least one row and one cell.");
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  for (let i = 1; i < numRows; i++) {
+    if (grid[i].length !== numCols) throw new Error("All rows in the grid must be of the same length.");
+  }
+
+  for (const row of grid) {
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) throw new Error("Grid cells must be integers.");
+    }
+  }
+
+  const prefixSum = Array.from({ length: numRows + 1 }, () => Array(numCols + 1).fill(0));
+
+  for (let i = 1; i <= numRows; i++) {
+    for (let j = 1; j <= numCols; j++) {
+      prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+    }
+  }
+
+  const result: number[] = [];
+
+  for (const [top, left, bottom, right] of queries) {
+    if (!Array.isArray(query) || query.length !== 4) throw new Error("Queries must be lists of exactly four integers.");
+    if (typeof top !== "number" || typeof left !== "number" || typeof bottom !== "number" || typeof right !== "number") throw new Error("All query elements must be numbers.");
+    if (top >= bottom || left >= right) throw new Error("Query boundaries must be strictly less than each other.");
+    if (top < 0 || left < 0 || bottom > numRows || right > numCols) throw new Error("Queries must not reach outside the grid.");
+
+    const total = prefixSum[bottom][right] - prefixSum[top][right] - prefixSum[bottom][left] + prefixSum[top][left];
+    result.push(total);
+  }
+
+  return result;
+}
+```

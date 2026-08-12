@@ -1,0 +1,22 @@
+```ts
+export function commonHead(words: string[]): string {
+    if (!words || words.length === 0) return '';
+
+    const firstCharMap = new Map<string, number>();
+    for (const word of words) {
+        const firstChar = word[0].toLowerCase();
+        firstCharMap.set(firstChar, (firstCharMap.get(firstChar) ?? 0) + 1);
+    }
+
+    let maxCount = 0;
+    let result = '';
+    for (const [_, count] of firstCharMap.entries()) {
+        if (count > maxCount) {
+            maxCount = count;
+            result = word[0];
+        }
+    }
+
+    return result.toUpperCase();
+}
+```

@@ -1,0 +1,47 @@
+```python
+from typing import *
+from collections import *
+
+def ramp_step(current: int, target: int, step: int) -> int:
+    """
+    Return the next value moving from `current` toward `target` by at most `step`,
+    never overshooting the target. If `start` is already at the target, return just that one value.
+    
+    >>> ramp_step(10, 20, 5)
+    15
+    >>> ramp_step(10, 20, -3)
+    7
+    """
+    if step == 0:
+        raise ValueError("Step cannot be zero when start is not already at the target")
+    
+    if current < target:
+        return min(target, current + step)
+    elif current > target:
+        return max(target, current - step)
+    else:
+        return current
+
+def ramp_plan(start: int, target: int, step: int) -> List[int]:
+    """
+    Return every value visited going from `start` to `target`, both ends included.
+    
+    >>> ramp_plan(10, 20, 5)
+    [10, 15, 20]
+    >>> ramp_plan(20, 10, -3)
+    [20, 17, 14, 11, 8, 5, 2]
+    """
+    if step == 0:
+        raise ValueError("Step cannot be zero")
+    
+    result = []
+    current = start
+    while current != target:
+        result.append(current)
+        current += step
+        if current > target:
+            current = target
+    
+    result.append(target)  # Include the target value in the plan
+    return result
+```

@@ -1,0 +1,10 @@
+```python
+def word_reverse(line: str) -> str:
+    # Split the line into words based on spaces
+    words = line.split()
+    
+    # Reverse each word and join them back with a single space
+    reversed_line = ' '.join(word[::-1] for word in words)
+    
+    return reversed_line
+```

@@ -1,0 +1,24 @@
+```ts
+function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Line must be a string');
+  }
+  return line.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+}
+
+function tagIndex(lines: string[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const line of lines) {
+    if (typeof line !== 'string') {
+      throw new Error('Line must be a string');
+    }
+    const tags = tagsOf(line);
+    for (const tag of tags) {
+      const existingLines = result[tag] || [];
+      existingLines.push(line);
+      result[tag] = existingLines;
+    }
+  }
+  return result;
+}
+```

@@ -1,0 +1,34 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Trace the relay of the night watch from start to the post that hands on to the empty name.
+
+    :param links: A dictionary mapping each post's name to the next post's name.
+    :param start: The starting post's name.
+    :return: A list of post names visited in order, starting with start and ending with the last post.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary.")
+    
+    if start not in links:
+        raise ValueError(f"start '{start}' is not a valid post name.")
+    
+    visited = set()
+    path = [start]
+    
+    while True:
+        current_post = path[-1]
+        
+        if current_post == "":
+            break
+        
+        next_post = links.get(current_post)
+        
+        if next_post is None or next_post in visited:
+            raise ValueError("Handoffs must not come back to a post already visited.")
+        
+        visited.add(next_post)
+        path.append(next_post)
+    
+    return path
+```

@@ -1,0 +1,63 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name === '' || !/^[*\w\.]+$/.test(name)) {
+    throw new Error('Invalid name');
+  }
+
+  const parts = name.split('.');
+  let wildcardIndex = -1;
+
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === '*') {
+      if (wildcardIndex !== -1) {
+        throw new Error('Multiple stars in name');
+      }
+      wildcardIndex = i;
+    } else if (!/^[a-zA-Z\w]+$/.test(parts[i])) {
+      throw new Error('Invalid character in name');
+    }
+  }
+
+  const hasWildcard = wildcardIndex > -1;
+
+  for (const [selector, value] of Object.entries(rules)) {
+    if (typeof selector !== 'string' || typeof value !== 'string') {
+      throw new Error('Invalid rule value');
+    }
+
+    if (name === selector) {
+      return value;
+    } else if (
+      hasWildcard &&
+      selector.startsWith(parts.slice(0, wildcardIndex + 1).join('.')) &&
+      (!hasWildcard ||
+        parts.slice(wildcardIndex + 1).some(part => part !== '' && part[0] !== '.')) &&
+      (wildcardIndex === parts.length - 1 || name.split('.').length > selector.split('.').length)
+    ) {
+      return value;
+    }
+  }
+
+  if (!hasWildcard || wildcardIndex === 0) {
+    return null;
+  }
+
+  const wildcardSelector = parts.slice(0, wildcardIndex + 1).join('.');
+  for (const [selector, value] of Object.entries(rules)) {
+    if (
+      typeof selector !== 'string' ||
+      typeof value !== 'string' ||
+      !selector.startsWith(wildcardSelector)
+    ) {
+      continue;
+    }
+
+    const currentLength = selector.split('.').length;
+    if (wildcardIndex === parts.length - 1 || currentLength > wildcardIndex + 2) {
+      return null;
+    }
+  }
+
+  throw new Error('No matching selector');
+}
+```

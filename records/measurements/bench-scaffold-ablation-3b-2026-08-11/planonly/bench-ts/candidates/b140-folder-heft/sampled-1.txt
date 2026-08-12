@@ -1,0 +1,82 @@
+```typescript
+import { assert } from 'assert';
+
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || Array.isArray(root)) {
+    throw new Error('Root must be a non-empty mapping.');
+  }
+
+  const paths: string[] = [];
+
+  function walk(node: object, path: string[]): void {
+    Object.entries(node).forEach(([name, value]) => {
+      if (typeof name !== 'string' || /\//.test(name) || !Array.isArray(value)) {
+        throw new Error('Invalid node structure.');
+      }
+
+      const currentPath = [...path, name];
+      if (typeof value === 'object') {
+        walk(value as object, currentPath);
+      } else if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+        paths.push(currentPath.join('/'));
+      }
+    });
+  }
+
+  walk(root, []);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object') {
+    throw new Error('Root must be a non-empty mapping.');
+  }
+
+  let total = 0;
+
+  function count(node: object): void {
+    Object.values(node).forEach(value => {
+      if (typeof value === 'object') {
+        count(value as object);
+      } else if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+        total += value;
+      }
+    });
+  }
+
+  count(root);
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (
+    typeof root !== 'object' ||
+    typeof minBytes !== 'number' ||
+    minBytes < 0 || !Number.isInteger(minBytes)
+  ) {
+    throw new Error('Invalid minBytes.');
+  }
+
+  const heavyFolders: [string, number][] = [];
+
+  function filter(node: object, path: string[]): void {
+    Object.entries(node).forEach(([name, value]) => {
+      if (typeof name !== 'string' || /\//.test(name) || !Array.isArray(value)) {
+        throw new Error('Invalid node structure.');
+      }
+
+      const currentPath = [...path, name];
+      if (typeof value === 'object') {
+        filter(value as object, currentPath);
+      } else if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+        heavyFolders.push([currentPath.join('/'), total]);
+        total += value;
+      }
+    });
+  }
+
+  let total = 0;
+  filter(root, []);
+  return heavyFolders.filter(([_, bytes]) => bytes >= minBytes);
+}
+```

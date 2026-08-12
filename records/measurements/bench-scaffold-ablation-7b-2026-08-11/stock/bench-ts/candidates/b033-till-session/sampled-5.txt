@@ -1,0 +1,86 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state: string = OPEN;
+  let cart: Record<string, number> = {};
+  let total: number = 0;
+  let paid: number = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("event must be a list of its action and exactly one payload");
+    }
+
+    const [action, itemOrAmount] = event;
+    if (typeof itemOrAmount !== "string" && typeof itemOrAmount !== "number") {
+      throw new Error(`payload must be a string or number: ${action}`);
+    }
+
+    switch (state) {
+      case OPEN:
+        if (action === "scan") {
+          if (!prices[itemOrAmount] || !Number.isInteger(prices[itemOrAmount]) || prices[itemOrAmount] <= 0) {
+            throw new Error(`unknown item or invalid price: ${itemOrAmount}`);
+          }
+          cart[itemOrAmount] = (cart[itemOrAmount] || 0) + 1;
+        } else if (action === "void") {
+          if (!cart[itemOrAmount]) {
+            throw new Error(`item not in cart: ${itemOrAmount}`);
+          }
+          cart[itemOrAmount]--;
+          if (cart[itemOrAmount] === 0) {
+            delete cart[itemOrAmount];
+          }
+        } else if (action === "close") {
+          state = PAYMENT;
+          total = Object.entries(cart).reduce((acc, [itemName, quantity]) => acc + prices[itemName] * quantity, 0);
+        } else if (action === "cancel") {
+          state = CANCELLED;
+        } else {
+          throw new Error(`unknown action in open state: ${action}`);
+        }
+        break;
+
+      case PAYMENT:
+        if (typeof itemOrAmount !== "number" || !Number.isInteger(itemOrAmount) || itemOrAmount <= 0) {
+          throw new Error("pay amount must be a positive integer");
+        }
+        paid += itemOrAmount;
+        if (paid >= total) {
+          state = PAID;
+          change = paid - total;
+        }
+        break;
+
+      case PAID:
+      case CANCELLED:
+        throw new Error(`event after session is ${state}: ${action}`);
+    }
+  }
+
+  const items: [string, number][] = Object.entries(cart).map(([itemName, quantity]) => [itemName, quantity]);
+  items.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return { state, items, total, paid, change };
+}
+```

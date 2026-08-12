@@ -1,0 +1,41 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (!Number.isInteger(freshFor) || freshFor <= 0) throw new Error("freshFor must be a positive whole number");
+    if (!Number.isInteger(size) || size <= 0) throw new Error("size must be a positive whole number");
+
+    const cache: { [tileName: string]: { tick: number, tile: string }[] } = {};
+    let currentTick = 0;
+    const renders: [number, string][] = [];
+
+    for (const [tick, tile] of requests) {
+        if (tick < currentTick) throw new Error("requests must be in order by tick");
+        currentTick = tick;
+
+        if (!cache[tile]) cache[tile] = [];
+
+        let index = cache[tile].findIndex(r => r.tick + freshFor > tick);
+        if (index >= 0) {
+            renders.push([tick, tile]);
+            continue;
+        }
+
+        if (Object.keys(cache).length < size) {
+            renders.push([tick, tile]);
+            cache[tile].push({ tick, tile });
+        } else {
+            const oldestTile = Object.entries(cache)
+                .flatMap(([_, tileRenders]) => tileRenders)
+                .sort((a, b) => a.tick - b.tick || a.tile.localeCompare(b.tile))
+                .shift();
+
+            if (oldestTile) {
+                delete cache[oldestTile.tile];
+                renders.push([tick, tile]);
+                cache[tile].push({ tick, tile });
+            }
+        }
+    }
+
+    return renders;
+}
+```

@@ -1,0 +1,8 @@
+```ts
+export function warmUp(readings: number[], floor: number): number[] {
+  for (let i = 0; i < readings.length && readings[i] < floor; i++) {
+    readings.shift();
+  }
+  return readings;
+}
+```

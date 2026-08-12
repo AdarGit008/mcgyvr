@@ -1,0 +1,43 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  let result = "";
+  let i = 0;
+  const len = template.length;
+
+  while (i < len) {
+    if (template[i] === "{") {
+      let placeholderStart = i + 1;
+      let placeholderEnd = placeholderStart;
+
+      // Find the end of the placeholder name
+      while (
+        placeholderEnd < len &&
+        /^[a-zA-Z0-9_]+$/.test(template[placeholderEnd])
+      ) {
+        placeholderEnd++;
+      }
+
+      if (placeholderEnd === placeholderStart) {
+        throw new Error("Malformed placeholder name");
+      }
+
+      const placeholderName = template.substring(placeholderStart, placeholderEnd);
+
+      if (!values.hasOwnProperty(placeholderName)) {
+        throw new Error(`Unknown placeholder: ${placeholderName}`);
+      }
+
+      result += values[placeholderName];
+      i = placeholderEnd;
+    } else {
+      result += template[i++];
+    }
+  }
+
+  return result;
+}
+```

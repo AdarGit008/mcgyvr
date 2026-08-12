@@ -1,0 +1,44 @@
+```ts
+export function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][] {
+  if (!Array.isArray(base) || !Array.isArray(ours) || !Array.isArray(theirs)) {
+    throw new Error('base, ours, and theirs must be arrays');
+  }
+
+  const mergedLedger: { [key: string]: number } = {};
+
+  // Merge base ledger
+  for (const [account, cents] of base) {
+    if (!mergedLedger[account]) {
+      mergedLedger[account] = cents;
+    } else {
+      mergedLedger[account] += cents;
+    }
+  }
+
+  // Merge ours ledger
+  for (const [account, cents] of ours) {
+    if (!mergedLedger[account]) {
+      mergedLedger[account] = cents;
+    } else {
+      mergedLedger[account] += cents;
+    }
+  }
+
+  // Merge theirs ledger
+  for (const [account, cents] of theirs) {
+    if (!mergedLedger[account]) {
+      mergedLedger[account] = cents;
+    } else {
+      mergedLedger[account] += cents;
+    }
+  }
+
+  // Filter out accounts that are only present in one copy
+  const filteredLedger: [string, number][] = Object.entries(mergedLedger).filter(([account]) => ours.includes([account, 0]) || theirs.includes([account, 0]));
+
+  // Sort the ledger by account name
+  filteredLedger.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return filteredLedger;
+}
+```

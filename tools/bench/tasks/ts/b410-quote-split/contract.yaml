@@ -1,0 +1,16 @@
+id: b410-quote-split
+task_type: function_implementation
+task: >-
+  Implement inQuote and quoteSplit. inQuote says whether a character
+  is the quotation mark. quoteSplit breaks a line on commas, except
+  for a comma standing inside quotation marks, and returns the pieces
+  with their quotation marks still in place.
+target: solution.ts
+interface: "export function inQuote(ch: string): boolean
+export function quoteSplit(line: string): string[]"
+stop_conditions:
+  - Whether a quotation mark that is never closed should be a mistake is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,33 @@
+```ts
+import { codePointAt } from "string.prototype.codepointat"; // For compatibility with Node.js
+
+export function lineTag(body: string): string {
+  if (typeof body !== "string") {
+    throw new Error("lineTag expects a string");
+  }
+  let sum = 0;
+  for (const ch of body) {
+    sum = (sum + codePointAt(ch, 0)! % 256) % 256; // Compatibility with Node.js
+  }
+  return sum.toString(16).padStart(2, "0");
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== "string" || line.length < 3) {
+    throw new Error("checkLine expects a line that is at least three characters long");
+  }
+  const tildeIndex = line.lastIndexOf("~");
+  if (tildeIndex === -1 || tildeIndex + 2 >= line.length) {
+    throw new Error("checkLine expects a tilde to separate the body from the tag");
+  }
+  const body = line.slice(0, tildeIndex);
+  const tag = line.slice(tildeIndex + 1, tildeIndex + 3);
+  const expectedTag = lineTag(body);
+
+  if (tag !== expectedTag) {
+    throw new Error("checkLine expects the tag to match the body's lineTag");
+  }
+
+  return body;
+}
+```

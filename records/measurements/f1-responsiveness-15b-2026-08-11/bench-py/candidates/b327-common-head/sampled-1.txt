@@ -1,0 +1,33 @@
+```python
+def common_head(words: list) -> str:
+    if not words:
+        return ""
+
+    # Find the shortest word to compare against for case insensitivity
+    min_len = min(len(word) for word in words)
+    min_word = min(words, key=len)
+
+    # Initialize the longest run of characters
+    longest_run = ""
+    current_run = ""
+
+    # Iterate over the characters of the shortest word
+    for i in range(min_len):
+        char = min_word[i]
+        # Check if the current character is present in all words
+        if all(word[i] == char for word in words):
+            # Add the character to the current run
+            current_run += char
+        else:
+            # If the current run is longer than the longest run found so far, update it
+            if len(current_run) > len(longest_run):
+                longest_run = current_run
+            # Reset the current run for the next character
+            current_run = char
+
+    # If there was no case-insensitive match in the shortest word, return the first character of each word
+    if not longest_run:
+        longest_run = "".join(word[0] for word in words)
+
+    return longest_run
+```

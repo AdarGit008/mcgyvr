@@ -1,0 +1,11 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) throw new Error("Row out of bounds");
+  if (col < 0 || col + length > floor[row].length) throw new Error("Run out of bounds");
+  if (!floor[row].slice(col, col + length).every(cell => cell === ".")) throw new Error("Run overlaps a machine");
+
+  const newFloor = [...floor];
+  newFloor[row] = floor[row].substring(0, col) + "=".repeat(length) + floor[row].substring(col + length);
+  return newFloor;
+}
+```

@@ -1,0 +1,51 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Arguments must be strings.');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':').map(item => item.trim());
+    if (!name || !countStr || isNaN(Number(countStr)) || countStr.includes('-') || countStr.startsWith('0')) {
+      throw new Error(`Invalid sheet entry: ${entry}`);
+    }
+    return [name, Number(countStr)];
+  };
+
+  const parseMoves = (moves: string): Map<string, number> => {
+    const movesMap = new Map<string, number>();
+    if (!moves) return movesMap;
+    for (const move of moves.split(';')) {
+      const [action, qtyStr] = move.split('+').map(item => item.trim());
+      const qty = parseInt(qtyStr, 10);
+      if (!action || isNaN(qty) || qty <= 0 || !['+', '-'].includes(action)) {
+        throw new Error(`Invalid move: ${move}`);
+      }
+      movesMap.set(action === '+' ? action : action.slice(1), qty);
+    }
+    return movesMap;
+  };
+
+  const sheet = opening.split(';').map(parseEntry).reduce((acc, [name, count]) => {
+    if (count > 0) acc.set(name, count);
+    return acc;
+  }, new Map<string, number>());
+
+  for (const [action, qty] of parseMoves(moves)) {
+    const item = action === '+' ? action.slice(1) : action;
+    if (!sheet.has(item)) {
+      throw new Error(`Attempt to issue an item not held: ${item}`);
+    }
+    const currentCount = sheet.get(item)!;
+    if (qty > currentCount) {
+      throw new Error(`Insufficient stock for issue: ${item} - requested ${qty}, available ${currentCount}`);
+    }
+    sheet.set(item, currentCount - qty);
+  }
+
+  return Array.from(sheet.entries())
+    .filter(([name]) => sheet.get(name)! > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+}
+```

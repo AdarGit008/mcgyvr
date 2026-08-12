@@ -1,0 +1,39 @@
+```ts
+/** Report the stretches of a clinic's day that no appointment covers. */
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  const minutes = (range: string): number[] => {
+    const parts = range.split("-");
+    if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+      throw new Error("a range must be written HH:MM-HH:MM: " + range);
+    }
+    return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+  };
+  const stamp = (at: number): string =>
+    String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  if (booked.length === 0) return stamp(minutes(span)[0]) + "-" + stamp(minutes(span)[1]);
+
+  const sort = (a: [number, string], b: [number, string]): number => a[0] - b[0];
+  booked.forEach((at) => {
+    const range = minutes(at);
+    let last = -1;
+    for (let i = 0; i < free.length; i++) {
+      if (free[i][0] > range[1]) break;
+      else if (free[i][1] >= range[0]) {
+        const start = last === -1 ? free[i][0] : Math.max(last, free[i][0]);
+        const end = Math.min(free[i][1], range[1]);
+        last = end;
+        free.splice(i, 1);
+      }
+    }
+    if (last !== -1) {
+      free.push([range[0], stamp(start)]);
+      free.push([stamp(end), range[1]]);
+    } else {
+      free.push(range);
+    }
+  });
+
+  return free.length === 0 ? "none" : free.sort(sort).map(([start, end]) => stamp(start) + "-" + stamp(end)).join(", ");
+}
+```

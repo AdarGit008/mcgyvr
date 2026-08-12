@@ -1,0 +1,32 @@
+```ts
+import { strict as assert } from 'assert';
+
+interface Record<K extends string | number | symbol, V> {
+  [key: K]: V;
+}
+
+export function indexMap(labels: string[]): Record<string, number[]> {
+  if (!Array.isArray(labels)) throw new Error('Invalid input');
+
+  const result: Record<string, number[]> = {};
+  labels.forEach((label, index) => {
+    if (label === '') return; // Skip empty strings
+    if (!(label in result)) result[label] = [];
+    result[label].push(index);
+  });
+
+  return result;
+}
+
+// Check function to verify the correctness of the solution
+function checkIndexMap() {
+  assert.deepEqual(indexMap([]), {});
+  assert.deepEqual(indexMap(['one']), { one: [0] });
+  assert.deepEqual(indexMap(['one', 'two']), { one: [0], two: [1] });
+  assert.deepEqual(indexMap(['one', 'two', 'one']), { one: [0, 2], two: [1] });
+  assert.deepEqual(indexMap(['a', 'b', 'c', 'c', 'd']), { a: [0], b: [1], c: [2, 3], d: [4] });
+}
+
+// Run the check function to verify the solution
+checkIndexMap();
+```

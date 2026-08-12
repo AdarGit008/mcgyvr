@@ -1,0 +1,34 @@
+```python
+def stamp_cover(label: str, dies: list) -> int:
+    def stamp_table(dies: list) -> dict:
+        if not label or not isinstance(label, str):
+            raise ValueError("Label must be a non-empty string.")
+        
+        table = {}
+        for fragment, price in dies:
+            if not isinstance(fragment, str) or not fragment:
+                raise ValueError(f"Fragment '{fragment}' is invalid.")
+            if not isinstance(price, int) or price <= 0:
+                raise ValueError(f"Price {price} must be a positive integer.")
+            
+            if fragment in table:
+                raise ValueError(f"Fragment '{fragment}' appears more than once.")
+            table[fragment] = price
+        
+        return table
+
+    try:
+        table = stamp_table(dies)
+        
+        dp = [float('inf')] * (len(label) + 1)
+        dp[0] = 0
+        
+        for i in range(1, len(label) + 1):
+            for fragment in table:
+                if label[i - 1:i] == fragment:
+                    dp[i] = min(dp[i], dp[i - len(fragment)] + table[fragment])
+        
+        return dp[-1]
+    except ValueError as e:
+        raise ValueError(f"Error in stamp_cover: {e}")
+```

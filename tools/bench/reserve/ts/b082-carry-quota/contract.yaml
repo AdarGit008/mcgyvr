@@ -1,0 +1,45 @@
+id: b082-carry-quota
+task_type: function_implementation
+task: >-
+  Implement billOverage. A metered plan grants a fixed allowance of units
+  each period, and units left unspent roll into the next period, though
+  never more than the carry cap. The arguments are the allowance, the
+  carry cap, and the per-period usage list, oldest period first. Walk the
+  periods with a carried balance that starts at zero: a period may spend
+  its allowance plus what was carried in; consumption beyond that is
+  billed as the period's overage and leaves nothing to carry, while a
+  period within its means bills zero and carries forward the smaller of
+  its unspent units and the carry cap. Return {billed, carried}: billed
+  the per-period overage list, carried what remains after the final
+  period; no periods bills nothing and carries nothing. Reject an
+  allowance that is not a non-negative integer, a carry cap that is not a
+  non-negative integer, a usage argument that is not a list, and a usage
+  entry that is not a non-negative integer, with an error.
+target: solution.ts
+target_content: |
+  /** Bill a metered plan's per-period overage under capped carry-over. */
+  export function billOverage(
+    allowance: number,
+    carryCap: number,
+    usage: number[],
+  ): { billed: number[]; carried: number } {
+    if (!Number.isInteger(allowance) || allowance < 0) {
+      throw new Error("allowance must be a non-negative integer");
+    }
+    if (!Number.isInteger(carryCap) || carryCap < 0) {
+      throw new Error("carry cap must be a non-negative integer");
+    }
+    if (!Array.isArray(usage)) {
+      throw new Error("usage must be a list");
+    }
+    // TODO: walk the periods with the carried balance, bill each period's
+    // overage, and cap what carries forward.
+    throw new Error("not implemented");
+  }
+interface: "export function billOverage(allowance: number, carryCap: number, usage: number[]): { billed: number[]; carried: number }"
+stop_conditions:
+  - Whether the allowance or the carry cap may change between periods is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

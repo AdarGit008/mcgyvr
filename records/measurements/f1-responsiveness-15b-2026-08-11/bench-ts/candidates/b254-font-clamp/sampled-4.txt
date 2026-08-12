@@ -1,0 +1,17 @@
+```ts
+/**
+ * Returns a font size that is within the specified range.
+ *
+ * @param size - The requested font size.
+ * @param smallest - The smallest allowed font size.
+ * @param largest - The largest allowed font size.
+ * @returns The clamped font size.
+ */
+export function fontClamp(size: number, smallest: number, largest: number): number {
+  if (smallest > largest) {
+    throw new Error(`Invalid range: smallest (${smallest}) is greater than largest (${largest}).`);
+  }
+
+  return Math.max(smallest, Math.min(size, largest));
+}
+```

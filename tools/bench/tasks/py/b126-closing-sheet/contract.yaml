@@ -1,0 +1,60 @@
+id: b126-closing-sheet
+task_type: function_implementation
+task: >-
+  Implement closing_sheet. A stockroom's opening count sheet arrives as text:
+  zero or more entries separated by semicolons, each entry an item name, a
+  colon and the count on hand, like bolt:12;washer:4. An item name is one or
+  more lowercase letters, a count is a plain decimal integer with no leading
+  zero (zero itself written 0), and no name may appear twice; the empty
+  string is an empty sheet. The moves argument lists the day's stock moves
+  in order, also semicolon-separated: name+qty receives qty units, adding
+  the item to the sheet at qty when it was absent, and name-qty issues qty
+  units off the sheet, where qty is a positive integer with no leading zero;
+  the empty string lists no moves. Return the closing sheet in the same
+  entry form, items sorted by name, items whose count stands at zero left
+  out, the empty string when nothing remains. Reject a non-string argument,
+  a malformed sheet entry, a malformed move, a duplicate name on the opening
+  sheet, an issue of an item the sheet does not hold, and an issue of more
+  units than the item then holds, with an error.
+target: solution.py
+target_content: |
+  """Close out a stockroom count sheet after a day's receive and issue moves."""
+
+  import re
+
+
+  def closing_sheet(opening: str, moves: str) -> str:
+      if not isinstance(opening, str) or not isinstance(moves, str):
+          raise ValueError("closing_sheet expects two strings")
+
+      def parse_sheet(text):
+          held = {}
+          if text == "":
+              return held
+          for part in text.split(";"):
+              name, colon, count = part.partition(":")
+              if colon == "":
+                  raise ValueError(f"sheet entry has no colon: {part}")
+              if re.fullmatch(r"[a-z]+", name) is None:
+                  raise ValueError(f"bad item name: {part}")
+              if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                  raise ValueError(f"bad count: {part}")
+              if name in held:
+                  raise ValueError(f"duplicate sheet entry: {name}")
+              held[name] = int(count)
+          return held
+
+      held = parse_sheet(opening)
+      # TODO: apply the day's semicolon-separated moves to the sheet,
+      # validating each one, then render only the entries still on hand.
+      entries = []
+      for name in sorted(held):
+          entries.append(f"{name}:{held[name]}")
+      return ";".join(entries)
+interface: "def closing_sheet(opening: str, moves: str) -> str"
+stop_conditions:
+  - Whether whitespace around an entry or a move is accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

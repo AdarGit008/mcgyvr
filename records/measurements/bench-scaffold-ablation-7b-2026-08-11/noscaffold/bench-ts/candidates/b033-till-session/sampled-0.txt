@@ -1,0 +1,69 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    const validActions = new Set(["scan", "void", "close", "pay", "cancel"]);
+    let cart: Record<string, number> = {};
+    let total = 0;
+    let paid = 0;
+    let state: string = "open";
+
+    for (const event of events) {
+        if (event.length !== 2 || !validActions.has(event[0])) {
+            throw new Error("Invalid event format");
+        }
+
+        switch (event[0]) {
+            case "scan":
+                const itemToScan = event[1] as string;
+                if (!(itemToScan in prices)) {
+                    throw new Error("Item not found in price list");
+                }
+                cart[itemToScan] = (cart[itemToScan] || 0) + 1;
+                break;
+
+            case "void":
+                const itemToRemove = event[1] as string;
+                if (!(itemToRemove in cart)) {
+                    throw new Error("Item not in cart for voiding");
+                }
+                if (cart[itemToRemove] === 1) {
+                    delete cart[itemToRemove];
+                } else {
+                    cart[itemToRemove]--;
+                }
+                break;
+
+            case "close":
+                if (Object.keys(cart).length === 0) {
+                    throw new Error("Cannot close with an empty cart");
+                }
+                state = "payment";
+                total = Object.entries(cart).reduce((acc, [item, quantity]) => acc + prices[item]! * quantity, 0);
+                break;
+
+            case "pay":
+                const amountPaid = event[1] as number;
+                if (typeof amountPaid !== "number" || amountPaid <= 0) {
+                    throw new Error("Invalid pay amount");
+                }
+                paid += amountPaid;
+                if (paid >= total) {
+                    state = "paid";
+                    change = paid - total;
+                }
+                break;
+
+            case "cancel":
+                state = "cancelled";
+                break;
+        }
+
+        if (state === "paid" || state === "cancelled") {
+            break;
+        }
+    }
+
+    const items = Object.entries(cart).map(([name, quantity]) => [name, quantity] as [string, number]).sort((a, b) => a[0].localeCompare(b[0]));
+
+    return { state, items, total, paid, change };
+}
+```

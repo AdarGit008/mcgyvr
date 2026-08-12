@@ -1,0 +1,42 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    """
+    Serve jobs from the front of the queue until the budget is exhausted.
+
+    :param jobs: List of [name, pages] pairs.
+    :param budget: Total number of pages that can be printed.
+    :return: Dictionary with 'printed', 'waiting', and 'pages' keys.
+    """
+    if not isinstance(jobs, list):
+        raise ValueError("Jobs must be a list.")
+    
+    for job in jobs:
+        name, pages = job
+        if not isinstance(name, str) or not isinstance(pages, int) or len(name) == 0:
+            raise ValueError("Each job must be a non-empty string and a positive whole number.")
+        
+        if pages <= 0:
+            raise ValueError("Page count must be a positive whole number.")
+    
+    if budget < 0:
+        raise ValueError("Budget must be a non-negative whole number.")
+    
+    printed = []
+    waiting = []
+    total_pages_spent = 0
+    
+    for job in jobs:
+        name, pages = job
+        if total_pages_spent + pages <= budget:
+            printed.append(name)
+            total_pages_spent += pages
+        else:
+            waiting.append(name)
+            break
+    
+    return {
+        'printed': printed,
+        'waiting': waiting,
+        'pages': total_pages_spent
+    }
+```

@@ -1,0 +1,36 @@
+id: b423-scan-tally
+task_type: bug_fix
+task: >-
+  stepValue returns what one instruction adds to a running total: a
+  plus adds one, a minus takes one away and anything else adds
+  nothing. scanTally returns the running total after each instruction,
+  and it returns only the final one. Fix scanTally. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function stepValue(step: string): number {
+    if (step === "+") {
+      return 1;
+    }
+    if (step === "-") {
+      return -1;
+    }
+    return 0;
+  }
+
+  /** The running total after each instruction. */
+  export function scanTally(steps: string[]): number[] {
+    let total = 0;
+    for (const step of steps) {
+      total += stepValue(step);
+    }
+    return [total];
+  }
+interface: "export function stepValue(step: string): number
+export function scanTally(steps: string[]): number[]"
+stop_conditions:
+  - Whether the total before any instruction should be reported is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

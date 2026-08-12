@@ -1,0 +1,51 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const isPathValid = (path: string): boolean => {
+    if (!typeof path === 'string' || path.length === 0) return false;
+    for (const segment of path.split('/')) {
+      if (segment === '') return false;
+    }
+    return true;
+  };
+
+  const isRuleValid = (rule: string): boolean => {
+    if (!isPathValid(rule) || rule.startsWith('!') && rule.length === 1) return false;
+    for (const segment of rule.split('/')) {
+      for (let i = 0; i < segment.length; i++) {
+        if (segment[i] !== '*' && segment[i] !== segment[i].toLowerCase()) return false;
+      }
+    }
+    return true;
+  };
+
+  if (!Array.isArray(listing) || !listing.every(isPathValid)) throw new Error('Invalid listing');
+  if (!Array.isArray(rules) || !rules.every(isRuleValid)) throw new Error('Invalid rules');
+
+  const validRules = rules.filter(rule => rule !== '!'); // Remove keep rules
+  return listing.filter(path => {
+    for (const rule of validRules) {
+      if (matchPathWithRule(path, rule)) return false;
+    }
+    return true;
+  });
+}
+
+function matchPathWithRule(path: string, rule: string): boolean {
+  const pathSegments = path.split('/');
+  const ruleSegments = rule.split('/');
+
+  for (let i = 0; i < Math.min(pathSegments.length, ruleSegments.length); i++) {
+    if (!ruleSegments[i].startsWith('*') && pathSegments[i] !== ruleSegments[i]) return false;
+  }
+
+  // If the rule is a keep rule and matches up to the end of the path
+  if (rule.startsWith('!')) return pathSegments.length === ruleSegments.length;
+
+  // Check if the rest of the path can be covered by a wildcard in the rule
+  for (let i = ruleSegments.length; i < pathSegments.length; i++) {
+    if (!pathSegments[i].startsWith('*')) return false;
+  }
+
+  return true;
+}
+```

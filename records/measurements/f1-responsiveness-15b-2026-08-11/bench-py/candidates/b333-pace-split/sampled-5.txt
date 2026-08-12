@@ -1,0 +1,13 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres == 0:
+        raise ValueError("Leg distance cannot be zero")
+    return seconds // kilometres
+
+
+def pace_list(legs: list) -> list:
+    if not legs or all(distance == 0 for _, distance in legs):
+        raise ValueError("No leg provided or any leg distance is zero")
+
+    return [(seconds / distance).round() for seconds, distance in legs]
+```

@@ -1,0 +1,37 @@
+id: b306-fill-gaps
+task_type: bug_fix
+task: >-
+  isGap says whether a reading is missing, a missing reading being
+  written as minus one. fillGaps replaces each missing reading with
+  the last real one seen before it, and it uses the next real one
+  after it instead. Fix fillGaps. A missing reading before any real
+  one stays missing. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function isGap(reading: number): boolean {
+    return reading === -1;
+  }
+
+  /** Missing readings replaced by the last real one seen. */
+  export function fillGaps(readings: number[]): number[] {
+    const filled = [...readings];
+    for (let i = 0; i < filled.length; i += 1) {
+      if (isGap(filled[i])) {
+        for (let j = i + 1; j < filled.length; j += 1) {
+          if (!isGap(filled[j])) {
+            filled[i] = filled[j];
+            break;
+          }
+        }
+      }
+    }
+    return filled;
+  }
+interface: "export function isGap(reading: number): boolean
+export function fillGaps(readings: number[]): number[]"
+stop_conditions:
+  - Whether a reading of minus one that was genuinely measured could be told apart from a missing one is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

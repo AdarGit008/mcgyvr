@@ -1,0 +1,57 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def apply_moves(held, moves):
+        move_parts = moves.split(";")
+        for move in move_parts:
+            if not move:
+                continue
+            name, sign, qty_str = move.partition("+")
+            if not all((name, sign, qty_str)):
+                raise ValueError(f"malformed move: {move}")
+            if sign != "+" and sign != "-":
+                raise ValueError(f"bad sign in move: {move}")
+            if re.fullmatch(r"[1-9]\d*", qty_str) is None:
+                raise ValueError(f"bad quantity in move: {move}")
+            qty = int(qty_str)
+            if sign == "+":
+                if name not in held:
+                    held[name] = 0
+                held[name] += qty
+            else:
+                if name not in held:
+                    raise ValueError(f"issue of unknown item: {name} {qty}")
+                if held[name] < qty:
+                    raise ValueError(f"issue more than on hand: {name} {qty}")
+                held[name] -= qty
+
+    held = parse_sheet(opening)
+    apply_moves(held, moves)
+
+    entries = [f"{name}:{held[name]}" for name in sorted(held) if held[name] > 0]
+    return ";".join(entries)
+```

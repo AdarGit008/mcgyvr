@@ -1,0 +1,106 @@
+```ts
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state = OPEN;
+  const cart: Record<string, number> = {};
+  let total = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("event must be a list of action and exactly one payload");
+    }
+
+    const [action, payload] = event;
+    switch (action) {
+      case "scan":
+        if (state !== OPEN) {
+          throw new Error("scan is lawful only during an open session");
+        }
+        if (!prices[payload as string]) {
+          throw new Error("item not in price list");
+        }
+        cart[payload as string] = (cart[payload as string] || 0) + 1;
+        break;
+
+      case "void":
+        if (state !== OPEN) {
+          throw new Error("void is lawful only during an open session");
+        }
+        if (!cart[payload as string]) {
+          throw new Error("item not in cart");
+        }
+        cart[payload as string]--;
+        if (cart[payload as string] === 0) {
+          delete cart[payload as string];
+        }
+        break;
+
+      case "close":
+        if (state !== OPEN || Object.keys(cart).length === 0) {
+          throw new Error("close is unlawful in this session's current state");
+        }
+        total = Object.keys(prices).reduce((acc, item) => acc + cart[item] * prices[item], 0);
+        state = PAYMENT;
+        break;
+
+      case "pay":
+        if (state !== PAYMENT) {
+          throw new Error("pay is lawful only during payment");
+        }
+        if (!Number.isInteger(payload as number) || payload as number <= 0) {
+          throw new Error("amount paid must be a positive integer");
+        }
+        total -= payload as number;
+        state = PAID;
+        break;
+
+      case "cancel":
+        if (state !== OPEN && state !== PAYMENT) {
+          throw new Error("cancel is unlawful in this session's current state");
+        }
+        state = CANCELLED;
+        break;
+
+      default:
+        throw new Error("unknown action: " + action);
+    }
+
+    if (state === PAID || state === CANCELLED) {
+      return {
+        state,
+        items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+        total: 0,
+        paid: 0,
+        change: 0,
+      };
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid: 0,
+    change: 0,
+  };
+}
+```

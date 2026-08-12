@@ -1,0 +1,15 @@
+id: b482-window-max
+task_type: function_implementation
+task: >-
+  Implement windowMax. Give the largest reading in every stretch of a
+  given width, taking the stretches in the order they open and using
+  only stretches that fit whole inside the run. A run shorter than the
+  width gives nothing back.
+target: solution.ts
+interface: "export function windowMax(readings: number[], width: number): number[]"
+stop_conditions:
+  - Whether a width below one should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+```ts
+/**
+ * Keeps at most `limit` callers, dropping the longest waiting caller when full.
+ * @param callers - The list of callers to be held in order.
+ * @param limit - The maximum number of callers to hold.
+ * @returns The list of callers after holding them according to the rules.
+ */
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error('Limit must be greater than 0');
+  }
+
+  const sortedCallers = [...callers].sort((a, b) => b.localeCompare(a));
+  return sortedCallers.slice(0, limit);
+}
+```

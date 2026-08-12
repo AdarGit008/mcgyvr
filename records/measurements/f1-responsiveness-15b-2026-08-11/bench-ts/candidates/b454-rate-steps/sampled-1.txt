@@ -1,0 +1,14 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount <= 0) throw new Error("Amount cannot be zero or negative");
+  const percentage = percent / 100;
+  const baseCharge = fixed + Math.floor(amount * percentage);
+  return Math.max(baseCharge, amount); // Ensure the charge does not exceed the amount
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (amounts.length === 0) throw new Error("Amounts array cannot be empty");
+  const rates = amounts.map(amount => stepRate(amount, fixed, percent));
+  return rates;
+}
+```

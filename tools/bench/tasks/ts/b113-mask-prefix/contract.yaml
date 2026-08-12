@@ -1,0 +1,48 @@
+id: b113-mask-prefix
+task_type: function_implementation
+task: >-
+  Implement prefixFromMask; maskFromPrefix is already written and shares
+  its dotted-quad layout. A network mask packs 32 bits into four
+  dot-separated octets written as decimal numbers, most significant octet
+  first, and a well-formed mask is one unbroken run of one bits from the
+  top followed only by zeros. maskFromPrefix renders the mask holding a
+  given count of leading ones, so 20 renders as 255.255.240.0; it rejects
+  a count that is not an integer from 0 to 32. prefixFromMask reads a
+  mask string back to its count of leading ones: 255.255.240.0 reads as
+  20, 0.0.0.0 as 0 and 255.255.255.255 as 32. Reject a mask that is not
+  a string, a mask without exactly four dot-separated fields, a field
+  holding anything but decimal digits, a field with a leading zero other
+  than 0 itself, an octet above 255, and a mask whose one bits are broken
+  by a zero — like 255.0.255.0 across octets or 250.0.0.0 inside one —
+  with an error.
+target: solution.ts
+target_content: |
+  export function maskFromPrefix(prefix: number): string {
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      throw new Error("prefix must be an integer from 0 to 32");
+    }
+    const octets: number[] = [];
+    for (let slot = 0; slot < 4; slot += 1) {
+      const ones = Math.min(8, Math.max(0, prefix - slot * 8));
+      octets.push(256 - 2 ** (8 - ones));
+    }
+    return octets.join(".");
+  }
+
+  export function prefixFromMask(mask: string): number {
+    if (typeof mask !== "string") {
+      throw new Error("mask must be a string");
+    }
+    // TODO: split the four octet fields, validate each one, and count the
+    // run of leading one bits, rejecting a mask whose ones are broken.
+    return 0;
+  }
+interface: |-
+  export function maskFromPrefix(prefix: number): string
+  export function prefixFromMask(mask: string): number
+stop_conditions:
+  - Whether surrounding whitespace in a mask string is accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

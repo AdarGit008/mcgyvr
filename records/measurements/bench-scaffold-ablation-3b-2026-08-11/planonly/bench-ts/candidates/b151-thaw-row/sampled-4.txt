@@ -1,0 +1,33 @@
+```typescript
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row.length === 0 || !/^[#.]+$/.test(row)) {
+    throw new Error('Invalid input: row must be a non-empty string containing only "#" and "."');
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Invalid input: step count must be a non-negative whole number');
+  }
+
+  const melt = (currentRow: string): string => {
+    let newRow = '';
+    for (let i = 0; i < currentRow.length; i++) {
+      if (
+        i === 0 || // Ice at the start of the row
+        i === currentRow.length - 1 || // Ice at the end of the row
+        currentRow[i - 1] === '.' || // Meltwater beside ice on the left
+        currentRow[i + 1] === '.' // Meltwater beside ice on the right
+      ) {
+        newRow += '.';
+      } else {
+        newRow += '#';
+      }
+    }
+    return newRow;
+  };
+
+  for (let i = 0; i < steps; i++) {
+    row = melt(row);
+  }
+
+  return row;
+}
+```

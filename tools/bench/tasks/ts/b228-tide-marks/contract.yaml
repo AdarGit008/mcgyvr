@@ -1,0 +1,17 @@
+id: b228-tide-marks
+task_type: function_implementation
+task: >-
+  Implement tideMarks. Given a list of integer water levels read in
+  order, return the positions of every local peak: a position whose
+  level is strictly greater than the level immediately before it and
+  the level immediately after it. The first and last positions are
+  never peaks. Return the positions in increasing order, and an empty
+  list when there are none.
+target: solution.ts
+interface: "export function tideMarks(levels: number[]): number[]"
+stop_conditions:
+  - Whether a level equal to a neighbour can still be part of a peak elsewhere in the list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

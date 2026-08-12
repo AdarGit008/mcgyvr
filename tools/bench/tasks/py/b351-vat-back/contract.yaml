@@ -1,0 +1,14 @@
+id: b351-vat-back
+task_type: function_implementation
+task: >-
+  Implement vat_back. A gross price already carries a whole-percent
+  tax. Return what the price was before that tax was added, rounded
+  down. A rate of nothing leaves the price exactly as it stands.
+target: solution.py
+interface: "def vat_back(gross: int, rate: int) -> int"
+stop_conditions:
+  - Whether a rate below zero should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

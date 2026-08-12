@@ -1,0 +1,53 @@
+```ts
+export function groupBatches(jobs: [string, string, number, number][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || !jobs.every(job => Array.isArray(job) && job.length === 4)) {
+    throw new Error("Invalid jobs argument");
+  }
+  if (typeof capacity !== "number" || capacity <= 0 || !Number.isInteger(capacity)) {
+    throw new Error("Capacity must be a positive integer");
+  }
+
+  const jobMap = new Map<string, { group: string, priority: number, weight: number }>();
+  for (const [name, group, priority, weight] of jobs) {
+    if (!/^[a-zA-Z]+$/.test(name) || !/^[a-zA-Z]+$/.test(group)) {
+      throw new Error("Name and group must be non-empty strings");
+    }
+    if (!Number.isInteger(priority) || !Number.isInteger(weight) || weight < 1 || weight > capacity) {
+      throw new Error("Priority and weight must be integers between 1 and the capacity");
+    }
+    if (jobMap.has(name)) {
+      throw new Error("Duplicate job name");
+    }
+    jobMap.set(name, { group, priority, weight });
+  }
+
+  const groups = Array.from(jobMap.values()).reduce((acc, job) => {
+    const group = job.group;
+    if (!acc[group]) {
+      acc[group] = [];
+    }
+    acc[group].push(job);
+    return acc;
+  }, {} as Record<string, { group: string, priority: number, weight: number }[]>);
+
+  const batches: string[][] = [];
+  for (const [group, jobsInGroup] of Object.entries(groups)) {
+    jobsInGroup.sort((a, b) => b.priority - a.priority || a.weight - b.weight);
+    let currentBatch: string[] = [];
+    let remainingCapacity = capacity;
+
+    for (const job of jobsInGroup) {
+      if (job.weight <= remainingCapacity) {
+        currentBatch.push(job.name);
+        remainingCapacity -= job.weight;
+      } else {
+        break;
+      }
+    }
+
+    batches.push(currentBatch);
+  }
+
+  return batches;
+}
+```

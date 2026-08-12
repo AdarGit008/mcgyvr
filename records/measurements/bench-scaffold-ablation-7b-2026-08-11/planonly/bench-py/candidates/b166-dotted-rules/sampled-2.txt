@@ -1,0 +1,27 @@
+```python
+
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    
+    best_match = None
+    longest_prefix_length = -1
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("Rule values must be strings")
+        
+        if selector == "*":
+            if best_match is None:
+                best_match = value
+        elif selector.endswith(".*"):
+            prefix = selector[:-2]
+            if name.startswith(prefix) and len(prefix) > longest_prefix_length:
+                longest_prefix_length = len(prefix)
+                best_match = value
+        elif selector == name:
+            return value
+    
+    return best_match
+
+```

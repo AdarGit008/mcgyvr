@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def is_gap(reading: int) -> bool:
+    return reading == -1
+
+
+def fill_gaps(readings: List[int]) -> List[int]:
+    """Missing readings replaced by the last real one seen."""
+    filled = list(readings)
+    for i in range(len(filled)):
+        if is_gap(filled[i]):
+            j = i + 1
+            while j < len(filled) and is_gap(filled[j]):
+                j += 1
+            if j < len(filled):
+                filled[i] = filled[j]
+    return filled
+```

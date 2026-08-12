@@ -1,0 +1,35 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || Object.keys(links).length === 0) {
+    throw new Error('links must be a non-empty object');
+  }
+  if (!(start in links)) {
+    throw new Error(`start post name "${start}" not found in links`);
+  }
+
+  const visited = new Set<string>();
+  const path: string[] = [start];
+
+  function followHandoff(post: string): void {
+    if (post === '') {
+      return;
+    }
+    if (!visited.has(post)) {
+      visited.add(post);
+      path.push(post);
+      followHandoff(links[post]);
+    } else {
+      throw new Error(`handoffs must not create a cycle; visited "${post}"`);
+    }
+  }
+
+  try {
+    followHandoff(start);
+  } catch (error) {
+    console.error(error.message); // For debugging purposes
+    return [];
+  }
+
+  return path;
+}
+```

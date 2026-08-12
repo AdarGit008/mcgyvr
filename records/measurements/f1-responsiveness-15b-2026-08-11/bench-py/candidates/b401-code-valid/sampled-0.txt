@@ -1,0 +1,6 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    if not length or not code.isalnum():
+        raise ValueError("Invalid input: length must be positive and contain only alphanumeric characters.")
+    return len(code) == length
+```

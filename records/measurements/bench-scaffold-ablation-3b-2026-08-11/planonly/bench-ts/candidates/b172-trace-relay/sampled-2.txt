@@ -1,0 +1,31 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) {
+    throw new Error('Links must be a non-null object.');
+  }
+  if (typeof start !== 'string') {
+    throw new Error('Start must be a string.');
+  }
+
+  const visited = new Set<string>();
+  const result: string[] = [];
+
+  let currentPost = start;
+  while (currentPost !== '') {
+    if (!visited.has(currentPost)) {
+      visited.add(currentPost);
+      result.push(currentPost);
+
+      if (links[currentPost]) {
+        currentPost = links[currentPost];
+      } else {
+        throw new Error('Handoff name does not exist.');
+      }
+    } else {
+      throw new Error('Watch comes back to a post already visited.');
+    }
+  }
+
+  return result;
+}
+```

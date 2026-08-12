@@ -1,0 +1,54 @@
+```ts
+
+type PartnerAllocation = { partnerIndex: number, remainder: number };
+
+function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  if (!Array.isArray(weights) || weights.length === 0 || !weights.every(Number.isInteger && weights[0] > 0)) {
+    throw new Error("Weights must be a list of positive integers.");
+  }
+
+  const sumOfWeights = weights.reduce((sum, weight) => sum + weight, 0);
+
+  if (total % sumOfWeights !== 0) {
+    throw new Error("Total takings must be divisible by the sum of weights.");
+  }
+
+  const initialAllocations: PartnerAllocation[] = weights.map((weight, index) => ({
+    partnerIndex: index,
+    remainder: Math.floor(total * weight / sumOfWeights),
+  }));
+
+  let remainingCents = total;
+  for (let i = 0; i < weights.length - 1 && remainingCents > 0; i++) {
+    const { partnerIndex, remainder } = initialAllocations[i];
+    if (remainder !== Math.floor(total * weights[partnerIndex] / sumOfWeights)) {
+      // Calculate the largest discarded fraction
+      let maxDiscardedFraction = 0;
+      let maxPartnerIndex = partnerIndex;
+
+      for (let j = i + 1; j < weights.length; j++) {
+        const { remainder: nextRemainder } = initialAllocations[j];
+        if (nextRemainder > maxDiscardedFraction) {
+          maxDiscardedFraction = nextRemainder;
+          maxPartnerIndex = j;
+        }
+      }
+
+      // Swap the allocations for the partner with the largest discarded fraction
+      const temp = initialAllocations[maxPartnerIndex];
+      initialAllocations[maxPartnerIndex] = initialAllocations[i];
+      initialAllocations[i] = temp;
+
+      remainingCents -= 1;
+    } else {
+      i++;
+    }
+  }
+
+  return initialAllocations.map(({ partnerIndex, remainder }) => total - Math.floor(total * weights[partnerIndex] / sumOfWeights) - remainder);
+}
+
+```

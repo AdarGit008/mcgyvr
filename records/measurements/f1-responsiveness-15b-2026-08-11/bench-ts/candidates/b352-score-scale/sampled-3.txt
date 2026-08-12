@@ -1,0 +1,23 @@
+```ts
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (isNaN(mark) || isNaN(wasOutOf) || isNaN(nowOutOf)) {
+    throw new Error('All parameters must be numbers');
+  }
+
+  const originalTotal = wasOutOf;
+  const currentTotal = nowOutOf;
+
+  if (currentTotal === 0) {
+    return null; // No scaling allowed from zero
+  }
+
+  if (mark <= originalTotal && mark >= currentTotal) {
+    throw new Error('Mark must be within the new total');
+  }
+
+  const scaleFactor = currentTotal / originalTotal;
+  const scaledMark = Math.floor(mark * scaleFactor);
+
+  return scaledMark;
+}
+```

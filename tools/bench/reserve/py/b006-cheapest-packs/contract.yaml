@@ -1,0 +1,20 @@
+id: b006-cheapest-packs
+task_type: function_implementation
+task: >-
+  Implement cheapest_packs. An order for a whole number of units must be
+  filled exactly using packs, given as a list of [size, price] pairs, any
+  pack purchasable any number of times. Return the lowest total price of
+  any combination of packs whose sizes sum to exactly the order, or -1
+  when no combination fits; an order of zero costs 0. Picking the biggest
+  pack first is not always cheapest, so weigh combinations. Reject an
+  order that is not a non-negative integer, an empty pack list, a pack
+  size that is not a positive integer, and a pack price that is not a
+  non-negative integer, with an error.
+target: solution.py
+interface: "def cheapest_packs(order: int, packs: list) -> int"
+stop_conditions:
+  - Whether the same pack size may appear twice at different prices is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

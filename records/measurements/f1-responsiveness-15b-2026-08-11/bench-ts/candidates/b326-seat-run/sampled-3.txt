@@ -1,0 +1,17 @@
+```ts
+export function seatRun(row: string, party: number): number {
+  if (party === 0) return -1; // No one needs to sit in the row
+
+  let freeCount = 0;
+  let seatIndex = -1;
+
+  for (let i = 0; i < row.length && freeCount < party; i++) {
+    if (row[i] === '.') {
+      freeCount++;
+      seatIndex = i;
+    } else if (freeCount >= party) break;
+  }
+
+  return seatIndex;
+}
+```

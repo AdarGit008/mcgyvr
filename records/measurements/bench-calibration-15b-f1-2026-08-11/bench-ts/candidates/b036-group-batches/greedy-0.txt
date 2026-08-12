@@ -1,0 +1,49 @@
+```ts
+export function groupBatches(jobs: [string, string, number, number][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    throw new Error("jobs must be a non-empty array");
+  }
+
+  const jobMap = new Map<string, [number, number][]>();
+  for (const job of jobs) {
+    if (job.length !== 4) {
+      throw new Error("each job must be a four-item list");
+    }
+    const [name, group, priority, weight] = job;
+    if (!/^[a-zA-Z]+$/.test(name)) {
+      throw new Error("name must be a non-empty string");
+    }
+    if (!/^[a-zA-Z]+$/.test(group)) {
+      throw new Error("group must be a non-empty string");
+    }
+    if (typeof priority !== "number" || priority < 0) {
+      throw new Error("priority must be an integer >= 0");
+    }
+    if (typeof weight !== "number" || weight <= 0 || weight > capacity) {
+      throw new Error("weight must be an integer from 1 to the capacity");
+    }
+    if (jobMap.has(name)) {
+      throw new Error("duplicate job name");
+    }
+    jobMap.set(name, [[priority, weight]]);
+  }
+
+  const batches: string[][] = [];
+  let currentBatch: [string, number][] = [];
+
+  for (const [name, jobs] of jobMap) {
+    if (!currentBatch.length || jobs[0][1] <= capacity - currentBatch[currentBatch.length - 1][1]) {
+      currentBatch.push(...jobs);
+    } else {
+      batches.push(currentBatch.map(([_, weight]) => name));
+      currentBatch = [jobs];
+    }
+  }
+
+  if (currentBatch.length) {
+    batches.push(currentBatch.map(([_, weight]) => name));
+  }
+
+  return batches;
+}
+```

@@ -1,0 +1,52 @@
+```ts
+import { maxBy } from 'lodash';
+
+interface Cut { takings: number; pieces: number[] }
+/** Cut a fabric roll for the greatest takings the price board allows. */
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("length must be a non-negative whole number");
+  }
+  
+  // Sort boards by length in descending order
+  const sortedBoards = [...board].sort(([a], [b]) => b - a);
+
+  const memo: { [key: number]: Cut } = {};
+  const bestSolutions: { [key: number]: Cut[] } = {};
+
+  function calculateBestCut(remainingLength: number): Cut {
+    if (remainingLength === 0) return { takings: 0, pieces: [] };
+    
+    if (memo[remainingLength] !== undefined) return memo[remainingLength];
+
+    let bestSolution: Cut | null = null;
+
+    // Try each board piece
+    for (const [pieceLength, price] of sortedBoards) {
+      if (pieceLength <= remainingLength) {
+        const cut = calculateBestCut(remainingLength - pieceLength);
+        const combinedTakings = price + cut.takings;
+        if (
+          bestSolution === null || 
+          combinedTakings > bestSolution.takings ||
+          (combinedTakings === bestSolution.takings && pieceLength > bestSolution.pieces[0])
+        ) {
+          bestSolution = { takings: combinedTakings, pieces: [pieceLength, ...cut.pieces] };
+        }
+      }
+    }
+
+    // If no solution was found, try not to cut the last piece
+    if (bestSolution === null) {
+      const lastPieceCut = calculateBestCut(remainingLength - 1);
+      bestSolution = { takings: lastPieceCut.takings, pieces: lastPieceCut.pieces };
+    }
+
+    memo[remainingLength] = bestSolution;
+    return bestSolution!;
+  }
+
+  const result = calculateBestCut(length);
+  return { takings: result.takings, pieces: result.pieces.reverse() };
+}
+```

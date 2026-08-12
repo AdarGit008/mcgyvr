@@ -1,0 +1,15 @@
+id: b317-mean-window
+task_type: function_implementation
+task: >-
+  Implement meanWindow. Given readings and a window size, return the
+  mean of every run of that many consecutive readings, rounded down,
+  in the order the runs begin. A window wider than the readings
+  themselves gives an empty list.
+target: solution.ts
+interface: "export function meanWindow(readings: number[], size: number): number[]"
+stop_conditions:
+  - What a window size of zero should produce is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

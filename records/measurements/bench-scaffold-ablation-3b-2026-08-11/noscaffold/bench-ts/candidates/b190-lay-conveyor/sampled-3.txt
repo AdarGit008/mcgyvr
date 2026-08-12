@@ -1,0 +1,25 @@
+```typescript
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("Row out of bounds");
+  }
+  
+  for (let i = 0; i < length; i++) {
+    const cellIndex = col + i;
+    if (cellIndex >= floor[row].length) {
+      throw new Error("Run would leave the plan");
+    }
+    
+    if (floor[row][cellIndex] !== '.') {
+      throw new Error("Cell is not open");
+    }
+  }
+  
+  return floor.map((row, index) => {
+    if (index === row) {
+      return row.replace('.', '='.repeat(length));
+    }
+    return row;
+  });
+}
+```

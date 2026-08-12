@@ -1,0 +1,39 @@
+```ts
+function shortNum(value: number): string {
+  if (value === null || value === undefined) return 'Invalid input';
+
+  const isNegative = value < 0;
+  value = Math.abs(value);
+
+  const digits = value.toString().split('');
+  const length = digits.length;
+
+  // Convert a number to its short form
+  function convertToShort(num: number): string {
+    if (num >= 1000) {
+      return `${Math.round(num / 1_000)}k`;
+    } else if (num >= 1_000_000) {
+      return `${Math.round(num / 1_000_000)}m`;
+    } else {
+      // Round down to one decimal place and convert to string
+      const rounded = Math.floor(num);
+      const shortNumStr = rounded.toString();
+      if (shortNumStr.length > 3) {
+        return `${shortNumStr.slice(0, -1)}.${shortNumStr.slice(-1)}`;
+      }
+      return shortNumStr;
+    }
+  }
+
+  // Apply the conversion to the first three digits
+  const firstThreeDigits = convertToShort(parseInt(digits.slice(0, 3).join('')));
+
+  // If more than three digits, handle the rest by slicing and converting
+  if (length > 3) {
+    const remainingDigits = convertToShort(parseInt(digits.slice(3, length).join('')));
+    return `${firstThreeDigits},${remainingDigits}`;
+  }
+
+  return firstThreeDigits;
+}
+```

@@ -1,0 +1,11 @@
+```python
+def split_length(mm: int) -> str:
+    """Express length in workshop notation: m cm mm."""
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer.")
+
+    LADDER = [(1000, "m"), (10, "cm"), (1, "mm")]
+    result = [f"{count}{unit}" for count, unit in LADDER if (count, unit) != (1, "mm") or mm % 1 == 0]
+
+    return " ".join(result)
+```

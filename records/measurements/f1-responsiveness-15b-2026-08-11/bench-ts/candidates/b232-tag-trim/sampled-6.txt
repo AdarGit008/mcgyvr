@@ -1,0 +1,23 @@
+```ts
+export function tagTrim(tag: string): string {
+  if (typeof tag !== 'string') throw new Error("Input must be a string");
+
+  const markerRegex = /^#(\w+)?:(\w+)?$/;
+  const match = tag.match(markerRegex);
+
+  if (!match) return tag;
+
+  const [_, leadingHash, leadingName, trailingName] = match;
+
+  if (leadingHash) {
+    const trailingColonIndex = tag.indexOf(':', Math.max(1, tag.indexOf(leadingHash) + leadingHash.length));
+    if (trailingColonIndex !== -1) return tag.slice(Math.min(tag.indexOf(leadingHash), trailingColonIndex));
+  } else if (trailingName) {
+    const leadingHashIndex = tag.lastIndexOf('#', tag.length - trailingName.length);
+    if (leadingHashIndex !== -1) return tag.slice(0, Math.max(leadingHashIndex, tag.lastIndexOf(trailingName)));
+  }
+
+  // No markers found
+  return tag;
+}
+```

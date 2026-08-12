@@ -1,0 +1,16 @@
+```python
+def case_count(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    capital_count = 0
+    lowercase_count = 0
+    
+    for char in text:
+        if char.isupper():
+            capital_count += 1
+        elif char.islower():
+            lowercase_count += 1
+    
+    return [capital_count, lowercase_count]
+```

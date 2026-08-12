@@ -1,0 +1,14 @@
+id: b430-sort-by-len
+task_type: function_implementation
+task: >-
+  Implement sort_by_len. Put a list of words in order by how long they
+  are, shortest first, and put two words of the same length in
+  alphabetical order. The list it is given is never altered.
+target: solution.py
+interface: "def sort_by_len(words: list) -> list"
+stop_conditions:
+  - Whether case should be ignored when ordering alphabetically is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,17 @@
+id: b475-crate-stack
+task_type: function_implementation
+task: >-
+  crateHeight names how tall one crate of a kind stands. crateStack
+  keeps the crates that fit below a ceiling, taken in the order given
+  and stopping at the first that would carry the pile past it.
+  Implement crateStack. A pile reaching the ceiling exactly still
+  fits, and an empty run keeps nothing.
+target: solution.ts
+interface: "export function crateHeight(kind: string): number
+export function crateStack(kinds: string[], ceiling: number): string[]"
+stop_conditions:
+  - Whether a ceiling below nothing should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,57 @@
+```python
+import re
+
+def parse_option(segment: str) -> list:
+    """
+    Parses a key=value segment into [key, value].
+    Raises ValueError for invalid segments.
+    """
+    match = re.match(r'^(\b\w+\b)=([^;]+)$', segment)
+    if not match:
+        raise ValueError("Invalid segment format")
+    
+    key, value = match.groups()
+    if value.startswith('"') and not value.endswith('"'):
+        raise ValueError("Unmatched double quote in value")
+    value = value.strip('"')
+    
+    return [key, value]
+
+def scan_pairs(text: str) -> list:
+    """
+    Parses an options string into a list of [key, value] pairs.
+    Raises ValueError for invalid input or repeated keys.
+    """
+    if not isinstance(text, str) or text == "":
+        raise ValueError("Invalid input")
+    
+    result = []
+    in_quotes = False
+    current_segment = ""
+    
+    for char in text:
+        if char == '"' and not in_quotes:
+            in_quotes = True
+        elif char == '"' and in_quotes:
+            in_quotes = False
+            current_segment += char
+            continue
+        
+        if char == ';' and not in_quotes:
+            result.append(parse_option(current_segment.strip()))
+            current_segment = ""
+        else:
+            current_segment += char
+    
+    if current_segment:
+        result.append(parse_option(current_segment.strip()))
+    
+    # Check for repeated keys
+    seen_keys = set()
+    for key, _ in result:
+        if key in seen_keys:
+            raise ValueError("Repeated key")
+        seen_keys.add(key)
+    
+    return result
+```

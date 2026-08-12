@@ -1,0 +1,91 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || listing.some((path) => typeof path !== "string" || path === "")) {
+    throw new Error("listing must be a non-empty array of strings");
+  }
+  if (!Array.isArray(rules) || rules.some((rule) => typeof rule !== "string")) {
+    throw new Error("rules must be an array of strings");
+  }
+
+  const isValidRule = (rule: string): boolean => {
+    return /^([!]?[\*\/]+)+$/.test(rule);
+  };
+
+  if (!rules.every(isValidRule)) {
+    throw new Error("Invalid rule: must start with '!' or contain only '*' and '/' characters.");
+  }
+
+  return listing.filter((path) => {
+    const pathSegments = splitStrict(path, "path");
+
+    for (const rule of rules) {
+      let match = true;
+      const ruleSegments = splitStrict(rule, "rule");
+
+      if (rule[0] === "!") {
+        // Keep rule
+        if (ruleSegments.length !== pathSegments.length || !ruleSegments.every((pattern, i) => segmentFits(pattern, pathSegments[i]))) {
+          continue;
+        }
+      } else {
+        // Drop rule
+        for (let i = 0; i < Math.min(ruleSegments.length, pathSegments.length); i++) {
+          if (!segmentFits(ruleSegments[i], pathSegments[i])) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          continue;
+        }
+      }
+
+      // If a keep rule matches, we don't need to check further rules
+      return true;
+    }
+
+    // No matching rule means the path survives
+    return false;
+  });
+}
+```

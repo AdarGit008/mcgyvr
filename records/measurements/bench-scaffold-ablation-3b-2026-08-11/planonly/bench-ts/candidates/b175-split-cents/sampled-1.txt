@@ -1,0 +1,40 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error("Weights must be an array with at least one element.");
+  }
+
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("Each weight must be a positive whole number.");
+    }
+  }
+
+  const totalCents = Math.floor(total);
+  let totalWeight = 0;
+  const shares: number[] = [];
+
+  for (const weight of weights) {
+    totalWeight += weight;
+  }
+
+  if (totalCents % totalWeight !== 0) {
+    throw new Error("Total takings do not split evenly among partners.");
+  }
+
+  const shareSize = Math.floor(totalCents / totalWeight);
+
+  for (let i = 0; i < weights.length; i++) {
+    shares.push(shareSize);
+    if (totalCents - (i * shareSize) > 0) {
+      totalCents -= shareSize;
+    }
+  }
+
+  return shares;
+}
+```

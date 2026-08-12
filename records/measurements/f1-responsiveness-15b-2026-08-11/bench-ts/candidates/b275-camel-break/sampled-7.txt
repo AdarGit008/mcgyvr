@@ -1,0 +1,26 @@
+```ts
+export function camelBreak(name: string): string[] {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  let parts = [];
+  let currentPart = '';
+
+  for (let char of name) {
+    if (char === char.toUpperCase()) {
+      if (currentPart.length > 0) {
+        parts.push(currentPart.toLowerCase());
+        currentPart = '';
+      }
+    }
+    currentPart += char;
+  }
+
+  if (currentPart.length > 0) {
+    parts.push(currentPart.toLowerCase());
+  }
+
+  return parts;
+}
+```

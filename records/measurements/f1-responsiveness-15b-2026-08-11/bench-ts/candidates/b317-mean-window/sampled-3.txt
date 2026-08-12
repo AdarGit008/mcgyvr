@@ -1,0 +1,22 @@
+```ts
+// solution.ts
+
+/**
+ * Calculate the mean of every run of consecutive readings within a given window size.
+ *
+ * @param readings - An array of numbers representing daily readings.
+ * @param size - The number of consecutive days to consider for each mean calculation.
+ * @returns An array of means calculated within each window, or an empty array if the window is larger than the readings.
+ */
+export function meanWindow(readings: number[], size: number): number[] {
+  if (size === 0) return []; // If window size is zero, return an empty array
+
+  const result = [];
+  for (let i = 0; i <= readings.length - size; i++) {
+    const mean = readings.slice(i, i + size).reduce((acc, val) => acc + val, 0) / size;
+    result.push(Math.floor(mean));
+  }
+
+  return result;
+}
+```

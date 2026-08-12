@@ -1,0 +1,31 @@
+```python
+
+def steps_on(first: int, count: int) -> list:
+    """Generate a sequence of numbers starting from `first` with a given `count`.
+
+    Args:
+        first (int): The starting number of the sequence.
+        count (int): The total number of elements in the sequence.
+
+    Returns:
+        list: A list containing the generated sequence.
+    """
+    return [first + i for i in range(count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the missing number from a given sequence and starting point.
+
+    Args:
+        seen (list): The previous numbers in the sequence.
+        first (int): The starting number of the sequence.
+        count (int): The total number of elements in the expected sequence.
+
+    Returns:
+        int or None: The first missing number in the expected range, or None if all numbers are present.
+    """
+    potential_hole = first
+    while potential_hole in seen:
+        potential_hole += 1
+
+    return potential_hole if potential_hole <= count else None
+```

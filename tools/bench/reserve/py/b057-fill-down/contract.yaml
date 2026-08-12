@@ -1,0 +1,45 @@
+id: b057-fill-down
+task_type: bug_fix
+task: >-
+  fill_down fills the blank cells of a grid incorrectly. The grid is a
+  list of rows of strings and a blank cell is the empty string;
+  blank_cells, which counts the blanks, is correct and must not change.
+  A blank cell must take the value of the nearest filled cell above it
+  in its own column, so a run of blanks under one value all take that
+  value, and a later filled cell resets what the blanks below it
+  inherit; the current code copies whatever the row directly above
+  originally held, so only the first blank of a run gets filled and the
+  rest stay blank. fill_down must return a new grid and leave its
+  argument unmodified. Also add the missing validation: reject rows
+  that do not all share one width, and a blank cell with no filled cell
+  above it in its column, with an error. Return the complete fixed
+  file.
+target: solution.py
+target_content: |
+  """Fill-down for a rectangular grid of strings: blanks inherit from above."""
+
+
+  def blank_cells(rows):
+      return sum(1 for row in rows for cell in row if cell == "")
+
+
+  def fill_down(rows):
+      filled = []
+      for r, row in enumerate(rows):
+          out = []
+          for i, cell in enumerate(row):
+              if cell == "" and r > 0:
+                  out.append(rows[r - 1][i])
+              else:
+                  out.append(cell)
+          filled.append(out)
+      return filled
+interface: |-
+  def fill_down(rows: list) -> list
+  def blank_cells(rows: list) -> int
+stop_conditions:
+  - Whether a cell of only whitespace counts as blank is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

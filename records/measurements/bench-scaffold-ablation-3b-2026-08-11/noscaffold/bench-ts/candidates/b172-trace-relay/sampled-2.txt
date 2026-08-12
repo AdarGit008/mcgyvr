@@ -1,0 +1,22 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) throw new Error('Invalid links argument');
+  if (!Object.keys(links).includes(start)) throw new Error('Start post not found in links');
+  
+  const visited = new Set([start]);
+  let currentPost = start;
+  
+  while (currentPost !== '') {
+    const nextPost = links[currentPost];
+    
+    if (!links[nextPost] || visited.has(nextPost)) {
+      throw new Error('Invalid handoffs, loop detected or post not found');
+    }
+    
+    visited.add(nextPost);
+    currentPost = nextPost;
+  }
+  
+  return [...visited];
+}
+```

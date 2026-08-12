@@ -1,0 +1,9 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid or not any(row for row in grid):
+        return 0
+    
+    count = sum(cell == value for row in grid for cell in row)
+    
+    return count
+```

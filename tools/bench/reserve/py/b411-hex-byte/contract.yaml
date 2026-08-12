@@ -1,0 +1,16 @@
+id: b411-hex-byte
+task_type: function_implementation
+task: >-
+  Implement byte_hex and bytes_hex. byte_hex writes a value from zero
+  to two hundred and fifty-five as exactly two hexadecimal digits in
+  small letters. bytes_hex writes a whole list of them one after
+  another with nothing between.
+target: solution.py
+interface: "def byte_hex(value: int) -> str
+def bytes_hex(values: list) -> str"
+stop_conditions:
+  - Whether a value outside zero to two hundred and fifty-five should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

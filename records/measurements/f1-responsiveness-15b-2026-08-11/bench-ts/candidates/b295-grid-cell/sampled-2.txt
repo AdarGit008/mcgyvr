@@ -1,0 +1,36 @@
+```ts
+export function cellName(row: number, column: number): string {
+  let name = '';
+  const colLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  while (column >= 0) {
+    const remainder = column % 26;
+    if (remainder === 0) {
+      // If the remainder is zero, that means we are at the beginning of a new row,
+      // so we need to subtract 1 from the number of columns for the next row.
+      name = colLetters[25] + name;
+      column--;
+    } else {
+      name = colLetters[remainder - 1] + name;
+      column -= remainder;
+    }
+  }
+
+  return `${name}${row + 1}`;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows <= 0 || columns <= 0) {
+    throw new Error('Invalid grid size');
+  }
+
+  const cells: string[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      cells.push(cellName(row, col));
+    }
+  }
+
+  return cells;
+}
+```

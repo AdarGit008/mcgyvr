@@ -1,0 +1,20 @@
+```python
+from typing import *
+from collections.abc import *
+
+def fit_budget(prices: list, budget: int) -> int:
+    if budget < 0:
+        raise ValueError("Budget must be non-negative")
+    
+    n = len(prices)
+    if n == 0:
+        return 0
+    
+    res = i = 0
+    while i < n and prices[i] <= budget:
+        budget -= prices[i]
+        res += 1
+        i += 1
+    
+    return res
+```

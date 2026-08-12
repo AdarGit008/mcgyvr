@@ -1,0 +1,13 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or start > len(text):
+        raise ValueError("First place must be within the text.")
+    
+    if end < 0 or end > len(text):
+        raise ValueError("Second place must be within the text.")
+    
+    if start > end:
+        raise ValueError("The first place cannot be beyond the second place.")
+
+    return text[start:end]
+```

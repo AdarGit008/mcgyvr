@@ -1,0 +1,14 @@
+```python
+def index_map(labels: list) -> dict:
+    if not labels:
+        return {}
+    
+    position_dict = {}
+    for i, label in enumerate(labels):
+        if label in position_dict:
+            position_dict[label].append(i)
+        else:
+            position_dict[label] = [i]
+    
+    return position_dict
+```

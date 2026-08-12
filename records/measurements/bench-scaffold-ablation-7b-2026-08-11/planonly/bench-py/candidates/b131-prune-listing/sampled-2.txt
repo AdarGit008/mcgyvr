@@ -1,0 +1,40 @@
+```python
+import re
+
+def split_strict(s):
+    if not isinstance(s, str) or s == "":
+        raise ValueError("Path or rule must be a non-empty string")
+    segments = s.split('/')
+    if any(segment == "" for segment in segments):
+        raise ValueError("Path or pattern cannot contain empty segments")
+    return segments
+
+def prune_listing(listing: list, rules: list) -> list:
+    def match_rule(path, rule):
+        if not isinstance(rule, str) or rule == "":
+            raise ValueError("Rule must be a non-empty string")
+        if rule.startswith("!"):
+            keep = True
+            rule = rule[1:]
+        else:
+            keep = False
+        path_segments = split_strict(path)
+        rule_segments = split_strict(rule.replace('*', '.*'))
+        if len(path_segments) < len(rule_segments):
+            return False, not keep
+        for pseg, rseg in zip(path_segments, rule_segments):
+            if re.match(rseg, pseg) is None:
+                return False, not keep
+        return True, keep
+
+    def last_matching_rule(path, rules):
+        result = None
+        for rule in reversed(rules):
+            matches, keeps = match_rule(path, rule)
+            if matches:
+                result = (keeps, path)
+        return result
+
+    surviving_paths = [path for path in listing if last_matching_rule(path, rules)[0]]
+    return surviving_paths
+```

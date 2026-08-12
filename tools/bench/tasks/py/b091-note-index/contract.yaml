@@ -1,0 +1,45 @@
+id: b091-note-index
+task_type: bug_fix
+task: >-
+  build_word_index indexes a plain-text note incorrectly. Its companion
+  words_of_line is correct and must not change: it lowercases one line and
+  returns the maximal runs of ASCII letters and digits in order, so
+  spacing and punctuation only separate words. The note's lines are
+  numbered from one, and the index must map every word words_of_line finds
+  in the note to the strictly increasing list of the line numbers holding
+  that word, each number listed once however often the word recurs on its
+  line. As written, a word appearing several times on one line records
+  that line number once per appearance. Fix it. Also add the missing
+  validation: reject a note that is not a string, with an error. Return
+  the complete fixed file.
+target: solution.py
+target_content: |
+  """A word-to-line index for a plain-text note."""
+
+  import re
+
+  WORD_RUN = re.compile(r"[a-z0-9]+")
+
+
+  def words_of_line(line):
+      return WORD_RUN.findall(line.lower())
+
+
+  def build_word_index(text):
+      index = {}
+      rows = text.split("\n")
+      for row, line in enumerate(rows, start=1):
+          for word in words_of_line(line):
+              if word not in index:
+                  index[word] = []
+              index[word].append(row)
+      return index
+interface: |-
+  def build_word_index(text: str) -> dict
+  def words_of_line(line: str) -> list
+stop_conditions:
+  - An upper bound on the size of the note is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

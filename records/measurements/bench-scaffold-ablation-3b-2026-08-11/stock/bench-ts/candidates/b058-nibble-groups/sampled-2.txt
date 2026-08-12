@@ -1,0 +1,20 @@
+```ts
+/** Render a value as fixed-width unsigned binary, nibble-grouped. */
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("value must be a non-negative integer");
+  }
+  
+  if (width <= 0 || width % 4 !== 0 || width > 32) {
+    throw new Error("width must be a positive multiple of four and less than or equal to 32");
+  }
+
+  const binaryString = value.toString(2);
+  const paddingLength = Math.max(0, width - binaryString.length);
+
+  let result = '0'.repeat(paddingLength) + binaryString;
+
+  // Split into groups of four bits
+  return result.match(/.{4}/g)?.join(' ') || '';
+}
+```

@@ -1,0 +1,18 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive whole number.")
+
+    if len(text) <= limit:
+        return text
+
+    # Find the last space before the limit
+    for i in range(limit - 2, -1, -1):
+        if text[i] == ' ':
+            return text[:i + 1] + "..."
+
+    # If no space is found, cut off the first word
+    return text[:limit - 3] + "..."
+```

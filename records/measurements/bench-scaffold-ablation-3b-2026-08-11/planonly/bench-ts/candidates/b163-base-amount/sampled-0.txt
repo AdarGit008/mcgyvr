@@ -1,0 +1,23 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative whole number");
+  }
+
+  if (!(unit in defs)) {
+    throw new Error(`unknown unit: ${unit}`);
+  }
+
+  const [factor, finer] = defs[unit];
+
+  if (typeof factor !== "number" || !Number.isInteger(factor) || factor <= 0) {
+    throw new Error("factor must be a positive whole number");
+  }
+
+  if (finer === base) {
+    return amount;
+  }
+
+  return baseAmount(amount * factor, finer, defs, base);
+}
+```

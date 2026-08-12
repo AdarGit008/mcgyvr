@@ -1,0 +1,15 @@
+id: b324-grid-flip
+task_type: function_implementation
+task: >-
+  Implement gridFlip. Given a grid written as a list of rows, return
+  it turned so that its columns become its rows: the first row of the
+  answer holds the first value of every row in order. A grid with no
+  rows gives an empty grid.
+target: solution.ts
+interface: "export function gridFlip(grid: number[][]): number[][]"
+stop_conditions:
+  - Whether rows of differing lengths should be handled is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

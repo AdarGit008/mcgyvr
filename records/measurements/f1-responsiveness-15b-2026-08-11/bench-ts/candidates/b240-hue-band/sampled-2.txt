@@ -1,0 +1,14 @@
+```ts
+export function hueBand(degrees: number): string {
+  if (degrees === undefined || degrees === null) throw new Error('Input must be a non-null number.');
+  if (!Number.isFinite(degrees)) throw new Error('Input must be a finite number.');
+
+  const adjustedDegrees = degrees % 360;
+  if (adjustedDegrees < 0) adjustedDegrees += 360;
+
+  if (adjustedDegrees >= 0 && adjustedDegrees < 60) return 'Red';
+  else if (adjustedDegrees >= 60 && adjustedDegrees < 180) return 'Green';
+  else if (adjustedDegrees >= 180 && adjustedDegrees < 240) return 'Blue';
+  else if (adjustedDegrees >= 240 || adjustedDegrees <= 300) return 'Red'; // Red wraps around
+}
+```

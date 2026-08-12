@@ -1,0 +1,29 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (want <= 0) throw new Error("Want must be a positive number");
+    if (!catalog[kit]) throw new Error(`Kit '${kit}' not found in catalog`);
+
+    const result: Record<string, number> = {};
+
+    function consumeParts(basePart: string, count: number): void {
+        if (result[basePart] === undefined) result[basePart] = 0;
+        result[basePart] += count;
+    }
+
+    function explode(kitToExplode: string, targetUnits: number): void {
+        const kitInfo = catalog[kitToExplode];
+        const runs = Math.ceil(targetUnits / kitInfo.makes);
+
+        for (const [part, partCount] of kitInfo.parts) {
+            if (catalog[part]) {
+                explode(part, runs * partCount);
+            } else {
+                consumeParts(part, runs * partCount);
+            }
+        }
+    }
+
+    explode(kit, want);
+    return result;
+}
+```

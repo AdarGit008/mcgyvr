@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def fit_budget(prices: List[int], budget: int) -> int:
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+
+    # Sort prices to always take the cheapest item first
+    prices.sort()
+
+    bought = 0
+    for price in prices:
+        if budget >= price:
+            budget -= price
+            bought += 1
+
+    return bought
+```

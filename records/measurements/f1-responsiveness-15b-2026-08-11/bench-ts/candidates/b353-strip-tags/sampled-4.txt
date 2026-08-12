@@ -1,0 +1,24 @@
+```ts
+function stripTags(line: string): string {
+  let result = '';
+  let depth = 0;
+  
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '<' && depth === 0) {
+      // Start of a new marker
+      depth++;
+      continue;
+    } else if (line[i] === '>' && depth > 0) {
+      // End of the current marker
+      depth--;
+      break;
+    }
+    
+    if (depth === 0) {
+      result += line[i];
+    }
+  }
+  
+  return result;
+}
+```

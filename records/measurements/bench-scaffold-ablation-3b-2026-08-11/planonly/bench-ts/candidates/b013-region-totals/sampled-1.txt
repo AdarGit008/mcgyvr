@@ -1,0 +1,44 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0) throw new Error('Grid must have at least one row');
+    const numRows = grid.length;
+    const numCols = grid[0].length;
+
+    // Validate the grid structure
+    for (let i = 1; i < numRows; i++) {
+        if (grid[i].length !== numCols) throw new Error('All rows must have the same length');
+    }
+    for (const row of grid) {
+        for (const cell of row) {
+            if (!Number.isInteger(cell)) throw new Error('Grid cells must be integers');
+        }
+    }
+
+    // Validate queries
+    const prefixSumTable: number[][] = [];
+    for (let i = 0; i <= numRows; i++) {
+        prefixSumTable.push(new Array(numCols + 1).fill(0));
+    }
+    let total = 0;
+    for (let i = 0; i < numRows; i++) {
+        const row = grid[i];
+        for (let j = 0; j < numCols; j++) {
+            prefixSumTable[i + 1][j + 1] = prefixSumTable[i][j + 1] + prefixSumTable[i + 1][j] - prefixSumTable[i][j] + row[j];
+            total += row[j];
+        }
+    }
+
+    const queryTotals: number[] = [];
+    for (const [top, left, bottom, right] of queries) {
+        if (!Array.isArray(query) || query.length !== 4) throw new Error('Query must be a list of exactly four integers');
+        const [queryTop, queryLeft, queryBottom, queryRight] = query;
+        if (queryTop >= queryBottom || queryLeft >= queryRight) throw new Error('Query top cannot be greater than or equal to bottom, and left cannot be greater than or equal to right');
+        if (queryTop < 0 || queryTop >= numRows || queryLeft < 0 || queryLeft >= numCols || queryBottom < 0 || queryBottom > numRows || queryRight < 0 || queryRight > numCols) throw new Error('Query must not reach outside the grid');
+
+        const queryTotal = prefixSumTable[queryBottom + 1][queryRight + 1] - prefixSumTable[queryTop][queryRight + 1] - prefixSumTable[queryBottom + 1][queryLeft] + prefixSumTable[queryTop][queryLeft];
+        queryTotals.push(queryTotal);
+    }
+
+    return queryTotals;
+}
+```

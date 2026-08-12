@@ -1,0 +1,15 @@
+id: b264-cloud-code
+task_type: function_implementation
+task: >-
+  Implement cloud_code. Turn a short weather code into words using the
+  table you are handed, which maps codes to descriptions. Codes may
+  arrive in any case and are matched in upper case. A code the table
+  does not carry becomes the single word unknown.
+target: solution.py
+interface: "def cloud_code(table: dict, code: str) -> str"
+stop_conditions:
+  - Whether a table holding a lower-case key should ever be matched is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

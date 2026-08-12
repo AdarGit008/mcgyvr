@@ -1,0 +1,11 @@
+```ts
+/** Gross pay less a percentage and then a flat fee. */
+export function netPay(gross: number, rate: number, fee: number): number {
+  let afterFee = gross - fee;
+  if (rate > 0) {
+    const percentage = Math.floor((afterFee * rate) / 100);
+    afterFee -= percentage;
+  }
+  return Math.max(afterFee, 0);
+}
+```

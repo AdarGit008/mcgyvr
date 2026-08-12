@@ -1,0 +1,46 @@
+id: b202-run-elevator
+task_type: function_implementation
+task: >-
+  Implement runElevator. A lift serves a building whose floors run 1 to
+  top. It stands at floor 1 heading up when the clock reads tick 0. Each
+  call is a pair of the tick its button is pressed and the floor it asks
+  for, and joins the waiting calls at the start of that tick. On every tick
+  the lift first serves each waiting call for the floor it stands on,
+  adding that floor to the stop list once per call served; then, if any
+  call is still waiting, it moves exactly one floor, onward in its current
+  heading when some waiting floor lies that way and otherwise reversing its
+  heading first. With nothing waiting it stands still for the tick. The run
+  ends on the tick that serves the last call. Return an object holding
+  stops, the floors in the order they were served, and travel, the number
+  of floors the lift moved. Reject a call for a floor outside 1 to top with
+  an error.
+target: solution.ts
+target_content: |
+  /** Run a lift that sweeps on in its heading until nothing lies ahead. */
+  export function runElevator(top: number, calls: number[][]): { stops: number[]; travel: number } {
+    if (calls.some((call) => call[1] < 1 || call[1] > top)) {
+      throw new Error("call floor outside the building");
+    }
+    const waiting: number[] = [];
+    const stops: number[] = [];
+    let floor = 1;
+    let up = true;
+    let travel = 0;
+    // TODO: step one tick at a time — take up the calls pressed on that
+    // tick, serve the floor the lift stands on, then move a single floor,
+    // reversing only when nothing waits ahead. This placeholder ignores
+    // the clock and drives straight to each call in press order.
+    for (const call of calls) {
+      travel += Math.abs(call[1] - floor);
+      floor = call[1];
+      stops.push(floor);
+    }
+    return { stops, travel };
+  }
+interface: "export function runElevator(top: number, calls: number[][]): { stops: number[]; travel: number }"
+stop_conditions:
+  - Whether the calls arrive with their ticks in non-decreasing order is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

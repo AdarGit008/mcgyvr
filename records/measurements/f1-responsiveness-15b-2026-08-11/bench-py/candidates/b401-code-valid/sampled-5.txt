@@ -1,0 +1,14 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    if length <= 0:
+        raise ValueError("The length must be greater than zero.")
+    
+    if len(code) != length:
+        return False
+    
+    for char in code:
+        if not (char.isupper() or char.isdigit()):
+            return False
+    
+    return True
+```

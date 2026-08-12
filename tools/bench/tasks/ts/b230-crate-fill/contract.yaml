@@ -1,0 +1,16 @@
+id: b230-crate-fill
+task_type: function_implementation
+task: >-
+  Implement crateFill and crateTotal. crateFill spreads a number of
+  items across a number of crates as evenly as it can, returning the
+  crate sizes largest first and handing the leftover items one each to
+  the leading crates. Asking for zero crates yields an empty list.
+  crateTotal adds a list of crate sizes back up.
+target: solution.ts
+interface: "export function crateFill(items: number, crates: number): number[]\nexport function crateTotal(sizes: number[]): number"
+stop_conditions:
+  - What a negative item count should produce is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

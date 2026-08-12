@@ -1,0 +1,14 @@
+```python
+def held_down(value: int, ceiling: int) -> int:
+    return ceiling if value > ceiling else value
+
+
+def limit_map(store: dict, ceiling: int) -> dict:
+    out = {}
+    for key, value in store.items():
+        if value <= ceiling:
+            out[key] = value
+        else:
+            out[key] = ceiling
+    return out
+```

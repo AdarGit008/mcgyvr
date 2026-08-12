@@ -1,0 +1,45 @@
+id: b119-justify-spacing
+task_type: function_implementation
+task: >-
+  Implement justifySpacing. A paragraph arrives already broken into
+  lines: a non-empty list of lines, each line a non-empty list of words,
+  a word a non-empty string containing no spaces. For a column of the
+  given width, return one list of gap widths per line, a gap counting
+  the spaces set between one neighbouring pair of words. Every line but
+  the last is set full measure: its gaps together absorb exactly the
+  width left beyond the letters, split as evenly as possible, the
+  leftmost gaps taking any extra space, every gap at least one space
+  wide. The last line, and any line of a single word, is set ragged:
+  every gap exactly one space, a lone word yielding no gaps at all.
+  Reject a width that is not a positive integer, a paragraph that is
+  not a non-empty list, a line that is not a non-empty list, a word
+  that is not a non-empty string, a word containing a space, and a line
+  whose words with one space per gap overrun the width, with an error.
+target: solution.ts
+target_content: |
+  export function justifySpacing(width: number, lines: string[][]): number[][] {
+    if (!Number.isInteger(width) || width <= 0) {
+      throw new Error("width must be a positive integer");
+    }
+    if (!Array.isArray(lines) || lines.length === 0) {
+      throw new Error("a paragraph is a non-empty list of lines");
+    }
+    const spacing: number[][] = [];
+    for (let row = 0; row < lines.length; row += 1) {
+      const line = lines[row];
+      if (!Array.isArray(line) || line.length === 0) {
+        throw new Error("a line is a non-empty list of words");
+      }
+      // TODO: validate the words, check the line fits the width, and push
+      // this line's gap widths — full measure for body lines, single
+      // spaces for the last line and for a lone word.
+    }
+    return spacing;
+  }
+interface: "export function justifySpacing(width: number, lines: string[][]): number[][]"
+stop_conditions:
+  - Whether words may contain characters other than letters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

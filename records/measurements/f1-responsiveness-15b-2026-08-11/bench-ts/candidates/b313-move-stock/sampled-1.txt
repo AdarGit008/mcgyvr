@@ -1,0 +1,15 @@
+```ts
+function moveStock(opening: number, moves: number[]): number {
+  let closing = opening;
+
+  for (const move of moves) {
+    closing += move;
+  
+    if (closing < 0) {
+      closing = 0;
+    }
+  }
+
+  return closing;
+}
+```

@@ -1,0 +1,11 @@
+```ts
+function fieldMean(records: Record<string, number>[], field: string): number {
+  if (!field) throw new Error("Field name is required");
+
+  const numericRecords = records.filter(record => record.hasOwnProperty(field));
+  const sum = numericRecords.reduce((acc, record) => acc + record[field], 0);
+  const count = numericRecords.length;
+
+  return Math.floor(sum / count);
+}
+```

@@ -1,0 +1,19 @@
+```python
+from typing import *
+from collections.abc import *
+
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    if not isinstance(phrase, str):
+        raise ValueError("Expected a string for 'phrase'")
+    if not isinstance(times, int) or times < 0:
+        raise ValueError("Expected a non-negative integer for 'times'")
+    if not isinstance(between, str):
+        raise ValueError("Expected a string for 'between'")
+
+    if times == 0:
+        return ""
+    elif times == 1:
+        return phrase
+
+    return between.join([phrase] * times)
+```

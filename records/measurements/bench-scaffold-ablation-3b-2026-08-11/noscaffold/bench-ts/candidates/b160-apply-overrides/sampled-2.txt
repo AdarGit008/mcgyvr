@@ -1,0 +1,21 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Invalid argument 'overrides': must be a list.");
+  }
+
+  const result = { ...base };
+
+  for (const override of overrides) {
+    const [name, value] = override.split('=');
+
+    if (!value || name === "" || base[name] === undefined) {
+      throw new Error(`Invalid override: ${override}.`);
+    }
+
+    result[name] = value;
+  }
+
+  return result;
+}
+```

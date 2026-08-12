@@ -1,0 +1,15 @@
+id: b483-first-repeat
+task_type: function_implementation
+task: >-
+  Implement first_repeat. Give back the first entry that arrives
+  having already been seen earlier in the run, judged by where its
+  second arrival falls. A run where every entry arrives once gives
+  back a text holding nothing.
+target: solution.py
+interface: "def first_repeat(entries: list[str]) -> str"
+stop_conditions:
+  - Whether an entry holding nothing should be able to count as a repeat is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+```ts
+/**
+ * Gross pay less a percentage and then a flat fee. The percentage is rounded down,
+ * and pay never falls below zero.
+ */
+export function netPay(gross: number, rate: number, fee: number): number {
+  if (gross === undefined || gross === null) return 0;
+
+  const afterFee = gross - fee;
+  const reducedRate = Math.floor((afterFee * rate) / 100);
+  const netAmount = Math.max(afterFee - reducedRate, 0);
+
+  return netAmount;
+}
+```

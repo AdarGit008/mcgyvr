@@ -1,0 +1,15 @@
+id: b499-line-up
+task_type: function_implementation
+task: >-
+  Implement line_up. Follow a name up through a book of links, each
+  naming the one standing above it, and give back the whole line from
+  the name given to the one with nobody above it. The name given opens
+  the line. Reject links running in a circle with an error.
+target: solution.py
+interface: "def line_up(links: dict[str, str], start: str) -> list[str]"
+stop_conditions:
+  - Whether a name the book does not know at all should be rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

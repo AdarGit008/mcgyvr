@@ -1,0 +1,23 @@
+```python
+from typing import Dict
+
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    if name in tally:
+        tally[name] += amount
+    else:
+        tally[name] = amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    # Ensure both tallies are of the same type to avoid mix-ups
+    if not isinstance(left, dict) or not isinstance(right, dict):
+        raise ValueError("Both inputs must be dictionaries")
+
+    merged = {**left, **right}
+    
+    for name, amount in merged.items():
+        if amount < 0:
+            raise ValueError(f"Negative count detected for name: {name}")
+
+    return merged
+```

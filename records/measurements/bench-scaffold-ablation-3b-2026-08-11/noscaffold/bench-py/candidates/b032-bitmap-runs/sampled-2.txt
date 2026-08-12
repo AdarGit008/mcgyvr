@@ -1,0 +1,55 @@
+```python
+from typing import *
+from collections import *
+
+def bit_at(words: List[int], index: int) -> int:
+    """Return 0 or 1 based on whether bit index is set in words."""
+    if not isinstance(index, int):
+        raise ValueError("Index must be an integer.")
+    word_idx = index // 32
+    bit_offset = index % 32
+    if word_idx < len(words) and 0 <= bit_offset < 32:
+        return (words[word_idx] >> bit_offset) & 1
+    else:
+        raise ValueError("Index out of bitmap range.")
+
+def occupy_run(words: List[int], start: int, length: int) -> List[int]:
+    """Mark the run starting at 'start' with 'length' blocks as occupied."""
+    if not isinstance(start, int) or not isinstance(length, int):
+        raise ValueError("Start and length must be integers.")
+    if start < 0 or length <= 0:
+        raise ValueError("Start and length must be non-negative integers.")
+    
+    word_count = len(words)
+    capacity = (word_count * 32) + (start // 32)
+    if capacity != len(words):
+        raise ValueError(f"Capacity mismatch: {capacity} != {len(words)}.")
+    
+    end = start + length
+    for i in range(start, end):
+        word_idx = i // 32
+        bit_offset = i % 32
+        words[word_idx] |= (1 << bit_offset)
+    
+    return words
+
+def find_free_run(words: List[int], capacity: int, length: int) -> int:
+    """Find the smallest start of a free run of 'length' blocks."""
+    if not isinstance(capacity, int) or not isinstance(length, int):
+        raise ValueError("Capacity and length must be integers.")
+    if capacity <= 0 or length <= 0:
+        raise ValueError("Capacity and length must be positive integers.")
+    
+    word_count = len(words)
+    if word_count * 32 < capacity:
+        raise ValueError(f"Word count {word_count} is less than required for capacity {capacity}.")
+    
+    start_word_idx = start // 32
+    end_word_idx = (start + length - 1) // 32
+    
+    for i in range(start_word_idx, end_word_idx + 1):
+        if bit_at(words, i * 32) == 0:
+            if i < end_word_idx or length <= (words[i] & ((1 << (end_word_idx * 32 - start)) - 1)):
+                return start + i * 32
+    return -1
+```

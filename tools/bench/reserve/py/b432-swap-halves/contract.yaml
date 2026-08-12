@@ -1,0 +1,15 @@
+id: b432-swap-halves
+task_type: function_implementation
+task: >-
+  Implement swap_halves. Move the first half of a text to the end, so
+  the second half comes first. A text of an odd length keeps its
+  middle character with the first half, and an empty text comes back
+  empty.
+target: solution.py
+interface: "def swap_halves(text: str) -> str"
+stop_conditions:
+  - Whether the halves should split the other way for an odd length is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,25 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Invalid overrides argument: expected a list.");
+  }
+
+  const merged = { ...base };
+
+  overrides.forEach((override) => {
+    if (typeof override !== "string") {
+      throw new Error("Invalid override: each entry must be a string.");
+    }
+
+    const [name, value] = override.split("=", 2);
+
+    if (!name || !value) {
+      throw new Error("Invalid override: missing name or value.");
+    }
+
+    merged[name] = value;
+  });
+
+  return merged;
+}
+```

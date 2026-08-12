@@ -1,0 +1,52 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    if not text.strip():
+        raise ValueError("Empty span is not allowed")
+
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    parts = text.split()
+    total_inches = 0
+    seen_units = set()
+
+    for part in parts:
+        value, unit = part[:-2], part[-2:]
+        if not value.isdigit():
+            raise ValueError("Value must be a non-negative integer")
+        if unit not in units:
+            raise ValueError(f"Unknown unit: {unit}")
+        if unit in seen_units:
+            raise ValueError(f"Repeated unit: {unit}")
+        seen_units.add(unit)
+        total_inches += int(value) * units[unit]
+
+    return total_inches
+
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int):
+        raise ValueError("Input must be a non-negative integer")
+    if inches < 0:
+        raise ValueError("Negative inches are not allowed")
+
+    total_inches = inches
+    yards = total_inches // (36 * 12)
+    remaining_inches = total_inches % (36 * 12)
+    feet = remaining_inches // 12
+    inches %= 12
+
+    parts = []
+    if yards:
+        parts.append(f"{yards}yd")
+    if feet or inches:
+        parts.append(f"{feet}ft" if feet else "")
+    if inches:
+        parts.append(f"{inches}in")
+
+    return ' '.join(parts) or "0in"
+
+
+def add_spans(first: str, second: str) -> str:
+    return format_span(parse_span(first) + parse_span(second))
+```

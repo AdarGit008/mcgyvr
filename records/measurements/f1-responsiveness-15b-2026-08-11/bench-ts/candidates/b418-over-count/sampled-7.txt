@@ -1,0 +1,18 @@
+```ts
+/** How many of a store's values reach a floor. */
+export function overCount(
+  store: Record<string, number>,
+  floor: number,
+): number {
+  if (typeof store !== 'object' || !(store instanceof Object)) {
+    throw new Error('Input must be an object');
+  }
+  let found = 0;
+  for (const key of Object.keys(store)) {
+    if (typeof store[key] === 'number' && store[key] < floor) {
+      found += 1;
+    }
+  }
+  return found;
+}
+```

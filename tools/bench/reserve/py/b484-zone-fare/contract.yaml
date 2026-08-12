@@ -1,0 +1,16 @@
+id: b484-zone-fare
+task_type: function_implementation
+task: >-
+  stop_zone names the zone a stop sits in. zone_fare charges two
+  hundred cents for every different zone the journey touches, however
+  many stops fall in each. Implement zone_fare. A journey calling at
+  no stops is charged nothing.
+target: solution.py
+interface: "def stop_zone(stop: str) -> int
+def zone_fare(stops: list[str]) -> int"
+stop_conditions:
+  - Whether a journey calling at the same stop twice should be charged twice is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,9 @@
+```python
+def camel_break(name: str) -> list:
+    words = name.split()
+    return [word.lower() for word in words]
+
+# Test cases
+print(camel_break("HelloWorld"))  # Output: ['hello', 'world']
+print(camel_break("ThisIsANameWithACapital"))  # Output: ['this', 'is', 'a', 'name', 'with', 'a', 'capital']
+```

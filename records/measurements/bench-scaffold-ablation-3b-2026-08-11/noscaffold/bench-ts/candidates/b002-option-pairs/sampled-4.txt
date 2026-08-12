@@ -1,0 +1,31 @@
+```ts
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  return input.split(';').map(parseOption);
+}
+
+function parseOption(segment: string): [string, string] {
+  const parts = segment.split('=');
+
+  // Check if the segment is valid
+  if (parts.length < 2) {
+    throw new Error('Invalid option format');
+  }
+
+  const key = parts[0];
+  let value = parts.slice(1).join('');
+
+  // Handle quoted values
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.substring(1, -1);
+  } else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+    throw new Error('Invalid key format');
+  }
+
+  return [key, value];
+}
+```

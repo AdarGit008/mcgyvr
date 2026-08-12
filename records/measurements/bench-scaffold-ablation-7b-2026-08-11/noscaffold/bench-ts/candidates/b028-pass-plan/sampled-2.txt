@@ -1,0 +1,36 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+    if (tripDays.length !== [...new Set(tripDays)].length) throw new Error('Duplicate trip days');
+    if (!tripDays.every((day, i, arr) => day > 0 && (i === 0 || day > arr[i - 1]))) throw new Error('Trip days must be strictly increasing positive integers');
+    if (passes.length === 0) throw new Error('Pass list cannot be empty');
+    if (!passes.every(pass => pass.span > 0 && pass.cost >= 0)) throw new Error('Invalid pass span or cost');
+
+    const n = tripDays.length;
+    const dp: number[] = new Array(n + 1).fill(Infinity);
+    dp[0] = 0;
+
+    for (let i = 0; i < n; i++) {
+        for (const { span, cost } of passes) {
+            if (i + span <= n) {
+                dp[i + span] = Math.min(dp[i + span], dp[i] + cost);
+            }
+        }
+    }
+
+    if (dp[n] === Infinity) throw new Error('No valid pass plan found');
+
+    const purchases: number[][] = [];
+    let i = n;
+    while (i > 0) {
+        for (const { span, cost } of passes) {
+            if (i + span <= n && dp[i] === dp[i + span] - cost) {
+                purchases.unshift([tripDays[i - span], span]);
+                i -= span;
+                break;
+            }
+        }
+    }
+
+    return { total: dp[n], purchases };
+}
+```

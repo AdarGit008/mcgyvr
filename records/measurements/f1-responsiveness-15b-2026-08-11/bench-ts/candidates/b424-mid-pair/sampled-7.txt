@@ -1,0 +1,19 @@
+```ts
+export function midPair(values: number[]): number[] {
+  if (values.length === 0) {
+    return [undefined, undefined];
+  }
+
+  values.sort((a, b) => a - b);
+
+  const halfLength = Math.floor(values.length / 2);
+  const result = [values[halfLength], values[halfLength + 1]];
+
+  // If the list has an even number of elements, we need to choose the middle value twice
+  if (values.length % 2 === 0) {
+    result.push(result[0]);
+  }
+
+  return result;
+}
+```

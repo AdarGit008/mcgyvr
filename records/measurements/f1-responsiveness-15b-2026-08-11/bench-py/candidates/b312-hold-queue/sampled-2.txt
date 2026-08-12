@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+
+    def sorted_by_time(callers):
+        return sorted(callers, key=lambda x: x['arrival_time'])
+
+    sorted_callers = sorted_by_time(callers)
+    if len(sorted_callers) > limit:
+        oldest_caller = sorted_callers.pop(0)
+        sorted_callers.append({'caller_id': callers[0]['caller_id'], 'arrival_time': callers[0]['arrival_time']})
+
+    return [caller['caller_id'] for caller in sorted_callers]
+```

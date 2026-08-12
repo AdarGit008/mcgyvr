@@ -1,0 +1,42 @@
+```python
+import re
+
+def parse_option(segment: str) -> list:
+    """Parse a key=value segment into [key, value]."""
+    match = re.match(r'^(\w+)=(.*)$', segment)
+    if not match:
+        raise ValueError("Invalid option format")
+    key, value = match.groups()
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    return [key, value]
+
+def scan_pairs(text: str) -> list:
+    """Split an options string into key-value pairs."""
+    if not isinstance(text, str) or text == "":
+        raise ValueError("Invalid input")
+    
+    result = []
+    in_quotes = False
+    current_segment = ""
+    for char in text:
+        if char == '"':
+            in_quotes = not in_quotes
+        elif char == ';' and not in_quotes:
+            pair = parse_option(current_segment.strip())
+            if pair[0] in [k for k, _ in result]:
+                raise ValueError("Repeated key")
+            result.append(pair)
+            current_segment = ""
+        else:
+            current_segment += char
+    
+    # Process the last segment
+    if current_segment.strip():
+        pair = parse_option(current_segment.strip())
+        if pair[0] in [k for k, _ in result]:
+            raise ValueError("Repeated key")
+        result.append(pair)
+    
+    return result
+```

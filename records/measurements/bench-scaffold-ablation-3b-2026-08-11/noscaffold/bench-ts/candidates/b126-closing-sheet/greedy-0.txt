@@ -1,0 +1,48 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input type');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':').map((part) => part.trim());
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(countStr)) {
+      throw new Error('Malformed sheet entry');
+    }
+    return [name, parseInt(countStr, 10)];
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, qtyStr] = move.split('+').map((part) => part.trim());
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(qtyStr)) {
+      throw new Error('Malformed move');
+    }
+    return [name, parseInt(qtyStr, 10)];
+  };
+
+  const openingSheet = opening.split(';').map(parseEntry);
+  const movesList = moves.split(';').map(parseMove);
+
+  const updateSheet = (sheet: [string, number][], name: string, qty: number): boolean => {
+    const index = sheet.findIndex(([item]) => item === name);
+    if (index !== -1) {
+      sheet[index] = [name, sheet[index][1] + qty];
+      return true;
+    }
+    return false;
+  };
+
+  movesList.forEach(([name, qty]) => {
+    if (!updateSheet(openingSheet, name, qty)) {
+      throw new Error(`Issue of item ${name}`);
+    }
+  });
+
+  const closingSheet = openingSheet
+    .filter(([_, count]) => count > 0)
+    .map(([name, _]) => `${name}:${count}`)
+    .join(';');
+
+  return closingSheet === '' ? '[]' : closingSheet;
+}
+```

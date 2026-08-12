@@ -1,0 +1,49 @@
+```ts
+export function unpackCrates(crate: unknown[]): string[] {
+  if (!Array.isArray(crate)) {
+    throw new Error("Input must be an array");
+  }
+
+  let flatList: string[] = [];
+  const depthHelper = (crates: unknown[], currentDepth: number): void => {
+    for (const item of crates) {
+      if (typeof item === "string") {
+        flatList.push(item);
+      } else if (Array.isArray(item)) {
+        depthHelper(item, currentDepth + 1);
+      } else {
+        throw new Error("Invalid entry found in the crate");
+      }
+    }
+  };
+
+  depthHelper(crate, 1);
+
+  return flatList;
+}
+
+export function crateDepth(crate: unknown[]): number {
+  if (!Array.isArray(crate)) {
+    throw new Error("Input must be an array");
+  }
+
+  let maxDepth = 0;
+
+  const depthHelper = (crates: unknown[], currentDepth: number): void => {
+    for (const item of crates) {
+      if (typeof item === "string") {
+        continue;
+      } else if (Array.isArray(item)) {
+        depthHelper(item, currentDepth + 1);
+        maxDepth = Math.max(maxDepth, currentDepth);
+      } else {
+        throw new Error("Invalid entry found in the crate");
+      }
+    }
+  };
+
+  depthHelper(crate, 1);
+
+  return maxDepth;
+}
+```

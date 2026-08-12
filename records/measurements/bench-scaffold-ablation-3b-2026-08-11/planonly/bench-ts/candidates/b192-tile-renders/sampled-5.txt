@@ -1,0 +1,66 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (freshFor <= 0 || !Number.isInteger(freshFor)) {
+    throw new Error("freshFor must be a positive whole number");
+  }
+  if (size <= 0 || !Number.isInteger(size)) {
+    throw new Error("size must be a positive whole number");
+  }
+
+  const cache: { [key: string]: number } = {};
+  const renders: [number, string][] = [];
+
+  for (const [tick, tileName] of requests) {
+    if (tick < 0 || !Number.isInteger(tick)) {
+      throw new Error("Tick must be a non-negative whole number");
+    }
+
+    if (cache[tileName] !== undefined && tick >= cache[tileName]) {
+      // Tile is still fresh, return it
+      renders.push([tick, tileName]);
+    } else {
+      // Request requires rendering
+      if (!renders.length || tick > renders[renders.length - 1][0] + freshFor) {
+        // Render the tile at the current tick
+        renders.push([tick, tileName]);
+
+        // Maintain cache size
+        const entries = Object.entries(cache);
+        if (entries.length >= size) {
+          // Drop the oldest entry by name and tick
+          let oldestKey: string | null = null;
+          for (const [key, lastTick] of entries) {
+            if (!oldestKey || lastTick < cache[oldestKey]) {
+              oldestKey = key;
+            }
+          }
+
+          if (oldestKey !== null && tick > cache[oldestKey]) {
+            delete cache[oldestKey];
+          } else {
+            // If the tile to drop has a later tick, remove it from the cache
+            for (let i = renders.length - 1; i >= 0; i--) {
+              if (renders[i][1] === oldestKey) {
+                deletes.push(i);
+                break;
+              }
+            }
+
+            // Update the cache and removes the tile from the renders list
+            for (const key of deletes) {
+              renders.splice(key, 1);
+            }
+          }
+        } else {
+          // Cache has space, add the new entry
+          cache[tileName] = tick;
+        }
+      } else {
+        // Request is too old to render, skip it
+      }
+    }
+  }
+
+  return renders;
+}
+```

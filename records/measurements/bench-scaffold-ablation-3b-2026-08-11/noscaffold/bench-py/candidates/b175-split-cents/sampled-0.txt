@@ -1,0 +1,41 @@
+```python
+from typing import List
+
+def split_cents(total: int, weights: list) -> List[int]:
+    """
+   _splits_cents splits a total amount of cents into parts based on given weights,
+    with additional logic for handling remainders and ties.
+    
+    :param total: The total amount of cents to be split.
+    :param weights: A list of positive whole numbers representing share weights.
+    :return: A list of integers representing the each partner's share in cents.
+    """
+    if total % 1 != 0:
+        raise ValueError("Total must be a whole number.")
+    if total < 0:
+        raise ValueError("Total cannot be negative.")
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    if len(weights) == 0:
+        raise ValueError("Weights list cannot be empty.")
+    if any(not isinstance(weight, int) or weight <= 0 for weight in weights):
+        raise ValueError("Each weight must be a positive integer.")
+    
+    total_cents = total
+    shares = [0] * len(weights)
+    cumulative_weight = sum(weights)
+    
+    # First part: distribute based on share weights
+    for i, weight in enumerate(weights):
+        shares[i] = total_cents // cumulative_weight
+        total_cents -= shares[i] * weight
+        cumulative_weight -= weight
+    
+    # Second part: distribute remainders among the largest discarded fractions
+    if total_cents > 0:
+        remaining_fraction = [shares[i] / weights[i] for i in range(len(weights))]
+        max_index = remaining_fraction.index(max(remaining_fraction))
+        shares[max_index] += total_cents
+    
+    return shares
+```

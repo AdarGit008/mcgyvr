@@ -1,0 +1,23 @@
+```python
+def cap_after(passage: str) -> str:
+    """Capitalize the first letter of every sentence in the given paragraph."""
+    if not passage:
+        return ""
+
+    # Split the passage into sentences based on newline characters
+    sentences = passage.split('\n')
+    
+    modified_sentences = []
+    for i, sentence in enumerate(sentences):
+        # Check if the sentence ends with a full stop
+        if i == len(sentences) - 1 or sentence.endswith('.'):
+            # Capitalize the first letter of the sentence and add it to the list
+            capitalized_sentence = sentence.capitalize()
+            modified_sentences.append(capitalized_sentence)
+        else:
+            # Leave other sentences as they are for now
+            modified_sentences.append(sentence)
+
+    # Join the processed sentences back into a paragraph with newline characters
+    return '\n'.join(modified_sentences)
+```

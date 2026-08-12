@@ -1,0 +1,27 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lay a conveyor run in the factory floor plan.
+
+    :param floor: List of rows where '.' is an open cell and '#' is a machine.
+    :param row: Starting row index (0-based).
+    :param col: Starting column index (0-based).
+    :param length: Length of the conveyor run to lay.
+    :return: The updated plan with the conveyor run laid.
+    :raises ValueError: If the run would pass the last column or cover a cell that is not open.
+    """
+    if row < 0 or row >= len(floor) or col < 0:
+        raise ValueError("Starting row out of bounds.")
+    
+    if col + length > len(floor[row]):
+        raise ValueError("Run would exceed the boundaries of the plan.")
+    
+    for i in range(length):
+        if floor[row][col + i] != '.':
+            raise ValueError(f"Cell at ({row}, {col + i}) is not open.")
+    
+    updated_floor = [list(row) for row in floor]
+    updated_floor[row] = updated_floor[row][:col] + ['=' * length] + updated_floor[row][col + length:]
+    
+    return updated_floor
+```

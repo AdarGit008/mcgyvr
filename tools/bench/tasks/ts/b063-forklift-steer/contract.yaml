@@ -1,0 +1,21 @@
+id: b063-forklift-steer
+task_type: function_implementation
+task: >-
+  Implement steerForklift. A warehouse floor is a grid of aisles
+  columns by bays rows, and the forklift starts parked at [0, 0], the
+  north-west corner; aisle numbers grow to the east and bay numbers
+  grow to the south. The moves list holds the words north, south, east
+  and west, applied in order: north and south change the bay number by
+  one, east and west change the aisle number by one. Return the final
+  position as an [aisle, bay] pair; an empty moves list leaves the
+  forklift at [0, 0]. Reject an aisle or bay count that is not a
+  positive integer, a move word that is not one of the four, and a
+  move that would carry the forklift off the floor, with an error.
+target: solution.ts
+interface: "export function steerForklift(aisles: number, bays: number, moves: string[]): number[]"
+stop_conditions:
+  - How a moves entry that is not a string is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,25 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    if row < 0 or column < 0:
+        raise ValueError("Row and column must be non-negative")
+    
+    # Convert column to letter using ASCII values
+    column_name = ""
+    while column >= 0:
+        remainder = column % 26
+        column_name = chr(remainder + ord('A')) + column_name
+        column //= 26
+    
+    return column_name
+
+def grid_cells(rows: int, columns: int) -> list:
+    if rows <= 0 or columns <= 0:
+        raise ValueError("Rows and columns must be positive")
+    
+    grid = []
+    for row in range(rows):
+        row_cells = [cell_name(row, col) for col in range(columns)]
+        grid.append(row_cells)
+    
+    return grid
+```

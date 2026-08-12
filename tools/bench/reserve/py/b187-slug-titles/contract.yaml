@@ -1,0 +1,33 @@
+id: b187-slug-titles
+task_type: function_implementation
+task: >-
+  Implement slug_titles. The input lists an archive's article titles in
+  publication order and each title earns a URL slug: fold the title to lower
+  case, keep only the ASCII letters and digits, and turn every run of other
+  characters into a single hyphen, leaving no hyphen at either end. Two
+  titles can slug the same way, yet a slug must name one article alone: the
+  first title claiming a base slug keeps it bare, and every later title
+  claiming that base takes the base, a hyphen, and its ordinal among the
+  claimants, so a third claim on "tide-table" reads "tide-table-3". Return
+  the slugs in the order the titles arrived. Reject a title that is not a
+  string and a title holding no letter or digit, with an error.
+target: solution.py
+target_content: |
+  """Turn an archive's article titles into slugs no two articles share."""
+
+
+  def slug_titles(titles):
+      if not isinstance(titles, list):
+          raise ValueError("slug_titles expects a list of titles")
+      seen = {}
+      slugs = []
+      for title in titles:
+          pass  # TODO: build this title's base slug, then number it apart from earlier twins
+      return slugs
+interface: "def slug_titles(titles: list) -> list"
+stop_conditions:
+  - Whether a title whose own slug ends in a number may collide with an ordinal slug is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

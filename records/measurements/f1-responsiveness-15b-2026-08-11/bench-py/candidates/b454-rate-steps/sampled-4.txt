@@ -1,0 +1,10 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """Return the charge for one step, rounding down."""
+    base_charge = fixed + (amount * percent // 100)
+    return base_charge
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """Return the charge for each of several amounts."""
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

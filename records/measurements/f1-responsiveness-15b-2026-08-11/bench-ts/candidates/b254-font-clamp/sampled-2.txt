@@ -1,0 +1,9 @@
+```ts
+function fontClamp(size: number, smallest: number, largest: number): number {
+  if (smallest > largest) {
+    throw new Error("Invalid range: smallest must be less than or equal to largest");
+  }
+
+  return Math.min(Math.max(smallest, size), largest);
+}
+```

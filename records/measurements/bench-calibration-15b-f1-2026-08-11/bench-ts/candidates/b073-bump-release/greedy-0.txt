@@ -1,0 +1,29 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string') {
+    throw new Error('Version must be a string');
+  }
+  const parts = version.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Version must have exactly three components');
+  }
+
+  for (let i = 0; i < 3; i++) {
+    if (!/^\d+$/.test(parts[i])) {
+      throw new Error(`Component ${i + 1} must be a non-negative integer`);
+    }
+  }
+
+  const partIndex = ['major', 'minor', 'patch'].indexOf(part);
+  if (partIndex === -1) {
+    throw new Error('Part name must be one of "major", "minor", or "patch"');
+  }
+
+  parts[partIndex]++;
+  for (let i = partIndex + 1; i < 3; i++) {
+    parts[i] = 0;
+  }
+
+  return parts.join('.');
+}
+```

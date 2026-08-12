@@ -1,0 +1,16 @@
+id: b410-quote-split
+task_type: function_implementation
+task: >-
+  Implement in_quote and quote_split. in_quote says whether a
+  character is the quotation mark. quote_split breaks a line on
+  commas, except for a comma standing inside quotation marks, and
+  returns the pieces with their quotation marks still in place.
+target: solution.py
+interface: "def in_quote(ch: str) -> bool
+def quote_split(line: str) -> list"
+stop_conditions:
+  - Whether a quotation mark that is never closed should be a mistake is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

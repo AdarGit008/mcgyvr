@@ -1,0 +1,24 @@
+```ts
+/**
+ * Fold a list onto itself by adding the first entry to the last,
+ * the second to the second-last, and so on, returning the totals in that order.
+ * A list of an odd length leaves its middle entry as its own total.
+ *
+ * @param values - The input array of numbers.
+ * @returns An array containing the totals after folding.
+ */
+export function foldEnds(values: number[]): number[] {
+  const folded: number[] = [];
+  const halfLength = Math.floor(values.length / 2);
+
+  for (let i = 0; i < halfLength; i++) {
+    folded.push(values[i] + values[values.length - 1 - i]);
+  }
+
+  if (values.length % 2 !== 0) {
+    folded.push(values[halfLength]);
+  }
+
+  return folded;
+}
+```

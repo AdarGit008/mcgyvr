@@ -1,0 +1,49 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) {
+    throw new Error("Grid must have at least one row and one column");
+  }
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  // Validate grid cells
+  for (let r = 0; r < rows; r++) {
+    if (grid[r].length !== cols) {
+      throw new Error("All rows must have the same number of columns");
+    }
+    for (let c = 0; c < cols; c++) {
+      if (!Number.isInteger(grid[r][c])) {
+        throw new Error("Grid cells must be integers");
+      }
+    }
+  }
+
+  // Validate queries
+  const results: number[] = [];
+  for (const query of queries) {
+    if (query.length !== 4) {
+      throw new Error("Each query must contain exactly four integers");
+    }
+    const [top, left, bottom, right] = query;
+    if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) {
+      throw new Error("Query coordinates must be integers");
+    }
+    if (top >= bottom || left >= right) {
+      throw new Error("Query dimensions must be positive");
+    }
+    if (top < 0 || top >= rows || bottom > rows || left < 0 || left >= cols || right > cols) {
+      throw new Error("Query must stay within the grid bounds");
+    }
+
+    // Calculate query sum using prefix-sum table
+    const sum = grid[bottom - 1][right - 1];
+    if (top > 0) sum -= grid[top - 1][right - 1];
+    if (left > 0) sum -= grid[bottom - 1][left - 1];
+    if (top > 0 && left > 0) sum += grid[top - 1][left - 1];
+    results.push(sum);
+  }
+
+  return results;
+}
+```

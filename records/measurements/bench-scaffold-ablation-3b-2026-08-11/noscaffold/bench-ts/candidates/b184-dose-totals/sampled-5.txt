@@ -1,0 +1,22 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totalMap = new Map<string, number>();
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(\.\d{1,3})?$/.test(amount)) {
+      throw new Error(`Invalid amount: ${amount}`);
+    }
+
+    const parsedAmount = parseFloat(amount);
+    totalMap.set(reagent, (totalMap.get(reagent) || 0) + parsedAmount * 1000);
+  }
+
+  return Object.fromEntries(totalMap.entries()).map(([reagent, total]) => {
+    let totalStr = total.toString();
+    if (total >= 0 && total % 1000 === 0) {
+      totalStr = totalStr.slice(0, -3); // Remove trailing zeros and decimal point
+    }
+    return [reagent, totalStr];
+  });
+}
+```

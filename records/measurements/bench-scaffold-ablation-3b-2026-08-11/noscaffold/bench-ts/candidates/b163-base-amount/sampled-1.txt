@@ -1,0 +1,33 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+    // Error handling for invalid input
+    if (!Number.isInteger(amount) || amount < 0) {
+        throw new Error('Invalid amount');
+    }
+    if (unit === '' || !defs[unit]) {
+        throw new Error('Invalid unit or not defined in defs');
+    }
+    const [factor, finer] = defs[unit];
+    if (!Number.isInteger(factor) || factor <= 0) {
+        throw new Error('Invalid factor');
+    }
+
+    // Convert amount to base unit
+    let convertedAmount = amount;
+    while (unit !== base && defs[finer]) {
+        const nextFactor = defs[finer][0];
+        if (!Number.isInteger(nextFactor) || nextFactor <= 0) {
+            throw new Error('Invalid factor in chain');
+        }
+        convertedAmount *= nextFactor;
+        unit = finer;
+    }
+
+    // Final check to ensure the base is reached
+    if (unit !== base) {
+        throw new Error('Chain loops and cannot reach the base');
+    }
+
+    return convertedAmount;
+}
+```

@@ -1,0 +1,13 @@
+```python
+def count_by(records: list, field: str) -> dict:
+    if not field:
+        raise ValueError("Field name cannot be empty.")
+
+    result = {}
+    for record in records:
+        value = record.get(field)
+        if value is not None:
+            result[value] = result.get(value, 0) + 1
+
+    return result
+```

@@ -1,0 +1,12 @@
+```python
+def look_up(store: dict, key: str, fallback: str) -> str:
+    """A mapping's value for a key, or a fallback when it is absent."""
+    if not key:
+        raise ValueError("Key must be provided")
+    if store.get(key):
+        return store[key]
+    elif store.get(key) == '':
+        return fallback
+    else:
+        return fallback
+```

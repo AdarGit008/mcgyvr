@@ -1,0 +1,32 @@
+```python
+def split_length(mm: int) -> str:
+    """
+    Convert a length in millimetres to workshop notation, expressing it as a whole count of millimetres,
+    carved off whole metres first, then whole centimetres, and finally leftover millimetres.
+    
+    Parameters:
+    mm (int): The length in millimetres. Must be a whole number.
+    
+    Returns:
+    str: The length expressed in workshop notation.
+    
+    Raises:
+    ValueError: If the input is not a whole number or negative.
+    """
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    units = {
+        "m": 1000,
+        "cm": 10
+    }
+    
+    result = []
+    for unit, value in sorted(units.items(), reverse=True):
+        count = mm // value
+        if count > 0:
+            result.append(f"{count}{unit}")
+            mm %= value
+    
+    return " ".join(result) or "0mm"
+```

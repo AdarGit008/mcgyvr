@@ -1,0 +1,50 @@
+```python
+def cheapest_pass_plan(trip_days: list[int], passes: list[dict[str, int]]) -> dict:
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+    
+    if not passes:
+        raise ValueError("Empty pass list")
+    
+    for d in trip_days:
+        if not isinstance(d, int) or d <= 0:
+            raise ValueError(f"Invalid trip day: {d}")
+    
+    if not all(trip_days[i] < trip_days[i + 1] for i in range(len(trip_days) - 1)):
+        raise ValueError("Trip days must be strictly increasing")
+    
+    for p in passes:
+        if "span" not in p or "cost" not in p:
+            raise ValueError(f"Invalid pass: {p}")
+        
+        span = p["span"]
+        cost = p["cost"]
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError(f"Invalid span: {span}")
+        
+        if not isinstance(cost, int) and not isinstance(cost, float) or cost < 0:
+            raise ValueError(f"Invalid cost: {cost}")
+    
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    prev_purchases = [[] for _ in range(n + 1)]
+    
+    for i in range(1, n + 1):
+        dp[i] = dp[i - 1]
+        
+        for p in passes:
+            span = p["span"]
+            cost = p["cost"]
+            
+            if i >= span:
+                price_if_buy = dp[i - span] + cost
+                
+                if price_if_buy < dp[i]:
+                    dp[i] = price_if_buy
+                    prev_purchases[i] = prev_purchases[i - span].copy()
+                    prev_purchases[i].append([trip_days[i - 1], span])
+    
+    return {"total": dp[n], "purchases": prev_purchases[n]}
+```

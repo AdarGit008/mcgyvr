@@ -1,0 +1,26 @@
+```python
+def slug_word(word: str) -> str:
+    """
+    Lowers a word and drops every character that is not a letter or a digit.
+    
+    Args:
+        word (str): The input word to be slugged.
+    
+    Returns:
+        str: The slugged version of the input word.
+    """
+    return ''.join(c for c in word.lower() if c.isalnum())
+
+
+def slug_make(phrase: str) -> str:
+    """
+    Joins the slugged words of a phrase with single hyphens, leaving out any word that slugs away to nothing.
+    
+    Args:
+        phrase (str): The input phrase to be slugged.
+    
+    Returns:
+        str: The slugged version of the input phrase.
+    """
+    return '-'.join(slug_word(word) for word in phrase.split())
+```

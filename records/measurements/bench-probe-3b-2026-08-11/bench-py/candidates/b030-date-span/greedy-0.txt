@@ -1,0 +1,56 @@
+```python
+"""How many days lie between two proleptic Gregorian calendar dates."""
+
+MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(year):
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+def _month_length(year, month):
+    if month == 2 and _is_leap(year):
+        return 29
+    return MONTH_LENGTHS[month - 1]
+
+
+def _to_ordinal(date):
+    year, month, day = date
+    prior = year - 1
+    days = prior * 365 + prior // 4 - (prior // 100 - prior // 400)
+    for earlier in range(1, month):
+        days += _month_length(year, earlier)
+    return days + day
+
+
+def span_days(start: list, end: list) -> int:
+    if not isinstance(start, list) or not isinstance(end, list):
+        raise ValueError("Both start and end must be lists.")
+    
+    if len(start) != 3 or len(end) != 3:
+        raise ValueError("Each date must be a list of three integers [year, month, day].")
+    
+    year1, month1, day1 = start
+    year2, month2, day2 = end
+    
+    for component in (year1, month1, day1, year2, month2, day2):
+        if not isinstance(component, int) or component < 0:
+            raise ValueError("All date components must be non-negative integers.")
+    
+    if year1 > year2:
+        raise ValueError("Start date cannot be after end date.")
+    
+    if month1 > 12 or month1 < 1:
+        raise ValueError("Month must be between 1 and 12.")
+    
+    if day1 > _month_length(year1, month1) or day1 < 1:
+        raise ValueError(f"Day {day1} is not valid for the given month and year.")
+    
+    if month2 > 12 or month2 < 1:
+        raise ValueError("Month must be between 1 and 12.")
+    
+    if day2 > _month_length(year2, month2) or day2 < 1:
+        raise ValueError(f"Day {day2} is not valid for the given month and year.")
+    
+    return _to_ordinal(end) - _to_ordinal(start)
+```

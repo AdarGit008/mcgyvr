@@ -1,0 +1,43 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative integer');
+  }
+
+  const bestCut: Cut = { takings: 0, pieces: [] };
+
+  function cutRollHelper(remainingLength: number): void {
+    if (remainingLength === 0) {
+      return;
+    }
+
+    let maxPrice = -1;
+    let bestPieceIndex = -1;
+
+    for (let i = 0; i < board.length; i++) {
+      const [pieceLength, piecePrice] = board[i];
+      if (pieceLength <= remainingLength && piecePrice > maxPrice) {
+        maxPrice = piecePrice;
+        bestPieceIndex = i;
+      }
+    }
+
+    if (bestPieceIndex !== -1) {
+      const [pieceLength, piecePrice] = board.splice(bestPieceIndex, 1);
+      bestCut.takings += piecePrice;
+      bestCut.pieces.push(pieceLength);
+      cutRollHelper(remainingLength - pieceLength);
+    } else {
+      // If no piece fits, scrap the last metre
+      bestCut.takings += 0;
+      bestCut.pieces.push(length);
+    }
+  }
+
+  cutRollHelper(length);
+
+  return bestCut;
+}
+
+type Cut = { takings: number, pieces: number[] };
+```

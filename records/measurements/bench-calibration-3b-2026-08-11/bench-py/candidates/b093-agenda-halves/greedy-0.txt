@@ -1,0 +1,24 @@
+```python
+def split_agenda(sessions: list, limit: int) -> list:
+    """
+    Splits coaching sessions into blocks of at most 'limit' minutes each.
+
+    :param sessions: List of [start, end] pairs representing coaching sessions in whole minutes.
+    :param limit: Maximum block size in minutes.
+    :return: List of [start, end] pairs for the split blocks.
+    """
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("Limit must be a whole number at least one.")
+    
+    result = []
+    for start, end in sessions:
+        if start >= end:
+            raise ValueError("Session bounds must be valid (start precedes end).")
+        
+        while start < end:
+            block_end = min(end, start + limit)
+            result.append([start, block_end])
+            start = block_end
+    
+    return result
+```

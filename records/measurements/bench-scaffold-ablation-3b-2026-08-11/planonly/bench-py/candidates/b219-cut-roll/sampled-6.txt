@@ -1,0 +1,28 @@
+```python
+from typing import Dict
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number.")
+    
+    def find_best_cut(remaining_length: int) -> tuple[int, int, int]:
+        best_price = -1
+        best_piece_length = 0
+        
+        for piece_length, price in board:
+            if remaining_length >= piece_length:
+                candidate_price = price + find_best_cut(remaining_length - piece_length)[2]
+                if candidate_price > best_price or (candidate_price == best_price and piece_length > best_piece_length):
+                    best_price = candidate_price
+                    best_piece_length = piece_length
+        
+        return best_piece_length, price, best_price
+    
+    best_piece_length, price, takings = find_best_cut(length)
+    
+    return {
+        "takings": takings,
+        "price": price,
+        "pieces": [] if best_piece_length == 0 else [best_piece_length]
+    }
+```

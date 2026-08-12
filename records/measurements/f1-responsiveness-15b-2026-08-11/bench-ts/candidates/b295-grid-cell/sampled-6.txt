@@ -1,0 +1,28 @@
+```ts
+function cellName(row: number, column: number): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let result = '';
+
+  while (column >= 0) {
+    column %= 26;
+    result = letters[column] + result;
+    row--;
+  }
+
+  return result;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (!Number.isInteger(rows) || !Number.isInteger(columns)) throw new Error('Invalid input');
+  if (rows <= 0 || columns <= 0) throw new Error('Rows and columns must be positive integers');
+
+  const cellNames = [];
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      cellNames.push(cellName(row, column));
+    }
+  }
+
+  return cellNames;
+}
+```

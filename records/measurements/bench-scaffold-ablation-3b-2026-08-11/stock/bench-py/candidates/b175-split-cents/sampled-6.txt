@@ -1,0 +1,27 @@
+```
+def split_cents(total: int, weights: list) -> list:
+    if not isinstance(total, int) or isinstance(total, bool): raise ValueError("total must be whole cents")
+    if total < 0: raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights: raise ValueError("weights must be a non-empty list")
+    if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights): raise ValueError("a weight is a positive whole number")
+    
+    total_cents = total
+    whole = sum(weights)
+    
+    # Calculate initial parts
+    parts = [total * w // whole for w in weights]
+    
+    # Calculate leftover cents
+    leftover_cents = total_cents - sum(parts)
+    
+    # Distribute leftover cents to the partners with the largest discarded fractions
+    if leftover_cents > 0:
+        sorted_indices = sorted(range(len(weights)), key=lambda i: (parts[i] / whole) % 1, reverse=True)
+        
+        for i in sorted_indices:
+            if leftover_cents > 0:
+                parts[i] += 1
+                leftover_cents -= 1
+    
+    return parts
+```

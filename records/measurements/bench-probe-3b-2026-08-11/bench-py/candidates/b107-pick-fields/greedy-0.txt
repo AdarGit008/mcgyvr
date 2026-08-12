@@ -1,0 +1,39 @@
+```python
+from typing import List, Mapping
+
+def pick_fields(records: List[Mapping[str, any]], fields: List[str]) -> List[List[any]]:
+    """
+    Selects specified fields from each record in a list of records.
+
+    :param records: A list of dictionaries, where each dictionary represents a record.
+    :param fields: A list of field names to select. Names ending with '?' are optional,
+                  and their stems are used if the stem is not present in the record.
+    :return: A list of lists, where each sublist contains the selected values for the corresponding record.
+    """
+    def get_value(record: Mapping[str, any], field: str) -> any:
+        if field.endswith('?'):
+            stem = field[:-1]
+            return record.get(stem, None)
+        else:
+            return record[field]
+
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("Each record must be a dictionary.")
+        
+        row = []
+        for field in fields:
+            if not isinstance(field, str) or len(field) == 0:
+                raise ValueError("Field names must be non-empty strings.")
+            
+            try:
+                value = get_value(record, field)
+                row.append(value)
+            except KeyError as e:
+                raise ValueError(f"Record is missing required field: {e}")
+        
+        result.append(row)
+
+    return result
+```

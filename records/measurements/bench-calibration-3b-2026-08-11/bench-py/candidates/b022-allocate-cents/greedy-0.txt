@@ -1,0 +1,50 @@
+```python
+"""Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+import re
+
+
+def parse_amount(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("amount must be a string")
+    match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+    if match is None:
+        raise ValueError(f"malformed amount: {text}")
+    whole = int(match.group(1))
+    cents = 0 if match.group(2) is None else int(match.group(2))
+    return whole * 100 + cents
+
+
+def format_amount(cents: int) -> str:
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(weights, list):
+        raise ValueError("weights must be a list")
+    if len(weights) == 0:
+        raise ValueError("weight list cannot be empty")
+    
+    sum_w = sum(weights)
+    if sum_w == 0:
+        raise ValueError("sum of weights cannot be zero")
+    
+    shares = [total_cents * weight // sum_w for weight in weights]
+    leftover = total_cents - sum(shares)
+    
+    # Distribute leftover cents to the shares with the largest remainders
+    remainder_map = {i: (shares[i] % sum_w, i) for i in range(len(weights))}
+    sorted_remainders = sorted(remainder_map.items(), key=lambda x: (-x[0], x[1]))
+    
+    for i, (_, index) in sorted_remainders:
+        shares[index] += 1
+        leftover -= 1
+        if leftover == 0:
+            break
+    
+    return shares
+```

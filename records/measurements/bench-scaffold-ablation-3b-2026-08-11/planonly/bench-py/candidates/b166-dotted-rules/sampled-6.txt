@@ -1,0 +1,16 @@
+```python
+from typing import Dict, Optional
+
+def match_setting(rules: Dict[str, str], name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if "*" in rules and not (name == "*" or name.endswith(".*")):
+        raise ValueError("Star must stand alone or end the selector as '.*'.")
+    
+    for selector, value in sorted(rules.items(), key=lambda x: (-len(x[0]), x[0])):
+        if name.startswith(selector):
+            return value
+    
+    return None
+```

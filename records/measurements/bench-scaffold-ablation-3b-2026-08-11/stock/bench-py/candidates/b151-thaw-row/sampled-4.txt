@@ -1,0 +1,34 @@
+```python
+from typing import *
+import re
+
+def thaw_row(row: str, steps: int) -> str:
+    if not isinstance(row, str) or not row:
+        raise ValueError("thaw_row expects a non-empty string row")
+    if not re.fullmatch(r"[#.]+", row):
+        raise ValueError("row must contain only '#' and '.' characters")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("steps must be a non-negative integer")
+
+    def melt_step(row: str) -> str:
+        new_row = []
+        length = len(row)
+        for i in range(length):
+            if i == 0 and row[i] == "#":
+                new_row.append(".")
+            elif i == length - 1 and row[i] == "#":
+                new_row.append(".")
+            elif row[i] == "#" and (
+                (i > 0 and row[i - 1] == ".") or
+                (i < length - 1 and row[i + 1] == ".")
+            ):
+                new_row.append(".")
+            else:
+                new_row.append(row[i])
+        return "".join(new_row)
+
+    for _ in range(steps):
+        row = melt_step(row)
+    
+    return row
+```

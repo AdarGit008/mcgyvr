@@ -1,0 +1,427 @@
+{
+  "record": "bench-strata/1",
+  "issue": 225,
+  "doctrine": "Strata are measured, not asserted (#225's amendment, point 3): membership comes from a calibration sweep of the floor tier, never from generator self-labels \u2014 #197's record is that steered difficulty drifted ~2x and a ten-task probe misread by ~2x. A re-assignment is a new dated block appended to `blocks`, never an edit of an old one; consumers read the newest block. Rates are quoted with their n because a pilot-sized cell is a locator, not an anchor.",
+  "blocks": [
+    {
+      "date": "2026-08-10",
+      "phase": "pilot calibration (Phase 3)",
+      "source": "records/measurements/bench-calibration-3b-2026-08-10",
+      "model": "qwen2.5-coder:3b",
+      "endpoint": "http://srv1:11434",
+      "protocol": "openai",
+      "draws": "greedy only (--draws 0)",
+      "max_output_tokens": 2048,
+      "failure_modes": "All 38 failing arms are acceptance failures: 0 of 44 arm-draws overran the cap (max completion 740 of 2048 tokens), 0 parse errors. The rates below are capability, not censoring (#212's trap, checked before believing any 0).",
+      "assignment_rule": "Provisional: stratum = steering band, held until campaign-scale measurement. At n = 4-6 bench problems per band per arm, measured re-binning would be fitting noise; boundaries harden when Phase 4 fills each stratum toward ~100 and the calibration re-runs. The ids listed are the bench half only \u2014 the reserve is never measured (design doc section 2).",
+      "strata": {
+        "s1": {
+          "steering_band": "g1",
+          "steered_at": "ts 30-45 reference lines, 10-14 asserts/arm \u2014 just above d3-class",
+          "bench_ids": [
+            "b002-option-pairs",
+            "b003-carve-shift",
+            "b004-install-order",
+            "b005-command-chain",
+            "b007-cent-split",
+            "b009-pack-entries"
+          ],
+          "rate": {
+            "bench-ts": "1/6",
+            "bench-py": "2/6"
+          }
+        },
+        "s2": {
+          "steering_band": "g2",
+          "steered_at": "ts 45-60 lines, 13-17 asserts/arm \u2014 lower gap",
+          "bench_ids": [
+            "b013-region-totals",
+            "b014-fill-order",
+            "b015-recency-cache",
+            "b017-site-totals",
+            "b019-reservoir-ticks",
+            "b020-route-pattern"
+          ],
+          "rate": {
+            "bench-ts": "1/6",
+            "bench-py": "1/6"
+          }
+        },
+        "s3": {
+          "steering_band": "g3",
+          "steered_at": "ts 60-80 lines, 16-20 asserts/arm \u2014 upper gap",
+          "bench_ids": [
+            "b022-allocate-cents",
+            "b027-thread-score",
+            "b028-pass-plan",
+            "b030-date-span"
+          ],
+          "rate": {
+            "bench-ts": "0/4",
+            "bench-py": "0/4"
+          }
+        },
+        "s4": {
+          "steering_band": "g4",
+          "steered_at": "ts 80-120 lines, 18-26 asserts/arm \u2014 pool-class and past it",
+          "bench_ids": [
+            "b032-bitmap-runs",
+            "b033-till-session",
+            "b034-notepad-replay",
+            "b035-route-params",
+            "b036-group-batches",
+            "b037-lift-sweep"
+          ],
+          "rate": {
+            "bench-ts": "0/6",
+            "bench-py": "1/6"
+          }
+        }
+      },
+      "reading": "The bands interpolate the d3-to-pool cliff as designed \u2014 rates fall monotonically-ish from ~17% to ~0% as reference size climbs \u2014 but the whole ladder landed lower than steered: g1, aimed 'just above d3-class', reads AT d3-class (ts 1/6 vs the floor probe's 16.7%), and both upper bands sit at ~0. The interior requirement holds (s1 and s2 are interior on both arms, so #119's attempts arm is not foreclosed), and never-passers exist in quantity under pinned ids for #162's no-rung-fixes-this cell.",
+      "phase4_steering": "If the campaign wants a stratum reading 30-50% on the floor tier (a band point clearly above the cliff edge, where regressions as well as gains can show), it must steer a band EASIER than the pilot's g1 \u2014 roughly ts 20-30 reference lines, d2-class unit of work \u2014 because size-to-difficulty came out steeper than the pilot's targets assumed. Recorded here as the calibration's implication; the re-aim itself is Phase 4's steering decision, taken before its first batch."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "tranche 1 calibration (Phase 4)",
+      "source": "records/measurements/bench-calibration-3b-2026-08-11",
+      "model": "qwen2.5-coder:3b",
+      "endpoint": "http://srv1:11434",
+      "protocol": "openai",
+      "draws": "greedy only (--draws 0)",
+      "max_output_tokens": 2048,
+      "failure_modes": "All failing arms are acceptance failures: 0 of 136 arm-draws overran the cap (max completion 740 of 2048 tokens), 0 parse errors. The rates below are capability, not censoring (#212's check, run before believing any 0).",
+      "assignment_rule": "Provisional: stratum = steering band, held until campaign scale. Tranche 1 (b041-b140, 100 admitted, 46 bench / 54 reserve by the blind rule) executed the Phase 4 steering decision (owner, 2026-08-11): band g0 (ts 20-30 reference lines, d2-class unit of work, aimed 30-50%) joined the ladder and g4 stopped generating \u2014 its pilot problems stay pinned and reported. The ids listed are the bench half only \u2014 the reserve is never measured (design doc section 2).",
+      "strata": {
+        "s0": {
+          "steering_band": "g0",
+          "steered_at": "ts 20-30 reference lines, 7-11 asserts/arm \u2014 d2-class, aimed 30-50% on the floor tier",
+          "bench_ids": [
+            "b041-trim-caption",
+            "b045-outline-labels",
+            "b046-rest-harvest",
+            "b049-hex-groups",
+            "b051-parcel-trace",
+            "b054-lane-pick",
+            "b056-merge-settings",
+            "b058-nibble-groups",
+            "b059-plan-batches",
+            "b062-crate-unpack",
+            "b063-forklift-steer",
+            "b065-slot-hits",
+            "b066-edit-script",
+            "b068-flag-states",
+            "b069-patrol-bot",
+            "b070-range-selector",
+            "b072-meter-draws",
+            "b073-bump-release",
+            "b076-glob-path",
+            "b077-buffer-replay",
+            "b078-layer-lookup",
+            "b079-tag-check",
+            "b080-brace-fill"
+          ],
+          "rate": {
+            "bench-ts": "1/23",
+            "bench-py": "5/23"
+          }
+        },
+        "s1": {
+          "steering_band": "g1",
+          "steered_at": "ts 30-45 reference lines, 10-14 asserts/arm \u2014 just above d3-class",
+          "bench_ids": [
+            "b002-option-pairs",
+            "b003-carve-shift",
+            "b004-install-order",
+            "b005-command-chain",
+            "b007-cent-split",
+            "b009-pack-entries",
+            "b084-placard-lines",
+            "b091-note-index",
+            "b093-agenda-halves",
+            "b094-relay-chain",
+            "b095-tree-sketch",
+            "b096-stamp-cover",
+            "b099-wire-nest"
+          ],
+          "rate": {
+            "bench-ts": "2/13",
+            "bench-py": "2/13"
+          }
+        },
+        "s2": {
+          "steering_band": "g2",
+          "steered_at": "ts 45-60 lines, 13-17 asserts/arm \u2014 lower gap",
+          "bench_ids": [
+            "b013-region-totals",
+            "b014-fill-order",
+            "b015-recency-cache",
+            "b017-site-totals",
+            "b019-reservoir-ticks",
+            "b020-route-pattern",
+            "b104-unpack-frame",
+            "b107-pick-fields",
+            "b108-stamp-canvas",
+            "b112-net-tally",
+            "b113-mask-prefix",
+            "b114-heat-band",
+            "b118-pick-upgrade",
+            "b120-mass-expression"
+          ],
+          "rate": {
+            "bench-ts": "2/14",
+            "bench-py": "1/14"
+          }
+        },
+        "s3": {
+          "steering_band": "g3",
+          "steered_at": "ts 60-80 lines, 16-20 asserts/arm \u2014 upper gap",
+          "bench_ids": [
+            "b022-allocate-cents",
+            "b027-thread-score",
+            "b028-pass-plan",
+            "b030-date-span",
+            "b121-ledger-merge",
+            "b122-section-report",
+            "b126-closing-sheet",
+            "b128-upgrade-path",
+            "b130-span-sums",
+            "b131-prune-listing",
+            "b132-drain-lanes",
+            "b140-folder-heft"
+          ],
+          "rate": {
+            "bench-ts": "0/12",
+            "bench-py": "0/12"
+          }
+        },
+        "s4": {
+          "steering_band": "g4",
+          "steered_at": "ts 80-120 lines, 18-26 asserts/arm \u2014 pool-class and past it (pilot only; not generated further)",
+          "bench_ids": [
+            "b032-bitmap-runs",
+            "b033-till-session",
+            "b034-notepad-replay",
+            "b035-route-params",
+            "b036-group-batches",
+            "b037-lift-sweep"
+          ],
+          "rate": {
+            "bench-ts": "0/6",
+            "bench-py": "1/6"
+          }
+        }
+      },
+      "reading": "The re-aim undershot. g0, steered a full class easier than g1 and aimed at 30-50%, reads 4.3% (ts) / 21.7% (py): size-to-difficulty on this instrument is steeper still than the pilot implied, and the retired rulers' rates do not transfer to matching reference size (the floor probe's d2 read 41.7%; the bench's shape-strict checkers and enumerated rejections price the same file size higher). The language asymmetry is material and consistent with MBPP+ and the pool: py reads above ts at the easy end (g0 5/23 vs 1/23). Interior strata exist on both arms (ts: g1 2/13, g2 2/14; py: g0 5/23, g1 2/13), so #119's attempts arm stays open; never-passers are plentiful (g3 0/12 on both arms). Rates at these n carry \u00b110-20pp binomial CIs \u2014 locators, not anchors.",
+      "phase4_steering": "If the bench still wants a stratum at 30-50% on the floor tier, tranche 2 must steer a band easier than g0 \u2014 roughly ts 12-20 reference lines, 5-8 asserts/arm, one small behaviour with few enumerated rejections \u2014 OR the 30-50% aim is dropped and the ladder's easy anchor is g0-py at ~20%. Recorded as the calibration's implication; the choice is the operator's at the tranche-1 checkpoint. Carried to tranche 2 either way: g0's bench-half mix skew (bug_fix 2/23, multi_symbol 5/23 against ~30% generated) wants refill rows leaning bug_fix and multi_symbol so realized bench quotas recover in expectation; the split rule stays untouched."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "tranche 2 isolation probe (Phase 4, campaign paused)",
+      "source": "records/measurements/bench-probe-3b-2026-08-11",
+      "model": "qwen2.5-coder:3b",
+      "endpoint": "http://srv1:11434",
+      "protocol": "openai",
+      "draws": "greedy only (--draws 0)",
+      "max_output_tokens": 2048,
+      "failure_modes": "0 of 218 arm-draws overran the cap (max completion 740 of 2048), 0 parse errors. The greedy sweep is deterministic: every pre-existing band reproduced its tranche-1 rate exactly (g0 1/23 ts, 5/23 py; g1 2/13, 2/13; g2 2/14, 1/14; g3 0/12, 0/12; g4 0/6, 1/6), so cross-sweep comparison is legitimate and this block's baseline is the same measurement as block 2's.",
+      "purpose": "NOT a volume tranche. The campaign paused to verify its ground floor: two consecutive re-aims had undershot the 30-50% aim, and the project did not know WHICH property of a problem drives the floor model's difficulty. Two cells of 40 (all function_implementation + single_definition, so no task-type mix confound), each moving one knob against g0's matching subset: g0a halves reference size at g0's checker load; g0b halves checker load at g0's size. Cells are steering bands, not strata: they are not band points of the ladder and #224 must not read them as one.",
+      "manipulation_check": "Realized medians (ts reference lines / assert statements per arm): baseline 22 / 9, g0a 17 / 11, g0b 26 / 7. The manipulation is WEAKER than designed in both cells \u2014 the baseline subset sat at the floor of g0's own size band, so g0a came out ~23% smaller rather than half AND carries slightly MORE asserts, while g0b came out ~18% larger than baseline while carrying ~22% fewer asserts. g0a's confound runs against its own hypothesis (a conservative test); g0b's runs with it (an optimistic one). Cell-to-cell the separation is real: 17 vs 26 lines, 11 vs 7 asserts.",
+      "cells": {
+        "baseline": {
+          "what": "g0 fn_impl/single_definition subset",
+          "rate": {
+            "bench-ts": "1/16",
+            "bench-py": "3/16"
+          }
+        },
+        "g0a": {
+          "what": "size halved, checker load held",
+          "rate": {
+            "bench-ts": "6/23",
+            "bench-py": "4/23"
+          }
+        },
+        "g0b": {
+          "what": "checker load halved, size held",
+          "rate": {
+            "bench-ts": "3/18",
+            "bench-py": "2/18"
+          }
+        }
+      },
+      "reading": "THE PROBE DID NOT RESOLVE THE QUESTION, and the record says so rather than reading a direction as an answer. No contrast reaches significance and the two language arms point opposite ways. ts: g0a 26.1% vs 6.2% baseline (+19.8pp, Fisher p = 0.206), g0b 16.7% (+10.4pp, p = 0.604). py: g0a 17.4% vs 18.8% (-1.4pp, p = 1.000), g0b 11.1% (-7.6pp, p = 0.648). Per problem (both arms scored, which respects the arms' pairing) mean arms solved: baseline 0.25, g0a 0.43, g0b 0.28 \u2014 and g0a is the only cell containing problems solved in BOTH arms (2 of 23). The consistent direction across every ts contrast and the per-problem score is that smaller references are easier; the py arm contradicts it flatly. Two readings survive and this measurement cannot separate them: (a) size drives difficulty and the py arm is too noisy at n = 23 to show it, or (b) the ts arm carries a size-dependent penalty the py arm does not (a hypothesis worth a condition arm: TypeScript annotations add failure surface per line).",
+      "why_it_could_not_resolve": "The design is UNPAIRED \u2014 the cells are different problems from the baseline, so every comparison spends power like two independent samples. At 80% power, alpha .05: resolving the ts-observed 6.2% -> 26.1% move needs ~52 measured per group (~105 authored after the 50% split); a 10pp move off a 20% base needs ~293 measured (~586 authored); a 15pp move needs ~138 (~276 authored). The probe measured 16-23 per group. This is ADR-0019's wall in a new costume: the project already refuses unpaired 20-problem contrasts as undecidable, and authoring a knob study as separate cohorts re-buys that problem at generation prices.",
+      "what_to_do_instead": "Ask the driver question PAIRED, as condition arms on ONE problem set \u2014 which is what #113's condition matrix is for, and which ADR-0019's power tables already govern (discordant pairs, m >= 6). Two arms are available at a fraction of the cost: (1) SCAFFOLD ON/OFF renders the same problem with and without its `target_content`, varying how much code must be produced while holding the problem, the checker and the prose identical \u2014 a paired size manipulation over material the bench already contains; (2) STRICT VS LENIENT GRADING re-scores the SAME saved completions against a second, lighter checker per problem, isolating checker load at zero model cost (the candidates are already pinned under records/measurements/). Neither needs a new cohort.",
+      "aim_status": "The 30-50% aim is NOT met and is not dropped. g0a is the closest anything has come: ts 26.1% (95% CI 13-46%), py 17.4%, 35% of its problems solved in at least one arm. Its size profile (median ts 17 lines, py 14) is the best easy-band candidate the campaign has measured, and the campaign remains paused on the owner's instruction until the aim is reached."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "scaffold ablation (Phase 4, campaign paused) \u2014 a paired driver study, not a tranche",
+      "source": [
+        "records/measurements/bench-scaffold-ablation-3b-2026-08-11",
+        "records/measurements/bench-scaffold-ablation-7b-2026-08-11"
+      ],
+      "model": [
+        "qwen2.5-coder:3b",
+        "qwen2.5-coder:7b"
+      ],
+      "endpoint": [
+        "http://srv1:11434",
+        "http://srv2:11434"
+      ],
+      "protocol": "openai",
+      "draws": "greedy + 7 sampled at T=0.7 (8 per cell). The outcome is passes out of 8, not pass/fail: at one draw per cell 25 of 34 problems failed everywhere and carried nothing. ADR-0019 D6's replication, and the only reason the question is askable on this material.",
+      "max_output_tokens": 2048,
+      "failure_modes": "3,264 rows across the two models: 0 cap overruns (max completion 1,026 of 2,048), 0 parse errors, 0 draws lost to dispatch. Nothing here is censoring (#212's trap).",
+      "purpose": "Block 3's post-mortem, executed. The tranche-2 probe could not resolve what drives floor difficulty because it was UNPAIRED; this asks the same question of the SAME problems under three renders of the prompt \u2014 stock (scaffold as production ships it), planonly (its comment lines, code removed), noscaffold (no scaffold). The three-way split exists because the two-way one was itself confounded: every scaffold carries a TODO stating the approach, so `stock vs noscaffold` moves volume AND recipe together and would have been reported as a size effect. `stock vs planonly` is the code the scaffold saved; `planonly vs noscaffold` is the plan it stated. Cells are prompt conditions, NOT strata: #224 must not read them as band points.",
+      "analysis_set": "Declared in tools/bench/ablation-sets.json before the numbers existed and derived, not listed: 34 dispatched (every scaffolded function_implementation; the 19 scaffolded bug_fix problems have no scaffold to remove), minus 7 whose prose says a helper is 'already written' and whose ablated prompt therefore contradicts itself, = 27 analysed; minus 4 the eligibility audit flagged as carrying information the prose does not = 23 strict. The exclusion is not cosmetic: over all 34 the 7B whole-scaffold contrast reads sign p = 0.049 (ts) / 0.021 (py), over the pre-registered 27 it reads p = 0.180 / 0.146. The seven self-contradicting prompts carried the significance.",
+      "manipulation_check": "Mean prompt tokens per condition, identical across the two models because the prompts are: ts 958.6 stock / 782.7 planonly / 730.5 noscaffold; py 934.9 / 797.6 / 746.5. The knob moved in the direction and the order it claims. Note the plan contrast is the smaller manipulation of the two (~52 tokens ts, ~51 py) and the code contrast the larger (~176, ~137).",
+      "cells": {
+        "note": "Rate = passes / (27 problems x 8 draws) on the pre-registered analysis set; 'solved' = problems passing at least one of 8 draws.",
+        "qwen2.5-coder:3b": {
+          "stock": {
+            "bench-ts": "22/216 = 10.2%, solved 5/27",
+            "bench-py": "21/216 = 9.7%, solved 8/27"
+          },
+          "planonly": {
+            "bench-ts": "11/216 = 5.1%, solved 7/27",
+            "bench-py": "13/216 = 6.0%, solved 7/27"
+          },
+          "noscaffold": {
+            "bench-ts": "6/216 = 2.8%, solved 3/27",
+            "bench-py": "14/216 = 6.5%, solved 7/27"
+          }
+        },
+        "qwen2.5-coder:7b": {
+          "stock": {
+            "bench-ts": "66/216 = 30.6%, solved 15/27",
+            "bench-py": "56/216 = 25.9%, solved 13/27"
+          },
+          "planonly": {
+            "bench-ts": "42/216 = 19.4%, solved 16/27",
+            "bench-py": "42/216 = 19.4%, solved 12/27"
+          },
+          "noscaffold": {
+            "bench-ts": "43/216 = 19.9%, solved 11/27",
+            "bench-py": "32/216 = 14.8%, solved 11/27"
+          }
+        }
+      },
+      "reading": "DIRECTIONALLY CONSISTENT, NOT RESOLVED \u2014 and the two knobs separate. The code contrast moves the same way in all four model-arm cells (3B +5.1pp ts / +3.7pp py; 7B +11.1pp / +6.5pp). The plan contrast does not: +2.3pp ts / -0.5pp py on the 3B, -0.5pp / +4.6pp on the 7B, and it flips sign by arm on both models. Read as a pair, what the scaffold is worth to a floor model is mostly the code it does not have to type, not the approach it is told; that is a statement about direction and it is the one thing both models agree on. Nothing clears ADR-0019's bar on the pre-registered set: the best sign-test p over eight per-arm contrasts is 0.125 and the best Wilcoxon 0.025, with m in the teens \u2014 the tests are exact, the sample is 27, and the effects are of a size 27 pairs cannot certify. The strict set (n = 23) moves nothing qualitatively.",
+      "the_other_finding": "The 7B reads 30.6% ts / 25.9% py stock on these 27 problems (greedy alone: 9/27 = 33.3% ts, 7/27 = 25.9% py; 15/27 and 13/27 solved in at least one of 8 draws). That is at or inside the campaign's 30-50% aim, which two consecutive re-aims failed to reach by making problems easier for the 3B. It is not a stratum measurement \u2014 27 scaffolded fn_impl problems are not the ladder, and they are the easier half of it \u2014 but it is the first evidence in this campaign that the aim may be reachable by choosing the model measured rather than by re-aiming the material. That is a decision for #225's owner, not a conclusion of this block.",
+      "limits": "n = 27 paired problems, one model pair, one bench. The eligibility audit covered 18 of the 34 dispatched problems, so `strict` drops the borderline cases that were looked for and not every one that exists. The plan contrast rests on comments that often name what to VALIDATE as well as what to compute, so it reads 'told the approach, including its rejections' rather than pure algorithmic insight. And the pairing is within a problem, not across models: the 3B and 7B ran on different rigs (srv1, srv2) and are two experiments reported side by side, not a contrast.",
+      "amendment": {
+        "date": "2026-08-11",
+        "record": "ADR-0022 \u2014 a lever is never a difficulty knob",
+        "what_changed": "Nothing in the data. What this block may be READ as. The scaffold is one of the levers ADR-0018 puts the bench under, so using its ablation to calibrate the bench's difficulty would tune the instrument with the thing the instrument later has to measure. The contrast is re-filed as a #113 feature finding and is struck from this campaign's difficulty reasoning.",
+        "still_true": "The paired result stands as evidence about the lever: the code a scaffold saves moves the same way in all four model-arm cells, the plan it states flips sign by arm on both models, and neither clears ADR-0019's bar at n=27. The 7B's 30.6% ts / 25.9% py on these 27 also stands as a locator.",
+        "no_longer_load_bearing": "'Code volume over stated approach' is NOT an input to how the floor band is steered. ADR-0023 replaces it: difficulty is the count of independently specified behaviours that must all be simultaneously correct, and the floor band is authored to a behaviour budget rather than to a size."
+      },
+      "regrade": {
+        "date": "2026-08-11",
+        "record": "ADR-0023 \u2014 a checker tests what the contract states and no more",
+        "what_happened": "104 bench py checkers accepted only ValueError where their ts twins accept any Error, so the py arm was scoring an exception taxonomy no contract states. Fixed, and every saved completion re-scored by tools/bench/regrade.py at zero model cost. 40 cells changed verdict across the whole bench: ALL py, ALL gains, and every ts arm moved +0 \u2014 the ts arms were included as a control and they held, which is what makes the 40 the checker rather than the harness. Re-read with `ablation_report.py --rows regraded`.",
+        "corrected_cells": {
+          "code (stock-planonly)": {
+            "3B ts": "+5.1pp (unchanged)",
+            "3B py": "+3.7pp -> +4.6pp",
+            "7B ts": "+11.1pp (unchanged)",
+            "7B py": "+6.5pp (unchanged; both cells rose together)"
+          },
+          "plan (planonly-noscaffold)": {
+            "3B ts": "+2.3pp (unchanged)",
+            "3B py": "-0.5pp -> -1.4pp",
+            "7B ts": "-0.5pp (unchanged)",
+            "7B py": "+4.6pp -> +5.6pp"
+          },
+          "7B stock rate": "ts 30.6% (unchanged), py 25.9% -> 29.6%"
+        },
+        "does_the_reading_survive": "YES, and slightly strengthened. The code contrast is still positive in all four model-arm cells (+5.1 / +4.6 / +11.1 / +6.5) and the plan contrast still flips sign by arm on both models (3B +2.3 ts / -1.4 py; 7B -0.5 ts / +5.6 py). One thing genuinely changed: the 7B py WHOLE contrast now reads sign p=0.0386, wilcoxon p=0.0200, where it did not before. The whole contrast is the confounded one \u2014 it moves code and plan together \u2014 so it is the least interpretable of the three and this does not promote the finding past ADR-0019's bar. It is recorded because it moved.",
+        "locator_update": "The 7B's stock read on these 27 is now 30.6% ts / 29.6% py, where it was 30.6% / 25.9%. Both arms now sit at the 30-50% aim's lower boundary rather than one inside and one below."
+      }
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "floor band f1 (Phase 4, tranche 4) \u2014 the first band steered by behaviour count",
+      "source": "records/measurements/bench-calibration-15b-f1-2026-08-11/",
+      "brief": "records/sessions/lane/225/2026-08-11-floor-band-f1-brief.md (declared before authoring, stop conditions included)",
+      "model": "qwen2.5-coder:1.5b",
+      "endpoint": "http://srv2:11434",
+      "protocol": "openai",
+      "draws": 0,
+      "max_output_tokens": 2048,
+      "governing_records": [
+        "ADR-0021 (the floor unit is the obligation; separation explicitly not required)",
+        "ADR-0023 (difficulty is behaviour count)",
+        "ADR-0024 (srv2 measures; serving build now in run identity)"
+      ],
+      "design": "16 paired problems (b228-b243) authored to a BEHAVIOUR budget rather than a size band: 2-4 independently specified behaviours, at most one rejection. 16/16 admitted first pass; the pre-declared salted hash split them 7 bench / 9 reserve. 12 fn_impl / 4 bug_fix, 4 multi_symbol, no scaffold anywhere.",
+      "manipulation_check": {
+        "spec_prose_words_median": {
+          "bench_before": 146,
+          "f1": 46,
+          "target": "40-70"
+        },
+        "reference_lines_median_ts": {
+          "bench_before": 27,
+          "f1": 10,
+          "target": "8-14"
+        },
+        "reference_lines_median_py": {
+          "bench_before": 19,
+          "f1": 6,
+          "target": "6-11"
+        },
+        "problems_with_an_error_path": {
+          "bench_before": "95%",
+          "f1": "19%"
+        },
+        "assert_statements_median_ts": {
+          "bench_before": 13,
+          "f1": 7
+        }
+      },
+      "cells": {
+        "f1 bench-ts": "4/7 = 57.1%",
+        "f1 bench-py": "4/7 = 57.1%",
+        "f1 pooled": "8/14 = 57.1%, 95% Wilson 33-79%",
+        "older bands bench-ts": "3/109 = 2.8%",
+        "older bands bench-py": "9/109 = 8.3%",
+        "older bands pooled": "12/218 = 5.5%"
+      },
+      "failure_modes": "0 cap overruns, 0 dispatch errors, 2 parse errors (both incomplete-reply, both in OLDER bands, neither in f1).",
+      "reading": "THE DIAL IS CONFIRMED AND THE RATE IS NOT ESTABLISHED. Same model, same sweep, same rig, same day: the floor unit reads 5.5% on 109 problems built to the old shape and 57.1% on 7 built to a behaviour budget. That is a ten-fold move from one design change and it is the first time anything in this campaign has lifted the floor model off the floor. ADR-0023's thesis - that difficulty is the count of independently specified behaviours and not reference size - is supported by the largest effect the campaign has produced. But n = 7 problems: the 95% interval is 33-79%, which contains the whole 30-50% aim AND a large overshoot. The batch was designed to tell 5% from 40% and it did exactly that; it cannot tell 45% from 57%.",
+      "against_the_pre_registered_stop_conditions": "The brief declared: inside 30-50% -> author the remaining tranches unchanged; below 30% -> lower the budget; above 50% -> raise it toward 4-5 behaviours. The POINT ESTIMATE says raise. The INTERVAL does not license acting on that, and re-designing off n = 7 would repeat in miniature the error that produced two failed re-aims - changing the material on evidence too thin to carry the change. Recommended instead: buy resolution on the design that exists before altering it.",
+      "also_settled": "The 1.5B now has a measurement on current bench material, which ADR-0023 recorded as missing: 2.8% ts / 8.3% py on the 109 older bench problems, against the 3B's ~4%. The floor unit and the rung above it are equally floored on the old shape, which is what made that shape useless as an instrument for either.",
+      "limits": "n = 7 problems per arm, and the two arms are the same 7 problems rendered twice - so the 4/7 agreement across arms is NOT two independent samples and must not be read as replication. Greedy, one draw, one model, one rig. The f1 problems are not a stratum and #224 must not read this band as a band point."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "floor band f1, resolution tranche \u2014 the aim is met",
+      "source": [
+        "records/measurements/bench-calibration-15b-f1-2026-08-11/ (b228-b243, 7 bench)",
+        "records/measurements/bench-calibration-15b-f1b-2026-08-11/ (b244-b267, 13 bench)"
+      ],
+      "brief": "records/sessions/lane/225/2026-08-11-floor-band-f1-brief.md \u2014 UNCHANGED between the two tranches, which is what makes them poolable",
+      "model": "qwen2.5-coder:1.5b",
+      "endpoint": "http://srv2:11434",
+      "draws": 0,
+      "max_output_tokens": 2048,
+      "why_a_second_tranche": "The first read was 8/14 = 57.1% with a 95% Wilson interval of 33-79%: it contained the whole 30-50% aim AND a large overshoot, so it could not say which. The pre-registered stop condition for 'above 50%' said raise the behaviour budget. That was NOT done. Re-designing material off n=7 is the error that produced two failed re-aims, and the cheaper move was to buy resolution on the design that already existed. 24 more problems were authored to the SAME brief, with nothing altered.",
+      "cells": {
+        "batch 1 (b228-b243, 7 problems) ts": "4/7 = 57.1%",
+        "batch 1 py": "4/7 = 57.1%",
+        "batch 2 (b244-b267, 13 problems) ts": "6/13 = 46.2%",
+        "batch 2 py": "4/13 = 30.8%",
+        "f1 all ts": "10/20 = 50.0%, 95% Wilson 30-70%",
+        "f1 all py": "8/20 = 40.0%, 95% Wilson 22-61%",
+        "f1 POOLED": "18/40 = 45.0%, 95% Wilson 31-60%"
+      },
+      "failure_modes": "0 cap overruns, 0 parse errors, 0 dispatch errors across all 40 observations, both tranches.",
+      "reading": "THE AIM IS MET. The floor unit reads 45.0% on the f1 band against 5.5% on the 109 problems built to the old shape - the same model, the same rig, the same week. The pre-registered stop condition for 'inside 30-50%' is satisfied and its instruction is to author the remaining tranches to this brief unchanged. ADR-0023's dial is confirmed twice over: once by the size of the move, and once by the second tranche reproducing the band without any adjustment to the brief.",
+      "the_honest_caveats": "(1) The 95% interval is 31-60% and still reaches past 50%; the point estimate is inside the aim and the interval is not entirely. (2) Batch 1 read 57.1% and batch 2 read 38.5%. That drop was PREDICTED before the second sweep ran, and for a stated reason: batch 1's seven measured problems happened to contain zero error-path problems, all three having landed in the reserve half. The pooled 45% is the better estimate and the single-tranche 57% should not be quoted. (3) ts reads 50.0% and py 40.0%; at n=20 per arm that gap is not resolvable and is not claimed.",
+      "limits": "20 problems, greedy, one draw, one model, one rig. f1 is a steering band and NOT a stratum - #224 must not read 45% as a band point. The two arms are the same 20 problems rendered twice, so arm agreement is not replication."
+    }
+  ]
+}

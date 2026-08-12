@@ -1,0 +1,33 @@
+```ts
+export function formatBits(value: number, width: number): string {
+    // Check for non-negative integer value
+    if (!Number.isInteger(value) || value < 0) {
+        throw new Error("Value must be a non-negative integer.");
+    }
+
+    // Check for positive multiple of four for width and within range 1-32
+    const validWidth = (width >= 4 && width <= 32 && width % 4 === 0);
+    if (!validWidth) {
+        throw new Error("Width must be a positive multiple of four between 4 and 32.");
+    }
+
+    // Check if value fits within the specified width
+    const maxBits = Math.pow(2, width);
+    if (value >= maxBits) {
+        throw new Error(`Value ${value} does not fit in ${width} bits.`);
+    }
+
+    // Convert value to binary string
+    let binaryString = value.toString(2);
+
+    // Pad with zeros to the left to match the desired width
+    const paddedBinaryString = binaryString.padStart(width, '0');
+
+    // Split into nibble groups of four and join by spaces
+    const nibbleGroups = [];
+    for (let i = 0; i < width; i += 4) {
+        nibbleGroups.push(paddedBinaryString.substring(i, i + 4));
+    }
+    return nibbleGroups.join(' ');
+}
+```

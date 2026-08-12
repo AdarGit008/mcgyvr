@@ -1,0 +1,65 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  const result: string[] = [];
+  walkFolders(root, '', result);
+  return result;
+}
+
+function walkFolders(node: object, currentPath: string, paths: string[]): void {
+  if (!isFolderNode(node)) throw new Error('Invalid folder node');
+  const name = Object.keys(node)[0];
+  if (typeof name !== 'string' || name === '' || name.includes('/')) throw new Error('Invalid name');
+  const path = currentPath ? `${currentPath}/${name}` : name;
+  paths.push(path);
+  for (const child of node[name]) {
+    walkFolders(child, path, paths);
+  }
+}
+
+function isFolderNode(node: object): boolean {
+  return Object.keys(node).length === 1 && Array.isArray(node[Object.keys(node)[0]]);
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  return walkBytes(root);
+}
+
+function walkBytes(node: object): number {
+  const key = Object.keys(node)[0];
+  if (key.includes('/')) throw new Error('Invalid name');
+  const value = node[key];
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  } else if (Array.isArray(value)) {
+    return value.reduce((acc, child) => acc + walkBytes(child), 0);
+  } else {
+    throw new Error('Invalid file node');
+  }
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const folderPaths = filePaths(root);
+  const totalBytesPerPath = folderPaths.map(path => [
+    path,
+    walkBytes(getNodeByPath(root, path))
+  ]);
+
+  return totalBytesPerPath.filter(([_, bytes]) => bytes >= minBytes);
+}
+
+function getNodeByPath(node: object, path: string): object {
+  if (path === '') return node;
+  const parts = path.split('/');
+  let current = node;
+  for (const part of parts) {
+    current = current[part];
+  }
+  return current;
+}
+```

@@ -1,0 +1,16 @@
+```python
+def live_count(neighbours: list) -> int:
+    if len(neighbours) < 3:
+        raise ValueError("Neighbours must contain at least 3 elements.")
+    
+    alive_neighbours = sum(1 for neighbour in neighbours if neighbour)
+    return alive_neighbours
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    if alive and (alive_neighbours == 2 or alive_neighbours == 3):
+        return True
+    elif not alive and alive_neighbours == 3:
+        return True
+    else:
+        return False
+```

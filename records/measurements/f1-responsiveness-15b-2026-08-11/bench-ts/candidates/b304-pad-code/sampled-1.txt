@@ -1,0 +1,15 @@
+```ts
+/** A code padded with zeros to a fixed width. */
+export function padCode(code: string, width: number): string {
+  // Ensure width is positive and that code has enough characters for padding
+  if (width <= 0 || code.length < width) {
+    throw new Error("Invalid arguments");
+  }
+
+  // Calculate the number of zeros needed to pad the left side
+  const paddingLeft = Math.max(0, width - code.length);
+
+  // Return the padded code
+  return "0".repeat(paddingLeft) + code;
+}
+```

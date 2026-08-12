@@ -1,0 +1,20 @@
+```ts
+export function stripTags(line: string): string {
+  let markerCount = 0;
+  let result = '';
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '<') {
+      markerCount++;
+    } else if (markerCount === 0 && line[i] === '>') {
+      break;
+    } else if (markerCount > 0) {
+      continue;
+    }
+
+    result += line[i];
+  }
+
+  return result;
+}
+```

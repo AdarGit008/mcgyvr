@@ -1,0 +1,20 @@
+id: b009-pack-entries
+task_type: function_implementation
+task: >-
+  Implement packEntries. Serialize a list of [key, value] pairs of strings
+  into one line: render each pair as key=value and join the pairs with
+  semicolons, keeping input order. So the line can be parsed back
+  unambiguously, escape every backslash, equals sign and semicolon that
+  occurs inside a key or a value by putting a backslash in front of it.
+  Values may be empty; an empty list of pairs yields the empty string.
+  Reject an argument that is not a list, an entry that is not a
+  two-element list, a key or value that is not a string, an empty key,
+  and a key that repeats within the input, with an error.
+target: solution.ts
+interface: "export function packEntries(entries: [string, string][]): string"
+stop_conditions:
+  - Whether characters outside printable ASCII may appear in keys and values is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

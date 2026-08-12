@@ -1,0 +1,25 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the tag of a body as the sum of its character codes modulo 256,
+    rendered as exactly two lowercase hexadecimal digits, zero-padded."""
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string")
+    tag = sum(ord(char) for char in body) % 256
+    return f"{tag:02x}"
+
+
+def check_line(line: str) -> str:
+    """Verify a tagged line and return its body."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string")
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long")
+    if line[-3] != '~':
+        raise ValueError("Third-from-last character must be a tilde")
+    body = line[:-3]
+    expected_tag = line_tag(body)
+    actual_tag = line[-2:]
+    if expected_tag != actual_tag:
+        raise ValueError("Tag does not match the body")
+    return body
+```

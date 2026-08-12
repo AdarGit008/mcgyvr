@@ -1,0 +1,20 @@
+```ts
+import { sort } from "lodash";
+
+export function sortByLen(words: string[]): string[] {
+  if (words === undefined || words.length === 0) {
+    throw new Error("Input cannot be null or empty");
+  }
+
+  return sort(words, (a, b) => {
+    const lenA = a.length;
+    const lenB = b.length;
+
+    if (lenA !== lenB) {
+      return lenA - lenB;
+    } else {
+      return a.localeCompare(b);
+    }
+  });
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+    if (from === to) return true;
+
+    const fromIndex = allowed.findIndex(allowedMove => allowedMove[0] === from);
+    const toIndex = allowed.findIndex(allowedMove => allowedMove[1] === to);
+
+    return fromIndex !== -1 && toIndex !== -1;
+}
+
+export function stepPlan(states: string[], allowed: string[][]): number {
+    for (let i = 0; i < states.length - 1; i++) {
+        if (!stepAllowed(states[i], states[i + 1], allowed)) {
+            return i;
+        }
+    }
+
+    throw new Error('No moves at all!');
+}
+```

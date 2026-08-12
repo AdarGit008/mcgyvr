@@ -1,0 +1,15 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step == 0:
+        raise ValueError("Step cannot be zero")
+    return min(target, current + min(step, target - current))
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    result = []
+    if start > target:
+        start, target = target, start
+    while start <= target:
+        result.append(start)
+        start += step
+    return result
+```

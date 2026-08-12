@@ -1,0 +1,33 @@
+```python
+def seat_block(label: str) -> list:
+    """
+    Extracts the row number and letter from a seat label.
+
+    Args:
+        label (str): A string representing a seat label in the format 'rowLetter', where 'row' is an integer and 'letter' is a single capital letter.
+
+    Returns:
+        list: A list containing two elements: the extracted row as an integer and the extracted letter.
+             Raises ValueError if the input is not a valid seat label.
+
+    Examples:
+        >>> seat_block('12C')
+        [12, 'C']
+        >>> seat_block('A10')
+        [10, 'A']
+        >>> seat_block('1Z')  # Invalid: starts with a digit
+        ValueError: Invalid seat label: '1Z'
+        >>> seat_block('2B')  # Valid: single capital letter after digits
+        [2, 'B']
+    """
+    if not isinstance(label, str):
+        raise ValueError("Invalid seat label: input is not a string")
+    if len(label) != 3 or not label[0].isdigit() or not label[1] == ' ':
+        raise ValueError("Invalid seat label: format must be 'rowNumber space letter'")
+    try:
+        row = int(label[:2])
+        letter = label[2].upper()
+        return [row, letter]
+    except ValueError as e:
+        raise ValueError(f"Invalid seat label: {e}") from None
+```

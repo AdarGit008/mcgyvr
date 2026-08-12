@@ -1,0 +1,15 @@
+id: b353-strip-tags
+task_type: function_implementation
+task: >-
+  Implement strip_tags. Remove every marker from a line of text, a
+  marker being an opening angle bracket, everything up to the next
+  closing bracket, and that bracket. An opening bracket that is never
+  closed removes everything from there to the end of the line.
+target: solution.py
+interface: "def strip_tags(line: str) -> str"
+stop_conditions:
+  - Whether an angle bracket inside quotation marks should still open a marker is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

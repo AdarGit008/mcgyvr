@@ -1,0 +1,67 @@
+```ts
+
+import { strict as assert } from 'assert';
+
+/** Cut a chunked stream into frames at a marker, doubled to escape it. */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (typeof marker !== "string" || marker.length !== 1) {
+    throw new Error("marker must be a single character");
+  }
+  const buffer = chunks.join("");
+  let currentFrame = "";
+  let pendingText = "";
+
+  for (let i = 0; i < buffer.length; i++) {
+    const char = buffer[i];
+    
+    if (char === marker) {
+      // Check if the previous character was also a marker to handle doubled markers
+      if (i > 0 && buffer[i - 1] === marker) {
+        currentFrame += marker;
+      } else {
+        // End the current frame and start a new one
+        if (currentFrame.length > 0) {
+          frames.push(currentFrame);
+          currentFrame = "";
+        }
+        // Check if there's more text after the marker to handle dangling markers
+        if (i < buffer.length - 1 && buffer[i + 1] !== marker) {
+          pendingText += char;
+        }
+      }
+    } else {
+      currentFrame += char;
+    }
+  }
+
+  // Handle any remaining frame or pending text at the end
+  if (currentFrame.length > 0) {
+    frames.push(currentFrame);
+  }
+  if (pendingText.length > 0 && !buffer.endsWith(marker)) {
+    pendingText += marker;
+  }
+
+  return { frames, pending: pendingText };
+}
+
+// Test cases to verify the implementation
+function testDrainFrames() {
+  assert.deepStrictEqual(drainFrames([], "a"), { frames: [], pending: "" });
+  assert.deepStrictEqual(drainFrames(["abc", "d"], "a"), { frames: ["abc"], pending: "d" });
+  assert.deepStrictEqual(drainFrames(["aa", "bb", "cc"], "a"), { frames: ["aa", "bb", "cc"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["ab", "ac", "ad"], "a"), { frames: ["ab", "ac", "ad"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["aabb", "cc"], "a"), { frames: ["aa", "bb", "cc"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["aaa", "b", "ccc"], "a"), { frames: ["aaa"], pending: "bccc" });
+  assert.deepStrictEqual(drainFrames(["abba", "c"], "a"), { frames: ["abba", "c"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["aa", "bb", "cc", "d"], "a"), { frames: ["aa", "bb", "cc", "d"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["aabb", "ccdd", "ee"], "a"), { frames: ["aa", "bb", "ccdd", "ee"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["abba", "cde", "fghij"], "a"), { frames: ["abba", "cde", "fghij"], pending: "" });
+  assert.deepStrictEqual(drainFrames(["aaa", "b", "ccc", "aabb", "ccdd", "ee"], "a"), { frames: ["aaa", "b", "ccc", "aabb", "ccdd", "ee"], pending: "" });
+
+  console.log("All tests passed!");
+}
+
+// Run the test cases
+testDrainFrames();
+```

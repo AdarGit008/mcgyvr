@@ -1,0 +1,48 @@
+```ts
+type Charge = [string, string, number];
+export function applyCharges(caps: Record<string, [number, number]>, charges: Charge[]): { left: Record<string, number>; refused: [string, string][] } {
+  const result: { left: Record<string, number>; refused: [string, string][] } = { left: {}, refused: [] };
+
+  if (!Array.isArray(charges) || charges.some(charge => charge.length !== 3)) {
+    throw new Error("Invalid charges input");
+  }
+
+  if (!Object.keys(caps).every(bucketName => Array.isArray(caps[bucketName]) && caps[bucketName].length === 2)) {
+    throw new Error("Invalid caps input");
+  }
+
+  for (const [chargeId, bucketName, amount] of charges) {
+    if (typeof chargeId !== "string" || typeof bucketName !== "string" || typeof amount !== "number") {
+      throw new Error("Invalid charge id, bucket name or amount type");
+    }
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error("Amount must be a positive whole number");
+    }
+
+    const [allowance, maxSingleCharge] = caps[bucketName];
+    let isRefused = false;
+
+    if (bucketName in result.left) {
+      allowance -= result.left[bucketName];
+    }
+    result.left[bucketName] = allowance;
+
+    if (!caps[bucketName]) {
+      isRefused = true;
+      result.refused.push([chargeId, "unknown"]);
+    } else if (amount > maxSingleCharge) {
+      isRefused = true;
+      result.refused.push([chargeId, "single"]);
+    } else if (amount > allowance) {
+      isRefused = true;
+      result.refused.push([chargeId, "cap"]);
+    }
+
+    if (!isRefused) {
+      caps[bucketName][0] -= amount;
+    }
+  }
+
+  return result;
+}
+```

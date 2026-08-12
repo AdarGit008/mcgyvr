@@ -1,0 +1,72 @@
+```python
+def parse_amount(text: str) -> int:
+    """
+    Parses a decimal amount string into integer cents.
+    Valid formats: '123.45', '7'
+    Throws ValueError for invalid input or non-string text.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    if len(parts) != 2:
+        raise ValueError("Invalid format: missing '.'")
+    
+    integer_part, fractional_part = parts
+    
+    if not integer_part.isdigit() or not fractional_part.isdigit():
+        raise ValueError("Invalid characters in amount.")
+    
+    if len(fractional_part) != 2:
+        raise ValueError("Fraction must have exactly two digits after the dot.")
+    
+    return int(integer_part + fractional_part)
+
+def format_amount(cents: int) -> str:
+    """
+    Formats cents back into a dotted form with exactly two fraction digits.
+    """
+    if not isinstance(cents, int):
+        raise ValueError("Input must be an integer.")
+    
+    if cents < 0:
+        raise ValueError("Cents cannot be negative.")
+    
+    integer_part = str(cents // 100)
+    fractional_part = "{:02d}".format(cents % 100)
+    
+    return f"{integer_part}.{fractional_part}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """
+    Allocates total_cents across a list of integer weights proportionally.
+    Throws ValueError for invalid inputs or conditions.
+    """
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    
+    if not all(isinstance(w, int) and w >= 0 for w in weights):
+        raise ValueError("All weights must be non-negative integers.")
+    
+    total_weight = sum(weights)
+    if total_weight == 0:
+        raise ValueError("Total weight cannot be zero.")
+    
+    if total_cents < 0 or not isinstance(total_cents, int):
+        raise ValueError("Total cents must be a non-negative integer.")
+    
+    allocation = []
+    remainder = total_cents
+    weights_copy = weights[:]
+    
+    while remainder > 0 and weights_copy:
+        weight = max(weights_copy)
+        allocation.append(weight)
+        remainder -= weight
+        weights_copy.remove(weight)
+    
+    if remainder != 0:
+        raise ValueError("Cannot allocate exactly to the given weights.")
+    
+    return allocation
+```

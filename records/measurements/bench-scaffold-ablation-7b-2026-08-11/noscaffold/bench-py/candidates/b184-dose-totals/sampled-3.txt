@@ -1,0 +1,29 @@
+```python
+def dose_totals(log: list) -> dict:
+    if not log:
+        return {}
+    
+    totals = {}
+    max_places = 0
+    
+    for reagent, amount in log:
+        try:
+            amount_float = float(amount)
+            total = totals.get(reagent, 0.0) + amount_float
+            totals[reagent] = round(total, 3)
+            
+            if '.' in amount:
+                places = len(amount.split('.')[1])
+                max_places = max(max_places, places)
+        except ValueError:
+            raise ValueError(f"Invalid amount format for reagent {reagent}: {amount}")
+    
+    result = {}
+    for reagent, total in totals.items():
+        total_str = f"{total:.{max_places}f}".rstrip('0').rstrip('.')
+        if total_str == '-0':
+            total_str = '0'
+        result[reagent] = total_str
+    
+    return result
+```

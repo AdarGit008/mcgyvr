@@ -1,0 +1,23 @@
+```ts
+export function badgeText(pattern: string, fields: Record<string, string>): string {
+  if (typeof pattern !== 'string') {
+    throw new Error('Pattern must be a string');
+  }
+
+  const slots = pattern.match(/<([a-z]+)>/g);
+  if (!slots) {
+    return pattern;
+  }
+
+  for (const slot of slots) {
+    const fieldName = slot.slice(1, -1);
+    if (!fields.hasOwnProperty(fieldName)) {
+      throw new Error(`Field name "${fieldName}" not found in fields`);
+    }
+    const fieldValue = fields[fieldName];
+    pattern = pattern.replace(slot, fieldValue);
+  }
+
+  return pattern;
+}
+```

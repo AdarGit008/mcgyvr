@@ -1,0 +1,16 @@
+id: b479-clip-words
+task_type: function_implementation
+task: >-
+  word_short cuts one word down to a width, marking a cut word with a
+  closing dot. clip_words cuts every word in a run that way and joins
+  them with single spaces. Implement clip_words. A run holding no
+  words gives back a text holding nothing.
+target: solution.py
+interface: "def word_short(word: str, width: int) -> str
+def clip_words(words: list[str], width: int) -> str"
+stop_conditions:
+  - Whether a width below one should be rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

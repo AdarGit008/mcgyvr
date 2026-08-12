@@ -1,0 +1,43 @@
+```typescript
+type Die = [string, number];
+
+export function stampTable(dies: Die[]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== 'string' || typeof price !== 'number') {
+      throw new Error('Invalid die entry');
+    }
+    if (!/^[a-zA-Z]+$/.test(fragment)) {
+      throw new Error('Fragment must be a non-empty string');
+    }
+    if (price <= 0) {
+      throw new Error('Price must be a positive integer');
+    }
+    if (table.has(fragment)) {
+      throw new Error(`Duplicate fragment: '${fragment}'`);
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: Die[]): number {
+  const table = stampTable(dies);
+  if (typeof label !== 'string' || !label) {
+    throw new Error('Label must be a non-empty string');
+  }
+
+  const dp = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (const [fragment, price] of table.entries()) {
+    for (let i = fragment.length; i <= label.length; i++) {
+      if (label.substring(i - fragment.length, i) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[label.length];
+}
+```

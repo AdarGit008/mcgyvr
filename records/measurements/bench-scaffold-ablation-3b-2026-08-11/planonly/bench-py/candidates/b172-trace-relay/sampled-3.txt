@@ -1,0 +1,35 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Trace the handoffs of a watch through the night, starting from 'start'.
+    Reject unknown posts and a watch that comes back to itself.
+
+    :param links: A dictionary mapping each post's name to the next post.
+    :param start: The name of the post where the watch begins.
+    :return: A list of post names in order, including start but not ending with an empty string.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary.")
+    
+    if start not in links:
+        raise ValueError(f"'{start}' is not a valid post name.")
+    
+    visited = set()
+    path = [start]
+    
+    while True:
+        current_post = path[-1]
+        
+        if current_post == "":
+            break
+        
+        next_post = links.get(current_post)
+        
+        if next_post is None or next_post in visited:
+            raise ValueError("The watch has come back to itself.")
+        
+        visited.add(current_post)
+        path.append(next_post)
+    
+    return path[:-1]  # Exclude the last empty string
+```

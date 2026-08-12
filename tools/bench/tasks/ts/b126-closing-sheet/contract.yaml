@@ -1,0 +1,68 @@
+id: b126-closing-sheet
+task_type: function_implementation
+task: >-
+  Implement closingSheet. A stockroom's opening count sheet arrives as text:
+  zero or more entries separated by semicolons, each entry an item name, a
+  colon and the count on hand, like bolt:12;washer:4. An item name is one or
+  more lowercase letters, a count is a plain decimal integer with no leading
+  zero (zero itself written 0), and no name may appear twice; the empty
+  string is an empty sheet. The moves argument lists the day's stock moves
+  in order, also semicolon-separated: name+qty receives qty units, adding
+  the item to the sheet at qty when it was absent, and name-qty issues qty
+  units off the sheet, where qty is a positive integer with no leading zero;
+  the empty string lists no moves. Return the closing sheet in the same
+  entry form, items sorted by name, items whose count stands at zero left
+  out, the empty string when nothing remains. Reject a non-string argument,
+  a malformed sheet entry, a malformed move, a duplicate name on the opening
+  sheet, an issue of an item the sheet does not hold, and an issue of more
+  units than the item then holds, with an error.
+target: solution.ts
+target_content: |
+  /** Close out a stockroom count sheet after a day's receive and issue moves. */
+
+  function parseSheet(opening: string): Map<string, number> {
+    const held = new Map<string, number>();
+    if (opening === "") {
+      return held;
+    }
+    for (const part of opening.split(";")) {
+      const colon = part.indexOf(":");
+      if (colon < 0) {
+        throw new Error(`sheet entry has no colon: ${part}`);
+      }
+      const name = part.slice(0, colon);
+      const count = part.slice(colon + 1);
+      if (!/^[a-z]+$/.test(name)) {
+        throw new Error(`bad item name: ${part}`);
+      }
+      if (!/^(?:0|[1-9]\d*)$/.test(count)) {
+        throw new Error(`bad count: ${part}`);
+      }
+      if (held.has(name)) {
+        throw new Error(`duplicate sheet entry: ${name}`);
+      }
+      held.set(name, Number(count));
+    }
+    return held;
+  }
+
+  export function closingSheet(opening: string, moves: string): string {
+    if (typeof opening !== "string" || typeof moves !== "string") {
+      throw new Error("closingSheet expects two strings");
+    }
+    const held = parseSheet(opening);
+    // TODO: apply the day's semicolon-separated moves to the sheet,
+    // validating each one, then render only the entries still on hand.
+    const entries: string[] = [];
+    for (const name of [...held.keys()].sort()) {
+      entries.push(`${name}:${held.get(name)}`);
+    }
+    return entries.join(";");
+  }
+interface: "export function closingSheet(opening: string, moves: string): string"
+stop_conditions:
+  - Whether whitespace around an entry or a move is accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

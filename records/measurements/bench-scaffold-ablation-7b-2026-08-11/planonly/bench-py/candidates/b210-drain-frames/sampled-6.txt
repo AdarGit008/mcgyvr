@@ -1,0 +1,34 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    if len(marker) != 1:
+        raise ValueError("Marker must be a single character")
+
+    frames = []
+    pending = ""
+    in_frame = False
+
+    for chunk in chunks:
+        for char in chunk:
+            if char == marker:
+                if in_frame:
+                    if len(pending) > 0 or marker * 2 not in pending:
+                        frames.append(pending)
+                        pending = ""
+                    in_frame = False
+                elif marker * 2 in pending:
+                    pending = pending.replace(marker * 2, marker)
+                else:
+                    pending += char
+            else:
+                if in_frame:
+                    pending += char
+                else:
+                    frames.append(pending)
+                    pending = char
+                    in_frame = True
+
+    if in_frame and len(pending) > 0 or marker * 2 not in pending:
+        frames.append(pending)
+
+    return {"frames": frames, "pending": ""}
+```

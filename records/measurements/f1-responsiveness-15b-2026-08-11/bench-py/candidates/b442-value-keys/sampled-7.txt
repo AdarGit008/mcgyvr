@@ -1,0 +1,12 @@
+```python
+def value_keys(store: dict) -> dict:
+    if not store:
+        return {}
+    
+    count_map = {value: 0 for value in store}
+    
+    for key, value in store.items():
+        count_map[value] += 1
+    
+    return count_map
+```

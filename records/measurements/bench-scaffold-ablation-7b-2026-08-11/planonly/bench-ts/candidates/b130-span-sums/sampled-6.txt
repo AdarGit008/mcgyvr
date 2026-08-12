@@ -1,0 +1,77 @@
+```ts
+/**
+ * Parses a span text into total inches.
+ * @param text - The span text to parse.
+ * @returns The total inches represented by the span text.
+ */
+export function parseSpan(text: string): number {
+  const unitOrder = ['yd', 'ft', 'in'] as const;
+  const parts = text.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) throw new Error('Empty span');
+
+  const unitsSeen = new Set<string>();
+  let totalInches = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s*([yfi])$/);
+    if (!match) throw new Error(`Unknown unit in ${part}`);
+
+    const [_, value, unit] = match;
+    if (unitsSeen.has(unit)) throw new Error('Repeating units');
+    unitsSeen.add(unit);
+
+    let increment: number | undefined;
+    switch (unit) {
+      case 'yd':
+        increment = 36 * parseInt(value);
+        break;
+      case 'ft':
+        increment = 12 * parseInt(value);
+        break;
+      case 'in':
+        increment = parseInt(value);
+        break;
+    }
+
+    if (increment === undefined || isNaN(increment)) throw new Error('Invalid value');
+
+    totalInches += increment;
+  }
+
+  return totalInches;
+}
+
+/**
+ * Renders a non-negative integer of total inches canonically.
+ * @param inches - The total inches to render.
+ * @returns The canonical span text representing the total inches.
+ */
+export function formatSpan(inches: number): string {
+  if (inches < 0 || !Number.isInteger(inches)) throw new Error('Non-negative integer required');
+  const units = ['yd', 'ft', 'in'] as const;
+  let remainingInches = inches;
+  const result: string[] = [];
+
+  for (const unit of units) {
+    const conversionFactor = unit === 'yd' ? 36 : unit === 'ft' ? 12 : 1;
+    if (remainingInches >= conversionFactor) {
+      const count = Math.floor(remainingInches / conversionFactor);
+      result.push(`${count}${unit}`);
+      remainingInches %= conversionFactor;
+    }
+  }
+
+  return result.join(' ');
+}
+
+/**
+ * Takes two span texts and returns their sum in that canonical form.
+ * @param first - The first span text.
+ * @param second - The second span text.
+ * @returns The canonical span text representing the sum of the two spans.
+ */
+export function addSpans(first: string, second: string): string {
+  const totalInches = parseSpan(first) + parseSpan(second);
+  return formatSpan(totalInches);
+}
+```

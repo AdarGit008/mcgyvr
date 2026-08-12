@@ -1,0 +1,37 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Trace the night watch relay from the start post to the end post.
+    
+    :param links: Mapping of each post's name to the next post's name.
+    :param start: The starting post's name.
+    :return: List of post names visited in order, including start and end.
+    :raises ValueError: If links is not a mapping, start is not in links,
+                       handoff does not exist, or cycles are detected.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    
+    if start not in links:
+        raise ValueError(f"start '{start}' not found in links")
+    
+    visited = set()
+    path = [start]
+    
+    while True:
+        next_post = links.get(path[-1])
+        
+        if next_post is None or next_post == "":
+            break
+        
+        if next_post in visited:
+            raise ValueError("cycle detected in relay")
+        
+        if not isinstance(next_post, str):
+            raise ValueError(f"next post '{next_post}' is invalid")
+        
+        path.append(next_post)
+        visited.add(next_post)
+    
+    return path
+```

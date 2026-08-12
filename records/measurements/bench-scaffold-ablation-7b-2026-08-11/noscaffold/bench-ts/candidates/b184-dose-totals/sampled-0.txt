@@ -1,0 +1,25 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+    if (Math.abs(parsedAmount % 1) !== Math.round(parsedAmount % 1)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+
+    const reagentTotal = totals[reagent] || 0;
+    totals[reagent] = reagentTotal + parsedAmount;
+  }
+
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, total]) => {
+      const decimalPlaces = Math.max(0, ...log.filter(([r]) => r === reagent).map(([, a]) => (a.includes('.') ? a.split('.')[1].length : 0)));
+      return [reagent, total.toFixed(decimalPlaces)];
+    })
+  );
+}
+```

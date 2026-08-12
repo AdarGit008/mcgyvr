@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def bill_split(total: int, diners: int) -> List[int]:
+    if total == 0 or diners == 0:
+        raise ValueError("Invalid input: total and/or diners cannot be zero.")
+
+    # Calculate the number of pennies to leave over
+    remaining_pennies = total % diners
+
+    # Divide the bill among diners excluding the first payer
+    shares = [total // diners] * (diners - 1)
+
+    # Add the remaining pennies to the first payer's share
+    shares[0] += remaining_pennies
+
+    return shares
+```

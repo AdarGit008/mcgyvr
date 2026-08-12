@@ -1,0 +1,35 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative whole number');
+  }
+
+  const dp: { [key: number]: { price: number; pieces: number[] } } = {};
+
+  for (let i = 1; i <= length; i++) {
+    let maxPrice = 0;
+    let bestPieces: number[] = [];
+
+    for (const [metres, price] of board) {
+      if (i >= metres && (price + dp[i - metres].price > maxPrice || (price + dp[i - metres].price === maxPrice && metres > bestPieces[bestPieces.length - 1]))) {
+        maxPrice = price + dp[i - metres].price;
+        bestPieces = [metres, ...dp[i - metres].pieces];
+      }
+    }
+
+    if (i >= 1 && (0 > maxPrice || (0 === maxPrice && 1 > bestPieces[bestPieces.length - 1]))) {
+      maxPrice = 0;
+      bestPieces = [];
+    }
+
+    dp[i] = { price: maxPrice, pieces: bestPieces };
+  }
+
+  return { takings: dp[length].price, pieces: dp[length].pieces };
+}
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+```

@@ -1,0 +1,8 @@
+```python
+def wave_count(readings):
+    count = 0
+    for i in range(len(readings) - 1):
+        if (readings[i] < readings[i + 1] and i > 0) or (readings[i] > readings[i + 1] and i == 0):
+            count += 1
+    return count
+```

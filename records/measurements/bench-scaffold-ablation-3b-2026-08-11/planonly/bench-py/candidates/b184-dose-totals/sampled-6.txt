@@ -1,0 +1,19 @@
+```
+def dose_totals(log: list) -> dict:
+    tot = {}
+    for reagent, amount in log:
+        try:
+            numeric_amount = float(amount)
+            if numeric_amount < 0:
+                sign = '-' if numeric_amount == int(numeric_amount) else ''
+                # Use floor division to ensure thousandths
+                thousands = abs(int(numeric_amount * 1000))
+                tot[reagent] = f"{sign}{thousands:.3f}"
+            else:
+                # Use ceiling division to ensure thousandths
+                thousands = int((numeric_amount + 999) // 1000)
+                tot[reagent] = f"{thousands:.3f}"
+        except ValueError:
+            raise ValueError(f"Invalid amount '{amount}' for reagent '{reagent}'.")
+    return tot
+```

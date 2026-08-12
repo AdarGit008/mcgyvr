@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def region_totals(grid: List[List[int]], queries: List[List[int]]) -> List[int]:
+    if not grid or not grid[0] or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty and all rows must have the same length.")
+
+    prefix_sum = [[0] * (len(col) + 1) for col in grid]
+    
+    for i, row in enumerate(grid):
+        if not isinstance(row, list) or any(not isinstance(cell, int) for cell in row):
+            raise ValueError("Grid cells must be integers.")
+        
+        for j, cell in enumerate(row):
+            prefix_sum[i][j + 1] = prefix_sum[i][j] + cell
+
+    query_totals = []
+    
+    for i, query in enumerate(queries):
+        if len(query) != 4:
+            raise ValueError("Each query must be a list of exactly four integers.")
+        
+        top, left, bottom, right = query
+        
+        if not (0 <= top < bottom and 0 <= left < right):
+            raise ValueError("Queries must have valid bounds within the grid dimensions.")
+        
+        total = 0
+        for j in range(left, right):
+            total += prefix_sum[bottom - 1][j + 1] - prefix_sum[top][j + 1]
+        
+        query_totals.append(total)
+
+    return query_totals
+
+# Additional checks to validate input are skipped as they are already covered in the function logic.
+```

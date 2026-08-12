@@ -1,0 +1,28 @@
+```ts
+/**
+ * Calculates the mean of every run of a specified window size in an array of readings.
+ * @param {number[]} readings - The array of numbers to process.
+ * @param {number} size - The window size for which to calculate the mean.
+ * @returns {number[]} An array representing the means of each run.
+ */
+export function meanWindow(readings: number[], size: number): number[] {
+  if (size === 0) return [];
+
+  const output: number[] = [];
+  let runningSum = 0;
+  let count = 0;
+
+  for (const reading of readings) {
+    runningSum += reading;
+    count++;
+
+    if (count >= size) {
+      output.push(Math.floor(runningSum / size));
+      runningSum -= readings[count - size];
+      count--;
+    }
+  }
+
+  return output;
+}
+```

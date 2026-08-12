@@ -1,0 +1,11 @@
+```ts
+export function pluralOf(noun: string): string {
+    const vowels = ['a', 'e', 'i', 'o', 'u'];
+    if (noun.endsWith('s') || noun.endsWith('x') || noun.endsWith('ch') || noun.endsWith('sh')) {
+        return noun + 'es';
+    } else if (vowels.includes(noun.charAt(noun.length - 2)) && noun.charAt(noun.length - 1) !== 'y') {
+        return noun + 'ies';
+    }
+    return noun + 's';
+}
+```

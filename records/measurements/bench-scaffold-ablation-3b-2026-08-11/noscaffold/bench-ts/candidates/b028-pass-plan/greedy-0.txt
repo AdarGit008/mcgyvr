@@ -1,0 +1,30 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || tripDays.some(day => typeof day !== 'number' || day <= 0)) {
+    throw new Error('Invalid trip days');
+  }
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  if (!Array.isArray(passes) || passes.some(pass => typeof pass.span !== 'number' || pass.span <= 0 || typeof pass.cost !== 'number' || pass.cost < 0)) {
+    throw new Error('Invalid passes');
+  }
+  if (passes.length === 0) return { total: 0, purchases: [] };
+
+  const sortedTrips = tripDays.slice().sort((a, b) => a - b);
+  let currentDay = 0;
+  let totalCost = 0;
+  const purchases: number[][] = [];
+
+  for (const pass of passes) {
+    if (pass.span <= 0 || pass.cost < 0) continue;
+
+    while (currentDay < sortedTrips.length && sortedTrips[currentDay] < currentDay + pass.span) {
+      totalCost += pass.cost;
+      purchases.push([sortedTrips[currentDay], pass.span]);
+      currentDay++;
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

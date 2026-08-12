@@ -1,0 +1,16 @@
+id: b332-cell-mark
+task_type: function_implementation
+task: >-
+  Implement live_count and live_next. live_count returns how many of a
+  cell's given neighbours are alive. live_next says whether the cell
+  is alive in the next round: a living cell survives on two or three
+  living neighbours, and a dead one comes alive on exactly three.
+target: solution.py
+interface: "def live_count(neighbours: list) -> int
+def live_next(alive: bool, neighbours: list) -> bool"
+stop_conditions:
+  - Whether a cell at the edge of a grid should be given fewer neighbours or dead ones is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

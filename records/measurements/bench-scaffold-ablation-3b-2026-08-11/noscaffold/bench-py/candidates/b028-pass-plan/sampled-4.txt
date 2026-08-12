@@ -1,0 +1,44 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    """
+    Determines the cheapest plan for covering all trip days using passes.
+
+    :param trip_days: List of calendar days on which trips happen, as strictly increasing positive integers.
+    :param passes: List of pass kinds with span and cost. Each pass kind is a dictionary with 'span' and 'cost'.
+    :return: Dictionary containing 'total', the smallest amount covering every trip day,
+             and 'purchases', the list of [start day, span] pairs of one cheapest plan.
+    """
+    
+    if not all(isinstance(day, int) and day > 0 for day in trip_days):
+        raise ValueError("All trip days must be strictly increasing positive integers.")
+    if not passes:
+        raise ValueError("Pass list cannot be empty.")
+    for pass_kind in passes:
+        if any(not isinstance(attr, (int, float)) or attr < 0 for attr in pass_kind.values()):
+            raise ValueError("Span and cost must be non-negative integers.")
+
+    trip_days = set(trip_days)  # Use a set for O(1) lookups
+    total_cost = 0
+    purchases = []
+
+    for day in sorted(trip_days):
+        best_purchase = None
+        best_cost = float('inf')
+        
+        for pass_kind in passes:
+            span, cost = pass_kind['span'], pass_kind['cost']
+            if span > 1 and day + span - 2 >= max(trip_days):  # Check if the remaining days are covered by a multi-day pass
+                continue
+
+            if day <= max(trip_days) - span + 1:
+                cost = min(cost, total_cost + (span - 1) * sum(1 for d in range(day, min(max(trip_days), day + span)) if d not in trip_days))
+                if cost < best_cost:
+                    best_cost = cost
+                    best_purchase = [day, span]
+
+        if best_purchase is not None:
+            total_cost += best_cost
+            purchases.append(best_purchase)
+
+    return {'total': total_cost, 'purchases': purchases}
+```

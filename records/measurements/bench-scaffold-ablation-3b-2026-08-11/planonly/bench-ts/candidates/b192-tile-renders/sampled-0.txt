@@ -1,0 +1,46 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || size <= 0) {
+        throw new Error("Invalid inputs: freshFor and size must be positive whole numbers.");
+    }
+
+    const cache: { tick: number, tile: string }[] = [];
+    const renders: [number, string][] = [];
+
+    for (const request of requests) {
+        const [tick, tile] = request;
+
+        if (!Number.isInteger(tick)) {
+            throw new Error("Invalid input: tick must be a positive whole number.");
+        }
+
+        // Check if the tile is still fresh
+        const freshIndex = cache.findIndex(c => c.tile === tile && c.tick >= tick - freshFor);
+        if (freshIndex !== -1) {
+            renders.push([tick, tile]);
+            continue;
+        }
+
+        // Check if there is room in the cache to add a new render
+        if (cache.length < size) {
+            cache.push({ tick, tile });
+            renders.push([tick, tile]);
+            continue;
+        }
+
+        // Drop the oldest fresh render and add the new one
+        let oldestFreshIndex = 0;
+        for (let i = 1; i < cache.length; i++) {
+            if (cache[i].tick > cache[oldestFreshIndex].tick) {
+                oldestFreshIndex = i;
+            }
+        }
+
+        const oldestFreshTileRender = cache.splice(oldestFreshIndex, 1)[0];
+        cache.push({ tick, tile });
+        renders.push([tick, tile]);
+    }
+
+    return renders;
+}
+```

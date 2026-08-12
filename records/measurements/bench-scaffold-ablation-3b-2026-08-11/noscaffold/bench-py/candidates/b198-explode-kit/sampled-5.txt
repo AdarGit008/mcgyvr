@@ -1,0 +1,32 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: dict, kit: str, want: int) -> Dict[str, int]:
+    """
+    Calculate the total count of each base part consumed to obtain want units of a kit.
+
+    :param catalog: A dictionary mapping kit names to their recipe and parts list.
+    :param kit: The name of the kit to produce.
+    :param want: The number of want units of the kit.
+    :return: A dictionary mapping base part names to their total consumption count.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+
+    def parts_needed_for_units(units: int, recipe: dict) -> Dict[str, int]:
+        needed = {}
+        for component, count in recipe.items():
+            if component == kit:
+                # If the component is the kit itself, calculate the total units needed
+                needed[component] = want
+            elif component in catalog:
+                # If the component is another kit, calculate its parts needs recursively
+                needed.update(parts_needed_for_units(units * count, catalog[component]))
+            else:
+                # Base part: add to needed dictionary
+                needed[component] = units * count
+        return needed
+
+    total_needed = parts_needed_for_units(1, catalog[kit])
+    return total_needed
+```

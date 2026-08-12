@@ -1,0 +1,27 @@
+```
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+
+  const hits = 0;
+  const cacheTable: { [key: string]: number } = {};
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error("Keys must be integers.");
+    }
+    
+    const slot = Math.abs(key) % slots; // Calculate the slot index
+    const currentKeyInSlot = cacheTable[slot];
+
+    if (currentKeyInSlot === key) {
+      hits++;
+    } else {
+      cacheTable[slot] = key;
+    }
+  }
+
+  return hits;
+}
+```

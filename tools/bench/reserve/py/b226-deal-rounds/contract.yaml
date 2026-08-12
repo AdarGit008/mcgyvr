@@ -1,0 +1,32 @@
+id: b226-deal-rounds
+task_type: function_implementation
+task: >-
+  Implement deal_rounds. A deck is written as a string, one character per
+  card in draw order. Deal the whole deck into hands piles by handing out
+  cards one at a time, cycling through the piles from the first: card 0
+  goes to pile 0, card 1 to pile 1, and so on, wrapping back to pile 0
+  after the last pile. Return the piles as a list of exactly hands
+  strings, in pile order, each holding its cards in the order they were
+  dealt. A pile that never received a card is the empty string, so an
+  empty deck still yields hands empty strings and a deck shorter than the
+  hand count leaves the later piles empty. Reject a deck that is not a
+  string, a hand count that is not a whole number, and a hand count below
+  one, with an error.
+target: solution.py
+target_content: |
+  """Deal a deck's cards round-robin into a fixed number of piles."""
+
+
+  def deal_rounds(deck, hands):
+      if not isinstance(deck, str):
+          raise ValueError("deal_rounds expects a string deck")
+      piles = []
+      # TODO: reject a bad hand count, size the piles, deal the cards round-robin
+      return piles
+interface: "def deal_rounds(deck: str, hands: int) -> list"
+stop_conditions:
+  - Whether a space or a line break in the deck counts as a card is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

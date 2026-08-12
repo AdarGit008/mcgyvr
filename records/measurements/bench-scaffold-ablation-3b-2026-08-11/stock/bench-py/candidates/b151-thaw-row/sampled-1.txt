@@ -1,0 +1,57 @@
+```
+"""Melt a row of ice one simultaneous step at a time."""
+
+
+def thaw_row(row: str, steps: int) -> str:
+    if not isinstance(row, str) or not row:
+        raise ValueError("thaw_row expects a non-empty string row")
+    
+    # Check if the row contains only valid characters
+    for char in row:
+        if char not in "#.":
+
+            raise ValueError("Invalid character in row: {}".format(char))
+
+    # Validate that step count is a non-negative integer
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Step count must be a non-negative integer")
+
+    # If no steps are to be taken, return the original row
+    if steps == 0:
+        return row
+
+    # Process each step
+    for _ in range(steps):
+        new_row = []
+        
+        # Handle edge cases for first and last cell separately
+        if row[0] == "#":
+            if row[1] != ".":
+                new_row.append(".")
+            else:
+                new_row.append("#")
+        else:
+            new_row.append(row[0])
+        
+        # Process interior cells
+        for i in range(1, len(row) - 1):
+            cell = row[i]
+            
+            if cell == "#" and (row[i-1] != "." or row[i+1] != "."):
+                new_row.append(".")
+            else:
+                new_row.append(cell)
+        
+        # Handle edge cases for last cell separately
+        if row[-1] == "#":
+            if row[-2] != ".":
+                new_row.append(".")
+            else:
+                new_row.append("#")
+        else:
+            new_row.append(row[-1])
+
+        row = "".join(new_row)
+
+    return row
+```

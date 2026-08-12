@@ -1,0 +1,30 @@
+```python
+def end_grab(cards: list) -> dict:
+    """
+    Determine the totals collected by each player in the end-grab game.
+
+    :param cards: List of integers representing the numbers on the cards.
+    :return: Dictionary with keys 'first', 'second', 'taken' and values as lists of integers.
+             'first' and 'second' are the totals collected by the first and second players, respectively.
+             'taken' is a list of integers representing the numbers in the order they left the row.
+    """
+    if not cards:
+        return {'first': [], 'second': [], 'taken': []}
+
+    taken = []
+    while cards:
+        if len(cards) == 1:
+            taken.append(cards[0])
+            break
+
+        # Determine which end to take
+        if cards[0] > cards[-1]:
+            taken.append(cards.pop(0))
+        else:
+            taken.append(cards.pop())
+
+    first_total = sum(taken[::2])
+    second_total = sum(taken[1::2])
+
+    return {'first': [first_total], 'second': [second_total], 'taken': taken}
+```

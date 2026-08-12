@@ -1,0 +1,8 @@
+```ts
+export function menuPick(dishes: { name: string; price: number }[], budget: number): string[] {
+  if (!dishes || !budget) throw new Error("Invalid input");
+
+  const filteredDishes = dishes.filter(dish => dish.price <= budget);
+  return filteredDishes.sort((a, b) => a.name.localeCompare(b.name));
+}
+```

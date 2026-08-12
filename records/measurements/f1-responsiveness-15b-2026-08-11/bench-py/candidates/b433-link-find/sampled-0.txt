@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+def link_find(line: str, opens: str, closes: str) -> List[str]:
+    if not opens or not closes:
+        raise ValueError("Both open and close markers must be provided")
+
+    result = []
+    depth = 0
+    start_index = -1
+
+    for i in range(len(line)):
+        if line[i] == opens:
+            if start_index != -1:  # Found a nested opening marker, ignore it
+                continue
+            depth += 1
+            start_index = i
+
+        elif line[i] == closes:
+            if depth <= 0:
+                raise ValueError(f"Closing marker '{closes}' at index {i} does not match an opening marker")
+            depth -= 1
+            if depth == 0:
+                result.append(line[start_index + 1:i])
+                start_index = -1
+
+    return result
+```

@@ -1,0 +1,23 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0 or not all(1 <= m <= length for m, _ in board):
+        raise ValueError("Invalid roll length or board pieces")
+
+    @lru_cache(maxsize=None)
+    def max_taking(roll_length):
+        if roll_length == 0:
+            return 0, []
+
+        best_taking = (0, [])
+        for piece_meters, price in board:
+            if piece_meters <= roll_length:
+                taking, pieces = max_taking(roll_length - piece_meters)
+                taking += price
+                if taking > best_taking[0] or (taking == best_taking[0] and len(pieces) >= len(best_taking[1])):
+                    best_taking = (taking, [piece_meters] + pieces)
+
+        return best_taking
+
+    takings, pieces = max_taking(length)
+    return {'takings': takings, 'pieces': pieces}
+```

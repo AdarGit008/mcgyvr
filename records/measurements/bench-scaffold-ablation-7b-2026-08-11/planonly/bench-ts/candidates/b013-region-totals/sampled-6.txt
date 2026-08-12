@@ -1,0 +1,70 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) {
+    throw new Error("Grid must have rows and columns");
+  }
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  for (let i = 1; i < rows; i++) {
+    if (grid[i].length !== cols) {
+      throw new Error("All rows must have the same number of columns");
+    }
+  }
+
+  for (const cell of flatten(grid)) {
+    if (!Number.isInteger(cell)) {
+      throw new Error("Grid cells must be integers");
+    }
+  }
+
+  for (const query of queries) {
+    if (query.length !== 4) {
+      throw new Error("Query must have exactly four elements");
+    }
+
+    const [top, left, bottom, right] = query;
+
+    if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) {
+      throw new Error("Query coordinates must be integers");
+    }
+
+    if (top >= bottom || left >= right || top < 0 || left < 0 || bottom > rows || right > cols) {
+      throw new Error("Invalid query bounds");
+    }
+  }
+
+  const prefixSum = buildPrefixSumTable(grid);
+
+  return queries.map(query => {
+    const [top, left, bottom, right] = query;
+    return prefixSum[bottom - 1][right - 1] - (left > 0 ? prefixSum[bottom - 1][left - 1] : 0) -
+           (top > 0 ? prefixSum[top - 1][right - 1] : 0) + (top > 0 && left > 0 ? prefixSum[top - 1][left - 1] : 0);
+  });
+}
+
+function buildPrefixSumTable(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  const prefixSum = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      prefixSum[r][c] = grid[r][c];
+      if (r > 0) prefixSum[r][c] += prefixSum[r - 1][c];
+      if (c > 0) prefixSum[r][c] += prefixSum[r][c - 1];
+      if (r > 0 && c > 0) prefixSum[r][c] -= prefixSum[r - 1][c - 1];
+    }
+  }
+
+  return prefixSum;
+}
+
+function* flatten<T>(arr: T[][]): Generator<T> {
+  for (const subArr of arr) {
+    yield* subArr;
+  }
+}
+```

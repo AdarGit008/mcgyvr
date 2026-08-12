@@ -1,0 +1,15 @@
+```python
+def mean_window(readings: list, size: int) -> list:
+    if size == 0:
+        return []
+    
+    means = []
+    for start in range(len(readings)):
+        end = start + size - 1
+        if end < len(readings):
+            sum_values = sum(readings[start:end+1])
+            mean_value = sum_values // size  # Use integer division to avoid floating-point results
+            means.append(mean_value)
+    
+    return means
+```

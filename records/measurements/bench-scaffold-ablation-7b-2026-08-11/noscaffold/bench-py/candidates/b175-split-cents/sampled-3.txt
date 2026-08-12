@@ -1,0 +1,20 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total must be a non-negative integer")
+    if not isinstance(weights, list) or not weights:
+        raise ValueError("Weights must be a non-empty list")
+    
+    sum_weights = sum(weights)
+    if sum_weights <= 0:
+        raise ValueError("Sum of weights must be positive")
+    
+    parts = [total * w // sum_weights for w in weights]
+    remainder = total - sum(parts)
+    
+    for _ in range(remainder):
+        max_index = max(range(len(weights)), key=lambda i: (weights[i] / sum_weights) % 1)
+        parts[max_index] += 1
+    
+    return parts
+```

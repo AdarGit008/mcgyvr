@@ -1,0 +1,20 @@
+```ts
+
+export function lineCost(price: number, quantity: number): number {
+  if (!Number.isFinite(price) || !Number.isFinite(quantity)) {
+    throw new Error("Both price and quantity must be finite numbers.");
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (discount > 100) {
+    throw new Error("Discount cannot exceed one hundred percent.");
+  }
+
+  const totalLineCost = lines.reduce((sum, line) => sum + lineCost(line.price, line.quantity), 0);
+
+  const discountedTotal = totalLineCost * (1 - discount / 100);
+  return Math.floor(discountedTotal); // Round down to whole pence
+}
+```

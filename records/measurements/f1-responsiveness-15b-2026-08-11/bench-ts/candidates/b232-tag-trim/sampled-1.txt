@@ -1,0 +1,14 @@
+```ts
+/**
+ * Strips leading and trailing markers from a tag string.
+ * A tag may be wrapped in a leading hash and a trailing colon.
+ * Returns what is left without any markers. A tag carrying neither
+ * marker comes back unchanged.
+ * @param {string} tag - The input tag string containing potential markers.
+ * @returns {string} - The cleaned tag string without the surrounding markers if present.
+ */
+export function tagTrim(tag: string): string {
+  const trimmed = tag.trim();
+  return trimmed.startsWith('#') && trimmed.endsWith(':') ? trimmed.slice(1, -1) : trimmed;
+}
+```

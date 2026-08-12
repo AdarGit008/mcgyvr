@@ -1,0 +1,46 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error('Marker must be a single character');
+  }
+
+  const frames: string[] = [];
+  let pending = '';
+  let inFrame = false;
+
+  for (const chunk of chunks) {
+    for (let i = 0; i < chunk.length; ) {
+      if (chunk[i] === marker) {
+        if (i + 1 < chunk.length && chunk[i + 1] === marker) {
+          // Double marker found, add literal marker to current frame
+          frames[frames.length - 1] += marker;
+          i += 2;
+        } else {
+          // Single marker found, end current frame and start a new one
+          if (inFrame) {
+            frames.push(pending);
+          }
+          pending = '';
+          inFrame = !inFrame;
+          i++;
+        }
+      } else {
+        // Normal character, add to current frame or pending text
+        if (inFrame) {
+          frames[frames.length - 1] += chunk[i];
+        } else {
+          pending += chunk[i];
+        }
+        i++;
+      }
+    }
+  }
+
+  // Add any remaining pending text as a final frame if not already in a frame
+  if (!inFrame && pending) {
+    frames.push(pending);
+  }
+
+  return { frames, pending: '' };
+}
+```

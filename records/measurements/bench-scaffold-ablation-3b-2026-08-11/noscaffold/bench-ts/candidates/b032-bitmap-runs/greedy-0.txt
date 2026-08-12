@@ -1,0 +1,91 @@
+```typescript
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not match the capacity.");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+
+  for (let i = 0; i < words.length - 1; i++) {
+    const word = words[i];
+    if (!Number.isInteger(word)) {
+      throw new Error("Word must be an integer from 0 to 4294967295.");
+    }
+    if ((word & (1 << length)) !== 0) {
+      continue;
+    }
+
+    for (let j = i + 1; j < words.length; j++) {
+      const nextWord = words[j];
+      if (!Number.isInteger(nextWord)) {
+        throw new Error("Next word must be an integer from 0 to 4294967295.");
+      }
+      if ((nextWord & (1 << length)) !== 0) {
+        break;
+      }
+
+      const freeBlocks = Math.min(length, 32 - (i * 32 + j * 32));
+      if (freeBlocks >= length) {
+        return i * 32 + j * 32;
+      }
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start)) {
+    throw new Error("Start index must be an integer.");
+  }
+  const wordIndex = Math.floor(start / 32);
+  const bitIndex = start % 32;
+  const endWordIndex = Math.floor((start + length - 1) / 32);
+  const endBitIndex = (start + length - 1) % 32;
+
+  if (!Number.isInteger(words[wordIndex]) || words[wordIndex] < 0 || words[wordIndex] > 4294967295) {
+    throw new Error("Word must be an integer from 0 to 4294967295.");
+  }
+  if (!Number.isInteger(words[endWordIndex]) || words[endWordIndex] < 0 || words[endWordIndex] > 4294967295) {
+    throw new Error("End word must be an integer from 0 to 4294967295.");
+  }
+  if (start + length > capacity) {
+    throw new Error("Run does not lie wholly inside the words.");
+  }
+
+  const newWords = [...words];
+  for (let i = wordIndex; i <= endWordIndex; i++) {
+    let word = newWords[i];
+    for (let j = bitIndex; j < 32; j++) {
+      if ((word & (1 << j)) !== 0) {
+        throw new Error("Run touches an occupied block.");
+      }
+    }
+    for (let j = bitIndex; j <= endBitIndex; j++) {
+      word |= (1 << j);
+    }
+    newWords[i] = word;
+  }
+
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index)) {
+    throw new Error("Index must be an integer.");
+  }
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+
+  if (!Number.isInteger(words[wordIndex]) || words[wordIndex] < 0 || words[wordIndex] > 4294967295) {
+    throw new Error("Word must be an integer from 0 to 4294967295.");
+  }
+
+  return (words[wordIndex] & (1 << bitIndex)) !== 0 ? 1 : 0;
+}
+```

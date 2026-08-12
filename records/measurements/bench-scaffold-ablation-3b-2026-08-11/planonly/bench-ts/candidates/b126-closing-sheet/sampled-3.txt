@@ -1,0 +1,80 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input type');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':').map(part => part.trim());
+    const count = parseInt(countStr, 10);
+    if (!isNaN(count) && /^[a-z]+$/.test(name)) {
+      return [name, count];
+    }
+    throw new Error('Invalid sheet entry');
+  };
+
+  const parseMove = (move: string): { name: string; qty: number } => {
+    const [name, qtyStr] = move.split('+').map(part => part.trim());
+    if (!/[a-z]+$/.test(name)) {
+      throw new Error('Invalid move format');
+    }
+    const qty = parseInt(qtyStr, 10);
+    if (qty <= 0 || isNaN(qty)) {
+      throw new Error('Invalid quantity in move');
+    }
+    return { name, qty };
+  };
+
+  const parseSheet = (sheet: string): {[key: string]: number} => {
+    const entries = sheet.split(';').map(parseEntry);
+    if (!entries.every(([name]) => !Object.keys(entries).includes(name))) {
+      throw new Error('Duplicate item on opening sheet');
+    }
+    return Object.fromEntries(entries);
+  };
+
+  const updateSheet = (sheet: {[key: string]: number}, move: { name: string; qty: number }) => {
+    if (!sheet[move.name]) {
+      if (move.qty > 0) {
+        throw new Error(`Issue of ${move.qty} units of non-existent item ${move.name}`);
+      }
+      return sheet;
+    }
+    const updatedCount = sheet[move.name] - move.qty;
+    if (updatedCount < 0) {
+      throw new Error(`Issue of ${Math.abs(updatedCount)} units of ${move.name}, not enough on hand`);
+    }
+    return { ...sheet, [move.name]: updatedCount };
+  };
+
+  const updateSheets = (sheetsMap: {[key: string]: {[key: string]: number}}, moves: string): {[key: string]: {[key: string]: number}} => {
+    if (!moves) {
+      return sheetsMap;
+    }
+    const moveEntries = moves.split(';').map(parseMove);
+    return Object.entries(sheetsMap).reduce((acc, [sheetName, sheet]) => {
+      const updatedSheet = moveEntries.reduce((sheet2, move) => {
+        try {
+          return updateSheet(sheet2, move);
+        } catch (error) {
+          console.error(`Error processing move for ${move.name}:`, error.message);
+          return sheet2;
+        }
+      }, sheet);
+      if (Object.keys(updatedSheet).length > 0) {
+        acc[sheetName] = updatedSheet;
+      }
+      return acc;
+    }, sheetsMap);
+  };
+
+  const sheets = parseSheets(parseSheet(opening), moves);
+  const resultEntries = Object.entries(sheets).filter(([_, count]) => count > 0).map(([name, count]) => `${name}:${count}`);
+  if (resultEntries.length === 0) {
+    return '';
+  }
+  resultEntries.sort((a, b) => a.localeCompare(b));
+  return resultEntries.join(';');
+}
+
+```

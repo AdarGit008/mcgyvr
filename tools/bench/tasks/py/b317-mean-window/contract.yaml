@@ -1,0 +1,15 @@
+id: b317-mean-window
+task_type: function_implementation
+task: >-
+  Implement mean_window. Given readings and a window size, return the
+  mean of every run of that many consecutive readings, rounded down,
+  in the order the runs begin. A window wider than the readings
+  themselves gives an empty list.
+target: solution.py
+interface: "def mean_window(readings: list, size: int) -> list"
+stop_conditions:
+  - What a window size of zero should produce is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

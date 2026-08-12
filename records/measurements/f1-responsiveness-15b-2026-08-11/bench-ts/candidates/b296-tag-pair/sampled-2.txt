@@ -1,0 +1,12 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^[<>]/.test(marker)) {
+    throw new Error("Invalid marker");
+  }
+  return marker.length === 2 ? marker.slice(1) : marker;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  return opening !== closing;
+}
+```

@@ -1,0 +1,59 @@
+id: b103-leg-arrivals
+task_type: function_implementation
+task: >-
+  Implement leg_arrivals, the itinerary tracker of a small clock-time
+  module whose two companions are already in place. parse_clock turns a
+  24-hour clock string — exactly two digits, a colon, two digits, hours 00
+  to 23, minutes 00 to 59 — into minutes since midnight, rejecting any
+  other text or a non-string with an error. format_clock renders an
+  integer from 0 to 1439 back into that zero-padded form and rejects
+  anything else with an error. leg_arrivals takes a departure clock string
+  and a list of legs, each a two-integer list of travel minutes and
+  layover minutes: the traveller leaves at the departure time, rides each
+  leg in turn, and waits out its layover before starting the next. Return
+  one [clock, days] pair per leg, the arrival clock string and how many
+  midnights have passed since departure by that arrival; an empty leg list
+  yields an empty list. Reject a leg that is not a two-item list, travel
+  minutes that are not a positive integer, and layover minutes that are
+  not a non-negative integer, with an error; a malformed departure fails
+  parse_clock's own check.
+target: solution.py
+target_content: |
+  """Clock-time helpers and the leg-by-leg arrival tracker built on them."""
+
+  import re
+
+
+  def parse_clock(text):
+      if not isinstance(text, str) or re.fullmatch(r"\d\d:\d\d", text) is None:
+          raise ValueError("a clock reads HH:MM")
+      hours, minutes = int(text[:2]), int(text[3:])
+      if hours > 23 or minutes > 59:
+          raise ValueError("no such clock time")
+      return hours * 60 + minutes
+
+
+  def format_clock(minutes):
+      if isinstance(minutes, bool) or not isinstance(minutes, int):
+          raise ValueError("minutes must lie in 0..1439")
+      if minutes < 0 or minutes > 1439:
+          raise ValueError("minutes must lie in 0..1439")
+      return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+  def leg_arrivals(departure, legs):
+      start = parse_clock(departure)
+      # TODO: replay each leg — validate it, ride its travel minutes, record
+      # the arrival clock and how many midnights have passed, then wait out
+      # the layover before the next leg.
+      return []
+interface: |-
+  def parse_clock(text: str) -> int
+  def format_clock(minutes: int) -> str
+  def leg_arrivals(departure: str, legs: list) -> list
+stop_conditions:
+  - Whether a layover after the final leg means anything is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

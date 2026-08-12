@@ -1,0 +1,83 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    def validate_price(price):
+        if not isinstance(price, int) or price <= 0:
+            raise ValueError("Price must be a positive integer.")
+
+    def validate_event(event):
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Event must be a list of exactly two elements.")
+        action, payload = event
+        if not isinstance(action, str) or not isinstance(payload, (str, int)):
+            raise ValueError("Event action must be a string and payload must be a string or integer.")
+
+    def validate_item(item):
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+
+    def validate_amount(amount):
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive integer.")
+
+    cart = {}
+    session_state = "open"
+    total = 0
+    paid = 0
+    change = 0
+
+    for event in events:
+        validate_event(event)
+        action, payload = event
+
+        if session_state == "open":
+            if action == "scan":
+                if isinstance(payload, str):
+                    validate_item(payload)
+                    cart[payload] = cart.get(payload, 0) + 1
+                    total += prices[payload]
+                else:
+                    raise ValueError("Item name must be a string.")
+            elif action == "void":
+                if isinstance(payload, str):
+                    validate_item(payload)
+                    if payload in cart and cart[payload] > 0:
+                        cart[payload] -= 1
+                        if cart[payload] == 0:
+                            del cart[payload]
+                        total -= prices[payload]
+                    else:
+                        raise ValueError(f"No item {payload} in cart.")
+                else:
+                    raise ValueError("Item name must be a string.")
+            elif action == "close":
+                if not cart:
+                    raise ValueError("Cannot close an empty session.")
+                session_state = "payment"
+            else:
+                raise ValueError(f"Invalid action '{action}' in open session.")
+
+        elif session_state == "payment":
+            if action == "pay":
+                if isinstance(payload, int):
+                    validate_amount(payload)
+                    paid += payload
+                    change = total - paid
+                    if paid < total:
+                        raise ValueError("Not enough payment received.")
+                else:
+                    raise ValueError("Amount must be a positive integer.")
+            elif action == "cancel":
+                session_state = "cancelled"
+            else:
+                raise ValueError(f"Invalid action '{action}' in payment session.")
+
+        else:
+            raise ValueError("Session is already paid or cancelled.")
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

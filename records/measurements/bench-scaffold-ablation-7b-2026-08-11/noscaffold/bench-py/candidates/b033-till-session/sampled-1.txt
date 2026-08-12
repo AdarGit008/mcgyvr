@@ -1,0 +1,57 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not prices or any(not isinstance(price, int) or price <= 0 for price in prices.values()):
+        raise ValueError("Invalid price list")
+
+    state = {"items": [], "total": 0, "paid": 0, "change": 0}
+    cart = {}
+    session_open = True
+    payment_mode = False
+
+    def update_cart(action: str, item: str):
+        if action == "scan":
+            if item not in prices:
+                raise ValueError("Unknown item scanned")
+            if item not in cart:
+                cart[item] = 0
+            cart[item] += 1
+        elif action == "void":
+            if item not in cart or cart[item] == 0:
+                raise ValueError("Attempt to void non-existent or zero quantity item")
+            cart[item] -= 1
+
+    for event in events:
+        if len(event) != 2:
+            raise ValueError("Event must have exactly two elements")
+
+        action, payload = event
+        if not isinstance(payload, str):
+            raise ValueError("Payload must be a string")
+
+        if session_open and payment_mode:
+            raise ValueError("No lawful actions during payment mode")
+        elif not session_open:
+            raise ValueError("Session already paid or cancelled")
+        elif action == "scan":
+            update_cart(action, payload)
+        elif action == "void":
+            update_cart(action, payload)
+        elif action == "close":
+            if not cart:
+                raise ValueError("Attempt to close with an empty cart")
+            state["total"] = sum(prices[item] * quantity for item, quantity in cart.items())
+            payment_mode = True
+        elif action == "pay":
+            if not payment_mode:
+                raise ValueError("Attempt to pay during non-payment mode")
+            state["paid"] += int(payload)
+            state["change"] = max(state["paid"] - state["total"], 0)
+            session_open = False
+        elif action == "cancel":
+            session_open = False
+        else:
+            raise ValueError("Unknown action")
+
+    state["items"] = sorted([[item, cart[item]] for item in cart if cart[item] > 0])
+    return state
+```

@@ -1,0 +1,27 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  if (!spans || !Array.isArray(spans)) {
+    throw new Error("Input must be a non-empty array of number arrays");
+  }
+
+  // Sort the spans by start time to process overlapping areas first
+  const sortedSpans = spans.sort((a, b) => a[0] - b[0]);
+
+  let mergedSpans: number[][] = [];
+
+  for (let i = 0; i < sortedSpans.length; i++) {
+    if (mergedSpans.length === 0 || sortedSpans[i][0] > mergedSpans[mergedSpans.length - 1][1]) {
+      // If no overlap or the current span starts after the previous one ends
+      mergedSpans.push(sortedSpans[i]);
+    } else {
+      // Overlapping case: adjust the end of the last merged span
+      const lastMerged = mergedSpans[mergedSpans.length - 1];
+      if (sortedSpans[i][1] > lastMerged[1]) {
+        mergedSpans[mergedSpans.length - 1][1] = sortedSpans[i][1];
+      }
+    }
+  }
+
+  return mergedSpans;
+}
+```

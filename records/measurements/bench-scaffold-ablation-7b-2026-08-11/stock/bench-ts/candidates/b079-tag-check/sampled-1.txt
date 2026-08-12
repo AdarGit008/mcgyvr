@@ -1,0 +1,32 @@
+```ts
+export function lineTag(body: string): string {
+  if (typeof body !== "string") {
+    throw new Error("lineTag expects a string");
+  }
+  let sum = 0;
+  for (const ch of body) {
+    sum = (sum + ch.codePointAt(0)!) % 256;
+  }
+  return sum.toString(16).padStart(2, "0");
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== "string") {
+    throw new Error("checkLine expects a string");
+  }
+  if (line.length < 3) {
+    throw new Error("Line is too short");
+  }
+  const tildeIndex = line.lastIndexOf('~');
+  if (tildeIndex === -1 || tildeIndex === 0 || tildeIndex === line.length - 2) {
+    throw new Error("Invalid tilde position");
+  }
+  const body = line.substring(0, tildeIndex);
+  const tag = line.substring(tildeIndex + 1, line.length - 2);
+  const expectedTag = lineTag(body);
+  if (tag !== expectedTag) {
+    throw new Error("Tag does not match body");
+  }
+  return body;
+}
+```

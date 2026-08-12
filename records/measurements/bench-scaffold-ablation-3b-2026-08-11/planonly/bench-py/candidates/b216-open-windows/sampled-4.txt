@@ -1,0 +1,43 @@
+```python
+from typing import *
+from collections import *
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> int:
+        return int(time_str[:2]) * 60 + int(time_str[3:])
+    
+    def format_time(time_int: int) -> str:
+        hours = time_int // 60
+        minutes = time_int % 60
+        return f"{hours:02}:{minutes:02}"
+    
+    if not span or not booked:
+        raise ValueError("Invalid input: span and/or appointments are missing.")
+    
+    try:
+        start, end = span.split('-')
+        start_time, end_time = parse_time(start), parse_time(end)
+    except ValueError as e:
+        raise ValueError(f"Error parsing time. {e}")
+    
+    if start_time > end_time:
+        raise ValueError("Invalid span: start time is later than end time.")
+    
+    booked_times = sorted([parse_time(appointment) for appointment in booked])
+    open_spans = []
+    current_end = start_time
+    
+    for booked_start in booked_times:
+        if booked_start <= current_end:
+            continue
+        open_spans.append(format_time(current_end))
+        current_end = booked_start
+    
+    if current_end < end_time:
+        open_spans.append(format_time(end_time))
+    
+    if not open_spans:
+        return "none"
+    
+    return ", ".join(open_spans)
+```

@@ -1,0 +1,16 @@
+```ts
+// swipeDedupe implementation
+export function swipeDedupe(swipes: string[]): string[] {
+  const dedupedSwipes: string[] = [];
+  let currentSwipe: string | null = null;
+
+  for (const swipe of swipes) {
+    if (!currentSwipe || swipe !== currentSwipe) {
+      dedupedSwipes.push(swipe);
+      currentSwipe = swipe;
+    }
+  }
+
+  return dedupedSwipes;
+}
+```

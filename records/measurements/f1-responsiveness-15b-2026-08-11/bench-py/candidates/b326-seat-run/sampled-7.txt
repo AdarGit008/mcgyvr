@@ -1,0 +1,18 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = row.count('.')
+    max_free_seats = party * 2 + 1
+
+    for i in range(free_seats):
+        if (i + party * 2 < len(row)) and all(row[i+j] == '.' for j in range(party)):
+            return i
+        elif i + party * 4 < len(row) and all(row[i+j] == 'x' for j in range(party * 2)):
+            continue
+        else:
+            return -1
+
+    return -1
+```

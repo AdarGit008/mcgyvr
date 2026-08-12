@@ -1,0 +1,38 @@
+```python
+def parse_amount(text: str) -> int:
+    """Converts a string representing a decimal amount into integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if '.' in text and (text.count('.') != 1 or len(text.split('.')[1]) != 2):
+        raise ValueError("Invalid format for the input amount.")
+    try:
+        dollars, cents = map(int, text.split('.'))
+        return dollars * 100 + cents
+    except ValueError:
+        raise ValueError("Invalid characters in the input string.")
+
+def format_amount(cents: int) -> str:
+    """Converts non-negative integer cents into a formatted amount string."""
+    if not isinstance(cents, int) or cents < 0:
+        raise ValueError("Input must be a non-negative integer.")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Allocates total_cents across weights proportionally."""
+    if not isinstance(weights, list) or not all(isinstance(w, int) and w >= 0 for w in weights):
+        raise ValueError("Weights must be a list of non-negative integers.")
+    if sum(weights) == 0:
+        raise ValueError("Weights cannot sum to zero.")
+    if total_cents < 0:
+        raise ValueError("Total cents must be a non-negative integer.")
+
+    base = [total_cents * w // sum(weights) for w in weights]
+    remainder = total_cents - sum(base)
+
+    # Distribute the remainder
+    for i in range(remainder):
+        max_remainder_index = max(range(len(weights)), key=lambda x: (weights[x] * base[x]) % weights[x])
+        base[max_remainder_index] += 1
+
+    return base
+```

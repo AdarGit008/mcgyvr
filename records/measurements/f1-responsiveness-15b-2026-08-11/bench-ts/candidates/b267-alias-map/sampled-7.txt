@@ -1,0 +1,12 @@
+```ts
+
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  return aliases[name] || name;
+}
+
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const names = Object.keys(aliases);
+  names.sort();
+  return names;
+}
+```

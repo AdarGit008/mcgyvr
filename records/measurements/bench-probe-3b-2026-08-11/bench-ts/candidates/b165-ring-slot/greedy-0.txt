@@ -1,0 +1,24 @@
+```ts
+export function ringSlot(capacity: number, writes: number, k: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive whole number.");
+  }
+  if (!Number.isInteger(writes) || writes < 0) {
+    throw new Error("Writes must be a non-negative whole number.");
+  }
+  if (!Number.isInteger(k) || k < 0) {
+    throw new Error("k must be a non-negative whole number.");
+  }
+  if (k >= Math.min(capacity, writes)) {
+    throw new Error("k is at or past the survivor count.");
+  }
+
+  const survivors = [];
+  for (let i = 0; i < capacity && i < writes; i++) {
+    survivors.push((writes - 1) % capacity);
+    (writes - 1)--;
+  }
+
+  return survivors[k];
+}
+```

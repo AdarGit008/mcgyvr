@@ -1,0 +1,42 @@
+```
+import { stampTable } from './solution';
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== "string" || label.length === 0) {
+    throw new Error("label must be a non-empty string");
+  }
+
+  const table = stampTable(dies);
+
+  const memo: { [key: string]: number } = {};
+
+  function dp(index: number, partialLabel: string): number {
+    if (index >= label.length) {
+      return 0;
+    }
+    if (partialLabel in memo) {
+      return memo[partialLabel];
+    }
+
+    let minCost = Infinity;
+
+    for (const [fragment, price] of dies) {
+      const nextPartialLabel = partialLabel + fragment;
+      if (nextPartialLabel.startsWith(label.substring(index))) {
+        minCost = Math.min(minCost, price + dp(index + fragment.length, nextPartialLabel));
+      }
+    }
+
+    memo[partialLabel] = minCost !== Infinity ? minCost : -1;
+    return memo[partialLabel];
+  }
+
+  const result = dp(0, "");
+
+  if (result === -1) {
+    throw new Error("no sequence of dies can spell the label");
+  }
+
+  return result;
+}
+```

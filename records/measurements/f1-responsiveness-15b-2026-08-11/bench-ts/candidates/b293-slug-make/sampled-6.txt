@@ -1,0 +1,13 @@
+```ts
+function slugWord(word: string): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return word.split('').filter(char => alphabet.includes(char)).join('');
+}
+
+function slugMake(phrase: string): string {
+  return phrase.toLowerCase().split(' ')
+    .map(slugWord)
+    .filter(word => word !== '')
+    .join('-');
+}
+```

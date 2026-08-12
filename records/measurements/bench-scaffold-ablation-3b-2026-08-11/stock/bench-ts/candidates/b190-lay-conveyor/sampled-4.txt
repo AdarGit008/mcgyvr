@@ -1,0 +1,25 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("the run starts off the plan");
+  }
+  const cells = floor[row].split("");
+  
+  if (col + length > cells.length) {
+    throw new Error("the conveyor run would pass the last column");
+  }
+
+  for (let i = col; i < col + length; i++) {
+    if (cells[i] !== ".") {
+      throw new Error(`cell at (${row}, ${i}) is not open`);
+    }
+  }
+
+  const newRow = [...cells];
+  for (let i = col; i < col + length; i++) {
+    newRow[i] = "=";
+  }
+
+  return floor.map((r, rIndex) => rIndex === row ? newRow.join("") : r);
+}
+```

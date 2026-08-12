@@ -1,0 +1,61 @@
+```ts
+/**
+ * Generates a network mask from a prefix length.
+ *
+ * @param {number} prefix - The number of leading ones in the mask (integer between 0 and 32).
+ * @returns {string} - The resulting dotted-quad mask string.
+ */
+export function maskFromPrefix(prefix: number): string {
+    if (typeof prefix !== 'number' || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+        throw new Error('Invalid prefix');
+    }
+    
+    const parts = [0, 0, 0, 0];
+    for (let i = 0; i < prefix; i++) {
+        parts[Math.floor(i / 8)] |= 1 << (7 - i % 8);
+    }
+    return parts.map(part => part.toString(10)).join('.');
+}
+
+/**
+ * Determines the prefix length from a network mask.
+ *
+ * @param {string} mask - The dotted-quad mask string to parse.
+ * @returns {number} - The number of leading ones in the mask (integer between 0 and 32).
+ */
+export function prefixFromMask(mask: string): number {
+    if (typeof mask !== 'string') {
+        throw new Error('Invalid mask');
+    }
+    
+    const parts = mask.split('.');
+    if (parts.length !== 4) {
+        throw new Error('Invalid mask format');
+    }
+    
+    let prefix = 0;
+    for (const part of parts) {
+        const num = parseInt(part, 10);
+        if (isNaN(num) || num < 0 || num > 255 || (part.length > 1 && part.startsWith('0'))) {
+            throw new Error('Invalid mask field');
+        }
+        
+        let bits = 0;
+        for (let i = 7; i >= 0; i--) {
+            if ((num & (1 << i)) !== 0) {
+                bits++;
+            } else {
+                break;
+            }
+        }
+        
+        prefix += bits;
+        
+        if (prefix > 0 && part.includes('0')) {
+            throw new Error('Invalid mask');
+        }
+    }
+    
+    return prefix;
+}
+```

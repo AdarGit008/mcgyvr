@@ -1,0 +1,16 @@
+id: b380-pair-flip
+task_type: function_implementation
+task: >-
+  Implement flipOne and flipAll. flipOne returns a pair with its two
+  members the other way round. flipAll does that to every pair in a
+  list, keeping the pairs in the order they came and leaving the list
+  it was given untouched.
+target: solution.ts
+interface: "export function flipOne(pair: string[]): string[]
+export function flipAll(pairs: string[][]): string[][]"
+stop_conditions:
+  - What a pair holding other than two members should do is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

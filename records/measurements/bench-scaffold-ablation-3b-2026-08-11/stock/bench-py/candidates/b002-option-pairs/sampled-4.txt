@@ -1,0 +1,87 @@
+```
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if text == "":
+        raise ValueError("empty input string")
+
+    def process_segment(segment: str, level: int) -> list:
+        if segment.startswith('"'):
+            # If the segment starts with a quote, it can contain semicolons
+            # without splitting. We need to handle this case in a special way.
+            # We assume that the quotes are balanced and correctly closed.
+            parts = []
+            current_part = ""
+            i = 0
+            while i < len(segment):
+                if segment[i] == '"':
+                    # If we encounter an unmatched closing quote, it's invalid.
+                    raise ValueError("unterminated quoted value")
+                elif segment[i] == ';':
+                    if level > 0:
+                        # If we're inside a quoted segment, split at semicolons
+                        current_part += ";"
+                    else:
+                        # Otherwise, this is the end of the segment, process it
+                        parts.append(current_part.strip())
+                        current_part = ""
+                elif segment[i] == '\\':
+                    # Escape character, consume the next character.
+                    i += 1
+                else:
+                    current_part += segment[i]
+                i += 1
+
+            # Add the last part.
+            if current_part:
+                parts.append(current_part.strip())
+
+            return parts
+        else:
+            # If it's not a quoted segment, split on semicolons.
+            return segment.split(';')
+
+    def validate_pairs(pairs: list) -> None:
+        seen_keys = set()
+        for key in pairs:
+            if key in seen_keys:
+                raise ValueError("repeated key: " + key)
+            seen_keys.add(key)
+
+    # Process the entire input string, respecting quoted segments.
+    parts = []
+    i = 0
+    level = 0
+    while i < len(text):
+        if text[i] == '"':
+            level += 1
+        elif text[i] == ';':
+            parts.extend(process_segment(text[i + 1:i], level))
+        elif text[i] == '\\':
+            # Escape character, consume the next character.
+            i += 1
+        else:
+            j = i + 1
+            while j < len(text) and not (text[j] in ";\""):
+                j += 1
+            parts.extend(process_segment(text[i:j], level))
+            i = j
+
+    # Validate the pairs.
+    validate_pairs(parts)
+
+    # Parse each part into a pair using parse_option.
+    return [parse_option(part) for part in parts]
+```

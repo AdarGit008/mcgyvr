@@ -1,0 +1,16 @@
+id: b260-meter-delta
+task_type: function_implementation
+task: >-
+  Implement meter_delta. Work out what a meter consumed between an
+  earlier and a later reading. The meter counts upward and wraps back
+  to zero once it passes its ceiling, so a later reading below the
+  earlier one means it wrapped. Reject a reading at or above the
+  ceiling with an error.
+target: solution.py
+interface: "def meter_delta(before: int, after: int, ceiling: int) -> int"
+stop_conditions:
+  - Whether a meter could wrap more than once between two readings is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

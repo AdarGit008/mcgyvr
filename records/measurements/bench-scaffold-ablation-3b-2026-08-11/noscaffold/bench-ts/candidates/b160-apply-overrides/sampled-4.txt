@@ -1,0 +1,21 @@
+```ts
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+    const result = { ...base };
+
+    for (const override of overrides) {
+        if (!Array.isArray(override) || typeof override !== 'string' || override.split('=').length !== 2) {
+            throw new Error('Invalid override format');
+        }
+
+        const [name, value] = override.split('=');
+
+        if (name === '' || !result.hasOwnProperty(name)) {
+            throw new Error(`Override name '${name}' does not exist in base`);
+        }
+
+        result[name] = value;
+    }
+
+    return result;
+}
+```

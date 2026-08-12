@@ -1,0 +1,83 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a non-empty string")
+    
+    def is_valid_segment(segment):
+        if segment == "":
+            return False
+        for char in segment:
+            if char in " {}":
+                return False
+        return True
+    
+    def is_valid_option(option):
+        if option == "":
+            return False
+        for char in option:
+            if char not in " {}":
+                return False
+        return True
+    
+    def is_valid_pattern(pattern):
+        if pattern == "":
+            return False
+        
+        segments = pattern.split("/")
+        
+        for segment in segments:
+            if not is_valid_segment(segment):
+                return False
+        
+        for i, segment in enumerate(segments):
+            if i > 0 and segment.startswith("{"):
+                options = segment[1:-1].split(",")
+                if len(options) == 0:
+                    return False
+                for option in options:
+                    if not is_valid_option(option):
+                        return False
+        
+        return True
+    
+    if not is_valid_pattern(pattern):
+        raise ValueError("Pattern must be a non-empty string, an empty segment, an empty option, and a curly brace or comma sitting inside a literal segment or an option")
+    
+    def expand_segment(segment):
+        if segment == "":
+            return []
+        
+        if segment.startswith("{"):
+            options = segment[1:-1].split(",")
+            if len(options) == 0:
+                return []
+            
+            result = []
+            for option in options:
+                result.extend(expand_segment(f"{segment}/{option}"))
+            return result
+        
+        else:
+            return [segment]
+    
+    def expand_pattern(pattern):
+        segments = pattern.split("/")
+        
+        result = []
+        for segment in segments:
+            if segment.startswith("{"):
+                options = segment[1:-1].split(",")
+                if len(options) == 0:
+                    result.append(segment)
+                else:
+                    for option in options:
+                        result.extend(expand_pattern(f"{segment}/{option}"))
+            else:
+                result.extend(expand_segment(segment))
+        
+        return result
+    
+    return expand_pattern(pattern)
+```

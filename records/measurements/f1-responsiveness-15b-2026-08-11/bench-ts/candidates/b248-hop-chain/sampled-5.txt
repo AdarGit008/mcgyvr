@@ -1,0 +1,15 @@
+```ts
+export function hopChain(hops: string[][]): boolean {
+    if (!hops || !hops.length) return true;
+
+    let start = hops[0][0]; // Start of the chain is the first hop's start
+    let end = hops[0][1];   // End of the chain is the first hop's end
+
+    for (let i = 1; i < hops.length; i++) {
+        if (hops[i][0] !== end) return false; // If the current hop doesn't start where the previous one ended, it's not a chain
+        end = hops[i][1];             // Update the end of the chain to the next hop's end
+    }
+
+    return true;
+}
+```

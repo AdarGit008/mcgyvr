@@ -1,0 +1,43 @@
+```typescript
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+    if (!Number.isInteger(width) || width <= 0) {
+        throw new Error("Width must be a positive integer.");
+    }
+    if (!Number.isInteger(start) || start < 0 || start >= width) {
+        throw new Error("Start position must be an integer inside the corridor.");
+    }
+    const isValidMove = (delta: number): boolean => {
+        return Number.isInteger(delta) && delta !== 0;
+    };
+    if (!Array.isArray(moves) || !moves.every(isValidMove)) {
+        throw new Error("Moves must be a list of non-zero integer numbers.");
+    }
+
+    let position = start;
+    let bumps = 0;
+    const visited = new Set<number>();
+
+    moves.forEach(delta => {
+        const [newPosition, cutShort] = clampMove(position, delta, width);
+        if (cutShort) bumps++;
+        visited.add(newPosition);
+        position = newPosition;
+    });
+
+    return {
+        position,
+        bumps,
+        visited: visited.size
+    };
+}
+
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+    const nextPosition = position + delta;
+
+    if (nextPosition < 0 || nextPosition >= width) {
+        return [position, true];
+    }
+
+    return [nextPosition, false];
+}
+```

@@ -1,0 +1,14 @@
+```ts
+export function billSplit(total: number, diners: number): number[] {
+  if (diners === 0) throw new Error("Number of diners cannot be zero");
+
+  const share = Math.floor(total / diners);
+  const remainder = total % diners;
+
+  return Array.from({ length: diners }, (_, index) => {
+    const pay = share + (index < remainder ? 1 : 0);
+    if (pay > total) throw new Error("Each diner's pay cannot exceed the total bill");
+    return pay;
+  });
+}
+```

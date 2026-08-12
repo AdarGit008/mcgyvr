@@ -1,0 +1,48 @@
+```ts
+import { maxBy } from "lodash";
+
+function validatePlan(tripDays: number[], passes: { span: number; cost: number }[]): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+  const sortedTripDays = tripDays.slice().sort((a, b) => a - b);
+  let currentDayIndex = 0;
+  let totalCost = 0;
+  const purchases: number[][] = [];
+
+  for (const pass of passes) {
+    while (currentDayIndex < sortedTripDays.length && sortedTripDays[currentDayIndex] < pass.span + tripDays[0]) {
+      const nextPassStartDay = Math.max(sortedTripDays[currentDayIndex], tripDays[0]);
+      purchases.push([nextPassStartDay, pass.span]);
+      totalCost += pass.cost;
+      currentDayIndex++;
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+
+export default cheapestPassPlan;
+```

@@ -1,0 +1,38 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (typeof freshFor !== 'number' || typeof size !== 'number') throw new Error('Invalid input type');
+  if (!Number.isInteger(freshFor) || !Number.isInteger(size)) throw new Error('Fresh for and size must be positive integers');
+
+  const cache: { [key: string]: number } = {};
+  let lastRenderTick = -1;
+  const renderQueue: [number, string][] = [];
+
+  for (const [tick, tileName] of requests) {
+    if (!Number.isInteger(tick)) throw new Error('Tick must be a positive integer');
+    if (tick < lastRenderTick) continue;
+
+    if (cache[tileName]) {
+      // Tile is already rendered at a later tick; skip this request
+      continue;
+    }
+
+    renderQueue.push([tick, tileName]);
+
+    while (renderQueue.length > 0 && cache.size >= size) {
+      const [oldTick, oldTile] = renderQueue.shift()!;
+      delete cache[oldTile];
+    }
+
+    if (renderQueue.length === 1) {
+      // Only one tile is left in the queue; skip the rest
+      continue;
+    }
+
+    lastRenderTick = tick;
+  }
+
+  return renderQueue;
+}
+```

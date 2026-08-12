@@ -1,0 +1,19 @@
+id: b076-glob-path
+task_type: function_implementation
+task: >-
+  Implement glob_path. A glob pattern is matched against a slash-separated
+  relative path, character by character: a literal character matches only
+  itself, a question mark matches exactly one character that is not a
+  slash, and a star matches a run of zero or more characters that stops at
+  any slash, so no wildcard ever crosses from one path segment into the
+  next. The whole pattern must consume the whole path; return true when it
+  does and false otherwise. Reject a non-string pattern, a non-string
+  path, an empty pattern, and an empty path, with an error.
+target: solution.py
+interface: "def glob_path(pattern: str, path: str) -> bool"
+stop_conditions:
+  - How a literal star or question mark in a file name would be matched is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

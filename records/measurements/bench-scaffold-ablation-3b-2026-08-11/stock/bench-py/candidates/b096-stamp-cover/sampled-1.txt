@@ -1,0 +1,44 @@
+```python
+def stamp_table(dies: list) -> dict:
+    table = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not fragment:
+            raise ValueError("a die fragment must be a non-empty string")
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("a die price must be a positive integer")
+        if fragment in table:
+            raise ValueError("die listed twice: " + fragment)
+        table[fragment] = price
+    return table
+
+
+def stamp_cover(label: str, dies: list) -> int:
+    # Validate the label
+    if not isinstance(label, str) or not label:
+        raise ValueError("label must be a non-empty string")
+
+    # Build the lookup table
+    try:
+        table = stamp_table(dies)
+    except ValueError as e:
+        raise ValueError(f"invalid dies: {e}")
+
+    # Helper function to calculate the cheapest cost of covering a prefix
+    def cheapest_cost(prefix: str) -> int:
+        if not prefix:
+            return 0
+
+        best_cost = float('inf')
+        for fragment, price in table.items():
+            if prefix.startswith(fragment):
+                remaining_prefix = prefix[len(fragment):]
+                best_cost = min(best_cost, price + cheapest_cost(remaining_prefix))
+        
+        return best_cost
+
+    # Calculate the cheapest cost to cover the entire label
+    try:
+        return cheapest_cost(label)
+    except ValueError as e:
+        raise ValueError(f"invalid label: {e}")
+```

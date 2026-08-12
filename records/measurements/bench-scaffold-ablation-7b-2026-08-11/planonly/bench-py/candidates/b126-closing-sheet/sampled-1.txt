@@ -1,0 +1,46 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str):
+        if ":" not in entry or entry.count(":") != 1:
+            raise ValueError("Malformed sheet entry")
+        name, count = entry.split(":")
+        if not name.isalpha() or not name.islower():
+            raise ValueError("Invalid item name")
+        if not count.isdigit():
+            raise ValueError("Invalid count")
+        return name, int(count)
+
+    def parse_move(move: str):
+        if move.startswith("+") or move.startswith("-"):
+            operation = move[0]
+            item_count = move[1:].split(":")
+            if len(item_count) != 2:
+                raise ValueError("Malformed move")
+            item, count = item_count
+            if not item.isalpha() or not item.islower():
+                raise ValueError("Invalid item name")
+            if not count.isdigit() or int(count) <= 0:
+                raise ValueError("Invalid quantity")
+            return operation, item, int(count)
+        else:
+            raise ValueError("Invalid move format")
+
+    opening_entries = {parse_entry(entry): None for entry in opening.split(";") if entry}
+    if len(opening_entries) != len(set(item for item, _ in opening_entries)):
+        raise ValueError("Duplicate item name on the opening sheet")
+
+    for move in moves.split(";"):
+        if not move:
+            continue
+        operation, item, count = parse_move(move)
+        if item not in opening_entries:
+            raise ValueError(f"Issue of an item '{item}' the sheet does not hold")
+        if (operation == "+" and item not in opening_entries) or (operation == "-"):
+            opening_entries[item] = opening_entries.get(item, 0) + (count * (1 if operation == "+" else -1))
+            if opening_entries[item] < 0:
+                raise ValueError(f"Issue of more units than the item '{item}' then holds")
+            elif opening_entries[item] == 0:
+                del opening_entries[item]
+
+    return ";".join(f"{name}:{count}" for name, count in sorted(opening_entries.items()))
+```

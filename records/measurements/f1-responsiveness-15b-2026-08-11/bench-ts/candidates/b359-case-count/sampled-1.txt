@@ -1,0 +1,8 @@
+```ts
+export function caseCount(text: string): number[] {
+  const lowerCaseLetters = [...text].filter(char => char >= 'a' && char <= 'z');
+  const upperCaseLetters = [...text].filter(char => char >= 'A' && char <= 'Z');
+
+  return [upperCaseLetters.length, lowerCaseLetters.length];
+}
+```

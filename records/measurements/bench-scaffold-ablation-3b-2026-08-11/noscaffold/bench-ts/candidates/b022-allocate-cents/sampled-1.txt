@@ -1,0 +1,29 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Input must be a string');
+  
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) throw new Error('Invalid amount format');
+
+  const [_, decimalPart] = match;
+  return parseInt(decimalPart ? text * 100 : text, 10);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || isNaN(cents)) throw new Error('Input must be a non-negative integer');
+  
+  const decimalPart = cents % 100;
+  const fractionalString = decimalPart < 10 ? `0${decimalPart}` : `${decimalPart}`;
+  return `$${Math.floor(cents / 100)}.${fractionalString}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (typeof totalCents !== 'number' || isNaN(totalCents)) throw new Error('Total cents must be a non-negative integer');
+  if (!Array.isArray(weights) || weights.some(weight => typeof weight !== 'number' || !Number.isInteger(weight))) throw new Error('Weights must be an array of non-negative integers');
+  
+  const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
+  if (totalWeight <= 0) throw new Error('Total weight must be greater than zero');
+
+  return weights.map(() => Math.floor(totalCents / totalWeight));
+}
+```

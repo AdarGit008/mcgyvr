@@ -1,0 +1,14 @@
+```ts
+/** A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  if (!store) return {};
+  const hidden: Record<string, string> = {};
+  for (const key in store) {
+    if (key === "") continue; // Skip empty keys
+    hidden["*".repeat(key.length)] = hideValues(store[key]); // Recursively hide nested values
+  }
+  return hidden;
+}
+```

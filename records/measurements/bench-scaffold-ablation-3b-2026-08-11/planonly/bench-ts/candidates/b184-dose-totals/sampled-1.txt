@@ -1,0 +1,30 @@
+```ts
+type ReagentAmount = [string, string];
+
+export function doseTotals(log: ReagentAmount[]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amountStr] of log) {
+    if (!/^-?\d+(\.\d{1,3})?$/.test(amountStr)) {
+      throw new Error(`Invalid amount format in pour log`);
+    }
+
+    const amount = parseFloat(amountStr);
+    totals[reagent] = (totals[reagent] || 0) + amount;
+  }
+
+  const result: Record<string, string> = {};
+  for (const [reagent, total] of Object.entries(totals)) {
+    let formattedTotal = total.toFixed(3);
+
+    // Strip trailing zeros after the decimal point
+    if (formattedTotal.endsWith('.000')) {
+      formattedTotal = formattedTotal.slice(0, -4);
+    }
+
+    result[reagent] = formattedTotal;
+  }
+
+  return result;
+}
+```

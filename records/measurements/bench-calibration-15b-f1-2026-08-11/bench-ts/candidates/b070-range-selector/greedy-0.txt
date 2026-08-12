@@ -1,0 +1,39 @@
+```ts
+export function selectorHits(values: number[], selector: string): number {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) {
+    throw new Error("Values must be a list of integers.");
+  }
+
+  if (typeof selector !== 'string' || selector === '') {
+    throw new Error("Selector must be a non-empty string.");
+  }
+
+  const terms = selector.split(',');
+  let count = 0;
+
+  for (const term of terms) {
+    const parts = term.split('-');
+    if (parts.length > 2) {
+      throw new Error("Term must not have more than two hyphens.");
+    }
+
+    let [low, high] = parts.map(Number);
+    if (isNaN(low) || isNaN(high)) {
+      throw new Error("Term must be a non-negative integer or two integers separated by a hyphen.");
+    }
+
+    if (high < low) {
+      throw new Error("Range's low end cannot exceed its high end.");
+    }
+
+    for (let i = Math.min(low, high); i <= Math.max(low, high); i++) {
+      if (values.includes(i)) {
+        count++;
+        break;
+      }
+    }
+  }
+
+  return count;
+}
+```

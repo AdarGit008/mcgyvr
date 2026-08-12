@@ -1,0 +1,18 @@
+```python
+def grid_flip(grid):
+    """
+    Flip a given grid so that its columns become rows.
+
+    :param grid: List of lists representing the input grid.
+    :return: A new list of lists representing the flipped grid.
+    """
+    if not grid:
+        return []
+
+    # Helper function to transpose the grid
+    def transpose(grid):
+        return [list(row) for row in zip(*grid)]
+
+    # Flip the grid by transposing it twice
+    return transpose(transpose(grid))
+```

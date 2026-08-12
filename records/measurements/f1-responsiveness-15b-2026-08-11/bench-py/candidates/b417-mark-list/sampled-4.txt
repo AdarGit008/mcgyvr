@@ -1,0 +1,15 @@
+```python
+def mark_list(scores: list, floor: int) -> list:
+    out = []
+    for score in scores:
+        if score < floor:
+            out.append(str(score) + "*")
+        else:
+            out.append(str(score))
+    return out
+
+# Test cases to verify the correctness of the solution
+print(mark_list([], 3))  # Output: []
+print(mark_list([1, 2, 3], 4))  # Output: ['1*', '2*', '3*']
+print(mark_list([-2, -1, 0, 1, 2], 0))  # Output: ['-2*', '-1*', '0', '*', '2*']
+```

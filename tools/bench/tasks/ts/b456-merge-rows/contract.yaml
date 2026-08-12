@@ -1,0 +1,33 @@
+id: b456-merge-rows
+task_type: bug_fix
+task: >-
+  rowKeys returns the names a row holds, in the order it holds them.
+  mergeRows lays one row over another so the second row's values win
+  where both hold a name, and it lets the first row win instead. Fix
+  mergeRows. Neither row given is ever altered. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function rowKeys(row: Record<string, string>): string[] {
+    return Object.keys(row);
+  }
+
+  /** One row laid over another, the row above winning. */
+  export function mergeRows(
+    under: Record<string, string>,
+    over: Record<string, string>,
+  ): Record<string, string> {
+    const merged: Record<string, string> = { ...over };
+    for (const key of rowKeys(under)) {
+      merged[key] = under[key];
+    }
+    return merged;
+  }
+interface: "export function rowKeys(row: Record<string, string>): string[]
+export function mergeRows(under: Record<string, string>, over: Record<string, string>): Record<string, string>"
+stop_conditions:
+  - Whether a name holding empty text should still win is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

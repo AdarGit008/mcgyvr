@@ -1,0 +1,22 @@
+```ts
+export function stepCost(distance: number, rate: number): number {
+  return distance * rate;
+}
+
+/** The cost of a whole trip, never below the minimum charge. */
+export function tripCost(
+  hops: number[],
+  rate: number,
+  minimum: number,
+): number {
+  if (hops.length === 0) {
+    return minimum;
+  }
+  let total = stepCost(hops[0], rate);
+  for (let i = 1; i < hops.length; i++) {
+    const cost = stepCost(hops[i], rate);
+    total = Math.max(total, cost);
+  }
+  return total >= minimum ? total : minimum;
+}
+```

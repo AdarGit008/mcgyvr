@@ -1,0 +1,21 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if length <= 0:
+        raise ValueError("Length must be greater than zero")
+    
+    if row < 0 or row >= len(floor):
+        raise ValueError("Row out of bounds")
+    
+    if col < 0 or col + length - 1 >= len(floor[row]):
+        raise ValueError("Run would leave the plan")
+    
+    new_floor = [row[:] for row in floor]
+    
+    for i in range(length):
+        if new_floor[row][col + i] != ".":
+            raise ValueError("Run over an occupied cell")
+        
+        new_floor[row][col + i] = "="
+    
+    return new_floor
+```

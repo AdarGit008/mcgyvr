@@ -1,0 +1,11 @@
+```python
+def hex_split(colour: str) -> list:
+    if len(colour) != 7 or not all(c in '0123456789abcdefABCDEF' for c in colour):
+        raise ValueError("Invalid colour format. Must be a hash followed by six hexadecimal digits.")
+    return [colour[:2].lower(), colour[2:4].lower(), colour[4:].lower()]
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3 or not all(isinstance(part, str) for part in parts):
+        raise ValueError("Invalid parts. Must be three two-digit hexadecimal strings.")
+    return ''.join(part.lower() for part in parts)
+```

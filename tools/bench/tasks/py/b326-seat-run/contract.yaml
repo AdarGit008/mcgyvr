@@ -1,0 +1,16 @@
+id: b326-seat-run
+task_type: function_implementation
+task: >-
+  Implement seat_run. A row is written as a run of characters, a full
+  stop for a free seat and an x for a taken one. Given a row and a
+  party size, return the position of the first seat of the earliest
+  run of free seats long enough to hold the party, or minus one when
+  there is none.
+target: solution.py
+interface: "def seat_run(row: str, party: int) -> int"
+stop_conditions:
+  - What should happen when a party of nobody is asked for is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

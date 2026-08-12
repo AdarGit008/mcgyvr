@@ -1,0 +1,12 @@
+```python
+import re
+
+
+def sentence_split(passage: str) -> list:
+    """A passage broken into its sentences."""
+    # Split on full stops, question marks, and exclamation marks
+    pieces = re.split(r"[.?!]", passage)
+    
+    # Filter out empty strings, strip surrounding spaces, and return the results
+    return [piece.strip() for piece in pieces if piece.strip()]
+```

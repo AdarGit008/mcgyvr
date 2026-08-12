@@ -1,0 +1,30 @@
+```python
+
+from typing import *
+from collections import *
+
+def in_quote(ch: str) -> bool:
+    return ch == '"' or ch == "'"
+
+def quote_split(line: str) -> list:
+    result = []
+    current_quote = None
+    current_piece = ""
+    
+    for ch in line:
+        if current_quote is not None and ch != current_quote:
+            current_piece += ch
+        elif in_quote(ch):
+            if current_quote:
+                current_piece += ch
+            else:
+                current_quote = ch
+        elif current_piece:
+            result.append(current_piece)
+            current_piece = ""
+    
+    if current_piece:
+        result.append(current_piece)
+    
+    return result
+```

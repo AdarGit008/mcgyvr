@@ -1,0 +1,21 @@
+```ts
+export function checkDigit(code: string): number {
+  if (code === "") return 0;
+
+  const digits = [...code].filter(char => char >= "0" && char <= "9");
+
+  if (digits.length === 0) throw new Error("Code cannot be empty.");
+
+  let sum = 0;
+  for (const digit of digits) {
+    sum += parseInt(digit, 10);
+  }
+
+  return sum % 10 === 0 ? 0 : 10 - sum % 10;
+}
+```
+
+This implementation follows the task contract exactly:
+- It checks if the input code is empty and returns `0` accordingly.
+- It filters out non-digit characters and sums up all the remaining digits.
+- It calculates the check digit by finding the difference between the sum modulo 10 and 10, ensuring it always results in a single digit.

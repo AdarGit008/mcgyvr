@@ -1,0 +1,15 @@
+id: b486-join-books
+task_type: function_implementation
+task: >-
+  Implement join_books. Bring two books of entries together into one.
+  Where a name stands in both and carries the same reading, the one
+  reading is kept. Reject a name standing in both under different
+  readings with an error.
+target: solution.py
+interface: "def join_books(first: dict[str, int], second: dict[str, int]) -> dict[str, int]"
+stop_conditions:
+  - Whether the order the names come back in should follow the first book is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,14 @@
+id: b498-spill-lots
+task_type: function_implementation
+task: >-
+  Implement spillLots. Tip every lot out into one run, lot by lot and,
+  inside a lot, entry by entry in the order they stand. An entry
+  holding nothing is left behind. A lot holding nothing adds nothing.
+target: solution.ts
+interface: "export function spillLots(lots: string[][]): string[]"
+stop_conditions:
+  - Whether an entry standing in two lots should be tipped out twice is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,38 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Opening and moves must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        return name, int(count)
+
+    def parse_move(move: str) -> tuple[str, int]:
+        name, op, qty = move.partition('+') if '+' in move else move.partition('-')
+        if op != '-' and op != '+':
+            raise ValueError("Move must be of the form 'name+qty' or 'name-qty'")
+        return name, int(qty) * (-1 if op == '-' else 1)
+
+    opening_entries = {parse_entry(entry): None for entry in opening.split(';') if entry}
+    unique_names = set(opening_entries)
+    if len(unique_names) != len(opening_entries):
+        raise ValueError("Duplicate item names on the opening sheet")
+
+    moves_list = moves.split(';')
+    if any(not move for move in moves_list):
+        moves_list.remove('')
+
+    for move in moves_list:
+        name, qty = parse_move(move)
+        if name not in unique_names:
+            raise ValueError(f"Issue of an item '{name}' the sheet does not hold")
+        if opening_entries[name] is None and qty > 0:
+            opening_entries[name] = qty
+        elif opening_entries[name] is not None and opening_entries[name] + qty < 0:
+            raise ValueError(f"Issue of more units than the item '{name}' then holds")
+        else:
+            opening_entries[name] = (opening_entries[name] or 0) + qty
+
+    closing_entries = [f"{name}:{count}" for name, count in opening_entries.items() if count is not None and count > 0]
+    return ';'.join(sorted(closing_entries))
+```

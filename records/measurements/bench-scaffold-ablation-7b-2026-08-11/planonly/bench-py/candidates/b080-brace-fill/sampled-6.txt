@@ -1,0 +1,23 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string")
+    
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            j = i + 1
+            while j < len(template) and template[j].isalnum():
+                j += 1
+            if j == i + 1 or template[j] != '}':
+                raise ValueError("Unterminated placeholder")
+            name = template[i+1:j]
+            result.append(values.get(name, '{' + name + '}'))
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+    
+    return ''.join(result)
+```

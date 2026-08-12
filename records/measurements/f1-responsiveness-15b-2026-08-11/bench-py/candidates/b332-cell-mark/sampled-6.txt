@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def live_count(neighbours: List[int]) -> int:
+    return sum(neighbour == 1 for neighbour in neighbours)
+
+def live_next(alive: bool, neighbours: List[int]) -> bool:
+    alive_neighbours = sum(neighbour == 1 for neighbour in neighbours)
+    if alive and (alive_neighbours == 2 or alive_neighbours == 3):
+        return True
+    elif not alive and alive_neighbours == 3:
+        return True
+    else:
+        return False
+```

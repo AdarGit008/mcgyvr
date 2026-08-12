@@ -1,0 +1,62 @@
+id: b111-journal-rollback
+task_type: bug_fix
+task: >-
+  rollbackJournal restores an earlier state of a line-based document
+  incorrectly. The document is a list of lines and the journal records the
+  edits already applied to it, oldest first: an insert entry
+  ["insert", index, text] recorded that text became the line at index, a
+  delete entry ["delete", index, text] recorded that the line text was
+  removed from index, and a replace entry ["replace", index, before, after]
+  recorded that the line at index changed from before to after. Rolling
+  back count edits must unwind the newest count entries one at a time,
+  newest first, each by applying its inverse: an insert is undone by
+  removing its line, a delete by putting its line back, a replace by
+  restoring its before text. At present the entries are unwound oldest
+  first, so a rollback spanning entries that touch nearby indexes corrupts
+  the document, and undoing a replace writes the after text back instead of
+  the before text. rollbackJournal must return the rolled-back document as
+  a new list, leaving its argument unmodified, and it already rejects a
+  lines argument that is not a list of strings and a journal that is not a
+  list — keep those rejections. Also add the missing validation: reject a
+  count that is not an integer from 0 to the journal length, an entry that
+  is not a list opening with a known kind and carrying exactly its fields
+  with string texts, an entry index that is not an integer addressing the
+  document, an insert entry whose text does not equal the line it should
+  remove, and a replace entry whose after text does not equal the line it
+  should rewrite, with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function rollbackJournal(
+    lines: string[],
+    journal: (string | number)[][],
+    count: number,
+  ): string[] {
+    if (!Array.isArray(lines) || lines.some((line) => typeof line !== "string")) {
+      throw new Error("lines must be a list of strings");
+    }
+    if (!Array.isArray(journal)) {
+      throw new Error("journal must be a list");
+    }
+    const doc = lines.slice();
+    const first = Math.max(0, journal.length - count);
+    for (let i = first; i < journal.length; i += 1) {
+      const [kind, index] = journal[i];
+      if (kind === "insert") {
+        doc.splice(index as number, 1);
+      } else if (kind === "delete") {
+        doc.splice(index as number, 0, journal[i][2] as string);
+      } else if (kind === "replace") {
+        doc[index as number] = journal[i][3] as string;
+      } else {
+        throw new Error("unknown journal entry kind");
+      }
+    }
+    return doc;
+  }
+interface: "export function rollbackJournal(lines: string[], journal: (string | number)[][], count: number): string[]"
+stop_conditions:
+  - Whether an entry text may be the empty string is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

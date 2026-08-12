@@ -1,0 +1,26 @@
+id: b500-pair-off
+task_type: bug_fix
+task: >-
+  pairOff takes marks away in neighbouring pairs. Where a mark meets
+  one of its own kind standing next to it, both go, and whatever they
+  stood between becomes neighbouring in turn and may pair off as well.
+  Fix pairOff. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function pairOff(marks: string[]): string[] {
+    const left: string[] = [];
+    for (const mark of marks) {
+      if (left.length > 0 && left[left.length - 1] === mark) {
+        continue;
+      }
+      left.push(mark);
+    }
+    return left;
+  }
+interface: "export function pairOff(marks: string[]): string[]"
+stop_conditions:
+  - Whether three of a kind standing together should leave one or none is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

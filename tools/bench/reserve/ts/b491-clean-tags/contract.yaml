@@ -1,0 +1,16 @@
+id: b491-clean-tags
+task_type: function_implementation
+task: >-
+  tagOk says whether a tag may be kept: it must hold something, and
+  every character must be a letter or a dash. cleanTags keeps the tags
+  that may be, lowers them, and drops any that has already been kept.
+  Implement cleanTags. The kept tags hold their arriving order.
+target: solution.ts
+interface: "export function tagOk(tag: string): boolean
+export function cleanTags(tags: string[]): string[]"
+stop_conditions:
+  - Whether a tag opening or closing with a dash should be kept is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

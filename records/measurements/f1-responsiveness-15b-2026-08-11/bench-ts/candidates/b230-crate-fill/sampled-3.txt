@@ -1,0 +1,23 @@
+```ts
+export function crateFill(items: number, crates: number): number[] {
+  if (items < 0 || crates <= 0) {
+    throw new Error("Invalid arguments");
+  }
+
+  const average = Math.floor(items / crates);
+  const remainder = items % crates;
+
+  const result: number[] = Array.from({ length: crates }, (_, i) => i * average + Math.min(i, remainder));
+  return result;
+}
+
+export function crateTotal(sizes: number[]): number {
+  if (sizes.length === 0) {
+    throw new Error("Empty list");
+  }
+
+  let total = sizes.reduce((acc, val) => acc + val, 0);
+
+  return total;
+}
+```

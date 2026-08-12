@@ -1,0 +1,72 @@
+```ts
+import { Record } from 'typescript-collections';
+
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events)) throw new Error("Events must be an array of arrays.");
+  events.forEach(event => {
+    if (!Array.isArray(event) || event.length !== 2) throw new Error("Each event must be a list with exactly two items.");
+
+    const [action, payload] = event;
+
+    if (typeof action !== 'string' || typeof payload !== 'number') throw new Error("Invalid event format.");
+  });
+
+  let state: string = 'open';
+  let cart: Record<string, number> = new Record<string, number>();
+  let total = 0;
+  let paid = 0;
+
+  for (const [action, payload] of events) {
+    switch (action) {
+      case 'scan': {
+        if (!prices.hasOwnProperty(payload.toString())) throw new Error("Item not in price list.");
+        cart[payload.toString()] = (cart[payload.toString()] || 0) + 1;
+        total += prices[payload.toString()];
+        break;
+      }
+      case 'void': {
+        const item = payload.toString();
+        if (!cart.hasOwnProperty(item)) throw new Error("Void of an item not in cart.");
+        cart[item] -= 1;
+        total -= prices[payload.toString()];
+        if (cart[item] === 0) delete cart[item];
+        break;
+      }
+      case 'close': {
+        if (state !== 'open') throw new Error("Cannot close a session that is already closed or paid/cancelled.");
+        const change = paid - total;
+        state = 'paid';
+        break;
+      }
+      case 'pay': {
+        if (state !== 'payment' && state !== 'open') throw new Error("Cannot pay during an open session.");
+        if (!Number.isInteger(payload) || payload <= 0) throw new Error("Pay amount must be a positive integer.");
+        paid += payload;
+        const change = paid - total;
+        if (change >= 0) {
+          state = 'paid';
+        } else {
+          throw new Error("Payment does not cover the total. Cannot pay.");
+        }
+        break;
+      }
+      case 'cancel': {
+        if (state !== 'open' && state !== 'payment') throw new Error("Cannot cancel a session that is already paid/cancelled.");
+        state = 'cancelled';
+        break;
+      }
+      default: {
+        throw new Error(`Unknown action: ${action}`);
+      }
+    }
+
+    // End of events, return the final state and cart
+    if (events.length === 1 && ![...Object.keys(prices), ...cart.keys()].includes(action)) {
+      const sortedItems = [...cart.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      return { state, items: sortedItems, total, paid, change };
+    }
+  }
+
+  throw new Error("Incomplete events; cannot conclude session.");
+}
+```

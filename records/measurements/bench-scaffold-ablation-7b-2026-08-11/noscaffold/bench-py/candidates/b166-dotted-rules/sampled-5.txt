@@ -1,0 +1,24 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if '*' in rules and name != '*':
+        raise ValueError("Rule names cannot contain '*'.")
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("Rule values must be strings.")
+        
+        if selector == name:
+            return value
+        elif selector.endswith('.*'):
+            prefix = selector[:-2]
+            if name.startswith(prefix):
+                return value
+    
+    if '*' in rules:
+        return rules['*']
+    
+    return None
+```

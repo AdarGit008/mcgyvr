@@ -1,0 +1,52 @@
+```python
+def file_paths(root: dict) -> list:
+    def walk(node: dict, path: str = "") -> list:
+        file_paths = []
+        if isinstance(node, dict):
+            for name, value in node.items():
+                if isinstance(name, str) and not name.startswith("/") and "/" not in name:
+                    new_path = f"{path}/{name}" if path else name
+                    if isinstance(value, int):  # File
+                        file_paths.append(new_path)
+                        file_paths.extend(walk(value))
+                    elif isinstance(value, dict):  # Folder
+                        file_paths.append(new_path + "/")
+                        file_paths.extend(walk(value, new_path))
+        return file_paths
+    
+    return walk(root)
+
+def tree_bytes(node: dict) -> int:
+    if not isinstance(node, dict):
+        raise ValueError("Node must be a dictionary.")
+    
+    total = 0
+    for value in node.values():
+        if isinstance(value, int):  # File
+            total += value
+        elif isinstance(value, dict):  # Folder
+            total += tree_bytes(value)
+    
+    return total
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative integer.")
+    
+    def walk(node: dict, path: str = "", total: int = 0) -> list:
+        heavy_folders = []
+        if isinstance(node, dict):
+            for name, value in node.items():
+                if isinstance(name, str) and not name.startswith("/") and "/" not in name:
+                    new_path = f"{path}/{name}" if path else name
+                    new_total = total + (value if isinstance(value, int) else 0)
+                    if new_total >= min_bytes:
+                        heavy_folders.append([new_path, new_total])
+                    if isinstance(value, dict):  # Folder
+                        heavy_folders.extend(walk(value, new_path, new_total))
+        return heavy_folders
+    
+    return walk(root)
+```

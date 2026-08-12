@@ -1,0 +1,38 @@
+```ts
+/**
+ * Returns the value for the given option name based on the provided rules,
+ * following the style rule resolution logic.
+ *
+ * @param rules - The mapping of selector strings to string values.
+ * @param name - The dotted option name to resolve.
+ * @returns The winning value or null if no selector covers the name.
+ */
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name === '' || name.includes('*')) {
+    throw new Error('Invalid option name');
+  }
+
+  let winner: [string, string] | null = null;
+
+  for (const selector in rules) {
+    const value = rules[selector];
+    if (typeof value !== 'string') {
+      throw new Error('Invalid rule value');
+    }
+
+    if (selector === name) {
+      return value;
+    } else if (selector.endsWith('.*') && name.startsWith(selector.slice(0, -2))) {
+      if (!winner || selector.length > winner[0].length) {
+        winner = [selector, value];
+      }
+    } else if (selector === '*') {
+      if (!winner) {
+        winner = [selector, value];
+      }
+    }
+  }
+
+  return winner ? winner[1] : null;
+}
+```

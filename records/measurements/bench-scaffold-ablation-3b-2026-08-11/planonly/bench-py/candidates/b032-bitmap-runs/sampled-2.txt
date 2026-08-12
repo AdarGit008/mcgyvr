@@ -1,0 +1,84 @@
+```python
+def validate_integers(numbers):
+    if not all(isinstance(num, int) for num in numbers):
+        raise ValueError("All elements must be integers.")
+
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    """
+    Find the smallest start of a free run of 'length' blocks below the
+    given 'capacity', or return -1 if no such run exists.
+    """
+    validate_integers([capacity, length])
+
+    if not (isinstance(words, list) and all(isinstance(word, int) for word in words)):
+        raise ValueError("Words must be a list of integers.")
+
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    required_words = (capacity + 32 - 1) // 32
+    if len(words) != required_words:
+        raise ValueError("The number of words does not match the capacity.")
+
+    for word in words:
+        if not (0 <= word <= 4294967295):
+            raise ValueError("Each word must be an integer from 0 to 4294967295.")
+
+    start = -1
+    end = len(words) * 32
+
+    for i in range(end):
+        if bit_at(words, i) == 0:
+            free_run_length = 0
+            while free_run_length < length and i + free_run_length < end:
+                if bit_at(words, i + free_run_length) == 1:
+                    break
+                free_run_length += 1
+
+            if free_run_length == length:
+                start = i
+                break
+
+    return start
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    """
+    Occupy a run of 'length' blocks starting at 'start'.
+    """
+    validate_integers([start, length])
+
+    if not (isinstance(words, list) and all(isinstance(word, int) for word in words)):
+        raise ValueError("Words must be a list of integers.")
+
+    if start < 0 or start >= len(words) * 32:
+        raise ValueError("Start index is out of bounds.")
+    
+    end = start + length
+    if end > len(words) * 32 or not all(bit_at(words, i) == 0 for i in range(start, end)):
+        raise ValueError("Cannot occupy a run that touches an occupied block or extends beyond the capacity.")
+
+    word_index = start // 32
+    bit_position = start % 32
+
+    if length > 0:
+        words[word_index] |= (1 << bit_position) | ((1 << (bit_position + length - 1)) >> 1)
+
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    """
+    Return the value of the bit at 'index'.
+    """
+    validate_integers([index])
+
+    if not (isinstance(words, list) and all(isinstance(word, int) for word in words)):
+        raise ValueError("Words must be a list of integers.")
+
+    if index < 0 or index >= len(words) * 32:
+        raise ValueError("Index is out of bounds.")
+    
+    word_index = index // 32
+    bit_position = index % 32
+
+    return (words[word_index] >> bit_position) & 1
+```

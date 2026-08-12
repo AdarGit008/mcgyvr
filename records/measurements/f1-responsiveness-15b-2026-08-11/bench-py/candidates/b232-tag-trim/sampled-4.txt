@@ -1,0 +1,10 @@
+```python
+def tag_trim(tag: str) -> str:
+    if isinstance(tag, str):
+        if tag.startswith('#') and tag.endswith(':'):
+            return tag[1:-1]
+        else:
+            return tag
+    else:
+        raise ValueError("Input must be a string")
+```

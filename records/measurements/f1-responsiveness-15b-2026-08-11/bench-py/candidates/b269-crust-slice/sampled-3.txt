@@ -1,0 +1,16 @@
+```python
+import os
+
+def crust_slice(name: str) -> str:
+    if name == "":
+        return name
+    elif name[0] == ".":
+        return ""
+    else:
+        # Splitting by last dot to get the part before it
+        parts = name.rsplit(".", 1)
+        if len(parts) > 1:
+            return parts[0]
+        else:
+            return name
+```

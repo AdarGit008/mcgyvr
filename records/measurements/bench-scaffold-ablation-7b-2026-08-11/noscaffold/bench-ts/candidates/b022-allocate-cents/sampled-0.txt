@@ -1,0 +1,52 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid input type');
+  }
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) {
+    throw new Error('Invalid amount format');
+  }
+  return Math.round(parseFloat(text) * 100);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || isNaN(cents) || cents < 0 || !Number.isInteger(cents)) {
+    throw new Error('Invalid input type or value');
+  }
+  return `${cents / 100.toFixed(2).padStart(5, '0').slice(0, -2)}.`.concat(
+    cents / 100.toFixed(2).slice(-2)
+  );
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Invalid weights list');
+  }
+  if (weights.some(weight => typeof weight !== 'number' || isNaN(weight) || weight < 0 || !Number.isInteger(weight))) {
+    throw new Error('Invalid weight value');
+  }
+  if (weights.reduce((sum, weight) => sum + weight, 0) === 0) {
+    throw new Error('Weights sum to zero');
+  }
+  if (typeof totalCents !== 'number' || isNaN(totalCents) || totalCents < 0 || !Number.isInteger(totalCents)) {
+    throw new Error('Invalid totalCents value');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const baseValues = weights.map(weight => Math.floor((weight / totalWeight) * totalCents));
+  let remainingCents = totalCents - baseValues.reduce((sum, value) => sum + value, 0);
+
+  const remainderIndices = weights
+    .map((_, index) => index)
+    .sort((a, b) => ((weights[b] / totalWeight) * totalCents) % 1 - ((weights[a] / totalWeight) * totalCents) % 1);
+  remainderIndices.forEach(index => {
+    if (remainingCents > 0) {
+      baseValues[index]++;
+      remainingCents--;
+    }
+  });
+
+  return baseValues;
+}
+```

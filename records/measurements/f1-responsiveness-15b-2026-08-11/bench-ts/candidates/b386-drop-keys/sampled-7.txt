@@ -1,0 +1,43 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * The store without the keys a list names.
+ * @param store - The source store from which keys will be dropped.
+ * @param keys - A list of keys to be removed from the store.
+ * @returns A new store with the specified keys removed.
+ */
+export function dropKeys(
+  store: Record<string, number>,
+  keys: string[],
+): Record<string, number> {
+  const kept: Record<string, number> = {};
+  for (const key of Object.keys(store)) {
+    if (!keys.includes(key)) {
+      kept[key] = store[key];
+    }
+  }
+  return kept;
+}
+
+// Check function to verify the correctness of the solution
+function checkDropKeys() {
+  const testCases: [Record<string, number>, string[], Record<string, number>][] = [
+    [{ a: 1, b: 2 }, ['a'], {}],
+    [{ x: 3, y: 4, z: 5 }, ['y', 'z'], { x: 3 }],
+    [{ name: 'Alice', age: 25, city: 'New York' }, ['name', 'city'], { age: 25 }],
+    [{ a: 10, b: 20, c: 30, d: 40 }, [], {}],
+    [{ 1: 1, 0: 0, -1: -1, Infinity: Infinity, NaN: NaN }, ['1', '-1'], { Infinity: Infinity, NaN: NaN }],
+  ];
+
+  testCases.forEach(([store, keys, expected]) => {
+    const result = dropKeys(store, keys);
+    assert.deepStrictEqual(result, expected, `Expected ${JSON.stringify(expected)} but got ${JSON.stringify(result)}`);
+  });
+
+  console.log('All tests passed!');
+}
+
+// Run the check function to verify the solution
+checkDropKeys();
+```

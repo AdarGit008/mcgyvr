@@ -1,0 +1,14 @@
+id: b463-take-back
+task_type: function_implementation
+task: >-
+  Implement takeBack. Taking entries from the end of a list toward its
+  start, return how many must be taken before their total reaches a
+  target. Return minus one when the whole list never reaches it.
+target: solution.ts
+interface: "export function takeBack(values: number[], target: number): number"
+stop_conditions:
+  - Whether a target of nothing should need any entries at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

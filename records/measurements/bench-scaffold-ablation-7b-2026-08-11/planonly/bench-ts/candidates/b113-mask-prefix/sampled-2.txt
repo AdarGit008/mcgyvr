@@ -1,0 +1,37 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (typeof prefix !== 'number' || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error('Invalid prefix');
+  }
+  const ones = '1'.repeat(prefix);
+  const zeros = '0'.repeat(32 - prefix);
+  return [ones, zeros].join('.').replace(/(.{8})(?=.)/g, '$1.');
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string') {
+    throw new Error('Invalid mask');
+  }
+  const parts = mask.split('.');
+  if (parts.length !== 4) {
+    throw new Error('Invalid mask format');
+  }
+  let count = 0;
+  for (const part of parts) {
+    if (/^0[1-9]/.test(part)) {
+      throw new Error('Invalid leading zero');
+    }
+    const num = parseInt(part, 10);
+    if (!Number.isInteger(num) || num < 0 || num > 255) {
+      throw new Error('Invalid octet value');
+    }
+    if (num === 0) {
+      return count;
+    } else if ((num & (num + 1)) !== 0) {
+      throw new Error('Broken run of ones');
+    }
+    count += part.length;
+  }
+  return count;
+}
+```

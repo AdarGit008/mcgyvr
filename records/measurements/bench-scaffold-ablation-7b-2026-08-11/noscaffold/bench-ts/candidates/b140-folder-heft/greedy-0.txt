@@ -1,0 +1,61 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  const paths: string[] = [];
+  const traverse = (node: any, path: string) => {
+    if (typeof node !== 'object' || node === null) return;
+    for (const name in node) {
+      if (name === 'children') continue;
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+      const fullPath = path ? `${path}/${name}` : name;
+      paths.push(fullPath);
+      traverse(node[name], fullPath);
+    }
+  };
+  traverse(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  let bytes = 0;
+  const traverse = (node: any) => {
+    if (typeof node !== 'object' || node === null) return;
+    for (const name in node) {
+      if (name === 'children') continue;
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+      const value = node[name];
+      if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+        bytes += value;
+      } else if (Array.isArray(value)) {
+        for (const child of value) traverse(child);
+      } else throw new Error('Invalid node');
+    }
+  };
+  traverse(root);
+  return bytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+  const result: [string, number][] = [];
+  const traverse = (node: any, path: string, totalBytes: number) => {
+    if (typeof node !== 'object' || node === null) return;
+    let folderBytes = totalBytes;
+    for (const name in node) {
+      if (name === 'children') continue;
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+      const value = node[name];
+      if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+        folderBytes += value;
+      } else if (Array.isArray(value)) {
+        for (const child of value) traverse(child, path ? `${path}/${name}` : name, folderBytes);
+      } else throw new Error('Invalid node');
+    }
+    if (folderBytes >= minBytes) result.push([path, folderBytes]);
+  };
+  traverse(root, '', treeBytes(root));
+  return result;
+}
+```

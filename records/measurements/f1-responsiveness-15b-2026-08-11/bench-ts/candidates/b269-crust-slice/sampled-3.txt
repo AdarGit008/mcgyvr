@@ -1,0 +1,9 @@
+```ts
+export function crustSlice(name: string): string {
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex === -1) return name; // No dot found, return unchanged
+  return name.substring(0, lastDotIndex);
+}
+```
+
+The `crustSlice` function checks if there is a dot in the input string. If not, it returns the original string as no dot was found. If there is a dot, it uses `substring` to slice the string up to but not including the dot, effectively returning the part of the string before its final dot.

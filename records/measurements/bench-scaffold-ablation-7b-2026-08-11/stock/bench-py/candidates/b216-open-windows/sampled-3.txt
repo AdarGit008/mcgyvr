@@ -1,0 +1,25 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        return [int(p[:2]) * 60 + int(p[3:]) for p in parts]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    start, end = minutes(span)
+    free: list[str] = []
+    last_end = start
+
+    for app_start, app_end in sorted((minutes(app) for app in booked)):
+        if app_start > last_end:
+            free.append(stamp(last_end) + "-" + stamp(app_start))
+        last_end = max(last_end, app_end)
+
+    if last_end < end:
+        free.append(stamp(last_end) + "-" + stamp(end))
+
+    return ", ".join(free) if free else "none"
+```

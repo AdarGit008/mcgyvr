@@ -1,0 +1,73 @@
+```ts
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  walk(root, '', paths);
+  return paths;
+}
+
+function walk(node: object, currentPath: string, paths: string[]): void {
+  if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+  const name = Object.keys(node)[0];
+  if (typeof name !== 'string' || !name || name.includes('/')) throw new Error('Invalid name');
+  const isFile = typeof node[name] === 'number';
+  if (!isFile && (!Array.isArray(node[name]) || node[name].length === 0)) throw new Error('Invalid children');
+
+  if (currentPath) currentPath += '/';
+  currentPath += name;
+
+  if (isFile) {
+    paths.push(currentPath);
+  } else {
+    for (const child of node[name]) walk(child, currentPath, paths);
+  }
+}
+
+export function treeBytes(root: object): number {
+  return calculateBytes(root);
+
+  function calculateBytes(node: object): number {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    const name = Object.keys(node)[0];
+    if (typeof name !== 'string' || !name || name.includes('/')) throw new Error('Invalid name');
+    const isFile = typeof node[name] === 'number';
+    if (!isFile && (!Array.isArray(node[name]) || node[name].length === 0)) throw new Error('Invalid children');
+
+    if (isFile) {
+      return node[name];
+    } else {
+      let total = 0;
+      for (const child of node[name]) total += calculateBytes(child);
+      return total;
+    }
+  }
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (!Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+
+  const results: [string, number][] = [];
+  walkAndCalculate(root, '', results, minBytes);
+
+  return results;
+}
+
+function walkAndCalculate(node: object, currentPath: string, results: [string, number][], minBytes: number): void {
+  if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+  const name = Object.keys(node)[0];
+  if (typeof name !== 'string' || !name || name.includes('/')) throw new Error('Invalid name');
+  const isFile = typeof node[name] === 'number';
+  if (!isFile && (!Array.isArray(node[name]) || node[name].length === 0)) throw new Error('Invalid children');
+
+  if (currentPath) currentPath += '/';
+  currentPath += name;
+
+  if (isFile) {
+    return;
+  } else {
+    let total = 0;
+    for (const child of node[name]) total += treeBytes(child);
+    if (total >= minBytes) results.push([currentPath, total]);
+    for (const child of node[name]) walkAndCalculate(child, currentPath, results, minBytes);
+  }
+}
+```

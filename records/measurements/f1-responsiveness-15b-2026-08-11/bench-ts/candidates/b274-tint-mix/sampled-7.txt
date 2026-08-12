@@ -1,0 +1,25 @@
+```ts
+// tintMix implementation that takes two tins' volumes and strengths,
+// mixes them together, and returns the mixed strength rounded down to a whole percent.
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (typeof volumeA !== 'number' || typeof strengthA !== 'number' ||
+      typeof volumeB !== 'number' || typeof strengthB !== 'number') {
+    throw new Error('All inputs must be numbers.');
+  }
+
+  // Ensure volumes are non-negative and strengths are between 0% and 100%
+  if (volumeA < 0 || strengthA < 0 || strengthA > 100 ||
+      volumeB < 0 || strengthB < 0 || strengthB > 100) {
+    throw new Error('Volume and strength must be non-negative, and between 0% and 100%.');
+  }
+
+  // Calculate the total volume of paint mixed
+  const totalVolume = Math.min(volumeA + volumeB, 1);
+
+  // Calculate the total amount of paint (both tins) in millilitres
+  const totalPaint = volumeA * strengthA / 100 + volumeB * strengthB / 100;
+
+  // Return the mixed strength rounded down to a whole percent
+  return Math.floor(totalPaint * 100);
+}
+```

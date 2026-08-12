@@ -1,0 +1,18 @@
+```ts
+export function crumbSplit(trail: string): string[] {
+  if (typeof trail !== 'string') {
+    throw new Error('trail must be a string');
+  }
+
+  const parts = trail.split('/');
+  return parts.filter(Boolean);
+}
+
+export function crumbJoin(parts: string[]): string {
+  if (!Array.isArray(parts)) {
+    throw new Error('parts must be an array');
+  }
+
+  return parts.join('/');
+}
+```

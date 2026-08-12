@@ -1,0 +1,13 @@
+```ts
+/** A passage broken into its sentences. */
+export function sentenceSplit(passage: string): string[] {
+  // Regular expression to split at full stops, question marks, and exclamation marks,
+  // while preserving abbreviations. This includes handling cases where multiple punctuation
+  // marks are part of an abbreviation.
+  const regex = /[\.\?!\s]*\b([A-Z][a-z0-9]+\b\.?\))|(\.)|(\?)|(!)/g;
+  
+  return passage.split(regex)
+    .map((piece) => piece.trim())
+    .filter((piece) => piece !== "");
+}
+```

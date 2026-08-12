@@ -1,0 +1,22 @@
+```python
+def split_length(mm: int) -> str:
+    """
+    Converts a length in millimetres to workshop notation.
+    
+    Parameters:
+    mm (int): The length in millimetres. Must be a non-negative integer.
+    
+    Returns:
+    str: Workshop notation for the length, e.g., "1m 23cm 4mm".
+    """
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    metres = mm // 1000
+    centimetres = (mm % 1000) // 10
+    millimetres = mm % 10
+    
+    units = [f"{metres}m", f"{centimetres}cm", f"{millimetres}mm"]
+    
+    return ' '.join(filter(None, units))
+```

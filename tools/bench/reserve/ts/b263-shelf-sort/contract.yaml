@@ -1,0 +1,15 @@
+id: b263-shelf-sort
+task_type: function_implementation
+task: >-
+  Implement shelfSort. A shelf label is a word followed by a number,
+  like row2. Put labels in order by that number rather than by their
+  text, so row10 falls after row9. Labels carrying the same number
+  keep the order they arrived in.
+target: solution.ts
+interface: "export function shelfSort(labels: string[]): string[]"
+stop_conditions:
+  - What should happen to a label carrying no number at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,40 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+
+  const minutes = (range: string): number[] => {
+    if (!clock.test(range)) {
+      throw new Error("a range must be written HH:MM-HH:MM");
+    }
+    const [start, end] = range.split("-");
+    return [
+      Number(start.slice(0, 2)) * 60 + Number(start.slice(3)),
+      Number(end.slice(0, 2)) * 60 + Number(end.slice(3)),
+    ];
+  };
+
+  const stamp = (at: number): string => {
+    return String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  };
+
+  if (!clock.test(span)) {
+    throw new Error("a span must be written HH:MM-HH:MM");
+  }
+  const [spanStart, spanEnd] = span.split("-");
+  const startMinutes = minutes(spanStart);
+  const endMinutes = minutes(spanEnd);
+
+  booked.sort((a, b) => minutes(a)[0] - minutes(b)[0]);
+
+  let lastEndTime = startMinutes[1];
+  for (const book of booked) {
+    const [bookStartMinutes, bookEndMinutes] = minutes(book);
+    if (bookEndMinutes <= lastEndTime) continue;
+    if (bookStartMinutes === lastEndTime) continue;
+    free.push(stamp(lastEndTime));
+    lastEndTime = Math.min(endMinutes[0], bookStartMinutes);
+  }
+
+  return free.length === 0 ? "none" : free.join(", ");
+}
+```

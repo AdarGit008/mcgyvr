@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def set_minus(entries: List[str], remove: List[str]) -> List[str]:
+    # Convert both lists to sets for efficient lookups and removal
+    entries_set = set(entries)
+    remove_set = set(remove)
+    
+    # Use list comprehension to find elements in entries that are not in remove
+    result = [entry for entry in entries if entry not in remove_set]
+    
+    return result
+```

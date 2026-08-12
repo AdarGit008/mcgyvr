@@ -1,0 +1,25 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    # Ensure the tally is of type dict
+    if not isinstance(tally, dict):
+        raise ValueError("input must be a dictionary")
+    
+    # Verify the name and amount are valid strings and integers
+    if not isinstance(name, str) or not isinstance(amount, int):
+        raise ValueError("name must be a string and amount must be an integer")
+    
+    # Add the specified amount to the given name's count
+    tally[name] = tally.get(name, 0) + amount
+    
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    # Ensure both tallies are of type dict
+    if not isinstance(left, dict) or not isinstance(right, dict):
+        raise ValueError("both inputs must be dictionaries")
+    
+    # Combine the two tallies using a comprehension to handle duplicates
+    merged_tally = {name: left.get(name, 0) + right.get(name, 0) for name in set(left.keys()).union(right.keys())}
+    
+    return merged_tally
+```

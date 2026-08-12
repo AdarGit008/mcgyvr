@@ -1,0 +1,21 @@
+```ts
+function payout(stake: number, odds: number): number {
+  if (stake < 0) {
+    throw new Error("Stake cannot be negative");
+  }
+  return stake * odds;
+}
+
+function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  let totalHandedBack = 0;
+
+  for (const bet of bets) {
+    if (!bet.won) continue;
+
+    const payoutAmount = payout(bet.stake, bet.odds);
+    totalHandedBack += payoutAmount;
+  }
+
+  return totalHandedBack;
+}
+```

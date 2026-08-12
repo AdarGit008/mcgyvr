@@ -1,0 +1,18 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Return a phrase written out a given number of times, the copies joined by a stated separator.
+
+    Args:
+        phrase (str): The text to be repeated.
+        times (int): The number of times the phrase should be repeated.
+        between (str): The string that will be inserted between each repetition of the phrase.
+
+    Returns:
+        str: The resulting phrase with the specified separators.
+    """
+    if not phrase or times < 0 or not between:
+        raise ValueError("Invalid input parameters")
+
+    return f"{between.join(phrase) * times}"
+```

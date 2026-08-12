@@ -1,0 +1,50 @@
+```python
+from typing import List, Dict
+
+def run_thermostat(start: int, low: int, high: int, power: int, drifts: List[int]) -> Dict[str, int]:
+    """
+    Simulate a heater under a two-point thermostat tick by tick.
+
+    Parameters:
+    start (int): Initial room temperature.
+    low (int): Lower bound of the thermostat band.
+    high (int): Upper bound of the thermostat band.
+    power (int): Heater power when on.
+    drifts (List[int]): Drift for each tick.
+
+    Returns:
+    dict: Temperature, heated ticks, switch counts, and coldest temperature.
+    """
+    if not isinstance(start, int) or not isinstance(low, int) or not isinstance(high, int):
+        raise ValueError("Start, low, and high must be integers.")
+    if not isinstance(power, int) or power <= 0:
+        raise ValueError("Power must be a positive integer.")
+    if not isinstance(drifts, list) or any(not isinstance(d, int) for d in drifts):
+        raise ValueError("Drifts must be a list of integers.")
+
+    temp = start
+    heated = 0
+    switched = 0
+    coldest = start
+
+    for drift in drifts:
+        if low <= temp < high:
+            continue
+        elif temp < low:
+            temp += power + drift
+            heated += 1
+            switched += 1
+        else:
+            temp -= power + drift
+            heated += 1
+            switched += 1
+
+        coldest = min(coldest, temp)
+
+    return {
+        "temp": temp,
+        "heated": heated,
+        "switches": switches,
+        "coldest": coldest
+    }
+```

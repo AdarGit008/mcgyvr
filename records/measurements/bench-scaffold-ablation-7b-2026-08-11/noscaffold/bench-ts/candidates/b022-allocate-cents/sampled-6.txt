@@ -1,0 +1,63 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The decimal amount string to parse.
+ * @returns The integer cents value.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) {
+    throw new Error('Invalid amount format');
+  }
+  return Math.floor(Number(text) * 100);
+}
+
+/**
+ * Formats an integer cents value back into a decimal amount string.
+ * @param cents - The integer cents value to format.
+ * @returns The formatted decimal amount string.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0) {
+    throw new Error('Input must be a non-negative integer');
+  }
+  return cents.toString().padStart(3, '0').replace(/(\d{2})$/, '.$1');
+}
+
+/**
+ * Allocates totalCents across weights proportionally.
+ * @param totalCents - The total cents to allocate.
+ * @param weights - The list of weights to allocate to.
+ * @returns The array of allocated cents for each weight.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Weight list must not be empty');
+  }
+  if (weights.some(weight => typeof weight !== 'number' || weight < 0)) {
+    throw new Error('Weights must be non-negative integers');
+  }
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) {
+    throw new Error('Total weight must not be zero');
+  }
+  if (typeof totalCents !== 'number' || totalCents < 0) {
+    throw new Error('Total cents must be a non-negative integer');
+  }
+
+  const baseShare = Math.floor(totalCents / totalWeight);
+  const remainder = totalCents % totalWeight;
+  const allocations = weights.map(weight => weight * baseShare);
+  let remainingCents = remainder;
+
+  for (let i = 0; i < remainingCents; i++) {
+    const maxRemainderIndex = allocations.findIndex((share, index) => share / weights[index] > allocations[maxRemainderIndex] / weights[maxRemainderIndex]);
+    allocations[maxRemainderIndex]++;
+  }
+
+  return allocations;
+}
+```

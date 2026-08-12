@@ -1,0 +1,19 @@
+```ts
+function pathClean(path: string): string {
+  const segments = path.split('/');
+  const cleanedSegments = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i] === '..') {
+      // Drop the previous segment if there is one
+      if (cleanedSegments.length > 0) {
+        cleanedSegments.pop();
+      }
+    } else if (segments[i] !== '.') {
+      cleanedSegments.push(segments[i]);
+    }
+  }
+
+  return cleanedSegments.join('/');
+}
+```

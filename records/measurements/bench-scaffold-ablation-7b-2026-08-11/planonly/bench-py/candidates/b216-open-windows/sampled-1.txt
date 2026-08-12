@@ -1,0 +1,33 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hours, minutes = map(int, time_str.split(':'))
+        return hours, minutes
+
+    def format_time(hours: int, minutes: int) -> str:
+        return f"{hours:02}:{minutes:02}"
+
+    if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', span):
+        raise ValueError("Invalid span format")
+    for b in booked:
+        if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', b):
+            raise ValueError("Invalid appointment format")
+
+    start, end = map(parse_time, span.split('-'))
+    appointments = sorted(map(parse_time, booked))
+    open_slots = []
+
+    current_end = start
+    for appt_start, appt_end in appointments:
+        if appt_start > current_end:
+            open_slots.append((current_end, appt_start))
+        current_end = max(current_end, appt_end)
+
+    if end > current_end:
+        open_slots.append((current_end, end))
+
+    if not open_slots:
+        return "none"
+
+    return ', '.join(f"{format_time(s[0], s[1])}-{format_time(e[0], e[1])}" for s, e in open_slots)
+```

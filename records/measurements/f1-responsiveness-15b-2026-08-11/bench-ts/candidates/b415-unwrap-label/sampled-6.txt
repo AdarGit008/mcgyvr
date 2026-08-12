@@ -1,0 +1,19 @@
+```ts
+/**
+ * A label with one surrounding pair of brackets removed.
+ */
+export function unwrapLabel(label: string): string {
+  if (!label || !/^[\[]/.test(label) || !/\]$/.test(label)) {
+    throw new Error("Invalid input format");
+  }
+
+  const openingBracketIndex = label.indexOf("[");
+  const closingBracketIndex = label.lastIndexOf("]");
+
+  if (openingBracketIndex === -1 || closingBracketIndex === -1 || openingBracketIndex >= closingBracketIndex) {
+    throw new Error("Invalid bracket format");
+  }
+
+  return label.slice(0, openingBracketIndex).trim() + label.slice(closingBracketIndex + 1).trim();
+}
+```

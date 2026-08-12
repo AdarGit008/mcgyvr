@@ -1,0 +1,21 @@
+```typescript
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const entry of log) {
+    const [reagent, amount] = entry;
+
+    if (!/^-?\d+(\.\d{1,3})?$/.test(amount)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+
+    const numericAmount = parseFloat(amount);
+    totals[reagent] = (totals[reagent] || 0) + numericAmount;
+  }
+
+  return Object.entries(totals).reduce((acc, [reagent, total]) => {
+    acc[reagent] = total.toFixed(3).replace(/\.?0+$/, '');
+    return acc;
+  }, {} as Record<string, string>);
+}
+```

@@ -1,0 +1,29 @@
+```python
+from typing import List
+
+def steps_on(first: int, count: int) -> List[int]:
+    """Generate numbers in ascending order from `first` to `first + (count - 1)`."""
+    return list(range(first, first + count))
+
+def hole_find(seen: List[int], first: int, count: int) -> int:
+    """Find the first number that is missing between `seen` and `[first, first + count)`.
+    
+    If all numbers are present in `seen`, return None.
+    
+    Parameters:
+    - seen: A list of integers representing the numbers already in the sequence.
+    - first: The starting point for the sequence.
+    - count: The length of the sequence to be generated.
+    
+    Returns:
+    - The first missing number or None if all numbers are present.
+    """
+    # Check if all numbers from `first` to `first + (count - 1)` are in `seen`
+    if set(range(first, first + count)) == set(seen):
+        return None
+    
+    # Find the first missing number starting from `first`
+    for i in range(first, first + count):
+        if i not in seen:
+            return i
+```

@@ -1,0 +1,30 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Resolve the dotted option name against style rules.
+
+    :param rules: A dictionary mapping selector strings to string values.
+    :param name: The dotted option name to resolve.
+    :return: The winning value if a rule matches, or None otherwise.
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if '*' in name and name != '*':
+        raise ValueError("Selector star can only stand alone or at the end of a selector.")
+    
+    if '.' in name and not (name.endswith('.*') or name == '*'):
+        raise ValueError("Dotted prefix wildcard must end with '.*'.")
+
+    winning_value = None
+
+    for rule, value in rules.items():
+        if rule == name:
+            return value
+        elif rule.startswith(name + '.'):
+            # Check if it's a longer matching prefix
+            if not winning_value or len(rule) > len(winning_value):
+                winning_value = value
+    
+    return winning_value
+```

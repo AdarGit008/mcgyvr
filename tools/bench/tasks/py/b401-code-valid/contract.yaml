@@ -1,0 +1,15 @@
+id: b401-code-valid
+task_type: function_implementation
+task: >-
+  Implement code_valid. A code is valid when it runs to exactly a
+  stated length and holds nothing but capital letters and digits. Say
+  whether a code is valid. Reject a stated length of zero or less with
+  an error.
+target: solution.py
+interface: "def code_valid(code: str, length: int) -> bool"
+stop_conditions:
+  - Whether a code may hold a space between groups is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

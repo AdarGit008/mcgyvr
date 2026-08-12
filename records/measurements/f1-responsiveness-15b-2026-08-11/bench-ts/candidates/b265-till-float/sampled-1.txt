@@ -1,0 +1,16 @@
+```ts
+/**
+ * How many of each coin to hand back, largest coin first. Always reaching for the largest coin it can.
+ */
+export function tillFloat(amount: number, coins: number[]): number[] {
+  const counts: number[] = [];
+  let left = amount;
+  for (const coin of coins.sort((a, b) => b - a)) { // Sort coins in descending order
+    while (left >= coin && counts[counts.length - 1] < coin) { // Check if there is enough money to buy the next largest coin and if the count of it is less than the coin value
+      counts.push(coin); // Increment the count of the largest coin
+      left -= coin; // Subtract the cost of the largest coin from the total amount
+    }
+  }
+  return counts;
+}
+```

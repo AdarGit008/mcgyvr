@@ -1,0 +1,50 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+    if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+    for (const day of tripDays) {
+        if (!Number.isInteger(day) || day <= 0) throw new Error('Trip days must be positive integers.');
+    }
+    if (!Array.isArray(tripDays)) throw new Error('Trip days must be an array.');
+
+    for (let i = 1; i < tripDays.length; i++) {
+        if (tripDays[i] <= tripDays[i - 1]) throw new Error('Trip days must be strictly increasing.');
+    }
+
+    if (passes.length === 0) throw new Error('Pass list cannot be empty.');
+
+    for (const pass of passes) {
+        if (!Number.isInteger(pass.span) || pass.span <= 0) throw new Error('Pass span must be a positive integer.');
+        if (typeof pass.cost !== 'number' || pass.cost < 0 || !Number.isFinite(pass.cost)) throw new Error('Pass cost must be a non-negative number.');
+    }
+
+    const n = tripDays.length;
+    const dp: number[] = Array(n).fill(Infinity);
+    dp[0] = passes
+        .filter(p => p.span >= tripDays[0])
+        .reduce((min, p) => Math.min(min, p.cost), Infinity);
+
+    for (let i = 1; i < n; i++) {
+        dp[i] = dp[i - 1];
+        for (const pass of passes) {
+            if (tripDays[i] >= tripDays[0] + pass.span - 1) {
+                dp[i] = Math.min(dp[i], dp[Math.max(0, i - pass.span)] + pass.cost);
+            }
+        }
+    }
+
+    const purchases: number[][] = [];
+    let j = n - 1;
+    while (j >= 0) {
+        for (const pass of passes) {
+            if (tripDays[j] >= tripDays[0] + pass.span - 1 && dp[j] === dp[Math.max(0, j - pass.span)] + pass.cost) {
+                purchases.unshift([tripDays[j] - pass.span + 1, pass.span]);
+                j = Math.max(0, j - pass.span);
+                break;
+            }
+        }
+    }
+
+    return { total: dp[n - 1], purchases };
+}
+```

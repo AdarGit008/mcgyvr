@@ -81,9 +81,11 @@ import sys
 import tempfile
 import time
 import types
+import urllib.request
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +133,12 @@ GREEDY_TEMPERATURE = 0.0
 SAMPLED_TEMPERATURE = 0.7
 MAX_OUTPUT_TOKENS = 768
 
+# How long the serving-build probe waits before recording "unknown". Short on
+# purpose: this runs once per invocation against a host the sweep is about to
+# dispatch thousands of draws to, so an endpoint that cannot answer in seconds
+# has a problem the sweep is about to hit anyway.
+BUILD_PROBE_TIMEOUT = 3.0
+
 # Difficulty tiers. d1 is the bundle rig's pinned 20-task set unchanged; d2/d3
 # are harder sets in this tool's own tree, same format, built because the top
 # rungs pass d1 at its ceiling and a distribution measured at a ceiling cannot
@@ -157,6 +165,37 @@ TIER_ROOT = HERE / "tasks"
 POOL_ROOT = HERE.parent / "problems" / "tasks"
 POOL_MANIFEST = HERE.parent / "problems" / "admissions.jsonl"
 POOL_TIERS = ("pool-ts", "pool-py")
+
+# The bench (#225), one tier per language arm — the pool's pattern exactly:
+# the arm lives in the tier name, run identity carries it, and the campaign
+# driver never climbs into either. Served manifest-pinned only, filtered to
+# the bench half: the reserve half is training capacity (#222), never a tier,
+# and an unadmitted candidate directory is not part of any run's identity.
+BENCH_ROOT = HERE.parent / "bench" / "tasks"
+BENCH_MANIFEST = HERE.parent / "bench" / "admissions.jsonl"
+BENCH_TIERS = ("bench-ts", "bench-py")
+
+# Prompt conditions (#225's driver question, answered paired rather than as
+# separate cohorts). `stock` renders what production would dispatch;
+# `noscaffold` removes the target's current content from the user message, so
+# the model must produce the whole file instead of completing a partial one.
+# Same problem, same checker, same prose — only the volume of required output
+# moves, which is what makes the comparison paired and the pairs discordant.
+#
+# A condition is part of run identity, not a local flag: the ablated render is
+# a different experiment on the same material, exactly the cap's argument, and
+# `bundle_sha256` would not notice because it hashes the *system* prompt while
+# the ablation lands in the *user* message. Names stay hyphen-free so they can
+# never collide with `pin.py`'s stem parsing if a capture path ever carries
+# one. #113 owns the general condition matrix; this is one named knob it will
+# subsume, not a framework.
+STOCK = "stock"
+PLAN_ONLY = "planonly"
+NO_SCAFFOLD = "noscaffold"
+CONDITIONS = (STOCK, PLAN_ONLY, NO_SCAFFOLD)
+
+# Comment openers, by the two languages the bench arms speak.
+_COMMENT = ("//", "#")
 
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
@@ -221,6 +260,28 @@ def pinned_pool_ids() -> frozenset[str]:
     return frozenset(admitted)
 
 
+def pinned_bench_ids() -> frozenset[str]:
+    """The bench half of the bench manifest — the only ids a bench tier serves.
+
+    Same argument as :func:`pinned_pool_ids`, plus the split: the manifest
+    records each admitted problem's half under the pre-declared rule
+    (``tools/bench/split.py``), and only ``split == "bench"`` is instrument
+    material. The reserve half lives outside the declared roots and is never
+    served; an entry here saying otherwise would be caught by
+    ``admit.py --verify`` long before a sweep.
+    """
+    if not BENCH_MANIFEST.is_file():
+        return frozenset()
+    admitted: set[str] = set()
+    for line in BENCH_MANIFEST.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        entry = json.loads(line)
+        if not entry.get("superseded_by") and entry.get("split") == "bench":
+            admitted.add(str(entry["id"]))
+    return frozenset(admitted)
+
+
 def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     """The tier's tasks, contracts validated by the real loader.
 
@@ -234,6 +295,10 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
         root = POOL_ROOT / tier.removeprefix("pool-")
         language = bundle.PYTHON if tier == "pool-py" else bundle.JSTS
         admitted = pinned_pool_ids()
+    elif tier in BENCH_TIERS:
+        root = BENCH_ROOT / tier.removeprefix("bench-")
+        language = bundle.PYTHON if tier == "bench-py" else bundle.JSTS
+        admitted = pinned_bench_ids()
     else:
         root = TIER_ROOT / tier
         # Every tier in this rig's own tree is JS/TS, d1 because it *is* the
@@ -244,7 +309,7 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     if not root.is_dir():
         raise bundle.MeasureError(
             f"no such tier {tier!r}: {root} does not exist. "
-            f"Known: {TIERS + VARIANT_TIERS + POOL_TIERS}"
+            f"Known: {TIERS + VARIANT_TIERS + POOL_TIERS + BENCH_TIERS}"
         )
     tasks = []
     for directory in sorted(root.iterdir()):
@@ -283,6 +348,63 @@ def tier_digests(tier: str) -> dict[str, str]:
     }
 
 
+def ablate(contract: Any, condition: str) -> Any:
+    """The contract as the named condition renders it.
+
+    ``stock`` is the contract untouched. ``noscaffold`` empties
+    ``target_content``, which is the single field
+    :func:`~mcgyvr.worker.prompt.render_user_message` turns into the "CURRENT
+    CONTENT OF <target>" section — so the ablation removes exactly one
+    section and changes nothing else about the task, the interface, the stop
+    conditions or the checker.
+
+    On a contract that carries no ``target_content`` the ablation is a no-op
+    by construction, which is why the eligible set has to be selected by the
+    caller: an ineligible task would contribute a concordant pair to a paired
+    test and dilute it. ``bug_fix`` is ineligible for a stronger reason — its
+    ``target_content`` is the buggy file the task exists to fix, so removing
+    it does not lighten the task, it deletes it.
+    """
+    if condition == STOCK:
+        return contract
+    if condition == NO_SCAFFOLD:
+        return replace(contract, target_content="")
+    if condition == PLAN_ONLY:
+        return replace(contract, target_content=plan_of(contract.target_content))
+    raise bundle.MeasureError(f"unknown condition {condition!r}")
+
+
+def plan_of(target_content: str) -> str:
+    """The scaffold's comment lines alone — its plan, with its code removed.
+
+    Every scaffold in this bench states an approach in a comment ("build a
+    prefix-sum table, then validate each query", "find the cheapest
+    combination of passes covering every trip"), which means ``noscaffold``
+    removes *two* things at once: the code the model would have typed, and
+    the recipe telling it what to do. That is the two-knob confound this
+    experiment exists to avoid, and it would have been reported as a size
+    effect.
+
+    Keeping the comments and dropping the code splits the difference into
+    two paired contrasts on the same problems: ``stock`` against
+    ``planonly`` is the code the scaffold saved, and ``planonly`` against
+    ``noscaffold`` is the plan it stated.
+
+    One honest limit: these comments often name what to *validate* as well
+    as what to compute, so the plan contrast is "being told the approach,
+    including its rejections" rather than pure algorithmic insight. A
+    scaffold with no comments at all degenerates to ``noscaffold``, which is
+    a concordant pair and dilutes the test — the caller selects the eligible
+    set, exactly as for ``noscaffold``.
+    """
+    kept = [
+        line
+        for line in target_content.splitlines()
+        if line.strip().startswith(_COMMENT)
+    ]
+    return "\n".join(kept) + "\n" if kept else ""
+
+
 def measure_task(
     task: Any,
     runner: Any,
@@ -292,6 +414,7 @@ def measure_task(
     already: set[tuple[str, str, int]],
     plan: list[tuple[str, int, float]] | None = None,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    condition: str = STOCK,
 ) -> list[dict[str, object]]:
     """Every draw of one task, each a row — and never an early exit.
 
@@ -299,8 +422,12 @@ def measure_task(
     result, and stopping at the first pass would truncate every observation at
     its own answer. Every failure mode is a row rather than an exception, for
     the bundle rig's reason — a vanished cell silently shrinks a denominator.
+
+    ``condition`` names the ablation the prompt is rendered under. It is part
+    of the run identity rather than a local flag, because the ablated render
+    is a different experiment on the same material — the cap's argument.
     """
-    prompt = build_prompt(task.contract)
+    prompt = build_prompt(ablate(task.contract, condition))
     rows: list[dict[str, object]] = []
     for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
@@ -551,6 +678,31 @@ def record_completeness(out: Path) -> list[tuple[str, str, int]] | None:
     return missing
 
 
+@cache
+def serving_build(endpoint: str) -> str | None:
+    """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
+
+    ADR-0024: two rates are only comparable if the same build produced them.
+    This is not hypothetical. The scaffold ablation ran the 3B against srv1 and
+    the 7B against srv2 while those two hosts sat on ollama 0.32.4 and 0.32.5,
+    so the one cross-model contrast the campaign most wanted to draw had a
+    serving-build difference folded into it that no manifest recorded.
+
+    Best-effort by design. An endpoint that does not answer ``/api/version`` is
+    not one this project refuses to measure — it is one whose build is unknown,
+    and ``None`` says exactly that rather than inventing a value. Cached per
+    endpoint because a sweep records its provenance once per invocation and the
+    answer cannot change underneath a run without invalidating the run anyway.
+    """
+    url = endpoint.rstrip("/") + "/api/version"
+    try:
+        with urllib.request.urlopen(url, timeout=BUILD_PROBE_TIMEOUT) as response:
+            version = json.loads(response.read()).get("version")
+    except Exception:
+        return None
+    return str(version) if version else None
+
+
 def record_run(
     out: Path,
     worker: Any,
@@ -559,6 +711,7 @@ def record_run(
     draws: int = DRAWS,
     sampled_temperature: float = SAMPLED_TEMPERATURE,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    condition: str = STOCK,
 ) -> None:
     """Write, or extend, the provenance beside the rows.
 
@@ -573,6 +726,15 @@ def record_run(
     ``campaign.run_stage`` both write the provenance before the first draw — so
     the refusal lands before a token is spent, and adding a fourth driver
     cannot route around it without also deciding not to record what it did.
+
+    **The serving build is probed here rather than passed in.** ``--condition``
+    was a caller-supplied identity field, it reached dispatch and not this
+    function, and eight manifests described a render nobody had run. A field
+    this function derives from the world cannot be forgotten by a fourth
+    driver, so this one is derived. A manifest written before the field existed
+    carries none, and adopts the current value instead of refusing: the
+    protection is for runs made from here on, and a spurious refusal on every
+    directory already on disk would buy nothing.
     """
     bundle.instruments.refuse_to_measure(tier=tier, what=f"{out}/run.json")
     prompt = build_prompt(load_tier_tasks(tier)[0].contract)
@@ -580,17 +742,20 @@ def record_run(
         "endpoint": bundle.redact(worker.endpoint),
         "protocol": worker.protocol.value,
         "model": worker.model,
+        "serving_build": serving_build(worker.endpoint),
         "tier": tier,
         "draws": draws,
         "greedy_temperature": GREEDY_TEMPERATURE,
         "sampled_temperature": sampled_temperature,
         "max_output_tokens": max_output_tokens,
+        "condition": condition,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
     path = out / "run.json"
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
+        previous.setdefault("serving_build", identity["serving_build"])
         drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
         if drift:
             raise bundle.MeasureError(
@@ -789,10 +954,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--tier",
-        choices=TIERS + VARIANT_TIERS + POOL_TIERS,
+        choices=TIERS + VARIANT_TIERS + POOL_TIERS + BENCH_TIERS,
         default="d1",
         help="difficulty tier to run (default d1, the bundle rig's set); "
-        "pool-ts/pool-py are the #197 problem pool's arms, not rungs",
+        "pool-ts/pool-py are the #197 problem pool's arms, not rungs; "
+        "bench-ts/bench-py are the #225 bench's arms, manifest-pinned",
     )
     parser.add_argument(
         "--draws",
@@ -825,6 +991,16 @@ def main() -> int:
         help=f"stop once N consecutive tasks lose every draw to transport "
         f"(default {DEAD_TASKS_BEFORE_ABORT}, 0 disables). The rows already "
         "written stay, so the resume refills them.",
+    )
+    parser.add_argument(
+        "--condition",
+        choices=CONDITIONS,
+        default=STOCK,
+        help=f"prompt condition (default {STOCK}, what production dispatches). "
+        f"{NO_SCAFFOLD} removes the target's current content from the user "
+        "message, so the model writes the whole file rather than completing a "
+        "partial one — #225's paired size manipulation. Part of the run "
+        "identity: a directory measured under one condition refuses the other.",
     )
     parser.add_argument(
         "--selftest",
@@ -869,7 +1045,9 @@ def main() -> int:
             return 2
 
     if not args.summarise_only:
-        language = bundle.PYTHON if args.tier == "pool-py" else bundle.JSTS
+        language = (
+            bundle.PYTHON if args.tier in ("pool-py", "bench-py") else bundle.JSTS
+        )
         problem = language.capability()
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)
@@ -946,6 +1124,7 @@ def main() -> int:
             draws=args.draws,
             max_output_tokens=args.max_output_tokens,
             sampled_temperature=args.sampled_temperature,
+            condition=args.condition,
         )
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -976,6 +1155,7 @@ def main() -> int:
                 already,
                 plan=plan,
                 max_output_tokens=args.max_output_tokens,
+                condition=args.condition,
             )
             for row in rows:
                 handle.write(json.dumps(row) + "\n")

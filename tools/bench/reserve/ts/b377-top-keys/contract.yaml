@@ -1,0 +1,14 @@
+id: b377-top-keys
+task_type: function_implementation
+task: >-
+  Implement topKeys. Given a mapping of names to counts, return the
+  names sharing the highest count, in alphabetical order. An empty
+  mapping has no highest count and gives an empty list.
+target: solution.ts
+interface: "export function topKeys(counts: Record<string, number>): string[]"
+stop_conditions:
+  - Whether a count below zero should be able to be the highest is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

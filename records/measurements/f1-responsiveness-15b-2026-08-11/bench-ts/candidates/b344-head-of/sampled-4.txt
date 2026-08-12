@@ -1,0 +1,14 @@
+```ts
+/** The first few entries of a list. */
+export function headOf(entries: string[], count: number): string[] {
+  if (
+    typeof entries !== "string[]" ||
+    typeof count !== "number" ||
+    count < 0 ||
+    entries.length === 0
+  ) {
+    throw new Error("Invalid arguments");
+  }
+  return count >= entries.length ? entries : entries.slice(0, count);
+}
+```

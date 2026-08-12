@@ -1,0 +1,41 @@
+id: b105-clean-recipients
+task_type: bug_fix
+task: >-
+  cleanRecipients tidies a mailing list into canonical recipient
+  addresses incorrectly. Fix it: each entry is trimmed of surrounding
+  whitespace, and an entry in display form — any text, then an address
+  between one < and one >, the > being the final character and the
+  brackets neither empty nor out of order — keeps only its bracketed
+  address, itself trimmed; at present display entries pass through whole.
+  The address splits at its @ into a local part and a domain; the domain
+  is lowercased while the local part keeps its case — at present the
+  entire address is lowercased. Entries return in arrival order with
+  duplicates dropped: two addresses are duplicates when they match
+  case-insensitively, the first arrival wins, and at present only
+  immediately consecutive repeats are caught. Also add the missing
+  validation: reject an argument that is not a list, an entry that is not
+  a string, a display entry breaking the bracket rules above, an address
+  with inner whitespace, without exactly one @, with an empty local part,
+  or whose domain is empty, has no dot, or starts or ends with a dot,
+  with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Tidy a mailing list into canonical recipient addresses. */
+
+  export function cleanRecipients(raw: string[]): string[] {
+    const cleaned: string[] = [];
+    for (const entry of raw) {
+      const address = entry.trim().toLowerCase();
+      if (cleaned.length === 0 || cleaned[cleaned.length - 1] !== address) {
+        cleaned.push(address);
+      }
+    }
+    return cleaned;
+  }
+interface: "export function cleanRecipients(raw: string[]): string[]"
+stop_conditions:
+  - Whether a quoted local part may legally hold spaces or a second @ is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

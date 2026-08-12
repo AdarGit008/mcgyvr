@@ -1,0 +1,5 @@
+def pick_nth(entries: list, place: int) -> str:
+    """The entry at a place, counting places from one."""
+    if place < 1 or place > len(entries):
+        return ""
+    return entries[place - 1]

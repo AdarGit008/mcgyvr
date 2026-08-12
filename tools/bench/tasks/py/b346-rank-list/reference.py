@@ -1,0 +1,11 @@
+def rank_of(score: int, scores: list) -> int:
+    above = 0
+    for other in scores:
+        if other > score:
+            above += 1
+    return above + 1
+
+
+def rank_all(scores: list) -> list:
+    """Each score's rank, in the order the scores were given."""
+    return [rank_of(score, scores) for score in scores]

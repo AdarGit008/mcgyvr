@@ -1,0 +1,13 @@
+```python
+def hex_split(colour: str) -> list:
+    if len(colour) != 7 or colour[0] != '#':
+        raise ValueError("Invalid colour format")
+    
+    return [f"{part:02x}" for part in colour[1:].upper()]
+
+def hex_join(parts: list) -> str:
+    if not all(len(part) == 2 for part in parts):
+        raise ValueError("Part must be exactly two characters long")
+    
+    return "#" + "".join(parts)
+```

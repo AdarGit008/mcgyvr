@@ -1,0 +1,70 @@
+```python
+from typing import Dict
+
+def run_till_session(events: list, prices: dict) -> dict:
+    """
+    Replays one point-of-sale till session from a price list and events.
+
+    :param events: List of actions in the session.
+    :param prices: Dictionary mapping item names to prices in integer cents.
+    :return: Mapping with state: items (list of [item, quantity]), total, paid, change.
+    """
+    if not all(isinstance(event, list) and len(event) == 2 for event in events):
+        raise ValueError("All events must be lists of two elements.")
+
+    cart = {}
+    session_state = "open"
+    total = 0
+    paid = 0
+
+    def is_positive_integer(value: int) -> bool:
+        return value > 0 and isinstance(value, int)
+
+    for event in events:
+        action, payload = event
+
+        if session_state == "cancelled":
+            raise ValueError("Session is cancelled.")
+
+        if not is_positive_integer(prices.get(payload, 0)):
+            raise ValueError(f"Price {payload} is not a positive integer.")
+
+        if action == "scan":
+            if item := prices.get(payload):
+                cart[payload] = cart.get(payload, 0) + 1
+                total += item
+            else:
+                raise ValueError(f"No price found for {payload}.")
+        elif action == "void":
+            if item := cart.get(payload, 0):
+                total -= prices[payload]
+                cart[payload] = max(0, cart[payload] - 1)
+            else:
+                raise ValueError(f"Item {payload} is not in the cart.")
+        elif action == "close":
+            if not cart:
+                raise ValueError("Cannot close an empty session.")
+            total_paid = sum(prices[item] * quantity for item, quantity in cart.items())
+            change = total_paid - total
+            paid = total_paid
+            session_state = "paid"
+        elif action == "pay":
+            cents = int(payload)
+            if not is_positive_integer(cents):
+                raise ValueError(f"Pay amount {cents} is not a positive integer.")
+            paid += cents
+            total_paid = sum(prices[item] * quantity for item, quantity in cart.items())
+            change = max(0, total_paid - total)
+            session_state = "paid"
+        elif action == "cancel":
+            session_state = "cancelled"
+        else:
+            raise ValueError(f"Unknown action {action}.")
+
+    return {
+        "items": sorted(cart.items()),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

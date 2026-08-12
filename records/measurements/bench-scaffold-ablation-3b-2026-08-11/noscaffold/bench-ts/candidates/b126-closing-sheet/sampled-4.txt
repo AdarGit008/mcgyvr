@@ -1,0 +1,56 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+    if (typeof opening !== 'string' || typeof moves !== 'string') {
+        throw new Error('Invalid argument type');
+    }
+
+    const parseEntry = (entry: string): [string, number] => {
+        const [name, count] = entry.split(':').map((part) => part.trim());
+        if (!/^[a-z]+$/.test(name) || /^\d+$/.test(count)) {
+            throw new Error('Invalid sheet entry');
+        }
+        return [name, parseInt(count)];
+    };
+
+    const parseMove = (move: string): { name: string; qty: number } => {
+        const [action, qtyStr] = move.split('+').map((part) => part.trim());
+        if (!/^[a-z]+$/.test(action)) throw new Error('Invalid stock move');
+        const qty = parseInt(qtyStr);
+        if (qty <= 0 || isNaN(qty) || !/^\d+$/.test(qtyStr)) {
+            throw new Error('Invalid quantity in stock move');
+        }
+        return { name, qty };
+    };
+
+    let sheet: [string, number][] = opening ? opening.split(';').map(parseEntry) : [];
+
+    for (const move of moves.split(';')) {
+        if (move === '') continue;
+
+        const { name, qty } = parseMove(move);
+
+        const foundIndex = sheet.findIndex(([currentName]) => currentName === name);
+        if (foundIndex !== -1) {
+            const [currentName, count] = sheet[foundIndex];
+            if (action === 'receive') {
+                if (count + qty > 9999) throw new Error('Quantity exceeds max stock limit');
+                sheet[foundIndex] = [currentName, count + qty];
+            } else { // action === 'issue'
+                if (count < qty) throw new Error('Not enough stock to issue');
+                sheet[foundIndex] = [currentName, count - qty];
+            }
+        } else {
+            if (action === 'receive') {
+                sheet.push([name, qty]);
+            } else { // action === 'issue'
+                throw new Error('Issue of an item not on the opening sheet');
+            }
+        }
+    }
+
+    return sheet
+        .filter(([_, count]) => count > 0)
+        .map(([name, _]) => `${name}:${count}`)
+        .join(';') || '';
+}
+```

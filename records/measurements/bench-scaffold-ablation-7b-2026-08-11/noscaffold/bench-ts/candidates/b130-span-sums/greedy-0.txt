@@ -1,0 +1,87 @@
+```ts
+/**
+ * Parses a span text into total inches.
+ * @param text - The span text to parse.
+ * @returns The total inches represented by the span text.
+ */
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid input');
+
+  const units = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (const part of text.split(/\s+/)) {
+    const match = part.match(/^(\d+)\s*(yd|ft|in)?$/);
+    if (!match) throw new Error('Invalid span format');
+
+    const value = parseInt(match[1], 10);
+    if (isNaN(value) || value < 0) throw new Error('Invalid value');
+
+    const unit = match[2];
+    if (unit && !units.includes(unit)) throw new Error('Unknown unit');
+    if (unit && units.indexOf(unit) !== units.indexOf(units.shift())) throw new Error('Units out of order');
+
+    switch (unit) {
+      case 'yd':
+        totalInches += value * 36;
+        break;
+      case 'ft':
+        totalInches += value * 12;
+        break;
+      case 'in':
+        totalInches += value;
+        break;
+      default:
+        totalInches += value;
+    }
+  }
+
+  return totalInches;
+}
+
+/**
+ * Renders a non-negative integer of total inches canonically.
+ * @param inches - The total inches to render.
+ * @returns The canonical span text representation.
+ */
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) throw new Error('Invalid input');
+
+  const units = ['yd', 'ft', 'in'];
+  let result: string[] = [];
+
+  for (const unit of units) {
+    switch (unit) {
+      case 'yd':
+        if (inches >= 36) {
+          result.push(`${Math.floor(inches / 36)}${unit}`);
+          inches %= 36;
+        }
+        break;
+      case 'ft':
+        if (inches >= 12) {
+          result.push(`${Math.floor(inches / 12)}${unit}`);
+          inches %= 12;
+        }
+        break;
+      case 'in':
+        if (inches > 0) {
+          result.push(`${inches}${unit}`);
+        }
+        break;
+    }
+  }
+
+  return result.join(' ');
+}
+
+/**
+ * Takes two span texts and returns their sum in canonical form.
+ * @param first - The first span text.
+ * @param second - The second span text.
+ * @returns The sum of the two spans in canonical form.
+ */
+export function addSpans(first: string, second: string): string {
+  return formatSpan(parseSpan(first) + parseSpan(second));
+}
+```

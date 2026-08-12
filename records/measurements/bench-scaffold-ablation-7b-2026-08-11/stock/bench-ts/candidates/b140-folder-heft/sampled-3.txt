@@ -1,0 +1,91 @@
+```ts
+/** A storage report over a tree of named folders and byte-sized files. */
+
+function checkNode(node: any): void {
+  if (typeof node !== "object" || node === null || Array.isArray(node)) {
+    throw new Error("each node must be a mapping");
+  }
+  if (typeof node.name !== "string" || node.name.length === 0 || node.name.includes("/")) {
+    throw new Error("each name must be a non-empty string without slashes");
+  }
+  if (("bytes" in node) === ("children" in node)) {
+    throw new Error("a node holds either bytes or children");
+  }
+  if ("bytes" in node) {
+    if (!Number.isInteger(node.bytes) || node.bytes < 0) {
+      throw new Error("bytes must be a non-negative whole number");
+    }
+  } else if (!Array.isArray(node.children)) {
+    throw new Error("children must be a list");
+  }
+}
+
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  const stack: [any, string][] = [[root, ""]];
+  while (stack.length > 0) {
+    const [node, prefix] = stack.pop()!;
+    checkNode(node);
+    const path = prefix + node.name;
+    if ("bytes" in node) {
+      paths.push(path);
+    } else {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        stack.push([node.children[i], path + "/"]);
+      }
+    }
+  }
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  let total = 0;
+  const stack: any[] = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    checkNode(node);
+    if ("bytes" in node) {
+      total += node.bytes;
+    } else {
+      for (const child of node.children) {
+        stack.push(child);
+      }
+    }
+  }
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error("minBytes must be a non-negative whole number");
+  }
+
+  const paths = filePaths(root);
+  const result: [string, number][] = [];
+
+  for (const path of paths) {
+    let currentPath = root;
+    let total = 0;
+
+    for (const name of path.split("/")) {
+      if (name === "") continue;
+
+      if ("children" in currentPath) {
+        const child = currentPath.children.find((child: any) => child.name === name);
+        if (!child) throw new Error("invalid tree structure");
+
+        total += treeBytes(child);
+        currentPath = child;
+      } else {
+        break;
+      }
+    }
+
+    if (total >= minBytes) {
+      result.push([path, total]);
+    }
+  }
+
+  return result;
+}
+```

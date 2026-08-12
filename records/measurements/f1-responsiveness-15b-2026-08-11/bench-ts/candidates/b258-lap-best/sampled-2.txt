@@ -1,0 +1,20 @@
+```ts
+/**
+ * The quickest completed lap of a session. A lap recorded as zero means the lap was never completed and must not count.
+ * Zero lap times are considered uncompleted and thus do not contribute to the best lap time.
+ * Returns the complete fixed file.
+ */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  for (const lap of laps) {
+    // Check if the lap is not zero before updating the best
+    if (lap > 0 && (best === 0 || lap < best)) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```

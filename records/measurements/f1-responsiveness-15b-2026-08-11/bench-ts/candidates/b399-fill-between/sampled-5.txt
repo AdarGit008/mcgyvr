@@ -1,0 +1,18 @@
+```ts
+
+// solution.ts
+
+export function fillBetween(entries: string[], filler: string): string[] {
+    if (!Array.isArray(entries) || entries.length < 2) {
+        return [];
+    }
+
+    const result = [];
+    for (let i = 0; i < entries.length - 1; ++i) {
+        result.push(entries[i], filler);
+    }
+    result.push(entries[entries.length - 1]);
+
+    return result;
+}
+```

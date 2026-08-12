@@ -1,0 +1,10 @@
+```ts
+export function gridFlip(grid: number[][]): number[][] {
+  if (!grid.length) return [];
+
+  const flippedGrid = grid[0].map((_, col) => grid.map(row => row[col]));
+  return flippedGrid;
+}
+```
+
+This implementation correctly flips the input grid by transposing it, where each column of the original becomes a separate row in the output. The function handles empty grids gracefully by returning an empty array when no rows are provided.

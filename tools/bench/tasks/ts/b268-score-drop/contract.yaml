@@ -1,0 +1,15 @@
+id: b268-score-drop
+task_type: function_implementation
+task: >-
+  Implement scoreDrop. Given a list of scores, return their total with
+  the single lowest score left out. When the lowest score appears more
+  than once only one of them is dropped. A list holding one score or
+  none at all totals zero.
+target: solution.ts
+interface: "export function scoreDrop(scores: number[]): number"
+stop_conditions:
+  - Whether a score below zero should be treated as a real score or as a missing entry is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

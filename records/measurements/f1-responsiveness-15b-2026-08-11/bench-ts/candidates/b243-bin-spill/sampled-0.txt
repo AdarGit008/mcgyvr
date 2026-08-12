@@ -1,0 +1,29 @@
+```ts
+/**
+ * Counts held per bin, and the bins standing above a limit.
+ * @param bins - Object where keys are bin names and values are counts.
+ * @param limit - The threshold to check for in binSpill.
+ * @returns A list of bin names that exceed the specified limit.
+ */
+export function binSpill(
+  bins: Record<string, number>,
+  limit: number,
+): string[] {
+  return Object.keys(bins).filter((name) => bins[name] > limit);
+}
+
+/**
+ * Adds a count to one bin and returns the updated record without changing the one it was given.
+ * @param bins - Object where keys are bin names and values are counts.
+ * @param name - The name of the bin to add to.
+ * @param count - The number to add to the bin's count.
+ * @returns An object with the updated count for the specified bin.
+ */
+export function binAdd(
+  bins: Record<string, number>,
+  name: string,
+  count: number,
+): Record<string, number> {
+  return { ...bins, [name]: (bins[name] ?? 0) + count };
+}
+```

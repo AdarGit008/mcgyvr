@@ -1,0 +1,19 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list.")
+    try:
+        for i in grid[row]:
+            if i == value:
+                return True
+        return False
+    except IndexError:
+        raise ValueError("Invalid row or column index.")
+
+def grid_find(grid: list, value: int) -> list:
+    for i, subgrid in enumerate(grid):
+        for j, cell in enumerate(subgrid):
+            if cell == value:
+                return [i, j]
+    raise ValueError(f"Value {value} not found in the grid.")
+```

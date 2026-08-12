@@ -1,0 +1,12 @@
+```ts
+export function tilesAcross(length: number, tile: number): number {
+  return Math.ceil(length / tile);
+}
+
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  let totalTiles = width * height;
+  const spareTiles = Math.floor(totalTiles * (spare / 100));
+  const completeRows = totalTiles / tile + Number.isInteger(totalTiles % tile);
+  return completeRows + spareTiles;
+}
+```

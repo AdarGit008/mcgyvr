@@ -1,0 +1,28 @@
+```ts
+export function configValue(layers: string[], name: string): string | null {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  let effectiveValues = {};
+
+  for (const layer of layers) {
+    const lines = layer.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+
+    for (const line of lines) {
+      if (!line.includes('=')) {
+        if (!line.startsWith('!')) {
+          throw new Error(`Invalid line: ${line}`);
+        }
+        const [_, key] = line.split('!');
+        effectiveValues[key.trim()] = null;
+      } else {
+        const [key, value] = line.split('=').map(part => part.trim());
+        effectiveValues[key] = value;
+      }
+    }
+  }
+
+  return effectiveValues[name];
+}
+```

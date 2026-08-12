@@ -1,0 +1,34 @@
+```ts
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (body.length < 3) {
+    throw new Error('Line must be at least three characters long');
+  }
+
+  const tag = [...body].slice(0, -2).reduce((sum, char) => (sum + char.charCodeAt(0)) % 256, 0);
+  return tag.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (line.length < 3) {
+    throw new Error('Line must be at least three characters long');
+  }
+
+  const [body, tag] = [...line].slice(0, -2);
+  const calculatedTag = lineTag(body);
+
+  if (!/^[~\w]+$/.test(line)) {
+    throw new Error('Line contains invalid characters (must only contain tildes and alphanumeric characters)');
+  }
+  if (line[line.length - 1] !== '~' || line[line.length - 2] !== calculatedTag) {
+    throw new Error('Line tag does not match');
+  }
+
+  return body;
+}
+```

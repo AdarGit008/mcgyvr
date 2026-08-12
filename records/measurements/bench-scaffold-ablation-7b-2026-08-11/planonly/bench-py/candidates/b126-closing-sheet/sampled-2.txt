@@ -1,0 +1,41 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        parts = entry.split(':')
+        if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+            raise ValueError(f"Malformed sheet entry: {entry}")
+        return parts[0], int(parts[1])
+
+    def parse_move(move: str, current_count: dict[str, int]) -> tuple[str, int]:
+        if not move:
+            return None, 0
+        direction = move[0]
+        item_qty = move[2:]
+        if direction not in ['+', '-'] or not item_qty.isdigit() or int(item_qty) == 0:
+            raise ValueError(f"Malformed move: {move}")
+        item = move[1:-len(item_qty)]
+        if item not in current_count:
+            raise ValueError(f"Issue of item '{item}' the sheet does not hold")
+        quantity = int(item_qty)
+        if direction == '-' and quantity > current_count[item]:
+            raise ValueError(f"Issue of more units than {item} then holds")
+        return item, direction == '+' and quantity or -quantity
+
+    opening_entries = opening.split(';')
+    if len(opening_entries) != len(set(opening_entries)):
+        raise ValueError("Duplicate name on the opening sheet")
+
+    current_count: dict[str, int] = {item: count for item, count in (parse_entry(entry) for entry in opening_entries)}
+
+    for move in moves.split(';'):
+        item, quantity = parse_move(move, current_count)
+        if item is not None:
+            current_count[item] += quantity
+            if current_count[item] == 0:
+                del current_count[item]
+
+    return ';'.join(f"{item}:{current_count[item]}" for item in sorted(current_count))
+```

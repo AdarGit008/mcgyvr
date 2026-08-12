@@ -1,0 +1,15 @@
+id: b337-char-swap
+task_type: function_implementation
+task: >-
+  Implement swapPair and swapAll. swapPair returns two characters in
+  the other order. swapAll walks a text in twos and swaps each pair it
+  finds, leaving a final odd character exactly where it is.
+target: solution.ts
+interface: "export function swapPair(first: string, second: string): string
+export function swapAll(text: string): string"
+stop_conditions:
+  - Whether a space should be swapped like any other character is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

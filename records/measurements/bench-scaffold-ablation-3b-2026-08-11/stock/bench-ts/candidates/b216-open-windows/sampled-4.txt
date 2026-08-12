@@ -1,0 +1,42 @@
+```typescript
+/** Report the stretches of a clinic's day that no appointment covers. */
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  const minutes = (range: string): number[] => {
+    const parts = range.split("-");
+    if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+      throw new Error("a range must be written HH:MM-HH:MM: " + range);
+    }
+    return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+  };
+  const stamp = (at: number): string =>
+    String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  
+  // Parse the span and booked appointments
+  const [startSpan, endSpan] = minutes(span);
+  const bookedTimes = booked.map(minutes);
+
+  // Sort booked times
+  bookedTimes.sort((a, b) => a - b);
+
+  // Initialize free time slots
+  let freeSlots: string[] = [];
+  let lastEnd = startSpan;
+
+  // Iterate over booked times and add free slots between them
+  for (const book of bookedTimes) {
+    if (book > lastEnd) {
+      freeSlots.push(stamp(lastEnd) + "-" + stamp(book));
+    }
+    lastEnd = Math.max(lastEnd, book);
+  }
+
+  // Check if there's any remaining free time after the last booked appointment
+  if (lastEnd < endSpan) {
+    freeSlots.push(stamp(lastEnd) + "-" + stamp(endSpan));
+  }
+
+  // Return result based on whether there are free slots or not
+  return freeSlots.length === 0 ? "none" : freeSlots.join(", ");
+}
+```

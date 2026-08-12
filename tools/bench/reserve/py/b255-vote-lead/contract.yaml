@@ -1,0 +1,15 @@
+id: b255-vote-lead
+task_type: function_implementation
+task: >-
+  Implement vote_lead. Given ballots that each name one candidate,
+  return the candidate named on the most of them. When two or more
+  candidates tie for the most, return whichever of their names sorts
+  first alphabetically. Reject an empty pile of ballots with an error.
+target: solution.py
+interface: "def vote_lead(ballots: list) -> str"
+stop_conditions:
+  - Whether candidate names differing only in case should be treated as one candidate is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

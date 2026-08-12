@@ -1,0 +1,26 @@
+```ts
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Line must be a string');
+  }
+  if (line.length < 3) {
+    throw new Error('Line must be at least three characters long');
+  }
+  const tildeIndex = line.lastIndexOf('~');
+  if (tildeIndex === -1 || tildeIndex === line.length - 2) {
+    throw new Error('Invalid tilde position in line');
+  }
+  const tag = line.slice(tildeIndex + 1);
+  const body = line.slice(0, tildeIndex);
+  const expectedTag = lineTag(body);
+  if (tag !== expectedTag) {
+    throw new Error('Tag does not match body content');
+  }
+  return body;
+}
+
+export function lineTag(body: string): string {
+  const tagValue = body.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 256;
+  return tagValue.toString(16).padStart(2, '0');
+}
+```

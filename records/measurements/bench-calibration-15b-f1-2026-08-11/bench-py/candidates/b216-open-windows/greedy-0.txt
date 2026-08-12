@@ -1,0 +1,26 @@
+```python
+"""Report the stretches of a clinic's day that no appointment covers."""
+
+import re
+
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        return [int(p[:2]) * 60 + int(p[3:]) for p in parts]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    free: list[str] = []
+    # TODO: sweep the appointments in time order and keep what the span has left over.
+    for start, end in sorted([(minutes(start), minutes(end)) for start, end in [re.split(r"-", s) for s in booked]]):
+        if not free or free[-1][1] < start:
+            free.append(stamp(start))
+        if free and free[-1][0] > end:
+            free.append(stamp(end))
+
+    return ", ".join(free) if free else "none"
+```

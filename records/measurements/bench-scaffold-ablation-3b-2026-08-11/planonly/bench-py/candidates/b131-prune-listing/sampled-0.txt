@@ -1,0 +1,45 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def is_valid_path(path: str) -> bool:
+        return isinstance(path, str) and path and not path.isspace() and not path.startswith('/')
+
+    def is_valid_rule(rule: str) -> bool:
+        return isinstance(rule, str) and rule and not rule.isspace()
+
+    def split_strict(s: str) -> List[str]:
+        parts = s.split('/')
+        if any(part == '' for part in parts):
+            raise ValueError("Path or pattern cannot contain empty segments left by leading, trailing or doubled slash.")
+        return parts
+
+    def match_path(path: List[str], rule: List[str]) -> bool:
+        for rp, pp in zip(rule, path):
+            if rp == '*':
+                continue
+            elif rp != pp:
+                return False
+        return True
+
+    cleaned_listing = [path for path in listing if is_valid_path(path)]
+    cleaned_rules = [rule for rule in rules if is_valid_rule(rule)]
+
+    result = []
+    for path in cleaned_listing:
+        path_parts = split_strict(path)
+        matched = False
+        for rule in reversed(cleaned_rules):
+            rule_parts = split_strict(rule)
+            if rule.startswith('!'):
+                if match_path(path_parts, rule_parts):
+                    result.append(path)
+                    matched = True
+                    break
+            elif match_path(path_parts, rule_parts):
+                result.insert(0, path)
+                matched = True
+                break
+
+    return result
+```

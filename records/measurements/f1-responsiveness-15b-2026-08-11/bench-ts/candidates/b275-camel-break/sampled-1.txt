@@ -1,0 +1,9 @@
+```ts
+function camelBreak(name: string): string[] {
+  const words = name.match(/\w+/g);
+  if (words) {
+    return words.map(word => word.toLowerCase());
+  }
+  throw new Error('Invalid input');
+}
+```

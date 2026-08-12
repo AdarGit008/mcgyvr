@@ -1,0 +1,16 @@
+```ts
+export function cellAt(grid: number[][], row: number, column: number): number | undefined {
+  if (row < 0 || row >= grid.length || column < 0 || column >= grid[row].length) return undefined;
+  return grid[row][column];
+}
+
+export function diagOf(grid: number[][]): number[] {
+  if (grid.length !== grid[0].length) throw new Error("Grid must be a square");
+
+  const result = [];
+  for (let i = 0; i < grid.length; i++) {
+    result.push(grid[i][i]);
+  }
+  return result;
+}
+```

@@ -1,0 +1,59 @@
+```ts
+function splitStrict(str: string, separator: string): string[] {
+  if (typeof str !== 'string' || typeof separator !== 'string') {
+    throw new Error('Invalid input');
+  }
+  return str.split(separator).filter(Boolean);
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const validate = (value: any): value is string => {
+    if (typeof value !== 'string' || !value) {
+      throw new Error('Invalid path or rule');
+    }
+    return true;
+  };
+
+  const parseRule = (rule: string): [boolean, string[]] => {
+    if (!rule.startsWith('!')) {
+      return [false, splitStrict(rule, '/')];
+    }
+    return [true, splitStrict(rule.slice(1), '/')];
+  };
+
+  const match = (path: string, rule: string[]): boolean => {
+    const pathSegments = splitStrict(path, '/');
+    for (let i = 0; i < Math.min(pathSegments.length, rule.length); i++) {
+      if (rule[i] === '*') {
+        continue;
+      }
+      if (pathSegments[i] !== rule[i]) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const prune = (index: number): string[] => {
+    if (index >= rules.length) {
+      return listing.filter(validate);
+    }
+
+    const [keep, pattern] = parseRule(rules[index]);
+    const nextIndex = index + 1;
+
+    return listing.flatMap(path => {
+      if (match(path, pattern)) {
+        if (keep) {
+          return prune(nextIndex);
+        }
+        return [];
+      } else {
+        return [path];
+      }
+    });
+  };
+
+  return prune(0);
+}
+```

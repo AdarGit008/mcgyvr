@@ -1,0 +1,7 @@
+```python
+def font_clamp(size: int, smallest: int, largest: int) -> int:
+    if smallest > largest:
+        raise ValueError("The smallest value must be less than or equal to the largest value.")
+    
+    return max(min(size, largest), smallest)
+```

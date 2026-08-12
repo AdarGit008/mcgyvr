@@ -1,0 +1,14 @@
+```ts
+export function lastFour(number: string): string {
+  return number.length >= 4 ? number.slice(-4) : number;
+}
+
+export function maskCard(number: string): string {
+  if (number === null || number === undefined) {
+    throw new Error("Input must be a non-null value");
+  }
+
+  const stars = "*".repeat(number.length - 4);
+  return stars + number.slice(-4);
+}
+```

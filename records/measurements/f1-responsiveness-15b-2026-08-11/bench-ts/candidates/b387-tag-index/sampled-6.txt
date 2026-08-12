@@ -1,0 +1,44 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const trimmedLine = line.trim();
+  if (!trimmedLine) {
+    return [];
+  }
+
+  const tags = trimmedLine.split(',');
+  return tags.map(tag => tag.trim());
+}
+
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  if (!Array.isArray(lines)) {
+    throw new Error('Input must be an array');
+  }
+
+  return lines.reduce((acc, line) => {
+    if (typeof line !== 'string') {
+      acc[line] = [];
+      return acc;
+    }
+
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      return acc;
+    }
+
+    const tags = trimmedLine.split(',');
+    for (const tag of tags) {
+      if (tag) {
+        acc[tag] = [...(acc[tag] ?? []), line];
+      }
+    }
+
+    return acc;
+  }, {});
+}
+```

@@ -1,0 +1,47 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Invalid input type');
+  const [integerPart, fractionPart] = text.split('.');
+  if (!fractionPart || fractionPart.length !== 2) throw new Error('Invalid fraction part');
+
+  return parseInt(integerPart + fractionPart, 10);
+}
+
+export function formatAmount(cents: number): string {
+  if (cents < 0) throw new Error('Negative cents');
+  const integerPart = Math.floor(cents / 100);
+  const fractionPart = cents % 100;
+  return `${integerPart}.${fractionPart.toString().padStart(2, '0')}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (weights.length === 0) throw new Error('Empty weight list');
+  if (!weights.every(Number.isInteger && w >= 0)) throw new Error('Invalid weight');
+  const totalWeights = weights.reduce((acc, w) => acc + w, 0);
+  if (totalWeights === 0) throw new Error('Zero weights sum to zero');
+  if (typeof totalCents !== 'number' || totalCents < 0) throw new Error('Total cents must be non-negative integer');
+
+  const shares = Array(weights.length).fill(0);
+  let remainder = totalCents;
+  for (let i = 0; i < weights.length && remainder > 0; i++) {
+    const shareSize = Math.floor(remainder / weights[i]);
+    shares[i] += shareSize;
+    remainder -= shareSize * weights[i];
+  }
+
+  while (remainder > 0) {
+    let maxShareIndex = -1, maxRemainder = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < shares.length; i++) {
+      if (shares[i] !== 0 && (maxRemainder === Number.NEGATIVE_INFINITY || remainder / weights[i] > maxRemainder)) {
+        maxShareIndex = i;
+        maxRemainder = remainder / weights[i];
+      }
+    }
+    if (maxShareIndex === -1) throw new Error('Unreachable code');
+    shares[maxShareIndex]++;
+    remainder--;
+  }
+
+  return shares;
+}
+```

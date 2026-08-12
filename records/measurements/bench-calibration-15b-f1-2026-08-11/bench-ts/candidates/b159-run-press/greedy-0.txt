@@ -1,0 +1,20 @@
+```ts
+export function runPress(jobs: [string, number][], budget: number): { printed: string[]; waiting: string[]; pages: number } {
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    throw new Error("jobs must be a non-empty array");
+  }
+
+  const printed: string[] = [];
+  let waiting: string[] = [...jobs];
+  let pages: number = 0;
+
+  while (waiting.length > 0 && budget >= waiting[0][1]) {
+    const job = waiting.shift()!;
+    printed.push(job[0]);
+    pages += job[1];
+    budget -= job[1];
+  }
+
+  return { printed, waiting, pages };
+}
+```

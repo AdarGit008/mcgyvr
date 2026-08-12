@@ -1,0 +1,15 @@
+id: b313-move-stock
+task_type: function_implementation
+task: >-
+  Implement move_stock. Starting from an opening quantity, apply each
+  stock movement in order, adding or removing as its sign says. Stock
+  never falls below zero, so a removal larger than what is held
+  empties it instead. Return the closing quantity.
+target: solution.py
+interface: "def move_stock(opening: int, moves: list) -> int"
+stop_conditions:
+  - Whether the quantity that could not be removed should be reported as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

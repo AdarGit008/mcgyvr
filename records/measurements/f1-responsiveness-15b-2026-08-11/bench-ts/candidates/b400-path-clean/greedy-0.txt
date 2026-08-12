@@ -1,0 +1,23 @@
+```ts
+export function pathClean(path: string): string {
+  if (path === "") return "";
+
+  let result = "";
+  let isDropping = false;
+
+  for (const segment of path.split("/")) {
+    if (segment === "..") {
+      if (!isDropping) {
+        result += "/";
+        isDropping = true;
+      }
+    } else if (segment !== "." && !isDropping) {
+      result += "/" + segment;
+    }
+
+    isDropping = false;
+  }
+
+  return result === "" ? "/" : result;
+}
+```

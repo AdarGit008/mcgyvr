@@ -1,0 +1,27 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Splits a list at the first occurrence of a specified marker.
+ * 
+ * @param entries The list to split.
+ * @param marker The marker to split the list by.
+ * @returns A tuple containing two lists: the part before the marker and the part after.
+ */
+export function splitAt(entries: string[], marker: string): string[][] {
+    const index = entries.findIndex(entry => entry === marker);
+    return [entries.slice(0, index), entries.slice(index + 1)];
+}
+
+// Check function to verify the correctness of the solution
+function checkSplitAt() {
+    assert.deepStrictEqual(splitAt([], 'a'), [[], []]);
+    assert.deepStrictEqual(splitAt(['a', 'b', 'c'], 'b'), [['a'], ['c']]);
+    assert.deepStrictEqual(splitAt(['apple', 'banana', 'cherry'], 'x'), [['apple', 'banana', 'cherry'], []]);
+    assert.deepStrictEqual(splitAt(['1', '2', '3', '4'], '3'), [['1', '2'], ['4']]);
+    console.log('All tests passed!');
+}
+
+// Run the check function to verify the solution
+checkSplitAt();
+```

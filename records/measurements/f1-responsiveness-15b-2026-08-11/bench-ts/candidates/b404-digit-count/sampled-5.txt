@@ -1,0 +1,19 @@
+```ts
+// solution.ts
+
+export function digitCount(value: number): number {
+  if (value === 0) return 1; // Edge case: zero
+  const isNegative = value < 0;
+  value = Math.abs(value);
+  let count = 0;
+
+  while (value > 0) {
+    value /= 10;
+    count++;
+  }
+
+  if (isNegative) count++; // Edge case: negative sign
+
+  return count;
+}
+```

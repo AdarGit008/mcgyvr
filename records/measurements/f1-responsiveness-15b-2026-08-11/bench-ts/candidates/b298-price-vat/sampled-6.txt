@@ -1,0 +1,17 @@
+```ts
+/** A net price with a whole-percent tax added, in whole pence. */
+export function grossPrice(net: number, rate: number): number {
+  if (rate < 0) throw new Error("Rate must be non-negative");
+  let fractionalPart = rate % 1;
+  let percentFractionalPart = fractionalPart * 100;
+
+  // Round down the tax in pence
+  let taxInPence = Math.floor(percentFractionalPart);
+
+  // Ensure the net price is not less than zero (as negative prices are not meaningful in this context)
+  if (net < 0) return 0;
+
+  // Calculate the gross price by adding the tax to the net price
+  return (net + taxInPence) * 100; // Covert back to whole pence
+}
+```

@@ -1,0 +1,18 @@
+```ts
+export function pathClean(path: string): string {
+  const segments = path.split('/');
+  let cleanedSegments = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i] === '..') {
+      if (cleanedSegments.length > 0 && cleanedSegments[cleanedSegments.length - 1] !== '..') {
+        cleanedSegments.pop();
+      }
+    } else if (segments[i] !== '.') {
+      cleanedSegments.push(segments[i]);
+    }
+  }
+
+  return cleanedSegments.join('/');
+}
+```

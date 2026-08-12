@@ -1,0 +1,17 @@
+```python
+
+def payout(stake: int, odds: int) -> int:
+    if stake <= 0:
+        raise ValueError("Stake must be positive")
+    
+    return stake * odds
+
+def settle_all(bets: list) -> int:
+    total_payout = 0
+    
+    for bet in bets:
+        if bet.stake > 0:
+            total_payout += payout(bet.stake, bet.odds)
+    
+    return total_payout
+```

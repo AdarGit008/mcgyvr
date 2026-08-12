@@ -1,0 +1,25 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not all(isinstance(req, list) and len(req) == 2 for req in requests):
+        raise ValueError("Each request must be a two-item list.")
+    if not (isinstance(fresh_for, int) and fresh_for > 0):
+        raise ValueError("fresh_for must be a positive whole number.")
+    if not (isinstance(size, int) and size > 0):
+        raise ValueError("size must be a positive whole number.")
+
+    cache = {}
+    renders = []
+
+    for tick, tile in requests:
+        if tick < max(cache.keys(), default=-1):
+            raise ValueError("Request ticks must be non-decreasing.")
+        while cache and tick >= cache[next(iter(cache))][0] + fresh_for:
+            oldest_tile, _ = cache.popitem(last=False)
+        if len(cache) == size and tile not in cache:
+            oldest_tile, _ = min(cache.items(), key=lambda x: (x[1][0], x[0]))
+            del cache[oldest_tile]
+        cache[tile] = (tick, tile)
+        renders.append([tick, tile])
+
+    return renders
+```

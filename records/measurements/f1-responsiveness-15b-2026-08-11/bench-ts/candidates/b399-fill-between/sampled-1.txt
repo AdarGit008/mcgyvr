@@ -1,0 +1,15 @@
+```ts
+export function fillBetween(entries: string[], filler: string): string[] {
+  const result = [];
+  if (entries.length === 0) return result;
+
+  for (let i = 0; i < entries.length - 1; i++) {
+    result.push(entries[i]);
+    result.push(filler);
+  }
+
+  result.push(entries[entries.length - 1]); // Add the last entry without filler
+
+  return result;
+}
+```

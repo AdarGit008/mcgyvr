@@ -1,0 +1,13 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    try:
+        index = entries.index(marker)
+        if index == 0:
+            return [marker], []
+        elif index == len(entries) - 1:
+            return [], [marker]
+        else:
+            return entries[:index + 1], entries[index:]
+    except ValueError:
+        raise ValueError("Marker not found in the list")
+```

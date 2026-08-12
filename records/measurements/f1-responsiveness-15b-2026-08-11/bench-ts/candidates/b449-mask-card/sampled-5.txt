@@ -1,0 +1,21 @@
+```ts
+export function lastFour(number: string): string {
+  if (typeof number !== 'string' || !number) {
+    throw new Error('Invalid argument');
+  }
+
+  return number.length <= 4 ? number : number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  if (typeof number !== 'string' || !number) {
+    throw new Error('Invalid argument');
+  }
+
+  let masked = '';
+  for (let i = 0; i < number.length; i++) {
+    masked += '*';
+  }
+  return masked;
+}
+```

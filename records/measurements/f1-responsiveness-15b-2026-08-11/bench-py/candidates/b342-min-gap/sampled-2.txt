@@ -1,0 +1,19 @@
+```python
+def min_gap(values: list) -> int:
+    """The smallest difference between any two values."""
+    if len(values) < 2:
+        return -1
+    
+    # Sort the list to compare neighbours correctly
+    sorted_values = sorted(values)
+    
+    # Calculate the differences between consecutive values
+    diff_list = [abs(sorted_values[i] - sorted_values[i + 1]) for i in range(len(sorted_values) - 1)]
+    
+    # Find and return the smallest difference
+    smallest_diff = min(diff_list)
+    if smallest_diff == 0:
+        return None  # If all differences are zero, there's no gap
+    
+    return smallest_diff
+```

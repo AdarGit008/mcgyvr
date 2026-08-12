@@ -1,0 +1,11 @@
+```ts
+export function payout(stake: number, odds: number): number {
+  if (stake < 0) throw new Error("Stake must be non-negative");
+  return stake * odds;
+}
+
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  const filteredBets = bets.filter(bet => bet.won);
+  return filteredBets.reduce((total, bet) => total + payout(bet.stake, bet.odds), 0);
+}
+```

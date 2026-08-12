@@ -1,0 +1,17 @@
+id: b387-tag-index
+task_type: function_implementation
+task: >-
+  Implement tags_of and tag_index. tags_of breaks a comma-separated
+  line into its tags, trimming the spaces around each and leaving out
+  any that come to nothing. tag_index returns a mapping from each tag
+  to the lines carrying it, in the order the lines came. Reject a line
+  that is not text with an error.
+target: solution.py
+interface: "def tags_of(line) -> list
+def tag_index(lines: list) -> dict"
+stop_conditions:
+  - Whether tags differing only in case should be filed together is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

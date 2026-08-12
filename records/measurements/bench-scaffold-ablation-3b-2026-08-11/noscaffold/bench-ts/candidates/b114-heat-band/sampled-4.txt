@@ -1,0 +1,47 @@
+```ts
+export function runThermostat(start: number, low: number, high: number, power: number, drifts: number[]): { temp: number; heated: number; switches: number; coldest: number } {
+  // Validate inputs
+  if (!Number.isInteger(start) || !Number.isInteger(low) || !Number.isInteger(high)) {
+    throw new Error('start, low, and high must be integers');
+  }
+  if (low >= high) {
+    throw new Error('high must be strictly greater than low');
+  }
+  if (!Number.isInteger(power) || power <= 0) {
+    throw new Error('power must be a positive integer');
+  }
+  if (!Array.isArray(drifts) || !drifts.every(Number.isInteger)) {
+    throw new Error('drifts must be an array of integers');
+  }
+
+  let temp = start;
+  let heated = 0;
+  let switches = 0;
+  let coldest = start;
+
+  for (const drift of drifts) {
+    if (temp < low) {
+      heated++;
+      coldest = Math.min(coldest, temp);
+    } else if (temp >= high) {
+      heated--;
+      coldest = Math.min(coldest, temp);
+    }
+    temp += power + drift;
+
+    // Count switches
+    if ((temp > high && heated === 1) || (temp < low && heated === -1)) {
+      switches++;
+    }
+
+    // Prevent negative temperatures by clipping to the lowest value
+    temp = Math.max(temp, coldest);
+
+    // Optionally, limit the highest temperature if needed
+    // Uncomment the line below if a ceiling is defined:
+    // temp = Math.min(temp, temperatureCeiling);
+  }
+
+  return { temp, heated, switches, coldest };
+}
+```

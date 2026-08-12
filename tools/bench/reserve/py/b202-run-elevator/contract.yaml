@@ -1,0 +1,42 @@
+id: b202-run-elevator
+task_type: function_implementation
+task: >-
+  Implement run_elevator. A lift serves a building whose floors run 1 to
+  top. It stands at floor 1 heading up when the clock reads tick 0. Each
+  call is a pair of the tick its button is pressed and the floor it asks
+  for, and joins the waiting calls at the start of that tick. On every tick
+  the lift first serves each waiting call for the floor it stands on,
+  adding that floor to the stop list once per call served; then, if any
+  call is still waiting, it moves exactly one floor, onward in its current
+  heading when some waiting floor lies that way and otherwise reversing its
+  heading first. With nothing waiting it stands still for the tick. The run
+  ends on the tick that serves the last call. Return an object holding
+  stops, the floors in the order they were served, and travel, the number
+  of floors the lift moved. Reject a call for a floor outside 1 to top with
+  an error.
+target: solution.py
+target_content: |
+  def run_elevator(top: int, calls: list) -> dict:
+      if any(want < 1 or want > top for _, want in calls):
+          raise ValueError("call floor outside the building")
+      waiting = []
+      stops = []
+      floor = 1
+      up = True
+      travel = 0
+      # TODO: step one tick at a time — take up the calls pressed on that
+      # tick, serve the floor the lift stands on, then move a single floor,
+      # reversing only when nothing waits ahead. This placeholder ignores
+      # the clock and drives straight to each call in press order.
+      for _, want in calls:
+          travel += abs(want - floor)
+          floor = want
+          stops.append(floor)
+      return {"stops": stops, "travel": travel}
+interface: "def run_elevator(top: int, calls: list) -> dict"
+stop_conditions:
+  - Whether the calls arrive with their ticks in non-decreasing order is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,64 @@
+```ts
+export function parseOption(segment: string): [string, string] {
+  if (typeof segment !== 'string' || segment.length === 0) {
+    throw new Error("invalid input");
+  }
+  
+  const eq = segment.indexOf('=');
+  let key = segment.slice(0, eq);
+  
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  
+  let raw = segment.slice(eq + 1);
+  
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  } else if (raw.startsWith('"')) {
+    throw new Error("unterminated quote in option value");
+  }
+  
+  return [key, raw];
+}
+
+export function scanPairs(input: string): [string, string][] {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw new Error("invalid input");
+  }
+
+  const pairs: [string, string][] = [];
+  let currentSegment = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+      } else {
+        inQuotes = false;
+      }
+      continue;
+    }
+
+    if (input[i] === ';') {
+      if (inQuotes || currentSegment.trim().length === 0) {
+        continue;
+      }
+      const [key, value] = parseOption(currentSegment);
+      pairs.push([key, value]);
+      currentSegment = '';
+    } else {
+      currentSegment += input[i];
+    }
+  }
+
+  // Handle the last segment
+  if (currentSegment.trim().length > 0) {
+    const [key, value] = parseOption(currentSegment);
+    pairs.push([key, value]);
+  }
+
+  return pairs;
+}
+```

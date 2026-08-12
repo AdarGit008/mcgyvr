@@ -1,0 +1,46 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or not passes:
+        return {'total': 0, 'purchases': []}
+    
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be positive integers.")
+        if trip_days != sorted(trip_days):
+            raise ValueError("Trip days must be strictly increasing.")
+    
+    for pass_ in passes:
+        if 'span' not in pass_ or 'cost' not in pass_:
+            raise ValueError("Each pass must have a span and a cost.")
+        if not isinstance(pass_['span'], int) or pass_['span'] <= 0:
+            raise ValueError("Pass spans must be positive integers.")
+        if not isinstance(pass_['cost'], int) or pass_['cost'] < 0:
+            raise ValueError("Pass costs must be non-negative integers.")
+
+    dp = [float('inf')] * (trip_days[-1] + 1)
+    dp[0] = 0
+    purchase_map = {}
+
+    for day in trip_days:
+        for pass_ in passes:
+            if day >= pass_['span']:
+                cost = dp[day - pass_['span']] + pass_['cost']
+                if cost < dp[day]:
+                    dp[day] = cost
+                    purchase_map[day] = [trip_days.index(day) - trip_days.index(day - pass_['span']) + 1, pass_['span']]
+
+    total_cost = dp[-1]
+    purchases = []
+    current_day = 0
+
+    while current_day < len(trip_days):
+        if current_day in purchase_map:
+            start_index = trip_days.index(current_day)
+            span = purchase_map[current_day][1]
+            purchases.append([trip_days[start_index], span])
+            current_day += span
+        else:
+            raise ValueError("No pass covers the trip day.")
+
+    return {'total': total_cost, 'purchases': purchases}
+```

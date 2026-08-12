@@ -1,0 +1,53 @@
+```ts
+export function traceParcel(events: string[]): string[] {
+  if (!Array.isArray(events)) {
+    throw new Error("Input must be an array of event names.");
+  }
+
+  const states = ["created"];
+  const validEvents = ["pack", "ship", "deliver", "bounce"];
+
+  for (const event of events) {
+    if (!validEvents.includes(event)) {
+      throw new Error(`Invalid event name: ${event}`);
+    }
+
+    const currentEventIndex = states.length - 1;
+    const currentState = states[currentEventIndex];
+
+    switch (currentState) {
+      case "created":
+        if (event === "pack") {
+          states.push("packed");
+        } else {
+          throw new Error(`Cannot move from created to ${event}`);
+        }
+        break;
+      case "packed":
+        if (event === "ship") {
+          states.push("shipped");
+        } else {
+          throw new Error(`Cannot move from packed to ${event}`);
+        }
+        break;
+      case "shipped":
+        if (event === "deliver" || event === "bounce") {
+          states.push("returned");
+        } else {
+          throw new Error(`Cannot move from shipped to ${event}`);
+        }
+        break;
+      case "returned":
+        throw new Error(`Cannot move from returned to any other state`);
+      default:
+        throw new Error(`Invalid final state: ${currentState}`);
+    }
+
+    if (states.includes("delivered") || states.includes("returned")) {
+      throw new Error(`Final state reached: ${currentState}`);
+    }
+  }
+
+  return states;
+}
+```

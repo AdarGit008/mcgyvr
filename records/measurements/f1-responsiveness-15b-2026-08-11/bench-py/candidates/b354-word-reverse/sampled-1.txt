@@ -1,0 +1,14 @@
+```python
+def word_reverse(line: str) -> str:
+    """
+    Returns a line with the letters of each word turned back to front,
+    keeping the words themselves in their original order.
+    
+    Args:
+    line (str): The input string containing words and possibly punctuation.
+    
+    Returns:
+    str: A new line with reversed words, preserving the original spacing.
+    """
+    return ' '.join(word[::-1] for word in line.split())
+```

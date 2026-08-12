@@ -1,0 +1,60 @@
+```typescript
+/**
+ * Parses a span text into its total inches.
+ * @param text - The span text to parse.
+ * @returns The total inches of the span.
+ */
+export function parseSpan(text: string): number {
+  const parts = text.split(' ');
+  const unitsMap: { [key: string]: number } = { yd: 36 * 12, ft: 12, in: 1 };
+  let totalInches = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\b([yf]t|in)$/);
+    if (!match) throw new Error('Invalid span format');
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    if (isNaN(value) || value < 0 || (value > 1 && part.startsWith('0'))) {
+      throw new Error('Invalid span format');
+    }
+
+    totalInches += value * unitsMap[unit];
+  }
+
+  return totalInches;
+}
+
+/**
+ * Renders a non-negative integer of total inches canonically.
+ * @param inches - The total inches to render.
+ * @returns The canonical string representation of the span.
+ */
+export function formatSpan(inches: number): string {
+  if (inches < 0 || !Number.isInteger(inches)) throw new Error('Invalid inches value');
+
+  const unitsMap: { [key: number]: number } = { yd: 36 * 12, ft: 12, in: 1 };
+  const result: string[] = [];
+
+  for (const unit in unitsMap) {
+    const value = Math.floor(inches / unitsMap[unit]);
+    if (value > 0) {
+      inches -= value * unitsMap[unit];
+      result.push(`${value}${unit}`);
+    }
+  }
+
+  return result.join(' ') || '0in';
+}
+
+/**
+ * Adds two span texts and returns their sum in canonical form.
+ * @param first - The first span text to add.
+ * @param second - The second span text to add.
+ * @returns The canonical string representation of the sum.
+ */
+export function addSpans(first: string, second: string): string {
+  return formatSpan(parseSpan(first) + parseSpan(second));
+}
+```

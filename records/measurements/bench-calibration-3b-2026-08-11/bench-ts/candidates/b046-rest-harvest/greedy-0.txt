@@ -1,0 +1,20 @@
+```ts
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) throw new Error("Input must be an array.");
+  for (const yield of yields) {
+    if (typeof yield !== "number" || !Number.isInteger(yield) || yield < 0)
+      throw new Error("Yields must be non-negative integers.");
+  }
+
+  let maxHarvest = 0;
+  let currentHarvest = 0;
+
+  for (let i = 0; i < yields.length; i++) {
+    if (i > 0 && yields[i - 1] !== 0) continue; // Skip consecutive worked days
+    currentHarvest += yields[i];
+    maxHarvest = Math.max(maxHarvest, currentHarvest);
+  }
+
+  return maxHarvest;
+}
+```

@@ -1,0 +1,24 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('links must be a non-null object');
+  }
+  if (typeof start !== 'string') {
+    throw new Error('start must be a string');
+  }
+
+  const visited = new Set<string>();
+  let current = start;
+
+  while (current !== '') {
+    if (!visited.has(current)) {
+      visited.add(current);
+    } else {
+      throw new Error('handoff loop detected');
+    }
+    current = links[current];
+  }
+
+  return Array.from(visited);
+}
+```

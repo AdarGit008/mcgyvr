@@ -1,0 +1,26 @@
+id: b256-flag-list
+task_type: bug_fix
+task: >-
+  flagList reads a command line and returns the short flag letters on
+  it without their leading dash, and it forgets to strip the dash. Fix
+  it. Words that do not begin with a dash are not flags and are left
+  out entirely. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The short flags on a command line, without their dashes. */
+  export function flagList(line: string): string[] {
+    const flags: string[] = [];
+    for (const word of line.split(" ")) {
+      if (word.startsWith("-")) {
+        flags.push(word);
+      }
+    }
+    return flags;
+  }
+interface: "export function flagList(line: string): string[]"
+stop_conditions:
+  - How a long flag written with two dashes should be treated is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

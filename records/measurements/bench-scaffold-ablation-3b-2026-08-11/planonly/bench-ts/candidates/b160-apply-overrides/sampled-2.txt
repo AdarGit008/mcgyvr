@@ -1,0 +1,24 @@
+```ts
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Overrides must be a list");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    if (typeof override !== "string") {
+      throw new Error(`Override must be a string: ${override}`);
+    }
+    
+    const [name, value] = override.split("=");
+    if (!value || name === "") {
+      throw new Error(`Invalid override format: ${override}`);
+    }
+
+    merged[name] = value;
+  }
+
+  return merged;
+}
+```

@@ -1,0 +1,50 @@
+```ts
+/** How many days lie between two proleptic Gregorian calendar dates. */
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function monthLength(year: number, month: number): number {
+  if (month === 2 && isLeap(year)) {
+    return 29;
+  }
+  return MONTH_LENGTHS[month - 1];
+}
+
+function toOrdinal(date: [number, number, number]): number {
+  const [year, month, day] = date;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error("All components of the date must be integers.");
+  }
+  if (month < 1 || month > 12) {
+    throw new Error("Month must be between 1 and 12.");
+  }
+  const prior = year - 1;
+  let days = prior * 365;
+  days += Math.floor(prior / 4);
+  for (let m = 1; m < month; m += 1) {
+    days += monthLength(year, m);
+  }
+  return days + day;
+}
+
+export function spanDays(start: [number, number, number], end: [number, number, number]): number {
+  if (!Array.isArray(start) || !Array.isArray(end)) {
+    throw new Error("Both start and end dates must be arrays.");
+  }
+  if (start.length !== 3 || end.length !== 3) {
+    throw new Error("Each date must have exactly three components: year, month, day.");
+  }
+  const [startYear, startMonth, startDate] = start;
+  const [endYear, endMonth, endDate] = end;
+
+  if (startDate > endDate) {
+    throw new Error("Start date cannot be after the end date.");
+  }
+
+  return toOrdinal(end) - toOrdinal(start);
+}
+```

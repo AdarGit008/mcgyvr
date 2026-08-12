@@ -1,0 +1,16 @@
+id: b261-hex-pair
+task_type: function_implementation
+task: >-
+  Implement hexSplit and hexJoin. hexSplit takes a colour written as a
+  hash followed by six hexadecimal digits and returns its three two-
+  digit parts in order. hexJoin puts three such parts back into that
+  form, lower-cased. Reject a colour that is not a hash and exactly
+  six hexadecimal digits with an error.
+target: solution.ts
+interface: "export function hexSplit(colour: string): string[]\nexport function hexJoin(parts: string[]): string"
+stop_conditions:
+  - Whether a three-digit shorthand colour should also be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

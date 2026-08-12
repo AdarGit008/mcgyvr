@@ -1,0 +1,17 @@
+```ts
+export function shortUnit(unit: string): string {
+  if (unit === undefined || unit === null) {
+    throw new Error("unit cannot be undefined or null");
+  }
+  return unit.slice(0, 3);
+}
+
+/** An amount written with its unit. */
+export function labelOf(amount: number, unit: string): string {
+  if (amount < 0) {
+    throw new Error("amount cannot be negative");
+  }
+  const singular = unit + "s";
+  return String(amount) + " " + singular;
+}
+```

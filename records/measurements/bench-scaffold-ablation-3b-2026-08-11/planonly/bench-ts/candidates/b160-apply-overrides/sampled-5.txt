@@ -1,0 +1,28 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be a list");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    const [name, value] = override.split('=', 2);
+
+    if (!override.includes('=')) {
+      throw new Error(`Invalid override format: '${override}'`);
+    }
+    if (name === '') {
+      throw new Error("Override name cannot be empty");
+    }
+
+    if (!(merged as any)[name]) {
+      throw new Error(`Cannot apply override for missing base setting: ${name}`);
+    }
+
+    (merged as any)[name] = value || '';
+  }
+
+  return merged;
+}
+```

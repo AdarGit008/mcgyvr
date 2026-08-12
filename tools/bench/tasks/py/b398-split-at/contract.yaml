@@ -1,0 +1,15 @@
+id: b398-split-at
+task_type: function_implementation
+task: >-
+  Implement split_at. Break a list in two at the first entry equal to
+  a marker, returning what stood before it and what stood after, with
+  the marker itself in neither. A list not holding the marker gives
+  everything as the first part and nothing as the second.
+target: solution.py
+interface: "def split_at(entries: list, marker: str) -> list"
+stop_conditions:
+  - Whether the marker should be reported alongside the two parts is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

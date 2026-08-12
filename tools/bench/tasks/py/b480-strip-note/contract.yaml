@@ -1,0 +1,22 @@
+id: b480-strip-note
+task_type: bug_fix
+task: >-
+  strip_note takes a closing note off a title. A note is a round
+  bracket opening somewhere in the title and closing at its very end,
+  and only then is it removed, along with any spaces left trailing.
+  Fix strip_note. A title with no such note is given back whole.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def strip_note(title: str) -> str:
+      opened = title.find("(")
+      if opened == -1:
+          return title
+      return title[:opened].rstrip()
+interface: "def strip_note(title: str) -> str"
+stop_conditions:
+  - Whether a title holding several notes should lose more than the last is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

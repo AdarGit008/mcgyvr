@@ -1,0 +1,10 @@
+```python
+def seat_block(label: str) -> list:
+    if len(label) != 3 or label[-1].islower():
+        raise ValueError("Invalid input format. Use a run of digits followed by exactly one capital letter.")
+    
+    row = int(label[:-1])
+    letter = label[-1]
+    
+    return [row, letter]
+```

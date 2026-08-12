@@ -1,0 +1,70 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events)) throw new Error("Events must be an array of arrays.");
+  if (!prices || typeof prices !== 'object' || Array.isArray(prices)) throw new Error("Prices must be a record.");
+
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let state = "open";
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) throw new Error("Event must be a list with exactly two elements.");
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case "scan":
+        if (typeof payload !== 'string' || !prices[payload]) throw new Error(`Unknown item: ${payload}`);
+        cart[payload] = (cart[payload] || 0) + 1;
+        total += prices[payload];
+        break;
+
+      case "void":
+        if (typeof payload !== 'string' || !(payload in cart)) throw new Error(`Item not in cart: ${payload}`);
+        cart[payload]--;
+        if (cart[payload] === 0) delete cart[payload];
+        total -= prices[payload];
+        break;
+
+      case "close":
+        if (Object.keys(cart).length === 0) throw new Error("Cannot close an empty cart.");
+        state = "payment";
+        break;
+
+      case "pay":
+        if (typeof payload !== 'number' || payload <= 0) throw new Error(`Pay amount must be a positive integer.`);
+        const payment = Math.min(payload, total);
+        paid += payment;
+        change = payload - total;
+        state = "paid";
+        break;
+
+      case "cancel":
+        if (state === "open") {
+          cart = {};
+          total = 0;
+          state = "cancelled";
+        } else if (state === "payment" || state === "paid") {
+          paid = 0;
+          change = 0;
+          state = "cancelled";
+        } else {
+          throw new Error("Cannot cancel a session that is already paid or cancelled.");
+        }
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+
+    if (state === "paid" || state === "cancelled") {
+      for (const event of events.slice(events.indexOf(event) + 1)) {
+        throw new Error("No further events allowed after session is paid or cancelled.");
+      }
+    }
+  }
+
+  return { state, items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])), total, paid, change };
+}
+```

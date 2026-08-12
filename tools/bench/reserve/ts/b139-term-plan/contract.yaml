@@ -1,0 +1,25 @@
+id: b139-term-plan
+task_type: function_implementation
+task: >-
+  Implement planTerms. A study plan spreads courses over numbered terms:
+  courses lists the course names, prereqs is a list of [course, needed]
+  pairs meaning needed must be completed in a strictly earlier term than
+  course, and perTerm is the most courses one term may hold. Fill each
+  term in turn with ready courses — those not yet planned whose
+  prerequisites all sit in earlier terms — taking up to perTerm of them,
+  the alphabetically first when more are ready than fit. Return the terms
+  in order, each term the alphabetically sorted list of its courses; no
+  courses yields no terms. Reject a courses or prereqs argument that is
+  not a list, a course name that is not a non-empty string, a name listed
+  twice, a prereq that is not a two-item pair, a pair naming a course
+  absent from the list, a perTerm that is not a whole number of at least
+  one, and prerequisites that can never be satisfied because they loop
+  back on themselves, a course requiring itself included, with an error.
+target: solution.ts
+interface: "export function planTerms(courses: string[], prereqs: string[][], perTerm: number): string[][]"
+stop_conditions:
+  - Whether a repeated prerequisite pair is allowed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

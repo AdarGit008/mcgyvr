@@ -1,0 +1,20 @@
+```ts
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("Value must be a non-negative integer");
+  }
+  if (width % 4 !== 0 || width > 32) {
+    throw new Error("Width must be a positive multiple of four not exceeding 32");
+  }
+  if (value >= Math.pow(2, width)) {
+    throw new Error("Value does not fit in the specified width");
+  }
+
+  const binaryString = value.toString(2).padStart(width, '0');
+  const nibbleGroups = [];
+  for (let i = 0; i < binaryString.length; i += 4) {
+    nibbleGroups.push(binaryString.slice(i, i + 4));
+  }
+  return nibbleGroups.join(' ');
+}
+```

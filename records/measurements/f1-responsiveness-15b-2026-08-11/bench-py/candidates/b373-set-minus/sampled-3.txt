@@ -1,0 +1,6 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    # Filter out entries that are in both sets
+    result = [entry for entry in entries if entry not in remove]
+    return result
+```

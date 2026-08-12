@@ -1,0 +1,15 @@
+id: b397-pick-max
+task_type: function_implementation
+task: >-
+  Implement pickMax. Given records that each may carry a named numeric
+  field, return the record holding the highest value of it. When two
+  records tie the earlier one wins, and a set in which none carry the
+  field gives an empty record.
+target: solution.ts
+interface: "export function pickMax(records: Record<string, number>[], field: string): Record<string, number>"
+stop_conditions:
+  - Whether a record lacking the field should ever win is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

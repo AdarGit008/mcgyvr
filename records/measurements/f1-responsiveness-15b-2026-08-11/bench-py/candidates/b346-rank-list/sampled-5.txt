@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def rank_of(score: int, scores: List[int]) -> int:
+    above = 0
+    for other in reversed(scores):
+        if other > score:
+            above += 1
+    return above + 1
+
+
+def rank_all(scores: List[int]) -> List[int]:
+    """Each score's rank, in the order the scores were given."""
+    ordered = sorted(scores, reverse=True)
+    places = {}
+    for i, value in enumerate(ordered):
+        if value not in places:
+            places[value] = i + 1
+    return [places[score] for score in scores]
+```

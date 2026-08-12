@@ -1,0 +1,76 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+
+  function walk(node: any, currentPath: string[]): void {
+    if (typeof node !== 'object' || Array.isArray(node) || !node || typeof node.name !== 'string' || node.name.includes('/')) {
+      throw new Error('Invalid node structure');
+    }
+    const path = [...currentPath, node.name];
+
+    if ('files' in node) {
+      paths.push(...path);
+    } else if ('children' in node) {
+      for (const child of node.children) {
+        walk(child, path);
+      }
+    }
+  }
+
+  walk(root, []);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || Array.isArray(root) || !root || typeof root.name !== 'string') {
+    throw new Error('Invalid node structure');
+  }
+  let bytes = 0;
+
+  if ('files' in root) {
+    bytes += root.files;
+  } else if ('children' in root) {
+    for (const child of root.children) {
+      bytes += treeBytes(child);
+    }
+  }
+
+  return bytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || Array.isArray(root) || !root || typeof root.name !== 'string') {
+    throw new Error('Invalid node structure');
+  }
+  if (typeof minBytes !== 'number' || minBytes < 0 || !Number.isInteger(minBytes)) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const results: [string, number][] = [];
+  let currentPath: string[] = [];
+
+  function walk(node: any, currentBytes: number): void {
+    if (typeof node !== 'object' || Array.isArray(node) || !node || typeof node.name !== 'string') {
+      throw new Error('Invalid node structure');
+    }
+    const path = [...currentPath, node.name];
+
+    if ('files' in node) {
+      currentBytes += node.files;
+      results.push([path.join('/'), currentBytes]);
+    } else if ('children' in node) {
+      for (const child of node.children) {
+        walk(child, currentBytes);
+      }
+    }
+
+    if (currentBytes >= minBytes && !('files' in node)) {
+      results.push([path.join('/'), currentBytes]);
+    }
+  }
+
+  walk(root, 0);
+
+  return results;
+}
+```

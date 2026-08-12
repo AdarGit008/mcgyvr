@@ -1,0 +1,14 @@
+id: b430-sort-by-len
+task_type: function_implementation
+task: >-
+  Implement sortByLen. Put a list of words in order by how long they
+  are, shortest first, and put two words of the same length in
+  alphabetical order. The list it is given is never altered.
+target: solution.ts
+interface: "export function sortByLen(words: string[]): string[]"
+stop_conditions:
+  - Whether case should be ignored when ordering alphabetically is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,6 @@
+```ts
+export function camelBreak(name: string): string[] {
+  const words = name.match(/[A-Z][a-z]*/g) || [name];
+  return words.map(word => word.toLowerCase());
+}
+```

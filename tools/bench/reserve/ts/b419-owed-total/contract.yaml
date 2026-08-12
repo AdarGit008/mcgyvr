@@ -1,0 +1,28 @@
+id: b419-owed-total
+task_type: bug_fix
+task: >-
+  owedTotal adds up what is owed across a ledger, counting a charge as
+  owed and a payment as reducing it, and it counts payments as owed
+  too. Fix it. A ledger entry is a payment when its amount stands
+  below nothing. Reject a total that would fall below nothing with an
+  error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** What is owed across a ledger of charges and payments. */
+  export function owedTotal(entries: number[]): number {
+    let total = 0;
+    for (const entry of entries) {
+      total += Math.abs(entry);
+    }
+    if (total < 0) {
+      throw new Error("the total cannot fall below nothing");
+    }
+    return total;
+  }
+interface: "export function owedTotal(entries: number[]): number"
+stop_conditions:
+  - Whether an entry of exactly nothing should count as either is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

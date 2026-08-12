@@ -1,0 +1,21 @@
+id: b460-pad-time
+task_type: bug_fix
+task: >-
+  padTime writes an hour and a minute as a clock reading, each of them
+  two digits with a colon between, and it pads only the hour. Fix it.
+  An hour or minute already two digits long is written as it stands.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** An hour and a minute written as a clock reading. */
+  export function padTime(hour: number, minute: number): string {
+    const h = hour < 10 ? "0" + String(hour) : String(hour);
+    return h + ":" + String(minute);
+  }
+interface: "export function padTime(hour: number, minute: number): string"
+stop_conditions:
+  - Whether an hour above twenty-three should be accepted is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

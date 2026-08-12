@@ -1,0 +1,21 @@
+id: b188-reach-modes
+task_type: function_implementation
+task: >-
+  Implement reachable_modes. A control panel's protocol is written as a table
+  keyed by mode name, where each mode maps every signal it answers to the
+  mode that signal leads to; a mode named as a destination but absent from
+  the table answers no signal at all and is a resting mode. Starting from
+  the mode the panel sits in, walk the signals as far as they go and return
+  the alphabetically sorted list of every mode the panel can be in, the
+  starting mode included and resting modes included. Signals may lead back
+  to modes already walked, so a cycle must not walk forever. Reject a table
+  that is not a mapping and a starting mode that the table does not key,
+  with an error.
+target: solution.py
+interface: "def reachable_modes(table: dict, start: str) -> list"
+stop_conditions:
+  - Whether a destination mode name may be spelled differently from its table key is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

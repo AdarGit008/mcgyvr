@@ -1,0 +1,16 @@
+```ts
+function shortNum(value: number): string {
+  if (value === 0) return "0";
+
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+
+  if (absValue < 1000) {
+    return value.toString();
+  } else if (absValue < 1000000) {
+    return `${value / 1000}k`;
+  } else {
+    return `${value / 1000000}m`;
+  }
+}
+```

@@ -1,0 +1,12 @@
+```ts
+export function rateCap(price: number, rate: number, most: number): number {
+    if (rate < 0) {
+        throw new Error("Rate cannot be negative.");
+    }
+
+    const maxIncrease = Math.ceil(most / 100);
+    const increase = Math.min(rate, maxIncrease);
+
+    return Math.floor(price * (1 + increase / 100));
+}
+```

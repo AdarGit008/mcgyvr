@@ -1,0 +1,33 @@
+```typescript
+import { strict as assert } from "assert";
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) {
+    throw new Error("Links must be a mapping.");
+  }
+  const visited = new Set<string>();
+  let currentPost = start;
+
+  while (currentPost && !visited.has(currentPost)) {
+    visited.add(currentPost);
+
+    const nextPost = links[currentPost];
+    if (typeof nextPost !== 'string' || (nextPost !== "" && !links[nextPost])) {
+      throw new Error("Invalid handoff or circular watch.");
+    }
+
+    currentPost = nextPost;
+  }
+
+  return Array.from(visited);
+}
+
+// Test cases
+assert.deepEqual(traceRelay({}, "A"), [], "Empty links should return an empty array");
+assert.deepEqual(traceRelay({ A: "B", B: "C" }, "A"), ["A", "B", "C"], "Single path should work");
+assert.deepEqual(traceRelay({ A: "B", B: "C" }, "B"), ["B", "C"], "Already visited, should stop");
+assert.throws(() => traceRelay({ A: "B", C: "D" }, "A"), { message: "Invalid handoff or circular watch." }, "Non-existent next post should throw");
+assert.throws(() => traceRelay({ A: "A" }, "A"), { message: "Invalid handoff or circular watch." }, "Circular watch should throw");
+
+console.log("All tests passed!");
+```

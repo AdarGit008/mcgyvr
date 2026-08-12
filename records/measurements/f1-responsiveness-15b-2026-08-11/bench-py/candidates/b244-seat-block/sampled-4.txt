@@ -1,0 +1,11 @@
+```python
+def seat_block(label: str) -> list:
+    if not label or len(label) < 2 or not label[0].isdigit() or label[-1] != label[-1].upper():
+        raise ValueError("Invalid seat label")
+
+    row_str, letter = label[:-1], label[-1]
+    if not row_str.isdigit():
+        raise ValueError("Invalid seat label")
+    
+    return [int(row_str), letter]
+```

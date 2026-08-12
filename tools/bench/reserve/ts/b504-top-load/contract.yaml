@@ -1,0 +1,17 @@
+id: b504-top-load
+task_type: function_implementation
+task: >-
+  kindWeight names what one item of a kind weighs. topLoad names the
+  kind carrying the greatest weight once every item of that kind is
+  counted together. Implement topLoad. Where two kinds carry the same
+  weight the one arriving earliest is named, and a load of nothing
+  names nothing.
+target: solution.ts
+interface: "export function kindWeight(kind: string): number
+export function topLoad(kinds: string[]): string"
+stop_conditions:
+  - Whether a kind weighing nothing should be able to be named is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

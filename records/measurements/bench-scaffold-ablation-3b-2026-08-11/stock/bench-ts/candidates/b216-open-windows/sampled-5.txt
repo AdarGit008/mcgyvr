@@ -1,0 +1,31 @@
+```
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  const minutes = (range: string): number[] => {
+    const parts = range.split("-");
+    if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+      throw new Error("a range must be written HH:MM-HH:MM: " + range);
+    }
+    return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+  };
+  const stamp = (at: number): string =>
+    String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  if (booked.length === 0) {
+    return span;
+  }
+  booked.sort((a, b) => minutes(a)[0] - minutes(b)[0]);
+  let free: string[] = [];
+  let lastEnd = Number.MIN_SAFE_INTEGER;
+  for (const book of booked) {
+    const [start, end] = minutes(book);
+    if (start >= lastEnd) {
+      free.push(stamp(lastEnd) + "-" + stamp(start));
+    }
+    lastEnd = Math.max(lastEnd, end);
+  }
+  if (lastEnd < Number.MAX_SAFE_INTEGER) {
+    free.push(stamp(lastEnd) + "-" + stamp(Number.MAX_SAFE_INTEGER));
+  }
+  return free.length === 0 ? "none" : free.join(", ");
+}
+```

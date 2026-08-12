@@ -1,0 +1,15 @@
+```ts
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  if (!amount) return tally;
+  const existingCount = tally[name] || 0;
+  tally[name] = existingCount + amount;
+  return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  Object.keys(right).forEach(name => {
+    left[name] = (left[name] ?? 0) + right[name];
+  });
+  return left;
+}
+```

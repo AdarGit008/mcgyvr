@@ -1,0 +1,37 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total)) throw new Error("total must be whole cents");
+  if (total < 0) throw new Error("total may not be negative");
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error("weights must be a non-empty list");
+  if (!weights.every((w) => Number.isInteger(w) && w > 0)) throw new Error("a weight is a positive whole number");
+
+  const totalCents = total;
+  if (totalCents % 1 !== 0) {
+    throw new Error("total must be an integer");
+  }
+
+  const whole = weights.reduce((a, b) => a + b, 0);
+  if (whole === 0) {
+    throw new Error("weights list cannot sum to zero");
+  }
+
+  const parts = weights.map((w) => Math.floor((totalCents * w) / whole));
+
+  // Calculate the leftover cents
+  const leftOverCent = totalCents - parts.reduce((a, b) => a + b, 0);
+
+  // Determine how many more people need to share the leftover
+  const remainingToShare = weights.length - parts.filter((p) => p > 0).length;
+
+  // Distribute the leftover cents starting from the largest discarded fraction
+  for (let i = 0; i < remainingToShare && leftOverCent > 0; i++) {
+    const weightIndex = parts.findIndex((p, idx) => idx >= weights.length - 1 - i && p === 0);
+    if (weightIndex !== -1) {
+      parts[weightIndex] += 1;
+      leftOverCent -= 1;
+    }
+  }
+
+  return parts;
+}
+```

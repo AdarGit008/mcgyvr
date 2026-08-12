@@ -1,0 +1,49 @@
+```
+from typing import List
+
+def region_totals(grid: list, queries: list) -> list:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    
+    # Check that all rows have the same length and contain only integers.
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+    
+    # Build a prefix-sum table over the grid.
+    ps_table = [[0] * (width + 1) for _ in range(len(grid) + 1)]
+    
+    for i in range(1, len(grid) + 1):
+        for j in range(1, width + 1):
+            ps_table[i][j] = ps_table[i - 1][j] + ps_table[i][j - 1] - ps_table[i - 1][j - 1] + grid[i - 1][j - 1]
+    
+    # Validate each query and answer it from the prefix-sum table.
+    results = []
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("each query must be a four-element list")
+        
+        top, left, bottom, right = query
+        
+        if not (0 <= top < bottom and 0 <= left < right):
+            raise ValueError("queries must have valid bounds within the grid")
+        
+        # Calculate the sum of the specified block using the prefix-sum table.
+        block_sum = (
+            ps_table[bottom][right] -
+            ps_table[top][right] -
+            ps_table[bottom][left] +
+            ps_table[top][left]
+        )
+        
+        results.append(block_sum)
+    
+    return results
+```

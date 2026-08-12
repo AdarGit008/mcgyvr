@@ -1,0 +1,17 @@
+```python
+from typing import List, Dict, Union
+
+def field_mean(records: List[Dict[str, Union[int, float]]], field: str) -> int:
+    total = 0
+    count = 0
+    
+    for record in records:
+        if field in record and isinstance(record[field], (int, float)):
+            total += record[field]
+            count += 1
+    
+    if not count:
+        return 0
+    
+    return total // count
+```

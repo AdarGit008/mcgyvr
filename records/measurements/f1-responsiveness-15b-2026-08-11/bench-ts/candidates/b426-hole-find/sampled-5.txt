@@ -1,0 +1,19 @@
+```ts
+export function stepsOn(first: number, count: number): number[] {
+  const sequence: number[] = [];
+  for (let i = first; i < first + count; i++) {
+    sequence.push(i);
+  }
+  return sequence;
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+  const sequence = stepsOn(first, count);
+  for (let i = 0; i < seen.length; i++) {
+    if (!sequence.includes(seen[i])) {
+      return seen[i];
+    }
+  }
+  return undefined;
+}
+```

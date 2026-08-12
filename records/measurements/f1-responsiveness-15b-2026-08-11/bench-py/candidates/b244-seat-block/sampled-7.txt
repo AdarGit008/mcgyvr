@@ -1,0 +1,11 @@
+```python
+def seat_block(label: str) -> list:
+    if not label or label[0].isdigit():
+        raise ValueError("Invalid input")
+
+    for char in label:
+        if not char.isdigit() and char.isupper():
+            raise ValueError("Invalid input")
+
+    return [int(label[:-1]), label[-1]]
+```

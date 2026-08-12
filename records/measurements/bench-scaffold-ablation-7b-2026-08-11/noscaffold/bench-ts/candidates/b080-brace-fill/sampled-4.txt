@@ -1,0 +1,33 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Invalid template');
+  }
+
+  let result = '';
+  let i = 0;
+  while (i < template.length) {
+    const char = template[i];
+    if (char === '{') {
+      let nameStart = i + 1;
+      while (nameStart < template.length && /^[a-zA-Z\d_]+$/.test(template[nameStart])) {
+        nameStart++;
+      }
+      if (nameStart > i + 1 && nameStart < template.length) {
+        const placeholderName = template.slice(i + 1, nameStart);
+        i = nameStart;
+        result += values[placeholderName] || '';
+      } else {
+        throw new Error('Invalid placeholder syntax');
+      }
+    } else if (char === '}') {
+      throw new Error('Unmatched closing brace');
+    } else {
+      result += char;
+    }
+    i++;
+  }
+
+  return result;
+}
+```

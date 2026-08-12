@@ -1,0 +1,30 @@
+```python
+def order_release_tags(tags: list) -> list:
+    """
+    Sorts a list of release tags in ascending order based on major, minor, and patch numbers.
+    Tags with preview labels are sorted alphabetically by label name and numerically by label number.
+    """
+    def parse_tag(tag: str) -> tuple:
+        parts = tag.split('.')
+        major, minor, patch = map(int, parts[:3])
+        if len(parts) == 4:
+            label_name, label_number = parts[3].split('-')
+            return (major, minor, patch, label_name, int(label_number))
+        else:
+            return (major, minor, patch)
+
+    def compare_tags(tag1: tuple, tag2: tuple) -> int:
+        if tag1[:3] != tag2[:3]:
+            return cmp(tag1[:3], tag2[:3])
+        elif len(tag1) == 5 and len(tag2) == 5:
+            label_cmp = cmp(tag1[3], tag2[3])
+            if label_cmp != 0:
+                return label_cmp
+            else:
+                return cmp(tag1[4], tag2[4])
+        else:
+            return 0
+
+    sorted_tags = sorted(tags, key=parse_tag)
+    return sorted_tags
+```

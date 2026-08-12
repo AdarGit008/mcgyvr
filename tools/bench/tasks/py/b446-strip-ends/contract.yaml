@@ -1,0 +1,24 @@
+id: b446-strip-ends
+task_type: bug_fix
+task: >-
+  strip_ends removes a stated character from both ends of a text,
+  however many of it stand there, and it removes only one from each
+  end. Fix it. A text made entirely of that character comes back
+  empty. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def strip_ends(text: str, mark: str) -> str:
+      """The text with a character removed from both of its ends."""
+      out = text
+      if out.startswith(mark):
+          out = out[1:]
+      if out.endswith(mark):
+          out = out[:-1]
+      return out
+interface: "def strip_ends(text: str, mark: str) -> str"
+stop_conditions:
+  - Whether more than one character could be stripped at once is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

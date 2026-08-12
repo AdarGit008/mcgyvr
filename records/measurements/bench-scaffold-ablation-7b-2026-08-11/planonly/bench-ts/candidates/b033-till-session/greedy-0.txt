@@ -1,0 +1,83 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = {
+    state: "open",
+    items: [] as [string, number][],
+    total: 0,
+    paid: 0,
+    change: 0
+  };
+
+  if (Object.keys(prices).length === 0) {
+    throw new Error("Price list cannot be empty");
+  }
+
+  const validActions = ["scan", "void", "close", "pay", "cancel"];
+  const session = events.reduce((acc, event) => {
+    const [action, ...payload] = event;
+    if (!validActions.includes(action)) {
+      throw new Error(`Unknown action: ${action}`);
+    }
+
+    switch (action) {
+      case "scan":
+        if (acc.state !== "open") {
+          throw new Error("Cannot scan in a closed or payment session");
+        }
+        const [itemName] = payload;
+        if (!prices[itemName]) {
+          throw new Error(`Item not found: ${itemName}`);
+        }
+        acc.items.push([itemName, (acc.items.find(([name]) => name === itemName)?.[1] || 0) + 1]);
+        break;
+
+      case "void":
+        if (acc.state !== "open") {
+          throw new Error("Cannot void in a closed or payment session");
+        }
+        const [voidItemName] = payload;
+        const itemIndex = acc.items.findIndex(([name]) => name === voidItemName);
+        if (itemIndex === -1) {
+          throw new Error(`Item not found to void: ${voidItemName}`);
+        }
+        acc.items[itemIndex][1]--;
+        if (acc.items[itemIndex][1] === 0) {
+          acc.items.splice(itemIndex, 1);
+        }
+        break;
+
+      case "close":
+        if (acc.state !== "open" || acc.items.length === 0) {
+          throw new Error("Cannot close an empty or already closed session");
+        }
+        acc.state = "payment";
+        acc.total = acc.items.reduce((sum, [_, quantity]) => sum + prices[quantity], 0);
+        break;
+
+      case "pay":
+        if (acc.state !== "payment") {
+          throw new Error("Cannot pay in an open or already paid/cancelled session");
+        }
+        const [payAmount] = payload;
+        if (!Number.isInteger(payAmount) || payAmount <= 0) {
+          throw new Error("Invalid payment amount");
+        }
+        acc.paid += payAmount;
+        acc.change = Math.max(acc.paid - acc.total, 0);
+        acc.state = "paid";
+        break;
+
+      case "cancel":
+        if (acc.state !== "open" && acc.state !== "payment") {
+          throw new Error("Cannot cancel a paid or cancelled session");
+        }
+        acc.state = "cancelled";
+        break;
+    }
+
+    return acc;
+  }, initialState);
+
+  return { ...session, items: session.items.sort((a, b) => a[0].localeCompare(b[0])) };
+}
+```

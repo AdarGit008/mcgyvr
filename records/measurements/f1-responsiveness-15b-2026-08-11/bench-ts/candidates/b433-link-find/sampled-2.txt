@@ -1,0 +1,20 @@
+```ts
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  if (!opens || !closes) throw new Error('No opening or closing marker specified');
+  if (line.split('').includes(opens) && line.split('').includes(closes)) throw new Error('Markers must be present in the line');
+
+  const stack: string[] = [];
+  const result: string[] = [];
+
+  for (const char of line) {
+    if (char === opens) {
+      stack.push(char);
+    } else if (char === closes && stack.length > 0) {
+      stack.pop();
+      result.push(char);
+    }
+  }
+
+  return result;
+}
+```

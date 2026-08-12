@@ -1,0 +1,45 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) throw new Error("Invalid span format");
+  const [startStr, endStr] = span.split("-");
+  const start = parseTime(startStr);
+  const end = parseTime(endStr);
+
+  if (isNaN(start) || isNaN(end)) throw new Error("Invalid time format");
+
+  booked.sort((a, b) => compareTimes(a, b));
+
+  let freeWindows: string[] = [];
+  let currentStart = start;
+
+  for (const appointment of booked) {
+    const [appointmentStartStr, appointmentEndStr] = appointment.split("-");
+    const appointmentStart = parseTime(appointmentStartStr);
+    const appointmentEnd = parseTime(appointmentEndStr);
+
+    if (isNaN(appointmentStart) || isNaN(appointmentEnd)) throw new Error("Invalid time format");
+
+    if (appointmentStart >= currentStart && appointmentStart < end) {
+      currentStart = Math.max(currentStart, appointmentEnd);
+    }
+  }
+
+  if (currentStart === start) freeWindows.push(`${startStr}-${endStr}`);
+  else freeWindows.unshift(`${currentStart}-${endStr}`);
+
+  return freeWindows.join(", ") || "none";
+
+  function parseTime(time: string): number {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function compareTimes(a: string, b: string): number {
+    const [aHours, aMinutes] = a.split(":").map(Number);
+    const [bHours, bMinutes] = b.split(":").map(Number);
+
+    if (aHours !== bHours) return aHours - bHours;
+    return aMinutes - bMinutes;
+  }
+}
+```

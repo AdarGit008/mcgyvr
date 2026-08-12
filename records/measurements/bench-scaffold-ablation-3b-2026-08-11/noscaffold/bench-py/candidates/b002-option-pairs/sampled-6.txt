@@ -1,0 +1,62 @@
+```python
+def parse_option(segment: str) -> list:
+    """Converts a key-value segment to a [key, value] pair."""
+    if not isinstance(segment, str):
+        raise ValueError("Input must be a string.")
+    
+    equal_index = segment.find('=')
+    if equal_index == -1:
+        # No equals sign, treat as an error
+        raise ValueError(f"Invalid option '{segment}'. Missing '='.")
+    
+    key = segment[:equal_index]
+    value = segment[equal_index + 1:]
+    
+    # Strip double quotes from the value if present
+    stripped_value = value.strip('"')
+    
+    # Check if the key is a bare identifier
+    if not key.isidentifier():
+        raise ValueError(f"Invalid option '{segment}'. Key must be a bare identifier.")
+    
+    return [key, stripped_value]
+
+def scan_pairs(text: str) -> list:
+    """Scans an options string and returns a list of [key, value] pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    if len(text) == 0:
+        return []
+    
+    # Split on semicolons, except when within double quotes
+    parts = []
+    in_quotes = False
+    current_segment = ""
+    
+    for char in text:
+        if char == '"' and not in_quotes:
+            in_quotes = True
+        elif char == '"' and in_quotes:
+            in_quotes = False
+        elif char == ';' and not in_quotes:
+            # Skip the semicolon if it's between quotes
+            continue
+        
+        current_segment += char
+        
+        # Add to parts when encountering a semicolon outside quotes or end of string
+        if char == ';' or len(text) <= text.index(char) + 1:
+            parts.append(current_segment.strip())
+            current_segment = ""
+    
+    pairs = []
+    for part in parts:
+        try:
+            parsed_pair = parse_option(part)
+            pairs.append(parsed_pair)
+        except ValueError as e:
+            raise ValueError(f"Error parsing option '{part}': {e}")
+    
+    return pairs
+```

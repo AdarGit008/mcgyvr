@@ -1,0 +1,42 @@
+```python
+
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        return [int(p[:2]) * 60 + int(p[3:]) for p in parts]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    def sort_and_merge(booked: list[str]) -> list[list[int]]:
+        booked_in_minutes = sorted(minutes(appointment) for appointment in booked)
+        merged_booked = []
+        current_start, current_end = booked_in_minutes[0]
+        for start, end in booked_in_minutes[1:]:
+            if start <= current_end:
+                current_end = max(current_end, end)
+            else:
+                merged_booked.append([current_start, current_end])
+                current_start, current_end = start, end
+        merged_booked.append([current_start, current_end])
+        return merged_booked
+
+    span_minutes = minutes(span)
+    merged_booked = sort_and_merge(booked)
+
+    free: list[str] = []
+    prev_end = span_minutes[0]
+    for start, end in merged_booked:
+        if start > prev_end:
+            free.append(stamp(prev_end) + "-" + stamp(start))
+        prev_end = max(prev_end, end)
+
+    if prev_end < span_minutes[1]:
+        free.append(stamp(prev_end) + "-" + stamp(span_minutes[1]))
+
+    return ", ".join(free) if free else "none"
+
+```

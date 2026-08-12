@@ -1,0 +1,36 @@
+```ts
+function runDecode(coded: string): string {
+  if (coded === "") return "";
+
+  let decoded = "";
+  let i = 0;
+
+  while (i < coded.length) {
+    const letter = coded[i];
+    i++;
+
+    if (!letter.match(/\d/)) {
+      decoded += decodeSingleLetter(letter);
+    } else {
+      const countStr = "";
+      while (i < coded.length && coded[i] >= "0" && coded[i] <= "9") {
+        countStr += coded[i];
+        i++;
+      }
+      const count = parseInt(countStr, 10);
+      decoded += letter.repeat(count);
+    }
+  }
+
+  return decoded;
+}
+
+function decodeSingleLetter(letter: string): string {
+  switch (letter) {
+    case "A": return "AAAAA";
+    case "B": return "BBBBB";
+    // Add more cases as needed
+    default: throw new Error(`Invalid letter: ${letter}`);
+  }
+}
+```

@@ -1,0 +1,24 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the integrity check tag for a body string."""
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    return format(sum(ord(char) for char in body), '02x')
+
+def check_line(line: str) -> str:
+    """Verify and extract the body from a tagged line string."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    parts = line.split('~')
+    
+    if len(parts) != 3 or not all(part.strip().isalnum() for part in parts):
+        raise ValueError("Line is not well-formed.")
+    
+    body = parts[0]
+    tag = parts[-1].strip()
+    
+    if body and line_tag(body) != tag:
+        raise ValueError(f"Tag does not match the computed value: {tag}")
+    
+    return body
+```

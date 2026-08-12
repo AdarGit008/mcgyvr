@@ -1,0 +1,60 @@
+```python
+from typing import List
+
+def open_windows(span: str, booked: List[str]) -> str:
+    # Check if input is valid
+    if len(span.split('-')) != 2 or any(len(appointment.split(':')) != 2 for appointment in booked):
+        raise ValueError("Invalid span or appointment format")
+
+    # Parse the span and appointments into lists of tuples (HH, MM)
+    start_time = list(map(int, span.split('-')[0].split(':')))
+    end_time = list(map(int, span.split('-')[1].split(':')))
+
+    appointments = []
+    for appt in booked:
+        appt_start = list(map(int, appt.split('-')[0].split(':')))
+        appt_end = list(map(int, appt.split('-')[1].split(':')))
+        appointments.append((appt_start, appt_end))
+
+    # Sort the appointments by start time
+    appointments.sort()
+
+    # Find free windows between appointments and within span boundaries
+    free_windows = []
+    i = 0
+    while i < len(appointments):
+        start, end = appointments[i]
+        if i > 0:
+            last_end = free_windows[-1][1]
+            if end <= last_end:
+                continue
+
+        # Determine the start of the next free window
+        if i == 0 or start > free_windows[-1][1]:
+            free_start = max(start_time[0], free_windows[-1][1])
+        else:
+            free_start = start_time[0]
+
+        # Determine the end of the current appointment's block
+        if i < len(appointments) - 1 and appointments[i+1][0] <= end:
+            free_end = min(end, appointments[i+1][0])
+        else:
+            free_end = end
+
+        # Append the found free window to the list
+        free_windows.append((free_start, free_end))
+        i += 1
+
+    # Finalize the free windows with boundaries of span
+    if start_time != end_time:
+        free_windows.append((max(start_time[0], free_windows[-1][1]), min(end_time[0], free_windows[-1][1])))
+    else:
+        return "none"
+
+    # Format the final output
+    result = []
+    for free_start, free_end in free_windows:
+        result.append(f"{free_start[0]:02}:{free_start[1]:02}-{free_end[0]:02}:{free_end[1]:02}")
+
+    return ", ".join(result)
+```

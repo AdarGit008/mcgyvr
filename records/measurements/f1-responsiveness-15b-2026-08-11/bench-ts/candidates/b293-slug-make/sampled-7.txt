@@ -1,0 +1,12 @@
+```ts
+export function slugWord(word: string): string {
+  return word.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
+export function slugMake(phrase: string): string {
+  return phrase.split(' ')
+                 .map(slugWord)
+                 .filter(Boolean) // Remove empty words
+                 .join('-');
+}
+```

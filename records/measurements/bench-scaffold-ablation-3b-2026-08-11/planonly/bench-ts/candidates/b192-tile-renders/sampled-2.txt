@@ -1,0 +1,52 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || !Number.isInteger(freshFor) || size <= 0 || !Number.isInteger(size)) {
+        throw new Error("FreshFor and size must be positive whole numbers.");
+    }
+
+    const cache: { [key: string]: number } = {};
+    const renders: [number, string][] = [];
+
+    requests.forEach(([tick, name], index) => {
+        if (tick < 0) {
+            throw new Error("Tick must not go backwards.");
+        }
+
+        let renderIndex = -1;
+
+        for (let i = renders.length - 1; i >= 0; i--) {
+            const [currentTick, currentName] = renders[i];
+            if (currentTick <= tick && currentTick + freshFor > tick) {
+                renderIndex = i;
+                break;
+            }
+        }
+
+        if (renderIndex !== -1) {
+            // Found a still-fresh render
+            renders[renderIndex][0] = tick; // Update the tick to reflect freshness
+        } else {
+            // Need to store a new tile
+            if (Object.keys(cache).length >= size) {
+                // Drop the oldest by name
+                let oldestName = null;
+                for (const name in cache) {
+                    if (!oldestName || name < oldestName) {
+                        oldestName = name;
+                    }
+                }
+
+                delete cache[oldestName];
+            }
+
+            // Store the new tile
+            cache[name] = tick;
+
+            // Record the render and increment the index
+            renders.push([tick, name]);
+        }
+    });
+
+    return renders;
+}
+```

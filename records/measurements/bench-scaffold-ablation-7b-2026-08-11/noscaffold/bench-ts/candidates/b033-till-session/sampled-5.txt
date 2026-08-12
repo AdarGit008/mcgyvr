@@ -1,0 +1,88 @@
+```ts
+/**
+ * Replays a till session from a price list and a list of events.
+ * @param events - A list of events with actions and payloads.
+ * @param prices - A mapping from item name to its price in integer cents.
+ * @returns The state of the till session, including items, total, paid, and change.
+ */
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    const validActions = new Set(['scan', 'void', 'close', 'pay', 'cancel']);
+    let cart: Record<string, number> = {};
+    let total = 0;
+    let paid = 0;
+    let change = 0;
+    let state: string = 'open';
+
+    for (const event of events) {
+        if (!Array.isArray(event) || event.length !== 2) {
+            throw new Error('Invalid event format');
+        }
+
+        const [action, payload] = event;
+
+        if (!validActions.has(action)) {
+            throw new Error(`Unknown action: ${action}`);
+        }
+
+        switch (state) {
+            case 'open':
+                if (action === 'close') {
+                    if (Object.keys(cart).length === 0) {
+                        throw new Error('Cannot close an empty cart');
+                    }
+                    state = 'payment';
+                } else if (action === 'scan') {
+                    const [itemName, itemPrice] = payload as [string, number];
+                    if (!prices[itemName]) {
+                        throw new Error(`Item not found: ${itemName}`);
+                    }
+                    if (!Number.isInteger(itemPrice) || itemPrice <= 0) {
+                        throw new Error('Invalid price');
+                    }
+                    cart[itemName] = (cart[itemName] || 0) + 1;
+                } else if (action === 'void') {
+                    const [itemName, _itemPrice] = payload as [string, number];
+                    if (!cart[itemName]) {
+                        throw new Error(`Item not found in cart: ${itemName}`);
+                    }
+                    cart[itemName]--;
+                    if (cart[itemName] === 0) {
+                        delete cart[itemName];
+                    }
+                } else if (action === 'pay') {
+                    throw new Error('Cannot pay during open session');
+                } else if (action === 'cancel') {
+                    state = 'cancelled';
+                }
+                break;
+
+            case 'payment':
+                if (action === 'close') {
+                    throw new Error('Cannot close a payment session');
+                } else if (action === 'scan' || action === 'void') {
+                    throw new Error('Cannot scan or void during payment');
+                } else if (action === 'pay') {
+                    const amount = payload as number;
+                    if (!Number.isInteger(amount) || amount <= 0) {
+                        throw new Error('Invalid pay amount');
+                    }
+                    paid += amount;
+                    change = paid - total;
+                    state = 'paid';
+                } else if (action === 'cancel') {
+                    state = 'cancelled';
+                }
+                break;
+
+            case 'paid':
+            case 'cancelled':
+                throw new Error('Session is already paid or cancelled');
+        }
+    }
+
+    const items: [string, number][] = Object.entries(cart).map(([name, quantity]) => [name, quantity]);
+    items.sort((a, b) => a[0].localeCompare(b[0]));
+
+    return { state, items, total, paid, change };
+}
+```

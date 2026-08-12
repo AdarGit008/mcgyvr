@@ -1,0 +1,77 @@
+```python
+from typing import Dict
+
+def run_till_session(events: list, prices: dict) -> dict:
+    """
+    Replays one point-of-sale till session from events and prices.
+
+    Args:
+    events (list): A list of events where each event is a list with an action.
+    prices (dict): A mapping from item name to price in integer cents.
+
+    Returns:
+    dict: A state map containing items, total, paid, and change.
+    """
+    if not isinstance(events, list) or not all(isinstance(event, list) and len(event) == 2 for event in events):
+        raise ValueError("Invalid events format")
+    
+    cart = {}
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+    
+    def add_item(item, quantity=1):
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+        cart[item] = cart.get(item, 0) + quantity
+    
+    def remove_item(item):
+        if item not in cart or cart[item] == 0:
+            raise ValueError(f"No such item or quantity is zero for: {item}")
+        cart[item] -= 1
+        if cart[item] == 0:
+            del cart[item]
+    
+    def calc_total():
+        return sum(prices.get(item, 0) * quantity for item, quantity in cart.items())
+    
+    for event in events:
+        action = event[0]
+        
+        if state["status"] != "open":
+            raise ValueError("Illegal action in session's current state")
+        
+        match action:
+            case "scan" | "void":
+                item = event[1]
+                if action == "scan":
+                    add_item(item)
+                else:
+                    remove_item(item)
+            case "close":
+                if not cart:
+                    raise ValueError("Cannot close an empty cart")
+                state["status"] = "paid"
+            case "pay":
+                cents_paid = int(event[1])
+                if cents_paid <= 0 or cents_paid > calc_total():
+                    raise ValueError(f"Invalid pay amount: {cents_paid}")
+                total_received = calc_total()
+                change = total_received - cents_paid
+                state["items"] = sorted(cart.items())
+                state["total"] = total_received
+                state["paid"] = cents_paid
+                state["change"] = change
+            case "cancel":
+                if state["status"] in ["open", "paid"]:
+                    state["status"] = "cancelled"
+                    cart.clear()
+            case _:
+                raise ValueError(f"Unknown action: {action}")
+    
+    return state
+
+```

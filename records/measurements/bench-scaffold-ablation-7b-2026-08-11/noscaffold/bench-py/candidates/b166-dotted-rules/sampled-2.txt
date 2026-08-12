@@ -1,0 +1,13 @@
+```python
+
+
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    for selector in sorted(rules.keys(), key=lambda x: (not x.endswith('.*'), len(x))):
+        if selector == name or (selector.endswith('.*') and name.startswith(selector[:-2])):
+            return rules[selector]
+    return None
+
+
+```

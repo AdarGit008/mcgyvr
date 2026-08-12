@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def tags_of(line: str) -> list:
+    """Breaks a comma-separated line into its tags, trimming whitespace around each."""
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string.")
+    
+    # Split the line by commas and strip leading/trailing whitespace
+    return [tag.strip() for tag in line.split(',')]
+
+def tag_index(lines: list) -> dict:
+    """Returns a mapping from each tag to the lines carrying it, in the order the lines came."""
+    if not isinstance(lines, list):
+        raise ValueError("Input must be a list of strings.")
+    
+    # Initialize an empty dictionary to store the tag-indexed lines
+    line_index = {}
+    
+    for i, line in enumerate(lines):
+        if not isinstance(line, str):
+            raise ValueError(f"Line {i+1} is not text.")
+        
+        tags = tags_of(line)
+        for tag in tags:
+            # Update the dictionary with the current line
+            line_index.setdefault(tag.lower(), []).append((i, line))
+    
+    return line_index
+```

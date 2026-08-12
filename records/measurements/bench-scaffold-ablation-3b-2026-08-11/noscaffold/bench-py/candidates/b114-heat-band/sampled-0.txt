@@ -1,0 +1,53 @@
+```python
+from typing import List
+
+def run_thermostat(start: int, low: int, high: int, power: int, drifts: List[int]) -> dict:
+    """
+    Simulate a heater under a two-point thermostat tick by tick.
+
+    Parameters:
+    - start (int): The initial temperature of the room.
+    - low (int): The lower bound of the thermostat's band.
+    - high (int): The upper bound of the thermostat's band.
+    - power (int): The amount of heat added to the room per tick if the heater is on.
+    - drifts (List[int]): A list of signed integers representing the temperature change each tick.
+
+    Returns:
+    - dict: A dictionary containing the final temperature, how many ticks the heater ran,
+            how many times it switched state either way, and the lowest temperature seen.
+    """
+    if not isinstance(start, int) or not isinstance(low, int) or not isinstance(high, int):
+        raise ValueError("Start, low, and high must be integers.")
+    if not isinstance(power, int) or power <= 0:
+        raise ValueError("Power must be a positive integer.")
+    if not isinstance(drifts, list) or not all(isinstance(x, int) for x in drifts):
+        raise ValueError("Drifts must be a list of integers.")
+
+    temp = start
+    heater_on = False
+    switched = 0
+    coldest = start
+
+    for drift in drifts:
+        if not isinstance(drift, int):
+            raise ValueError("Drift must be an integer.")
+        
+        if temp < low and not heater_on:
+            heater_on = True
+            switched += 1
+        elif temp >= high and heater_on:
+            heater_on = False
+            switched += 1
+        
+        temp += power if heater_on else drift
+
+        if temp < coldest:
+            coldest = temp
+
+    return {
+        "temp": temp,
+        "heated": sum(1 for d in drifts if d > 0) + switched,  # Count ticks where the heater is on or switched
+        "switches": switched,
+        "coldest": coldest
+    }
+```

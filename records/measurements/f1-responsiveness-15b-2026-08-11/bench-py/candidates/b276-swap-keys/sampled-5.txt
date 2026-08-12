@@ -1,0 +1,22 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping from each code to a name.
+    When two names share one code, the name that sorts first is kept. A name whose code
+    is empty text is left out altogether.
+
+    Parameters:
+    - names (dict): A dictionary where keys are names and values are codes.
+
+    Returns:
+    - dict: A dictionary mapping each code to a name.
+    """
+    if not names:
+        return {}
+
+    unique_codes = set(names.values())
+    swapped_names = {code: next((name for name in sorted(names) if names[name] == code), None)
+                     for code in unique_codes}
+
+    return swapped_names
+```

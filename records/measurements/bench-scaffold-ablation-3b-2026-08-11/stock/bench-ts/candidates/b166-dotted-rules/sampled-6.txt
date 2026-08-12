@@ -1,0 +1,27 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (
+    typeof name !== "string" ||
+    name === "" ||
+    name.includes("*") ||
+    !name.match(/^[\w.-]+(\.[\w.-]*)*$/)
+  ) {
+    throw new Error("name must be a valid non-empty string");
+  }
+  
+  const keys = Object.keys(rules);
+  let winner: [string, string] | null = null;
+
+  for (const key of keys) {
+    if (key === "*") {
+      if (!winner || name.length > key.length) {
+        winner = [key, rules[key]];
+      }
+    } else if (name.startsWith(key) && (key.endsWith(".*") || key.length === name.length)) {
+      winner = [key, rules[key]];
+    }
+  }
+
+  return winner ? winner[1] : null;
+}
+```

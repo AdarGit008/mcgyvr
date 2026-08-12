@@ -1,0 +1,14 @@
+id: b374-has-all
+task_type: function_implementation
+task: >-
+  Implement has_all. Say whether a store holds every one of the keys a
+  list names. A list naming no keys at all is satisfied by any store,
+  including an empty one.
+target: solution.py
+interface: "def has_all(store: dict, needed: list) -> bool"
+stop_conditions:
+  - Whether a key named twice should be looked for twice is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

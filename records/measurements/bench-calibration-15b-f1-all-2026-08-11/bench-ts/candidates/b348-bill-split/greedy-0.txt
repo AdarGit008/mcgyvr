@@ -1,0 +1,12 @@
+```ts
+export function billSplit(total: number, diners: number): number[] {
+  if (diners === 0) {
+    throw new Error("No diners at all");
+  }
+
+  const perDiner = Math.floor(total / diners);
+  const remainder = total % diners;
+
+  return Array.from({ length: diners }, (_, i) => perDiner + (i < remainder ? 1 : 0));
+}
+```

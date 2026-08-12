@@ -1,0 +1,22 @@
+id: b241-rota-next
+task_type: bug_fix
+task: >-
+  rota_next reports who takes the shift after a given name in a
+  repeating rota, and it falls off the end: asked about the last name
+  it returns nothing instead of coming round to the first. Fix it. A
+  name that is not in the rota at all comes back unchanged. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def rota_next(rota: list, name: str) -> str:
+      """Who takes the next shift after `name` in a repeating rota."""
+      if name not in rota:
+          return name
+      return rota[rota.index(name) + 1]
+interface: "def rota_next(rota: list, name: str) -> str"
+stop_conditions:
+  - What should happen when the same name appears twice in the rota is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

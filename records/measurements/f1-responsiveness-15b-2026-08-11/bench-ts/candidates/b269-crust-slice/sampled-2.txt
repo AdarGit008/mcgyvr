@@ -1,0 +1,13 @@
+```ts
+/**
+ * Extracts the part before the final dot from a given filename.
+ * If no dot exists or the filename is empty, returns the original string unchanged.
+ * 
+ * @param name - The filename from which to extract the part before the dot.
+ * @returns The extracted part of the filename or the original string if no dot is present.
+ */
+export function crustSlice(name: string): string {
+  const index = name.lastIndexOf('.');
+  return index === -1 ? name : name.substring(0, index);
+}
+```

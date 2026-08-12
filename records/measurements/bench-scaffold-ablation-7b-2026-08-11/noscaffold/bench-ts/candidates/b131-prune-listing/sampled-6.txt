@@ -1,0 +1,32 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+    if (!Array.isArray(listing) || !Array.isArray(rules)) {
+        throw new Error('Invalid arguments: listing and rules must be arrays.');
+    }
+
+    const isValidPath = (path: string): boolean => path.match(/^([^\n/]+\/)*[^\n/]+$/) !== null;
+    const isValidRule = (rule: string): boolean => rule.match(/^!?\w+(\/\w+)*$/) !== null;
+
+    if (!listing.every(isValidPath) || !rules.every(isValidRule)) {
+        throw new Error('Invalid path or rule.');
+    }
+
+    return listing.filter(path => {
+        let surviving = false;
+        for (const rule of rules) {
+            const isKeepRule = rule.startsWith('!');
+            const pattern = isKeepRule ? rule.slice(1) : rule;
+
+            const pathSegments = path.split('/');
+            const patternSegments = pattern.split('/');
+
+            if (pathSegments.length >= patternSegments.length && 
+                patternSegments.every((segment, index) => segment === '*' || pathSegments[index] === segment)) {
+                surviving = isKeepRule;
+                break;
+            }
+        }
+        return surviving;
+    });
+}
+```

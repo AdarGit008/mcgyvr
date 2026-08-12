@@ -1,0 +1,42 @@
+id: b347-file-size
+task_type: bug_fix
+task: >-
+  sizeUnit names the unit a byte count is written in. sizeText writes
+  the count in whole units of that size, and it divides by a thousand
+  where a kilobyte is a thousand and twenty-four bytes. Fix sizeText.
+  A count below zero is rejected with an error. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function sizeUnit(bytesCount: number): string {
+    if (bytesCount < 1024) {
+      return "B";
+    }
+    if (bytesCount < 1024 * 1024) {
+      return "KB";
+    }
+    return "MB";
+  }
+
+  /** A byte count written in whole units. */
+  export function sizeText(bytesCount: number): string {
+    if (bytesCount < 0) {
+      throw new Error("a byte count cannot be negative");
+    }
+    const unit = sizeUnit(bytesCount);
+    if (unit === "B") {
+      return String(bytesCount) + " B";
+    }
+    if (unit === "KB") {
+      return String(Math.floor(bytesCount / 1000)) + " KB";
+    }
+    return String(Math.floor(bytesCount / (1000 * 1000))) + " MB";
+  }
+interface: "export function sizeUnit(bytesCount: number): string
+export function sizeText(bytesCount: number): string"
+stop_conditions:
+  - Whether a count of a thousand megabytes or more should take a further unit is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

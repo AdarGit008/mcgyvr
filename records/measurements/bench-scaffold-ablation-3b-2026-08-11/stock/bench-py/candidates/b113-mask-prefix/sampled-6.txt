@@ -1,0 +1,40 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    
+    # Split the mask into four fields
+    parts = mask.split('.')
+    
+    if len(parts) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    
+    count_of_ones = 0
+    
+    for part in parts:
+        if not all(c.isdigit() for c in part):
+            raise ValueError(f"field {part} contains non-digit characters")
+        
+        # Check leading zeros
+        if len(part) > 1 and part[0] == '0':
+            raise ValueError(f"leading zero found in field {part}")
+        
+        number = int(part)
+        if not (0 <= number <= 255):
+            raise ValueError(f"field {part} is out of range")
+        
+        # Count leading ones
+        count_of_ones += sum(1 for char in bin(number)[2:] if char == '1')
+    
+    return count_of_ones
+```

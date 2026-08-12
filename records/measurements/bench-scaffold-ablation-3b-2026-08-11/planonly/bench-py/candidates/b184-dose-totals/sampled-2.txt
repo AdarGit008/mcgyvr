@@ -1,0 +1,46 @@
+```python
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total for each reagent in the log.
+
+    Each entry in the log is a list [reagent, amount].
+    - 'amount' is a decimal string of millilitres.
+      It can be positive, negative, or zero with up to three decimal places.
+    
+    Returns a dictionary mapping reagents to their total amounts,
+    rounded to the finest place count of any amount given for that reagent.
+
+    Raises ValueError if an amount is not in the correct format.
+    """
+    total_counts = {}
+
+    def parse_amount(amount_str: str) -> float:
+        try:
+            return float(amount_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid amount {amount_str}: {e}")
+
+    for item in log:
+        reagent, amount_str = item
+
+        if not isinstance(reagent, str):
+            raise ValueError("Reagent must be a string.")
+        if not isinstance(amount_str, str):
+            raise ValueError("Amount must be a string.")
+
+        amount = parse_amount(amount_str)
+        
+        if reagent in total_counts:
+            current_total = total_counts[reagent]
+            total_counts[reagent] = round(current_total + amount, 3)
+        else:
+            total_counts[reagent] = round(amount, 3)
+
+    # Round all totals to the finest place count used
+    max_places = max(len(str(abs(total))) for total in total_counts.values())
+    if max_places > 0:  # Avoid rounding zero values to zero places
+        for reagent, total in total_counts.items():
+            total_counts[reagent] = round(total, max_places)
+
+    return total_counts
+```

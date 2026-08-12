@@ -1,0 +1,38 @@
+id: b422-fill-row
+task_type: bug_fix
+task: >-
+  blankRow returns a row of a stated width holding nothing but zeros.
+  fillRows returns a grid of a stated number of such rows, and it
+  hands back the same row over and over so writing into one writes
+  into all. Fix fillRows. A width below nothing is rejected with an
+  error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function blankRow(width: number): number[] {
+    if (width < 0) {
+      throw new Error("a width cannot be below nothing");
+    }
+    const row: number[] = [];
+    for (let i = 0; i < width; i += 1) {
+      row.push(0);
+    }
+    return row;
+  }
+
+  /** A grid of blank rows, each one its own row. */
+  export function fillRows(rows: number, width: number): number[][] {
+    const shared = blankRow(width);
+    const grid: number[][] = [];
+    for (let i = 0; i < rows; i += 1) {
+      grid.push(shared);
+    }
+    return grid;
+  }
+interface: "export function blankRow(width: number): number[]
+export function fillRows(rows: number, width: number): number[][]"
+stop_conditions:
+  - Whether a grid of no rows should still check the width is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

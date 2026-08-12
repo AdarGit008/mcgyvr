@@ -1,0 +1,11 @@
+```typescript
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (floor.length === 0) throw new Error("The floor plan is empty.");
+  if (row < 0 || row >= floor.length) throw new Error("Invalid row index.");
+  if (col < 0 || col + length > floor[0].length) throw new Error("Conveyor would leave the plan.");
+  for (let i = col; i < col + length; i++) {
+    if (floor[row][i] !== ".") throw new Error("Cell is already occupied by a machine.");
+  }
+  return floor.map((r, rIndex) => rIndex === row ? r.replace(/\./g, "=").slice(0, col) + "=".repeat(length) + r.slice(col + length) : r);
+}
+```

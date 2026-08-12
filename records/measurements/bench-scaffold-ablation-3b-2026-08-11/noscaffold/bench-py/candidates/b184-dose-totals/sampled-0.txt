@@ -1,0 +1,29 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """
+    Aggregate pour log entries into totals for each reagent in thousandths of a millilitre.
+
+    Args:
+        log: A list of lists, where each inner list contains [reagent, amount].
+
+    Returns:
+        A dictionary mapping each reagent to its total amount as a string.
+    """
+    totals = {}
+    decimal_places = 0
+
+    for item in log:
+        if len(item) != 2:
+            raise ValueError("Each log entry must be a [reagent, amount] pair.")
+        
+        reagent, amount_str = item
+        if not amount_str.lstrip('-').replace('.', '', 1).isdigit():
+            raise ValueError(f"Invalid amount format: {amount_str}")
+
+        amount = float(amount_str) * 1000
+        totals[reagent] = f"{amount:.{decimal_places}f}"
+
+    return totals
+```

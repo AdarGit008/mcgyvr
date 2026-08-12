@@ -1,0 +1,18 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0 or not all(m > 0 and p >= 0 for m, p in board):
+        raise ValueError("Invalid input")
+
+    dp = [{}, {}]
+    for i in range(length + 1):
+        dp[i % 2] = {}
+        max_value = 0
+        best_piece = None
+        for m, price in board:
+            if i >= m and (price > dp[(i - m) % 2].get('takings', 0) or (price == dp[(i - m) % 2]['takings'] and m > best_piece)):
+                max_value = price
+                best_piece = m
+        dp[i % 2] = {'takings': max_value, 'pieces': [best_piece]} if best_piece is not None else {}
+
+    return dp[length % 2]
+```

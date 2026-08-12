@@ -1,0 +1,34 @@
+```python
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> list[str]:
+        segments = path.split('/')
+        reduced_segments = []
+        for segment in segments:
+            if segment == '':
+                continue
+            elif segment == '.':
+                continue
+            elif segment == '..':
+                if reduced_segments:
+                    reduced_segments.pop()
+                else:
+                    raise ValueError("Cannot drop a segment before the shared root.")
+            else:
+                reduced_segments.append(segment)
+        return reduced_segments
+
+    try:
+        start_segments = reduce_path(start)
+        goal_segments = reduce_path(goal)
+
+        # Find the longest common prefix
+        i = 0
+        while i < len(start_segments) and i < len(goal_segments) and start_segments[i] == goal_segments[i]:
+            i += 1
+
+        # Calculate hops
+        hops = len(start_segments) - i + len(goal_segments) - i
+        return hops
+    except ValueError as e:
+        raise ValueError(e)
+```

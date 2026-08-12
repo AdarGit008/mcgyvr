@@ -1,0 +1,36 @@
+```python
+from typing import *
+from collections import *
+
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total amount of each reagent in the pour log.
+
+    :param log: List of [reagent, amount] entries where amount is a decimal string.
+    :return: Dictionary mapping reagents to their total amounts as strings.
+    """
+    totals = defaultdict(float)
+    
+    for entry in log:
+        if len(entry) != 2:
+            raise ValueError("Each entry must be a list with exactly two elements.")
+        
+        reagent, amount_str = entry
+        
+        try:
+            amount = float(amount_str.replace(',', '.'))
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount_str}")
+        
+        totals[reagent] += amount
+    
+    # Format the total for each reagent
+    formatted_totals = {}
+    for reagent, total in totals.items():
+        if total == 0:
+            formatted_totals[reagent] = "0"
+        else:
+            formatted_totals[reagent] = f"{total:.3f}"
+    
+    return formatted_totals
+```

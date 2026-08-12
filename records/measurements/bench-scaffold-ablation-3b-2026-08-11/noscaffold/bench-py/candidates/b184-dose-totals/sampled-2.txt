@@ -1,0 +1,31 @@
+```python
+from typing import *
+import re
+
+def dose_totals(log: list) -> dict:
+    """
+    Total each reagent in the given pour log and return a mapping from reagent to total.
+    Each amount is a string of millilitres with optional sign, digits, and up to three decimal places.
+    The total is rounded in thousandths and has the same number of decimal places as the finest entry for each reagent.
+    An empty log returns an empty dictionary.
+    Raises ValueError for invalid amounts.
+    """
+    # Regular expression to match valid amount strings
+    amount_pattern = r'^-?\d+(\.\d{1,3})?$'
+    
+    totals = {}
+    
+    for reagent, amount in log:
+        if not re.match(amount_pattern, amount):
+            raise ValueError(f"Invalid amount: {amount}")
+        
+        try:
+            amount_float = float(amount)
+            total = round(amount_float * 1000) / 1000
+        except ValueError as e:
+            raise ValueError(f"Failed to convert amount to float: {e}")
+        
+        totals[reagent] = f"{total:.3f}"
+    
+    return totals
+```

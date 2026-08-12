@@ -1,0 +1,82 @@
+```typescript
+// solution.ts
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const pairs: string[][] = [];
+  let currentPair: [string, string] | null = null;
+  let quoted = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ';') {
+      if (!quoted) {
+        if (currentPair) {
+          pairs.push(currentPair);
+          currentPair = null;
+        }
+      } else {
+        // If we're inside a quote, ignore the semicolon
+        continue;
+      }
+    } else if (!quoted && char === '=') {
+      if (i > 0 && !isNaN(Number(input[i - 1])) || i < input.length - 1 && isNaN(Number(input[i + 1]))) {
+        throw new Error('Invalid key');
+      } else if (input.substring(0, i).match(/^[a-zA-Z][a-zA-Z0-9_]*$/)) {
+        currentPair = [input.substring(0, i), ''];
+      } else {
+        throw new Error('Key must be a bare identifier');
+      }
+    } else if (currentPair) {
+      currentPair[1] += char;
+    }
+  }
+
+  if (currentPair) {
+    pairs.push(currentPair);
+  }
+
+  for (const [key, value] of pairs) {
+    if (!validateKey(key)) {
+      throw new Error('Invalid key');
+    }
+  }
+
+  return pairs;
+}
+
+function parseOption(segment: string): string[] {
+  const [key, rawValue] = segment.split('=');
+
+  if (typeof rawValue !== 'string') {
+    throw new Error('Value must be a string');
+  }
+
+  let value = rawValue.trim();
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.slice(1, -1);
+  } else if (!validateValue(value)) {
+    throw new Error('Invalid value');
+  }
+
+  return [key, value];
+}
+
+function validateKey(key: string): boolean {
+  // Check if the key is a bare identifier
+  const match = /^([a-zA-Z][a-zA-Z0-9_]*)=$/;
+  return match.test(segment);
+}
+
+function validateValue(value: string): boolean {
+  // Simple validation for now, can be expanded as needed
+  return true;
+}
+```

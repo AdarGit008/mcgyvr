@@ -481,11 +481,11 @@ class _DeadRunner:
         )
 
 
-def _sweep_argv(out: Path, tasks: str, draws: int = 1) -> list[str]:
+def _sweep_argv(out: Path, tasks: str, draws: int = 1, tier: str = "d1") -> list[str]:
     return [
         "measure.py",
         "--tier",
-        "d1",
+        tier,
         "--tasks",
         tasks,
         "--out",
@@ -702,6 +702,113 @@ def test_a_run_directory_this_rig_did_not_write_is_not_judged(tmp_path: Path) ->
     )
     assert breadth.missing_cells(tmp_path) is None
     assert breadth.missing_cells(tmp_path / "absent") is None
+
+
+def test_the_condition_the_run_records_is_the_condition_it_dispatched(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """#225, and the cap's test one level on: the two halves must not drift.
+
+    ``--condition`` reached ``measure_task`` and not ``record_run``, so every
+    ablated sweep wrote ``"condition": "stock"`` beside rows drawn without a
+    scaffold. Nothing failed loudly — the rows were right and the manifest was
+    wrong — and the resume refusal written to catch exactly this would have
+    waved through a directory holding two renders, because the field it
+    compares never carried anything but the default. Eight run directories
+    were mislabelled that way before a reader noticed — every ablated cell of
+    #225's scaffold experiment, on both models.
+
+    The two assertions are deliberately the pair: what the manifest says, and
+    what the worker was actually sent. Either alone is the defect.
+    """
+    out = tmp_path / "run"
+    runner = _CountingRunner()
+    _scorable_arm(monkeypatch)
+    _always_passes(monkeypatch)
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: runner)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *_sweep_argv(out, "b002-option-pairs", tier="bench-ts"),
+            "--condition",
+            breadth.NO_SCAFFOLD,
+        ],
+    )
+    assert breadth.main() == 0
+
+    recorded = json.loads((out / "run.json").read_text())
+    assert recorded["condition"] == breadth.NO_SCAFFOLD
+
+    assert runner.requests, "the fixture must dispatch at least one draw"
+    assert all(
+        "CURRENT CONTENT" not in request.prompt for request in runner.requests
+    ), "the ablated section reached the worker's prompt, or this proves nothing"
+
+
+def test_rows_drawn_against_another_serving_build_refuse_to_join_the_run(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """ADR-0024: the build that served the draws is identity, not a footnote.
+
+    srv1 and srv2 were on ollama 0.32.4 and 0.32.5 while #225's scaffold
+    ablation ran the 3B on one and the 7B on the other, so the campaign's one
+    cross-model contrast carried an unrecorded serving difference. A rate is
+    quotable against a build or it is not quotable.
+    """
+    invocation = {"started": "2026-08-11T00:00:00+00:00", "tasks": ["t01"]}
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.4")
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert json.loads((tmp_path / "run.json").read_text())["serving_build"] == "0.32.4"
+
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.5")
+    try:
+        breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    except breadth.bundle.MeasureError as exc:
+        assert "serving_build" in str(exc)
+    else:  # pragma: no cover - the guard is the point of the test
+        raise AssertionError("a build change was allowed to resume")
+
+
+def test_a_manifest_written_before_the_build_was_recorded_still_resumes(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """Every run directory already on disk predates the field.
+
+    Refusing them would buy nothing — the build they were served by is not
+    recoverable from the manifest either way — and would strand exactly the
+    sweeps whose rows the campaign still reads. The protection is for runs made
+    from here on, so an absent field adopts the current value instead.
+    """
+    invocation = {"started": "2026-08-11T00:00:00+00:00", "tasks": ["t01"]}
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: None)
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    manifest = tmp_path / "run.json"
+    aged = json.loads(manifest.read_text())
+    del aged["serving_build"]
+    manifest.write_text(json.dumps(aged), encoding="utf-8")
+
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.5")
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert json.loads(manifest.read_text())["serving_build"] == "0.32.5"
+
+
+def test_an_endpoint_that_will_not_name_its_build_records_that_it_did_not(
+    monkeypatch: Any,
+) -> None:
+    """Unknown is a value; a guess is not.
+
+    The probe is best-effort against a host that may not be ollama at all, and
+    the failure it must not have is inventing a build for a run that has none.
+    """
+
+    def refuses(url: str, timeout: float) -> Any:
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(breadth.urllib.request, "urlopen", refuses)
+    breadth.serving_build.cache_clear()
+    assert breadth.serving_build("http://nowhere.invalid:11434") is None
+    breadth.serving_build.cache_clear()
 
 
 def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:

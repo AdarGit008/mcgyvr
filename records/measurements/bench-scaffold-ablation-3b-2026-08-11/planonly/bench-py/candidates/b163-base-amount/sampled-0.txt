@@ -1,0 +1,45 @@
+```
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of unit to the base unit by unwinding definition chain.
+    Reject invalid inputs such as unknown unit, bad factor, or chain loops.
+    """
+
+    if not all(isinstance(x, (int, str)) for x in [amount, unit, base]):
+        raise ValueError("Invalid input types.")
+
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative integer.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is not defined.")
+    
+    if not (isinstance(defs[unit][0], int) and defs[unit][0] > 0):
+        raise ValueError(f"Factor for unit '{unit}' must be a positive whole number.")
+    
+    # Check for loops in the definition chain
+    def check_loop(unit, visited):
+        if unit == base:
+            return False
+        if unit in visited:
+            raise ValueError("Chain loops cannot be resolved.")
+        visited.add(unit)
+        finer = defs[unit][1]
+        if finer is not None and finer != base:
+            return check_loop(finer, visited)
+        return True
+
+    if not check_loop(unit, set()):
+        raise ValueError("Chain cannot reach the base unit.")
+
+    current_unit = unit
+    while current_unit != base:
+        factor = defs[current_unit][0]
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError(f"Factor for unit '{current_unit}' must be a positive whole number.")
+        amount *= factor
+        current_unit = defs[current_unit][1]
+
+    return amount
+
+```

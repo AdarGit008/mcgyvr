@@ -1,0 +1,40 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const pairs: string[][] = [];
+  const segments = input.split(';').map(segment => segment.trim());
+
+  for (const segment of segments) {
+    if (!segment.includes('=')) {
+      throw new Error('Missing equals sign in option segment');
+    }
+
+    try {
+      const [key, value] = parseOption(segment);
+      pairs.push([key, value]);
+    } catch (error) {
+      throw new Error(`Invalid option segment: ${segment}`);
+    }
+  }
+
+  return pairs;
+}
+
+export function parseOption(segment: string): string[] {
+  if (!/^[a-zA-Z][a-zA-Z0-9_]*=[^;]*$/.test(segment)) {
+    throw new Error('Invalid option format');
+  }
+
+  const [key, value] = segment.split('=');
+  let parsedValue = value;
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    parsedValue = value.slice(1, -1).replace(/\\ /g, ' ');
+  }
+
+  return [key.trim(), parsedValue.trim()];
+}
+```

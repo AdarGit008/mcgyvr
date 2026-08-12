@@ -1,0 +1,15 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Invalid length")
+    
+    LADDER = [(1000, "m"), (100, "cm"), (10, "mm")]
+    parts = []
+    
+    for unit, symbol in LADDER:
+        count, mm = divmod(mm, unit)
+        if count > 0:
+            parts.append(f"{count}{symbol}")
+    
+    return " ".join(parts) or "0mm"
+```

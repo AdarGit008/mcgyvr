@@ -1,0 +1,31 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if any(not isinstance(day, int) or day <= 0 for day in trip_days):
+        raise ValueError("Trip days must be positive integers")
+    if not all(trip_days[i] < trip_days[i + 1] for i in range(len(trip_days) - 1)):
+        raise ValueError("Trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("Pass list cannot be empty")
+    if any(not isinstance(p['span'], int) or p['span'] <= 0 for p in passes):
+        raise ValueError("Pass span must be a positive integer")
+    if any(not isinstance(p['cost'], int) or p['cost'] < 0 for p in passes):
+        raise ValueError("Pass cost must be a non-negative integer")
+
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    purchases = []
+
+    for i in range(1, n + 1):
+        for pass_ in passes:
+            if trip_days[i - 1] >= trip_days[i - pass_['span']] + pass_['span'] - 1:
+                dp[i] = min(dp[i], dp[i - pass_['span']] + pass_['cost'])
+                if dp[i] == dp[i - pass_['span']] + pass_['cost']:
+                    purchases.append([trip_days[i - pass_['span']], pass_['span']])
+                    break
+
+    return {
+        'total': dp[-1],
+        'purchases': purchases
+    }
+```

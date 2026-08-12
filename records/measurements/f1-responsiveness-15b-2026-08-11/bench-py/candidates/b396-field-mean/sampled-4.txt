@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def field_mean(records: list, field: str) -> int:
+    if not records or not field:
+        raise ValueError("Invalid input")
+
+    valid_records = [record for record in records if record.get(field)]
+
+    if not valid_records:
+        return 0
+
+    try:
+        total = sum(float(record[field]) for record in valid_records)
+        avg = total // len(valid_records)  # Use integer division to round down
+    except ValueError as e:
+        raise ValueError(f"Invalid field value: {e}")
+
+    return avg
+```

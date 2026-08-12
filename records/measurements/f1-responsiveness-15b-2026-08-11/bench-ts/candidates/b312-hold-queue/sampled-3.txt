@@ -1,0 +1,47 @@
+```ts
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error("Limit must be greater than zero");
+  }
+
+  const queue = [];
+  const timesCalled = {};
+
+  for (const caller of callers) {
+    if (queue.length >= limit) {
+      // Find the longest wait time and remove the caller
+      let longestWaiterIndex = -1;
+      let longestWaitTime = Infinity;
+
+      for (let i = 0; i < queue.length; i++) {
+        const { timeCalled, status } = timesCalled[queue[i]];
+        if (status === "waiting" && timeCalled > longestWaitTime) {
+          longestWaiterIndex = i;
+          longestWaitTime = timeCalled;
+        }
+      }
+
+      // Remove the caller with the longest wait time
+      const removedCaller = queue.splice(longestWaiterIndex, 1)[0];
+      delete timesCalled[removedCaller];
+
+      // Update the status of the other callers
+      for (let i = 0; i < queue.length; i++) {
+        const { timeCalled } = timesCalled[queue[i]];
+        if (status === "waiting" && timeCalled >= longestWaitTime) {
+          timesCalled[queue[i]].status = "waiting";
+        }
+      }
+    }
+
+    // Add the caller to the end of the queue
+    queue.push(caller);
+    timesCalled[caller] = {
+      timeCalled: Date.now(),
+      status: "waiting"
+    };
+  }
+
+  return queue;
+}
+```

@@ -1,0 +1,21 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Return how many digits a whole number is written with.
+
+    :param value: The integer whose digits are counted.
+    :return: The count of digits in the given number.
+    """
+    if value < 0:
+        return digit_count(-value)
+    
+    if value == 0:
+        return 1
+    
+    digits = 0
+    while value > 0:
+        digits += 1
+        value //= 10
+    
+    return digits
+```

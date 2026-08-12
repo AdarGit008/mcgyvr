@@ -1,0 +1,38 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+    if (field.trim() === '') {
+        throw new Error('Field name cannot be empty text');
+    }
+
+    const recordCount = records.reduce((acc, record) => {
+        const fieldValue = record[field];
+        if (!recordValue) return acc;
+
+        if (!(fieldValue in acc)) {
+            acc[fieldValue] = 1;
+        } else {
+            acc[fieldValue]++;
+        }
+        return acc;
+    }, {});
+
+    return recordCount;
+}
+
+// Check function to verify the correctness of countBy
+function checkCountBy() {
+    assert.deepStrictEqual(countBy([], 'name'), {});
+    assert.deepStrictEqual(countBy([{ name: 'Alice' }, { name: 'Bob' }, { name: 'Alice' }], 'name'), { Alice: 2, Bob: 1 });
+    assert.deepStrictEqual(countBy([{ age: '30' }, { age: '40' }, { age: '30' }], 'age'), { '30': 2, '40': 1 });
+    try {
+        countBy([], '');
+    } catch (error) {
+        console.assert(error.message === 'Field name cannot be empty text', 'Error message should be "Field name cannot be empty text"');
+    }
+}
+
+// Run the check function to verify the solution
+checkCountBy();
+```

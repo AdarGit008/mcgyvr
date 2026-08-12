@@ -1,0 +1,20 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    if from_hour < 0 or from_hour > 23 or from_minute < 0 or from_minute > 59:
+        raise ValueError("Hours must be between 0 and 23, minutes must be between 0 and 59")
+    
+    if to_hour < 0 or to_hour > 23 or to_minute < 0 or to_minute > 59:
+        raise ValueError("Hours must be between 0 and 23, minutes must be between 0 and 59")
+    
+    # Convert time to seconds for easier comparison
+    from_seconds = from_hour * 3600 + from_minute * 60
+    to_seconds = to_hour * 3600 + to_minute * 60
+    
+    if to_seconds <= from_seconds:
+        # If to_time is earlier than or equal to from_time, it means we are on the following day
+        return (24 * 3600 - from_seconds) % 86400
+    
+    return to_seconds - from_seconds
+```

@@ -1,0 +1,39 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || !Number.isInteger(freshFor)) {
+        throw new Error("freshFor must be a positive whole number");
+    }
+    if (size <= 0 || !Number.isInteger(size)) {
+        throw new Error("size must be a positive whole number");
+    }
+
+    const cache: { [key: string]: { tick: number, name: string }[] } = {};
+    const renders: [number, string][] = [];
+
+    for (const [tick, name] of requests) {
+        if (tick < 0) {
+            throw new Error("Tick cannot be negative");
+        }
+
+        if (cache[name]) {
+            const latestRender = cache[name].slice(-1)[0];
+            if (latestRender.tick >= tick && latestRender.tick < tick + freshFor) {
+                renders.push([tick, name]);
+                continue;
+            }
+        }
+
+        if (Object.keys(cache).length === size) {
+            // Drop the oldest render for this tile
+            const oldestRender = cache[name].sort((a, b) => a.tick - b.tick)[0];
+            delete cache[oldestRender.name];
+        }
+
+        cache[name] = cache[name] || [];
+        cache[name].push({ tick, name });
+        renders.push([tick, name]);
+    }
+
+    return renders;
+}
+```

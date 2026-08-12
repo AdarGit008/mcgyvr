@@ -1,0 +1,50 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (length < 0 || !Number.isInteger(length)) {
+    throw new Error("Length must be a non-negative whole number");
+  }
+
+  const dp = Array.from({ length }, () => ({ takings: 0, pieces: [] as number[] }));
+
+  for (let i = 1; i <= length; i++) {
+    dp[i] = { takings: 0, pieces: [i] };
+
+    for (const [pieceLength, price] of board) {
+      if (i >= pieceLength && price > dp[i].takings) {
+        dp[i] = { takings: price, pieces: [pieceLength] };
+      } else if (
+        i >= pieceLength &&
+        price === dp[i].takings &&
+        dp[i - pieceLength].takings + pieceLength > dp[i].takings
+      ) {
+        dp[i] = {
+          takings: dp[i - pieceLength].takings + pieceLength,
+          pieces: [...dp[i - pieceLength].pieces, pieceLength],
+        };
+      } else if (
+        i >= pieceLength &&
+        price === dp[i].takings &&
+        dp[i - pieceLength].takings + pieceLength === dp[i].takings
+      ) {
+        dp[i] = {
+          takings: dp[i].takings,
+          pieces: [pieceLength, ...dp[i - pieceLength].pieces],
+        };
+      }
+    }
+
+    for (let j = 1; j < i; j++) {
+      if (j + dp[j].takings > dp[i].takings) {
+        dp[i] = { takings: j + dp[j].takings, pieces: [...dp[i].pieces, j] };
+      }
+    }
+  }
+
+  return dp[length];
+}
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+```

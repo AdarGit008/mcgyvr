@@ -1,0 +1,31 @@
+id: b035-route-params
+task_type: function_implementation
+task: >-
+  Implement match_route, with split_segments underneath it and first_route
+  on top of it. A path is the root "/" alone or a run of slash-led
+  segments: split_segments returns the segment list — the root yields an
+  empty list — and rejects a path that is not a non-empty string, a path
+  not starting with a slash, an empty segment inside the path, and a
+  trailing slash, with an error. A route pattern is shaped like a path,
+  but a pattern segment may also be ":name", capturing the path segment it
+  faces under name, "*", matching exactly one segment without capturing,
+  or "**", matching a run of zero or more segments. match_route returns
+  the mapping of capture names to the segments they captured when the
+  pattern matches the whole path, and None when it does not. It propagates
+  every split_segments rejection for either argument and further rejects a
+  capture name that is not a letter or underscore followed by letters,
+  digits or underscores, a capture name repeated within the pattern, and a
+  pattern holding "**" more than once, with an error. first_route returns
+  the index of the first pattern in its list matching the path, or -1 when
+  none does.
+target: solution.py
+interface: |-
+  def match_route(pattern: str, path: str) -> dict | None
+  def split_segments(path: str) -> list
+  def first_route(patterns: list, path: str) -> int
+stop_conditions:
+  - Whether a literal segment may itself contain a colon or an asterisk after its first character is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

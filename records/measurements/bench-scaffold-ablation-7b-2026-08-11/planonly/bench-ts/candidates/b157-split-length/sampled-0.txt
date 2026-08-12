@@ -1,0 +1,22 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error('Invalid length');
+  }
+
+  const LADDER = ['m', 'cm', 'mm'];
+  const UNITS = [1000, 10, 1];
+
+  return LADDER
+    .map((unit, index) => {
+      if (mm >= UNITS[index]) {
+        const count = Math.floor(mm / UNITS[index]);
+        mm %= UNITS[index];
+        return `${count}${unit}`;
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+```

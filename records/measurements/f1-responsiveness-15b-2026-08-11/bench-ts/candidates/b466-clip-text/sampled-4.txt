@@ -1,0 +1,10 @@
+```ts
+
+export function clipText(text: string, from: number, to: number): string {
+    if (from > to || from < 0) {
+        throw new Error('First place must be before or equal to the second place.');
+    }
+
+    return text.substring(from, to + 1);
+}
+```

@@ -1,0 +1,58 @@
+```python
+def file_paths(root: dict) -> list:
+    """Yield paths for all files in the directory tree."""
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dictionary")
+    
+    def _yield_paths(node, current_path=""):
+        if "name" not in node or not isinstance(node["name"], str) or "/" in node["name"]:
+            raise ValueError("node name must be a non-empty string without slashes")
+        
+        next_path = f"{current_path}/{node['name']}" if current_path else node["name"]
+        if "bytes" in node:
+            yield next_path
+        elif "children" in node:
+            for child in node.get("children", []):
+                yield from _yield_paths(child, next_path)
+    
+    return list(_yield_paths(root))
+
+def tree_bytes(root: dict) -> int:
+    """Return the total size of all files in the directory tree."""
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dictionary")
+    
+    def _sum_bytes(node):
+        if "bytes" in node and "children" in node:
+            raise ValueError("node cannot have both bytes and children")
+        elif "bytes" in node:
+            return node["bytes"]
+        elif "children" in node:
+            return sum(_sum_bytes(child) for child in node.get("children", []))
+        else:
+            return 0
+    
+    return _sum_bytes(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Yield paths of all folders with a total size of at least min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer")
+    
+    if not isinstance(root, dict):
+        raise ValueError("root must be a dictionary")
+    
+    def _find_heavy_folders(node, current_path=""):
+        if "name" not in node or not isinstance(node["name"], str) or "/" in node["name"]:
+            raise ValueError("node name must be a non-empty string without slashes")
+        
+        next_path = f"{current_path}/{node['name']}" if current_path else node["name"]
+        folder_size = tree_bytes(node)
+        if folder_size >= min_bytes:
+            yield [next_path, folder_size]
+        if "children" in node:
+            for child in node.get("children", []):
+                yield from _find_heavy_folders(child, next_path)
+    
+    return list(_find_heavy_folders(root))
+```

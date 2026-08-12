@@ -1,0 +1,34 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Melt ice cells in a row of "#"(ice), "."(meltwater), given step count.
+
+    Args:
+    row (str): A row of "#" and "." characters representing the ice and meltwater.
+    steps (int): The number of steps to simulate.
+
+    Returns:
+    str: The updated row after the specified number of steps.
+
+    Raises:
+    ValueError: If the input is not a valid string, an empty string, or invalid step count.
+    """
+    if not isinstance(row, str) or len(row) == 0 or not all(c in "#." for c in row):
+        raise ValueError("Input must be a non-empty row with only '#' and '.' characters.")
+
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Step count must be a non-negative integer.")
+
+    for _ in range(steps):
+        new_row = ""
+        for i in range(len(row)):
+            if i == 0 and row[i] == "#" or i == len(row) - 1 and row[i] == "#":
+                new_row += "."
+            elif row[i] == "#" and (row[i-1] != "#" or row[i+1] != "#"):
+                new_row += "."
+            else:
+                new_row += row[i]
+        row = new_row
+
+    return row
+```

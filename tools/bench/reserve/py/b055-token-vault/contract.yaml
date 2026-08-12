@@ -1,0 +1,23 @@
+id: b055-token-vault
+task_type: function_implementation
+task: >-
+  Implement token_fetch and token_save, the two halves of a session-token
+  vault with expiry. The vault is a plain mapping from token name to a
+  two-item list [value, expires]. token_save stores value under name so
+  that it expires at tick now + ttl, replacing whatever the name held
+  before; it rejects a name that is not a non-empty string, a now that is
+  not an integer, and a ttl that is not a positive integer, with an error.
+  token_fetch returns the value held under name while now is still before
+  its expires tick; once now reaches or passes expires the entry is removed
+  from the vault and the fetch yields None, and a name the vault never held
+  also yields None. Fetching never extends a token's life.
+target: solution.py
+interface: |-
+  def token_fetch(vault: dict, name: str, now: int) -> str | None
+  def token_save(vault: dict, name: str, value: str, now: int, ttl: int) -> None
+stop_conditions:
+  - How entries put into the vault by hand, not through token_save, are treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

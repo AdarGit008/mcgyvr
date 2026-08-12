@@ -1,0 +1,9 @@
+```ts
+export function rateCap(price: number, rate: number, most: number): number {
+  if (price === null || price === undefined) throw new Error("Price cannot be null or undefined");
+  if (rate < 0 || rate > 100) throw new Error("Rate must be between 0 and 100");
+
+  const increase = Math.round((price * rate) / 100);
+  return Math.min(price + increase, most);
+}
+```

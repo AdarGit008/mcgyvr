@@ -1,0 +1,20 @@
+id: b185-ordinal-stamp
+task_type: function_implementation
+task: >-
+  Implement ordinal_stamp. A logger writes each entry as a year plus a day
+  count numbered from 1 at January 1; expand that pair into a stamp reading
+  "YYYY-MM-DD Weekday", month and day each padded to two digits and the
+  weekday spelled in full with a capital first letter. A year divisible by 4
+  is long, except a year divisible by 100 that is not divisible by 400, so
+  February holds 29 days in a long year and 28 otherwise. Anchor the weekday
+  on 1 January 2000, which was a Saturday, and count real days forward from
+  it. Reject a year outside 2000 through 2999 and a day count that is not a
+  whole number from 1 through that year's length, with an error.
+target: solution.py
+interface: "def ordinal_stamp(year: int, day: int) -> str"
+stop_conditions:
+  - Whether the calendar reform before 1582 should affect the count is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

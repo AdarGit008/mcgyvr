@@ -1,0 +1,33 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) throw new Error('Invalid total');
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error('Invalid weights');
+
+  const sumWeights = weights.reduce((acc, weight) => acc + weight, 0);
+  if (sumWeights <= 0) throw new Error('Invalid weights');
+
+  const parts = weights.map(weight => Math.floor(total * weight / sumWeights));
+  let remainingCents = total - parts.reduce((acc, part) => acc + part, 0);
+
+  const largestDiscardedIndices = [];
+  for (let i = 0; i < remainingCents; i++) {
+    let maxFraction = -1;
+    let maxIndex = -1;
+    for (let j = 0; j < weights.length; j++) {
+      const fraction = (parts[j] + (i === j)) / weights[j];
+      if (fraction > maxFraction) {
+        maxFraction = fraction;
+        maxIndex = j;
+      }
+    }
+    largestDiscardedIndices.push(maxIndex);
+  }
+
+  const result = parts.map((part, index) => {
+    if (largestDiscardedIndices.includes(index)) return part + 1;
+    return part;
+  });
+
+  return result;
+}
+```

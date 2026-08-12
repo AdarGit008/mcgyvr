@@ -1,0 +1,19 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    try:
+        from typing import Iterable, Union
+
+        if not records or field not in zip(*records):
+            return 0
+        
+        numeric_field = [record[field] for record in records if isinstance(record[field], (int, float))]
+        
+        if not numeric_field:
+            return 0
+        
+        mean = sum(numeric_field) // len(numeric_field)
+        
+        return mean
+    except ZeroDivisionError:
+        raise ValueError("Cannot calculate the average of an empty list.")
+```

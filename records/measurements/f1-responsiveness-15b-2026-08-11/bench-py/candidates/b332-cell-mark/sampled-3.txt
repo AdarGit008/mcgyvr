@@ -1,0 +1,52 @@
+```python
+from typing import List
+
+def live_count(neighbours: list) -> int:
+    """
+    Count how many of a cell's given neighbours are alive.
+
+    Parameters:
+        neighbours (list): A list of cells representing the current state of the grid,
+                        where each element is either True (alive) or False (dead).
+
+    Returns:
+        int: The count of live neighbours.
+    """
+    if not neighbours:
+        return 0
+
+    alive_count = sum(neighbours)
+    # Since we're counting direct neighbours, we need to account for wrapping around.
+    # For example, a cell at the top edge has two neighbours below it,
+    # and a cell at the left edge has one neighbour on its right,
+    # and so on. We use modulo to wrap these indices correctly.
+    if alive_count > 7:  # If there are more than 6 live neighbours (considering wrapping),
+        alive_count -= len(neighbours) - 1  # subtract the count of cells that are not actually neighbours.
+
+    return alive_count
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    """
+    Determine whether a cell is alive in the next round based on the given rules:
+    a living cell survives on two or three living neighbours,
+    and a dead one comes alive on exactly three.
+
+    Parameters:
+        alive (bool): The current state of the cell.
+        neighbours (list): A list of cells representing the current state of the grid,
+                        where each element is either True (alive) or False (dead).
+
+    Returns:
+        bool: Whether the cell will be alive in the next round.
+    """
+    if not neighbours:
+        return alive
+
+    live_count = live_count(neighbours)
+    if alive and live_count in [2, 3]:
+        return True
+    elif not alive and live_count == 3:
+        return True
+    else:
+        return False
+```

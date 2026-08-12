@@ -1,0 +1,9 @@
+```ts
+export function takeBack(values: number[], target: number): number {
+    let total = 0;
+    for (let i = values.length - 1; i >= 0 && total < target; i--) {
+        total += values[i];
+    }
+    return total === target ? -1 : values.length - total;
+}
+```

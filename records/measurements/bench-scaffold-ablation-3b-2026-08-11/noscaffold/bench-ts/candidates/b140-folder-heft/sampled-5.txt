@@ -1,0 +1,55 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || !Array.isArray(filePaths.children)) return [];
+  return Array.from(root).reduce((acc, [name, child]) => {
+    const path = acc + '/' + name;
+    if (typeof child === 'object' && typeof child.name === 'string' && child.bytes >= 0) {
+      return [...acc, ...filePaths(child)];
+    } else if (typeof child === 'number') {
+      return [...acc, [path, child]];
+    }
+    throw new Error('Invalid node structure');
+  }, '');
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || !Array.isArray(treeBytes.children)) return 0;
+  return Array.from(root).reduce((acc, [name, child]) => {
+    if (typeof child === 'number') {
+      return acc + child;
+    } else if (typeof child === 'object') {
+      return acc + treeBytes(child);
+    }
+    throw new Error('Invalid node structure');
+  }, 0);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || !Array.isArray(heavyFolders.children)) return [];
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const result: [string, number][] = [];
+  let currentPath = '';
+
+  function dfs(node: object): void {
+    if (typeof node !== 'object' || !Array.isArray(dfs.children)) return;
+    Array.from(node).forEach(([name, child]) => {
+      const path = currentPath + '/' + name;
+      const size = typeof child === 'number' ? child : treeBytes(child);
+      if (size >= minBytes) {
+        result.push([path, size]);
+      }
+      if (typeof child === 'object') {
+        dfs(child);
+        currentPath = path; // Move to next sibling
+      }
+    });
+  }
+
+  dfs(root);
+
+  return result;
+}
+```

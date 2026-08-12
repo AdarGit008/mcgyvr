@@ -1,0 +1,62 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || tripDays.some(day => typeof day !== 'number' || day <= 0)) {
+    throw new Error('Invalid trip days list');
+  }
+  if (!passes.length) {
+    throw new Error('Pass list cannot be empty');
+  }
+  for (let i = 1; i < tripDays.length; i++) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error('Trip days must be strictly increasing');
+    }
+  }
+
+  const costs: number[] = passes.map(pass => pass.cost);
+  const spans: number[] = passes.map(pass => pass.span);
+
+  let totalCost = 0;
+  let purchases: number[][] = [];
+
+  // Sort trips by day
+  tripDays.sort((a, b) => a - b);
+
+  // Iterate over each trip day
+  for (let i = 0; i < tripDays.length; i++) {
+    let currentDay = tripDays[i];
+    let minCost = Infinity;
+    let bestSpan = 0;
+
+    // Try all pass kinds to find the cheapest one that covers the current day
+    for (let j = 0; j < passes.length; j++) {
+      const passSpan = spans[j];
+      const passCost = costs[j];
+
+      if (passSpan === 1) continue; // Skip single-day passes
+
+      // Check if the pass can cover the current day and future days
+      for (let k = 0; k < passSpan - 1 && i + k < tripDays.length; k++) {
+        const dayAfterPassEnd = tripDays[i + k] + 1;
+        if (dayAfterPassEnd === passes[j].span) {
+          // The pass covers exactly to the next day after its span
+          minCost = Math.min(minCost, passCost);
+          bestSpan = passSpan;
+          break;
+        }
+      }
+    }
+
+    if (minCost === Infinity) {
+      throw new Error('No pass can cover all trip days');
+    }
+
+    totalCost += minCost;
+    purchases.push([tripDays[i], bestSpan]);
+
+    // Move to the next day covered by the best pass
+    i += bestSpan - 1;
+  }
+
+  return { total: totalCost, purchases };
+}
+```

@@ -1,0 +1,42 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(person, str):
+        raise ValueError("Person must be a string.")
+    
+    def find_path(node: dict, target: str) -> list:
+        if node['name'] == target:
+            return [target]
+        
+        if 'reports' not in node or not all(isinstance(r, dict) for r in node['reports']):
+            raise ValueError("Invalid reports structure.")
+        
+        for report in node['reports']:
+            try:
+                path = find_path(report, target)
+                if path:
+                    return [node['name']] + path
+            except ValueError as e:
+                pass
+        
+        raise ValueError(f"Person '{target}' not found in the chart.")
+    
+    return find_path(root, person)
+
+def headcount(root: dict) -> int:
+    def count_people(node: dict) -> int:
+        if 'reports' not in node or not all(isinstance(r, dict) for r in node['reports']):
+            raise ValueError("Invalid reports structure.")
+        
+        return 1 + sum(count_people(report) for report in node['reports'])
+    
+    return count_people(root)
+
+def widest_team(root: dict) -> int:
+    def max_reports(node: dict) -> int:
+        if 'reports' not in node or not all(isinstance(r, dict) for r in node['reports']):
+            raise ValueError("Invalid reports structure.")
+        
+        return 1 + max(max_reports(report) for report in node['reports']) if node['reports'] else 0
+    
+    return max_reports(root)
+```

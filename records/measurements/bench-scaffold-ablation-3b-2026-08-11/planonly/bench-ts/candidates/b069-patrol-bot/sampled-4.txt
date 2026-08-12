@@ -1,0 +1,51 @@
+```typescript
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  // Validate width
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive integer.");
+  }
+
+  // Validate start position
+  if (!Number.isInteger(start) || start < 0 || start >= width) {
+    throw new Error("Start position must be an integer between 0 and width minus one.");
+  }
+
+  // Validate moves array
+  if (!Array.isArray(moves)) {
+    throw new Error("Moves argument must be a list (array).");
+  }
+
+  let position = start;
+  let bumps = 0;
+  const visited: Set<number> = new Set([position]);
+
+  for (const delta of moves) {
+    const [newPosition, isCutShort] = clampMove(position, delta, width);
+
+    if (isCutShort) {
+      bumps++;
+    }
+
+    position = newPosition;
+
+    // Add the current position to the visited set
+    visited.add(position);
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+
+function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  let newPosition = position + delta;
+  
+  if (newPosition < 0) {
+    newPosition = 0;
+    return [newPosition, true];
+  } else if (newPosition >= width) {
+    newPosition = width - 1;
+    return [newPosition, true];
+  }
+
+  return [newPosition, false];
+}
+```

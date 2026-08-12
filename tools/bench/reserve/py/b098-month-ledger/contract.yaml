@@ -1,0 +1,37 @@
+id: b098-month-ledger
+task_type: bug_fix
+task: >-
+  month_ledger folds a worklog into monthly rows incorrectly. Each entry
+  is a [stamp, minutes] pair: the stamp names a calendar day as
+  YYYY-MM-DD and the minutes are the whole minutes worked that sitting;
+  entries arrive in any order and a month may appear in many entries.
+  The correct result has one [month, total_minutes, entry_count] row per
+  distinct month, the month written YYYY-MM, the total summing every
+  entry of that month and the count telling how many entries fed it,
+  rows sorted by month ascending; no entries means no rows. At present
+  months that should stay apart come back merged into one row, and a
+  merged row's total carries only whichever entry came last instead of a
+  sum. Fix the grouping so every distinct calendar month gets its own
+  correctly totalled row, and add the missing validation: reject a stamp
+  that is not a YYYY-MM-DD string, a stamp whose month is outside 01 to
+  12 or whose day is outside 01 to 31, and minutes that are not a
+  positive integer, with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def month_ledger(entries: list) -> list:
+      if not isinstance(entries, list):
+          raise ValueError("entries must be a list")
+      minutes_by = {}
+      count_by = {}
+      for stamp, minutes in entries:
+          key = stamp[:6]
+          minutes_by[key] = minutes
+          count_by[key] = count_by.get(key, 0) + 1
+      return [[key, minutes_by[key], count_by[key]] for key in sorted(minutes_by)]
+interface: "def month_ledger(entries: list) -> list"
+stop_conditions:
+  - Whether a day that fits its bounds but not its month, like February 30, is rejected is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

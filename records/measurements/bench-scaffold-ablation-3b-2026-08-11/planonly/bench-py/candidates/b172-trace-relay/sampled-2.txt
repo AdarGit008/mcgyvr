@@ -1,0 +1,33 @@
+```python
+from typing import Dict
+
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Walks through handoffs to the empty name, refusing unknown posts and a watch that comes round again.
+    :param links: A dictionary mapping each post's name to the next post's name.
+    :param start: The starting post of the night watch.
+    :return: A list of post names visited by the watch, including the start post and ending with the last post before the empty name.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    if start not in links:
+        raise ValueError(f"start '{start}' is not a valid post name in links")
+    
+    visited = set()
+    current_post = start
+    path = [current_post]
+    
+    while current_post != '':
+        if current_post == start or current_post in visited:
+            raise ValueError("Watch comes round again or contains an unknown post")
+        
+        visited.add(current_post)
+        next_post = links.get(current_post)
+        if next_post is None or not isinstance(next_post, str):
+            raise ValueError(f"invalid handoff '{next_post}' for post '{current_post}'")
+        
+        path.append(next_post)
+        current_post = next_post
+    
+    return path
+```

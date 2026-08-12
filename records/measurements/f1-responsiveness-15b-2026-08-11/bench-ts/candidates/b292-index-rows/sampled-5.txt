@@ -1,0 +1,38 @@
+```ts
+/**
+ * Returns the first letter of a name in upper case.
+ *
+ * @param name - The name to transform.
+ * @returns The first letter of the name in uppercase.
+ */
+export function rowKey(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+/**
+ * Organizes names into groups based on their first letter in uppercase.
+ *
+ * @param names - An array of names to organize.
+ * @returns A record where keys are the first letters of the names and values are arrays of names in the order they arrived.
+ */
+export function indexRows(names: string[]): Record<string, string[]> {
+  if (!names || !names.length) return {};
+
+  const result: Record<string, string[]> = {};
+  for (const name of names) {
+    const key = rowKey(name);
+    if (key in result) {
+      result[key].push(name);
+    } else {
+      result[key] = [name];
+    }
+  }
+
+  // Optionally sort the values within each group to maintain a consistent order
+  for (const key in result) {
+    result[key] = result[key].sort();
+  }
+
+  return result;
+}
+```

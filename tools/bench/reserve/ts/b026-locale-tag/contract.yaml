@@ -1,0 +1,25 @@
+id: b026-locale-tag
+task_type: function_implementation
+task: >-
+  Implement normalizeLocaleTag. The input is a locale tag whose subtags are
+  separated by hyphens or underscores, in the order language, then optional
+  script, region and variant, then an optional private-use part introduced
+  by an x subtag written in either case. Normalize to hyphen-separated
+  canonical case: the 2-or-3-letter language lowercased, a 4-letter script
+  in title case, a region of exactly 2 letters uppercased or exactly 3
+  digits kept as-is, a variant of 5 to 8 letters or digits lowercased, then
+  a lowercase x and every private-use subtag of 1 to 8 letters or digits
+  lowercased. Reject with an error: a non-string argument, an empty tag, an
+  empty subtag, a tag whose language subtag is missing or is not 2 or 3
+  letters, more than four subtags before the private-use part, a subtag
+  that fits none of the slots in order, an x marker with nothing after it,
+  and a private-use subtag longer than 8 characters or holding anything
+  besides letters and digits.
+target: solution.ts
+interface: "export function normalizeLocaleTag(tag: string): string"
+stop_conditions:
+  - Whether a second x subtag inside the private-use part starts a new marker is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

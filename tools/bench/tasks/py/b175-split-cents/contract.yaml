@@ -1,0 +1,31 @@
+id: b175-split-cents
+task_type: function_implementation
+task: >-
+  Implement split_cents. A market stall's takings are shared out at closing:
+  total is the day's takings in whole cents and weights lists each partner's
+  share weight as a positive whole number, in partner order. Each partner
+  first receives total times their own weight divided by the sum of all
+  weights, rounded down; the cents that rounding leaves over are then handed
+  out one apiece to the partners with the largest discarded fraction, a tie
+  going to the earlier partner, so that the parts add back to total exactly.
+  Return the parts in partner order. Reject a total that is not a whole
+  number, a negative total, weights that are not a list, an empty weights
+  list, and a weight that is not a positive whole number, with an error.
+target: solution.py
+target_content: |
+  def split_cents(total, weights):
+      if not isinstance(total, int) or isinstance(total, bool): raise ValueError("total must be whole cents")
+      if total < 0: raise ValueError("total may not be negative")
+      if not isinstance(weights, list) or not weights: raise ValueError("weights must be a non-empty list")
+      if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights): raise ValueError("a weight is a positive whole number")
+      whole = sum(weights)
+      parts = [total * w // whole for w in weights]
+      # TODO: hand the leftover cents to the largest discarded fractions, ties to the earlier partner.
+      return parts
+interface: "def split_cents(total: int, weights: list) -> list"
+stop_conditions:
+  - How takings too large to hold exactly as a double are handled is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

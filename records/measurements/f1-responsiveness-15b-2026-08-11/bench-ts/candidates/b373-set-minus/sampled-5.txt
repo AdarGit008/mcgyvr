@@ -1,0 +1,8 @@
+```ts
+export function setMinus(entries: string[], remove: string[]): string[] {
+  if (entries.length === 0) return [];
+
+  const result = entries.filter(entry => !remove.includes(entry));
+  return result;
+}
+```

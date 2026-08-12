@@ -1,0 +1,35 @@
+```ts
+/**
+ * Converts a mask string to its prefix length.
+ * @param mask - The mask string in dotted-quad format (e.g., 255.255.240.0).
+ * @returns The number of leading one bits in the mask.
+ */
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string') {
+    throw new Error('Invalid input: Mask must be a string.');
+  }
+
+  const octets = mask.split('.');
+  if (octets.length !== 4) {
+    throw new Error('Invalid mask format: Must have exactly four dot-separated fields.');
+  }
+
+  let prefixLength = 0;
+  for (const octet of octets) {
+    if (/^0\d+/.test(octet)) {
+      throw new Error('Invalid mask format: Leading zero in a field other than 0 itself.');
+    }
+    const num = parseInt(octet, 10);
+    if (num < 0 || num > 255) {
+      throw new Error('Invalid mask format: Octet out of range (0-255).');
+    }
+
+    while ((num & 0b10000000) !== 0) {
+      prefixLength++;
+      num <<= 1;
+    }
+  }
+
+  return prefixLength;
+}
+```

@@ -1,0 +1,32 @@
+```python
+def badge_text(pattern: str, fields: dict) -> str:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string")
+    
+    result = []
+    depth = 0
+    
+    for char in pattern:
+        if char == '<':
+            depth += 1
+            if depth > 1:
+                raise ValueError("Nested slots are not allowed")
+        elif char == '>':
+            depth -= 1
+            if depth < 0:
+                raise ValueError("Unmatched closing angle bracket")
+            
+            field_name = ''
+            while depth > 0 and char.islower():
+                field_name += char
+                char = next(pattern)
+            
+            if not field_name or not fields.get(field_name):
+                raise ValueError(f"Invalid slot name '{field_name}' or missing value in fields mapping")
+            
+            result.append(fields[field_name])
+        else:
+            result.append(char)
+    
+    return ''.join(result)
+```

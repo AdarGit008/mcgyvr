@@ -1,0 +1,37 @@
+id: b192-tile-renders
+task_type: function_implementation
+task: >-
+  Implement tile_renders. A map viewer keeps rendered tiles in a cache that
+  holds at most size of them. Requests arrive in order as two-item lists of
+  the tick the request was made at, a non-negative whole number that never
+  goes backwards, and the tile's name. A tile rendered at tick t answers
+  every request from tick t up to but not including tick t plus fresh_for
+  straight from the cache; any other request renders that tile again, which
+  stores it under the current tick in place of its earlier render. When a
+  render must store a tile the cache is not already holding and the cache
+  already holds size tiles, the held tile whose render is oldest is dropped
+  first, a tie going to the name that sorts first. Return the renders that
+  happened, in order, each a two-item list of the tick and the tile's name.
+  Reject a fresh_for or a size that is not a positive whole number, with an
+  error.
+target: solution.py
+target_content: |
+  """Replay tile requests against a size-limited cache of fresh renders."""
+
+
+  def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+      for count in (fresh_for, size):
+          if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+              raise ValueError("fresh_for and size must be positive integers")
+      held = {}
+      renders = []
+      for tick, name in requests:
+          pass  # TODO: serve a still-fresh render, else make room when full and record one
+      return renders
+interface: "def tile_renders(requests: list, fresh_for: int, size: int) -> list"
+stop_conditions:
+  - How a request whose tick sits earlier than an earlier request's tick is handled is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

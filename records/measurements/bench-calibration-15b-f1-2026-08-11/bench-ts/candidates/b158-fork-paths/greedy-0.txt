@@ -1,0 +1,24 @@
+```ts
+export function forkPaths(pattern: string): string[] {
+  if (typeof pattern !== 'string' || pattern === '' || pattern.includes(' ') || pattern.includes('{') || pattern.includes(',')) {
+    throw new Error("Invalid input");
+  }
+
+  const paths: string[] = [];
+
+  function expandPattern(segment: string, options?: string[]): void {
+    if (!options) {
+      paths.push(segment);
+      return;
+    }
+
+    for (const option of options) {
+      expandPattern(`${segment}/${option}`, []);
+    }
+  }
+
+  expandPattern(pattern);
+
+  return paths;
+}
+```

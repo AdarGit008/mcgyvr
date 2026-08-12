@@ -1,0 +1,54 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+  const [startSpan, endSpan] = span.split("-");
+  const [startHourSpan, startMinSpan] = startSpan.split(":").map(Number);
+  const [endHourSpan, endMinSpan] = endSpan.split(":").map(Number);
+
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(booked[0])) {
+    throw new Error("Invalid appointment format");
+  }
+
+  booked.sort((a, b) => {
+    const [startHourA, startMinA] = a.split(":").map(Number);
+    const [endHourA, endMinA] = a.split(":").map(Number);
+    const [startHourB, startMinB] = b.split(":").map(Number);
+    const [endHourB, endMinB] = b.split(":").map(Number);
+
+    if (startHourA !== startHourB) {
+      return startHourA - startHourB;
+    }
+    return startMinA - startMinB;
+  });
+
+  let freeWindows: string[] = [];
+  let currentStart = startHourSpan * 60 + startMinSpan;
+
+  for (const appointment of booked) {
+    const [startHour, startMin] = appointment.split(":").map(Number);
+    const [endHour, endMin] = appointment.split(":").map(Number);
+
+    const startWindow = currentStart;
+    const endWindow = startHour * 60 + startMin;
+
+    if (startWindow < endWindow) {
+      freeWindows.push(`${String(startWindow / 60).padStart(2, "0")}:${String(startWindow % 60).padStart(2, "0")}-${String(endWindow / 60).padStart(2, "0")}:${String(endWindow % 60).padStart(2, "0")}`);
+    }
+
+    currentStart = endHour * 60 + endMin;
+  }
+
+  const lastEndWindow = currentStart;
+  if (lastEndWindow < startHourSpan * 60 + startMinSpan) {
+    freeWindows.push(`${String(lastEndWindow / 60).padStart(2, "0")}:${String(lastEndWindow % 60).padStart(2, "0")}-${String(endHourSpan * 60 + endMinSpan).padStart(2, "0")}:${String(endMinSpan).padStart(2, "0")}`);
+  }
+
+  if (freeWindows.length === 0) {
+    return "none";
+  }
+
+  return freeWindows.join(", ");
+}
+```

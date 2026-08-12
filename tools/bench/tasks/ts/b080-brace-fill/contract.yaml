@@ -1,0 +1,31 @@
+id: b080-brace-fill
+task_type: function_implementation
+task: >-
+  Implement fillTemplate. A template is literal text holding placeholders,
+  each an opening brace, a name of one or more letters, digits or
+  underscores, and a closing brace. Build the output by walking the
+  template once: literal characters pass through untouched — a closing
+  brace on its own is literal — and each placeholder is replaced by the
+  value the mapping holds under its name; the same name may appear any
+  number of times. Reject a non-string template, an opening brace that is
+  never closed, a placeholder whose name is empty or holds a character
+  outside letters, digits and underscores, and a placeholder whose name
+  the mapping does not hold, with an error.
+target: solution.ts
+target_content: |
+  export function fillTemplate(template: string, values: Record<string, string>): string {
+    if (typeof template !== "string") {
+      throw new Error("fillTemplate expects a string template");
+    }
+    // TODO: walk the template once, passing literal characters through and
+    // replacing each placeholder from values; reject an unterminated
+    // placeholder, an empty or malformed name, and an unknown name.
+    throw new Error("not implemented");
+  }
+interface: "export function fillTemplate(template: string, values: Record<string, string>): string"
+stop_conditions:
+  - How a literal opening brace would be produced is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

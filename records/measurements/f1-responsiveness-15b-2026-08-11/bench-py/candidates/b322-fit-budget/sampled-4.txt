@@ -1,0 +1,18 @@
+```python
+def fit_budget(prices: list, budget: int) -> int:
+    if budget < 0:
+        raise ValueError("Invalid amount")
+
+    sorted_prices = sorted(prices)
+    count = 0
+    current_budget = budget
+
+    for price in sorted_prices:
+        if current_budget >= price:
+            current_budget -= price
+            count += 1
+        else:
+            break
+
+    return count
+```

@@ -1,0 +1,21 @@
+```ts
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error("Limit must be greater than zero");
+  }
+
+  const queue = [...callers];
+
+  while (queue.length > limit) {
+    let longestIndex = 0;
+    for (let i = 1; i < queue.length; i++) {
+      if (queue[i] > queue[longestIndex]) {
+        longestIndex = i;
+      }
+    }
+    queue.splice(longestIndex, 1);
+  }
+
+  return queue;
+}
+```

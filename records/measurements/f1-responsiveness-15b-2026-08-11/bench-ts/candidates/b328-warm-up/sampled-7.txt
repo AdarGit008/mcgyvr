@@ -1,0 +1,16 @@
+```ts
+
+export function warmUp(readings: number[], floor: number): number[] {
+  let warmUpIndex = 0;
+  for (let i = 0; i < readings.length; i++) {
+    if (readings[i] >= floor) break;
+    warmUpIndex++;
+  }
+  return readings.slice(warmUpIndex);
+}
+
+// Example usage:
+const readings = [3, 2, 5, 1, 4];
+const floor = 4;
+console.log(warmUp(readings, floor)); // Output: [5, 1, 4]
+```

@@ -1,0 +1,12 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if not store or not head:
+        raise ValueError("Invalid input")
+
+    result = []
+    for name in store.get(head, []):
+        if name not in store:
+            result.append(name)
+
+    return result
+```

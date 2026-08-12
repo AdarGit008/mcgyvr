@@ -1,0 +1,24 @@
+```ts
+/** Walks a courier relay directory station by station. */
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof start !== "string" || !links.hasOwnProperty(start)) {
+    throw new Error("invalid starting station");
+  }
+  const path: string[] = [];
+  let current = start;
+  for (let step = 0; step < Object.keys(links).length; step++) {
+    if (!path.includes(current) && links[current] !== "") {
+      path.push(current);
+      const next = links[current];
+      if (!(next in links)) {
+        throw new Error("broken relay chain");
+      }
+      current = next;
+    } else {
+      throw new Error("circular relay chain");
+    }
+  }
+  return path;
+}
+```

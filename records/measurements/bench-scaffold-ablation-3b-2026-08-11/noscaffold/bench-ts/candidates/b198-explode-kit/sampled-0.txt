@@ -1,0 +1,24 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!(kit in catalog)) {
+    throw new Error(`Unknown kit name: ${kit}`);
+  }
+
+  const getComponentCount = (component: string, targetKitMakes: number) => {
+    if (catalog[component].parts.some(([partName]) => partName === component)) {
+      // Component is a kit
+      return Math.ceil(targetKitMakes / catalog[component].makes) * getComponentCount(component, want);
+    } else {
+      // Component is a base part
+      return want;
+    }
+  };
+
+  const result: Record<string, number> = {};
+  for (const [partName, count] of catalog[kit].parts) {
+    result[partName] = getComponentCount(partName, want);
+  }
+
+  return result;
+}
+```

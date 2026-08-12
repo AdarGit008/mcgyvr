@@ -1,0 +1,37 @@
+```
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer between 0 and 32.")
+    
+    parts = [str(255)] * 4
+    for i in range(min(prefix, 8)):
+        parts[i] = str(0)
+    
+    return '.'.join(parts)
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string.")
+    
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must contain exactly four dot-separated fields.")
+    
+    try:
+        octets = [int(part) for part in parts]
+    except ValueError:
+        raise ValueError("Each field must hold decimal digits only.")
+    
+    for i, octet in enumerate(octets):
+        if not (0 <= octet <= 255):
+            raise ValueError("Each octet must be between 0 and 255.")
+    
+    leading_ones = 0
+    for octet in reversed(octets):
+        if octet == 255:
+            leading_ones += 8
+        elif octet != 0:
+            break
+    
+    return leading_ones
+```

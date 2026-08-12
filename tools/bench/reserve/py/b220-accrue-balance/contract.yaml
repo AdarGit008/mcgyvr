@@ -1,0 +1,25 @@
+id: b220-accrue-balance
+task_type: function_implementation
+task: >-
+  Implement accrue_balance. A savings ledger is kept in whole cents: opening is
+  the balance before any interest, rate is what each period pays in basis
+  points — hundredths of one percent, so 250 pays two and a half percent — and
+  periods is how many periods run, both of them whole numbers of at least 0.
+  Interest for a period is the balance times the rate, measured in
+  ten-thousandths of a cent; every whole cent of it is credited to the balance
+  at once, where the next period's interest earns on it too, and the part
+  under a cent is carried into the next period rather than thrown away. After
+  the last period the carry is settled: it becomes one more cent when it is
+  over half a cent, and on exactly half a cent only when that would leave the
+  balance on an even number of cents. Every step is to be worked in whole
+  numbers so no cent is ever lost to a binary fraction. Return the balance
+  after settling. Reject a rate that is not a whole number of at least 0, and
+  a periods that is not a whole number of at least 0, with an error.
+target: solution.py
+interface: "def accrue_balance(opening: int, rate: int, periods: int) -> int"
+stop_conditions:
+  - Whether an opening balance below zero may be accrued on is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+```typescript
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  return log.reduce((totals, [reagent, amount]) => {
+    const parsedAmount = parseFloat(amount);
+    
+    if (isNaN(parsedAmount)) {
+      throw new Error(`Invalid amount: ${amount}`);
+    }
+    
+    if (!/-?\d+(\.\d{1,3})?/.test(amount)) {
+      throw new Error(`Invalid format for amount: ${amount}`);
+    }
+    
+    const [totalAmount] = totals[reagent] ? totals[reagent].split('.') : ['', ''];
+    const decimalPlaces = totalAmount.includes('.') ? totalAmount.split('.')[1]?.length || 0 : 0;
+    
+    const newTotal = Math.round(Math.abs(parsedAmount) * 1000) / 1000;
+    
+    let newTotalStr = `${newTotal.toFixed(decimalPlaces)}`;
+    
+    if (parsedAmount < 0) {
+      newTotalStr = `-${newTotalStr}`;
+    }
+    
+    totals[reagent] = newTotalStr;
+    
+    return totals;
+  }, {} as Record<string, string>);
+}
+```

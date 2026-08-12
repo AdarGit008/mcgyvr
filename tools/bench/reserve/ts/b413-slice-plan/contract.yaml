@@ -1,0 +1,17 @@
+id: b413-slice-plan
+task_type: function_implementation
+task: >-
+  Implement sliceEnd and slicePlan. sliceEnd returns where a slice
+  starting at a place and running a stated width ends, never past the
+  total. slicePlan returns the start and end of every slice needed to
+  cover a total, the last one short if the width does not divide
+  evenly.
+target: solution.ts
+interface: "export function sliceEnd(start: number, width: number, total: number): number
+export function slicePlan(total: number, width: number): number[][]"
+stop_conditions:
+  - What a width of zero or less should plan is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

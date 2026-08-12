@@ -1,0 +1,76 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("Grid must be a non-empty list of rows.");
+  }
+  
+  const rowCount = grid.length;
+  for (let i = 1; i < rowCount; i++) {
+    if (!Array.isArray(grid[i]) || grid[i].length !== grid[0].length) {
+      throw new Error("All rows in the grid must have the same length.");
+    }
+  }
+
+  for (const row of grid) {
+    for (let cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("Grid cells must be integers.");
+      }
+    }
+  }
+
+  const [minRow, maxRow, minCol, maxCol] = queries.reduce(
+    ([minRow, maxRow, minCol, maxCol], query) => [
+      Math.min(minRow, query[0]),
+      Math.max(maxRow, query[3]),
+      Math.min(minCol, query[1]),
+      Math.max(maxCol, query[2]),
+    ],
+    [rowCount, -1, rowCount, -1]
+  );
+
+  if (minRow >= maxRow || minCol >= maxCol) {
+    throw new Error("Query boundaries are invalid.");
+  }
+
+  const prefixSumGrid: number[][] = Array.from({ length: rowCount + 1 }, () =>
+    Array(maxCol + 2).fill(0)
+  );
+
+  for (let i = 1; i <= rowCount; i++) {
+    for (let j = 1; j <= maxCol; j++) {
+      prefixSumGrid[i][j] =
+        grid[i - 1][j - 1] +
+        prefixSumGrid[i - 1][j] +
+        prefixSumGrid[i][j - 1] -
+        prefixSumGrid[i - 1][j - 1];
+    }
+  }
+
+  return queries.map(([top, left, bottom, right]) => {
+    const topLeft = top > 0 && left > 0 ? prefixSumGrid[top][left] : 0;
+    const topRight = top > 0 && right <= maxCol
+      ? prefixSumGrid[top][right + 1] -
+        prefixSumGrid[top][left - 1]
+      : 0;
+    const bottomLeft = bottom >= maxRow && left > 0
+      ? prefixSumGrid[bottom][left - 1] +
+        prefixSumGrid[bottom - 1][left - 1] -
+        prefixSumGrid[bottom - 1][right + 1]
+      : 0;
+    const bottomRight = bottom >= maxRow && right <= maxCol
+      ? prefixSumGrid[bottom][right + 1] +
+        prefixSumGrid[bottom][left - 1] +
+        prefixSumGrid[bottom - 1][right + 1] -
+        prefixSumGrid[bottom - 1][left - 1]
+      : 0;
+
+    return (
+      bottomRight +
+      topLeft -
+      topRight -
+      bottomLeft
+    );
+  });
+}
+```

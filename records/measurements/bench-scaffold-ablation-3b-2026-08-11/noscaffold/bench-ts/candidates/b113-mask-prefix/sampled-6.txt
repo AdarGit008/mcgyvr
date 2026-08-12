@@ -1,0 +1,37 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid prefix. Must be an integer from 0 to 32.");
+  }
+
+  const mask = [];
+  for (let i = 0; i < 4; i++) {
+    if (prefix >= 8) {
+      mask.push(255);
+      prefix -= 8;
+    } else {
+      mask.push((1 << prefix) - 1);
+      break;
+    }
+  }
+
+  return `${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}`;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string" || !/^\d+\.\d+\.\d+\.\d+$/.test(mask)) {
+    throw new Error("Invalid mask. Must be a dot-separated string of four decimal digits.");
+  }
+
+  const octets = mask.split(".").map(Number);
+  let prefix = 0;
+  for (let i = 0; i < 4 && octets[i] === 255; i++) {
+    prefix += 8;
+  }
+  if (prefix + octets[3] !== 256) {
+    throw new Error("Invalid mask. One bits must be unbroken and not broken by zeros.");
+  }
+
+  return prefix;
+}
+```

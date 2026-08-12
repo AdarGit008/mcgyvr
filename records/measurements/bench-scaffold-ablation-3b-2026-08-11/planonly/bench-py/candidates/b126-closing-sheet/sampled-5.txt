@@ -1,0 +1,49 @@
+```python
+from typing import *
+from collections import *
+
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> Tuple[str, int]:
+        name, count_str = entry.split(':')
+        if not all(c.islower() for c in name):
+            raise ValueError("Invalid item name")
+        return (name, int(count_str))
+
+    def process_move(name: str, qty: int) -> None:
+        nonlocal inventory
+        if name not in inventory:
+            if qty == 0:
+                raise ValueError(f"Cannot issue {qty} units of '{name}' from empty sheet")
+            inventory[name] = qty
+        else:
+            new_count = inventory[name] + qty
+            if new_count < 0:
+                raise ValueError(f"Issue of more units than the item then holds: '{name}', now {new_count}")
+            if new_count == 0:
+                del inventory[name]
+            else:
+                inventory[name] = new_count
+
+    def render_sheet(inventory: Dict[str, int]) -> str:
+        return ';'.join(f"{item}:{count}" for item, count in sorted(inventory.items() if count > 0))
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Invalid input type")
+
+    inventory = defaultdict(int)
+    try:
+        for entry in opening.split(';'):
+            parse_entry(entry)
+
+        for move in moves.split(';'):
+            name, qty = move.split('+')[0], int(move.split('+')[1])
+            process_move(name, qty)
+
+            if move.startswith('-'):
+                name, qty = move.split('-')[0], -int(move.split('-')[1])
+                process_move(name, qty)
+    except ValueError as e:
+        return str(e)
+
+    return render_sheet(inventory)
+```

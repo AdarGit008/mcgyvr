@@ -1,0 +1,34 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || !Number.isInteger(freshFor) || size <= 0 || !Number.isInteger(size)) {
+        throw new Error("Invalid arguments");
+    }
+
+    const cache: { [tileName: string]: { tick: number; render: [number, string] } } = {};
+    let currentTick = 0;
+    const renders: [number, string][] = [];
+
+    for (const [tick, tileName] of requests) {
+        if (tick < currentTick) {
+            throw new Error("Request tick is earlier than the current tick");
+        }
+
+        while (cache[tileName] && cache[tileName].render[0] + freshFor <= tick) {
+            delete cache[tileName];
+        }
+
+        if (!cache[tileName]) {
+            if (Object.keys(cache).length >= size) {
+                const oldestRender = Object.values(cache).sort((a, b) => a.render[0] - b.render[0])[0];
+                delete cache[oldestRender.tileName];
+            }
+            cache[tileName] = { tick: currentTick, render: [currentTick, tileName] };
+        }
+
+        renders.push([tick, tileName]);
+        currentTick = Math.max(currentTick, tick);
+    }
+
+    return renders;
+}
+```

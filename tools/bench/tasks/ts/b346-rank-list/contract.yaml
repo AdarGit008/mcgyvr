@@ -1,0 +1,37 @@
+id: b346-rank-list
+task_type: bug_fix
+task: >-
+  rankOf returns a score's rank among the others: one more than the
+  number of scores standing above it. rankAll ranks a whole list in
+  the order it was given, and it hands tied scores different ranks.
+  Fix rankAll so tied scores share a rank. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  export function rankOf(score: number, scores: number[]): number {
+    let above = 0;
+    for (const other of scores) {
+      if (other > score) {
+        above += 1;
+      }
+    }
+    return above + 1;
+  }
+
+  /** Each score's rank, in the order the scores were given. */
+  export function rankAll(scores: number[]): number[] {
+    const ordered = [...scores].sort((a, b) => b - a);
+    const places: Record<number, number> = {};
+    ordered.forEach((value, i) => {
+      places[value] = i + 1;
+    });
+    return scores.map((score) => places[score]);
+  }
+interface: "export function rankOf(score: number, scores: number[]): number
+export function rankAll(scores: number[]): number[]"
+stop_conditions:
+  - Whether scores should be ranked lowest first when the contest is a race is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

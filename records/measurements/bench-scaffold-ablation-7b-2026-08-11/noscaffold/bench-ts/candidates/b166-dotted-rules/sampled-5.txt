@@ -1,0 +1,40 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Finds the value for a given setting name based on a set of rules.
+ * @param rules - A record mapping selector strings to string values.
+ * @param name - The dotted option name to resolve against the rules.
+ * @returns The winning value, or null if no selector covers the name.
+ */
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+    if (typeof name !== 'string' || name === '') throw new Error('Invalid name');
+    if (!name.includes('*')) {
+        return rules[name] ?? null;
+    }
+
+    let bestMatch: [number, string] | null = null;
+
+    for (const selector in rules) {
+        if (selector === '*') continue;
+        const [prefix, wildcard] = selector.split('.');
+        if (wildcard === '*') {
+            if (!name.startsWith(prefix)) continue;
+            if (bestMatch?.[0] < prefix.length) bestMatch = [prefix.length, rules[selector]];
+        } else if (name === selector) {
+            return rules[selector];
+        }
+    }
+
+    return bestMatch ? bestMatch[1] : null;
+}
+
+// Test cases
+assert.strictEqual(matchSetting({ 'editor.font.size': '14px' }, 'editor.font.size'), '14px');
+assert.strictEqual(matchSetting({ 'editor.*': 'default' }, 'editor.font.size'), 'default');
+assert.strictEqual(matchSetting({ '*': 'global' }, 'editor.font.size'), 'global');
+assert.strictEqual(matchSetting({}, 'editor.font.size'), null);
+assert.strictEqual(matchSetting({ 'editor.font.size': 14 }, 'editor.font.size'), 'Expected string, got number');
+assert.throws(() => matchSetting({ 'editor.font.size': '14px' }, ''), new Error('Invalid name'));
+assert.throws(() => matchSetting({ 'editor.font.size': '14px' }, '*invalid*'), new Error('Invalid selector'));
+```

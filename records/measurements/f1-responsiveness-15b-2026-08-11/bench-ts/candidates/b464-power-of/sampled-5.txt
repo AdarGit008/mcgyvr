@@ -1,0 +1,18 @@
+```ts
+// solution.ts
+
+export function powerOf(base: number, power: number): number {
+  if (base < 0) {
+    throw new Error("Base cannot be negative");
+  }
+  if (power === 0) {
+    return 1;
+  }
+
+  let result = 1;
+  for (let i = 0; i < power; i++) {
+    result *= base;
+  }
+  return result;
+}
+```

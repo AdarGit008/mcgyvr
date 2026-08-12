@@ -1,0 +1,34 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total count consumed by runs of a given recipe to make 'want' units of a kit.
+
+    :param catalog: A dictionary where keys are kit names and values are tuples (makes, parts).
+                   'makes' is an integer that represents how many finished units one run produces.
+                   'parts' is a list of tuples (component, count), representing the components
+                   required for each run and their respective counts.
+    :param kit: The name of the kit to be produced.
+    :param want: The desired number of units of the kit.
+    :return: A dictionary mapping from base part to the total count consumed by runs of 'want' units of 'kit'.
+    """
+    if kit not in catalog:
+        raise ValueError("Kit name is not defined in the catalog.")
+
+    def get_consumption(kit_name):
+        makes, parts = catalog[kit_name]
+        return {part[0]: part[1] * (want + makes - 1) // makes for part in parts}
+
+    base_parts = set()
+    total_consumption = {}
+
+    while want > 0:
+        for base_part, count in get_consumption(kit).items():
+            if want >= count:
+                want -= count
+                total_consumption[base_part] = total_consumption.get(base_part, 0) + count
+            else:
+                total_consumption[base_part] = total_consumption.get(base_part, 0) + want
+                want = 0
+
+    return {part: total_consumption[part] for part in base_parts}
+```

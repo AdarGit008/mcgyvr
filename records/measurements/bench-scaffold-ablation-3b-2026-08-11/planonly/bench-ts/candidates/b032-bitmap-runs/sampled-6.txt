@@ -1,0 +1,65 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Capacity must be a positive integer.");
+  if (words.some(word => !Number.isInteger(word) || word < 0 || word > 4294967295)) 
+    throw new Error("Bitmap words must be integers between 0 and 4294967295.");
+  const totalWords = Math.ceil(capacity / 32);
+  if (words.length !== totalWords) throw new Error("Word count must agree with the capacity.");
+
+  if (!Number.isInteger(length) || length <= 0) throw new Error("Length must be a positive integer.");
+
+  let start = 0;
+  const maxSearchIndex = words.length * 32 - length;
+
+  while (start <= maxSearchIndex) {
+    const end = start + length;
+    if (end > totalWords * 32) break; // Ensure the run fits within the words
+
+    let free = true;
+    for (let i = start; i < end && free; i++) {
+      if (bitAt(words, i)) free = false;
+    }
+
+    if (free) return start;
+
+    const nextWordIndex = Math.floor(start / 32);
+    if (nextWordIndex === words.length - 1) break; // No more words to check
+
+    const firstBitInNextWord = 32 * nextWordIndex;
+    for (let i = firstBitInNextWord; i < firstBitInNextWord + 32 && free; i++) {
+      if (bitAt(words, i)) free = false;
+    }
+
+    start += free ? 1 : length;
+  }
+
+  return -1;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) throw new Error("Index must be a non-negative integer.");
+  const wordIndex = Math.floor(index / 32);
+  const bitPosition = index % 32;
+  return (words[wordIndex] >> bitPosition) & 1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) throw new Error("Start and length must be integers.");
+  const totalWords = Math.ceil((start + length) / 32);
+  if (words.some(word => !Number.isInteger(word) || word < 0 || word > 4294967295))
+    throw new Error("Bitmap words must be integers between 0 and 4294967295.");
+  const maxSearchIndex = totalWords * 32 - length;
+
+  if (start < 0 || start + length > maxSearchIndex) {
+    throw new Error("Start and length do not lie wholly within the words or touch an occupied block.");
+  }
+
+  let wordIndex = Math.floor(start / 32);
+  for (let i = start; i < start + length; i++) {
+    if (bitAt(words, i)) throw new Error(`Bit at index ${i} is occupied.`);
+    words[wordIndex] |= 1 << (i % 32);
+    wordIndex++;
+  }
+  return words;
+}
+```

@@ -158,3 +158,26 @@ def test_owned_drops_deletions_and_binaries() -> None:
     ]
     owned = ADAPTER.owned(changes)
     assert [c.path for c in owned] == ["keep.py"]
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
+def test_a_colour_forcing_shell_cannot_silence_the_format_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`FORCE_COLOR` in the developer's shell must not turn a gate off.
+
+    Every adapter reads its tool's output as structured text — this one reads a
+    unified diff by its leading `-` and `+`. A colourising tool writes ANSI
+    escapes ahead of exactly those characters, so the finding is not
+    mis-parsed into a different finding: it disappears. A gate that stops
+    reporting because of an environment variable, while still exiting cleanly,
+    is the one failure mode a gate must not have.
+    """
+    monkeypatch.setenv("FORCE_COLOR", "3")
+    write(tmp_path, "f.py", "x=1\ny = 2\n")
+
+    findings = ADAPTER.format_check([change("f.py", {1})], tmp_path)
+
+    assert [f.check for f in findings] == ["format"], (
+        "the reflowed line is still reported when the shell forces colour"
+    )

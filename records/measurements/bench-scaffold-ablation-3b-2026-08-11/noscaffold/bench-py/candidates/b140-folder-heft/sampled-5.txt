@@ -1,0 +1,69 @@
+```python
+def file_paths(root: dict) -> list:
+    """Returns a list of all file paths in the storage tree."""
+    def walk(node: dict, path: str = "") -> list:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary.")
+        
+        file_paths = []
+        for name, value in node.items():
+            current_path = f"{path}/{name}"
+            
+            if isinstance(value, dict):
+                file_paths.extend(walk(value, current_path))
+            elif isinstance(value, int) and value >= 0:
+                file_paths.append(current_path)
+            else:
+                raise ValueError("Node must have either an integer value or a dictionary.")
+        
+        return file_paths
+    
+    return walk(root)
+
+def tree_bytes(root: dict) -> int:
+    """Returns the total number of bytes in the storage tree."""
+    def walk(node: dict) -> int:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary.")
+        
+        byte_sum = 0
+        for value in node.values():
+            if isinstance(value, int) and value >= 0:
+                byte_sum += value
+            elif isinstance(value, dict):
+                byte_sum += walk(value)
+            else:
+                raise ValueError("Node must have either an integer value or a dictionary.")
+        
+        return byte_sum
+    
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Returns the paths of all folders with at least min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer.")
+    
+    file_paths = file_paths(root)
+    byte_dict = {path: tree_bytes(root) for path in file_paths}
+    
+    heavy_folders = []
+    current_folder = root
+    
+    def traverse(path: str):
+        nonlocal current_folder
+        current_folder = node
+        if isinstance(node, dict):
+            heavy_folders.append(path)
+
+    for path, bytes_val in byte_dict.items():
+        while bytes_val < min_bytes and len(file_paths) > 0:
+            next_path = file_paths.pop(0)
+            traverse(next_path)
+            bytes_val += tree_bytes(current_folder[next_path])
+        
+        if bytes_val >= min_bytes:
+            heavy_folders.append(path)
+
+    return heavy_folders
+```

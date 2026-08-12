@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def take_back(values: List[int], target: int) -> int:
+    if not values or target < 0:
+        raise ValueError("Invalid input")
+
+    total = 0
+    count = 0
+    for i in range(len(values) - 1, -1, -1):
+        total += values[i]
+        count += 1
+        if total >= target:
+            return count
+
+    return -1
+```

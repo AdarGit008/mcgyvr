@@ -1,0 +1,18 @@
+```python
+def tags_of(line):
+    """Break a comma-separated line into its tags, trimming spaces around each and leaving out any that come to nothing."""
+    return [tag.strip() for tag in line.split(', ') if tag.strip()]
+
+def tag_index(lines):
+    """Return a mapping from each tag to the lines carrying it, in the order the lines came."""
+    tag_to_lines = {}
+    for line in lines:
+        try:
+            tag = tags_of(line)[0]
+        except ValueError:
+            continue
+        if tag not in tag_to_lines:
+            tag_to_lines[tag] = []
+        tag_to_lines[tag].append(line)
+    return tag_to_lines
+```

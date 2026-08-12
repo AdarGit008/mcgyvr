@@ -1,0 +1,28 @@
+```
+def split_length(mm: int) -> str:
+    if mm is None or not isinstance(mm, int):
+        raise ValueError("Length must be a non-negative integer.")
+    if mm < 0:
+        raise ValueError("Negative lengths are not allowed.")
+    
+    ladder = [
+        ("mm", 1),
+        ("cm", 10),
+        ("m", 1000)
+    ]
+    
+    result_parts = []
+    for unit, multiplier in ladder:
+        count = mm % (multiplier * 10)
+        mm //= (multiplier * 10)
+        
+        if count > 0:
+            result_parts.append(f"{count}{unit}")
+    
+    # If the length is zero, append "0mm" to the result.
+    if not result_parts:
+        return "0mm"
+    
+    # Join all parts with a space and reverse since we built them in reverse order.
+    return ' '.join(reversed(result_parts))
+```

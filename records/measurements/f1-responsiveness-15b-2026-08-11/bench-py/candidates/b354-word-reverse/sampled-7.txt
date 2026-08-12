@@ -1,0 +1,16 @@
+```python
+def word_reverse(line: str) -> str:
+    """
+    Return a line with the letters of each word turned back to front,
+    the words themselves keeping the order they came in. Any run of spaces separates two words.
+    
+    Examples:
+    >>> word_reverse("")
+    ""
+    >>> word_reverse(" hello world!")
+    "!dlrow olleh"
+    >>> word_reverse("  leading/trailing ")
+    "  gnirts/egnial "
+    """
+    return ' '.join(word[::-1] for word in line.split())
+```

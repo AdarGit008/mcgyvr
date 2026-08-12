@@ -1,0 +1,37 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function pathClean(path: string): string {
+  if (!path) return '';
+
+  const segments = path.split('/');
+  let cleanedSegments: string[] = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i] === '..') {
+      if (cleanedSegments.length > 0 && cleanedSegments[cleanedSegments.length - 1] !== '..') {
+        cleanedSegments.pop();
+      }
+    } else if (segments[i] !== '.') {
+      cleanedSegments.push(segments[i]);
+    }
+  }
+
+  return cleanedSegments.join('/');
+}
+
+// Check function to verify the correctness of the solution
+function checkPathClean() {
+  assert.equal(pathClean(""), "");
+  assert.equal(pathClean("a"), "a");
+  assert.equal(pathClean("a/b/c"), "a/b/c");
+  assert.equal(pathClean("a/./b"), "a/b");
+  assert.equal(pathClean("a//b"), "a/b");
+  assert.equal(pathClean("a/../b"), "b");
+  assert.equal(pathClean("../a"), "../a"); // Single dot segment should be dropped
+  assert.equal(pathClean("..../a"), "..../a"); // Duplicated dots with nothing before them are dropped alone
+}
+
+// Run the check function to verify the solution
+checkPathClean();
+```

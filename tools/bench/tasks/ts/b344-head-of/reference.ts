@@ -1,0 +1,7 @@
+/** The first few entries of a list. */
+export function headOf(entries: string[], count: number): string[] {
+  if (count <= 0) {
+    return [];
+  }
+  return entries.slice(0, count);
+}

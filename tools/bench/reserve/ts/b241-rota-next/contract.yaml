@@ -1,0 +1,25 @@
+id: b241-rota-next
+task_type: bug_fix
+task: >-
+  rotaNext reports who takes the shift after a given name in a
+  repeating rota, and it falls off the end: asked about the last name
+  it returns nothing instead of coming round to the first. Fix it. A
+  name that is not in the rota at all comes back unchanged. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** Who takes the next shift after `name` in a repeating rota. */
+  export function rotaNext(rota: string[], name: string): string {
+    const at = rota.indexOf(name);
+    if (at === -1) {
+      return name;
+    }
+    return rota[at + 1];
+  }
+interface: "export function rotaNext(rota: string[], name: string): string"
+stop_conditions:
+  - What should happen when the same name appears twice in the rota is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

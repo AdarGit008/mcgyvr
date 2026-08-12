@@ -1,0 +1,12 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    # Calculate the amount to be charged for one step, rounded down
+    total_charge = fixed + (amount * percent // 100)
+    
+    # Ensure the charge does not exceed the amount
+    return max(total_charge, amount)
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    # Calculate the total charge for each amount and round down
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

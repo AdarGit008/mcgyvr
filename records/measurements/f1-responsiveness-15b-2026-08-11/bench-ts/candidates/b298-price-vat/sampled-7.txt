@@ -1,0 +1,13 @@
+```ts
+/** A net price with a whole-percent tax added, in whole pence. */
+export function grossPrice(net: number, rate: number): number {
+  if (isNaN(net) || isNaN(rate)) {
+    throw new Error('Both net and rate must be numbers.');
+  }
+  
+  const rateAsPence = Math.round(rate);
+  const taxAmount = net * (rateAsPence / 100);
+  
+  return Math.floor(net + taxAmount);
+}
+```

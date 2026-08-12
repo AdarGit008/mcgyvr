@@ -1,0 +1,10 @@
+```ts
+export function fontClamp(size: number, smallest: number, largest: number): number {
+  if (smallest > largest) {
+    throw new Error("The smallest value cannot be greater than the largest.");
+  }
+
+  const clamped = Math.min(Math.max(size, smallest), largest);
+  return clamped;
+}
+```

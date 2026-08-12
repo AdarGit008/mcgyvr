@@ -1,0 +1,36 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  const validateInput = (days: number[], spansAndCosts: { span: number; cost: number }[]) => {
+    if (days.some(day => day <= 0 || !Number.isInteger(day))) throw new Error('Invalid trip day');
+    for (let i = 1; i < days.length; i++) if (days[i] <= days[i - 1]) throw new Error('Trip days must be strictly increasing');
+    if (spansAndCosts.length === 0) throw new Error('Empty pass list');
+    for (const { span, cost } of spansAndCosts) {
+      if (span <= 0 || !Number.isInteger(span)) throw new Error('Invalid pass span');
+      if (cost < 0 || !Number.isInteger(cost)) throw new Error('Pass cost must be a non-negative integer');
+    }
+  };
+
+  validateInput(tripDays, passes);
+
+  const n = tripDays.length;
+  const dp = Array.from({ length: n + 1 }, () => Infinity);
+  dp[0] = 0;
+  const purchaseHistory: number[][][] = Array.from({ length: n + 1 });
+
+  for (let i = 1; i <= n; i++) {
+    for (const { span, cost } of passes) {
+      if (i - span >= 0) {
+        const newCost = dp[i - span] + cost;
+        if (newCost < dp[i]) {
+          dp[i] = newCost;
+          purchaseHistory[i] = [...(purchaseHistory[i - span] ?? []), [tripDays[i - span], span]];
+        }
+      }
+    }
+  }
+
+  return { total: dp[n], purchases: purchaseHistory[n] };
+}
+```

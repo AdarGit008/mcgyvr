@@ -1,0 +1,41 @@
+```python
+from typing import List, Dict
+
+def drain_frames(chunks: List[str], marker: str) -> Dict[str, str]:
+    if len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+    
+    frames: List[str] = []
+    pending_text: str = ""
+    current_frame: str = ""
+
+    for chunk in chunks:
+        for char in chunk:
+            if char == marker:
+                if current_frame:
+                    frames.append(current_frame)
+                    current_frame = ""
+                else:
+                    # A lone marker ends the frame and opens the next
+                    if pending_text.endswith(marker):
+                        # If the last frame was resolved as a doubled pair, keep it
+                        frames.pop()
+                    else:
+                        pending_text += marker
+            elif char == marker and not current_frame:
+                # A double marker is treated as one literal marker
+                current_frame = marker
+            else:
+                if current_frame:
+                    current_frame += char
+                else:
+                    pending_text += char
+
+    if current_frame:
+        frames.append(current_frame)
+    
+    return {
+        "frames": frames,
+        "pending": pending_text
+    }
+```

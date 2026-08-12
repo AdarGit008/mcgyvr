@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[List[int]]) -> bool:
+    if len(hops) < 2:
+        return True
+    
+    # Extract the start and end points from each hop pair
+    start_points = [hop[0] for hop in hops]
+    end_points = [hop[1] for hop in hops]
+    
+    # Check if the list of start points is the same as the list of end points
+    return set(start_points) == set(end_points)
+```

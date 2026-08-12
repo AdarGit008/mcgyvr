@@ -1,0 +1,39 @@
+id: b052-weave-rounds
+task_type: function_implementation
+task: >-
+  Implement weaveRounds, whose companion widestList is already written. The
+  input is a list of lanes, each lane a list of items. widestList returns
+  the length of the longest lane, and zero when there are no lanes.
+  weaveRounds merges the lanes round by round into one flat list: round
+  zero takes the first item of every lane in lane order, round one takes
+  the second item of every lane that still has one, and so on until even
+  the widest lane is exhausted. No lanes at all, and lanes that are all
+  empty, both weave into an empty list; a single lane weaves into a copy of
+  itself. Reject an argument that is not a list and a lane that is not a
+  list, with an error.
+target: solution.ts
+target_content: |
+  export function widestList(lanes: unknown[][]): number {
+    let widest = 0;
+    for (const lane of lanes) {
+      if (lane.length > widest) {
+        widest = lane.length;
+      }
+    }
+    return widest;
+  }
+
+  export function weaveRounds(lanes: unknown[][]): unknown[] {
+    // TODO: validate the argument, then take round zero of every lane in
+    // lane order, round one of every lane that still has one, and so on.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function weaveRounds(lanes: unknown[][]): unknown[]
+  export function widestList(lanes: unknown[][]): number
+stop_conditions:
+  - What widestList does with an argument that is not a list of lists is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

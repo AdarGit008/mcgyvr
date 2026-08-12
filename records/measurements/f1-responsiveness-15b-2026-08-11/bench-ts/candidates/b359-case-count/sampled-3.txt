@@ -1,0 +1,28 @@
+```ts
+/**
+ * Counts the number of capital letters and small letters in a text.
+ * Characters that are not letters are counted as neither.
+ * 
+ * Example usage:
+ * caseCount("") // returns [0, 0]
+ * caseCount("Hello World") // returns [2, 8]
+ * caseCount("123ABCabc") // returns [2, 3]
+ */
+
+export function caseCount(text: string): number[] {
+  if (!text) return [0, 0];
+
+  let capitalCount = 0;
+  let lowercaseCount = 0;
+
+  for (const char of text) {
+    if (char >= 'A' && char <= 'Z') {
+      capitalCount++;
+    } else if (char >= 'a' && char <= 'z') {
+      lowercaseCount++;
+    }
+  }
+
+  return [capitalCount, lowercaseCount];
+}
+```

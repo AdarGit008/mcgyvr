@@ -1,0 +1,15 @@
+id: b279-menu-pick
+task_type: function_implementation
+task: >-
+  Implement menuPick. Each dish on a menu carries a name and a price
+  in whole pence. Return the names of every dish costing no more than
+  a budget, cheapest first. Two dishes at the same price are ordered
+  by name. A budget below every dish yields an empty list.
+target: solution.ts
+interface: "export function menuPick(dishes: { name: string; price: number }[], budget: number): string[]"
+stop_conditions:
+  - Whether two dishes sharing both a price and a name should both be listed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

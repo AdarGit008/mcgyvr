@@ -1,0 +1,16 @@
+id: b261-hex-pair
+task_type: function_implementation
+task: >-
+  Implement hex_split and hex_join. hex_split takes a colour written
+  as a hash followed by six hexadecimal digits and returns its three
+  two-digit parts in order. hex_join puts three such parts back into
+  that form, lower-cased. Reject a colour that is not a hash and
+  exactly six hexadecimal digits with an error.
+target: solution.py
+interface: "def hex_split(colour: str) -> list\ndef hex_join(parts: list) -> str"
+stop_conditions:
+  - Whether a three-digit shorthand colour should also be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

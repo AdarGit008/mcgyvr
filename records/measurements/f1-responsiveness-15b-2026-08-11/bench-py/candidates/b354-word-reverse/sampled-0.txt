@@ -1,0 +1,6 @@
+```python
+def word_reverse(line: str) -> str:
+    words = line.split()
+    reversed_words = [word[::-1] for word in words]
+    return ' '.join(reversed_words)
+```

@@ -1,0 +1,69 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def split_strict(s: str) -> List[str]:
+        if s[0] == '/' or s[-1] == '/':
+            raise ValueError("Path contains leading or trailing slashes")
+        return [segment for segment in s.split('/') if segment]
+
+    invalid_input = {
+        None, "", []  # empty values
+    }
+
+    def is_valid_rule(r: str) -> bool:
+        return r and not (r.isspace() or len(r.split('/')) > 2)
+
+    def is_valid_path(p: str) -> bool:
+        if p in invalid_input:
+            return False
+        return all(s for s in split_strict(p))
+
+    if not all(is_valid_rule(rule) for rule in rules):
+        raise ValueError("Invalid rules")
+    if not all(is_valid_path(path) for path in listing):
+        raise ValueError("Invalid paths")
+
+    def match_pattern(pattern: str, path: str) -> bool:
+        pattern_segments = split_strict(pattern)
+        path_segments = split_strict(path)
+
+        if len(pattern_segments) > len(path_segments):
+            return False
+
+        for i, segment in enumerate(pattern_segments):
+            if segment == '*':
+                # '*' matches any sequence of characters
+                continue
+            elif segment != path_segments[i]:
+                return False
+
+        return True
+
+    def find_matching_rule(path: str) -> str:
+        for rule in rules:
+            if is_valid_rule(rule):
+                if rule.startswith('!'):
+                    # Keep rule starts with '!'
+                    return rule
+                else:
+                    # Drop rule does not match - skip it
+                    continue
+            raise ValueError("Invalid rule")
+        
+        # No matching rule found, keep the path
+        return ''
+
+    def prune_path(path: str) -> bool:
+        for rule in rules:
+            if is_valid_rule(rule):
+                if match_pattern(rule, path):
+                    return True
+            raise ValueError("Invalid rule")
+        
+        # No matching rule found - drop the path
+        return False
+
+    surviving_paths = [path for path in listing if not prune_path(path)]
+    return surviving_paths
+```

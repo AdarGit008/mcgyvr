@@ -1,0 +1,39 @@
+```ts
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') {
+    throw new Error('Body must be a string');
+  }
+  
+  const tag = body.charCodeAt(body.length - 2) + body.charCodeAt(body.length - 1);
+  return tag.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Line must be a string');
+  }
+  
+  const parts = line.split('~');
+  
+  if (parts.length !== 3) {
+    throw new Error('Line must contain exactly two tildes');
+  }
+  
+  const body = parts[1];
+  const tag = lineTag(body);
+  
+  if (!/^[0-9a-f]{2}$/.test(tag)) {
+    throw new Error('Invalid tag format');
+  }
+  
+  if (body.charAt(body.length - 1) !== '~') {
+    throw new Error('Third-from-last character must be a tilde');
+  }
+  
+  if (body.slice(0, body.length - 2).split('~').length !== parts.length - 2) {
+    throw new Error('Invalid number of tildes in body');
+  }
+  
+  return body;
+}
+```

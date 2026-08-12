@@ -1,0 +1,50 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Input must be a string');
+  
+  const match = text.match(/^(\d+(\.\d{2})?)$/);
+  if (!match) throw new Error('Invalid amount format');
+
+  const [_, integerPart, fractionalPart] = match;
+  return parseInt(integerPart + (fractionalPart || '0'), 10);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0) throw new Error('Cents must be a non-negative integer');
+  
+  const fractional = Math.floor(cents % 100);
+  const integer = Math.floor(cents / 100);
+
+  return `${integer}.${fractional.toString().padStart(2, '0')}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (totalCents < 0) throw new Error('Total cents must be a non-negative integer');
+  if (!Array.isArray(weights)) throw new Error('Weights must be an array');
+  if (weights.length === 0) throw new Error('Weight list cannot be empty');
+  
+  const totalSum = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalSum === 0) throw new Error('Total of weights must not be zero');
+
+  weights.forEach(weight => {
+    if (typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error('Weights must be non-negative integers');
+    }
+  });
+
+  const shares = Array.from({ length: totalCents }, () => 0);
+
+  let remainingCents = totalCents;
+  for (let i = 0; i < weights.length; i++) {
+    const weight = weights[i];
+    if (weight === 0) continue;
+
+    const shareSize = Math.floor(remainingCents / weight);
+    shares.fill(shareSize, i, i + 1);
+
+    remainingCents -= shareSize * weight;
+  }
+
+  return shares;
+}
+```

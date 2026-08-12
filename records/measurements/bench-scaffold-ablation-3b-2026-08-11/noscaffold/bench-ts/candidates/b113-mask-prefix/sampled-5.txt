@@ -1,0 +1,27 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (typeof prefix !== 'number' || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error('Invalid prefix');
+  }
+  let octet = Math.floor(256 / Math.pow(2, 8 - prefix));
+  return `${octet}.0.0.0`;
+}
+
+export function prefixFromMask(mask: string): number {
+  const parts = mask.split('.');
+  if (parts.length !== 4 || !parts.every(part => /^\d+$/.test(part))) {
+    throw new Error('Invalid mask');
+  }
+
+  let ones = 0;
+  for (let octet of parts) {
+    if (octet === '255') {
+      ones += 8;
+    } else if (octet !== '0' && parseInt(octet, 10) < 256) {
+      throw new Error('Invalid mask');
+    }
+  }
+
+  return ones;
+}
+```

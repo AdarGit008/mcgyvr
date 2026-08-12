@@ -1,0 +1,41 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Splits a stream in chunks into frames based on a given marker character,
+    then scans the joined text once to handle doubled markers and frame boundaries.
+
+    Args:
+    - chunks (list): A list of strings representing the input stream.
+    - marker (str): The character used as the marker for starting and ending frames.
+
+    Returns:
+    - dict: A dictionary with 'frames' containing the ended frames and
+            'pending' containing any remaining text that is not part of a frame.
+    """
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+
+    joined_text = ''.join(chunks)
+    frames = []
+    pending = ''
+
+    i = 0
+    while i < len(joined_text):
+        if joined_text[i] == marker:
+            # Check for doubled markers or single markers ending frames
+            if i + 1 < len(joined_text) and joined_text[i + 1] == marker:
+                # Handle doubled marker
+                pending += marker
+                i += 2
+            else:
+                # End of a frame
+                frames.append(pending)
+                pending = ''
+                i += 1
+        else:
+            # Add to pending text if not at the end of a frame
+            pending += joined_text[i]
+            i += 1
+
+    return {'frames': frames, 'pending': pending}
+```

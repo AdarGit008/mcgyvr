@@ -1,0 +1,30 @@
+```python
+def tile_renders(requests: list[tuple[int, str]], fresh_for: int, size: int) -> list[tuple[int, str]]:
+    if not isinstance(fresh_for, int) or not isinstance(size, int):
+        raise ValueError("fresh_for and size must be positive integers.")
+    
+    if fresh_for <= 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive integers.")
+    
+    cache = sorted([None] * size)
+    renders = []
+    
+    for tick, name in requests:
+        if tick < 0:
+            raise ValueError("tick cannot be a negative number.")
+        
+        if tick not in range(size):
+            # Drop the oldest render that will not satisfy this request
+            while cache and tick - fresh_for >= len(cache) - 1:
+                oldest_render = min(cache)
+                renders.append((oldest_render, name))
+                cache.remove(oldest_render)
+        
+        # Store the current render in the cache
+        if tick - fresh_for < len(cache):
+            cache[tick - fresh_for] = name
+        else:
+            raise ValueError("Cache is full.")
+    
+    return renders
+```

@@ -1,0 +1,22 @@
+```ts
+import { isArray } from 'lodash';
+
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (typeof store !== 'object' || store === null) {
+    throw new Error('Store must be an object');
+  }
+
+  if (typeof head !== 'string') {
+    throw new Error('Head must be a string');
+  }
+
+  const paths = [];
+  for (const key in store) {
+    if (key.startsWith(head)) {
+      paths.push(key.substring(head.length));
+    }
+  }
+
+  return paths;
+}
+```

@@ -1,0 +1,37 @@
+```ts
+/**
+ * Finds free stretches within a clinic day's span given booked appointments.
+ * @param span - The full working hours of the clinic in HH:MM-HH:MM format.
+ * @param booked - An array of strings, each representing an appointment time slot in HH:MM-HH:MM format.
+ * @returns A string with free stretches formatted as HH:MM-HH:MM joined by ", " or "none" if no free stretch exists.
+ */
+export function openWindows(span: string, booked: string[]): string {
+    const validateTime = (time: string) => /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(time);
+    if (!validateTime(span)) throw new Error("Invalid span format");
+    if (booked.some(b => !validateTime(b))) throw new Error("Invalid booked time format");
+
+    const parseTime = (time: string): [number, number] => {
+        const [start, end] = time.split('-').map(t => t.split(':').map(Number));
+        return [start[0] * 60 + start[1], end[0] * 60 + end[1]];
+    };
+
+    const spanTimes = parseTime(span);
+    const bookedTimes = booked.map(parseTime);
+
+    let freeStretches: [number, number][] = [];
+    let lastEndTime = 0;
+
+    for (const time of bookedTimes) {
+        if (time[0] > lastEndTime) {
+            freeStretches.push([lastEndTime, time[0]]);
+        }
+        lastEndTime = Math.max(lastEndTime, time[1]);
+    }
+
+    if (spanTimes[1] > lastEndTime) {
+        freeStretches.push([lastEndTime, spanTimes[1]]);
+    }
+
+    return freeStretches.length === 0 ? "none" : freeStretches.map(s => `${Math.floor(s[0] / 60).toString().padStart(2, '0')}:${s[0] % 60.toString().padStart(2, '0')}-${Math.floor(s[1] / 60).toString().padStart(2, '0')}:${s[1] % 60.toString().padStart(2, '0')}`).join(', ');
+}
+```

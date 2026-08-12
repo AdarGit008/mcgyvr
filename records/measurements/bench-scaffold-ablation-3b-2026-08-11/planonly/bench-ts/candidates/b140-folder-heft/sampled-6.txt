@@ -1,0 +1,76 @@
+```ts
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+
+  function walk(node: any, path: string[]): void {
+    if (typeof node !== 'object' || Array.isArray(node) || Object.keys(node).includes('/')) {
+      throw new Error('Invalid node structure');
+    }
+
+    for (const [name, child] of Object.entries(node)) {
+      const newPath = [...path, name];
+      if (typeof child === 'string') {
+        paths.push(newPath.join('/'));
+      } else if (typeof child === 'object') {
+        walk(child, newPath);
+      }
+    }
+  }
+
+  walk(root, []);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  let total = 0;
+
+  function traverse(node: any): void {
+    if (typeof node !== 'object' || Array.isArray(node) || Object.keys(node).includes('/')) {
+      throw new Error('Invalid node structure');
+    }
+
+    for (const child of Object.values(node)) {
+      if (typeof child === 'string') {
+        total += parseInt(child, 10);
+      } else if (typeof child === 'object') {
+        traverse(child);
+      }
+    }
+  }
+
+  traverse(root);
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  const result: [string, number][] = [];
+
+  function findHeavyFolders(node: any, path: string[]): void {
+    if (typeof node !== 'object' || Array.isArray(node) || Object.keys(node).includes('/')) {
+      throw new Error('Invalid node structure');
+    }
+
+    let folderBytes = treeBytes(node);
+    const currentPath = [...path];
+
+    for (const [name, child] of Object.entries(node)) {
+      currentPath.push(name);
+
+      if (typeof child === 'string') {
+        folderBytes += parseInt(child, 10);
+      } else if (typeof child === 'object') {
+        findHeavyFolders(child, currentPath);
+      }
+
+      currentPath.pop();
+    }
+
+    if (folderBytes >= minBytes) {
+      result.push([currentPath.join('/'), folderBytes]);
+    }
+  }
+
+  findHeavyFolders(root, []);
+  return result;
+}
+```

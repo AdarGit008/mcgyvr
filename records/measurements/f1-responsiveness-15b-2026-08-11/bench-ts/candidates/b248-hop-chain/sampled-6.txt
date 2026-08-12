@@ -1,0 +1,16 @@
+ ```ts
+export function hopChain(hops: string[][]): boolean {
+  if (hops.length <= 1) return true;
+
+  for (let i = 0; i < hops.length - 1; i++) {
+    const [start, end] = hops[i];
+    const nextStart = hops[i + 1][0];
+
+    if (start !== nextStart) {
+      return false;
+    }
+  }
+
+  return true;
+}
+```

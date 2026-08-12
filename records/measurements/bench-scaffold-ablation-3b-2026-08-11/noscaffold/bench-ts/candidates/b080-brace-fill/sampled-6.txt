@@ -1,0 +1,44 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') throw new Error('template must be a string');
+  const placeholders = [];
+  let bracketDepth = 0;
+
+  for (let i = 0; i < template.length; i++) {
+    const char = template[i];
+
+    if (char === '{') {
+      bracketDepth++;
+      if (bracketDepth > 1) throw new Error('invalid template: misplaced opening brace');
+      placeholders.push('');
+    } else if (char === '}') {
+      bracketDepth--;
+      if (bracketDepth < 0) throw new Error('invalid template: unmatched closing brace');
+      if (placeholders.length === 0) throw new Error('invalid template: unmatched closing brace');
+
+      const lastPlaceholder = placeholders.pop();
+      if (!lastPlaceholder || lastPlaceholder.trim() === '') {
+        throw new Error(`invalid placeholder name in ${template}`);
+      }
+
+      // Validate placeholder name
+      for (const c of lastPlaceholder) {
+        if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c !== '_') {
+          throw new Error(`invalid character in placeholder name: ${lastPlaceholder}`);
+        }
+      }
+
+      // Replace placeholder with value from values
+      const value = values[lastPlaceholder];
+      if (value === undefined) throw new Error(`missing value for placeholder: ${lastPlaceholder}`);
+
+      template = template.substring(0, i - 1) + value + template.substring(i + 1);
+    } else {
+      if (bracketDepth > 0) placeholders[placeholders.length - 1] += char;
+    }
+  }
+
+  if (bracketDepth !== 0) throw new Error('invalid template: unmatched opening brace');
+  return template;
+}
+```

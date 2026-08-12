@@ -1,0 +1,24 @@
+id: b417-mark-list
+task_type: bug_fix
+task: >-
+  markList returns a list with a marker put against every entry that
+  reaches a floor, written as the entry followed by a star, and it
+  marks the entries below the floor instead. Fix it. Entries that do
+  not qualify come back unchanged. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Scores written out, with a star against those that reach a floor. */
+  export function markList(scores: number[], floor: number): string[] {
+    const out: string[] = [];
+    for (const score of scores) {
+      out.push(score < floor ? String(score) + "*" : String(score));
+    }
+    return out;
+  }
+interface: "export function markList(scores: number[], floor: number): string[]"
+stop_conditions:
+  - Whether a marker other than a star should ever be used is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

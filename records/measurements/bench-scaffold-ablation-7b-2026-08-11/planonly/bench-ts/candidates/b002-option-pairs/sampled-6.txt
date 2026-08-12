@@ -1,0 +1,48 @@
+```ts
+/**
+ * Parses a key=value segment into [key, value].
+ */
+export function parseOption(segment: string): string[] {
+  const parts = segment.split('=');
+  if (parts.length !== 2) throw new Error('Invalid option format');
+  const key = parts[0].trim();
+  const value = parts[1].trim();
+  if (!/^[a-zA-Z][a-zA-Z\d_]*$/.test(key)) throw new Error('Invalid key format');
+  return [key, value.startsWith('"') ? value.slice(1, -1).replace(/\\"/g, '"') : value];
+}
+
+/**
+ * Splits the input string on semicolons outside double quotes and builds the pairs with parseOption.
+ */
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') throw new Error('Invalid input');
+  const result: string[][] = [];
+  let keySet = new Set<string>();
+  let segment = '';
+  let inQuotes = false;
+
+  for (const char of input) {
+    if (char === '"' && !inQuotes) inQuotes = true;
+    else if (char === '"' && inQuotes) inQuotes = false;
+    else if (!inQuotes && char === ';') {
+      if (segment.trim() !== '') {
+        const pair = parseOption(segment);
+        if (keySet.has(pair[0])) throw new Error('Repeated key');
+        result.push(pair);
+        keySet.add(pair[0]);
+      }
+      segment = '';
+    } else {
+      segment += char;
+    }
+  }
+
+  if (!inQuotes && segment.trim() !== '') {
+    const pair = parseOption(segment);
+    if (keySet.has(pair[0])) throw new Error('Repeated key');
+    result.push(pair);
+  }
+
+  return result;
+}
+```

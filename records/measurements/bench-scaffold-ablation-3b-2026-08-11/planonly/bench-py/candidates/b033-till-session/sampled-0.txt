@@ -1,0 +1,76 @@
+```python
+from typing import Dict, List, Tuple
+
+def run_till_session(events: List[List[str]], prices: Dict[str, int]) -> Dict:
+    if not events or not prices:
+        raise ValueError("Price list and events must both be non-empty.")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+    session_open = False
+
+    for event in events:
+        if len(event) != 2:
+            raise ValueError("Event must consist of exactly two elements.")
+
+        action, payload = event
+
+        if action == "scan":
+            item_name = payload
+            if item_name not in prices:
+                raise ValueError(f"Unknown item: {item_name}.")
+            
+            if not session_open:
+                raise ValueError("Cannot scan while the session is closed.")
+            
+            state["items"].append((item_name, 1))
+        elif action == "void":
+            item_name = payload
+            for i, (name, quantity) in enumerate(state["items"]):
+                if name == item_name and quantity > 0:
+                    state["items"][i] = (name, quantity - 1)
+                    break
+            else:
+                raise ValueError(f"Cannot void non-existent item: {item_name}.")
+        elif action == "close":
+            if not session_open or not state["items"]:
+                raise ValueError("Cannot close an empty session.")
+            
+            total_cost = sum(prices[item] * quantity for item, quantity in state["items"])
+            if total_cost != state["total"]:
+                raise ValueError("Total cost does not match calculated value.")
+
+            state["paid"] = 0
+            state["change"] = total_cost
+            session_open = False
+        elif action == "pay":
+            cents_paid = int(payload)
+            if cents_paid <= 0:
+                raise ValueError("Pay amount must be a positive integer.")
+            
+            if not session_open or session_open and state["paid"]:
+                raise ValueError("Cannot pay from an open or paid session.")
+            
+            total_cost = sum(prices[item] * quantity for item, quantity in state["items"])
+            if cents_paid < total_cost:
+                raise ValueError("Insufficient payment.")
+            
+            state["paid"] += cents_paid
+            state["change"] = cents_paid - total_cost
+        elif action == "cancel":
+            if session_open:
+                state["total"] = 0
+                state["paid"] = 0
+                state["change"] = 0
+                session_open = False
+            else:
+                raise ValueError("Cannot cancel a closed or paid session.")
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return state
+```

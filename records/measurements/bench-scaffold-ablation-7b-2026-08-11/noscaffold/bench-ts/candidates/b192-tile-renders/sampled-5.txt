@@ -1,0 +1,25 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || !Number.isInteger(freshFor)) throw new Error("freshFor must be a positive whole number");
+    if (size <= 0 || !Number.isInteger(size)) throw new Error("size must be a positive whole number");
+
+    const cache: [number, string][] = [];
+    const renders: [number, string][] = [];
+
+    for (const [tick, tile] of requests) {
+        while (cache.length > 0 && tick >= cache[0][0] + freshFor) {
+            cache.shift();
+        }
+
+        if (cache.length >= size) {
+            cache.sort((a, b) => a[1].localeCompare(b[1]));
+            cache.shift();
+        }
+
+        renders.push([tick, tile]);
+        cache.push([tick, tile]);
+    }
+
+    return renders;
+}
+```

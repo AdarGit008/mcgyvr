@@ -1,0 +1,12 @@
+```ts
+/**
+ * The text with a character removed from both of its ends but only one from each end is returned.
+ */
+export function stripEnds(text: string, mark: string): string {
+  if (!text || !mark) {
+    throw new Error('Both text and mark cannot be empty');
+  }
+
+  return text.slice(mark.length - 1).slice(0, -mark.length + 1);
+}
+```

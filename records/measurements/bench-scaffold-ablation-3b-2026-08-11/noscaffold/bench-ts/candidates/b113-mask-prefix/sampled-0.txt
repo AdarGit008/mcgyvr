@@ -1,0 +1,25 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid mask count");
+  }
+  const octets = Array.from({ length: 4 }, (_, i) => (i < prefix ? 255 : 0));
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("Invalid mask type");
+  }
+  const [octet1, octet2, octet3, octet4] = mask.split(".").map(Number);
+  if (octet1 < 0 || octet1 > 255 || octet2 < 0 || octet2 > 255 ||
+      octet3 < 0 || octet3 > 255 || octet4 < 0 || octet4 > 255) {
+    throw new Error("Invalid octet value");
+  }
+  if (octet1 === 0 && octet2 !== 0 || octet2 === 0 && octet3 !== 0 ||
+      octet3 === 0 && octet4 !== 0) {
+    throw new Error("Zero in middle of mask");
+  }
+  return [octet1, octet2, octet3, octet4].reduce((count, octet) => count + (octet > 0 ? 1 : 0), 0);
+}
+```

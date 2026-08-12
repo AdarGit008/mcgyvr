@@ -1,0 +1,36 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of unit into the base unit by unwinding one definition at a time.
+
+    :param amount: The amount of the unit to convert.
+    :param unit: The name of the unit to convert from.
+    :param defs: A dictionary where each key is a unit name and the value is a tuple [factor, finer].
+    :param base: The name of the base unit.
+    :return: The converted amount in the base unit.
+    """
+    
+    if amount < 0 or not isinstance(amount, int):
+        raise ValueError("Amount must be a non-negative whole number.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is not defined.")
+
+    def convert_unit(amount, unit):
+        factor, finer = defs[unit]
+        
+        if factor <= 0 or not isinstance(factor, int):
+            raise ValueError(f"Factor for unit '{unit}' must be a positive whole number.")
+        
+        # If the unit is the base unit, return the amount as it is.
+        elif unit == base:
+            return amount
+        
+        # Otherwise, convert to the finer unit and then back to the base.
+        else:
+            finer_amount = convert_unit(amount * factor, finer)
+            base_amount = convert_unit(finer_amount // factor, finer)
+            return base_amount + (amount % factor) * factor
+
+    return convert_unit(amount, unit)
+```

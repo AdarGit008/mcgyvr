@@ -1,0 +1,37 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    const timePattern = /^([01]?[0-9]|2[0-3]):([0-5]?[0-9])-([01]?[0-9]|2[0-3]):([0-5]?[0-9])$/;
+    if (!timePattern.test(span)) {
+        throw new Error("Invalid span format");
+    }
+
+    const appointmentPattern = /^([01]?[0-9]|2[0-3]):([0-5]?[0-9])-([01]?[0-9]|2[0-3]):([0-5]?[0-9])$/;
+    if (!booked.every(appointment => appointmentPattern.test(appointment))) {
+        throw new Error("Invalid appointment format");
+    }
+
+    const [startHour, startMinute, endHour, endMinute] = span.split('-').flatMap(time => time.split(':').map(Number));
+    const bookedTimes = booked.map(appointment => appointment.split('-').flatMap(time => time.split(':').map(Number)));
+
+    bookedTimes.sort((a, b) => a[0] * 60 + a[1] - b[0] * 60 - b[1]);
+
+    let freeSlots: [number, number][] = [[startHour, startMinute]];
+    for (const [appointmentStartHour, appointmentStartMinute, appointmentEndHour, appointmentEndMinute] of bookedTimes) {
+        const lastFreeSlot = freeSlots.pop()!;
+        if (lastFreeSlot[0] * 60 + lastFreeSlot[1] < appointmentStartHour * 60 + appointmentStartMinute) {
+            freeSlots.push(lastFreeSlot);
+            freeSlots.push([appointmentEndHour, appointmentEndMinute]);
+        } else {
+            freeSlots.pop();
+        }
+    }
+
+    const [lastFreeSlotStartHour, lastFreeSlotStartMinute] = freeSlots.pop()!;
+    if (lastFreeSlotStartHour * 60 + lastFreeSlotStartMinute < endHour * 60 + endMinute) {
+        freeSlots.push([lastFreeSlotStartHour, lastFreeSlotStartMinute]);
+        freeSlots.push([endHour, endMinute]);
+    }
+
+    return freeSlots.length === 1 ? "none" : freeSlots.map(([hour, minute]) => `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`).join(', ');
+}
+```

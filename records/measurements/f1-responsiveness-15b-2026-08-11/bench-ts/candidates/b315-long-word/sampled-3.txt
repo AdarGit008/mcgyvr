@@ -1,0 +1,18 @@
+```ts
+function longWord(sentence: string): string {
+    if (!sentence) return '';
+
+    const words = sentence.split(/\s+/);
+    let maxLength = 0;
+    let longestWord = '';
+
+    for (let word of words) {
+        if (word.length > maxLength) {
+            maxLength = word.length;
+            longestWord = word;
+        }
+    }
+
+    return longestWord;
+}
+```

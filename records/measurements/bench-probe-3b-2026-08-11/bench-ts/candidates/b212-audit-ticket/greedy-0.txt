@@ -1,0 +1,32 @@
+```ts
+export function auditTicket(ticket: string): string {
+  if (typeof ticket !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const [letters, digits, checkDigit] = ticket.split('-');
+
+  if (
+    letters.length !== 2 ||
+    !/^[A-Z]{2}$/.test(letters) ||
+    digits.length !== 4 ||
+    !/^\d{4}$/.test(digits)
+  ) {
+    return 'shape';
+  }
+
+  const letterValues = letters.split('').reduce((acc, char, index) => acc + (char.charCodeAt(0) - 64), 0);
+  const digitValues = digits
+    .split('')
+    .map(Number)
+    .reduce((acc, num, index) => acc + num * (index + 1), 0);
+
+  const total = letterValues + digitValues;
+
+  if (total % 10 !== parseInt(checkDigit, 10)) {
+    return 'check';
+  }
+
+  return 'ok';
+}
+```

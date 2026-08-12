@@ -1,0 +1,81 @@
+```typescript
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const result: string[][] = [];
+  let currentKey = '';
+  let currentValue = '';
+  let inQuotes = false;
+  let lastSeenEqualsSignIndex = -1;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === '"' && input[i + 1] !== '"') {
+      // Start of a quoted value
+      inQuotes = !inQuotes;
+    } else if (!inQuotes) {
+      if (char === '=') {
+        lastSeenEqualsSignIndex = i;
+        if (lastSeenEqualsSignIndex === 0 || currentKey === '') {
+          throw new Error('Invalid key format');
+        }
+      } else if (char === ';') {
+        if (i > 1 && input[i - 2] !== '\\') {
+          // End of a segment
+          const parsedPair = parseOption(currentKey);
+          if (!parsedPair) {
+            throw new Error('Invalid key-value pair');
+          }
+          result.push(parsedPair);
+
+          currentKey = '';
+          currentValue = '';
+          lastSeenEqualsSignIndex = -1;
+        } else {
+          // Unquoted semicolon, treat as part of the value
+          currentValue += char;
+        }
+      } else if (char === '\\') {
+        // Escaped character, ignore it
+      } else if (lastSeenEqualsSignIndex === -1) {
+        // Collecting key before '='
+        currentKey += char;
+      } else {
+        // Collecting value after '='
+        currentValue += char;
+      }
+    } else if (char !== '"') {
+      // Quoted value, add escaped character
+      currentValue += char;
+    }
+
+    if (i === input.length - 1 && !inQuotes) {
+      const parsedPair = parseOption(currentKey);
+      if (!parsedPair) {
+        throw new Error('Invalid key-value pair');
+      }
+      result.push(parsedPair);
+    }
+  }
+
+  return result;
+}
+
+export function parseOption(segment: string): string[] {
+  const [key, value] = segment.split('=');
+
+  if (key === '' || !/^[\w]+$/.test(key)) {
+    throw new Error('Invalid key format');
+  }
+
+  let parsedValue = value;
+  if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
+    parsedValue = parsedValue.slice(1, -1);
+  }
+
+  return [key, parsedValue];
+}
+```

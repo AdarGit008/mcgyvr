@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def span_merge(spans: List[List[int]]) -> List[List[int]]:
+    spans.sort()  # Sort by start time to group overlapping intervals
+    merged_spans = []
+
+    for i in range(len(spans)):
+        if not merged_spans or merged_spans[-1][1] < spans[i][0]:
+            merged_spans.append(spans[i])
+        else:
+            merged_spans[-1][1] = max(merged_spans[-1][1], spans[i][1])
+
+    return merged_spans
+```

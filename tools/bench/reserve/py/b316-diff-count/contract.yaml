@@ -1,0 +1,15 @@
+id: b316-diff-count
+task_type: function_implementation
+task: >-
+  Implement diff_count. Compare two lists position by position and
+  return how many positions hold different values. When one list is
+  longer than the other, each of its extra positions counts as a
+  difference too.
+target: solution.py
+interface: "def diff_count(left: list, right: list) -> int"
+stop_conditions:
+  - Whether a list may hold values of different kinds in the same position is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

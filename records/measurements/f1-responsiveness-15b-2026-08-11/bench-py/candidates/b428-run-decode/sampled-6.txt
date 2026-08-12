@@ -1,0 +1,32 @@
+```python
+def run_decode(coded: str) -> str:
+    if coded == "":
+        return ""
+    
+    decoded = ""
+    i = 0
+    
+    while i < len(coded):
+        letter = coded[i]
+        count_str = ""
+        
+        # Skip leading zeros in the count string
+        while i + 1 < len(coded) and coded[i + 1].isdigit():
+            count_str += coded[i + 1]
+            i += 1
+        
+        if not count_str:
+            decoded += letter
+        else:
+            count = int(count_str)
+            
+            # Handle count exceeding the remaining characters
+            if i + count > len(coded):
+                raise ValueError("Count exceeds remaining characters")
+            
+            decoded += letter * count
+        
+        i += 1
+    
+    return decoded
+```

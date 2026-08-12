@@ -1,0 +1,21 @@
+```typescript
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+
+  const cache = Array(slots).fill(null);
+  let hits = 0;
+
+  keys.forEach(key => {
+    const slotIndex = Math.abs(key % slots);
+    if (cache[slotIndex] === key) {
+      hits++;
+    } else {
+      cache[slotIndex] = key;
+    }
+  });
+
+  return hits;
+}
+```

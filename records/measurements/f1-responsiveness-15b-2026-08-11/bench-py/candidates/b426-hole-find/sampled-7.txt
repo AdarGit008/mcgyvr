@@ -1,0 +1,14 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a list of numbers starting from 'first' up to but not including 'first + count'."""
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the first missing number in the sequence starting from 'first' with a length of 'count'.
+    If all numbers are present, return None."""
+    expected = set(range(first, first + count))
+    actual = set(seen)
+    if expected - actual == {expected[-1]}:  # All numbers are present
+        return None
+    return min(expected - actual)
+```

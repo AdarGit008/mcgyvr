@@ -1,0 +1,39 @@
+```ts
+/**
+ * Calculates the strength of a mixture between two tins of paint.
+ * Each tin has a given volume and strength expressed as a percentage.
+ *
+ * @param volumeA - The volume of the first tin in millilitres.
+ * @param strengthA - The strength of the first tin as a percentage (0-100).
+ * @param volumeB - The volume of the second tin in millilitres.
+ * @param strengthB - The strength of the second tin as a percentage (0-100).
+ * @returns The strength of the mixture as a whole number, rounded down to a percent.
+ */
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  // Validate inputs
+  if (!isNaN(volumeA) && !isNaN(strengthA) && !isNaN(volumeB) && !isNaN(strengthB)) {
+    throw new Error("All parameters must be numbers.");
+  }
+
+  if (volumeA < 0 || volumeB < 0) {
+    throw new Error("Both tins' volumes must be non-negative.");
+  }
+
+  if (!Number.isInteger(volumeA) || !Number.isInteger(volumeB)) {
+    throw new Error("Tin volumes must be whole numbers.");
+  }
+
+  if (strengthA < 0 || strengthA > 100 || strengthB < 0 || strengthB > 100) {
+    throw new Error("Strengths must be between 0 and 100.");
+  }
+
+  // Calculate total volume and total strength
+  const totalVolume = volumeA + volumeB;
+  const totalStrength = (strengthA * volumeA) + (strengthB * volumeB);
+
+  // Calculate the average strength
+  const averageStrength = Math.floor(totalStrength / totalVolume);
+
+  return averageStrength;
+}
+```

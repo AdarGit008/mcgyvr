@@ -1,0 +1,12 @@
+```ts
+
+export function splitAt(entries: string[], marker: string): string[][] {
+  const index = entries.indexOf(marker);
+  
+  if (index === -1) {
+    return [[entries[0] || ''], []];
+  }
+  
+  return [entries.slice(0, index), entries.slice(index + 1)];
+}
+```

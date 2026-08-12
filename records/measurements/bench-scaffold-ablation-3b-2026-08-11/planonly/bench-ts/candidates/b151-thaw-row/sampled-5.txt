@@ -1,0 +1,20 @@
+```typescript
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string') throw new Error('Input must be a string');
+  if (!row) throw new Error('Input cannot be an empty string');
+  if (/[^#\.]/.test(row)) throw new Error('Input can only contain "#" or "."');
+  if (!Number.isInteger(steps) || steps < 0) throw new Error('Step count must be a non-negative whole number');
+
+  for (let i = 0; i < steps; i++) {
+    let newRow = '';
+    for (let j = 0; j < row.length; j++) {
+      if (j === 0 || j === row.length - 1) newRow += '.';
+      else if (row[j] === '#' && (row[j - 1] === '.' || row[j + 1] === '.')) newRow += '.';
+      else newRow += '#';
+    }
+    row = newRow;
+  }
+
+  return row;
+}
+```

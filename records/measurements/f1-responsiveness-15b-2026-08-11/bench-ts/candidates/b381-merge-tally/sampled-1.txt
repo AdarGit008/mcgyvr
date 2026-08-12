@@ -1,0 +1,31 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+    if (!tally) throw new Error('Tally is null or undefined');
+    if (typeof name !== 'string') throw new Error('Name must be a string');
+    if (typeof amount !== 'number' || isNaN(amount)) throw new Error('Amount must be a non-negative number');
+
+    tally[name] = (tally[name] || 0) + amount;
+    return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+    if (!left || !right) throw new Error('Both tallies must be non-null');
+
+    for (const name in left) {
+        if (left.hasOwnProperty(name)) {
+            left[name] += right[name];
+        }
+    }
+
+    return left;
+}
+
+// Test cases to verify the correctness of the solution
+assert.deepStrictEqual(addOne({}, 'Alice', 5), { Alice: 5 });
+assert.deepStrictEqual(addOne({ Alice: 3 }, 'Bob', 2), { Alice: 3, Bob: 2 });
+assert.deepStrictEqual(mergeTally({ Alice: 1, Bob: 2 }, { Alice: 3, Carol: 4 }), { Alice: 4, Bob: 2, Carol: 4 });
+
+console.log('All tests passed!');
+```

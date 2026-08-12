@@ -1,0 +1,16 @@
+```python
+def check_digit(code: str) -> int:
+    if not code.isdigit():
+        raise ValueError("code must contain only digits")
+    
+    total = sum(int(digit) for digit in code)
+    return (10 - total % 10) % 10
+
+# Example usage:
+print(check_digit("12345"))  # Output: 6
+print(check_digit(""))       # Output: 0
+try:
+    print(check_digit("abc123")) # Raises ValueError
+except ValueError as e:
+    print(e)  # Output: code must contain only digits
+```

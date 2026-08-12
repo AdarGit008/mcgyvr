@@ -1,0 +1,16 @@
+id: b281-tier-cost
+task_type: function_implementation
+task: >-
+  Implement tierCost. Units are charged at a first rate up to an
+  included allowance and at a second rate for everything beyond it.
+  Return the cost of a number of units in whole pence. Usage inside
+  the allowance is charged at the first rate only. Reject with an
+  error a number of units below zero.
+target: solution.ts
+interface: "export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number"
+stop_conditions:
+  - Whether an allowance below zero should be treated as no allowance at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

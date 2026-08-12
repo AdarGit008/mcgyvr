@@ -1,0 +1,17 @@
+id: b297-tile-grid
+task_type: function_implementation
+task: >-
+  Implement tiles_across and tiles_needed. tiles_across returns how
+  many tiles of a given size cover a length, rounding up so that a
+  part tile still counts as one. tiles_needed returns the tiles for a
+  wall of a width and a height, adding a whole-percent allowance for
+  breakages and rounding up again.
+target: solution.py
+interface: "def tiles_across(length: int, tile: int) -> int
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int"
+stop_conditions:
+  - Whether an offcut from one edge of a wall could be used again on the opposite edge is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

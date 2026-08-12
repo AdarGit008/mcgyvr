@@ -1,0 +1,24 @@
+id: b208-tally-units
+task_type: function_implementation
+task: >-
+  Implement tally_by_unit. Every entry names an item, a count, and the unit
+  that count is written in; the units table gives each unit name how many
+  base units one of it is worth. Add up all the entries for an item in base
+  units, then report that total in the largest unit of the table that divides
+  it exactly. With a table where t is worth 1000000, kg is worth 1000 and g
+  is worth 1, one kg plus 500 g is reported as 1500 g because no larger unit
+  divides it, while 2000 kg is reported as 2 t. Return a mapping from each
+  item that appears in the entries to a pair holding its count and the name
+  of the unit that count is written in. A total of zero is divided exactly by
+  every unit and so is reported in the largest unit of the table, and an
+  empty entry list yields an empty mapping. Every unit an entry names appears
+  in the table, no two units of a table share a worth, and all worths and
+  counts are non-negative whole numbers.
+target: solution.py
+interface: "def tally_by_unit(entries: list, units: dict) -> dict"
+stop_conditions:
+  - What is reported for an item whose total no unit of the table divides is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

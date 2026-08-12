@@ -1,0 +1,14 @@
+id: b464-power-of
+task_type: function_implementation
+task: >-
+  Implement power_of. Raise a base to a whole power by multiplying it
+  by itself that many times. A power of nothing gives one, whatever
+  the base. Reject a power below nothing with an error.
+target: solution.py
+interface: "def power_of(base: int, power: int) -> int"
+stop_conditions:
+  - Whether a base below nothing should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

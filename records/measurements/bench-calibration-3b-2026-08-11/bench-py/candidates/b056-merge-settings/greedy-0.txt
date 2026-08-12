@@ -1,0 +1,31 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    """
+    Merges two settings snapshots into one, resolving conflicts where necessary.
+    
+    :param base: The common ancestor settings snapshot.
+    :param ours: The settings snapshot from the current branch.
+    :param theirs: The settings snapshot from the other branch.
+    :return: A merged settings snapshot with resolved conflicts.
+    """
+    def is_valid_settings(settings):
+        return all(isinstance(key, str) and isinstance(value, str) for key, value in settings.items())
+    
+    if not (is_valid_settings(base) and is_valid_settings(ours) and is_valid_settings(theirs)):
+        raise ValueError("All inputs must be valid flat mappings of string values.")
+    
+    merged = base.copy()
+    
+    for key in ours:
+        if key in theirs:
+            if ours[key] != theirs[key]:
+                raise ValueError(f"Conflict: '{key}' differs between 'ours' and 'theirs'.")
+        else:
+            merged[key] = ours[key]
+    
+    for key in theirs:
+        if key not in ours:
+            merged[key] = theirs[key]
+    
+    return merged
+```

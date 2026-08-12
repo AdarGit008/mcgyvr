@@ -1,0 +1,28 @@
+```python
+from math import ceil
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("Cannot make a non-positive number of units.")
+    
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+    
+    def explode(kit_name, need):
+        recipe = catalog[kit_name]
+        makes = recipe['makes']
+        parts = recipe['parts']
+        
+        runs = ceil(need / makes)
+        total_parts = {}
+        
+        for component, count in parts:
+            if component in catalog:
+                total_parts.update(explode(component, runs * count))
+            else:
+                total_parts[component] = total_parts.get(component, 0) + runs * count
+        
+        return total_parts
+    
+    return explode(kit, want)
+```

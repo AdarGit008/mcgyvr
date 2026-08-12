@@ -1,0 +1,43 @@
+```ts
+/**
+ * Splits the total takings among partners based on their weights.
+ * @param total - The total takings in whole cents.
+ * @param weights - An array of partner share weights.
+ * @returns An array of part shares for each partner.
+ */
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative whole number.");
+  }
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error("Weights must be a non-empty array of positive whole numbers.");
+  }
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("Weights must be a non-empty array of positive whole numbers.");
+    }
+  }
+
+  const sumWeights = weights.reduce((acc, weight) => acc + weight, 0);
+  const parts = weights.map(weight => Math.floor((total * weight / sumWeights) as number));
+  let remainingCents = total - parts.reduce((acc, part) => acc + part, 0);
+
+  while (remainingCents > 0) {
+    let maxDiscardFraction = 0;
+    let maxIndex = 0;
+
+    for (let i = 0; i < weights.length; i++) {
+      const discardFraction = Math.floor((parts[i] * sumWeights / total) as number) - parts[i];
+      if (discardFraction > maxDiscardFraction || (discardFraction === maxDiscardFraction && i < maxIndex)) {
+        maxDiscardFraction = discardFraction;
+        maxIndex = i;
+      }
+    }
+
+    parts[maxIndex]++;
+    remainingCents--;
+  }
+
+  return parts;
+}
+```

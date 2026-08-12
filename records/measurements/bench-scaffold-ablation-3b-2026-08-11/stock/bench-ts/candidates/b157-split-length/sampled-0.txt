@@ -1,0 +1,20 @@
+```
+const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length: must be a whole non-negative integer.");
+  }
+
+  const parts: [string, number][] = LADDER.map(([unit, multiple]) => [
+    `${Math.floor(mm / multiple)}${unit}`,
+    mm % multiple,
+  ]);
+
+  // Filter out zero parts
+  const validParts = parts.filter(([value, count]) => count !== 0);
+
+  // Join the valid parts with spaces
+  return validParts.join(" ");
+}
+```

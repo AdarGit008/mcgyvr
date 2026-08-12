@@ -1,0 +1,8 @@
+```ts
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+  if (units < 0) throw new Error("Number of units cannot be negative");
+
+  const cost = Math.min(units * firstRate, allowance + (units - allowance) * laterRate);
+  return cost;
+}
+```

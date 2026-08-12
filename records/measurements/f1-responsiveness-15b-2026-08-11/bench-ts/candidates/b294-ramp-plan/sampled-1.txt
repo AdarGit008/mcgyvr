@@ -1,0 +1,21 @@
+```ts
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) {
+    throw new Error('Step cannot be zero');
+  }
+  return Math.min(target, current + Math.ceil((target - current) / step));
+}
+
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0) {
+    throw new Error('Step cannot be zero');
+  }
+  const results = [];
+  let currentValue = start;
+  while (currentValue <= target) {
+    results.push(currentValue);
+    currentValue = rampStep(currentValue, target, step);
+  }
+  return results;
+}
+```

@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def set_minus(entries: List[str], remove: List[str]) -> List[str]:
+    # Convert entries to lowercase to handle case-insensitive comparison
+    entries_lower = [entry.lower() for entry in entries]
+    remove_lower = [entry.lower() for entry in remove]
+    
+    # Filter out elements that are present in both lists
+    difference = [entry for entry in entries_lower if entry not in remove_lower]
+    
+    return difference
+```

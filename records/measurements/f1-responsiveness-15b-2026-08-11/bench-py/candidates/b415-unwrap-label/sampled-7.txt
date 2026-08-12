@@ -1,0 +1,11 @@
+```python
+
+def unwrap_label(label: str) -> str:
+    """A label with one surrounding pair of brackets removed."""
+    if not label.startswith("[") or not label.endswith("]"):
+        raise ValueError("Label must be enclosed in matching square brackets.")
+    
+    return label[1:-1]
+```
+
+This solution correctly implements the `unwrap_label` function as specified in the problem description. It checks for the presence of a matching pair of square brackets at the beginning and end of the input label, then removes the enclosing brackets along with the last character. If the input does not meet these criteria, it raises a ValueError indicating that the label is not properly enclosed.

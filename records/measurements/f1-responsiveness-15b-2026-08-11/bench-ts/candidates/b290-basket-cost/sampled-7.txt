@@ -1,0 +1,26 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (price === null || price === undefined || isNaN(price) ||
+      quantity === null || quantity === undefined || isNaN(quantity)) {
+    throw new Error('All inputs must be numbers');
+  }
+
+  return Math.floor(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (lines.length === 0) {
+    return 0;
+  }
+
+  const totalAmount = lines.reduce((acc, line) => acc + line.price * line.quantity, 0);
+
+  if (discount > 100) {
+    throw new Error('Discount cannot be above one hundred percent');
+  }
+
+  const discountedPrice = Math.floor(totalAmount / ((100 - discount) / 100));
+
+  return Math.floor(discountedPrice);
+}
+```

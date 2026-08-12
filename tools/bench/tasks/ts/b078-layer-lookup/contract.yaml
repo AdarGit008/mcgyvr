@@ -1,0 +1,24 @@
+id: b078-layer-lookup
+task_type: function_implementation
+task: >-
+  Implement configValue. Configuration arrives as ordered layers, lowest
+  precedence first: each layer is a string of newline-separated lines,
+  where a blank line or a line whose first non-space character is a hash
+  mark is ignored, a name=value line assigns value to name, and a line of
+  an exclamation mark followed by a name unsets that name, hiding any
+  assignment made before it. Names and values are trimmed of surrounding
+  whitespace, an assignment appearing later — in the same layer or a
+  later one — replaces an earlier one, and a value may be empty, which is
+  not the same as unset. Return the effective value of the requested
+  name, or null when it was never assigned or its last mention unsets it.
+  Reject a name that is not a non-empty string, a layer that is not a
+  string, and a non-ignored line that has no equals sign and is not an
+  unset line, with an error.
+target: solution.ts
+interface: "export function configValue(layers: string[], name: string): string | null"
+stop_conditions:
+  - How a line whose name before the equals sign is empty is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

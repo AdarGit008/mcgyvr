@@ -1,0 +1,47 @@
+```typescript
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (typeof listing !== 'string[]' || typeof rules !== 'string[]') {
+    throw new Error('All inputs must be arrays of strings.');
+  }
+
+  const isValidPath = (path: string): boolean => {
+    if (path.length === 0) return false;
+    for (let i = 0; i < path.length; i++) {
+      if ((i > 0 && path[i] === '/') || (!i && path[0] === '/')) {
+        throw new Error('Paths must not have leading, trailing or doubled slashes.');
+      }
+    }
+    return true;
+  };
+
+  const isValidRule = (rule: string): boolean => {
+    if (rule.length === 0) return false;
+    for (let i = 0; i < rule.length; i++) {
+      if (i > 0 && rule[i] === '/') || (!i && rule[0] === '/') {
+        throw new Error('Rules must not have leading, trailing or doubled slashes.');
+      }
+    }
+    return true;
+  };
+
+  listing.forEach(path => isValidPath(path));
+  rules.forEach(rule => isValidRule(rule));
+
+  const prune = (path: string, index: number): boolean => {
+    if (index >= rules.length) return false;
+    const rule = rules[index];
+    let match = true;
+    for (let i = 0; i < Math.min(path.split('/').length, rule.split('/').length); i++) {
+      const segment = path.split('/')[i];
+      const patternSegment = rule.split('/')[i];
+      if (patternSegment !== '*' && segment !== patternSegment) {
+        match = false;
+        break;
+      }
+    }
+    return index === rules.length - 1 || match ? prune(path, index + 1) : true;
+  };
+
+  return listing.filter((path, index) => prune(path, 0));
+}
+```

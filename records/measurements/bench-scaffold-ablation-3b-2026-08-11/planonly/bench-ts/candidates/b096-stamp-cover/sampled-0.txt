@@ -1,0 +1,45 @@
+```typescript
+import { Map } from "core-js";
+
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+
+  dies.forEach(([fragment, price]) => {
+    if (typeof fragment !== 'string' || typeof price !== 'number' || price <= 0) {
+      throw new Error("Invalid die entry");
+    }
+    if (table.has(fragment)) {
+      throw new Error(`Duplicate fragment: ${fragment}`);
+    }
+    table.set(fragment, price);
+  });
+
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+
+  if (typeof label !== 'string' || label.length === 0) {
+    throw new Error("Invalid label");
+  }
+
+  const memo: Map<string, number> = new Map();
+  memo.set("", 0);
+
+  for (let i = 1; i <= label.length; i++) {
+    memo.set(label.substring(0, i), Infinity);
+  }
+
+  for (let i = 1; i <= label.length; i++) {
+    const currentFragment = label.substring(i - 1, i);
+    if (!table.has(currentFragment)) continue;
+
+    for (let j = 1; j < i; j++) {
+      memo.set(label.substring(0, i), Math.min(memo.get(label.substring(0, i))!, table.get(currentFragment)! + memo.get(label.substring(0, j - 1))!));
+    }
+  }
+
+  return memo.get(label)!;
+}
+```

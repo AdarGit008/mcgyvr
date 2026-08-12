@@ -1,0 +1,22 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  if (store === null || store === undefined) {
+    throw new Error("Store cannot be null or undefined");
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const key in store) {
+    if (store.hasOwnProperty(key)) {
+      const value = store[key].toLowerCase(); // Normalize to lowercase
+      if (!result[value]) {
+        result[value] = 1;
+      } else {
+        result[value]++;
+      }
+    }
+  }
+
+  return result;
+}
+```

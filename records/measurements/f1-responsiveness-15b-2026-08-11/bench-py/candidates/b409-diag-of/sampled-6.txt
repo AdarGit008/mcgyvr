@@ -1,0 +1,14 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> (int, None):
+    if not isinstance(grid, list) or not all(isinstance(row, int) and isinstance(col, int) for row in grid for col in grid[0]):
+        raise ValueError("grid must be a list of lists.")
+    if not (0 <= row < len(grid)) or not (0 <= column < len(grid[0])):
+        return None
+    return grid[row][column]
+
+def diag_of(grid: list) -> list:
+    if not isinstance(grid, list) or not all(isinstance(row, int) and isinstance(col, int) for row in grid for col in grid[0]):
+        raise ValueError("grid must be a list of lists.")
+    main_diag = [grid[i][i] for i in range(len(grid))]
+    return main_diag
+```

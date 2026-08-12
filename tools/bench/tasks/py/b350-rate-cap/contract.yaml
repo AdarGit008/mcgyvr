@@ -1,0 +1,15 @@
+id: b350-rate-cap
+task_type: function_implementation
+task: >-
+  Implement rate_cap. Raise a price by a whole-percent rate, but never
+  by more than a stated largest increase. Return the new price, with
+  the increase rounded down. A price raised by nothing comes back as
+  it was.
+target: solution.py
+interface: "def rate_cap(price: int, rate: int, most: int) -> int"
+stop_conditions:
+  - Whether a rate below zero should lower the price is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

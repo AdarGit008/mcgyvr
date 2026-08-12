@@ -1,0 +1,27 @@
+```python
+def line_tag(body):
+    if not isinstance(body, str) or len(body) < 3:
+        raise ValueError("line_tag expects a string with at least three characters")
+    return format(sum(ord(ch) for ch in body[:-2]) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str) or len(line) < 3:
+        raise ValueError("check_line expects a string with at least three characters")
+    
+    parts = line.rsplit('~', 1)
+    if len(parts) != 2:
+        raise ValueError("check_line requires exactly one tilde separator '~'")
+    
+    body, tag = parts
+    if not isinstance(body, str):
+        raise ValueError(f"body '{body}' is not a string")
+    if len(tag) != 2 or not all(char in '0123456789abcdefABCDEF' for char in tag):
+        raise ValueError(f"tag '{tag}' is not a two-character hexadecimal number")
+    
+    computed_tag = line_tag(body)
+    if tag != computed_tag:
+        raise ValueError(f"line '{line}' has mismatched tag: expected {computed_tag}, got {tag}")
+    
+    return body
+```

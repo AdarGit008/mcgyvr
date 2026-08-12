@@ -1,0 +1,57 @@
+```typescript
+import { splitStrict } from 'path';
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error('Both listing and rules must be arrays.');
+  }
+
+  const validatePath = (path: string): boolean => {
+    if (typeof path !== 'string' || !path.trim()) {
+      throw new Error('Invalid path or rule: not a non-empty string.');
+    }
+    try {
+      splitStrict(path);
+    } catch (error) {
+      throw new Error('Invalid path or rule: contains an empty segment.');
+    }
+    return true;
+  };
+
+  const validateRule = (rule: string): boolean => {
+    if (!/^[!]?[^*\/\\]+(\*[^*\/\\]*)*$/.test(rule)) {
+      throw new Error('Invalid rule format.');
+    }
+    return true;
+  };
+
+  listing.forEach(validatePath);
+  rules.forEach(validateRule);
+
+  const match = (path: string, rule: string): boolean => {
+    const pathParts = splitStrict(path);
+    const ruleParts = splitStrict(rule);
+    if (ruleParts.length > pathParts.length) return false;
+
+    for (let i = 0; i < ruleParts.length; i++) {
+      const patternPart = ruleParts[i];
+      if (patternPart === '*') continue;
+      const pathPart = pathParts[i];
+      if (!pathPart.startsWith(patternPart)) return false;
+    }
+    return true;
+  };
+
+  return listing.filter(path => {
+    let hasMatchedRule = false;
+    for (const rule of rules) {
+      if (rule[0] === '!') continue; // Keep rules
+      if (match(path, rule)) {
+        hasMatchedRule = true;
+        break;
+      }
+    }
+    return !hasMatchedRule;
+  });
+}
+```

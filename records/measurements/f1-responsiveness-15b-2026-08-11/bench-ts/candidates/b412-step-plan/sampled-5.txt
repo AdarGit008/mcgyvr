@@ -1,0 +1,15 @@
+```ts
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+    const allowedMoves = new Set(allowed.flat().join(','));
+    return allowedMoves.has(`${from},${to}`);
+}
+
+export function stepPlan(states: string[], allowed: string[][]): number {
+    for (let i = 0; i < states.length - 1; i++) {
+        if (!stepAllowed(states[i], states[i + 1], allowed)) {
+            return i;
+        }
+    }
+    throw new Error("No valid move found.");
+}
+```

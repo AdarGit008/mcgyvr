@@ -1,0 +1,17 @@
+```python
+from typing import List, Dict, Any
+
+def field_mean(records: List[Dict[str, Any]], field: str) -> int:
+    if not records or field not in records[0]:
+        return 0
+    
+    valid_records = [record for record in records if isinstance(record.get(field), (int, float))]
+    
+    if not valid_records:
+        return 0
+    
+    total_sum = sum(record[field] for record in valid_records)
+    mean_value = total_sum // len(valid_records)
+    
+    return mean_value
+```

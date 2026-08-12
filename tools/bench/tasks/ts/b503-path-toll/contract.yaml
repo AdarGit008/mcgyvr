@@ -1,0 +1,16 @@
+id: b503-path-toll
+task_type: function_implementation
+task: >-
+  stepCost names what one step of a kind costs. pathToll totals a
+  path, except that every third step along it is free, counting the
+  steps from one. Implement pathToll. A path of no steps costs
+  nothing.
+target: solution.ts
+interface: "export function stepCost(kind: string): number
+export function pathToll(steps: string[]): number"
+stop_conditions:
+  - Whether a path should be counted afresh after a rest is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

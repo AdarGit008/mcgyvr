@@ -1,0 +1,19 @@
+```python
+def is_gap(reading: int) -> bool:
+    return reading == -1
+
+
+def fill_gaps(readings: list) -> list:
+    """Missing readings replaced by the last real one seen."""
+    filled = []
+    prev_real = None
+
+    for reading in readings:
+        if not is_gap(reading):
+            filled.append(prev_real)
+            prev_real = reading
+        else:
+            filled.append(prev_real)
+
+    return filled
+```

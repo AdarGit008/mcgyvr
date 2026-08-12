@@ -1,0 +1,42 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  const n = tripDays.length;
+  const m = passes.length;
+
+  if (!passes.every(pass => pass.span > 0 && pass.cost >= 0)) throw new Error("Invalid pass data");
+
+  // DP array to store the minimum cost to cover up to day i
+  const dp = Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  // DP table to store the previous purchase for each day
+  const prev = Array(n + 1).fill(null);
+
+  for (let i = 0; i < n; i++) {
+    for (const pass of passes) {
+      if (tripDays[i] - pass.span >= 0 && dp[tripDays[i] - pass.span] + pass.cost < dp[i]) {
+        dp[i] = dp[tripDays[i] - pass.span] + pass.cost;
+        prev[i] = [tripDays[i], pass.span];
+      }
+    }
+  }
+
+  if (dp[n] === Infinity) throw new Error("No valid pass plan found");
+
+  // Reconstruct the purchases
+  const purchases: number[][] = [];
+  let i = n;
+  while (i > 0) {
+    if (prev[i]) {
+      purchases.unshift(prev[i]);
+      i -= prev[i][1];
+    } else {
+      throw new Error("Invalid state");
+    }
+  }
+
+  return { total: dp[n], purchases };
+}
+```

@@ -1,0 +1,23 @@
+id: b055-token-vault
+task_type: function_implementation
+task: >-
+  Implement tokenFetch and tokenSave, the two halves of a session-token
+  vault with expiry. The vault is a plain mapping from token name to a
+  two-item list [value, expires]. tokenSave stores value under name so that
+  it expires at tick now + ttl, replacing whatever the name held before; it
+  rejects a name that is not a non-empty string, a now that is not an
+  integer, and a ttl that is not a positive integer, with an error.
+  tokenFetch returns the value held under name while now is still before
+  its expires tick; once now reaches or passes expires the entry is removed
+  from the vault and the fetch yields null, and a name the vault never held
+  also yields null. Fetching never extends a token's life.
+target: solution.ts
+interface: |-
+  export function tokenFetch(vault: Record<string, [string, number]>, name: string, now: number): string | null
+  export function tokenSave(vault: Record<string, [string, number]>, name: string, value: string, now: number, ttl: number): void
+stop_conditions:
+  - How entries put into the vault by hand, not through tokenSave, are treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

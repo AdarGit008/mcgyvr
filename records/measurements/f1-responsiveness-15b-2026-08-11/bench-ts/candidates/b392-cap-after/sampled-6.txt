@@ -1,0 +1,27 @@
+```ts
+export function capAfter(passage: string): string {
+  if (typeof passage !== 'string') {
+    throw new Error('passage must be a string');
+  }
+
+  const sentences = passage.split('. ');
+  let result = '';
+
+  sentences.forEach((sentence, index) => {
+    // Add a period at the end of the sentence except after the first one
+    const fullSentence = `${sentence}. `;
+    if (index === 0) {
+      result += fullSentence;
+    } else {
+      result += `${fullSentence.slice(1).substring(0, 1).toUpperCase()}${fullSentence.substring(2)} `;
+    }
+
+    // Add a period at the beginning of the next sentence if it's not capital
+    if (index < sentences.length - 1 && !sentence.startsWith(' ')) {
+      result += `${sentences[index + 1]}.`;
+    }
+  });
+
+  return result;
+}
+```

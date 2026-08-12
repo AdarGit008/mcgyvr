@@ -1,0 +1,33 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    """Render a network mask with the given number of leading ones."""
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer from 0 to 32.")
+    
+    return ".".join(f"{(1 << (8 - i)) - 1}" for i in range(4))
+
+def prefix_from_mask(mask: str) -> int:
+    """Convert a network mask to the count of leading ones."""
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string.")
+    
+    fields = mask.split('.')
+    if len(fields) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields.")
+    
+    prefix = 0
+    for field in fields:
+        if not field.isdigit():
+            raise ValueError("All mask fields must contain decimal digits.")
+        
+        value = int(field)
+        if not (0 <= value <= 255):
+            raise ValueError("Each mask field must be between 0 and 255 inclusive.")
+        
+        if prefix > 0 and value != 0:
+            raise ValueError("Mask must have a run of leading ones followed by zeros.")
+        
+        prefix += value.bit_length()
+    
+    return prefix
+```

@@ -1,0 +1,42 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Input must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count_str = entry.split(':')
+        return name, int(count_str)
+
+    def validate_entry(name: str, count: int) -> bool:
+        if not name.islower() or not all(c.isdigit() for c in count_str):
+            raise ValueError("Malformed sheet entry")
+        if len(set(entry.split(':')[0] for entry in opening.split(';'))) != len(opening.split(';')):
+            raise ValueError("Duplicate item names on the opening sheet")
+        return True
+
+    def apply_moves(entries: dict[str, int], move_entries: list[str]) -> dict[str, int]:
+        for move in move_entries:
+            name, op, qty_str = move.partition('+')
+            if not op or not name.islower() or not all(c.isdigit() for c in qty_str):
+                raise ValueError("Malformed move")
+            qty = int(qty_str)
+            if op == '+':
+                entries[name] = entries.get(name, 0) + qty
+            elif op == '-':
+                if name not in entries:
+                    raise ValueError(f"Issue of an item the sheet does not hold: {name}")
+                if entries[name] < qty:
+                    raise ValueError(f"Issue of more units than the item then holds: {name}")
+                entries[name] -= qty
+        return {name: count for name, count in entries.items() if count > 0}
+
+    opening_entries = dict(parse_entry(entry) for entry in opening.split(';') if entry)
+    moves_entries = moves.split(';') if moves else []
+    
+    for entry in opening_entries:
+        validate_entry(entry, opening_entries[entry])
+
+    final_entries = apply_moves(opening_entries, moves_entries)
+
+    return ';'.join(f"{name}:{count}" for name, count in sorted(final_entries.items()))
+```

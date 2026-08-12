@@ -1,0 +1,80 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid input root');
+  const paths: string[] = [];
+
+  function walk(node: any, path: string[]): void {
+    if (Array.isArray(node) || typeof node !== 'object') throw new Error('Invalid input node');
+    const { name, bytes } = node;
+    if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid input name');
+
+    if (!name && !bytes) throw new Error('Invalid input node');
+    if ((name && bytes) || (!name && !bytes)) throw new Error('Invalid input node');
+
+    path.push(name);
+    if (bytes && typeof bytes !== 'number' || isNaN(bytes) || bytes < 0) throw new Error('Invalid input bytes');
+    paths.push(path.join('/'));
+
+    for (const key in node) {
+      const child = node[key];
+      walk(child, [...path, key]);
+    }
+  }
+
+  walk(root, []);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid input root');
+
+  function calcBytes(node: any): number {
+    if (Array.isArray(node) || typeof node !== 'object') throw new Error('Invalid input node');
+    const { name, bytes } = node;
+    if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid input name');
+
+    if (!name && !bytes) throw new Error('Invalid input node');
+    if ((name && bytes) || (!name && !bytes)) throw new Error('Invalid input node');
+
+    return bytes ? bytes : Object.values(node).reduce((acc, child) => acc + calcBytes(child), 0);
+  }
+
+  return calcBytes(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid input root');
+  if (typeof minBytes !== 'number' || isNaN(minBytes) || minBytes < 0) throw new Error('Invalid input minBytes');
+
+  function isHeavyFolder(node: any): boolean {
+    if (Array.isArray(node) || typeof node !== 'object') throw new Error('Invalid input node');
+    const { name, bytes } = node;
+    if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid input name');
+
+    if (!name && !bytes) throw new Error('Invalid input node');
+    if ((name && bytes) || (!name && !bytes)) throw new Error('Invalid input node');
+
+    return bytes >= minBytes;
+  }
+
+  function findHeavyFolders(node: any, path: string[], result: [string, number][]): void {
+    if (Array.isArray(node) || typeof node !== 'object') throw new Error('Invalid input node');
+    const { name, bytes } = node;
+    if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid input name');
+
+    if (!name && !bytes) throw new Error('Invalid input node');
+    if ((name && bytes) || (!name && !bytes)) throw new Error('Invalid input node');
+
+    const currentPath = path.concat(name);
+    if (isHeavyFolder(node)) {
+      result.push([currentPath.join('/'), treeBytes(node)]);
+    }
+
+    for (const key in node) {
+      findHeavyFolders(node[key], [...currentPath, key], result);
+    }
+  }
+
+  return [];
+}
+```

@@ -1,0 +1,15 @@
+```ts
+import { sort } from "lodash";
+
+export function flipOne(pair: string[]): string[] {
+  if (pair.length !== 2) {
+    throw new Error("Each pair must have exactly two members.");
+  }
+  return [pair[1], pair[0]];
+}
+
+export function flipAll(pairs: string[][]): string[][] {
+  const sortedPairs = pairs.map(pair => sort([pair[0], pair[1]]).join(","));
+  return sortedPairs;
+}
+```

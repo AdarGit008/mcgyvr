@@ -1,0 +1,16 @@
+```ts
+export function swapPair(first: string, second: string): string {
+  return second + first;
+}
+
+export function swapAll(text: string): string {
+  const result = [];
+  for (let i = 0; i < text.length; i += 2) {
+    result.push(swapPair(text[i], text[i + 1]));
+  }
+  if (text.length % 2 !== 0) {
+    result.push(text[text.length - 1]);
+  }
+  return result.join('');
+}
+```

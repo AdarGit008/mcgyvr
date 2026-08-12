@@ -1,0 +1,44 @@
+id: b014-fill-order
+task_type: bug_fix
+task: >-
+  fill_order plans how an order for needed units is covered from a list of
+  sources and plans it wrongly. Each source is a [cost, stock] pair: the
+  price of one unit and the units it holds. Fix it: units come from the
+  cheapest cost first, a tie on cost going to the earlier-listed source, and
+  no source is ever drawn past the still-uncovered need — the plan buys
+  exactly needed units in total, never more. The current code drains whole
+  every source it visits, so it overbuys whenever the source it is drawing
+  from holds more than the need still open, and when all stock together
+  cannot cover the order it reports a short plan instead of failing. Return
+  a mapping with cost, the total paid; taken, one entry per source in the
+  given order saying how many units came from it, zero where none did; and
+  leftover, one entry per source saying how many units it still holds. Also
+  add the missing validation: reject a needed that is not a positive
+  integer, a source that is not a pair of a positive integer cost and a
+  positive integer stock, and a source list whose stock in all cannot cover
+  needed, with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def fill_order(sources, needed):
+      order = sorted(range(len(sources)), key=lambda index: sources[index][0])
+      taken = [0] * len(sources)
+      cost = 0
+      remaining = needed
+      for index in order:
+          if remaining <= 0:
+              break
+          unit_cost, stock = sources[index]
+          taken[index] = stock
+          cost += stock * unit_cost
+          remaining -= stock
+      leftover = []
+      for index in range(len(sources)):
+          leftover.append(sources[index][1] - taken[index])
+      return {"cost": cost, "taken": taken, "leftover": leftover}
+interface: "def fill_order(sources: list, needed: int) -> dict"
+stop_conditions:
+  - Whether needed has an upper bound is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

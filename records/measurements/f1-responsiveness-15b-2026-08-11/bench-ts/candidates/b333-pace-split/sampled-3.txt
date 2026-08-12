@@ -1,0 +1,24 @@
+```ts
+import { isEqual } from "lodash";
+
+export function paceOf(seconds: number, kilometres: number): number {
+  if (seconds <= 0 || kilometres <= 0) throw new Error('Invalid input values');
+  
+  return Math.floor(seconds / kilometres);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  if (!Array.isArray(legs)) throw new Error('Legs must be an array');
+  
+  let paceList = legs.map(({ seconds, kilometres }) => {
+    if (seconds <= 0 || kilometres <= 0) throw new Error('Invalid leg values');
+    
+    return Math.floor(seconds / kilometres);
+  });
+  
+  // Ensure the pace list is in ascending order
+  paceList.sort((a, b) => a - b);
+  
+  return paceList;
+}
+```

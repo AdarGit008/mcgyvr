@@ -1,0 +1,33 @@
+```typescript
+/**
+ * Traces the relay of a night watch from post to post in a harbor.
+ * @param links - A mapping of each post's name to the next post it hands the watch on to.
+ * @param start - The starting post from which the watch begins its journey.
+ * @returns An array of post names the watch visits, in order.
+ */
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('Invalid argument for links: Expected an object.');
+  }
+  if (typeof start !== 'string') {
+    throw new Error('Invalid argument for start: Expected a string.');
+  }
+
+  const visited = new Set<string>();
+  let currentPost = start;
+
+  while (currentPost !== '') {
+    if (!links.hasOwnProperty(currentPost)) {
+      throw new Error(`Invalid handoff: No post named '${currentPost}' is found in links.`);
+    }
+    if (visited.has(currentPost)) {
+      throw new Error('Cyclic handoff detected.');
+    }
+
+    visited.add(currentPost);
+    currentPost = links[currentPost];
+  }
+
+  return Array.from(visited);
+}
+```

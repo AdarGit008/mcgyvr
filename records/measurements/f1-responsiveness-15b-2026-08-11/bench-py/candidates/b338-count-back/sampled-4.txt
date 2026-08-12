@@ -1,0 +1,11 @@
+```python
+def count_back(start: int) -> list:
+    """The numbers from a start down to one."""
+    if start <= 0:
+        return []
+    
+    counted = []
+    for value in range(start, -1, -1):
+        counted.append(value)
+    return counted
+```

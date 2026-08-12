@@ -1,0 +1,17 @@
+id: b331-dur-text
+task_type: function_implementation
+task: >-
+  Implement dur_hours and dur_text. dur_hours returns the whole hours
+  in a count of minutes, discarding what is left over. dur_text writes
+  the count as hours and minutes joined, like 1h30m; a whole number of
+  hours drops the minutes, a count under an hour drops the hours, and
+  zero is 0m.
+target: solution.py
+interface: "def dur_hours(minutes: int) -> int
+def dur_text(minutes: int) -> str"
+stop_conditions:
+  - Whether a count of minutes below zero should be written with a sign is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

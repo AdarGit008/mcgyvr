@@ -1,0 +1,18 @@
+```python
+def camel_break(name: str) -> list:
+    if not name or name[0].islower() or name.isupper():
+        return [name.lower()]
+    
+    words = []
+    for i in range(len(name)):
+        if name[i].isupper() and i == 0:
+            continue
+        
+        word_end = i
+        while word_end < len(name) and name[word_end].isupper():
+            word_end += 1
+        
+        words.append(name[i:word_end].lower())
+    
+    return words
+```

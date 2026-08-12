@@ -1,0 +1,12 @@
+```ts
+export function capAfter(passage: string): string {
+  const sentences = passage.split('. ');
+  const capitalizedSentences = sentences.map(sentence => {
+    if (sentence.length > 0) {
+      return sentence[0].toUpperCase() + sentence.slice(1).toLowerCase();
+    }
+    return '';
+  });
+  return capitalizedSentences.join('. ');
+}
+```

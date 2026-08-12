@@ -1,0 +1,15 @@
+id: b482-window-max
+task_type: function_implementation
+task: >-
+  Implement window_max. Give the largest reading in every stretch of a
+  given width, taking the stretches in the order they open and using
+  only stretches that fit whole inside the run. A run shorter than the
+  width gives nothing back.
+target: solution.py
+interface: "def window_max(readings: list[int], width: int) -> list[int]"
+stop_conditions:
+  - Whether a width below one should be rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

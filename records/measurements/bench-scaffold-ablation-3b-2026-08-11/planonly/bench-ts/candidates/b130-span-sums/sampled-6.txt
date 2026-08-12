@@ -1,0 +1,74 @@
+```ts
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new Error('Invalid span text');
+  }
+
+  const parts = text.split(/\s+/);
+  if (parts.length < 2) {
+    throw new Error('Invalid span text');
+  }
+
+  const units = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i += 2) {
+    const value = parseInt(parts[i], 10);
+    if (isNaN(value)) {
+      throw new Error('Invalid span text');
+    }
+    if (value < 0 || value > 99) {
+      throw new Error('Invalid span text');
+    }
+
+    const unit = parts[i + 1];
+    if (!units.includes(unit)) {
+      throw new Error('Invalid unit');
+    }
+
+    switch (unit) {
+      case 'yd':
+        totalInches += value * 36;
+        break;
+      case 'ft':
+        totalInches += value * 12;
+        break;
+      case 'in':
+        totalInches += value;
+        break;
+    }
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) {
+    throw new Error('Invalid input');
+  }
+
+  const yards = Math.floor(inches / 36);
+  const feet = Math.floor((inches % 36) / 12);
+  const remainingInches = inches % 12;
+
+  let result = '';
+  if (yards > 0) {
+    result += `${yards}yd `;
+  }
+  if (feet > 0) {
+    result += `${feet}ft `;
+  }
+  if (remainingInches > 0 || remainingInches === 0 && yards === 0 && feet === 0) {
+    result += `${remainingInches}in`;
+  }
+
+  return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+  const total1 = parseSpan(first);
+  const total2 = parseSpan(second);
+
+  return formatSpan(total1 + total2);
+}
+```

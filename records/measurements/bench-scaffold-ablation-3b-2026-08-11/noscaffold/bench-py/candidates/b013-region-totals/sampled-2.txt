@@ -1,0 +1,54 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """
+    Compute the sum of each cell in specified rectangular blocks of a grid.
+
+    :param grid: A non-empty list of rows where each row is a non-empty list of integers.
+                All rows must have the same length.
+    :param queries: A list of queries, each a four-element list [top, left, bottom, right].
+                   The top and left are inclusive, but bottom and right are exclusive.
+    :return: A list containing the sum of each block as specified in the queries.
+
+    Validate input:
+    - The grid must have at least one row and one cell per row.
+    - Each row must contain integers and be of the same length.
+    - Queries must be lists of exactly four integers with top < bottom and left < right.
+    - No query can extend outside the bounds of the grid.
+    """
+    if not grid or not grid[0]:
+        raise ValueError("Grid cannot be empty.")
+    for row in grid:
+        if not all(isinstance(x, int) for x in row):
+            raise ValueError("All cells must be integers.")
+        if len(row) != len(grid[0]):
+            raise ValueError("All rows must have the same length.")
+
+    rows = len(grid)
+    cols = len(grid[0])
+
+    # Create a prefix-sum table
+    prefix_sum = [[0] * (cols + 1) for _ in range(rows + 1)]
+    for r in range(1, rows + 1):
+        for c in range(1, cols + 1):
+            prefix_sum[r][c] = grid[r - 1][c - 1] + \
+                               prefix_sum[r - 1][c] + \
+                               prefix_sum[r][c - 1] - \
+                               prefix_sum[r - 1][c - 1]
+
+    # Compute block totals using the prefix-sum table
+    block_totals = []
+    for query in queries:
+        top, left, bottom, right = query
+        if top >= bottom or left >= right:
+            raise ValueError("Query boundaries must be valid.")
+        if top < 0 or left < 0 or bottom > rows or right > cols:
+            raise ValueError("Query out of bounds.")
+
+        block_total = (prefix_sum[bottom][right] -
+                      prefix_sum[top - 1][right] -
+                      prefix_sum[bottom][left - 1] +
+                      prefix_sum[top - 1][left - 1])
+        block_totals.append(block_total)
+
+    return block_totals
+```

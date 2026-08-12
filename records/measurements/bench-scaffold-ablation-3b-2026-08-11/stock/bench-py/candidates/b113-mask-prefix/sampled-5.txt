@@ -1,0 +1,40 @@
+```python
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    
+    # Split the mask into four octet fields using period as a delimiter
+    parts = mask.split('.')
+    
+    # Check if there are exactly four octets in the mask
+    if len(parts) != 4:
+        raise ValueError("mask must contain exactly four dot-separated fields")
+    
+    # Validate each octet field
+    for i, part in enumerate(parts):
+        if not all(c.isdigit() for c in part):
+            raise ValueError(f"octet {i + 1} must be a decimal digit")
+        
+        octet = int(part)
+        if octet < 0 or octet > 255:
+            raise ValueError(f"octet {i + 1} must be between 0 and 255")
+    
+    # Count the leading one bits
+    leading_ones = 0
+    for octet in parts:
+        leading_ones += int(octet)
+    
+    return leading_ones
+
+
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    
+    return ".".join(octets)
+```

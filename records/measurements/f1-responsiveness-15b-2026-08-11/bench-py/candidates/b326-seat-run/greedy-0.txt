@@ -1,0 +1,24 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = []
+    current_free_count = 0
+
+    for char in row:
+        if char == '.':
+            current_free_count += 1
+        else:
+            if current_free_count > 0:
+                free_seats.append(current_free_count)
+            current_free_count = 0
+
+    if current_free_count > 0:
+        free_seats.append(current_free_count)
+
+    if not free_seats or max(free_seats) < party:
+        return -1
+
+    return min(i for i, count in enumerate(free_seats) if count >= party)
+```

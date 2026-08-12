@@ -1,0 +1,45 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0 || grid[0].length === 0) {
+        throw new Error("Grid must have at least one row and one column.");
+    }
+
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    for (let i = 1; i < rows; i++) {
+        if (grid[i].length !== cols) {
+            throw new Error("All rows must have the same length.");
+        }
+    }
+
+    for (const query of queries) {
+        if (query.length !== 4) {
+            throw new Error("Each query must be a list of exactly four integers.");
+        }
+
+        const [top, left, bottom, right] = query;
+        if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) {
+            throw new Error("All query coordinates must be integers.");
+        }
+
+        if (top < 0 || top >= rows || bottom <= top || bottom > rows ||
+            left < 0 || left >= cols || right <= left || right > cols) {
+            throw new Error("Query must not reach outside the grid.");
+        }
+    }
+
+    const prefixSum: number[][] = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+
+    for (let i = 1; i <= rows; i++) {
+        for (let j = 1; j <= cols; j++) {
+            prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+        }
+    }
+
+    return queries.map(([top, left, bottom, right]) => {
+        const sum = prefixSum[bottom][right] - prefixSum[top][right] - prefixSum[bottom][left] + prefixSum[top][left];
+        return sum;
+    });
+}
+```

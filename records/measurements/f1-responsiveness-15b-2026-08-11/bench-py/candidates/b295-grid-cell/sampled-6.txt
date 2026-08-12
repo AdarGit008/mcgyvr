@@ -1,0 +1,50 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """
+    Returns the name of a cell in a spreadsheet given its row and column index,
+    both counting from zero.
+
+    Parameters:
+    - row (int): The row index of the cell.
+    - column (int): The column index of the cell.
+
+    Returns:
+    - str: The name of the cell, formatted as 'ABC1', where A is the column letter
+      and 1 is the row number.
+    """
+    if not isinstance(row, int) or not isinstance(column, int):
+        raise ValueError("Both row and column must be integers.")
+    
+    if row < 0 or column < 0:
+        raise ValueError("Row and column indices cannot be negative.")
+    
+    alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    col_name = ''
+    while column >= 0:
+        remainder = column % 26
+        col_name = alphabet[remainder] + col_name
+        column //= 26
+    
+    # Ensure the cell name is at least two characters long
+    if len(col_name) == 1:
+        col_name = 'A' + col_name
+    
+    return f"{col_name}{row+1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    """
+    Returns a list of names for every cell in a grid of the specified size,
+    row by row.
+
+    Parameters:
+    - rows (int): The number of rows in the grid.
+    - columns (int): The number of columns in the grid.
+
+    Returns:
+    - list: A list of strings, each representing the name of a cell in the grid.
+    """
+    if not isinstance(rows, int) or not isinstance(columns, int):
+        raise ValueError("Both rows and columns must be integers.")
+    
+    return [cell_name(i, j) for i in range(rows) for j in range(columns)]
+```

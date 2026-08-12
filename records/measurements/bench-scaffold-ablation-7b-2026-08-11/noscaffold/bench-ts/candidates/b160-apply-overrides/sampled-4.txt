@@ -1,0 +1,26 @@
+```ts
+/**
+ * Applies command-line overrides to a base settings object.
+ * @param base - The base settings object.
+ * @param overrides - An array of string overrides in the format "name=value".
+ * @returns A new settings object with overrides applied.
+ * @throws Error if overrides is not an array, or if any override is invalid.
+ */
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+    if (!Array.isArray(overrides)) {
+        throw new Error("Overrides must be an array.");
+    }
+
+    const result = { ...base };
+
+    for (const override of overrides) {
+        const parts = override.split('=', 2);
+        if (parts.length !== 2 || parts[0].length === 0 || !result.hasOwnProperty(parts[0])) {
+            throw new Error(`Invalid override: ${override}`);
+        }
+        result[parts[0]] = parts[1];
+    }
+
+    return result;
+}
+```

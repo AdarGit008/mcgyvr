@@ -1,0 +1,52 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    """
+    Prune paths from the listing based on the given rules.
+
+    :param listing: List of relative slash-separated file paths.
+    :param rules: Ordered list of patterns deciding which paths survive.
+    :return: List of surviving paths in their original order.
+    """
+
+    def is_valid_path(path):
+        if not isinstance(path, str) or path == "" or path.startswith("//") or "//" in path:
+            raise ValueError("Invalid path")
+        return True
+
+    def is_valid_rule(rule):
+        if not isinstance(rule, str) or rule == "":
+            raise ValueError("Invalid rule")
+        if rule.startswith("!"):
+            return True
+        for segment in rule.split("/"):
+            if "*" in segment and len(segment) > 1:
+                raise ValueError("Invalid pattern: star must be at the end of a segment")
+        return True
+
+    def match_rule(path, rule):
+        path_segments = path.split("/")
+        rule_segments = rule.split("/")
+        for i in range(min(len(path_segments), len(rule_segments))):
+            if rule_segments[i] == "*":
+                continue
+            if path_segments[i] != rule_segments[i]:
+                return False
+        return True
+
+    def prune_path(path):
+        for rule in rules:
+            if is_valid_rule(rule) and (rule.startswith("!") or match_rule(path, rule)):
+                return True
+        return False
+
+    # Validate inputs
+    for path in listing:
+        is_valid_path(path)
+    for rule in rules:
+        is_valid_rule(rule)
+
+    # Prune paths
+    surviving_paths = [path for path in listing if not prune_path(path)]
+
+    return surviving_paths
+```

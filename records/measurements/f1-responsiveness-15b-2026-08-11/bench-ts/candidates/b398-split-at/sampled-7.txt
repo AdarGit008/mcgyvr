@@ -1,0 +1,14 @@
+```ts
+
+
+export function splitAt(entries: string[], marker: string): string[][] {
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i] === marker) {
+      return [entries.slice(0, i), entries.slice(i + 1)];
+    }
+  }
+
+  // If the marker is not found in the list
+  return [[], entries];
+}
+```

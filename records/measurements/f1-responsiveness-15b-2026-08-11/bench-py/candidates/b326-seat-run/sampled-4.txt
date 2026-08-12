@@ -1,0 +1,21 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party <= 0:
+        return -1
+
+    # Count consecutive free seats
+    current_free_count = 0
+    max_free_count = 0
+    for char in row:
+        if char == '.':
+            current_free_count += 1
+            max_free_count = max(max_free_count, current_free_count)
+        else:
+            current_free_count = 0
+
+    # Check if the party can fit within the longest free run
+    if max_free_count >= party:
+        return row.index('.') - (max_free_count - party) + 1
+    else:
+        return -1
+```

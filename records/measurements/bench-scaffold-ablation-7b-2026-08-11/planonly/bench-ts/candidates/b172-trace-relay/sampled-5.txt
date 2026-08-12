@@ -1,0 +1,30 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('links must be a mapping');
+  }
+  
+  if (typeof start !== 'string') {
+    throw new Error('start must be a post name');
+  }
+  
+  const visited = new Set<string>();
+  let current = start;
+  
+  while (current !== '') {
+    if (visited.has(current)) {
+      throw new Error('watch comes round again');
+    }
+    
+    visited.add(current);
+    
+    if (!links.hasOwnProperty(current)) {
+      throw new Error(`unknown post: ${current}`);
+    }
+    
+    current = links[current];
+  }
+  
+  return Array.from(visited).concat('');
+}
+```

@@ -1,0 +1,32 @@
+```python
+from typing import List
+
+def lay_conveyor(floor: List[str], row: int, col: int, length: int) -> List[str]:
+    """
+    Lays a conveyor run on the factory floor plan.
+
+    :param floor: A list of strings representing the factory floor plan.
+    :param row: The starting row index for the conveyor run.
+    :param col: The starting column index for the conveyor run.
+    :param length: The length of the conveyor run in cells.
+    :return: The updated factory floor plan with the conveyor run laid.
+
+    Raises:
+        ValueError: If the run would leave the plan or cover a machine cell.
+    """
+    if not (0 <= row < len(floor) and 0 <= col < len(floor[0])):
+        raise ValueError("Row or column index out of bounds.")
+    
+    updated_floor = [row[:] for row in floor]  # Create a deep copy to avoid mutability
+    
+    if length > len(floor[0]) - col:
+        raise ValueError("Run would extend beyond the last column.")
+    
+    for i in range(length):
+        if updated_floor[row][col + i] != ".":
+            raise ValueError("Cell is not open for the conveyor run.")
+        
+        updated_floor[row][col + i] = "="
+
+    return updated_floor
+```

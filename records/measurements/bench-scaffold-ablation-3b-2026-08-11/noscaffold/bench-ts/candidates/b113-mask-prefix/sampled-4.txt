@@ -1,0 +1,39 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid prefix: must be an integer between 0 and 32");
+  }
+
+  const binaryMask = "1".repeat(Math.min(prefix, 32)).padEnd(32, "0");
+  let octetIndex = 0;
+  let result = "";
+
+  for (let i = 0; i < 32; i += 8) {
+    const octet = parseInt(binaryMask.substring(i, i + 8), 2);
+    if (result !== "") result += ".";
+    result += octet.toString();
+  }
+
+  return result;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("Invalid mask: must be a string");
+  }
+  const octets = mask.split(".")
+    .map((octet) => parseInt(octet, 10))
+    .filter((octet) => !isNaN(octet) && octet >= 0 && octet <= 255);
+
+  if (octets.length !== 4 || octets.some((octet) => octet === 0 && octet > 1)) {
+    throw new Error("Invalid mask: must be a valid dotted-quad format");
+  }
+
+  let binaryMask = "";
+  for (const octet of octets) {
+    binaryMask += "1".repeat(octet).padEnd(8, "0");
+  }
+
+  return binaryMask.indexOf("0") === -1 ? binaryMask.length : binaryMask.indexOf("0");
+}
+```

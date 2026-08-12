@@ -1,0 +1,75 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+def run_till_session(events: list, prices: dict) -> dict:
+    if not prices or any(isinstance(price, bool) or not isinstance(price, int) or price <= 0 for name, price in prices.items()):
+        raise ValueError("price must be a positive integer")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": OPEN,
+        "cart": {}
+    }
+
+    for event in events:
+        action = event[0]
+        if len(event) != 2:
+            raise ValueError("event must be a list of two elements")
+
+        if action == "scan":
+            item, quantity = event[1], 1
+            if item not in prices:
+                raise ValueError(f"item '{item}' is not in the price list")
+            if state["status"] != OPEN:
+                raise ValueError("cannot scan while not open")
+            if item not in state["cart"]:
+                state["cart"][item] = 0
+            state["cart"][item] += quantity
+        elif action == "void":
+            item, quantity = event[1], 1
+            if item not in state["cart"] or state["cart"][item] < quantity:
+                raise ValueError(f"cannot void {quantity} of '{item}'")
+            if state["status"] != OPEN:
+                raise ValueError("cannot void while not open")
+            state["cart"][item] -= quantity
+            if state["cart"][item] == 0:
+                del state["cart"][item]
+        elif action == "close":
+            if not state["cart"]:
+                raise ValueError("cannot close with an empty cart")
+            if state["status"] != OPEN:
+                raise ValueError("cannot close while not open")
+            state["items"] = sorted([[item, quantity] for item, quantity in state["cart"].items()])
+            state["total"] = sum(prices[item] * quantity for item, quantity in state["items"])
+            state["status"] = PAYMENT
+        elif action == "pay":
+            amount, = event[1:]
+            if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+                raise ValueError("amount must be a positive integer")
+            if state["status"] != PAYMENT:
+                raise ValueError("cannot pay while not in payment mode")
+            state["paid"] += amount
+            state["change"] = max(state["paid"] - state["total"], 0)
+            state["status"] = PAID
+        elif action == "cancel":
+            if state["status"] not in [OPEN, PAYMENT]:
+                raise ValueError("cannot cancel while not open or in payment mode")
+            state["status"] = CANCELLED
+        else:
+            raise ValueError(f"unknown action: {action}")
+
+    return {
+        "items": state["items"],
+        "total": state.get("total", 0),
+        "paid": state.get("paid", 0),
+        "change": state.get("change", 0)
+    }
+```

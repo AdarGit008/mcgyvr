@@ -1,0 +1,28 @@
+```ts
+export function fieldMean(records: Record<string, number>[], field: string): number {
+  let total = 0;
+  let count = 0;
+
+  for (const record of records) {
+    if (field in record && typeof record[field] === 'number') {
+      total += record[field];
+      count++;
+    }
+  }
+
+  if (count > 0) {
+    return Math.floor(total / count);
+  } else {
+    return 0;
+  }
+}
+```
+
+Explanation:
+- The function `fieldMean` takes an array of records (`records`) and a field name (`field`) as parameters.
+- It initializes two variables, `total` to keep track of the sum of the numeric values in the specified field, and `count` to count how many valid records have been processed.
+- It iterates through each record in the input array:
+  - Checks if the field exists in the record (`field in record`) and if its value is a number (`typeof record[field] === 'number'`).
+  - If both conditions are met, it adds the value of the field to `total` and increments `count`.
+- After processing all records, if `count` is greater than 0, it calculates the mean by dividing `total` by `count`, rounds down to the nearest integer using `Math.floor()`, and returns the result.
+- If no valid numeric values are found for any record, it returns `0`.

@@ -1,0 +1,26 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    merged = base.copy()
+    
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string.")
+        
+        equal_sign_index = override.find('=')
+        if equal_sign_index == -1 or equal_sign_index == 0:
+            raise ValueError("Override must have exactly one equals sign and the name cannot be empty.")
+        
+        setting_name = override[:equal_sign_index]
+        value = override[equal_sign_index + 1:]
+        
+        # Validate that the setting exists in base
+        if setting_name not in merged:
+            raise ValueError(f"Setting '{setting_name}' does not exist in base.")
+        
+        merged[setting_name] = value
+    
+    return merged
+```

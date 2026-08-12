@@ -1,0 +1,22 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list")
+    
+    merged = dict(base)
+    
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string")
+        
+        equals_index = override.find('=')
+        if equals_index == -1 or equals_index == 0 or override.count('=') > 1:
+            raise ValueError("Override must contain exactly one equals sign and a non-empty name")
+        
+        setting_name, value = override.split('=', 1)
+        if not setting_name:
+            raise ValueError("Setting name cannot be empty")
+        
+        if setting_name not in merged:
+            ra
+```

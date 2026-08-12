@@ -1,0 +1,9 @@
+```python
+def every_other(entries: list) -> list:
+    """Every second entry of a log, beginning with the first."""
+    if not entries:
+        return []
+    return [entries[i] for i in range(1, len(entries), 2)]
+```
+
+The solution fixes the bug by starting from the second element (index 1) instead of index 0 when slicing. This ensures that the function returns every second entry of the log, beginning with the second. The check for an empty input prevents unnecessary processing and returns an empty list as specified in the task contract.

@@ -1,0 +1,21 @@
+```python
+from typing import *
+from fractions import Fraction
+
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if not (0 <= volume_a <= 100 and 0 <= strength_a <= 100 and 0 <= volume_b <= 100 and 0 <= strength_b <= 100):
+        raise ValueError("All input values must be between 0 and 100 inclusive.")
+
+    # Convert percentages to decimal fractions for easier arithmetic
+    frac_strength_a = Fraction(strength_a, 100)
+    frac_strength_b = Fraction(strength_b, 100)
+
+    # Calculate the total volume poured together
+    total_volume = volume_a + volume_b
+
+    # Calculate the total strength of the mixture
+    total_strength = (frac_strength_a * volume_a + frac_strength_b * volume_b) / total_volume * 100
+
+    # Return the total strength rounded down to a whole percent
+    return int(total_strength)
+```

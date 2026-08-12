@@ -1,0 +1,10 @@
+```ts
+export function oxfordJoin(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+
+  const phrase = names.slice(0, -1).join(', ');
+  const lastTwoNames = names.slice(-2);
+  return `${phrase} and ${lastTwoNames.join('')}`;
+}
+```

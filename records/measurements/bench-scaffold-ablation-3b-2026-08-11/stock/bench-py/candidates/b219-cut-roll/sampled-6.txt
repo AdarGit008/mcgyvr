@@ -1,0 +1,40 @@
+```python
+"""Cut a fabric roll for the greatest takings the price board allows."""
+
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if isinstance(length, bool) or not isinstance(length, int) or length < 0:
+        raise ValueError("length must be a non-negative whole number")
+    
+    # Sort the board pieces by price in descending order
+    order = sorted(board, key=lambda entry: -entry[1])
+    
+    # Initialize a DP table to store the maximum takings for each roll length
+    best = [0] * (length + 1)
+    
+    # Initialize a table to keep track of the piece cut at each step
+    taken = [0] * (length + 1)
+    
+    for metres in range(1, length + 1):
+        best[metres] = -1
+        for piece, price in order:
+            if piece <= metres and price + best[metres - piece] > best[metres]:
+                best[metres] = price + best[metres - piece]
+                taken[metres] = piece
+        
+        # If not cutting a piece results in more takings, use that
+        if best[metres - 1] > best[metres]:
+            best[metres] = best[metres - 1]
+            taken[metres] = 0
+    
+    # Walk back from the full roll to collect the pieces cut at each step
+    i = length
+    while i > 0:
+        if taken[i] != 0:
+            pieces.append(taken[i])
+            i -= taken[i]
+        else:
+            i -= 1
+    
+    return {"takings": best[length], "pieces": pieces[::-1]}
+```

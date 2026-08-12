@@ -1,0 +1,15 @@
+id: b321-pass-check
+task_type: function_implementation
+task: >-
+  Implement passCheck. A passphrase is acceptable when it runs to at
+  least eight characters, holds at least one digit, and holds at least
+  one letter. Say whether a given passphrase is acceptable; an empty
+  one never is.
+target: solution.ts
+interface: "export function passCheck(phrase: string): boolean"
+stop_conditions:
+  - Whether a passphrase must also hold a character that is neither a letter nor a digit is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

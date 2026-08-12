@@ -1,0 +1,28 @@
+```typescript
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (typeof store !== 'object' || store === null) {
+    throw new Error('Invalid input: store must be an object');
+  }
+
+  if (typeof head !== 'string' || !head) {
+    throw new Error('Invalid input: head must be a non-empty string');
+  }
+
+  let currentLevel = [store[head]];
+  const result: string[] = [];
+
+  while (currentLevel.length > 0) {
+    const nextLevel: string[] = [];
+    for (const name of currentLevel) {
+      if (typeof store[name] === 'string') {
+        result.push(name);
+      } else if (typeof store[name] === 'object' && store[name]) {
+        nextLevel.push(...Object.keys(store[name]));
+      }
+    }
+    currentLevel = nextLevel;
+  }
+
+  return result;
+}
+```

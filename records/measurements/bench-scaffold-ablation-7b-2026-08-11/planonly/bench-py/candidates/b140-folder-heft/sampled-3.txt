@@ -1,0 +1,66 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or len(node) != 2:
+        raise ValueError("Node must be a dictionary with exactly two keys.")
+    name, value = node.items()
+    if not isinstance(name, str) or not name or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes.")
+    if 'bytes' in value and 'children' in value:
+        raise ValueError("Node cannot have both bytes and children.")
+    if 'bytes' in value:
+        if not isinstance(value['bytes'], int) or value['bytes'] < 0:
+            raise ValueError("Bytes must be a non-negative integer.")
+    elif 'children' in value:
+        if not isinstance(value['children'], list):
+            raise ValueError("Children must be a list.")
+
+
+def file_paths(root: dict) -> list:
+    paths = []
+
+    def walk(node, path):
+        validate_node(node)
+        name, value = node.items()
+        if 'bytes' in value:
+            paths.append(path + [name])
+        elif 'children' in value:
+            for child in value['children']:
+                walk(child, path + [name])
+
+    walk(root, [])
+    return ['/'.join(p) for p in paths]
+
+
+def tree_bytes(root: dict) -> int:
+    def walk(node):
+        validate_node(node)
+        name, value = node.items()
+        if 'bytes' in value:
+            return value['bytes']
+        elif 'children' in value:
+            return sum(walk(child) for child in value['children'])
+        else:
+            return 0
+
+    return walk(root)
+
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer.")
+
+    result = []
+
+    def walk(node, path):
+        validate_node(node)
+        name, value = node.items()
+        total = tree_bytes(node)
+        if total >= min_bytes:
+            result.append(['/'.join(path + [name]), total])
+        if 'children' in value:
+            for child in value['children']:
+                walk(child, path + [name])
+
+    walk(root, [])
+    return result
+```

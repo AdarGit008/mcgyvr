@@ -1,0 +1,74 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input type');
+  }
+
+  const parseSheetEntry = (entry: string): [string, number] | null => {
+    const parts = entry.split(':');
+    if (parts.length !== 2) return null;
+    const name = parts[0].trim();
+    const countStr = parts[1].trim();
+
+    if (!/^\d+$/.test(countStr)) {
+      throw new Error('Invalid count format');
+    }
+
+    const count = parseInt(countStr, 10);
+
+    if (name.length === 0 || count <= 0) return null;
+
+    return [name, count];
+  };
+
+  const parseMoves = (m: string): { [key: string]: number } => {
+    const movesMap: { [key: string]: number } = {};
+    for (const move of m.split(';')) {
+      if (move.length === 0) continue;
+
+      const parts = move.split('+-');
+      if (parts.length !== 2) throw new Error('Invalid move format');
+
+      const itemName = parts[0].trim();
+      const qtyStr = parts[1].trim();
+
+      if (!/^\d+$/.test(qtyStr)) {
+        throw new Error('Invalid quantity format');
+      }
+
+      movesMap[itemName] = parseInt(qtyStr, 10);
+    }
+    return movesMap;
+  };
+
+  let sheetEntries: [string, number][] = opening
+    .split(';')
+    .map(parseSheetEntry)
+    .filter(Boolean);
+
+  const movesMap = parseMoves(moves);
+
+  for (const [itemName, qty] of Object.entries(movesMap)) {
+    if (!sheetEntries.some(([name]) => name === itemName)) {
+      throw new Error(`Duplicate name: ${itemName}`);
+    }
+
+    const itemIndex = sheetEntries.findIndex(([name]) => name === itemName);
+    if (qty > sheetEntries[itemIndex][1]) {
+      throw new Error(`Issue of more units than the item then holds: ${itemName}-${qty}`);
+    }
+
+    sheetEntries[itemIndex] = [itemName, sheetEntries[itemIndex][1] - qty];
+  }
+
+  const itemsOnHand = sheetEntries.filter(([_, count]) => count > 0);
+
+  if (itemsOnHand.length === 0) {
+    return '';
+  }
+
+  itemsOnHand.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return itemsOnHand.map(([name, count]) => `${name}:${count}`).join(';');
+}
+```

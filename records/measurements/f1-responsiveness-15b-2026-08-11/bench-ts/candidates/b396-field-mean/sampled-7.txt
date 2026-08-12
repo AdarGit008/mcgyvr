@@ -1,0 +1,15 @@
+```ts
+export function fieldMean(records: Record<string, number>[], field: string): number {
+  let sum = 0;
+  let count = 0;
+
+  for (const record of records) {
+    if (record[field] !== undefined && typeof record[field] === 'number') {
+      sum += record[field];
+      count++;
+    }
+  }
+
+  return count > 0 ? Math.floor(sum / count) : 0;
+}
+```

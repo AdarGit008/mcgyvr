@@ -1,0 +1,19 @@
+```ts
+function stepRate(amount: number, fixed: number, percent: number): number {
+  if (typeof amount !== 'number' || typeof fixed !== 'number' || typeof percent !== 'number') {
+    throw new Error('All arguments must be numbers');
+  }
+
+  const share = Math.floor(fixed * (percent / 100));
+  return Math.max(amount + share, amount);
+}
+
+function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!Array.isArray(amounts) || !amounts.every(a => typeof a === 'number')) {
+    throw new Error('All elements in amounts must be numbers');
+  }
+
+  const rates = amounts.map(amount => stepRate(amount, fixed, percent));
+  return rates;
+}
+```

@@ -1,0 +1,67 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input: inputs must be strings');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const parts = entry.split(':');
+    if (parts.length !== 2) {
+      throw new Error(`Malformed sheet entry: ${entry}`);
+    }
+    const name = parts[0].trim();
+    const count = parseInt(parts[1], 10);
+    if (isNaN(count) || count < 0) {
+      throw new Error(`Invalid count in sheet entry: ${entry}`);
+    }
+    return [name, count];
+  };
+
+  const parseMoves = (movesStr: string): [string, number][] => {
+    if (movesStr === '') {
+      return [];
+    }
+    return movesStr.split(';').map(move => {
+      const [action, qtyStr] = move.trim().split('+-');
+      const qty = parseInt(qtyStr, 10);
+      if (isNaN(qty) || qty <= 0) {
+        throw new Error(`Invalid quantity in move: ${move}`);
+      }
+      return [action.split(':')[0], qty];
+    });
+  };
+
+  const sheetEntries = opening.split(';').map(parseEntry).reduce((acc, entry) => {
+    acc[entry[0]] = entry[1];
+    return acc;
+  }, {} as Record<string, number>);
+
+  const movesList = parseMoves(moves);
+
+  const updateSheet = (sheet: Record<string, number>, move: [string, number]) => {
+    const action = move[0];
+    const qty = move[1];
+
+    if (!Object.prototype.hasOwnProperty.call(sheet, action)) {
+      throw new Error(`No such item in sheet: ${action}`);
+    }
+
+    const currentCount = sheet[action];
+    if (currentCount === 0) {
+      delete sheet[action];
+      return;
+    }
+
+    const updatedCount = Math.max(0, currentCount - qty);
+    if (updatedCount < 0) {
+      throw new Error(`Not enough ${action} on hand: ${qty}`);
+    }
+    sheet[action] = updatedCount;
+  };
+
+  movesList.forEach(move => updateSheet(sheetEntries, move));
+
+  const remainingEntries = Object.entries(sheetEntries).filter(([name]) => sheetEntries[name] > 0);
+  return remainingEntries.map(([name, count]) => `${name}:${count}`).join(';');
+}
+```

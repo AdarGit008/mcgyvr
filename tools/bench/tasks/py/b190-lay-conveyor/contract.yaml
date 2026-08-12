@@ -1,0 +1,32 @@
+id: b190-lay-conveyor
+task_type: function_implementation
+task: >-
+  Implement lay_conveyor. A factory floor plan is a list of equally long rows
+  of characters, "." for an open cell and "#" for a machine already standing
+  there; row 0 is the north row and column 0 the west column. A conveyor run
+  is laid straight eastward: it covers length cells of one row beginning at
+  [row, col], and every cell it covers is written as "=". Return the plan
+  with that run laid, as a fresh list of rows — the plan handed in is never
+  changed, and every row but the run's comes back exactly as it was. Raise an
+  error when the run would leave the plan, whether because the row is not one
+  of the plan's rows or because the run would pass the last column, and raise
+  an error when any cell the run covers is not open.
+target: solution.py
+target_content: |
+  """Lay a straight eastward conveyor run across a factory floor plan."""
+
+
+  def lay_conveyor(floor, row, col, length):
+      if row < 0 or row >= len(floor):
+          raise ValueError("the run starts off the plan")
+      cells = list(floor[row])
+      # TODO: refuse a run that passes the last column or covers a cell that is not
+      # open, then write the run's cells and return the plan with only that row changed.
+      return floor
+interface: "def lay_conveyor(floor: list, row: int, col: int, length: int) -> list"
+stop_conditions:
+  - Whether a run covering no cells at all is meaningful is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

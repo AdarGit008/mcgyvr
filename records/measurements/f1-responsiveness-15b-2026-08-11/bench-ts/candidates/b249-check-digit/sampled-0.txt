@@ -1,0 +1,13 @@
+```ts
+export function checkDigit(code: string): number {
+  if (code === "") return 0;
+  const digits = code.split("").filter(char => /^\d$/.test(char));
+  
+  if (digits.length === 0) throw new Error("Input contains no digits.");
+  
+  const total = digits.reduce((sum, digit) => sum + parseInt(digit), 0);
+  const remainder = total % 10;
+  
+  return remainder ? 10 - remainder : 0;
+}
+```

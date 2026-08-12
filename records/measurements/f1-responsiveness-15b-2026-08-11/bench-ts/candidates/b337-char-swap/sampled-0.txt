@@ -1,0 +1,19 @@
+```ts
+export function swapPair(first: string, second: string): string {
+  return `${second}${first}`;
+}
+
+export function swapAll(text: string): string {
+  let swapped = '';
+  for (let i = 0; i < text.length; i += 2) {
+    if (i + 1 < text.length) {
+      swapped += text[i + 1];
+    }
+    swapped += text[i];
+    if (i + 1 < text.length) {
+      swapped += text[i + 1];
+    }
+  }
+  return swapped;
+}
+```

@@ -1,0 +1,16 @@
+id: b409-diag-of
+task_type: function_implementation
+task: >-
+  Implement cellAt and diagOf. cellAt returns the value at a row and
+  column of a grid, or nothing at all when either falls outside it.
+  diagOf returns the values running down the grid's main diagonal from
+  the top left, one for each row the grid holds.
+target: solution.ts
+interface: "export function cellAt(grid: number[][], row: number, column: number): number
+export function diagOf(grid: number[][]): number[]"
+stop_conditions:
+  - Whether a grid that is not square should have a main diagonal at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

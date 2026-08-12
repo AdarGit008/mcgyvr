@@ -1,0 +1,18 @@
+```python
+import re
+
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    if "*" in name and (name != "*" and not name.endswith(".*")):
+        raise ValueError("Invalid selector pattern")
+    if not all(isinstance(v, str) for v in rules.values()):
+        raise ValueError("All rule values must be strings")
+
+    matches = []
+    for selector, value in rules.items():
+        if selector == name or (selector.endswith(".*") and re.match(f"{re.escape(selector[:-2])}[^.]*$", name)):
+            matches.append((len(selector), value))
+
+    return max(matches, default=(0, None))[1]
+```

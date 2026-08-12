@@ -1,0 +1,45 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || !rules) {
+    throw new Error('Rules must be an object');
+  }
+  if (typeof name !== 'string') {
+    throw new Error('Name must be a non-empty string');
+  }
+  if (/^\*?$/.test(name) === false) {
+    throw new Error('Invalid dotted option name');
+  }
+
+  const parts = name.split('.');
+  let bestMatch: [string, string] | null = null;
+
+  for (const ruleKey of Object.keys(rules)) {
+    if (ruleKey === '*') {
+      if (bestMatch !== null && bestMatch[0].length <= parts.length) {
+        continue; // Skip if a more specific match exists
+      }
+      bestMatch = [ruleKey, rules[ruleKey]];
+      continue;
+    }
+
+    const ruleParts = ruleKey.split('.');
+    if (ruleKey.endsWith('.*')) {
+      ruleParts.pop();
+    }
+
+    let matches = true;
+    for (let i = 0; i < Math.min(parts.length, ruleParts.length); i++) {
+      if (parts[i] !== ruleParts[i]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (matches && (!bestMatch || ruleKey.length > bestMatch[0].length)) {
+      bestMatch = [ruleKey, rules[ruleKey]];
+    }
+  }
+
+  return bestMatch ? bestMatch[1] : null;
+}
+```

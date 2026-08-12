@@ -1,0 +1,50 @@
+id: b132-drain-lanes
+task_type: bug_fix
+task: >-
+  drain_lanes empties planned service lanes incorrectly. Fix it: the plan is
+  a non-empty list of pairs, each a lane name and its quota, giving the
+  visiting order for one round; the items are pairs of a label and the lane
+  it joins, queued per lane in arrival order. The drain runs in rounds:
+  each round visits every planned lane in order and takes up to its quota
+  of the oldest labels that lane still holds; rounds repeat until every
+  lane is empty. Today a lane that comes up short of its quota mid-round
+  stops the whole drain, stranding labels still queued in other lanes — a
+  short take must simply move on to the next lane. An item that names a
+  lane the plan never declares is quietly discarded today; make it an
+  error. Also add the missing validation: reject an empty plan, a plan
+  entry that is not a pair of a non-empty string lane and a positive
+  integer quota, a lane declared twice, and an item that is not a pair of
+  two strings, with an error. Return a mapping with order, the labels in
+  drained order, and rounds, how many rounds the drain ran — zero when
+  there was nothing to drain. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Drain labelled items across planned lanes, round by round."""
+
+
+  def drain_lanes(plan, items):
+      queues = {}
+      for lane, _quota in plan:
+          queues[lane] = []
+      for label, lane in items:
+          if lane in queues:
+              queues[lane].append(label)
+      order = []
+      rounds = 0
+      while True:
+          rounds += 1
+          for lane, quota in plan:
+              queue = queues[lane]
+              taken = 0
+              while taken < quota and queue:
+                  order.append(queue.pop(0))
+                  taken += 1
+              if taken < quota:
+                  return {"order": order, "rounds": rounds}
+interface: "def drain_lanes(plan: list, items: list) -> dict"
+stop_conditions:
+  - Whether duplicate labels across items are allowed is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

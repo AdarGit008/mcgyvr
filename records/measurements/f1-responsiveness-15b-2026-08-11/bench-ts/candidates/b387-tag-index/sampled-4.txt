@@ -1,0 +1,27 @@
+```ts
+function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string' || line.trim() === '') {
+    throw new Error('Input must be a non-empty string.');
+  }
+
+  return line.split(',')
+    .map(tag => tag.trim())
+    .filter(tag => tag);
+}
+
+function tagIndex(lines: string[]): Record<string, string[]> {
+  if (!Array.isArray(lines) || lines.length === 0) {
+    throw new Error('Input must be an array of non-empty strings.');
+  }
+
+  return lines.reduce((acc, line) => {
+    try {
+      const tags = tagsOf(line);
+      tags.forEach(tag => acc[tag] = (acc[tag] ?? []).concat([line]));
+    } catch (error) {
+      console.error(error.message); // Handle the error as per your needs
+    }
+    return acc;
+  }, {});
+}
+```

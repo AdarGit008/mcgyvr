@@ -1,0 +1,37 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """
+    Returns the cost of a single line given its price and quantity.
+    
+    :param price: The price per item in pence.
+    :param quantity: The number of items in the line.
+    :return: The total cost of the line in pence.
+    """
+    if not isinstance(price, int) or not isinstance(quantity, int):
+        raise ValueError("Both price and quantity must be integers.")
+    
+    return price * quantity
+
+def basket_cost(lines: list, discount: int) -> int:
+    """
+    Returns the total cost of a basket after applying a percentage discount.
+    
+    :param lines: A list of tuples representing each line in the basket.
+                  Each tuple contains (price, quantity).
+    :param discount: The discount rate as an integer percentage (0-100 inclusive).
+    :return: The adjusted total cost of the basket in pence.
+    """
+    if not isinstance(lines, list) or not all(isinstance(line, tuple) for line in lines):
+        raise ValueError("Lines must be a list of tuples.")
+    
+    if not isinstance(discount, int) or discount < 0 or discount > 100:
+        raise ValueError("Discount must be an integer between 0 and 100 inclusive.")
+    
+    total_cost = sum(line_cost(*line) for line in lines)
+    
+    # Apply the discount
+    discounted_amount = total_cost * (discount / 100.0)
+    adjusted_total_cost = round(discounted_amount)
+    
+    return adjusted_total_cost
+```

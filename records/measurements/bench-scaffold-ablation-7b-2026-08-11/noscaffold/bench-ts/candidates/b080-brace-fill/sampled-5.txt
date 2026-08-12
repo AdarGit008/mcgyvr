@@ -1,0 +1,24 @@
+```ts
+/**
+ * Replace placeholders in a template string with corresponding values from a mapping.
+ * @param template - The literal text holding placeholders enclosed in braces.
+ * @param values - A mapping of placeholder names to their replacement values.
+ * @returns The filled template string.
+ */
+export function fillTemplate(template: string, values: Record<string, string>): string {
+    if (typeof template !== 'string') {
+        throw new Error('template must be a string');
+    }
+
+    const regex = /\{([a-zA-Z0-9_]+)\}/g;
+    return template.replace(regex, (match, placeholder) => {
+        if (!placeholder || /[^a-zA-Z0-9_]/.test(placeholder)) {
+            throw new Error(`invalid placeholder: ${match}`);
+        }
+        if (!(placeholder in values)) {
+            throw new Error(`missing value for placeholder: ${match}`);
+        }
+        return values[placeholder];
+    });
+}
+```

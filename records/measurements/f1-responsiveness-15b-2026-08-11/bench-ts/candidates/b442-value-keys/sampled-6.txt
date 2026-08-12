@@ -1,0 +1,15 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const result: Record<string, number> = {};
+
+  for (const key in store) {
+    if (!result[store[key]]) {
+      result[store[key]] = 1;
+    } else {
+      result[store[key]]++;
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,15 @@
+id: b349-interest-add
+task_type: function_implementation
+task: >-
+  Implement interest_add. Add simple interest to an amount: the
+  interest is the amount times a whole-percent rate for each year that
+  passes, rounded down. Return the amount with that interest added. No
+  years at all leaves the amount exactly as it was.
+target: solution.py
+interface: "def interest_add(amount: int, rate: int, years: int) -> int"
+stop_conditions:
+  - Whether interest should itself earn interest each year is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

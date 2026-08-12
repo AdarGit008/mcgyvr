@@ -1,0 +1,44 @@
+```ts
+/**
+ * Splits the input chunks into frames based on the marker character and returns the frames along with any pending text.
+ * @param chunks - Array of string chunks to be processed.
+ * @param marker - Single character used to mark frame boundaries.
+ * @returns An object containing an array of completed frames and any remaining pending text.
+ */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error('Marker must be a single character');
+  }
+
+  const frames: string[] = [];
+  let frame = '';
+  let pending = '';
+
+  for (const chunk of chunks) {
+    let i = 0;
+    while (i < chunk.length) {
+      if (chunk[i] === marker) {
+        if (i + 1 < chunk.length && chunk[i + 1] === marker) {
+          frame += marker;
+          i += 2; // Skip over the doubled marker
+        } else {
+          frames.push(frame);
+          frame = '';
+          i++; // Move past the lone marker, which ends the current frame
+        }
+      } else {
+        frame += chunk[i];
+        i++;
+      }
+    }
+    pending += frame;
+    frame = '';
+  }
+
+  if (pending.endsWith(marker)) {
+    pending = pending.slice(0, -1); // Remove trailing marker as it might be part of a doubled pair
+  }
+
+  return { frames, pending };
+}
+```

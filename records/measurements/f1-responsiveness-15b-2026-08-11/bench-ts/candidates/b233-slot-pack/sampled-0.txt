@@ -1,0 +1,13 @@
+```ts
+/** Group items into slots of a fixed capacity, in order. */
+export function slotPack(items: string[], capacity: number): string[][] {
+  if (!items || !capacity) throw new Error("Invalid input");
+
+  const slots: string[][] = [];
+  for (let i = 0; i < items.length; i += capacity) {
+    const subArray = items.slice(i, i + Math.min(capacity, items.length - i));
+    slots.push(subArray);
+  }
+  return slots;
+}
+```

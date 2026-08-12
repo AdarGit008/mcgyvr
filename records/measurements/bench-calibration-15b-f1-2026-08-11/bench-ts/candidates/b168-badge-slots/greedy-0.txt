@@ -1,0 +1,38 @@
+```ts
+export function badgeText(pattern: string, fields: Record<string, string>): string {
+  if (typeof pattern !== 'string') {
+    throw new Error('Pattern must be a string');
+  }
+
+  let result = '';
+  let slotIndex = -1;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (char === '<') {
+      slotIndex++;
+      if (slotIndex >= Object.keys(fields).length) {
+        throw new Error('Closing angle bracket sitting outside any slot');
+      }
+    } else if (char === '>') {
+      if (slotIndex < 0) {
+        throw new Error('Opening angle bracket that is never closed');
+      }
+
+      const fieldName = pattern.slice(slotIndex + 1, i);
+      if (!fieldName || !fieldName.match(/^[a-z]+$/)) {
+        throw new Error('Slot name must be lowercase letters');
+      }
+
+      const fieldValue = fields[fieldName];
+      result += fieldValue !== undefined ? fieldValue : '';
+      slotIndex = -1;
+    } else {
+      result += char;
+    }
+  }
+
+  return result;
+}
+```

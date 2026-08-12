@@ -1,0 +1,10 @@
+```ts
+export function rateCap(price: number, rate: number, most: number): number {
+  if (price <= 0 || rate < 0) {
+    throw new Error('Price and rate must be positive numbers.');
+  }
+
+  const increase = Math.floor(price * rate / 100);
+  return Math.min(price + increase, price + most);
+}
+```

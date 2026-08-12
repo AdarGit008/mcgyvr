@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def merge_ledgers(base: List[List[str]], ours: List[List[str]], theirs: List[List[str]]) -> List[List[str]]:
+    if not isinstance(base, list) or not isinstance(ours, list) or not isinstance(theirs, list):
+        raise ValueError("All arguments must be lists.")
+    
+    merged = []
+    for account in set(base + ours + theirs):
+        base_value = 0
+        our_value = 0
+        their_value = 0
+        
+        # Find the value of the account in each ledger
+        for entry in base:
+            if entry[0] == account:
+                base_value += int(entry[1])
+        
+        for entry in ours:
+            if entry[0] == account:
+                our_value += int(entry[1])
+        
+        for entry in theirs:
+            if entry[0] == account:
+                their_value += int(entry[1])
+        
+        # Calculate the merged value
+        merged_value = base_value + our_value - their_value
+        
+        # Add the account and its merged value to the result list
+        merged.append([account, str(merged_value)])
+    
+    # Sort the merged ledger by account name
+    merged.sort(key=lambda x: x[0])
+    
+    return merged
+```

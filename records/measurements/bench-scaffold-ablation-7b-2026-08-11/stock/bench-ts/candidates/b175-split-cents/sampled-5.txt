@@ -1,0 +1,27 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total)) throw new Error("total must be whole cents");
+  if (total < 0) throw new Error("total may not be negative");
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error("weights must be a non-empty list");
+  if (!weights.every((w) => Number.isInteger(w) && w > 0)) throw new Error("a weight is a positive whole number");
+
+  const whole = weights.reduce((a, b) => a + b, 0);
+  let parts = weights.map((w) => Math.floor((total * w) / whole));
+  let remainingCents = total - parts.reduce((a, b) => a + b, 0);
+
+  while (remainingCents > 0) {
+    const maxFractionIndex = parts
+      .map((part, index) => ({ part, index, fraction: part / weights[index] }))
+      .reduce(
+        (max, current) =>
+          current.fraction > max.fraction ? current : max,
+        { part: -1, index: -1, fraction: 0 }
+      ).index;
+
+    parts[maxFractionIndex]++;
+    remainingCents--;
+  }
+
+  return parts;
+}
+```

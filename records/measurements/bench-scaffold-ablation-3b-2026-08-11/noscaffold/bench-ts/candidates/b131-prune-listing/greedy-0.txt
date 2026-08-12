@@ -1,0 +1,67 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Both listing and rules must be arrays.");
+  }
+
+  const isString = (value: any): value is string => typeof value === "string";
+
+  const isValidPath = (path: string): boolean => {
+    return path && !/^\s*$/.test(path) && !/\/\//.test(path);
+  };
+
+  const isValidRule = (rule: string): boolean => {
+    return rule && !/^\s*$/.test(rule) && !/\/\//.test(rule);
+  };
+
+  if (!listing.every(isString)) {
+    throw new Error("All elements in listing must be strings.");
+  }
+
+  if (!rules.every(isString)) {
+    throw new Error("All elements in rules must be strings.");
+  }
+
+  const parsePattern = (pattern: string): [string, boolean][] => {
+    return pattern.split("/").map((segment, index) => [
+      segment.replace(/\*/g, "*"), // Escape stars
+      index === 0 && segment.startsWith("!"),
+    ]);
+  };
+
+  const matchRule = (rule: [string, boolean][], path: string): boolean => {
+    const segments = path.split("/");
+    for (let i = 0; i < rule.length; i++) {
+      const [patternSegment, isKeep] = rule[i];
+      if (!segments[i]) {
+        return false;
+      }
+      if (isKeep) {
+        if (patternSegment !== segments[i]) {
+          return false;
+        }
+      } else {
+        if (!patternSegment.startsWith(segments[i])) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const prune = (listing: string[], rules: [string, boolean][]): string[] => {
+    return listing.filter(path => {
+      for (const rule of rules) {
+        if (matchRule(rule, path)) {
+          return !rule[1]; // Drop rule
+        }
+      }
+      return true; // Keep rule or no match
+    });
+  };
+
+  const parsedRules = rules.map(parsePattern);
+
+  return prune(listing, parsedRules);
+}
+```

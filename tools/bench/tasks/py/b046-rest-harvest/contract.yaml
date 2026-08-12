@@ -1,0 +1,20 @@
+id: b046-rest-harvest
+task_type: function_implementation
+task: >-
+  Implement best_harvest. The input lists an orchard's daily yields in
+  kilos, one non-negative integer per day, in calendar order. The picker
+  may work any set of days, except that a worked day always forces the
+  next day off, so two consecutive days are never both worked. Return the
+  largest total the picker can take; an empty list yields zero. Greedy
+  day-by-day choices are not enough: for the yields 5, 1, 1, 5 the answer
+  is 10, from the first and the last day. Reject an argument that is not
+  a list, a yield that is not an integer, and a negative yield, with an
+  error.
+target: solution.py
+interface: "def best_harvest(yields: list) -> int"
+stop_conditions:
+  - No upper bound on the number of days or the size of a daily yield is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

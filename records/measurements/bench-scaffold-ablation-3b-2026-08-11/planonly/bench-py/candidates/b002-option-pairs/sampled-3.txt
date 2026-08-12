@@ -1,0 +1,66 @@
+```python
+def scan_pairs(text: str) -> list:
+    """Split an options string into key=value pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = []
+    quoted_pair = False
+    current_key = ""
+    current_value = ""
+    i = 0
+    
+    while i < len(text):
+        char = text[i]
+        
+        if char == ';':
+            if not quoted_pair:
+                # Split the pair and add to parts
+                parts.append(parse_option(current_key.strip()))
+                current_key, current_value = "", ""
+            else:
+                # Append the semicolon if it's inside quotes
+                current_value += char
+        elif char == '"':
+            if not quoted_pair:
+                # Start or end a quoted value
+                quoted_pair = True
+            else:
+                # End a quoted value
+                quoted_pair = False
+                current_value += char
+                parts.append(parse_option(current_key.strip()))
+                current_key, current_value = "", ""
+        elif char == '=' and not quoted_pair:
+            # Split the key from the value if it's unquoted
+            current_key = text[i - 1:i]
+        else:
+            # Append characters to the current key or value
+            if quoted_pair:
+                current_value += char
+            else:
+                current_key += char
+        
+        i += 1
+    
+    # Add the last pair if there was no trailing semicolon
+    if current_key:
+        parts.append(parse_option(current_key.strip()))
+    
+    return parts
+
+def parse_option(segment: str) -> list:
+    """Parse a key=value segment into [key, value]."""
+    equals_ind = segment.find('=')
+    
+    if equals_ind == -1 or not segment[:equals_ind].isidentifier():
+        raise ValueError("Invalid format for option.")
+    
+    key = segment[:equals_ind]
+    value = segment[equals_ind + 1:]
+    
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    
+    return [key, value]
+```

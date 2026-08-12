@@ -1,0 +1,12 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (length <= 0) throw new Error("Run must cover at least one cell.");
+  if (row < 0 || row >= floor.length) throw new Error("Row out of bounds.");
+  if (col < 0 || col + length - 1 >= floor[row].length) throw new Error("Run out of bounds.");
+  if (!floor[row].split('').slice(col, col + length).every(cell => cell === '.')) throw new Error("Run intersects with a machine.");
+
+  return floor.map((rowStr, r) => 
+    r === row ? rowStr.slice(0, col) + '='.repeat(length) + rowStr.slice(col + length) : rowStr
+  );
+}
+```

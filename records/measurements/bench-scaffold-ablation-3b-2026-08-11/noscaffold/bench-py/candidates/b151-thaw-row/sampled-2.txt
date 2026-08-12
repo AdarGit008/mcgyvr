@@ -1,0 +1,29 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Thaw the row of cells by simulating 'steps' number of melting cycles.
+    Each step melts ice cells at either end or surrounded by meltwater.
+    
+    :param row: A string representing a row of cells ('#' for ice, '.' for meltwater).
+    :param steps: An integer representing the number of thawing steps to perform.
+    :return: The row after 'steps' thawing cycles.
+    """
+    if not isinstance(row, str) or not all(c in "#." for c in row):
+        raise ValueError("Row must be a string containing only '#' and '.'.")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Steps must be a non-negative integer.")
+    
+    for _ in range(steps):
+        # Create a new row where ice cells at either end or surrounded by meltwater melt
+        newRow = ""
+        for i, c in enumerate(row):
+            if (i == 0 or i == len(row) - 1) and c == "#":
+                newRow += "."
+            elif c == "#" and row[i - 1] != "#" and row[i + 1] != "#":
+                newRow += "."
+            else:
+                newRow += c
+        row = newRow
+    
+    return row
+```

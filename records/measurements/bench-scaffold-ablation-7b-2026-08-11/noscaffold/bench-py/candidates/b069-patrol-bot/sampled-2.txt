@@ -1,0 +1,27 @@
+```python
+def clamp_move(position: int, delta: int, width: int) -> list:
+    """Clamp move to the corridor boundaries."""
+    if position < 0 or position >= width:
+        raise ValueError("Position out of bounds")
+    new_position = max(0, min(width - 1, position + delta))
+    bumped = new_position != position
+    return [new_position, bumped]
+
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """Run a patrol in the corridor."""
+    if not isinstance(moves, list):
+        raise ValueError("Moves must be a list")
+    if width <= 0 or not (0 <= start < width):
+        raise ValueError("Invalid width or start position")
+
+    visited = set()
+    position = start
+    bumps = 0
+
+    for move in moves:
+        position, bumped = clamp_move(position, move, width)
+        bumps += bumped
+        visited.add(position)
+
+    return {"position": position, "bumps": bumps, "visited": len(visited)}
+```

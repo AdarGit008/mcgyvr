@@ -1,0 +1,35 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not (0 < fresh_for <= 10**9 and size > 0):
+        raise ValueError("fresh_for must be a positive whole number less than or equal to 1 billion, and size must be a positive integer.")
+    
+    cache = {}
+    result = []
+    for tick, name in requests:
+        if tick != len(result) - 1:
+            raise ValueError(f"Tick {tick} cannot precede the last tick {len(result) - 1} in the request list.")
+        
+        # Check for existing render
+        if (name, tick + fresh_for) in cache:
+            result.append([tick, name])
+        else:
+            # If no space in cache, remove the oldest render (oldest tick and smallest name)
+            if len(cache) == size:
+                oldest_tick = float('inf')
+                oldest_name = None
+                for key in cache.keys():
+                    tick, _ = key
+                    if tick < oldest_tick or (tick == oldest_tick and cache[key] > cache[oldest_name]):
+                        oldest_tick = tick
+                        oldest_name = key
+            
+            # Replace the oldest render or add a new one
+            if oldest_name:
+                del cache[oldest_name]
+            cache[(name, tick + fresh_for)] = result[-1][1]  # Store it at the current tick's place
+        
+        result.append([tick, name])
+    
+    return result
+
+```

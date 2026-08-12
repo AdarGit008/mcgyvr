@@ -1,0 +1,15 @@
+id: b388-time-gap
+task_type: function_implementation
+task: >-
+  Implement time_gap. Two times are each given as an hour and a minute
+  on a 24-hour clock. Return the minutes from the first to the second,
+  taking the second as falling on the following day whenever it is not
+  later than the first.
+target: solution.py
+interface: "def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int"
+stop_conditions:
+  - Whether an hour outside zero to twenty-three should be accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

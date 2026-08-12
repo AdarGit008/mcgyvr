@@ -1,0 +1,16 @@
+id: b382-sort-pairs
+task_type: function_implementation
+task: >-
+  Implement field_of and sort_pairs. field_of returns a record's value
+  for a named field, rejecting a record that lacks it with an error.
+  sort_pairs puts records in order by that field, breaking a tie by
+  leaving the earlier record earlier.
+target: solution.py
+interface: "def field_of(record: dict, field: str) -> int
+def sort_pairs(records: list, field: str) -> list"
+stop_conditions:
+  - Whether records should be able to sort in the other direction is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

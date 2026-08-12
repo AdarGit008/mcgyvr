@@ -1,0 +1,31 @@
+```python
+def _why_refused(cap, left: int, amount: int) -> str:
+    if cap is None:
+        return "unknown"
+    if amount > cap[1]:
+        return "single"
+    return "cap" if amount > left else ""
+
+
+def apply_charges(caps: dict, charges: list) -> dict:
+    if not all(isinstance(amount, int) and amount > 0 for _, _, amount in charges):
+        raise ValueError("All amounts must be positive whole numbers.")
+
+    left = {name: cap[0] for name, cap in caps.items()}
+    refused = []
+
+    for id_, bucket, amount in charges:
+        if bucket not in caps:
+            refused.append((id_, "unknown"))
+        elif not isinstance(caps[bucket], tuple) or len(caps[bucket]) != 2:
+            raise ValueError(f"Cap for {bucket} is not a valid pair.")
+        else:
+            cap_pair = caps[bucket]
+            reason = _why_refused(cap_pair, left[bucket], amount)
+            if reason:
+                refused.append((id_, reason))
+            else:
+                left[bucket] -= amount
+
+    return {"left": left, "refused": refused}
+```

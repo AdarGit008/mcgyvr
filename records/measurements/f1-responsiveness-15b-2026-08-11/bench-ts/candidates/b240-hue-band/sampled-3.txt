@@ -1,0 +1,15 @@
+```ts
+export function hueBand(degrees: number): string {
+  if (!Number.isFinite(degrees) || degrees < 0 || degrees > 359) {
+    throw new Error("Degrees must be a finite number between 0 and 359.");
+  }
+
+  degrees = (degrees + 360) % 360; // Wrap around the circle
+
+  if (degrees >= 0 && degrees < 60) return 'red';
+  if (degrees >= 180 && degrees < 240) return 'green';
+  if (degrees >= 240 && degrees < 300) return 'blue';
+
+  return 'red'; // Red again after the blue band
+}
+```

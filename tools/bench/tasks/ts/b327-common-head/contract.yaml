@@ -1,0 +1,15 @@
+id: b327-common-head
+task_type: function_implementation
+task: >-
+  Implement commonHead. Return the longest run of characters that
+  every word in a list begins with. A list holding one word gives that
+  word back whole, and a list with no words, or whose words share no
+  opening character, gives empty text.
+target: solution.ts
+interface: "export function commonHead(words: string[]): string"
+stop_conditions:
+  - Whether words differing only in case should be compared ignoring it is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

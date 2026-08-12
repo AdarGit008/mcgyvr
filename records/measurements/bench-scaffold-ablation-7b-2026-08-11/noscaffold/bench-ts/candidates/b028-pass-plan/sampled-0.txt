@@ -1,0 +1,37 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+    if (tripDays.some(d => d <= 0 || !Number.isInteger(d))) throw new Error('Invalid trip day');
+    if (!Array.isArray(tripDays) || tripDays.length !== new Set(tripDays).size) throw new Error('Trip days must be unique and strictly increasing');
+    if (!passes.length) throw new Error('Pass list cannot be empty');
+    for (const pass of passes) {
+        if (pass.span <= 0 || !Number.isInteger(pass.span)) throw new Error('Invalid span');
+        if (pass.cost < 0 || !Number.isInteger(pass.cost)) throw new Error('Invalid cost');
+    }
+
+    const n = tripDays.length;
+    const dp: number[] = Array(n).fill(Infinity);
+    dp[0] = 0;
+
+    for (let i = 1; i <= n; i++) {
+        for (const pass of passes) {
+            if (tripDays[i - 1] - pass.span + 1 >= 0) {
+                dp[i] = Math.min(dp[i], dp[tripDays[i - 1] - pass.span + 1] + pass.cost);
+            }
+        }
+    }
+
+    const purchases: number[][] = [];
+    let i = n;
+    while (i > 0) {
+        for (const pass of passes) {
+            if (tripDays[i - 1] - pass.span + 1 >= 0 && dp[tripDays[i - 1]] === dp[tripDays[i - 1] - pass.span + 1] + pass.cost) {
+                purchases.unshift([tripDays[i - 1] - pass.span + 1, pass.span]);
+                i = tripDays[i - 1] - pass.span;
+                break;
+            }
+        }
+    }
+
+    return { total: dp[n], purchases };
+}
+```

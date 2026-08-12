@@ -1,0 +1,13 @@
+```python
+from typing import *
+from collections import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    def within_24_hours(hour1, minute1, hour2, minute2):
+        return (hour1 * 60 + minute1 <= hour2 * 60 + minute2) or (hour1 * 60 + minute1 + 1440 >= hour2 * 60 + minute2)
+
+    if not within_24_hours(from_hour, from_minute, to_hour, to_minute):
+        raise ValueError("Time gap should be within the same day.")
+
+    return (to_hour * 60 + to_minute) - (from_hour * 60 + from_minute)
+```

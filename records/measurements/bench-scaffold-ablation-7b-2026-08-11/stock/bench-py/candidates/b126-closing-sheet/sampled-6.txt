@@ -1,0 +1,57 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def parse_moves(text):
+        actions = []
+        for move in text.split(";"):
+            action, sep, qty = move.partition("+")
+            if sep == "":
+                action, sep, qty = move.rpartition("-")
+            if sep == "" or not action or not re.fullmatch(r"0|[1-9]\d*", qty):
+                raise ValueError(f"bad move: {move}")
+            actions.append((action, int(qty), "add" if sep == "+" else "subtract"))
+        return actions
+
+    held = parse_sheet(opening)
+    actions = parse_moves(moves)
+
+    for action, qty, op in actions:
+        if action not in held:
+            raise ValueError(f"issue of an item the sheet does not hold: {action}")
+        if (op == "subtract" and held[action] < qty) or (
+            op == "add" and qty <= 0
+        ):
+            raise ValueError(f"invalid move: {move}")
+
+        if op == "subtract":
+            held[action] -= qty
+        else:
+            held[action] += qty
+
+    entries = [f"{name}:{count}" for name, count in held.items() if count > 0]
+    return ";".join(sorted(entries))
+```

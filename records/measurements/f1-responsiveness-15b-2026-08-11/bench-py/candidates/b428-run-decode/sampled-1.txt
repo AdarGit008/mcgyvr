@@ -1,0 +1,21 @@
+```python
+def run_decode(coded: str) -> str:
+    decoded = ""
+    i = 0
+    while i < len(coded):
+        letter = coded[i]
+        if i + 1 < len(coded) and coded[i+1].isdigit():
+            count_str = ""
+            while i + 1 < len(coded) and coded[i+1].isdigit():
+                count_str += coded[i+1]
+                i += 1
+            if count_str == "":
+                decoded += letter
+            else:
+                count = int(count_str)
+                decoded += letter * count
+        else:
+            decoded += letter
+        i += 1
+    return decoded
+```

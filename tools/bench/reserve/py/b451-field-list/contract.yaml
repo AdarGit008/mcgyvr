@@ -1,0 +1,16 @@
+id: b451-field-list
+task_type: function_implementation
+task: >-
+  Implement field_or and field_list. field_or returns a record's value
+  for a named field, or a stated stand-in when the record lacks it.
+  field_list returns that field from every record in order, standing
+  in wherever it is missing.
+target: solution.py
+interface: "def field_or(record: dict, field: str, stand_in: str) -> str
+def field_list(records: list, field: str, stand_in: str) -> list"
+stop_conditions:
+  - Whether a field holding empty text should take the stand-in is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

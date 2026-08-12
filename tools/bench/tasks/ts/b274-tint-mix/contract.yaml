@@ -1,0 +1,16 @@
+id: b274-tint-mix
+task_type: function_implementation
+task: >-
+  Implement tintMix. Two tins of paint each hold a whole number of
+  millilitres at a strength given as a percentage. Return the strength
+  of the mixture once both tins are poured together, rounded down to a
+  whole percent. Pouring two empty tins together gives a strength of
+  zero.
+target: solution.ts
+interface: "export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number"
+stop_conditions:
+  - Whether a strength above one hundred percent should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,13 @@
+```python
+def look_up(store: dict, key: str, fallback: str) -> str:
+    """A mapping's value for a key, or a fallback when it is absent."""
+    if store.get(key):
+        return store[key]
+    else:
+        return fallback
+
+# Example usage of the function
+store = {'apple': 'fruit', 'banana': 'fruit'}
+print(look_up(store, 'apple', "not found"))  # Output: fruit
+print(look_up(store, 'cherry', "not found"))  # Output: not found
+```

@@ -1,0 +1,29 @@
+id: b386-drop-keys
+task_type: bug_fix
+task: >-
+  dropKeys returns a store without the keys a list names, and it keeps
+  only those keys instead. Fix it. Naming a key the store does not
+  hold changes nothing, and the store it was given is never altered.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The store without the keys a list names. */
+  export function dropKeys(
+    store: Record<string, number>,
+    keys: string[],
+  ): Record<string, number> {
+    const kept: Record<string, number> = {};
+    for (const key of Object.keys(store)) {
+      if (keys.includes(key)) {
+        kept[key] = store[key];
+      }
+    }
+    return kept;
+  }
+interface: "export function dropKeys(store: Record<string, number>, keys: string[]): Record<string, number>"
+stop_conditions:
+  - Whether a key named twice should be dropped twice is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

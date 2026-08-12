@@ -1,0 +1,16 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!marker.startsWith('<') || !marker.endsWith('>')) {
+    throw new Error('Invalid marker format');
+  }
+  const name = marker.slice(1, -1);
+  return name;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  if (opening !== closing) {
+    return false;
+  }
+  return true;
+}
+```

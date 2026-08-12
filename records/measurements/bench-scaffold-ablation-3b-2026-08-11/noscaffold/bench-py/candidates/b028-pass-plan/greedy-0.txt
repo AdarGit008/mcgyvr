@@ -1,0 +1,52 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or not passes:
+        return {"total": 0, "purchases": []}
+
+    # Validate inputs
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be strictly increasing positive integers.")
+    
+    for pass_info in passes:
+        span = pass_info.get('span')
+        cost = pass_info.get('cost')
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Pass spans must be positive integers.")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Pass costs must be non-negative integers.")
+
+    # Sort passes by cost and then by span
+    passes.sort(key=lambda x: (x['cost'], x['span']))
+
+    total_cost = 0
+    purchases = []
+    covered_days = set()
+
+    for day in trip_days:
+        if day in covered_days:
+            continue
+
+        cheapest_pass = None
+        min_cost = float('inf')
+
+        for pass_info in passes:
+            span = pass_info['span']
+            cost = pass_info['cost']
+
+            # Check if the current pass covers the day
+            if day + span - 1 >= day and all(day + i not in covered_days for i in range(span)):
+                if cost < min_cost:
+                    min_cost = cost
+                    cheapest_pass = pass_info
+
+        if cheapest_pass is None:
+            raise ValueError("No valid pass found to cover the trip day.")
+
+        total_cost += min_cost
+        purchases.append([day, span])
+        covered_days.update(range(day, day + span))
+
+    return {"total": total_cost, "purchases": purchases}
+```

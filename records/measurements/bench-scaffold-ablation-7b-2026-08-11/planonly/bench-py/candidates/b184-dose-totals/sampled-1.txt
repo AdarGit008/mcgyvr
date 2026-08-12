@@ -1,0 +1,29 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """Total each reagent exactly in thousandths of a millilitre and return a mapping."""
+    
+    def parse_amount(amount_str: str) -> float:
+        if not amount_str or not amount_str[0].isdigit() and not amount_str[0] == '-':
+            raise ValueError("Invalid amount format")
+        return float(amount_str)
+    
+    reagent_totals = {}
+    
+    for reagent, amount_str in log:
+        amount = parse_amount(amount_str)
+        reagent_totals.setdefault(reagent, 0.0)
+        reagent_totals[reagent] += amount
+    
+    def format_total(total: float) -> str:
+        if total == 0:
+            return '0'
+        elif total < 0:
+            return '-' + format_total(-total)
+        else:
+            decimal_places = len(str(amount_str).split('.')[1]) - 3
+            return f"{total:.{decimal_places}f}"
+    
+    return {reagent: format_total(total) for reagent, total in reagent_totals.items()}
+```

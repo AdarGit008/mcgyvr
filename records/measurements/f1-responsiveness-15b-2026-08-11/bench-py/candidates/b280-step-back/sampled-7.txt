@@ -1,0 +1,14 @@
+```python
+def step_back(moves: str) -> int:
+    max_position = 0
+    current_position = 0
+
+    for move in moves:
+        if move == 'F':
+            current_position += 1
+            max_position = max(max_position, current_position)
+        elif move == 'B':
+            current_position -= 1
+
+    return max_position
+```

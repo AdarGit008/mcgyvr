@@ -1,0 +1,47 @@
+```python
+"""Replay tile requests against a size-limited cache of fresh renders."""
+
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if isinstance(fresh_for, bool) or not isinstance(fresh_for, int) or fresh_for < 1:
+        raise ValueError("fresh_for must be a positive integer")
+    if isinstance(size, bool) or not isinstance(size, int) or size < 1:
+        raise ValueError("size must be a positive integer")
+
+    held = {}
+    renders = []
+
+    for tick, name in requests:
+        if tick < min(helded.keys() + [0]):
+            # If the current tick is earlier than any render's tick
+            # or none are available, render a new tile.
+            new_render = (tick, name)
+            renders.append(new_render)
+            held[name] = tick + fresh_for
+
+        elif name in held:
+            # If the tile is already cached and has not expired,
+            # serve it from the cache.
+            render_tick = held[name]
+            if render_tick > tick:
+                renders.append((tick, name))
+            else:
+                held[name] = tick + fresh_for
+        else:
+            # If the tile is not cached or has expired, find a spot in the cache to store it.
+            if len(helded) >= size:
+                # Drop the oldest render that does not have its latest version in the cache.
+                min_tick = min(helded.values())
+                keys_to_drop = [key for key, value in held.items() if value == min_tick]
+                if len(keys_to_drop) > 1:
+                    # If there is a tie, drop the one with the lexicographically smallest name.
+                    keys_to_drop.sort()
+                dropped_key = keys_to_drop[0]
+                del held[dropped_key]
+
+            # Store the tile in the cache with its expiration tick.
+            holds[name] = tick + fresh_for
+            renders.append((tick, name))
+
+    return renders
+```

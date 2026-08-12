@@ -1,0 +1,31 @@
+```python
+"""Replay tile requests against a size-limited cache of fresh renders."""
+
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if isinstance(fresh_for, bool) or not isinstance(fresh_for, int) or fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive integer")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive integer")
+
+    held = {}
+    renders = []
+
+    for tick, name in requests:
+        if tick < fresh_for:
+            render = held.get(name)
+            if render and render[0] >= tick:
+                renders.append((tick, name))
+                continue
+
+        # If cache is full, drop the oldest tile
+        if len(held) == size:
+            oldest_tick = min(held.values(), key=lambda x: (x[0], x[1]))
+            held.pop(oldest_tick[1])
+
+        # Store the current render in the cache
+        held[tick] = (tick, name)
+        renders.append((tick, name))
+
+    return renders
+```

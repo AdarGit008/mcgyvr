@@ -1,0 +1,26 @@
+```typescript
+const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm)) {
+    throw new Error("Length must be a whole number.");
+  }
+  if (mm < 0) {
+    throw new Error("Length cannot be negative.");
+  }
+
+  let result = "";
+  for (const [unit, divisor] of LADDER) {
+    const count = Math.floor(mm / divisor);
+    if (count > 0) {
+      if (result !== "") {
+        result += " ";
+      }
+      result += `${count}${unit}`;
+      mm -= count * divisor;
+    }
+  }
+
+  return result === "" ? "0mm" : result;
+}
+```

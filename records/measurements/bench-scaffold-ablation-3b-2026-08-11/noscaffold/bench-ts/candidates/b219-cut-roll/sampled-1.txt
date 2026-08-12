@@ -1,0 +1,38 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative integer.");
+  }
+
+  const maxPrice = { take: 0, pieces: [] };
+  const memo: Map<number, { take: number; pieces: [number, number][] }> = new Map();
+
+  function cutRollRecursive(currentLength: number): void {
+    if (currentLength === length) {
+      return;
+    }
+
+    for (const [boardLength, price] of board) {
+      if (currentLength + boardLength <= length) {
+        const remainingLength = currentLength + boardLength;
+        const { take, pieces } = memo.get(remainingLength) || cutRollRecursive(remainingLength);
+        const newTake = take + price;
+
+        if (
+          maxPrice.take < newTake ||
+          (maxPrice.take === newTake && (pieces.length === 0 || boardLength > pieces[0][0]))
+        ) {
+          maxPrice.take = newTake;
+          maxPrice.pieces = [...pieces, [boardLength, price]];
+        }
+      }
+    }
+
+    memo.set(currentLength, { take: maxPrice.take, pieces: maxPrice.pieces });
+  }
+
+  cutRollRecursive(0);
+
+  return maxPrice;
+}
+```

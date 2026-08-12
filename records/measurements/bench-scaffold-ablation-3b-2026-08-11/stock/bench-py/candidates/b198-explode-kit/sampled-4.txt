@@ -1,0 +1,31 @@
+```python
+
+
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    
+    def calculate_sub_kit_consumption(sub_kit_name, sub_want):
+        # Base case: if the sub-kit is a base part
+        if sub_kit_name not in catalog:
+            return math.ceil(sub_want)
+        
+        # Recursively calculate parts consumed by each component of the sub-kit
+        sub_parts = sum(calculate_sub_kit_consumption(component, count * sub_want) 
+                       for component, count in catalog[sub_kit_name]['parts'])
+        
+        return math.ceil(sub_want) + sub_parts
+    
+    totals = {}
+    
+    # Calculate and accumulate parts consumed by each base part required
+    for _, (base_part, count) in catalog[kit]['parts'].items():
+        total_consumed = calculate_sub_kit_consumption(base_part, want * count)
+        totals[base_part] = (totals.get(base_part, 0) + total_consumed)
+    
+    return totals
+```

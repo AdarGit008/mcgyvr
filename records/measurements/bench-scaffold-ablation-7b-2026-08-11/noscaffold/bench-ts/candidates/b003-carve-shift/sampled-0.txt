@@ -1,0 +1,35 @@
+```ts
+/**
+ * Carves a work shift into stretches based on given parameters.
+ *
+ * @param start - The start of the work shift (inclusive).
+ * @param end - The end of the work shift (exclusive).
+ * @param span - The maximum duration of a single stretch.
+ * @param rest - The duration of rest between stretches.
+ * @param least - The minimum acceptable duration for a stretch.
+ * @returns An array of stretches as half-open [from, to) pairs.
+ */
+export function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+    if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(span) || !Number.isInteger(rest) || !Number.isInteger(least)) {
+        throw new Error("All arguments must be whole numbers.");
+    }
+    if (start >= end) {
+        throw new Error("Start of the shift must precede its end.");
+    }
+    if (span < 1 || rest < 1 || least < 1 || least > span) {
+        throw new Error("Invalid values for span, rest, or least.");
+    }
+
+    const stretches: number[][] = [];
+    let current = start;
+
+    while (current < end) {
+        let stretchLength = Math.min(span, end - current);
+        if (stretchLength < least) break;
+        stretches.push([current, current + stretchLength]);
+        current += span + rest;
+    }
+
+    return stretches;
+}
+```

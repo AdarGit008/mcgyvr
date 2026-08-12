@@ -1,0 +1,15 @@
+id: b311-word-tally
+task_type: function_implementation
+task: >-
+  Implement word_tally. Given a sentence, return how many times each
+  word appears, ignoring case and recording the words in lower case.
+  Any run of spaces separates two words, and an empty sentence gives
+  an empty tally.
+target: solution.py
+interface: "def word_tally(sentence: str) -> dict"
+stop_conditions:
+  - Whether punctuation attached to a word belongs to it is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

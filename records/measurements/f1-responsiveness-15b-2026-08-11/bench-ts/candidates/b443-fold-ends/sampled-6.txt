@@ -1,0 +1,21 @@
+```ts
+export function foldEnds(values: number[]): number[] {
+  if (values.length === 0) return [];
+
+  const total = values.reduce((acc, value) => acc + value, 0);
+  const result: number[] = [];
+  let start = 0;
+  let end = values.length - 1;
+
+  while (start <= end) {
+    if (start !== end) {
+      result.push(values[start++], values[end--]);
+    } else {
+      result.push(total);
+      break;
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,21 @@
+```python
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string")
+    return f"{sum(ord(c) for c in body) % 256:02x}"
+
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string")
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long")
+    tag_position = line.rfind('~')
+    if tag_position == -1 or tag_position == len(line) - 2:
+        raise ValueError("Invalid tilde position in line")
+    body, provided_tag = line[:tag_position], line[tag_position + 1:]
+    computed_tag = line_tag(body)
+    if provided_tag != computed_tag:
+        raise ValueError("Tag does not match the body")
+    return body
+```

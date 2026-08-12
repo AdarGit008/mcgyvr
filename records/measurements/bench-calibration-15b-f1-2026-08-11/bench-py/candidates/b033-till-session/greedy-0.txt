@@ -1,0 +1,71 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices):
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+
+    for event in events:
+        action, item = event[0], event[1]
+
+        if not isinstance(action, str) or action not in ["scan", "void", "close", "pay", "cancel"]:
+            raise ValueError("event must be a list of its action and exactly its payload: " + str(event))
+
+        if action == "scan":
+            if item not in prices:
+                raise ValueError(f"item '{item}' is not in the price list")
+            if item in cart:
+                cart[item] += 1
+            else:
+                cart[item] = 1
+            total += prices[item]
+
+        elif action == "void":
+            if item not in cart:
+                raise ValueError(f"item '{item}' is not in the cart")
+            if cart[item] > 0:
+                cart[item] -= 1
+                total -= prices[item]
+            else:
+                raise ValueError("cannot void an item with zero quantity")
+
+        elif action == "close":
+            if len(cart) == 0:
+                raise ValueError("session is empty and cannot be closed")
+            paid = total
+            change = paid - total
+            cart.clear()
+            total = 0
+
+        elif action == "pay":
+            if paid >= total:
+                raise ValueError("amount paid exceeds the total")
+            paid += sum(prices[item] * cart[item] for item in cart)
+            change = paid - total
+            cart.clear()
+            total = 0
+
+        elif action == "cancel":
+            if paid > 0 or len(cart) > 0:
+                raise ValueError("cannot cancel a session with paid or non-empty cart")
+            cart.clear()
+            total = 0
+
+        else:
+            raise ValueError(f"unknown action '{action}'")
+
+    return {
+        "items": sorted([(item, quantity) for item, quantity in cart.items()], key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

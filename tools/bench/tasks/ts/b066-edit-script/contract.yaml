@@ -1,0 +1,23 @@
+id: b066-edit-script
+task_type: function_implementation
+task: >-
+  Implement applyEditScript. The first argument is an original string and
+  the second is an edit script: a list of two-item ops applied in order to
+  build the edited result. ["copy", n] appends the next n characters of
+  the original to the result and moves past them; ["skip", n] moves past
+  the next n characters without copying them; ["insert", text] appends
+  text to the result without touching the original. The script must walk
+  off the end of the original exactly: after the last op every character
+  has been copied or skipped. Return the edited string. Reject a
+  non-string original, an unknown op name, a copy or skip count that is
+  not a positive integer, an insert text that is not a non-empty string,
+  an op that reads past the end of the original, and a script that stops
+  before the original is used up, with an error.
+target: solution.ts
+interface: "export function applyEditScript(original: string, script: [string, any][]): string"
+stop_conditions:
+  - How an op carrying extra items beyond its two is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

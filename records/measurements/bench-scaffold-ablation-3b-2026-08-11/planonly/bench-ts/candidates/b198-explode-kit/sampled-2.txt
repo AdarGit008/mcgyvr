@@ -1,0 +1,57 @@
+```ts
+import { ceil } from "mathjs";
+
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  // Helper function to calculate the total cost of a component or kit
+  const calculateCost = (componentOrKit: string, quantity: number): number => {
+    if (catalog[componentOrKit]) {
+      const recipe = catalog[componentOrKit];
+      return Math.ceil(quantity / recipe.makes) * recipe.parts.reduce((total, [part, count]) => total + quantity * (count * calculateCost(part, 1)), 0);
+    } else {
+      throw new Error(`Unknown kit ${componentOrKit} in the catalog.`);
+    }
+  };
+
+  // Calculate and return the total cost for each base part
+  const basePartCosts: Record<string, number> = {};
+  const componentsConsumed: Record<string, number> = {};
+
+  let remainingWant = want;
+  while (remainingWant > 0) {
+    const [componentOrKit, count] = catalog[kit].parts[componentsConsumed[kit] ?? 0];
+    if (catalog[componentOrKit]) {
+      const recipe = catalog[componentOrKit];
+
+      // Determine how many whole runs are needed
+      const fullRuns = Math.ceil(remainingWant / recipe.makes);
+      remainingWant -= fullRuns * recipe.makes;
+      let processedCount = 0;
+
+      for (let run = 0; run < fullRuns; run++) {
+        processedCount += count * recipe.parts.reduce((total, [subComponentOrKit, subCount]) => total + count * (subCount * calculateCost(subComponentOrKit, 1)), 0);
+        componentsConsumed[kit]++;
+      }
+
+      if (processedCount > remainingWant) {
+        // If more parts were processed than needed, adjust the count to match the remaining want
+        const excess = processedCount - remainingWant;
+        for (let run = 0; run < fullRuns; run++) {
+          componentsConsumed[kit]--;
+          if (componentsConsumed[kit] === undefined) break;
+
+          const subRecipe = catalog[catalog[kit].parts[componentsConsumed[kit]][0]];
+          processedCount -= count * subRecipe.parts.reduce((total, [subSubComponentOrKit, subSubCount]) => total + count * (subSubCount * calculateCost(subSubComponentOrKit, 1)), 0);
+        }
+
+        remainingWant = 0;
+      } else {
+        want -= processedCount;
+      }
+    } else {
+      throw new Error(`Unknown kit ${componentOrKit} in the catalog.`);
+    }
+  }
+
+  return basePartCosts;
+}
+```

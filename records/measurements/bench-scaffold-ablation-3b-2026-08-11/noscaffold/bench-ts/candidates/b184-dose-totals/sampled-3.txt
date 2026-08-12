@@ -1,0 +1,21 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  log.forEach(([reagent, amount]) => {
+    if (!/^-?\d+(\.\d{1,3})?$/.test(amount)) {
+      throw new Error(`Invalid amount format for reagent ${reagent}: ${amount}`);
+    }
+
+    const value = parseFloat(amount) * 1000; // Convert to thousandths of a millilitre
+    totals[reagent] = Math.round(value); // Use Math.round to ensure no binary fraction
+  });
+
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, total]) => [
+      reagent,
+      total.toString().padStart(5, '0') // Ensure at least 4 digits after the point
+    ])
+  );
+}
+```

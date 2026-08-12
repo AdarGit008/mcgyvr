@@ -1,0 +1,118 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events) || events.length === 0) {
+    throw new Error("Events array must not be empty");
+  }
+
+  const isPositiveInteger = (x: any): x is number => typeof x === "number" && Number.isInteger(x) && x > 0;
+
+  const isValidPrice = (price: number): boolean => isPositiveInteger(price);
+
+  const isValidEvent = (event: (string | number)[]): boolean => {
+    if (!Array.isArray(event)) return false;
+    if (event.length !== 2 || typeof event[0] !== "string" || !Array.isArray(event[1])) {
+      return false;
+    }
+    switch (event[0]) {
+      case "scan":
+        return Array.isArray(event[1]) && event[1].length === 1 && typeof event[1][0] === "string";
+      case "void":
+        return Array.isArray(event[1]) && event[1].length === 1 && typeof event[1][0] === "string";
+      case "close":
+        return event[1].length === 0;
+      case "pay":
+        return Array.isArray(event[1]) && event[1].length === 1 && isPositiveInteger(event[1][0]);
+      case "cancel":
+        return event[1].length === 0;
+      default:
+        return false;
+    }
+  };
+
+  const checkState = (state: string): void => {
+    if (["open", "payment", "paid", "cancelled"].includes(state)) return;
+    throw new Error(`Invalid session state: ${state}`);
+  };
+
+  const handleScan = (item: string, cart: Record<string, number>): void => {
+    if (!(item in prices)) {
+      throw new Error("Unknown item");
+    }
+    cart[item] = (cart[item] || 0) + 1;
+  };
+
+  const handleVoid = (item: string, cart: Record<string, number>): void => {
+    if (!(item in cart)) {
+      throw new Error("Item not in cart");
+    }
+    if (cart[item] === 1) delete cart[item];
+    else cart[item]--;
+  };
+
+  const handleClose = (cart: Record<string, number>, total: number): [number, number] => {
+    if (Object.keys(cart).length === 0) {
+      throw new Error("Empty cart");
+    }
+    return [total, 0];
+  };
+
+  const payEvent = (cents: number): void => {
+    if (!isPositiveInteger(cents)) {
+      throw new Error("Invalid pay amount");
+    }
+  };
+
+  const handlePay = (cents: number, total: number, cart: Record<string, number>): [number, number] => {
+    payEvent(cents);
+    const paid = Math.min(total, cents);
+    const change = cents - paid;
+    return [total, change];
+  };
+
+  const cancelEvent = (): void => {
+    // No action needed as canceling a session ends the current state.
+  };
+
+  let state: string = "open";
+  const items: Record<string, number> = {};
+  let total = 0;
+
+  for (const event of events) {
+    if (!isValidEvent(event)) {
+      throw new Error("Invalid event");
+    }
+
+    switch (event[0]) {
+      case "scan":
+        checkState(state);
+        handleScan(event[1][0], items);
+        break;
+      case "void":
+        checkState(state);
+        handleVoid(event[1][0], items);
+        break;
+      case "close":
+        checkState(state);
+        if (state === "open") {
+          const [totalAfterClose, change] = handleClose(items, total);
+          state = "paid";
+          return { state, items: Object.entries(items).sort((a, b) => a[0].localeCompare(b[0])), total, paid: 0, change };
+        } else {
+          throw new Error("Invalid close event");
+        }
+      case "pay":
+        checkState(state);
+        if (state !== "payment") {
+          throw new Error("Invalid pay event");
+        }
+        [total, state] = handlePay(event[1][0], total, items);
+        break;
+      case "cancel":
+        cancelEvent();
+        return { state, items: [], total, paid: 0, change };
+    }
+  }
+
+  throw new Error("No legal action left for the session");
+}
+```

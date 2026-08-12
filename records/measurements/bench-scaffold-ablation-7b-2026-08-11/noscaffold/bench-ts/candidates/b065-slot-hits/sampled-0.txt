@@ -1,0 +1,34 @@
+```ts
+/**
+ * Replays a stream of integer cache keys against a direct-mapped cache with a given number of slots,
+ * all slots starting empty. Every key belongs to exactly one slot: the remainder of the key divided
+ * by the slot count, taken non-negative. A request is a hit when its slot currently holds exactly that
+ * key; otherwise it is a miss and the key takes the slot over, evicting whatever the slot held.
+ * @param keys - An array of integer cache keys to replay against the cache.
+ * @param slots - The number of slots in the direct-mapped cache.
+ * @returns The total number of hits.
+ */
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error('Invalid slot count');
+  }
+
+  const cache = Array.from({ length: slots }, () => null);
+  let hitCount = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error('Invalid key');
+    }
+
+    const index = Math.abs(key % slots);
+    if (cache[index] === key) {
+      hitCount++;
+    } else {
+      cache[index] = key;
+    }
+  }
+
+  return hitCount;
+}
+```

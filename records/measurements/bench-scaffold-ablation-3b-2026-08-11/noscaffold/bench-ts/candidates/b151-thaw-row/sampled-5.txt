@@ -1,0 +1,36 @@
+```typescript
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row.length === 0) throw new Error('Invalid input');
+  if (!/^[#.]+$/.test(row)) throw new Error('Invalid input');
+
+  const isValidStepCount = Number.isInteger(steps) && steps >= 0;
+
+  if (!isValidStepCount) throw new Error('Invalid step count');
+
+  // Convert the row into a more mutable array for easier manipulation
+  let thawedRow: string[] = Array.from(row);
+
+  while (steps > 0) {
+    for (let i = 0; i < thawedRow.length; i++) {
+      const cell = thawedRow[i];
+
+      if (cell === '#') {
+        // Check if the ice cell is at an end of the row or has meltwater beside it
+        if (
+          i === 0 ||
+          i === thawedRow.length - 1 ||
+          thawedRow[i + 1] === '.' || 
+          thawedRow[i - 1] === '.'
+        ) {
+          thawedRow[i] = '.';
+        }
+      }
+    }
+
+    // Decrease the number of steps
+    steps--;
+  }
+
+  return thawedRow.join('');
+}
+```

@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    queue = deque(sorted(callers))
+    while len(queue) > limit:
+        queue.popleft()
+    
+    return list(queue)
+```
+
+In this solution, we use a `deque` from the `collections` module to manage the queue efficiently. The `sorted()` function is used to sort the callers by arrival time, ensuring that the caller who has waited the longest moves to the end when added again. This approach ensures that the queue always contains at most the specified limit of callers.

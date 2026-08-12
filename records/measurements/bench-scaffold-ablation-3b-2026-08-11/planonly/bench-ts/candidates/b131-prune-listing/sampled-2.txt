@@ -1,0 +1,57 @@
+```typescript
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Both listing and rules must be arrays.");
+  }
+
+  const normalizePath = (path: string): string => {
+    return path.split('/').filter(segment => segment.length > 0).join('/');
+  };
+
+  const splitAndValidateRule = (rule: string): [string[], boolean] => {
+    if (!typeof rule !== 'string' || rule === '' || rule.includes('..')) {
+      throw new Error("Invalid rule.");
+    }
+    const segments = rule.split('/').filter(segment => segment.length > 0);
+    return [segments, segments[0] === '!'];
+  };
+
+  const splitAndValidatePath = (path: string): [string[], boolean] => {
+    if (!typeof path !== 'string' || path === '' || /\/\//.test(path)) {
+      throw new Error("Invalid path.");
+    }
+    const segments = path.split('/').filter(segment => segment.length > 0);
+    return [segments, false];
+  };
+
+  const matchRuleToPath = (ruleSegments: string[], pathSegments: string[]): boolean => {
+    if (ruleSegments.length === 0) return true;
+    if (pathSegments.length === 0 || ruleSegments[0] !== pathSegments[0]) return false;
+    return matchRuleToPath(ruleSegments.slice(1), pathSegments.slice(1));
+  };
+
+  const prune = (currentListing: string[], currentRules: [string[], boolean][]): string[] => {
+    if (currentRules.length === 0) return [];
+    const rule = currentRules[currentRules.length - 1];
+    const keepRule = rule[1];
+
+    return currentListing.flatMap(path => {
+      try {
+        const normalizedPath = normalizePath(path);
+        const [pathSegments, isKeep] = splitAndValidatePath(normalizedPath);
+
+        if (keepRule) {
+          return matchRuleToPath(rule[0], pathSegments) ? [normalizedPath] : [];
+        } else {
+          return matchRuleToPath(rule[0], pathSegments) ? [] : [normalizedPath];
+        }
+      } catch (error) {
+        console.error(error.message);
+        return [];
+      }
+    }).concat(prune(currentListing, currentRules.slice(0, -1)));
+  };
+
+  return prune(listing.map(normalizePath), rules.map(splitAndValidateRule));
+}
+```

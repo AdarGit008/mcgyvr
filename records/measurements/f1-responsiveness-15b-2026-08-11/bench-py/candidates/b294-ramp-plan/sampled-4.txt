@@ -1,0 +1,15 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step <= 0:
+        raise ValueError("Step must be positive")
+    elif current == target:
+        return current
+
+    return min(target, max(current + step, target - step))
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    if step <= 0:
+        raise ValueError("Step must be positive")
+
+    return [start + i * step for i in range((target - start) // step + 1)]
+```

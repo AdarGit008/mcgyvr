@@ -1,0 +1,24 @@
+```ts
+export function slotHits(keys: number[], slots: number): number {
+  if (!Array.isArray(keys) || !Number.isInteger(slots) || slots <= 0) {
+    throw new Error('Invalid input');
+  }
+
+  const cache = new Array<number>(slots).fill(-1);
+  let hits = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error('Invalid input');
+    }
+    const slot = Math.abs(key % slots);
+    if (cache[slot] === key) {
+      hits++;
+    } else {
+      cache[slot] = key;
+    }
+  }
+
+  return hits;
+}
+```

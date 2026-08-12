@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def group_batches(jobs: list, capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("each job must be a four-item list")
+    if not all(isinstance(name, str) and name for name in [job[0] for job in jobs]):
+        raise ValueError("names must be non-empty strings")
+    if not all(isinstance(group, str) and group for group in [job[1] for job in jobs]):
+        raise ValueError("groups must be non-empty strings")
+    if not all(isinstance(priority, int) for priority in [job[2] for job in jobs]):
+        raise ValueError("priorities must be integers")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for weight in [job[3] for job in jobs]):
+        raise ValueError("weights must be integers from 1 to the capacity")
+    if len(set([job[0] for job in jobs])) != len(jobs):
+        raise ValueError("duplicate job names are not allowed")
+
+    batches = []
+    current_batch = []
+    current_capacity = capacity
+
+    for job in sorted(jobs, key=lambda x: (-x[2], x[1])):
+        if current_capacity >= job[3]:
+            current_batch.append(job[0])
+            current_capacity -= job[3]
+        else:
+            batches.append(current_batch)
+            current_batch = [job[0]]
+            current_capacity = capacity - job[3]
+
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
+```

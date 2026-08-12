@@ -1,0 +1,39 @@
+```python
+# No imports required
+
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    Examples:
+    >>> plural_of("apple")
+    "apples"
+    >>> plural_of("ox")
+    "oxen"
+    >>> plural_of("sky")
+    "skies"
+
+    Note:
+    - Irregular nouns such as "y" ending words are handled.
+      For example, "boy" becomes "boys", and "city" becomes "cities".
+    """
+    if not noun:
+        raise ValueError("Input must be a non-empty string")
+
+    # Handle irregular nouns
+    irregular_nouns = {"y": "ies"}
+    if noun[-1] in irregular_nouns:
+        return noun[:-1] + irregular_nouns[noun[-1]]
+
+    # Handle other nouns
+    suffixes = {"s", "x", "ch", "sh"}
+    if noun[-1] in suffixes:
+        return noun + "es"
+    else:
+        return noun + "s"
+
+# Example usage
+print(plural_of("apple"))  # Output: apples
+print(plural_of("ox"))   # Output: oxen
+print(plural_of("sky"))   # Output: skies
+```

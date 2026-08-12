@@ -1,0 +1,37 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+  const isDefinedUnit = (u: string): boolean => Object.keys(defs).includes(u);
+  
+  function convertToBase(unit: string, amount: number): number {
+    if (!isDefinedUnit(unit)) {
+      throw new Error(`unit ${unit} is not defined`);
+    }
+    const [factor, finer] = defs[unit];
+    if (typeof factor !== 'number' || !Number.isInteger(factor) || factor <= 0) {
+      throw new Error(`invalid factor for unit ${unit}`);
+    }
+    return amount * factor;
+  }
+
+  function unwindChain(unit: string): number {
+    let currentAmount = amount;
+    while (unit !== base) {
+      const [factor, finer] = defs[unit];
+      if (!isDefinedUnit(finer)) {
+        throw new Error(`chain for unit ${unit} loops`);
+      }
+      if (typeof factor !== 'number' || !Number.isInteger(factor) || factor <= 0) {
+        throw new Error(`invalid factor for unit ${unit}`);
+      }
+      currentAmount = convertToBase(unit, currentAmount);
+      unit = finer;
+    }
+    return currentAmount;
+  }
+
+  return unwindChain(unit);
+}
+```

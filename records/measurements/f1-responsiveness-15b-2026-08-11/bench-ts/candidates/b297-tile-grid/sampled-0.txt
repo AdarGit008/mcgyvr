@@ -1,0 +1,16 @@
+```ts
+function tilesAcross(length: number, tile: number): number {
+  const quotient = Math.floor(length / tile);
+  return quotient + (length % tile !== 0 ? 1 : 0);
+}
+
+function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  const totalLength = width * height;
+  let remainingTiles = totalLength - spare;
+  for (let i = tile; i < totalLength; i += tile) {
+    if (tilesAcross(i, tile) > remainingTiles) break;
+    remainingTiles -= tilesAcross(i, tile);
+  }
+  return Math.ceil(remainingTiles / tile);
+}
+```

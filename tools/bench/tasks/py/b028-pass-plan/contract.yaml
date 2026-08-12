@@ -1,0 +1,53 @@
+id: b028-pass-plan
+task_type: function_implementation
+task: >-
+  Implement cheapest_pass_plan. The first argument lists the calendar days on
+  which trips happen, as strictly increasing positive integers; the second
+  lists the pass kinds on sale, each a mapping with span (how many
+  consecutive days the pass covers, counted from the day it starts) and
+  cost. A pass starting on day d covers days d through d plus span minus 1,
+  any number of passes may be bought, and every trip day must fall inside
+  at least one bought pass. Return a mapping with total, the smallest
+  amount that covers every trip day, and purchases, the [start day, span]
+  pairs of one cheapest plan in increasing start-day order, where each
+  purchase starts on the earliest trip day not yet covered and, when
+  several pass kinds tie for a cheapest plan at such a day, the one listed
+  first is bought. An empty trip list yields total 0 and no purchases.
+  Reject with an error: a trip day that is not a positive integer, trip
+  days not strictly increasing, an empty pass list, a span that is not a
+  positive integer, and a cost that is not a non-negative integer.
+target: solution.py
+target_content: |
+  """The cheapest set of travel passes covering every trip day."""
+
+
+  def _validate_plan(trip_days, passes):
+      for day in trip_days:
+          if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+              raise ValueError("trip days must be positive integers")
+      for earlier, later in zip(trip_days, trip_days[1:]):
+          if later <= earlier:
+              raise ValueError("trip days must be strictly increasing")
+      if not passes:
+          raise ValueError("at least one pass kind is required")
+      for cover in passes:
+          span = cover["span"]
+          cost = cover["cost"]
+          if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+              raise ValueError("pass span must be a positive integer")
+          if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+              raise ValueError("pass cost must be a non-negative integer")
+
+
+  def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+      _validate_plan(trip_days, passes)
+      # TODO: find the cheapest combination of passes covering every trip
+      # day and reconstruct its purchases in increasing start-day order.
+      raise NotImplementedError
+interface: "def cheapest_pass_plan(trip_days: list, passes: list) -> dict"
+stop_conditions:
+  - Whether the same pass kind may be listed twice is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

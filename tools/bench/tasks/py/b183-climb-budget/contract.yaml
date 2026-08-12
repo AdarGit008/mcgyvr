@@ -1,0 +1,20 @@
+id: b183-climb-budget
+task_type: function_implementation
+task: >-
+  Implement climb_budget. A scaffold's toll board lists what it costs to
+  stand on each rung, bottom rung first, every toll written as a run of
+  ASCII digits. A climber starts on the ground below the scaffold and each
+  move steps onto the next rung up or skips exactly one rung; the climb ends
+  once the climber is above the top rung. Pay the toll of every rung stood
+  on and return the cheapest total; an empty board costs 0, and a board of
+  one rung costs 0 because that rung can be skipped. Reject a toll that is
+  not written as digits and a toll carrying a leading zero, naming the
+  offending rung's position counting from 0, with an error.
+target: solution.py
+interface: "def climb_budget(tolls: list) -> int"
+stop_conditions:
+  - Whether the board may list more rungs than a climber could ever pay for is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

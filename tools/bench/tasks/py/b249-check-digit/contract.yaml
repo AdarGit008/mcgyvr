@@ -1,0 +1,16 @@
+id: b249-check-digit
+task_type: function_implementation
+task: >-
+  Implement check_digit. Add up the digits of a code and return
+  whatever single digit would have to follow them to bring that total
+  up to a multiple of ten. A code with no digits at all needs a zero.
+  Reject a code carrying any character that is not a digit with an
+  error.
+target: solution.py
+interface: "def check_digit(code: str) -> int"
+stop_conditions:
+  - Whether digits in some positions should be weighted more heavily is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

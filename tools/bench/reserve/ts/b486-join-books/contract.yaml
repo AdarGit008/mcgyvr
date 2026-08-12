@@ -1,0 +1,15 @@
+id: b486-join-books
+task_type: function_implementation
+task: >-
+  Implement joinBooks. Bring two books of entries together into one.
+  Where a name stands in both and carries the same reading, the one
+  reading is kept. Reject a name standing in both under different
+  readings with an error.
+target: solution.ts
+interface: "export function joinBooks(first: Record<string, number>, second: Record<string, number>): Record<string, number>"
+stop_conditions:
+  - Whether the order the names come back in should follow the first book is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

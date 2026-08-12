@@ -1,0 +1,19 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length");
+  }
+
+  const meters = Math.floor(mm / 1000);
+  mm %= 1000;
+  const centimeters = Math.floor(mm / 10);
+  mm %= 10;
+
+  let result: string[] = [];
+  if (meters > 0) result.push(`${meters}m`);
+  if (centimeters > 0) result.push(`${centimeters}cm`);
+  if (mm > 0 || result.length === 0) result.push(`${mm}mm`);
+
+  return result.join(" ");
+}
+```

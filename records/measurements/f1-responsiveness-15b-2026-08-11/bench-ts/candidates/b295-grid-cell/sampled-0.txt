@@ -1,0 +1,22 @@
+```ts
+export function cellName(row: number, column: number): string {
+  if (row < 0 || row >= 1048576) throw new Error('row out of bounds');
+  if (column < 0 || column >= 26) throw new Error('column out of bounds');
+
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return alphabet[column] + (row + 1);
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows < 0 || rows > 1048576) throw new Error('rows out of bounds');
+  if (columns < 0 || columns > 26) throw new Error('columns out of bounds');
+
+  const result: string[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      result.push(cellName(row, col));
+    }
+  }
+  return result;
+}
+```

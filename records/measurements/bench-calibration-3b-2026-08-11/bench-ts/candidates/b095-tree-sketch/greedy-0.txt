@@ -1,0 +1,35 @@
+```ts
+export function drawTreeLines(root: object): string[] {
+  if (typeof root !== 'object' || !Array.isArray(root.children)) {
+    throw new Error('Invalid input');
+  }
+
+  const result: string[] = [];
+  const queue: { node: any, depth: number }[] = [{ node: root, depth: 0 }];
+
+  while (queue.length > 0) {
+    const { node, depth } = queue.shift()!;
+    if (!node.name || typeof node.name !== 'string' || /\n/.test(node.name)) {
+      throw new Error('Invalid input');
+    }
+
+    let connector = '';
+    for (let i = 0; i < depth; i++) {
+      connector += '|   ';
+    }
+    if (depth > 0) {
+      connector += node.children.length > 1 ? '-- ' : "'-- ";
+    } else {
+      connector += node.name;
+    }
+
+    result.push(connector);
+
+    for (const child of node.children) {
+      queue.push({ node: child, depth: depth + 1 });
+    }
+  }
+
+  return result;
+}
+```

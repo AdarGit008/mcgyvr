@@ -1,0 +1,32 @@
+```ts
+/**
+ * Explodes a kit into its base parts.
+ * @param catalog - A record mapping kit names to their recipes.
+ * @param kit - The name of the kit to explode.
+ * @param want - The number of units of the kit to produce.
+ * @returns A record mapping each base part to the total count consumed.
+ */
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (want <= 0) {
+        throw new Error("Cannot produce zero or negative units of a kit.");
+    }
+
+    const result: Record<string, number> = {};
+
+    function explode(kitName: string, quantity: number): void {
+        const recipe = catalog[kitName];
+        if (!recipe) {
+            throw new Error(`Kit "${kitName}" is not defined in the catalog.`);
+        }
+
+        const runs = Math.ceil(quantity / recipe.makes);
+        for (const [part, count] of recipe.parts) {
+            result[part] = (result[part] || 0) + count * runs;
+        }
+    }
+
+    explode(kit, want);
+
+    return result;
+}
+```

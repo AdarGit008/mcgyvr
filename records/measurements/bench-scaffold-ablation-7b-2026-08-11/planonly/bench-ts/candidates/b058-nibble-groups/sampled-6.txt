@@ -1,0 +1,14 @@
+```ts
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) throw new Error("Invalid value");
+  if (width % 4 !== 0 || width > 32) throw new Error("Invalid width");
+
+  const binaryString = value.toString(2).padStart(width, '0');
+  let result = '';
+  for (let i = 0; i < binaryString.length; i += 4) {
+    if (i > 0) result += ' ';
+    result += binaryString.substring(i, i + 4);
+  }
+  return result;
+}
+```

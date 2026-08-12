@@ -1,0 +1,50 @@
+```python
+from typing import *
+
+def parse_span(text: str) -> int:
+    def parse_part(part: str) -> int:
+        if part == "":
+            raise ValueError("Missing value in span")
+        
+        parts = part.split(' ')
+        if len(parts) != 2 or not parts[0].isdigit() or parts[1] not in ['yd', 'ft', 'in']:
+            raise ValueError("Invalid span format")
+        
+        return int(parts[0]) * {'yd': 36, 'ft': 12, 'in': 1}[parts[1]]
+    
+    if text == "":
+        raise ValueError("Empty span")
+    
+    try:
+        parts = text.split()
+        if len(parts) % 2 != 1 or any(p not in ['yd', 'ft', 'in'] for p in parts[-1::-2]):
+            raise ValueError("Invalid unit order or repeated units")
+        
+        return sum(parse_part(part) for part in zip(parts[:-1], parts[1:]))
+    
+    except (ValueError, IndexError):
+        raise ValueError("Invalid span format")
+
+def format_span(inches: int) -> str:
+    if inches < 0:
+        raise ValueError("Negative inches not allowed")
+    
+    units = [('yd', 36), ('ft', 12), ('in', 1)]
+    result = []
+    
+    for unit, multiplier in units:
+        value = inches // multiplier
+        inches %= multiplier
+        
+        if value > 0 or result or unit == 'in':
+            result.append(f"{value}{unit}")
+    
+    return " ".join(result)
+
+def add_spans(first: str, second: str) -> str:
+    first_inches = parse_span(first)
+    second_inches = parse_span(second)
+    
+    total_inches = first_inches + second_inches
+    return format_span(total_inches)
+```

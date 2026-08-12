@@ -1,0 +1,29 @@
+id: b492-find-mark
+task_type: bug_fix
+task: >-
+  find_mark looks for a mark in a run already standing in order,
+  halving the stretch it has left to search at every step. It reports
+  where the mark stands, counting from zero, and reports minus one
+  where the run does not hold it at all. Fix find_mark. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def find_mark(ordered: list[int], mark: int) -> int:
+      low = 0
+      high = len(ordered) - 1
+      while low <= high:
+          mid = (low + high) // 2
+          if ordered[mid] == mark:
+              return mid
+          if ordered[mid] < mark:
+              low = mid + 1
+          else:
+              high = mid - 1
+      return low
+interface: "def find_mark(ordered: list[int], mark: int) -> int"
+stop_conditions:
+  - Whether a run holding the mark twice should report the earlier place is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

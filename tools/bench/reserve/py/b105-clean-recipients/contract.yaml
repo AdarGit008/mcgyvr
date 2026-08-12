@@ -1,0 +1,39 @@
+id: b105-clean-recipients
+task_type: bug_fix
+task: >-
+  clean_recipients tidies a mailing list into canonical recipient
+  addresses incorrectly. Fix it: each entry is trimmed of surrounding
+  whitespace, and an entry in display form — any text, then an address
+  between one < and one >, the > being the final character and the
+  brackets neither empty nor out of order — keeps only its bracketed
+  address, itself trimmed; at present display entries pass through whole.
+  The address splits at its @ into a local part and a domain; the domain
+  is lowercased while the local part keeps its case — at present the
+  entire address is lowercased. Entries return in arrival order with
+  duplicates dropped: two addresses are duplicates when they match
+  case-insensitively, the first arrival wins, and at present only
+  immediately consecutive repeats are caught. Also add the missing
+  validation: reject an argument that is not a list, an entry that is not
+  a string, a display entry breaking the bracket rules above, an address
+  with inner whitespace, without exactly one @, with an empty local part,
+  or whose domain is empty, has no dot, or starts or ends with a dot,
+  with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Tidy a mailing list into canonical recipient addresses."""
+
+
+  def clean_recipients(raw):
+      cleaned = []
+      for entry in raw:
+          address = entry.strip().lower()
+          if not cleaned or cleaned[-1] != address:
+              cleaned.append(address)
+      return cleaned
+interface: "def clean_recipients(raw: list) -> list"
+stop_conditions:
+  - Whether a quoted local part may legally hold spaces or a second @ is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

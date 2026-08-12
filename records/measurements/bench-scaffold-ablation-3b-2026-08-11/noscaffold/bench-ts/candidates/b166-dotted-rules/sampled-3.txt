@@ -1,0 +1,30 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || !rules || typeof name !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+  const parts = name.split('.');
+  let bestMatch: [string, string] | undefined;
+  
+  for (const part of parts) {
+    if (!part || part !== '*' && part.includes('.')) {
+      throw new Error('Invalid argument');
+    }
+    
+    if (part === '*') {
+      if (bestMatch) continue; // Already found a better match
+      bestMatch = ['*', ''];
+    } else {
+      const key = parts.slice(0, parts.indexOf(part)).join('.');
+      for (const [selector, value] of Object.entries(rules)) {
+        if (selector.startsWith(key + '.') && selector.endsWith('.*')) {
+          bestMatch = [selector, value];
+          break;
+        }
+      }
+    }
+  }
+  
+  return bestMatch ? bestMatch[1] : null;
+}
+```

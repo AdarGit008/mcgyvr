@@ -1,0 +1,45 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) {
+    throw new Error("Grid must have at least one row and one cell.");
+  }
+
+  for (const row of grid) {
+    if (row.length !== grid[0].length) {
+      throw new Error("All rows in the grid must have the same length.");
+    }
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("All cells in the grid must be integers.");
+      }
+    }
+  }
+
+  if (queries.some(query => query.length !== 4)) {
+    throw new Error("Each query must consist of exactly four integers.");
+  }
+
+  const prefixSumTable: number[][] = Array.from({ length: grid.length + 1 }, () =>
+    Array(grid[0].length + 1).fill(0)
+  );
+
+  for (let i = 1; i <= grid.length; i++) {
+    for (let j = 1; j <= grid[0].length; j++) {
+      prefixSumTable[i][j] =
+        grid[i - 1][j - 1] + prefixSumTable[i - 1][j] + prefixSumTable[i][j - 1] - prefixSumTable[i - 1][j - 1];
+    }
+  }
+
+  return queries.map(([top, left, bottom, right]) => {
+    if (top >= bottom || left >= right) {
+      throw new Error("Invalid query: top must be less than bottom and left must be less than right.");
+    }
+    if (bottom > grid.length || right > grid[0].length) {
+      throw new Error("Query reaches outside the grid.");
+    }
+    return (
+      prefixSumTable[bottom][right] - prefixSumTable[top][right] - prefixSumTable[bottom][left] + prefixSumTable[top][left]
+    );
+  });
+}
+```

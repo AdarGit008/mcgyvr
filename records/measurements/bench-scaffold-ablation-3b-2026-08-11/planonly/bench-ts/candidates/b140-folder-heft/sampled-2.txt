@@ -1,0 +1,81 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  function walk(node: any, path: string) {
+    if (typeof node !== 'object' || Array.isArray(node)) {
+      throw new Error('Invalid node type');
+    }
+    for (const [name, value] of Object.entries(node)) {
+      if (!/^[a-zA-Z]+$/.test(name)) {
+        throw new Error('Path contains invalid character');
+      }
+      const fullPath = path ? `${path}/${name}` : name;
+      paths.push(fullPath);
+      if (typeof value === 'object' && !Array.isArray(value) && value) {
+        walk(value, fullPath);
+      } else if (typeof value === 'number') {
+        paths.push(`${fullPath}(size=${value})`);
+      }
+    }
+  }
+  walk(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  let totalBytes = 0;
+  const walk = (node: any) => {
+    if (typeof node !== 'object' || Array.isArray(node)) {
+      throw new Error('Invalid node type');
+    }
+    for (const value of Object.values(node)) {
+      if (typeof value === 'number') {
+        totalBytes += value;
+      } else if (typeof value === 'object' && !Array.isArray(value) && value) {
+        walk(value);
+      }
+    }
+  };
+  walk(root);
+  return totalBytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+  
+  const results: [string, number][] = [];
+  let currentFolderSize = 0;
+  let currentFolderPath = '';
+
+  function walk(node: any, path: string) {
+    if (typeof node !== 'object' || Array.isArray(node)) {
+      throw new Error('Invalid node type');
+    }
+    for (const [name, value] of Object.entries(node)) {
+      if (!/^[a-zA-Z]+$/.test(name)) {
+        throw new Error('Path contains invalid character');
+      }
+      const fullPath = path ? `${path}/${name}` : name;
+      currentFolderPath = fullPath;
+
+      if (typeof value === 'number') {
+        currentFolderSize += value;
+      } else if (typeof value === 'object' && !Array.isArray(value) && value) {
+        walk(value, fullPath);
+      }
+
+      // Check if the current folder has reached or exceeded minBytes
+      if (currentFolderSize >= minBytes) {
+        results.push([currentFolderPath, currentFolderSize]);
+        currentFolderSize = 0;
+      }
+    }
+  }
+
+  walk(root, '');
+  
+  return results;
+}
+```

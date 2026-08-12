@@ -1,0 +1,32 @@
+```python
+import re
+
+def split_strict(s: str) -> list:
+    if not isinstance(s, str):
+        raise ValueError("Path or rule must be a string")
+    if s in ("", "/", "//"):
+        raise ValueError("Path or rule cannot be empty or contain consecutive slashes")
+    return [segment for segment in s.split('/') if segment]
+
+def prune_listing(listing: list, rules: list) -> list:
+    def match_rule(path_segments: list, rule_segments: list) -> bool:
+        for path_segment, rule_segment in zip(path_segments, rule_segments):
+            if rule_segment == "*":
+                continue
+            if rule_segment != path_segment:
+                return False
+        return True
+
+    def is_keep_rule(rule: str) -> bool:
+        return not rule.startswith('!')
+
+    def apply_rules(path: str, rules: list) -> bool:
+        path_segments = split_strict(path)
+        for rule in rules:
+            rule_segments = split_strict(rule[1:] if rule.startswith('!') else rule)
+            if match_rule(path_segments, rule_segments):
+                return is_keep_rule(rule)
+        return False
+
+    return [path for path in listing if apply_rules(path, rules)]
+```

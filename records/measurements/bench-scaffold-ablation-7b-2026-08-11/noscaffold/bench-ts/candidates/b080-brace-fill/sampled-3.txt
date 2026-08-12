@@ -1,0 +1,37 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+    if (typeof template !== 'string') {
+        throw new Error('Template must be a string');
+    }
+
+    let result = '';
+    let i = 0;
+    const n = template.length;
+
+    while (i < n) {
+        if (template[i] === '{' && i + 1 < n && template[i + 1] !== '}') {
+            let j = i + 1;
+            while (j < n && /[a-zA-Z\d_]/.test(template[j])) {
+                j++;
+            }
+            if (j === i + 1 || template[j] !== '}') {
+                throw new Error('Invalid placeholder');
+            }
+            const key = template.slice(i + 1, j);
+            if (!values.hasOwnProperty(key)) {
+                throw new Error(`Missing value for placeholder ${key}`);
+            }
+            result += values[key];
+            i = j + 1;
+        } else {
+            if (template[i] === '}') {
+                throw new Error('Single closing brace');
+            }
+            result += template[i];
+            i++;
+        }
+    }
+
+    return result;
+}
+```

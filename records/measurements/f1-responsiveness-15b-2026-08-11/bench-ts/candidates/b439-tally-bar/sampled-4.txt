@@ -1,0 +1,14 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+  if (width === undefined || count >= width) return ' ';
+  
+  let result = '';
+  for (let i = 0; i < Math.min(count, width); i++) {
+    result += '#';
+  }
+  
+  if (count < width) result += '<';
+  
+  return result;
+}
+```

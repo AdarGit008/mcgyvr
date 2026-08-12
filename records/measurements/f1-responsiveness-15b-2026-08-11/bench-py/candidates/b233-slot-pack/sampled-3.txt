@@ -1,0 +1,16 @@
+```python
+from typing import *
+
+def slot_pack(items: List[int], capacity: int) -> List[List[int]]:
+    """Group items into slots of a fixed capacity, in order."""
+    if not items or capacity <= 0:
+        return []
+    
+    slots = []
+    for i in range(0, len(items), capacity):
+        # Ensure the slice does not exceed the length of the list
+        slot = items[i : min(i + capacity, len(items)) + 1]
+        slots.append(slot)
+    
+    return slots
+```

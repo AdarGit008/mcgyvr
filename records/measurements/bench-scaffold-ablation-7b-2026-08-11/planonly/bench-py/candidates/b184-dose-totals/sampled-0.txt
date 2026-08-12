@@ -1,0 +1,31 @@
+```python
+from decimal import Decimal, getcontext
+
+def dose_totals(log: list) -> dict:
+    if not log:
+        return {}
+    
+    reagent_totals = {}
+    max_places = 0
+    
+    for reagent, amount_str in log:
+        try:
+            amount = Decimal(amount_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid amount '{amount_str}': {e}")
+        
+        if reagent not in reagent_totals:
+            reagent_totals[reagent] = Decimal('0')
+        
+        reagent_totals[reagent] += amount
+        max_places = max(max_places, amount.as_tuple().exponent)
+    
+    formatted_totals = {}
+    for reagent, total in reagent_totals.items():
+        total_str = str(total.quantize(Decimal(f'1{"0" * -max_places}')))
+        if len(total_str) > 2 and total_str[-3] == '.' and total_str[-2:] == '00':
+            total_str = total_str[:-3]
+        formatted_totals[reagent] = total_str
+    
+    return formatted_totals
+```

@@ -1,0 +1,28 @@
+id: b031-harvest-lots
+task_type: function_implementation
+task: >-
+  Implement pick_harvest_lots. The inputs are storage lots, each a [name,
+  expiryDay, unitCost, quantity] quadruple with the cost in integer cents,
+  an order quantity, a per-lot cap, and the current day. A lot is usable
+  only when its expiry day is strictly after the current day. Fill the
+  order from usable lots earliest expiry first, breaking ties by lower
+  unit cost and then by name; take from each lot at most the cap and at
+  most what it holds, and stop once the order is filled, so the final
+  take may be partial. Return a mapping with picks, the [name, taken]
+  pairs in take order; cost, the cents spent; shortfall, the ordered
+  quantity left unfilled; skipped, the names of unusable lots in input
+  order; and leftovers, the [name, remaining] pairs for usable lots with
+  stock left, in the same order the lots were considered. Reject a lot
+  that is not such a quadruple, a lot name that is not a non-empty
+  string, a repeated lot name, an expiry day or current day that is not
+  an integer, a unit cost that is not a non-negative integer, a lot
+  quantity that is not a positive integer, and an order quantity or
+  per-lot cap that is not a positive integer, with an error.
+target: solution.py
+interface: "def pick_harvest_lots(lots: list, needed: int, cap: int, today: int) -> dict"
+stop_conditions:
+  - Whether boolean values count as integers is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

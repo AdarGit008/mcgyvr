@@ -1,0 +1,22 @@
+```python
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    """How many full tiles of size `tile` cover `length`, rounding up."""
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """Calculate the total number of tiles needed for a wall of width `width`
+    and height `height`, including a whole-percent allowance for breakages.
+    
+    :param width: The width of the wall in tiles.
+    :param height: The height of the wall in tiles.
+    :param tile: The size of each tile in tiles.
+    :param spare: A percentage (0-100) representing the percentage of each tile allowed to breakage.
+    """
+    total_tiles = width * height
+    # Calculate the total number of tiles needed, including a whole-percent allowance for breakages
+    total_tiles_with_allowance = ceil((total_tiles - spare / 100) / (tile * (1 + spare / 100)))
+    
+    return total_tiles_with_allowance
+```

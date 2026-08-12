@@ -1,0 +1,15 @@
+```ts
+export function checkDigit(code: string): number {
+  if (code === "") return 0;
+
+  const digits = Array.from(code).filter(char => char >= "0" && char <= "9");
+  if (!digits.length) throw new Error("Invalid code");
+
+  let sum = 0;
+  for (const digit of digits) {
+    sum += parseInt(digit, 10);
+  }
+
+  return ((sum % 10 + 10) % 10);
+}
+```

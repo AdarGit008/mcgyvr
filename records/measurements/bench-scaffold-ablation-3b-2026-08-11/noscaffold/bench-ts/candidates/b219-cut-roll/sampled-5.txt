@@ -1,0 +1,30 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative integer');
+  }
+
+  // Sort the board by price in descending order
+  board.sort((a, b) => b[1] - a[1]);
+
+  const cut: Cut = { takings: 0, pieces: [] };
+
+  for (const piece of board) {
+    if (piece[0] <= length) {
+      // Calculate the profit from cutting this piece
+      const profit = piece[1];
+      // Update the roll length and take the profit
+      length -= piece[0];
+      cut.takings += profit;
+      cut.pieces.push(piece[0]);
+    } else {
+      // If no more pieces fit, break early
+      break;
+    }
+  }
+
+  return cut;
+}
+
+type Cut = { takings: number, pieces: number[] };
+```

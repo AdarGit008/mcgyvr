@@ -1,0 +1,15 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    
+    if not (isinstance(width, int) and width > 0 and width % 4 == 0 and width <= 32):
+        raise ValueError("Width must be a positive multiple of four and at most 32 bits.")
+    
+    bit_representation = bin(value)[2:]  # Convert to binary string
+    if len(bit_representation) > width:
+        raise ValueError("Value does not fit in the specified width.")
+    
+    nibble_groups = [bit_representation[i:i+4] for i in range(0, len(bit_representation), 4)]
+    return ' '.join(nibble_groups)
+```

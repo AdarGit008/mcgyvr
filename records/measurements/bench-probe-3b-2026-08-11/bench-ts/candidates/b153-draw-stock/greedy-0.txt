@@ -1,0 +1,19 @@
+```ts
+export function drawStock(shelf: Record<string, number>, order: [string, number][]): Record<string, number> {
+  if (!Array.isArray(order)) throw new Error("Order must be a list of [item, count] lines.");
+  
+  const result = { ...shelf };
+  
+  for (const [item, count] of order) {
+    if (typeof item !== "string") throw new Error("Item name must be a string.");
+    if (!Number.isInteger(count) || count <= 0) throw new Error("Count must be a positive whole number.");
+    
+    if (!(item in result)) throw new Error(`Shelf does not hold ${item}.`);
+    if (result[item] < count) throw new Error(`Not enough ${item} on shelf.`);
+    
+    result[item] -= count;
+  }
+  
+  return result;
+}
+```

@@ -1,0 +1,24 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Leg distance must be greater than zero.")
+    
+    pace = seconds // kilometres
+    return pace
+
+def pace_list(legs: list) -> list:
+    if not legs:
+        raise ValueError("List of legs cannot be empty.")
+    
+    for index, (seconds, kilometres) in enumerate(legs):
+        if kilometres <= 0:
+            raise ValueError(f"Leg at index {index} must have a distance greater than zero.")
+        
+        pace = seconds // kilometres
+        if pace == 0:
+            raise ValueError("Leg at index {index} covers no ground. This is an error.")
+        
+        legs[index] = (seconds, kilometres, pace)
+    
+    return legs
+```

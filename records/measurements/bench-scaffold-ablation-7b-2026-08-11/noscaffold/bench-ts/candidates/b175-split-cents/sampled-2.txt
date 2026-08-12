@@ -1,0 +1,25 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error('Total must be a non-negative integer');
+  }
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Weights must be a non-empty array of positive integers');
+  }
+
+  const sumWeights = weights.reduce((acc, weight) => acc + weight, 0);
+  const fractionalParts = weights.map(weight => (weight / sumWeights) * total).map(Math.floor);
+  let remainingCents = total - fractionalParts.reduce((acc, part) => acc + part, 0);
+
+  const result = [];
+  for (let i = 0; i < weights.length; i++) {
+    result.push(fractionalParts[i] + (remainingCents > 0 ? 1 : 0));
+    if (result[i] > total) {
+      throw new Error('Cannot split the takings exactly with the given weights');
+    }
+    remainingCents--;
+  }
+
+  return result;
+}
+```

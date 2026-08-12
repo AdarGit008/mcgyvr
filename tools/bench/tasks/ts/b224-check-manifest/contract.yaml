@@ -1,0 +1,22 @@
+id: b224-check-manifest
+task_type: function_implementation
+task: >-
+  Implement checkManifest. One line of a shipping manifest arrives as a
+  mapping and is vetted before it is filed. The line may carry only the
+  keys sku, count and note. The sku is a non-empty string, filed
+  uppercased with the spaces at its two ends removed; the count is a
+  positive whole number, filed as it stands; the note is a string filed
+  exactly as given, and when the key is absent it files as the empty
+  string. Return a fresh mapping holding exactly sku, count and note,
+  leaving the mapping handed in untouched. Reject a key outside those
+  three, an sku that is not a string or that is blank once its ends are
+  trimmed, a count that is not a positive whole number, and a note that
+  is not a string, with an error.
+target: solution.ts
+interface: "export function checkManifest(line: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether the spacing inside an sku is squeezed the way its ends are is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

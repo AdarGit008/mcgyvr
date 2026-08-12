@@ -1,0 +1,45 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("sheets must be a list")
+    
+    report = []
+    total_sold = 0
+    total_returned = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("sheet must be a string")
+        
+        rows = sheet.split('\n')
+        for row in rows:
+            fields = row.strip().split('|')
+            
+            if len(fields) != 3:
+                raise ValueError("row must have exactly three fields")
+            
+            item, sold, returned = fields
+            
+            if not item or not sold.isdigit() or not returned.isdigit():
+                raise ValueError("item name, sold, and returned must be strings of decimal digits")
+            
+            sold = int(sold)
+            returned = int(returned)
+            
+            net_count = sold - returned
+            total_sold += sold
+            total_returned += returned
+            
+            report.append(f"{item:>{max(len(item) for item in set(report))}}  {net_count}")
+    
+    if not report:
+        return ""
+    
+    word_total = len(" ".join(set(report)))
+    total_net = total_sold - total_returned
+    
+    trailer = f"{word_total:>{max(len(word_total) for item in set(report))}}  {total_net}"
+    report.append(trailer)
+    
+    return "\n".join(report)
+```

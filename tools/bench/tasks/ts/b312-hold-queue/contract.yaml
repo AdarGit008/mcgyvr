@@ -1,0 +1,16 @@
+id: b312-hold-queue
+task_type: function_implementation
+task: >-
+  Implement holdQueue. A hold list keeps at most a stated number of
+  callers, and adding one beyond that drops whoever has waited
+  longest. Given the callers in the order they arrived and the limit,
+  return the list as it stands at the end. Reject a limit of zero or
+  less with an error.
+target: solution.ts
+interface: "export function holdQueue(callers: string[], limit: number): string[]"
+stop_conditions:
+  - Whether a caller already on the list should move to the end when added again is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

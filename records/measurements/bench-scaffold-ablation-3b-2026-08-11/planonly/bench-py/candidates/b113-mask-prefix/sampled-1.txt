@@ -1,0 +1,38 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int):
+        raise ValueError("Prefix must be an integer.")
+    if prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be between 0 and 32.")
+    
+    # Create a mask string with the specified number of leading ones
+    mask = '255' * (prefix // 8)
+    remainder = prefix % 8
+    
+    if remainder != 0:
+        mask += '.' + '255' * (7 - remainder) + '.' + '0' * remainder
+    
+    return mask
+
+def prefix_from_mask(mask: str) -> int:
+    # Split the mask string into four octet fields
+    parts = mask.split('.')
+    
+    if len(parts) != 4:
+        raise ValueError("Invalid mask format. Must have exactly four fields.")
+    
+    count_of_ones = 0
+    
+    for part in parts:
+        if not part.isdigit() or (part.startswith('0') and len(part) > 1):
+            raise ValueError("Invalid octet in mask.")
+        
+        value = int(part)
+        if value < 0 or value > 255:
+            raise ValueError("Octets must be between 0 and 255.")
+        
+        # Count the number of leading ones in this octet
+        count_of_ones += bin(value).count('1')
+    
+    return count_of_ones
+```

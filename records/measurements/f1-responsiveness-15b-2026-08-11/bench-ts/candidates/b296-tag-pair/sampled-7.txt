@@ -1,0 +1,13 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^[<>]/.test(marker)) {
+    throw new Error("Marker must be wrapped in angle brackets");
+  }
+  const name = marker.replace(/\/$/, "");
+  return name[0] === "/" ? name.slice(1) : name;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  return opening === closing;
+}
+```

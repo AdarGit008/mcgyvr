@@ -1,0 +1,21 @@
+id: b143-drive-bridge
+task_type: function_implementation
+task: >-
+  Implement drive_bridge. A canal drawbridge answers four commands: raise
+  lifts a lowered span, lower drops a raised span, lock pins a raised span
+  against wind, and unlock frees a locked span back to raised. The span
+  starts lowered, and each state allows only its own commands: a lowered
+  span allows only raise, a raised span only lower or lock, a locked span
+  only unlock. Apply the commands in order and return the final state as
+  one of the words lowered, raised or locked; no commands leaves the span
+  lowered. Reject a commands argument that is not a list, a command that
+  is not one of the four words, and a command the current state does not
+  allow, with an error.
+target: solution.py
+interface: "def drive_bridge(commands: list) -> str"
+stop_conditions:
+  - Whether command words compare case-sensitively is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

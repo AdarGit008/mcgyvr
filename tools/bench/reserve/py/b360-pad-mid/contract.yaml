@@ -1,0 +1,16 @@
+id: b360-pad-mid
+task_type: function_implementation
+task: >-
+  Implement pad_side and pad_mid. pad_side returns a run of a given
+  number of spaces, or empty text when that number is nothing or less.
+  pad_mid centres a word in a field of a stated width, giving the
+  extra space to the right when it cannot be shared evenly.
+target: solution.py
+interface: "def pad_side(count: int) -> str
+def pad_mid(word: str, width: int) -> str"
+stop_conditions:
+  - Whether a word wider than the field should be cut down is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

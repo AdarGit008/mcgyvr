@@ -1,0 +1,64 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p, t, star, mark = 0, 0, -1, 0
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def matches_pattern(path: str, rule: str) -> bool:
+        path_segments = split_strict(path, "path")
+        rule_segments = split_strict(rule, "rule")
+        if len(path_segments) != len(rule_segments):
+            return False
+        for p_segment, r_segment in zip(path_segments, rule_segments):
+            if p_segment == "*" or r_segment == "*":
+                continue
+            elif not segment_fits(r_segment, p_segment):
+                return False
+        return True
+
+    surviving_paths = []
+    rule_iter = iter(rules)
+    try:
+        for path in listing:
+            current_rule = next(rule_iter)
+            while current_rule.startswith("!"):
+                current_rule = next(rule_iter)
+            if (
+                isinstance(path, str) and
+                path != "" and
+                matches_pattern(path, current_rule)
+            ):
+                surviving_paths.append(path)
+                break
+    except StopIteration:
+        # If there are no keep rules left
+        surviving_paths.extend(listing)
+    return surviving_paths
+```

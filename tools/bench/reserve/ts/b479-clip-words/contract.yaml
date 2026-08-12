@@ -1,0 +1,16 @@
+id: b479-clip-words
+task_type: function_implementation
+task: >-
+  wordShort cuts one word down to a width, marking a cut word with a
+  closing dot. clipWords cuts every word in a run that way and joins
+  them with single spaces. Implement clipWords. A run holding no words
+  gives back a text holding nothing.
+target: solution.ts
+interface: "export function wordShort(word: string, width: number): string
+export function clipWords(words: string[], width: number): string"
+stop_conditions:
+  - Whether a width below one should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

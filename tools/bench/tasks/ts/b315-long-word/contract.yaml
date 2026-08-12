@@ -1,0 +1,15 @@
+id: b315-long-word
+task_type: function_implementation
+task: >-
+  Implement longWord. Return the longest word of a sentence, where any
+  run of spaces separates two words. When two words are equally long
+  the one appearing first wins, and a sentence holding no words at all
+  gives back empty text.
+target: solution.ts
+interface: "export function longWord(sentence: string): string"
+stop_conditions:
+  - Whether punctuation attached to a word should count toward its length is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

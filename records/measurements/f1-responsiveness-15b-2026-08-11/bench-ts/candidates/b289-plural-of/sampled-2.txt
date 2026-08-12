@@ -1,0 +1,24 @@
+```ts
+export function pluralOf(noun: string): string {
+  // Edge case for empty string or null/undefined input
+  if (!noun) return noun;
+
+  // Regular expression to identify irregular nouns ending in y
+  const irregularYRegex = /[bcdfghjklmnpqrstvwxyz]y$/i;
+
+  // Check if the noun ends with 's', 'x', 'ch' or 'sh'
+  if (/[sxchsh]/.test(noun)) {
+    return noun + 'es';
+  }
+
+  // Check if the noun ends with 'y' after a consonant
+  else if (irregularYRegex.test(noun)) {
+    return noun.slice(0, -1) + 'ies';
+  }
+
+  // Otherwise, just add 's'
+  else {
+    return noun + 's';
+  }
+}
+```

@@ -1,0 +1,21 @@
+```ts
+export function unwrapLabel(label: string): string {
+  if (!label.startsWith("[")) {
+    return label;
+  }
+
+  let bracketCount = 1;
+  for (let i = 1; i < label.length - 1; i++) {
+    if (label[i] === "[") {
+      bracketCount++;
+    } else if (label[i] === "]") {
+      bracketCount--;
+    }
+    if (bracketCount === 0) {
+      return label.slice(1, -1);
+    }
+  }
+
+  return label;
+}
+```

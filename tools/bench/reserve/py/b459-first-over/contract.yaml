@@ -1,0 +1,22 @@
+id: b459-first-over
+task_type: bug_fix
+task: >-
+  first_over returns the first reading that stands above a level, or
+  nothing at all when none does, and it returns the position of that
+  reading instead of the reading itself. Fix it. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def first_over(readings: list, level: int) -> int:
+      """The first reading standing above a level, or nothing at all."""
+      for i, reading in enumerate(readings):
+          if reading > level:
+              return i
+      return 0
+interface: "def first_over(readings: list, level: int) -> int"
+stop_conditions:
+  - Whether nothing at all could also be a real reading is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,20 @@
+id: b298-price-vat
+task_type: bug_fix
+task: >-
+  grossPrice adds a whole-percent tax to a net price and returns whole
+  pence, and it adds the rate as a number of pence instead of as a
+  percentage. Fix it. The tax is rounded down, and a rate of zero
+  leaves the price exactly as it was. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A net price with a whole-percent tax added, in whole pence. */
+  export function grossPrice(net: number, rate: number): number {
+    return net + rate;
+  }
+interface: "export function grossPrice(net: number, rate: number): number"
+stop_conditions:
+  - Whether a rate carrying a fraction of a percent should be accepted is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

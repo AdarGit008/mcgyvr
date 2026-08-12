@@ -1,0 +1,30 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    def is_valid_selector(selector):
+        return selector and (selector.endswith('.*') or selector[0] != '*')
+
+    # Check for valid selectors
+    invalid_selectors = [k for k, v in rules.items() if not is_valid_selector(k)]
+    if invalid_selectors:
+        raise ValueError(f"Invalid selectors: {invalid_selectors}")
+
+    # Find the exact match first
+    if name in rules:
+        return rules[name]
+
+    # Find the longest ".*" wildcard match
+    wildcard_matches = [k for k, v in rules.items() if k.endswith('.*')]
+    if wildcard_matches:
+        wildcard_matches.sort(key=lambda x: len(x.split('.')))
+        return rules[wildcard_matches[-1]]
+
+    # If no exact or wildcard match, return the lone "*"
+    if "*" in rules:
+        return rules["*"]
+
+    # If no match at all
+    return None
+```

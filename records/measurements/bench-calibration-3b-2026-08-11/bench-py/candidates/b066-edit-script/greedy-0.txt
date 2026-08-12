@@ -1,0 +1,51 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    """
+    Applies an edit script to the original string.
+
+    :param original: The original string to be edited.
+    :param script: A list of operations to apply. Each operation is a tuple of two elements:
+                  - "copy": (n), appends the next n characters of the original to the result.
+                  - "skip": (n), moves past the next n characters without copying them.
+                  - "insert": (text), appends text to the result without touching the original.
+    :return: The edited string after applying all operations in the script.
+    """
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string.")
+    
+    if not isinstance(script, list):
+        raise ValueError("Script must be a list of tuples.")
+    
+    for op, arg in script:
+        if op not in ["copy", "skip", "insert"]:
+            raise ValueError(f"Unknown operation: {op}")
+        
+        if op == "copy":
+            n = int(arg)
+            if not isinstance(n, int) or n <= 0:
+                raise ValueError("Copy count must be a positive integer.")
+            
+            if len(original) < n:
+                raise ValueError("Script reads past the end of the original.")
+            
+            original = original[n:]
+        
+        elif op == "skip":
+            n = int(arg)
+            if not isinstance(n, int) or n <= 0:
+                raise ValueError("Skip count must be a positive integer.")
+            
+            if len(original) < n:
+                raise ValueError("Script reads past the end of the original.")
+            
+            original = original[n:]
+        
+        elif op == "insert":
+            text = arg
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError("Insert text must be a non-empty string.")
+            
+            original += text
+    
+    return original
+```

@@ -1,0 +1,109 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events) || !events.every(Array.isArray)) {
+    throw new Error("Events must be an array of arrays.");
+  }
+  
+  const initialState = {
+    state: "open",
+    cart: {},
+    total: 0,
+    paid: 0,
+    change: 0,
+    items: [] as [string, number][],
+  };
+
+  return events.reduce((state, event) => {
+    switch (event[0]) {
+      case "scan":
+        if (!Array.isArray(event) || event.length !== 2) {
+          throw new Error("Invalid scan event.");
+        }
+        const [action, item] = event;
+        if (typeof action !== "string" || !prices[item]) {
+          throw new Error(`Unknown or invalid item: ${item}.`);
+        }
+        if (state.state === "cancelled") {
+          return state;
+        }
+        state.items.push([item, (state.cart[item] || 0) + 1]);
+        state.total += prices[item];
+        state.cart[item] = (state.cart[item] || 0) + 1;
+        return state;
+
+      case "void":
+        if (!Array.isArray(event) || event.length !== 2) {
+          throw new Error("Invalid void event.");
+        }
+        const [action, item] = event;
+        if (typeof action !== "string" || !prices[item]) {
+          throw new Error(`Unknown or invalid item: ${item}.`);
+        }
+        if (state.state === "cancelled") {
+          return state;
+        }
+        if ((state.cart[item] || 0) <= 0) {
+          throw new Error(`Cannot remove more items than available from cart.`);
+        }
+        state.items = state.items.filter(([i, q]) => i !== item);
+        state.total -= prices[item];
+        state.cart[item] = (state.cart[item] || 0) - 1;
+        return state;
+
+      case "close":
+        if (!Array.isArray(event) || event.length !== 1) {
+          throw new Error("Invalid close event.");
+        }
+        const [action] = event;
+        if (typeof action !== "string" || action !== "close") {
+          throw new Error(`Illegal action for session state: ${state.state}.`);
+        }
+        if (Object.keys(state.cart).length === 0) {
+          throw new Error("Cannot close with an empty cart.");
+        }
+        if (state.state === "paid") {
+          return state;
+        }
+        state.state = "payment";
+        return state;
+
+      case "pay":
+        if (!Array.isArray(event) || event.length !== 2) {
+          throw new Error("Invalid pay event.");
+        }
+        const [action, cents] = event;
+        if (typeof action !== "string" || !Number.isInteger(cents)) {
+          throw new Error(`Illegal payment amount: ${cents}.`);
+        }
+        if (state.state === "cancelled") {
+          return state;
+        }
+        if (state.state !== "payment") {
+          throw new Error(`Cannot pay in this session state.`);
+        }
+        const change = cents - state.total;
+        state.paid = cents;
+        state.change = change >= 0 ? change : (-change);
+        state.state = change === 0 ? "paid" : "open";
+        return state;
+
+      case "cancel":
+        if (!Array.isArray(event) || event.length !== 1) {
+          throw new Error("Invalid cancel event.");
+        }
+        const [action] = event;
+        if (typeof action !== "string" || action !== "cancel") {
+          throw new Error(`Illegal action for session state: ${state.state}.`);
+        }
+        if (state.state === "cancelled") {
+          return state;
+        }
+        state.state = "cancelled";
+        return state;
+
+      default:
+        throw new Error(`Unknown or illegal event action: ${event[0]}.`);
+    }
+  }, initialState);
+}
+```

@@ -1,0 +1,18 @@
+```ts
+export function pluralOf(noun: string): string {
+  if (typeof noun !== 'string') {
+    throw Error('Input must be a string');
+  }
+
+  const suffixes = ['s', 'x', 'ch', 'sh'];
+  const irregularSuffixes = ['y'];
+
+  if (suffixes.includes(noun[noun.length - 1])) {
+    return `${noun}${suffixes[suffixes.indexOf(noun[noun.length - 1])]}es`;
+  } else if (irregularSuffixes.includes(noun[noun.length - 2])) {
+    return noun.slice(0, -1) + irregularSuffixes[irregularSuffixes.indexOf(noun[noun.length - 2])] + 'ies';
+  } else {
+    return `${noun}s`;
+  }
+}
+```

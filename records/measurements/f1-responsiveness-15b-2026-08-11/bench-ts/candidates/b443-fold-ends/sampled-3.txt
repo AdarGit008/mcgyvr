@@ -1,0 +1,16 @@
+```ts
+/**
+ * Fold the given array onto itself by adding elements in pairs from both ends towards the center.
+ * If the array has an odd number of elements, the middle element is left unchanged.
+ *
+ * @param values - The array to be folded.
+ * @returns An array containing the totals after folding the input array.
+ */
+export function foldEnds(values: number[]): number[] {
+  const result = [];
+  for (let i = 0; i < Math.floor(values.length / 2); i++) {
+    result.push(values[i] + values[values.length - 1 - i]);
+  }
+  return result;
+}
+```

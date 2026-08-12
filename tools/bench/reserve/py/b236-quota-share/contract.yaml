@@ -1,0 +1,16 @@
+id: b236-quota-share
+task_type: function_implementation
+task: >-
+  Implement quota_share. Hand out a whole-unit budget in proportion to
+  a list of weights, rounding each share down. Whatever units the
+  rounding leaves over all go to the holder of the largest weight.
+  When every weight is zero nobody has a claim, so every share is
+  zero.
+target: solution.py
+interface: "def quota_share(budget: int, weights: list) -> list"
+stop_conditions:
+  - Which holder takes the leftover when two weights tie for largest is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

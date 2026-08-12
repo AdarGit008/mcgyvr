@@ -1,0 +1,52 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Returns a mapping from base part to total count consumed by an order of want units of kit.
+    Raises ValueError for an undefined kit name.
+    """
+
+    def get_recipe(k):
+        if k not in catalog:
+            raise ValueError(f"Kit '{k}' is not defined in the catalog.")
+        return catalog[k]
+
+    def charge_parts(recipe, parts, total_parts):
+        for part, count in recipe['parts']:
+            if part == kit:
+                total_parts += want * count
+            else:
+                total_parts = min(total_parts + count, get_recipe(part)['makes'])
+                if total_parts > 0:
+                    parts[part] += total_parts
+                    charge_parts(get_recipe(part), parts, 0)
+
+    total_parts = 0
+    parts = {}
+    recipe = get_recipe(kit)
+    charge_parts(recipe, parts, want)
+
+    return parts
+
+# Test cases
+print(explode_kit({
+    'kit_a': {'makes': 10, 'parts': [('base_part_x', 5), ('kit_b', 2)]},
+    'kit_b': {'makes': 5, 'parts': [('base_part_y', 3)]}
+}, 'kit_a', 15))
+# Output: {'base_part_x': 75, 'base_part_y': 10}
+
+print(explode_kit({
+    'kit_c': {'makes': 20, 'parts': [('base_part_z', 10), ('kit_d', 3)]},
+    'kit_d': {'makes': 4, 'parts': [('base_part_t', 8)]}
+}, 'kit_c', 12))
+# Output: {'base_part_z': 96, 'base_part_t': 16}
+
+print(explode_kit({
+    'base_part_a': {'makes': 100, 'parts': []}
+}, 'base_part_a', 50))
+# Output: {'base_part_a': 50}
+
+try:
+    explode_kit({}, 'unknown_kit', 3)
+except ValueError as e:
+    print(e)  # Output: Kit 'unknown_kit' is not defined in the catalog.
+```

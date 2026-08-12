@@ -1,0 +1,43 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (
+    !Array.isArray(listing) ||
+    listing.some(path => typeof path !== 'string' || path === '') ||
+    !Array.isArray(rules) ||
+    rules.some(rule => typeof rule !== 'string' || rule === '' || /^!$/.test(rule))
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const normalizedRules = rules.map(rule => {
+    if (rule.startsWith('!')) return ['!', ...normalizePattern(rule.slice(1))];
+    return normalizePattern(rule);
+  });
+
+  const isMatch = (path: string, pattern: string[]): boolean => {
+    for (let i = 0; i < path.length && i < pattern.length; i++) {
+      if (pattern[i] === '*') continue;
+      if (path[i] !== pattern[i]) return false;
+    }
+    return i === pattern.length;
+  };
+
+  const normalizePattern = (pattern: string): string[] => {
+    return pattern.split('/').filter(segment => segment && segment !== '.');
+  };
+
+  return listing.filter(path => {
+    const segments = path.split('/');
+    let matchedRuleIndex = -1;
+
+    for (let i = 0; i < normalizedRules.length; i++) {
+      if (isMatch(segments, normalizedRules[i])) {
+        matchedRuleIndex = i;
+        break;
+      }
+    }
+
+    return matchedRuleIndex === -1 || !normalizedRules[matchedRuleIndex][0] ? true : false;
+  });
+}
+```

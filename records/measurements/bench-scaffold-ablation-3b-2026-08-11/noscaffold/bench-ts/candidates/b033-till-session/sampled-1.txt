@@ -1,0 +1,77 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    if (!Array.isArray(events) || events.some(event => !Array.isArray(event) || event.length !== 2)) {
+        throw new Error('Invalid event format');
+    }
+    
+    let sessionState = 'open';
+    let cart: Record<string, number> = {};
+    let total = 0;
+    let paid = 0;
+
+    for (const [action, ...payload] of events) {
+        if (!['scan', 'void', 'close', 'pay', 'cancel'].includes(action)) {
+            throw new Error('Unknown action');
+        }
+
+        switch (action) {
+            case 'scan':
+                const [item] = payload;
+                if (typeof item !== 'string' || !prices.hasOwnProperty(item)) {
+                    throw new Error(`Unknown item: ${item}`);
+                }
+                cart[item] = (cart[item] || 0) + 1;
+                total += prices[item];
+                break;
+            case 'void':
+                const [voidItem] = payload;
+                if (!typeof voidItem !== 'string' || !cart.hasOwnProperty(voidItem)) {
+                    throw new Error(`Cannot void non-existent item: ${voidItem}`);
+                }
+                cart[voidItem]--;
+                total -= prices[voidItem];
+                if (cart[voidItem] === 0) delete cart[voidItem];
+                break;
+            case 'close':
+                if (sessionState !== 'open') {
+                    throw new Error('Cannot close a session that is not open');
+                }
+                if (Object.keys(cart).length === 0) {
+                    throw new Error('Cannot close a session with an empty cart');
+                }
+                sessionState = 'payment';
+                break;
+            case 'pay':
+                const [cents] = payload;
+                if (!Number.isInteger(cents) || cents <= 0) {
+                    throw new Error(`Invalid pay amount: ${cents}`);
+                }
+                paid += cents;
+                const change = total - paid;
+                sessionState = paid >= total ? 'paid' : 'cancelled';
+                break;
+            case 'cancel':
+                if (sessionState !== 'open') {
+                    throw new Error('Cannot cancel a session that is not open');
+                }
+                cart = {};
+                total = 0;
+                paid = 0;
+                sessionState = 'cancelled';
+                break;
+        }
+
+        if (sessionState === 'paid' || sessionState === 'cancelled') {
+            events.splice(events.indexOf([action, ...payload]), 1);
+        }
+    }
+
+    return {
+        state: sessionState,
+        items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+        total,
+        paid,
+        change
+    };
+}
+```

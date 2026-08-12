@@ -1,0 +1,29 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    """
+    Carve a work shift into stretches of at most span units, separated by rest units,
+    and return the stretches in order as [from, to) pairs.
+    """
+    if not all(isinstance(arg, (int, float)) for arg in (start, end, span, rest, least)):
+        raise ValueError("All arguments must be whole numbers.")
+    
+    if start >= end:
+        raise ValueError("Start must precede end.")
+    
+    if span < 1 or rest < 1 or least < 1 or least > span:
+        raise ValueError("Span and rest must be at least 1, and least must be between 1 and span.")
+    
+    stretches = []
+    current_from = start
+    
+    while current_from < end:
+        stretch_length = min(span, end - current_from)
+        
+        if stretch_length >= least:
+            stretches.append((current_from, current_from + stretch_length))
+            current_from += stretch_length + rest
+        else:
+            break
+    
+    return stretches
+```

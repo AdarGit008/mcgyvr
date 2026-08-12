@@ -1,0 +1,76 @@
+```python
+def parse_amount(text: str) -> int:
+    """Parse a decimal amount string into integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    
+    if len(parts) != 2:
+        raise ValueError("Amount must be in the format 'XX.XX' with exactly two fractional digits.")
+    
+    integer_part = parts[0]
+    fractional_part = parts[1]
+    
+    if not (integer_part.isdigit() and fractional_part.isdigit()):
+        raise ValueError("Integer and fractional parts must be digits.")
+    
+    if len(fractional_part) != 2:
+        raise ValueError("Fractional part must have exactly two digits.")
+    
+    return int(integer_part) * 100 + int(fractional_part)
+
+def format_amount(cents: int) -> str:
+    """Format integer cents back into the 'XX.XX' format."""
+    if cents < 0:
+        raise ValueError("Amount must be non-negative.")
+    
+    dollars = cents // 100
+    cents_in_cents = cents % 100
+    
+    dollars_str = f"{dollars:02d}"
+    cents_str = f"{cents_in_cents:02d}"
+    
+    return f"{dollars_str}.{cents_str}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Split total_cents across a list of integer weights proportionally."""
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    
+    if len(weights) == 0:
+        raise ValueError("Weight list cannot be empty.")
+    
+    for weight in weights:
+        if not isinstance(weight, int) or weight < 0:
+            raise ValueError("Every weight must be a non-negative integer.")
+    
+    total_weight = sum(weights)
+    if total_weight == 0:
+        return [0] * len(weights)  # All-zero shares
+    
+    shares = []
+    remainder_sum = 0
+    for i, weight in enumerate(weights):
+        share = total_cents // total_weight
+        remainder = total_cents % total_weight
+        
+        if remainder > 0:
+            shares.append(share + 1)
+            remainder_sum += (total_weight - remainder)
+            remainder = 0
+        else:
+            shares.append(share)
+        
+        total_cents -= share * weight
+    
+    # Distribute the remaining cents to the shares with the largest remainders
+    while remainder_sum > 0:
+        for i in range(len(shares)):
+            if shares[i] < max(shares):
+                shares[i] += 1
+                remainder_sum -= 1
+                break
+    
+    return shares
+```

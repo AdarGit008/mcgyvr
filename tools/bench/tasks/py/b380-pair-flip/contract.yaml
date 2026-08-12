@@ -1,0 +1,16 @@
+id: b380-pair-flip
+task_type: function_implementation
+task: >-
+  Implement flip_one and flip_all. flip_one returns a pair with its
+  two members the other way round. flip_all does that to every pair in
+  a list, keeping the pairs in the order they came and leaving the
+  list it was given untouched.
+target: solution.py
+interface: "def flip_one(pair: list) -> list
+def flip_all(pairs: list) -> list"
+stop_conditions:
+  - What a pair holding other than two members should do is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

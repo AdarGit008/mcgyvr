@@ -1,0 +1,18 @@
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+def fill_between(entries: list, filler: str) -> list:
+    if len(entries) < 2:
+        return entries
+    
+    result = []
+    for i in range(len(entries)):
+        result.append(entries[i])
+        if i + 1 < len(entries):
+            result.append(filler)
+    
+    return result
+```

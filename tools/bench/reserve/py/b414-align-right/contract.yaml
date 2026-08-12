@@ -1,0 +1,16 @@
+id: b414-align-right
+task_type: function_implementation
+task: >-
+  Implement widest_of and align_right. widest_of returns the length of
+  the longest entry in a list, or nothing when the list is empty.
+  align_right returns the entries with spaces put in front of each so
+  they all reach that width.
+target: solution.py
+interface: "def widest_of(entries: list) -> int
+def align_right(entries: list) -> list"
+stop_conditions:
+  - Whether a character other than a space should ever be used to align is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

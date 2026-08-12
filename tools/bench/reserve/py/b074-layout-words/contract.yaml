@@ -1,0 +1,45 @@
+id: b074-layout-words
+task_type: bug_fix
+task: >-
+  layout_words fills the lines of a fixed-width text column and overfills
+  them. Its helper line_width is already correct: a line of words is as wide
+  as its word lengths summed plus one space between each neighbouring pair,
+  and a line of no words has width zero. layout_words places words greedily
+  in the given order: a word joins the current line when the line, with the
+  word and its joining space added, still fits within the column width, and
+  otherwise the word starts the next line. At present the fit check forgets
+  the joining space, so a built line can come out one character wider than
+  the column. Return the lines in order, each the list of words it carries,
+  with no empty lines; laying out no words gives no lines. Also add the
+  missing validation: reject a column width that is not a positive integer,
+  a word that is not a non-empty string, and a single word wider than the
+  whole column, with an error. line_width's behaviour must not change.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def line_width(words):
+      total = sum(len(word) for word in words)
+      return total + max(len(words) - 1, 0)
+
+
+  def layout_words(words, width):
+      lines = []
+      current = []
+      for word in words:
+          if not current or line_width(current) + len(word) <= width:
+              current.append(word)
+          else:
+              lines.append(current)
+              current = [word]
+      if current:
+          lines.append(current)
+      return lines
+interface: |-
+  def layout_words(words: list, width: int) -> list
+  def line_width(words: list) -> int
+stop_conditions:
+  - How a word that itself contains a space is treated is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,13 @@
+```ts
+export function meanWindow(readings: number[], size: number): number[] {
+  if (size === 0) return [];
+
+  const result = [];
+  for (let i = 0; i <= readings.length - size; i++) {
+    const window = readings.slice(i, i + size);
+    const sum = window.reduce((a, b) => a + b, 0);
+    result.push(Math.floor(sum / size));
+  }
+  return result;
+}
+```

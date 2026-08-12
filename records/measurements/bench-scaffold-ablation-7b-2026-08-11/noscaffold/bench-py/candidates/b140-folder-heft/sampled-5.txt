@@ -1,0 +1,78 @@
+```python
+def file_paths(root: dict) -> list:
+    """
+    Walks through a tree to find all file paths.
+
+    :param root: The root of the storage tree.
+    :return: A list of file paths in walking order.
+    """
+    paths = []
+
+    def walk(node, current_path):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        name = node.get('name')
+        if not isinstance(name, str) or '/' in name:
+            raise ValueError("Name must be a non-empty string without slashes.")
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            raise ValueError("Node must have either bytes or children.")
+
+        if 'bytes' in node:
+            paths.append(current_path)
+        elif 'children' in node:
+            for child in node['children']:
+                walk(child, f"{current_path}/{name}")
+
+    walk(root, "")
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    """
+    Calculates the total bytes of a node in the storage tree.
+
+    :param root: The root of the storage tree.
+    :return: The total bytes of the node.
+    """
+    if not isinstance(root, dict):
+        raise ValueError("Node must be a mapping.")
+    name = root.get('name')
+    if not isinstance(name, str) or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes.")
+    if 'bytes' in root and 'children' in root:
+        raise ValueError("Node cannot have both bytes and children.")
+    if 'bytes' not in root and 'children' not in node:
+        raise ValueError("Node must have either bytes or children.")
+
+    if 'bytes' in root:
+        return root['bytes']
+    elif 'children' in root:
+        return sum(tree_bytes(child) for child in root['children'])
+    else:
+        return 0
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """
+    Finds all folders with a total bytes of at least min_bytes.
+
+    :param root: The root of the storage tree.
+    :param min_bytes: The minimum number of bytes for a folder to be considered heavy.
+    :return: A list of [path, bytes] pairs for each heavy folder.
+    """
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number.")
+
+    paths = []
+
+    def walk(node, current_path):
+        total_bytes = tree_bytes(node)
+        if total_bytes >= min_bytes:
+            paths.append([current_path, total_bytes])
+        if 'children' in node:
+            for child in node['children']:
+                walk(child, f"{current_path}/{node.get('name')}")
+
+    walk(root, "")
+    return paths
+```

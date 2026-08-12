@@ -1,0 +1,17 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    exact_match = rules.get(name)
+    if exact_match is not None:
+        return exact_match
+    
+    wildcard_matches = [value for selector, value in rules.items() if selector.endswith('.*') and name.startswith(selector[:-2])]
+    if wildcard_matches:
+        longest_wildcard_match = max(wildcard_matches, key=len)
+        return longest_wildcard_match
+    
+    lone_star_match = rules.get('*')
+    return lone_star_match
+```

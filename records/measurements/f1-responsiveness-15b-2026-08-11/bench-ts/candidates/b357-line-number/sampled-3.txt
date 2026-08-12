@@ -1,0 +1,9 @@
+```ts
+export function lineNumber(block: string): string {
+  if (typeof block !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return block.split('\n').map((line, index) => `${index + 1}: ${line}`).join('\n');
+}
+```

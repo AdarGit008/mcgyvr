@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def kettle_hold(readings: List[int], target: int) -> int:
+    """Count how many readings at the end of the run sat at or above the target."""
+    
+    # Edge case check: if the target is higher than all readings, return 0
+    if target > max(readings):
+        return 0
+    
+    count = 0
+    for i in range(len(readings) - 1, -1, -1):
+        if readings[i] >= target:
+            count += 1
+        else:
+            break
+            
+    return count
+```

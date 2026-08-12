@@ -1,0 +1,20 @@
+```python
+def tag_count(line: str) -> int:
+    if not line:
+        return 0
+
+    depth = 0
+    marker_count = 0
+
+    for char in line:
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            if depth > 0:
+                marker_count += 1
+                depth -= 1
+            else:
+                raise ValueError("Unmatched closing bracket")
+
+    return marker_count
+```

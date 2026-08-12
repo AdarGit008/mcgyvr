@@ -1,0 +1,34 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== "string" || name === "" || name.includes("*")) {
+    throw new Error("name must be a star-free non-empty string");
+  }
+
+  let bestMatch: { selector: string; value: string } | null = null;
+
+  for (const selector in rules) {
+    const ruleValue = rules[selector];
+    if (typeof ruleValue !== "string") {
+      throw new Error("rule value must be a string");
+    }
+
+    if (selector === name) {
+      bestMatch = { selector, value: ruleValue };
+      break;
+    } else if (selector.endsWith(".*")) {
+      const prefix = selector.slice(0, -2);
+      if (name.startsWith(prefix)) {
+        if (!bestMatch || (prefix.length > bestMatch.selector.slice(0, -2).length)) {
+          bestMatch = { selector, value: ruleValue };
+        }
+      }
+    } else if (selector === "*") {
+      if (!bestMatch) {
+        bestMatch = { selector, value: ruleValue };
+      }
+    }
+  }
+
+  return bestMatch ? bestMatch.value : null;
+}
+```

@@ -1,0 +1,29 @@
+```python
+from typing import *
+from collections import *
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    best_takings = 0
+    best_pieces = []
+    
+    for piece_len, price in board:
+        if piece_len <= length:
+            # Calculate the takings if we cut at this piece's end
+            new_length = length - piece_len
+            new_takings = max(best_takings + price, best_takings)
+            
+            # If this cut gives us more takings or is better in case of a tie,
+            # update our best solution.
+            if new_takings > best_takings or (new_takings == best_takings and piece_len < len(best_pieces)):
+                best_takings = new_takings
+                best_pieces = [piece_len] + best_pieces
+    
+    return {
+        "takings": best_takings,
+        "price": max(price for _, price in board) if board else 0,
+        "pieces": best_pieces
+    }
+```

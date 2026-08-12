@@ -1,0 +1,13 @@
+```ts
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (typeof name !== 'string') {
+    throw new Error('name must be a string');
+  }
+  return aliases[name] || name;
+}
+
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const resolvedAliases = Object.keys(aliases).map(alias => aliasResolve(aliases, alias));
+  return [...new Set(resolvedAliases)].sort();
+}
+```

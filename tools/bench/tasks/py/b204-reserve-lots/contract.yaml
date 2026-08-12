@@ -1,0 +1,23 @@
+id: b204-reserve-lots
+task_type: function_implementation
+task: >-
+  Implement reserve_lots. Stock sits in lots, each a triple of lot id, a
+  use-by date written as YYYY-MM-DD, and the units on hand. Orders are
+  pairs of order id and units wanted, filled one after another in the order
+  given. An order always draws from the lot with the earliest use-by date
+  that still holds units, the smaller lot id winning a tie of dates, and
+  takes as much as that lot can give before moving on to the next lot, so
+  one order may draw from several lots. Record every draw as a triple of
+  order id, lot id and units taken, in the order the draws happen. When the
+  stock runs out part way through an order, the draws already made stand
+  and the units still wanted are recorded as a pair of order id and
+  shortfall. Return an object holding picks, the list of draws, and short,
+  the list of shortfalls.
+target: solution.py
+interface: "def reserve_lots(lots: list, orders: list) -> dict"
+stop_conditions:
+  - Whether two lots may carry the same lot id is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

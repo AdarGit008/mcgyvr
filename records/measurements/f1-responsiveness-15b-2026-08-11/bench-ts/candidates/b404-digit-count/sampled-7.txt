@@ -1,0 +1,19 @@
+```ts
+/**
+ * Returns how many digits a whole number is written with.
+ * A minus sign in front of a number is not counted as a digit.
+ */
+export function digitCount(value: number): number {
+  if (!value) return 0;
+
+  let count = 1;
+  value = Math.abs(value); // Remove the leading '-' for negative numbers
+
+  while (value > 9) {
+    value /= 10; // Move to the next digit
+    count++; // Increment the digit count
+  }
+
+  return count;
+}
+```

@@ -1,0 +1,30 @@
+```typescript
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') {
+    throw new Error('Body must be a string');
+  }
+  const tag = body.split('').reduce((sum, char) => (sum + char.charCodeAt(0)) % 256, 0);
+  return tag.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Line must be a string');
+  }
+  if (line.length < 3) {
+    throw new Error('Line must be at least three characters long');
+  }
+
+  const [body, tag] = line.split('~').map((part) => part.trim());
+  if (!tag || body.length === 0) {
+    throw new Error('Invalid line format');
+  }
+
+  const computedTag = lineTag(body);
+  if (computedTag !== tag) {
+    throw new Error(`Computed tag does not match: ${computedTag} vs ${tag}`);
+  }
+
+  return body;
+}
+```

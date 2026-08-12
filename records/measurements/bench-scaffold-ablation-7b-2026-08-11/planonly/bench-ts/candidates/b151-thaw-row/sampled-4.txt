@@ -1,0 +1,16 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row === '') throw new Error('Invalid row');
+  if (!Number.isInteger(steps) || steps < 0) throw new Error('Invalid step count');
+
+  const melt = (r: string): string => {
+    return r.replace(/(^\.|.$|\.(?=\.)|\.(?<=\.)\.)/g, '.');
+  };
+
+  for (let i = 0; i < steps; i++) {
+    row = melt(row);
+  }
+
+  return row;
+}
+```

@@ -1,0 +1,16 @@
+id: b335-book-slot
+task_type: function_implementation
+task: >-
+  Implement slot_free and free_slots. slot_free says whether a slot
+  number is still free, given the slots already booked. free_slots
+  returns every free slot from one up to a stated last slot, in
+  increasing order.
+target: solution.py
+interface: "def slot_free(slot: int, booked: list) -> bool
+def free_slots(last: int, booked: list) -> list"
+stop_conditions:
+  - Whether a booked slot lying outside the range should be reported as a mistake is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

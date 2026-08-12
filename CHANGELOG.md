@@ -1027,6 +1027,58 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   not find a published adoption threshold in what was searched; reported gains
   cluster at 9–51pp, an order of magnitude above the margin in question.
 
+- `docs/bench-sourcing-2026-08-10.md` (#225) — the in-repo inventory recorded
+  before any outside set is considered: the five retired sets with their n,
+  language, 3B rates and CLM sources as the *specification* of in-band
+  material, the vendored local-ai originals and the pool as adjacent material
+  barred from the bench, and the sourcing order the rest of the search must
+  follow.
+
+- `records/measurements/mbpp-plus-3b-2026-08-10/` (#225) — MBPP+ measured
+  against the floor model through the rig sweeps' own serving path: 70.6%
+  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on srv1. The
+  issue's "plausibly between d3 and the pool" hypothesis is refuted — MBPP+
+  reads above d1, at the easy end the retired sets already covered — and the
+  d3→pool collapse is confirmed as a unit-of-work cliff, not
+  small-function difficulty. The contamination caveat travels with the
+  number, cutting against the easy-end placement rather than for it; the
+  operational conclusion (locator, never anchor) survives either way.
+  `docs/bench-sourcing-2026-08-10.md` §3 records the outside-set search:
+  the 2026-08-07 adopt-nothing verdict adopted under the bench's strictly
+  higher bar, and MBPP+'s 378 ids joining HumanEval's 164 in the campaign's
+  decontamination blocklist.
+
+- `tools/bench/` and `docs/bench-design-2026-08-10.md` (#225) — the bench
+  campaign's design of record and its first committed mechanisms, landed
+  deliberately before any generated problem exists: `split.py`, the
+  bench/reserve split rule (salted per-id hash — blind by the commit date,
+  stable under the pauses the #197 record guarantees, pinned by test so it
+  can never drift), and `mbpp-entrypoints.json`, MBPP+'s 378 entry points
+  joining HumanEval's 164 in the item-level decontamination blocklist. The
+  design fixes the names (`bench-ts`/`bench-py`, flat roots, `b<nnn>-<slug>`
+  ids, reserve outside the declared roots), the declared-target
+  anti-triviality rule multi-symbol files need, the manifest-only serving,
+  the 2048 sweep cap, and the campaign order in which the declaration
+  precedes the first sweep.
+
+- `tools/bench/admit.py` (#225) — the bench admission gate, live and
+  smoke-tested end to end. The pool gate's execution machinery imported by
+  path, with the bench's own semantics: `b<nnn>-<slug>` ids; the
+  `meta.json` sidecar carrying `file_shape`, shape and `steering_band`
+  labels plus a `multi_symbol` problem's per-arm `target_symbol`;
+  **declared-target anti-triviality** — the stub is the reference with
+  only the target symbol's behaviour degraded (Python shadows, TypeScript
+  renames the mandated `export function` form or refuses as its own named
+  failure), helpers intact, so the checker guarantee means the same thing
+  at every file shape; both front doors screened over every declared
+  function; and the near-duplicate screen running across the split by
+  screening every candidate against the whole manifest, the pool, and the
+  instruments. `--pin` computes the half from the pre-declared rule and
+  places reserve problems outside the roots the declaration will walk;
+  `--verify` holds tree, manifest and split rule to each other; `--cells`
+  reports realized counts per steering cell. Offline invariants pinned in
+  `tests/test_bench_gate.py`.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
@@ -1164,3 +1216,18 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   `worker_local_qwen2.5-coder-7b`), replacing the positional `local-N`. A
   name says what a binding IS rather than where it sits in an ordering, so
   inserting a rung cannot silently change what a policy reference means.
+- The positive control's premise is corrected in the places that carried it
+  wrong (#225). CLM-0017's ~+20pp ran on local-ai's unported **Python**
+  contracts under local-ai's own harness — not "the twenty JS/TS contracts" as
+  ADR-0020 and #231's body both said (the same arm-A/arm-B confusion #234
+  repaired, standing in two more places) — and across harnesses the effect
+  nulls, because mcgyvr's own user message already carries the rule. Both
+  documents now say so, and the route ADR-0020 left to #225 is chosen there:
+  check 2 becomes a rule-ablation condition recovered directionally on the
+  generated bench, where n = 400 makes it decidable; un-releasing `bundle-ts`
+  — which never bought the exactness it was priced at — lapses unchosen.
+- ADR-0019's "eleven of the twelve" headline miscounted its own table (#225).
+  The live `tools/power/report.py` reports **nine** of twelve contrasts
+  structurally unresolvable and **zero** of twelve rejecting, and the zero is
+  what the argument rides on; the correction note names where the figure
+  propagated.

@@ -1,0 +1,15 @@
+id: b396-field-mean
+task_type: function_implementation
+task: >-
+  Implement field_mean. Given records that each may carry a named
+  numeric field, return the mean of that field across them, rounded
+  down. A record lacking the field is passed over, and a set in which
+  none carry it averages to nothing.
+target: solution.py
+interface: "def field_mean(records: list, field: str) -> int"
+stop_conditions:
+  - Whether a record whose field is not a number should be passed over is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,14 @@
+id: b364-skip-take
+task_type: function_implementation
+task: >-
+  Implement skip_take. Walk a list taking a stated number of entries,
+  then passing over a stated number, and repeat to the end. Return the
+  entries taken, in order. Taking none returns nothing at all.
+target: solution.py
+interface: "def skip_take(entries: list, take: int, skip: int) -> list"
+stop_conditions:
+  - What passing over a negative number of entries should do is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

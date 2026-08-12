@@ -1,0 +1,9 @@
+```ts
+export function gridFlip(grid: number[][]): number[][] {
+  if (grid.length === 0) return [];
+
+  const flippedGrid = grid[0].map((_, colIndex) => grid.map(row => row[colIndex]));
+
+  return flippedGrid;
+}
+```

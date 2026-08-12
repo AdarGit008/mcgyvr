@@ -1,0 +1,12 @@
+```ts
+export function crustSlice(name: string): string {
+  // Check if there is no dot in the name at all or if the only dot is its very first character
+  if (!name.includes('.') || name.charAt(0) === '.') {
+    return name;
+  }
+
+  // Split the name by the last dot and return the part before it
+  const parts = name.split('.');
+  return parts[0];
+}
+```

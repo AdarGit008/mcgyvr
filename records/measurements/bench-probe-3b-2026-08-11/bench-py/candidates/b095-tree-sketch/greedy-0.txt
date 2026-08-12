@@ -1,0 +1,26 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    def format_line(name: str, indent: int) -> str:
+        return f"{indent * '   '}|-- {name}" if name else ""
+
+    def build_lines(node: dict, depth: int = 0) -> list:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary.")
+        
+        name = node.get('name')
+        children = node.get('children')
+
+        if not isinstance(name, str) or '\n' in name or not isinstance(children, list):
+            raise ValueError("Invalid node structure.")
+
+        lines = [format_line(name, depth)]
+        for i, child in enumerate(children):
+            lines.extend(build_lines(child, depth + 1))
+        
+        return lines
+
+    if not root:
+        return []
+
+    return build_lines(root)
+```

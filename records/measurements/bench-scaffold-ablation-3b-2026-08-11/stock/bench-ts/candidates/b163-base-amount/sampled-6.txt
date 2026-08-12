@@ -1,0 +1,40 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+  const isDefined = (u: string) => u in defs;
+  
+  const getFactor = (u: string) => defs[u][0];
+  
+  if (!isDefined(unit)) {
+    throw new Error(`unit "${unit}" is not defined`);
+  }
+  
+  if (base === unit) {
+    return amount;
+  }
+
+  let currentUnit = unit;
+  let result = amount;
+
+  while (true) {
+    const [factor, finer] = defs[currentUnit];
+    
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error(`invalid factor for unit "${currentUnit}"`);
+    }
+    
+    result *= factor;
+
+    currentUnit = finer;
+    if (currentUnit === base) {
+      return result;
+    }
+
+    if (!isDefined(currentUnit)) {
+      throw new Error(`chain loops indefinitely from unit "${unit}" to undefined unit "${currentUnit}"`);
+    }
+  }
+}
+```

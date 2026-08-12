@@ -1,0 +1,19 @@
+```ts
+export function moveStock(opening: number, moves: number[]): number {
+  let stock = opening;
+  for (const move of moves) {
+    if (move > 0) {
+      stock += move;
+      if (stock < 0) {
+        stock = 0;
+      }
+    } else if (move < 0) {
+      stock -= Math.abs(move);
+      if (stock < 0) {
+        return opening - Math.abs(stock - opening);
+      }
+    }
+  }
+  return stock;
+}
+```

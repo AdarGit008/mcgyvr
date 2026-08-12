@@ -1,0 +1,47 @@
+```python
+def stamp_table(dies: list) -> dict:
+    table = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not fragment:
+            raise ValueError("a die fragment must be a non-empty string")
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("a die price must be a positive integer")
+        if fragment in table:
+            raise ValueError("die listed twice: " + fragment)
+        table[fragment] = price
+    return table
+
+
+def stamp_cover(label: str, dies: list) -> int:
+    if not isinstance(label, str) or not label:
+        raise ValueError("a label must be a non-empty string")
+
+    # Build the stamp table from the given dies
+    stamp_table = stamp_table(dies)
+
+    # Initialize a memoization dictionary to store results of subproblems
+    memo = {}
+
+    def dp(index: int) -> int:
+        if index == len(label):
+            return 0
+
+        if (index, label[index]) in memo:
+            return memo[(index, label[index])]
+
+        min_cost = float('inf')
+        for fragment, price in stamp_table.items():
+            if label.startswith(fragment, index):
+                cost = dp(index + len(fragment)) + price
+                min_cost = min(min_cost, cost)
+
+        memo[(index, label[index])] = min_cost
+        return min_cost
+
+    # Start the DP process from the beginning of the label
+    result = dp(0)
+    if result == float('inf'):
+        raise ValueError("no sequence can spell the label")
+
+    return result
+```

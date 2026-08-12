@@ -1,0 +1,27 @@
+```python
+from typing import List
+
+def tile_renders(requests: List[List[int]], fresh_for: int, size: int) -> List[List[int]]:
+    if not isinstance(fresh_for, int) or not isinstance(size, int):
+        raise ValueError("Both fresh_for and size must be positive whole numbers.")
+
+    if fresh_for < 0 or size <= 0:
+        raise ValueError("fresh_for must be a non-negative integer and size must be a positive integer.")
+
+    cache = {}
+    renders = []
+
+    for tick, tile_name in requests:
+        if tick < 0:
+            raise ValueError("Tick cannot be negative.")
+
+        if tick not in cache or tick + fresh_for != cache[tick][0]:
+            cache[tick] = [tick + fresh_for, tile_name]
+            renders.append([tick, tile_name])
+
+        if len(cache) > size:
+            oldest_tick = min(cache.keys())
+            del cache[oldest_tick]
+
+    return renders
+```

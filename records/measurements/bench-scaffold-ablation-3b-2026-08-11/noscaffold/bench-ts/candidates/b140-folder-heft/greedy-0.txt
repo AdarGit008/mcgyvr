@@ -1,0 +1,60 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid root');
+  const paths: string[] = [];
+
+  function traverse(node: any, path: string) {
+    if (typeof node !== 'object') throw new Error('Invalid node');
+    if (!Array.isArray(node.children)) throw new Error('Invalid children');
+
+    for (const [i, child] of Object.entries(node.children)) {
+      const childPath = `${path}${child.name}/`;
+      traverse(child, childPath);
+    }
+
+    if (typeof node.bytes !== 'undefined') paths.push(path);
+  }
+
+  traverse(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid root');
+  let total = 0;
+
+  function traverse(node: any) {
+    if (typeof node !== 'object') throw new Error('Invalid node');
+    if (!Array.isArray(node.children)) throw new Error('Invalid children');
+
+    for (const child of node.children) traverse(child);
+
+    if (typeof node.bytes !== 'undefined') total += node.bytes;
+  }
+
+  traverse(root);
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || Array.isArray(root)) throw new Error('Invalid root');
+  if (typeof minBytes !== 'number' || minBytes < 0) throw new Error('Invalid minBytes');
+
+  const result: [string, number][] = [];
+
+  function traverse(node: any, path: string, total: number) {
+    if (typeof node !== 'object') throw new Error('Invalid node');
+    if (!Array.isArray(node.children)) throw new Error('Invalid children');
+
+    for (const [i, child] of Object.entries(node.children)) {
+      const childPath = `${path}${child.name}/`;
+      traverse(child, childPath, total + (typeof child.bytes !== 'undefined' ? child.bytes : 0));
+    }
+
+    if (total >= minBytes) result.push([path, total]);
+  }
+
+  traverse(root, '', treeBytes(root));
+  return result;
+}
+```

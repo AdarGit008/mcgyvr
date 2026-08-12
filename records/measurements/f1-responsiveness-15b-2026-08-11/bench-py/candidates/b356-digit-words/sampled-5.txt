@@ -1,0 +1,39 @@
+```python
+def digit_word(digit: int) -> str:
+    """names a single digit in English, so 0 is zero and 9 is nine."""
+    return {
+        0: "zero",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine"
+    }[digit]
+
+def digit_words(digits: str) -> str:
+    """names every digit of a run of digits in order, joined by single spaces, and gives empty text for a run holding none."""
+    if not digits:
+        return ""
+    
+    result = []
+    current_digit = int(digits[0])
+    current_count = 1
+    
+    for i in range(1, len(digits)):
+        next_digit = int(digits[i])
+        
+        if next_digit == current_digit:
+            current_count += 1
+        else:
+            result.append(digit_word(current_digit) * current_count)
+            current_digit = next_digit
+            current_count = 1
+    
+    result.append(digit_word(current_digit) * current_count)
+    
+    return " ".join(result)
+```

@@ -1,0 +1,14 @@
+id: b404-digit-count
+task_type: function_implementation
+task: >-
+  Implement digitCount. Return how many digits a whole number is
+  written with. Nothing is written with one digit, and a minus sign in
+  front of a number is not a digit and is not counted.
+target: solution.ts
+interface: "export function digitCount(value: number): number"
+stop_conditions:
+  - Whether a number written with separators should be counted the same way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

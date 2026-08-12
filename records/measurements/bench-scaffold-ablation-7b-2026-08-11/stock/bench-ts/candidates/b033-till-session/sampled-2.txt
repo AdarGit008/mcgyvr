@@ -1,0 +1,104 @@
+```typescript
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  const cart: Record<string, number> = {};
+  let state: string = OPEN;
+  let total: number = 0;
+  let paid: number = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("event must be a list of its action and exactly one payload");
+    }
+
+    const [action, payload] = event;
+
+    switch (state) {
+      case OPEN:
+        switch (action) {
+          case "scan":
+            if (!(payload in prices)) {
+              throw new Error("unknown item: " + payload);
+            }
+            cart[payload] = (cart[payload] || 0) + 1;
+            break;
+          case "void":
+            if (!(payload in cart)) {
+              throw new Error("item not in cart: " + payload);
+            }
+            const quantity = cart[payload]--;
+            if (quantity === 0) delete cart[payload];
+            break;
+          case "close":
+            if (Object.keys(cart).length === 0) {
+              throw new Error("cannot close with an empty cart");
+            }
+            state = PAYMENT;
+            for (const item in cart) {
+              total += prices[item] * cart[item];
+            }
+            break;
+          case "pay":
+            throw new Error("payment not allowed during open session");
+          case "cancel":
+            state = CANCELLED;
+            break;
+          default:
+            throw new Error("unknown action: " + action);
+        }
+        break;
+      case PAYMENT:
+        switch (action) {
+          case "scan":
+            throw new Error("scanning not allowed during payment");
+          case "void":
+            throw new Error("voiding not allowed during payment");
+          case "close":
+            throw new Error("cannot close a session with an unpaid balance");
+          case "pay":
+            if (!Number.isInteger(payload) || payload <= 0) {
+              throw new Error("amount paid must be a positive integer: " + payload);
+            }
+            paid += payload;
+            state = paid >= total ? PAID : PAYMENT;
+            break;
+          case "cancel":
+            state = CANCELLED;
+            break;
+          default:
+            throw new Error("unknown action: " + action);
+        }
+        break;
+      case PAID:
+      case CANCELLED:
+        throw new Error("no further events allowed after session is paid or cancelled");
+    }
+  }
+
+  const items: [string, number][] = Object.entries(cart).sort();
+
+  let change: number = state === PAID ? Math.max(paid - total, 0) : 0;
+
+  return { state, items, total, paid, change };
+}
+```

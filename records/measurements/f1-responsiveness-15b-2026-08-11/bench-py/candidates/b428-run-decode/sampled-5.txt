@@ -1,0 +1,38 @@
+```python
+def run_decode(coded: str) -> str:
+    if not coded:
+        return ""
+    
+    decoded = ''
+    i = 0
+    
+    while i < len(coded):
+        letter = coded[i]
+        count_str = ''
+        
+        # Skip over leading non-letter characters
+        while i < len(coded) and not coded[i].isalpha():
+            i += 1
+        
+        if i >= len(coded):  # End of input reached without a complete count
+            break
+        
+        # Decode the letter with its count
+        count = 0
+        for digit in coded[i:]:
+            if digit.isdigit():
+                count_str += digit
+                continue
+            break
+        
+        if not count_str:
+            decoded += letter
+            i += 1
+            continue
+        
+        count = int(count_str)
+        decoded += letter * count
+        i += len(count_str)
+    
+    return decoded
+```

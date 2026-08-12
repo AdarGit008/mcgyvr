@@ -1,0 +1,65 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Capacity must be a positive integer.");
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) throw new Error("Word count does not match the capacity.");
+  if (!Number.isInteger(length) || length <= 0) throw new Error("Length must be a positive integer.");
+
+  for (let i = 0; i < words.length - 1; i++) {
+    const currentWord = words[i];
+    if (!isInt(currentWord) || currentWord < 0 || currentWord > 4294967295) throw new Error("Invalid word in bitmap.");
+    const nextWord = words[i + 1];
+    if (!isInt(nextWord) || nextWord < 0 || nextWord > 4294967295) throw new Error("Invalid word in bitmap.");
+
+    // Check if there's a free run of length 'length' starting at word i
+    const endBit = Math.min(31, currentWord + length - 1);
+    if (endBit < 0 || endBit >= 32) throw new Error("End bit out of range.");
+    const freeRunStartBit = Math.max(0, 31 - length);
+
+    if (currentWord & ((1 << (freeRunStartBit + length)) - 1)) continue; // There's an occupied block
+
+    for (let j = i + 1; j < words.length && j <= i + length - 1; j++) {
+      const word = words[j];
+      if (!isInt(word) || word < 0 || word > 4294967295) throw new Error("Invalid word in bitmap.");
+      if (word & ((1 << length) - 1)) return i * 32 + freeRunStartBit; // Found a free run
+    }
+  }
+
+  return -1; // No free run found
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || start < 0 || start >= words.length * 32) throw new Error("Start index out of range.");
+  if (!Number.isInteger(length) || length <= 0) throw new Error("Length must be a positive integer.");
+
+  const wordIndex = Math.floor(start / 32);
+  const bitOffset = start % 32;
+  const endBit = Math.min(bitOffset + length - 1, 31);
+
+  let modifiedWords = [...words];
+
+  for (let i = wordIndex; i < words.length && i <= wordIndex + length - 1; i++) {
+    const word = words[i];
+    if (!isInt(word) || word < 0 || word > 4294967295) throw new Error("Invalid word in bitmap.");
+
+    // Mark the run as occupied
+    modifiedWords[i] |= ((1 << (endBit + 1)) - (1 << bitOffset));
+  }
+
+  return modifiedWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0 || index >= words.length * 32) throw new Error("Index out of range.");
+  const wordIndex = Math.floor(index / 32);
+  const bitOffset = index % 32;
+
+  if (words[wordIndex] === undefined || !isInt(words[wordIndex]) || words[wordIndex] < 0 || words[wordIndex] > 4294967295) throw new Error("Invalid word in bitmap.");
+
+  return (words[wordIndex] >> bitOffset) & 1;
+}
+
+function isInt(value: number): boolean {
+  return Number.isInteger(value);
+}
+```

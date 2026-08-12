@@ -1,0 +1,30 @@
+id: b166-dotted-rules
+task_type: function_implementation
+task: >-
+  Implement match_setting. A tool's style rules map selector strings to
+  string values, and a dotted option name such as editor.font.size is
+  resolved against them. A selector is the exact name, a dotted prefix
+  followed by ".*" — editor.* covers editor.font and editor.font.size but
+  not editor itself — or the lone "*", which covers every name. The exact
+  selector always wins; failing that, the covering prefix wildcard with
+  the longest prefix wins; the lone star applies only when nothing else
+  covers the name. Return the winning value, or None when no selector
+  covers the name. Reject a name that is not a non-empty string, a name
+  holding a star, a rule value that is not a string, and a selector whose
+  star neither stands alone nor ends the selector as ".*", with an error.
+target: solution.py
+target_content: |
+  def match_setting(rules, name):
+      if not isinstance(name, str) or name == "" or "*" in name:
+          raise ValueError("name must be a star-free non-empty string")
+      # TODO: scan the rules, rejecting non-string values and misplaced
+      # stars, then prefer the exact selector, else the longest covering
+      # ".*" wildcard, else the lone "*", else None.
+      return None
+interface: "def match_setting(rules: dict, name: str) -> str | None"
+stop_conditions:
+  - No bound on the number of rules or the depth of a dotted name is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

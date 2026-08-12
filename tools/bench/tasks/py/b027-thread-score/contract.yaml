@@ -1,0 +1,73 @@
+id: b027-thread-score
+task_type: bug_fix
+task: >-
+  thread_score misreports what a comment thread is worth. A comment is a
+  mapping with score (an integer), deleted (a flag) and replies (a list of
+  further comments nested to any depth). The total must take in the comment
+  itself and every reply however deeply nested, and a deleted comment
+  contributes nothing itself while its replies still count toward the
+  total. The current code adds only the scores of direct replies, so
+  anything nested deeper is ignored, and it also adds a deleted comment's
+  own score as though it were live. Fix thread_score so the whole subtree is
+  walked with deleted comments contributing zero of their own. Also add the
+  missing validation: every comment walked must carry a score that is an
+  integer and not a boolean, otherwise reject with an error. Leave the
+  other functions in the file unchanged. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Utilities over a nested thread of comments, scores and deletions."""
+
+
+  def thread_score(comment: dict) -> int:
+      """Total score of the thread; deleted comments contribute nothing."""
+      total = comment["score"]
+      for reply in comment["replies"]:
+          total += reply["score"]
+      return total
+
+
+  def thread_depth(comment: dict) -> int:
+      """Depth of the deepest reply chain, 1 for a lone comment."""
+      deepest = 0
+      for reply in comment["replies"]:
+          depth = thread_depth(reply)
+          if depth > deepest:
+              deepest = depth
+      return deepest + 1
+
+
+  def count_awarded(comment: dict, min_score: int) -> int:
+      """How many live comments in the thread reach the awarding bar."""
+      count = 0
+      if not comment["deleted"] and comment["score"] >= min_score:
+          count = 1
+      for reply in comment["replies"]:
+          count += count_awarded(reply, min_score)
+      return count
+
+
+  def prune_deleted(comment: dict) -> dict | None:
+      """A copy of the thread without childless deleted comments."""
+      kept = []
+      for reply in comment["replies"]:
+          pruned = prune_deleted(reply)
+          if pruned is not None:
+              kept.append(pruned)
+      if comment["deleted"] and not kept:
+          return None
+      return {
+          "score": comment["score"],
+          "deleted": comment["deleted"],
+          "replies": kept,
+      }
+interface: >-
+  def thread_score(comment: dict) -> int
+  def thread_depth(comment: dict) -> int
+  def count_awarded(comment: dict, min_score: int) -> int
+  def prune_deleted(comment: dict) -> dict | None
+stop_conditions:
+  - Whether a comment missing one of its three fields must be detected is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

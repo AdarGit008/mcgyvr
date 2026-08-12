@@ -1,0 +1,25 @@
+ ```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative whole number.');
+  }
+
+  const dp = Array.from({ length: length + 1 }, () => ({ takings: 0, pieces: [] as number[] }));
+  board.sort((a, b) => b[0] - a[0]);
+
+  for (let i = 1; i <= length; i++) {
+    for (const [metres, price] of board) {
+      if (i >= metres && dp[i - metres].takings + price > dp[i].takings) {
+        dp[i] = { takings: dp[i - metres].takings + price, pieces: [...dp[i - metres].pieces, metres] };
+      }
+    }
+  }
+
+  return dp[length];
+}
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+```

@@ -1,0 +1,13 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if limit < 4:
+        raise ValueError("Limit must be at least 4")
+
+    words = line.split()
+    if len(words) > limit - 3:
+        trimmed_line = ' '.join(words[:limit - 3]) + '...'
+    else:
+        trimmed_line = line
+
+    return trimmed_line
+```

@@ -1,0 +1,35 @@
+id: b148-pref-diff
+task_type: function_implementation
+task: >-
+  Implement diffPaths. Two nested mappings describe an app's preference
+  tree before and after an edit: under each key sits either a string leaf
+  or a nested mapping, a section. Return the sorted list of slash-joined
+  paths at which the trees differ: a leaf that changed, a key present on
+  only one side, or a leaf on one side facing a section on the other —
+  such a mismatch reports the path itself, never its children. Matching
+  sections are walked recursively, a difference inside them joining its
+  keys with slashes, like display/theme. Identical trees yield an empty
+  list. Reject a before or an after that is not a mapping, and a value on
+  either side that is neither a string nor a mapping, with an error.
+target: solution.ts
+target_content: |
+  type Tree = { [key: string]: string | Tree };
+  const isTree = (v: unknown): v is Tree =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
+
+  export function diffPaths(before: Tree, after: Tree): string[] {
+    if (!isTree(before) || !isTree(after)) throw new Error("both arguments must be mappings");
+    // TODO: walk the union of keys, reject a value that is neither a
+    // string nor a mapping, recurse into pairs of sections, and collect
+    // the slash-joined differing paths, sorted.
+    return [];
+  }
+interface: |-
+  type Tree = { [key: string]: string | Tree };
+  export function diffPaths(before: Tree, after: Tree): string[]
+stop_conditions:
+  - How keys that themselves contain a slash are told apart in a reported path is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

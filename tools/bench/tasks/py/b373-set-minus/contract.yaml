@@ -1,0 +1,14 @@
+id: b373-set-minus
+task_type: function_implementation
+task: >-
+  Implement set_minus. Return the entries of one list that do not
+  appear in another, keeping the order they came in and keeping any
+  repeats among them. Removing from an empty list gives an empty list.
+target: solution.py
+interface: "def set_minus(entries: list, remove: list) -> list"
+stop_conditions:
+  - Whether entries differing only in case should be treated as the same is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

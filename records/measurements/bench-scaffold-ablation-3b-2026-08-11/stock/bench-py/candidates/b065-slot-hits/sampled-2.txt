@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+
+def slot_hits(keys: List[int], slots: int) -> int:
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("The number of slots must be a positive integer.")
+    
+    held = [None] * slots
+    hits = 0
+    
+    for key in keys:
+        slot = key % slots
+        if held[slot] == key:
+            hits += 1
+        else:
+            held[slot] = key
+            
+    return hits
+```

@@ -1,0 +1,19 @@
+```python
+
+def crust_slice(name: str) -> str:
+    """
+    Given a file name, return the part before its final dot.
+    
+    Args:
+        name (str): The file name.
+        
+    Returns:
+        str: The part of the file name before the final dot. If no dot is found,
+             returns the original string unchanged.
+    """
+    if not name or '.' not in name:  # Edge case: empty string, single-dot string
+        return name
+    
+    # Find the last dot and return everything before it
+    return name[:name.rfind('.')]
+```

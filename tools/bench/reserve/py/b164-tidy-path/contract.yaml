@@ -1,0 +1,21 @@
+id: b164-tidy-path
+task_type: function_implementation
+task: >-
+  Implement tidy_path. The input is a relative file path of slash-separated
+  segments. Walk the segments keeping a stack: a segment of one dot means
+  the current directory and is dropped, a segment of two dots steps up and
+  discards the most recently kept segment, and every other segment is
+  kept. Return the kept segments joined by slashes, or a single dot when
+  nothing remains, so notes/./drafts/../april becomes notes/april and
+  logs/.. becomes the dot alone. Reject a path that is not a string, an
+  empty path, an empty segment left by a slash at either end or two
+  slashes in a row, and a step up arriving on an empty stack — a path
+  climbing above its start — with an error.
+target: solution.py
+interface: "def tidy_path(path: str) -> str"
+stop_conditions:
+  - How a segment of three or more dots is treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

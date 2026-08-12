@@ -1,0 +1,15 @@
+```ts
+function setMinus(entries: string[], remove: string[]): string[] {
+    // Ensure entries is not empty
+    if (entries.length === 0) return [];
+
+    // Create a new Set from entries to remove duplicates and preserve order
+    const removeSet = new Set(remove);
+
+    // Filter entries that are not in the remove set
+    const result = entries.filter(entry => !removeSet.has(entry));
+
+    // Return the result as an array of strings
+    return result;
+}
+```

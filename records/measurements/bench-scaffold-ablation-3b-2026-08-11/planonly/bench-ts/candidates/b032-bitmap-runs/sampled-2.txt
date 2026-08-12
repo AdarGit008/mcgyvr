@@ -1,0 +1,55 @@
+```
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Capacity must be a positive integer");
+    const wordCount = Math.ceil(capacity / 32);
+    if (words.length !== wordCount) throw new Error("Word count does not match the capacity");
+
+    for (let i = 0; i < words.length; i++) {
+        if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) throw new Error("Words must be integers from 0 to 4294967295");
+
+        let freeStart = -1;
+        for (let j = 0; j < 32 && freeStart === -1; j++) {
+            const bitPosition = i * 32 + j;
+            if (bitPosition >= capacity) break;
+
+            if (!isBitSet(words[i], j)) {
+                let runLength = 1;
+                let k = j + 1;
+                while (k < 32 && !isBitSet(words[i], k) && bitPosition + runLength < capacity) {
+                    runLength++;
+                    k++;
+                }
+
+                if (runLength === length) {
+                    freeStart = bitPosition;
+                }
+            }
+        }
+
+        if (freeStart !== -1) return freeStart;
+    }
+
+    return -1;
+}
+
+function occupyRun(words: number[], start: number, length: number): number[] {
+    if (!Number.isInteger(start)) throw new Error("Start index must be an integer");
+    if (!Number.isInteger(length) || length <= 0) throw new Error("Length must be a positive integer");
+
+    const end = start + length;
+    if (end > words.length * 32) throw new Error("Run extends beyond the capacity");
+    if (start >= end) throw new Error("Start index must be less than end index");
+
+    for (let i = start; i < end; i++) {
+        const wordIndex = Math.floor(i / 32);
+        const bitPosition = i % 32;
+        words[wordIndex] |= 1 << bitPosition;
+    }
+
+    return words;
+}
+
+function isBitSet(word: number, position: number): boolean {
+    return (word >> position) & 1 === 1;
+}
+```

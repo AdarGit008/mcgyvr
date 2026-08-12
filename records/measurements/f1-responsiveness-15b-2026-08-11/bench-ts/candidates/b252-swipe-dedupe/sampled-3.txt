@@ -1,0 +1,16 @@
+```ts
+export function swipeDedupe(swipes: string[]): string[] {
+  if (!swipes || !swipes.length) {
+    throw new Error('Input array must not be empty');
+  }
+
+  const deduplicatedSwipes = [swipes[0]];
+  for (let i = 1; i < swipes.length; i++) {
+    if (swipes[i] !== deduplicatedSwipes[deduplicatedSwipes.length - 1]) {
+      deduplicatedSwipes.push(swipes[i]);
+    }
+  }
+
+  return deduplicatedSwipes;
+}
+```

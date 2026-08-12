@@ -1,0 +1,18 @@
+```ts
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+  const invertedNames: Record<number, string> = {};
+  for (const [name, code] of Object.entries(names)) {
+    if (code !== "") {
+      const numericCode = parseInt(code);
+      invertedNames[numericCode] = name;
+    }
+  }
+
+  const sortedInvertedNames = Object.keys(invertedNames).sort((a, b) => a - b).reduce((acc, key) => {
+    acc[invertedNames[key]] = key;
+    return acc;
+  }, {});
+
+  return sortedInvertedNames;
+}
+```

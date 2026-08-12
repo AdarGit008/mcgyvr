@@ -1,0 +1,28 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """
+    Run a patrol bot in a corridor and return the final position, number of wall bumps, and visited cells.
+
+    :param width: The width of the corridor (positive integer).
+    :param start: The starting position of the bot (integer within the corridor).
+    :param moves: A list of signed move deltas.
+    :return: A dictionary with keys 'position', 'bumps', and 'visited'.
+    """
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    if not isinstance(start, int) or start < 0 or start >= width:
+        raise ValueError("Start position must be an integer within the corridor.")
+    if not isinstance(moves, list):
+        raise ValueError("Moves must be a list of integers.")
+
+    visited = set([start])
+    bumps = 0
+    current_position = start
+
+    for move in moves:
+        current_position, bump_count = clamp_move(current_position, move, width)
+        bumps += bump_count
+        visited.add(current_position)
+
+    return {'position': current_position, 'bumps': bumps, 'visited': len(visited)}
+```

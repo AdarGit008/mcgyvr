@@ -1,0 +1,32 @@
+id: b406-rename-field
+task_type: bug_fix
+task: >-
+  renameField returns records with one field renamed, and it leaves
+  the old name in place alongside the new one. Fix it. A record
+  lacking the old name is left exactly as it was, and the records it
+  was given are never altered. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Records with one field renamed. */
+  export function renameField(
+    records: Record<string, number>[],
+    was: string,
+    now: string,
+  ): Record<string, number>[] {
+    const out: Record<string, number>[] = [];
+    for (const record of records) {
+      const copied = { ...record };
+      if (was in copied) {
+        copied[now] = copied[was];
+      }
+      out.push(copied);
+    }
+    return out;
+  }
+interface: "export function renameField(records: Record<string, number>[], was: string, now: string): Record<string, number>[]"
+stop_conditions:
+  - Whether renaming onto a name the record already holds should be allowed is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

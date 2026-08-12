@@ -1,0 +1,68 @@
+```python
+from typing import Dict, List
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    """
+    Calculate the cheapest plan of passes to cover all trip days and return the total cost and purchases.
+    
+    :param trip_days: List of positive integers representing trip days in order.
+    :param passes: List of dictionaries where each dictionary contains 'span' and 'cost'.
+    :return: Dictionary with 'total' as the smallest cost to cover all trip days and 'purchases' as a list of [start_day, span] pairs.
+    """
+    
+    # Validate inputs
+    if not trip_days or not passes:
+        raise ValueError("Passes must be non-empty.")
+    
+    for pass_kind in passes:
+        if 'span' not in pass_kind or 'cost' not in pass_kind or \
+           not isinstance(pass_kind['span'], int) or not isinstance(pass_kind['cost'], int):
+            raise ValueError("Invalid pass kind: span and cost must be integers.")
+        
+        if pass_kind['span'] <= 0:
+            raise ValueError("Pass span must be a positive integer.")
+        
+        if pass_kind['cost'] < 0:
+            raise ValueError("Pass cost must be non-negative.")
+    
+    # Sort trip days in ascending order
+    trip_days.sort()
+    
+    # Initialize variables to track the total cost and purchases
+    total_cost = 0
+    purchases: List[List[int]] = []
+    
+    # Start with an empty set of covered days
+    covered_days = set()
+    
+    for day in trip_days:
+        if day <= 0 or not isinstance(day, int):
+            raise ValueError("Trip day must be a positive integer.")
+        
+        # Find the cheapest pass that covers the current day
+        cheapest_pass = None
+        min_cost = float('inf')
+        for pass_kind in passes:
+            start_day = day - (pass_kind['span'] - 1)
+            if start_day >= 0 and start_day not in covered_days:
+                cost = pass_kind['cost']
+                if cost < min_cost:
+                    cheapest_pass = [start_day, pass_kind['span']]
+                    min_cost = cost
+        
+        # If no pass covers the current day, raise an error
+        if cheapest_pass is None:
+            raise ValueError("No pass found to cover trip day " + str(day))
+        
+        # Add the cheapest pass's start day and span to purchases
+        purchases.append(cheapest_pass)
+        
+        # Mark the days covered by this pass as covered
+        for i in range(cheapest_pass[0], cheapest_pass[0] + cheapest_pass[1]):
+            covered_days.add(i)
+        
+        # Update total cost
+        total_cost += min_cost
+    
+    return {'total': total_cost, 'purchases': purchases}
+```

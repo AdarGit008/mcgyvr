@@ -1,0 +1,15 @@
+```ts
+// solution.ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length < 2) return 0;
+
+  // Sort the scores in ascending order to easily remove the lowest one
+  const sortedScores = [...scores].sort((a, b) => a - b);
+
+  // Drop the lowest score by removing it from the slice
+  const droppedScore = sortedScores.shift();
+
+  // Calculate the total of the remaining scores
+  return sortedScores.reduce((acc, curr) => acc + curr, 0);
+}
+```

@@ -88,6 +88,12 @@ extend-exclude = [
     # the task set's digests, so a formatter pass is not a tidy-up, it
     # invalidates every prior run's resume and the manifest's pins (#197).
     "tools/problems/tasks",
+    # tools/bench/ task material is the same case again (#225): both halves are
+    # digest-pinned by tools/bench/admissions.jsonl, and the bench half is the
+    # instrument every lever is judged against. A formatter pass would break
+    # every pin and change the instrument, not tidy it.
+    "tools/bench/tasks",
+    "tools/bench/reserve",
 ]
 
 [tool.ruff.lint]

@@ -1,0 +1,32 @@
+id: b423-scan-tally
+task_type: bug_fix
+task: >-
+  step_value returns what one instruction adds to a running total: a
+  plus adds one, a minus takes one away and anything else adds
+  nothing. scan_tally returns the running total after each
+  instruction, and it returns only the final one. Fix scan_tally.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def step_value(step: str) -> int:
+      if step == "+":
+          return 1
+      if step == "-":
+          return -1
+      return 0
+
+
+  def scan_tally(steps: list) -> list:
+      """The running total after each instruction."""
+      total = 0
+      for step in steps:
+          total += step_value(step)
+      return [total]
+interface: "def step_value(step: str) -> int
+def scan_tally(steps: list) -> list"
+stop_conditions:
+  - Whether the total before any instruction should be reported is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

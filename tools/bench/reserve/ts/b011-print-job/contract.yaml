@@ -1,0 +1,25 @@
+id: b011-print-job
+task_type: function_implementation
+task: >-
+  Implement tracePrintJob. It walks one print job through its lifecycle and
+  reports the trip. The job starts queued. The lawful events are start
+  (queued to printing), pause (printing to paused), resume (paused to
+  printing), jam (printing to blocked), clear (blocked to printing), finish
+  (printing to done), and cancel (from queued, printing, paused or blocked
+  to cancelled); done and cancelled admit no further events. The second
+  argument caps pausing: each applied pause spends one unit of the cap, and
+  a pause with the cap spent is an error. Return a mapping with state, where
+  the job ended; pauses, how many pauses were applied; jams, how many jams
+  occurred; and path, every state the job has held in order, starting at
+  queued. Reject an event outside the seven names, an event that does not
+  apply in the job's current state, any event arriving after done or
+  cancelled, a pause past the cap, a non-string event, and a pause cap that
+  is not a non-negative integer, with an error.
+target: solution.ts
+interface: "export function tracePrintJob(events: string[], pauseLimit: number): { state: string; pauses: number; jams: number; path: string[] }"
+stop_conditions:
+  - Whether an events argument that is not a list at all must be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

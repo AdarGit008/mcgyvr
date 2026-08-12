@@ -1,0 +1,16 @@
+```python
+def long_word(sentence: str) -> str:
+    # Split the sentence into words based on spaces
+    words = sentence.split()
+    
+    if not words:  # Check if there are no words in the sentence
+        return ""
+    
+    longest_word = words[0]  # Initialize with the first word
+    
+    for word in words:
+        if len(word) > len(longest_word):
+            longest_word = word
+    
+    return longest_word
+```

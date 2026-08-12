@@ -1,0 +1,23 @@
+id: b206-release-order
+task_type: function_implementation
+task: >-
+  Implement orderReleaseTags. A release tag is the letter v followed by three
+  dot-separated non-negative integers — major, minor and patch — optionally
+  followed by a hyphen and a preview label written as a lowercase word
+  directly on a number, so v1.4.0 and v2.0.0-rc3 are both tags. Return a new
+  list holding the given tags in ascending release order and leave the given
+  list untouched. Compare major, then minor, then patch as numbers and never
+  as text, so v1.9.3 comes before v1.10.0. When two tags name the same
+  major.minor.patch, the tag carrying a preview label comes before the plain
+  tag, and two preview labels are ordered first by their word alphabetically
+  and then by their number as a number, so alpha9 comes before beta1 and rc2
+  comes before rc10. Every tag given is well formed, and an empty list yields
+  an empty list.
+target: solution.ts
+interface: "export function orderReleaseTags(tags: string[]): string[]"
+stop_conditions:
+  - Whether the same tag may appear twice in the list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

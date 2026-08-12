@@ -1,0 +1,21 @@
+```python
+from typing import *
+from collections import *
+
+def row_key(name: str) -> str:
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    if not names:
+        return {}
+    
+    indexed_groups = defaultdict(list)
+    for idx, name in enumerate(names):
+        key = row_key(name)
+        indexed_groups[key].append((idx, name))
+    
+    # Convert tuples to lists as required by the interface
+    indexed_groups = {key: [item for item in group] for key, group in indexed_groups.items()}
+    
+    return indexed_groups
+```

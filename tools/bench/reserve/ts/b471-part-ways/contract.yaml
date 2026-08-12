@@ -1,0 +1,15 @@
+id: b471-part-ways
+task_type: function_implementation
+task: >-
+  Implement partWays. Report the first place where two runs of marks
+  stop agreeing, counting places from zero. Where one run carries on
+  past the other but agrees as far as it goes, they part at the end of
+  the shorter. Two runs agreeing all the way through report minus one.
+target: solution.ts
+interface: "export function partWays(left: string[], right: string[]): number"
+stop_conditions:
+  - Whether marks differing only in their case should count as agreeing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

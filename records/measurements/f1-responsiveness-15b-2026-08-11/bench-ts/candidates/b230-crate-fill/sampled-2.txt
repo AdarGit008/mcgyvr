@@ -1,0 +1,31 @@
+```ts
+/**
+ * Divides an array of items into a given number of crates as evenly as possible.
+ * @param items An array of numbers to be divided.
+ * @param crates The total number of crates to divide the items into.
+ * @returns An array of numbers representing the sizes of each crate, starting from the largest.
+ */
+export function crateFill(items: number[], crates: number): number[] {
+  if (crates <= 0) {
+    throw new Error('Number of crates must be positive.');
+  }
+
+  const itemLengths = Array.from({ length: crates }, () => items.length % crates);
+  const remainingItems = items.length % crates;
+
+  for (let i = 0; i < remainingItems; i++) {
+    itemLengths[i] += 1;
+  }
+
+  return itemLengths.sort((a, b) => b - a);
+}
+
+/**
+ * Adds up the sizes of an array of crate sizes to get a total.
+ * @param sizes An array of numbers representing the sizes of each crate.
+ * @returns The total size of all crates combined.
+ */
+export function crateTotal(sizes: number[]): number {
+  return sizes.reduce((total, size) => total + size, 0);
+}
+```

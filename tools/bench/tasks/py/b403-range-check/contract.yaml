@@ -1,0 +1,15 @@
+id: b403-range-check
+task_type: function_implementation
+task: >-
+  Implement range_check. Say whether every reading falls between a
+  stated low and high, both of those included. A run holding no
+  readings falls within any range. Reject a low standing above the
+  high with an error.
+target: solution.py
+interface: "def range_check(readings: list, low: int, high: int) -> bool"
+stop_conditions:
+  - Whether a reading exactly on a bound should be reported apart is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

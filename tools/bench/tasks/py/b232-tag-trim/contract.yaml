@@ -1,0 +1,15 @@
+id: b232-tag-trim
+task_type: function_implementation
+task: >-
+  Implement tag_trim. A tag may be wrapped in markers: a leading hash
+  and a trailing colon. Strip whichever markers are present and return
+  what is left. A tag carrying neither marker comes back unchanged,
+  and only one marker of each kind is ever stripped.
+target: solution.py
+interface: "def tag_trim(tag: str) -> str"
+stop_conditions:
+  - Whether whitespace around the markers should also be stripped is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,47 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    if not words or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap")
+    if not isinstance(bits, int) or bits <= 0:
+        raise ValueError("Invalid capacity")
+    if len(words) != (bits + 31) // 32:
+        raise ValueError("Word count disagrees with capacity")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Invalid run length")
+
+    for start in range(bits - length + 1):
+        if all(bit_at(words, start + i * 32 + j) == 0 for i in range((length + 31) // 32) for j in range(32)):
+            return start
+    return -1
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    if not words or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap")
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Invalid start index")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Invalid run length")
+
+    new_words = words[:]
+    end = start + length
+    for i in range((end - 1) // 32 + 1):
+        word_index = start // 32 + i
+        if word_index >= len(words):
+            raise ValueError("Run touches an occupied block")
+        bit_offset = start % 32
+        if end > (word_index + 1) * 32:
+            new_words[word_index] |= ((1 << (32 - bit_offset)) - 1)
+        else:
+            new_words[word_index] |= ((1 << (end % 32 - bit_offset)) - 1)
+    return new_words
+
+def bit_at(words: list[int], index: int) -> int:
+    if not words or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap")
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Invalid index")
+
+    word_index = index // 32
+    bit_offset = index % 32
+    return (words[word_index] >> bit_offset) & 1
+```

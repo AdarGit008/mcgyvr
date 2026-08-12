@@ -1,0 +1,16 @@
+```ts
+function moveStock(opening: number, moves: number[]): number {
+    let remaining = opening;
+
+    for (const move of moves) {
+        if (move > 0) {
+            remaining += move;
+            if (remaining < 0) remaining = 0; // Prevent negative quantity
+        } else {
+            remaining -= Math.abs(move); // Remove the absolute value since we're moving in the opposite direction
+        }
+    }
+
+    return remaining;
+}
+```

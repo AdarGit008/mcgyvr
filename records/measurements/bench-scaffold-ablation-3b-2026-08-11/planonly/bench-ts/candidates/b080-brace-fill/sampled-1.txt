@@ -1,0 +1,21 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+    if (typeof template !== 'string') {
+        throw new Error('Template must be a string.');
+    }
+
+    const placeholderRegex = /\{([a-zA-Z0-9_]+)\}/g;
+
+    return template.replace(placeholderRegex, (match, name) => {
+        if (!name || !/^[a-zA-Z0-9_]+$/.test(name)) {
+            throw new Error('Invalid placeholder name: ' + name);
+        }
+
+        if (!(values as any)[name]) {
+            throw new Error(`Placeholder name '${name}' not found in values.`);
+        }
+
+        return (values as any)[name];
+    });
+}
+```

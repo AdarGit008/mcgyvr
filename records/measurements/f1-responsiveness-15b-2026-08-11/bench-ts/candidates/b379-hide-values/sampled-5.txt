@@ -1,0 +1,25 @@
+```ts
+/** A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  if (typeof store !== 'object' || store === null) {
+    throw new Error('Input must be an object.');
+  }
+
+  const hidden: Record<string, string> = {};
+  for (const key in store) {
+    const value = store[key];
+    if (value) {
+      // Ensure the value is a string before starring out
+      if (typeof value !== 'string') {
+        throw new Error('Value must be a string.');
+      }
+      hidden[`*`.repeat(value.length)] = value;
+    } else {
+      hidden["*".repeat(key.length)] = "";
+    }
+  }
+  return hidden;
+}
+```

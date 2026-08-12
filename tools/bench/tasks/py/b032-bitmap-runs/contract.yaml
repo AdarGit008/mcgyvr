@@ -1,0 +1,82 @@
+id: b032-bitmap-runs
+task_type: function_implementation
+task: >-
+  Implement find_free_run; bit_at and occupy_run are already written and
+  share its layout. The bitmap is a list of 32-bit words, integers from 0
+  to 4294967295; bit i of the map lives in word i div 32 at bit position
+  i mod 32, and a set bit marks an occupied block. bit_at returns bit i as
+  0 or 1, rejecting an index that is not an integer inside the words.
+  occupy_run returns a new word list with the run of length blocks starting
+  at start marked occupied, leaving its argument unmodified, and rejects a
+  run that does not lie wholly inside the words and a run touching an
+  occupied block. find_free_run takes the capacity in blocks: the word list
+  must hold exactly ceil(capacity/32) words, a set bit at or beyond the
+  capacity is an error, and it returns the smallest start of a run of
+  length free blocks lying entirely below the capacity, or -1 when none
+  exists. All three reject a bitmap word that is not an integer from 0 to
+  4294967295; find_free_run additionally rejects a capacity that is not a
+  positive integer, a word count that disagrees with the capacity, and a
+  run length that is not a positive integer. Each rejection is an error.
+target: solution.py
+target_content: |
+  """A block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied."""
+
+  WORD_BITS = 32
+  WORD_MAX = 0xFFFFFFFF
+
+
+  def _whole(value):
+      return not isinstance(value, bool) and isinstance(value, int)
+
+
+  def _check_words(words):
+      for word in words:
+          if not _whole(word) or word < 0 or word > WORD_MAX:
+              raise ValueError("bitmap words must be integers from 0 to 4294967295")
+
+
+  def _bit_of(words, index):
+      return (words[index // WORD_BITS] >> (index % WORD_BITS)) & 1
+
+
+  def bit_at(words, index):
+      _check_words(words)
+      if not _whole(index):
+          raise ValueError("bit index must be an integer")
+      if index < 0 or index >= len(words) * WORD_BITS:
+          raise ValueError("bit index is outside the words")
+      return _bit_of(words, index)
+
+
+  def occupy_run(words, start, length):
+      _check_words(words)
+      if not _whole(start) or start < 0:
+          raise ValueError("run start must be a non-negative integer")
+      if not _whole(length) or length <= 0:
+          raise ValueError("run length must be a positive integer")
+      if start + length > len(words) * WORD_BITS:
+          raise ValueError("run leaves the words")
+      for i in range(start, start + length):
+          if _bit_of(words, i) == 1:
+              raise ValueError("run touches an occupied block")
+      marked = list(words)
+      for i in range(start, start + length):
+          marked[i // WORD_BITS] |= 1 << (i % WORD_BITS)
+      return marked
+
+
+  def find_free_run(words, bits, length):
+      # TODO: validate the capacity against the words, reject stray bits at
+      # or beyond it, and return the smallest start of a free run of the
+      # given length below the capacity, or -1.
+      raise NotImplementedError
+interface: |-
+  def find_free_run(words: list, bits: int, length: int) -> int
+  def occupy_run(words: list, start: int, length: int) -> list
+  def bit_at(words: list, index: int) -> int
+stop_conditions:
+  - Whether an empty word list is lawful for bit_at and occupy_run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

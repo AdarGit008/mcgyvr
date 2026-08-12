@@ -1,0 +1,30 @@
+```python
+from typing import Dict
+import math
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+    
+    if want <= 0:
+        raise ValueError("Want must be a positive integer.")
+    
+    base_parts = {}
+    
+    def explode(kit_name: str, quantity: int) -> None:
+        recipe = catalog[kit_name]
+        makes = recipe["makes"]
+        parts = recipe["parts"]
+        
+        runs = math.ceil(quantity / makes)
+        
+        for part, count in parts.items():
+            if isinstance(part, dict):
+                explode(part, runs * count)
+            else:
+                base_parts[part] = base_parts.get(part, 0) + runs * count
+    
+    explode(kit, want)
+    
+    return base_parts
+```

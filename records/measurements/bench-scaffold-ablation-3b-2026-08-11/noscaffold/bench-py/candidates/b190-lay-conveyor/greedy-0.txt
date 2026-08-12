@@ -1,0 +1,28 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lay a conveyor run on the factory floor plan.
+
+    :param floor: List of rows representing the factory floor plan.
+    :param row: The starting row index for the conveyor run.
+    :param col: The starting column index for the conveyor run.
+    :param length: The number of cells to cover by the conveyor run.
+    :return: A new list of rows with the conveyor run laid.
+    """
+    if not floor or row < 0 or col < 0:
+        raise ValueError("Invalid row or column index.")
+    
+    num_rows = len(floor)
+    if row >= num_rows or col + length > num_rows:
+        raise ValueError("Conveyor run would leave the plan.")
+    
+    for i in range(length):
+        if floor[row][col + i] != ".":
+            raise ValueError("Cell is not open for conveyor run.")
+    
+    new_floor = [row[:] for row in floor]
+    for i in range(length):
+        new_floor[row][col + i] = "="
+    
+    return new_floor
+```

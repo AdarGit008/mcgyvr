@@ -1,0 +1,15 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer")
+    
+    ladder = [(1_000, "m"), (100, "cm"), (1, "mm")]
+    result = []
+    
+    for units, symbol in ladder:
+        count, mm = divmod(mm, units)
+        if count > 0:
+            result.append(f"{count}{symbol}")
+    
+    return ' '.join(result) or "0mm"
+```

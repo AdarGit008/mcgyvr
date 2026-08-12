@@ -1,0 +1,42 @@
+```python
+def check_line(line: str) -> str:
+    """
+    Checks if a line is valid based on its tag.
+
+    Args:
+        line (str): The line to validate.
+
+    Returns:
+        str: The body of the line if valid.
+
+    Raises:
+        ValueError: If the line is invalid.
+    """
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    tag = line_tag(line[:-1])
+    if line[-2:] != tag or line[-1] == '~':
+        raise ValueError("Invalid line format.")
+    
+    return line[:-2]
+
+def line_tag(body: str) -> str:
+    """
+    Computes the tag for a body as the sum of its character codes modulo 256.
+
+    Args:
+        body (str): The body to compute the tag for.
+
+    Returns:
+        str: The two-digit hexadecimal tag.
+    """
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    
+    tag = hex(sum(ord(char) % 256 for char in body))[2:]
+    return tag.zfill(2)
+```

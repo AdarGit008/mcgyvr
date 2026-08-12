@@ -1,0 +1,22 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    Examples:
+    >>> plural_of("cat")
+    "cats"
+    >>> plural_of("box")
+    "boxes"
+    >>> plural_of("syzygy")
+    "syzygies"
+    >>> plural_of("sky")
+    "skies"  # Note: 'ky' is a silent c, not a consonant
+    """
+    if noun.endswith(("s", "x", "ch", "sh")):
+        return noun + "es"
+    elif noun.endswith("y"):
+        return noun[:-1] + "ies"
+    else:
+        return noun + "s"
+```

@@ -1,0 +1,23 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if not isinstance(units, int) or units <= 0:
+        raise ValueError("Units must be a positive integer.")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+
+    def split_and_plan(remaining_units: int, current_round: int) -> dict:
+        if remaining_units <= capacity:
+            return {"loads": [remaining_units], "splits": 0, "rounds": current_round}
+        
+        half1 = (remaining_units + capacity - 1) // capacity
+        half2 = remaining_units - half1 * capacity
+        
+        loads = split_and_plan(half1, current_round + 1)["loads"] + \
+                split_and_plan(half2, current_round + 1)["loads"]
+        
+        return {"loads": loads, "splits": split_and_plan(half1, current_round)["splits"] + \
+                    split_and_plan(half2, current_round)["splits"], "rounds": current_round}
+
+    result = split_and_plan(units, 0)
+    return result
+```

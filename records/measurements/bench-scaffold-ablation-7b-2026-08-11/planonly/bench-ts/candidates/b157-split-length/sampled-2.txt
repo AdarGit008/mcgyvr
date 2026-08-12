@@ -1,0 +1,30 @@
+```ts
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length");
+  }
+
+  const units = [
+    { symbol: "m", value: 1000 },
+    { symbol: "cm", value: 10 },
+    { symbol: "mm", value: 1 }
+  ];
+
+  let remainingLength = mm;
+  const result: string[] = [];
+
+  for (const unit of units) {
+    if (remainingLength >= unit.value) {
+      const count = Math.floor(remainingLength / unit.value);
+      remainingLength %= unit.value;
+      if (count > 0) {
+        result.push(`${count}${unit.symbol}`);
+      }
+    }
+  }
+
+  return result.join(" ") || "0mm";
+}
+
+```

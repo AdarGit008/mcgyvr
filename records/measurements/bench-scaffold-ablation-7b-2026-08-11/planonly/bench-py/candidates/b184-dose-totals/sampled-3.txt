@@ -1,0 +1,24 @@
+```python
+def dose_totals(log: list) -> dict:
+    from collections import defaultdict
+
+    totals = defaultdict(float)
+
+    for reagent, amount in log:
+        if not all(c.isdigit() or c == '-' or c == '.' for c in amount):
+            raise ValueError("Invalid amount format")
+
+        total = sum(totals[reagent] + float(amount) for _, amount in log if _ == reagent)
+        totals[reagent] = round(total, 3)
+
+    result = {}
+    for reagent, total in totals.items():
+        int_total = int(total * 1000)
+        if int_total < 0:
+            formatted = f"-{abs(int_total):d}"
+        else:
+            formatted = str(int_total).rstrip('0').rstrip('.')
+        result[reagent] = formatted
+
+    return result
+```

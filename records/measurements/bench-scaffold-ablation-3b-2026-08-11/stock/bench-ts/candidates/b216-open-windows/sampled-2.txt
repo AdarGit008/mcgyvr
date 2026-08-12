@@ -1,0 +1,55 @@
+```ts
+/** Report the stretches of a clinic's day that no appointment covers. */
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  if (!clock.test(span)) {
+    throw new Error("The span must be written HH:MM-HH:MM: " + span);
+  }
+  
+  const [startSpan, endSpan] = span.split("-");
+  const startMinutes = Number(startSpan.slice(0, 2)) * 60 + Number(startSpan.slice(3));
+  const endMinutes = Number(endSpan.slice(0, 2)) * 60 + Number(endSpan.slice(3));
+
+  if (startMinutes >= endMinutes) {
+    throw new Error("The span must start before it ends.");
+  }
+
+  const minutesPerDay = 24 * 60;
+  
+  const bookedTimes: number[] = [];
+  for (const appointment of booked) {
+    const [startAppointment, endAppointment] = appointment.split("-");
+    if (!clock.test(startAppointment) || !clock.test(endAppointment)) {
+      throw new Error("An appointment must be written HH:MM-HH:MM: " + appointment);
+    }
+    
+    const startAppMinutes = Number(startAppointment.slice(0, 2)) * 60 + Number(startAppointment.slice(3));
+    const endAppMinutes = Number(endAppointment.slice(0, 2)) * 60 + Number(endAppointment.slice(3));
+    
+    if (startAppMinutes >= endAppMinutes) {
+      throw new Error("An appointment must start before it ends.");
+    }
+    
+    bookedTimes.push(startAppMinutes, endAppMinutes);
+  }
+
+  bookedTimes.sort((a, b) => a - b);
+
+  const freeSpans: string[] = [];
+  let lastEnd = startMinutes;
+
+  for (let i = 0; i < bookedTimes.length; i += 2) {
+    const nextStart = bookedTimes[i + 1];
+    if (nextStart > lastEnd) {
+      freeSpans.push(stamp(lastEnd));
+      lastEnd = nextStart;
+    }
+  }
+
+  if (lastEnd < endMinutes) {
+    freeSpans.push(stamp(lastEnd));
+  }
+
+  return freeSpans.length === 0 ? "none" : freeSpans.join(", ");
+}
+```

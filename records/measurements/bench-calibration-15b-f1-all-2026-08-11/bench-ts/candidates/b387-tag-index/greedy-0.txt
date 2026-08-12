@@ -1,0 +1,25 @@
+```ts
+export function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  return line.split(',').map(tag => tag.trim()).filter(tag => tag);
+}
+
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  const index: Record<string, string[]> = {};
+  for (const line of lines) {
+    if (typeof line !== 'string') {
+      throw new Error('Input must be a string');
+    }
+    const tags = tagsOf(line);
+    for (const tag of tags) {
+      if (!index.hasOwnProperty(tag)) {
+        index[tag] = [];
+      }
+      index[tag].push(line);
+    }
+  }
+  return index;
+}
+```

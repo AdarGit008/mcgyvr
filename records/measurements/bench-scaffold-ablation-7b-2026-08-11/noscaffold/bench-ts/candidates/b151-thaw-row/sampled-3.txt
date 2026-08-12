@@ -1,0 +1,20 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+    if (typeof row !== 'string' || row.length === 0 || /[^#.]/.test(row) || !Number.isInteger(steps) || steps < 0) {
+        throw new Error('Invalid input');
+    }
+
+    let cells = row.split('');
+    for (let s = 0; s < steps; s++) {
+        const nextCells = cells.map((cell, i) => {
+            if (cell === '.' || i === 0 || i === cells.length - 1 || (cells[i - 1] === '.' && cells[i + 1] === '.')) {
+                return '.';
+            }
+            return cell;
+        });
+        cells = nextCells;
+    }
+
+    return cells.join('');
+}
+```

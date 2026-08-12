@@ -1,0 +1,30 @@
+```python
+def stamp_table(dies: list) -> dict:
+    """Builds a lookup table from die fragments to their prices."""
+    table = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not isinstance(price, int) or fragment == "":
+            raise ValueError("Invalid fragment or price.")
+        if fragment in table:
+            raise ValueError(f"Fragment '{fragment}' listed twice.")
+        table[fragment] = price
+    return table
+
+def stamp_cover(label: str, dies: list) -> int:
+    """Returns the cheapest total price of any sequence of die presses spelling the label exactly."""
+    if not isinstance(label, str) or not label:
+        raise ValueError("Label must be a non-empty string.")
+    
+    table = stamp_table(dies)
+    
+    # Initialize DP array where dp[i] is the minimum cost to spell the first i characters of the label
+    dp = [float('inf')] * (len(label) + 1)
+    dp[0] = 0
+    
+    for i in range(1, len(label) + 1):
+        for fragment, price in table.items():
+            if label.startswith(fragment, i - len(fragment)):
+                dp[i] = min(dp[i], dp[i - len(fragment)] + price)
+    
+    return dp[-1]
+```

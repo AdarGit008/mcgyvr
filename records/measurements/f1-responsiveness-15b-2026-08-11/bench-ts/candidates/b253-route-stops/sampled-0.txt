@@ -1,0 +1,12 @@
+```ts
+export function routeStops(route: string): string[] {
+  if (typeof route !== 'string') throw new Error('Invalid input: route must be a string');
+  return route.split('>').map(stop => stop.trim());
+}
+
+export function routeHops(route: string): number {
+  const stops = routeStops(route);
+  if (!stops.length) return -1; // No stops means no journeys
+  return stops.length - 1;
+}
+```

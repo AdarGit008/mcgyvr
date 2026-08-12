@@ -1,0 +1,39 @@
+```typescript
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || !row) {
+    throw new Error('Invalid row input');
+  }
+  const validChars = ['#', '.'];
+  for (const char of row) {
+    if (!validChars.includes(char)) {
+      throw new Error('Row contains invalid characters');
+    }
+  }
+
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Step count must be a non-negative integer');
+  }
+
+  const processRow = (current: string): string => {
+    let changed = false;
+    for (let i = 0; i < current.length; i++) {
+      if (current[i] === '#') {
+        if (i === 0 || i === current.length - 1) {
+          changed = true;
+          current = current.slice(0, i) + '.' + current.slice(i + 1);
+        } else if (current[i - 1] === '#' && current[i + 1] === '#') {
+          changed = true;
+          current = current.slice(0, i) + '.' + current.slice(i + 1);
+        }
+      }
+    }
+    return changed ? processRow(current) : current;
+  };
+
+  for (let i = 0; i < steps; i++) {
+    row = processRow(row);
+  }
+
+  return row;
+}
+```

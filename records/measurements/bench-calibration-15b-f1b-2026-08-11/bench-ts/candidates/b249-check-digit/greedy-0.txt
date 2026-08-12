@@ -1,0 +1,14 @@
+```ts
+export function checkDigit(code: string): number {
+  if (!code || !/^\d+$/.test(code)) {
+    throw new Error('Invalid code');
+  }
+
+  let sum = 0;
+  for (const digit of code) {
+    sum += parseInt(digit, 10);
+  }
+
+  return sum % 10 === 0 ? 0 : 10 - sum % 10;
+}
+```

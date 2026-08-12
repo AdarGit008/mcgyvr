@@ -1,0 +1,25 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("links must be a mapping")
+    if start not in links:
+        raise ValueError("start is not a post")
+    
+    route = []
+    visited = set()
+    current_post = start
+    
+    while current_post != '':
+        if current_post in visited:
+            raise ValueError("handoffs come back to a post already visited")
+        
+        route.append(current_post)
+        visited.add(current_post)
+        
+        if current_post not in links:
+            raise ValueError(f"unknown handoff '{current_post}'")
+        
+        current_post = links[current_post]
+    
+    return route
+```

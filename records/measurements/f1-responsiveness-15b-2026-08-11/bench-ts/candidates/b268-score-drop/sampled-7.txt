@@ -1,0 +1,14 @@
+```ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length <= 1) return 0;
+
+  scores.sort((a, b) => a - b);
+  const lowest = scores[0];
+
+  // Remove all occurrences of the lowest score from the array
+  const filteredScores = scores.filter(score => score !== lowest);
+
+  // Return the sum of the remaining scores
+  return filteredScores.reduce((sum, score) => sum + score, 0);
+}
+```

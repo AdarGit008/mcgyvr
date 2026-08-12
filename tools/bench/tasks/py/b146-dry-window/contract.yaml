@@ -1,0 +1,20 @@
+id: b146-dry-window
+task_type: function_implementation
+task: >-
+  Implement driest_window. The rain argument lists a gauge's daily rainfall
+  readings, one non-negative integer per day, in calendar order; width is
+  how many consecutive days an inspection visit covers. Return the starting
+  index of the width-day stretch whose readings sum smallest; when several
+  stretches tie for the smallest total, the earliest start wins. A width
+  equal to the number of days names the whole record, index 0. Reject a
+  rain argument that is not a list, a reading that is not an integer, a
+  negative reading, a width that is not a positive whole number, and a
+  width larger than the number of days, with an error.
+target: solution.py
+interface: "def driest_window(rain: list, width: int) -> int"
+stop_conditions:
+  - Whether an upper bound applies to the number of days or to a single reading is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

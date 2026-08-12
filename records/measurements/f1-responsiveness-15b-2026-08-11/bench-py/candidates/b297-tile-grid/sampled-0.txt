@@ -1,0 +1,47 @@
+```python
+from typing import List
+
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Return how many tiles of a given size cover a length, rounding up so that a part tile still counts as one.
+    
+    :param length: Length to be covered by the tiles.
+    :param tile: Size of each tile.
+    :return: Number of tiles needed to cover the length, including fractions.
+    """
+    if not (isinstance(length, int) and isinstance(tile, int)):
+        raise ValueError("Both length and tile must be integers.")
+    
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Return the tiles needed for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again.
+    
+    :param width: Width of the wall.
+    :param height: Height of the wall.
+    :param tile: Size of each tile.
+    :param spare: Percentage of waste allowed as a whole number (eg. 10 means 10%).
+    :return: Total number of tiles needed for the wall, including extra for waste allowance.
+    """
+    if not (isinstance(width, int) and isinstance(height, int) and isinstance(tile, int)):
+        raise ValueError("All parameters must be integers.")
+    
+    # Calculate the total area needing tiles
+    total_area = width * height
+    
+    # Calculate the number of tiles needed without waste
+    initial_tiles = total_area // tile
+    
+    # Calculate the total waste (spare percentage)
+    waste_percentage = spare / 100
+    total_waste = initial_tiles * waste_percentage
+    
+    # Round up the wasted tiles to ensure they are included in the final tally
+    rounded_waste = round(total_waste, 0)
+    
+    # Calculate the total number of tiles including waste allowance
+    total_tiles_needed = initial_tiles + rounded_waste
+    
+    return int(total_tiles_needed)
+```

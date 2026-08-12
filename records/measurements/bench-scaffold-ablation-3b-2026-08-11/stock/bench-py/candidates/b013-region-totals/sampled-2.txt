@@ -1,0 +1,46 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """Compute the sums of query blocks in the grid."""
+    
+    def build_prefix_sum_table(grid):
+        width = len(grid[0])
+        height = len(grid)
+        
+        # Initialize prefix sum table with zeros
+        ps_table = [[0 for _ in range(width + 1)] for _ in range(height + 1)]
+        
+        for i in range(1, height + 1):
+            for j in range(1, width + 1):
+                ps_table[i][j] = grid[i - 1][j - 1] + \
+                                  (ps_table[i - 1][j] if i > 1 else 0) + \
+                                  (ps_table[i][j - 1] if j > 1 else 0) - \
+                                  (ps_table[i - 1][j - 1] if i > 1 and j > 1 else 0)
+        
+        return ps_table
+
+    def validate_query(query):
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("queries must be lists of exactly four integers")
+        top, left, bottom, right = query
+        if top >= bottom or left >= right:
+            raise ValueError("top and left must be strictly less than bottom and right, respectively")
+        
+        if not all(isinstance(q, int) for q in query):
+            raise ValueError("all elements of a query must be integers")
+
+    def compute_query(ps_table, query):
+        top, left, bottom, right = query
+        return ps_table[bottom][right] - \
+               (ps_table[top][right] if top > 1 else 0) - \
+               (ps_table[bottom][left] if left > 1 else 0) + \
+               (ps_table[top][left] if top > 1 and left > 1 else 0)
+
+    prefix_sum_table = build_prefix_sum_table(grid)
+    
+    totals = []
+    for query in queries:
+        validate_query(query)
+        totals.append(compute_query(prefix_sum_table, query))
+        
+    return totals
+```

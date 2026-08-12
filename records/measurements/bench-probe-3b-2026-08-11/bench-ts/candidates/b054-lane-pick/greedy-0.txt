@@ -1,0 +1,29 @@
+```ts
+export function pickLane(queues: number[], closed: number[]): number {
+  if (!Array.isArray(queues) || queues.length === 0 || !queues.every(q => typeof q === 'number' && Number.isInteger(q) && q >= 0)) {
+    throw new Error('Invalid queues argument');
+  }
+  if (!Array.isArray(closed) || closed.some(idx => typeof idx !== 'number' || !Number.isInteger(idx))) {
+    throw new Error('Invalid closed argument');
+  }
+
+  const openLanes = queues.map((_, laneIndex) => laneIndex).filter(laneIndex => !closed.includes(laneIndex));
+
+  if (openLanes.length === 0) {
+    throw new Error('All lanes are closed');
+  }
+
+  let bestLane = openLanes[0];
+  for (let i = 1; i < openLanes.length; i++) {
+    const currentLane = openLanes[i];
+    if (
+      queues[currentLane] <= queues[bestLane] ||
+      (queues[currentLane] === queues[bestLane] && currentLane < bestLane)
+    ) {
+      bestLane = currentLane;
+    }
+  }
+
+  return bestLane;
+}
+```

@@ -1,0 +1,11 @@
+```ts
+export function sortByLen(words: string[]): string[] {
+    words.sort((a, b) => {
+        const lenA = a.length;
+        const lenB = b.length;
+        if (lenA === lenB) return a.localeCompare(b);
+        return lenA - lenB;
+    });
+    return words;
+}
+```

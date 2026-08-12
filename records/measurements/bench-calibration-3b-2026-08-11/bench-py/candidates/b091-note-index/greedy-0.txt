@@ -1,0 +1,26 @@
+```python
+"""A word-to-line index for a plain-text note."""
+
+import re
+
+WORD_RUN = re.compile(r"[a-z0-9]+")
+
+
+def words_of_line(line):
+    return WORD_RUN.findall(line.lower())
+
+
+def build_word_index(text: str) -> dict:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    index = {}
+    rows = text.split("\n")
+    for row, line in enumerate(rows, start=1):
+        words = words_of_line(line)
+        for word in words:
+            if word not in index:
+                index[word] = []
+            index[word].append(row)
+    return index
+```

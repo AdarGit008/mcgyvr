@@ -1,0 +1,5 @@
+```python
+def camel_break(name: str) -> list:
+    words = name.split()
+    return [word.lower() for word in words]
+```

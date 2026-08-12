@@ -1,0 +1,48 @@
+```python
+from typing import Dict
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or not passes:
+        return {"total": 0, "purchases": []}
+
+    # Sort trip days in ascending order
+    trip_days.sort()
+
+    def can_cover_trip_day(day: int, purchases: list) -> bool:
+        for start, span in purchases:
+            if day >= start and day < start + span:
+                return True
+        return False
+
+    def buy_pass(start_day: int, span: int, cost: int, total_cost: int, purchases: list) -> Dict[str, any]:
+        if can_cover_trip_day(trip_days[0], purchases):
+            new_purchases = purchases + [(start_day, span)]
+            return {"total": total_cost + cost, "purchases": new_purchases}
+        else:
+            raise ValueError("Cannot buy pass to cover the first trip day.")
+
+    def backtrack(total_cost: int, purchases: list) -> Dict[str, any]:
+        if not trip_days:
+            return {"total": total_cost, "purchases": purchases}
+
+        for i in range(len(passes)):
+            span = passes[i]["span"]
+            cost = passes[i]["cost"]
+
+            try:
+                result = buy_pass(trip_days[0], span, cost, total_cost, purchases)
+                best_result = backtrack(result["total"], result["purchases"])
+                if best_result["total"] < result["total"]:
+                    return best_result
+            except ValueError:
+                continue
+
+        raise ValueError("No valid pass plan found.")
+
+    try:
+        initial_purchases = []
+        return backtrack(0, initial_purchases)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return {"total": 0, "purchases": []}
+```

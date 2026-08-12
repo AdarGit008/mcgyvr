@@ -1,0 +1,16 @@
+id: b310-pair-keys
+task_type: function_implementation
+task: >-
+  Implement pair_keys. Given a list of names and a list of codes,
+  return a mapping from each name to the code standing in the matching
+  position. Where the two lists differ in length the extra entries on
+  the longer side are left out, and a name appearing twice keeps the
+  later of its codes.
+target: solution.py
+interface: "def pair_keys(names: list, codes: list) -> dict"
+stop_conditions:
+  - Whether a name may be empty text is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

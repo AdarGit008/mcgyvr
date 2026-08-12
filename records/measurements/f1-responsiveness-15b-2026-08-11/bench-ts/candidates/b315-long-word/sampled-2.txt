@@ -1,0 +1,28 @@
+```ts
+// solution.ts
+
+/**
+ * Returns the longest word in a sentence, where any run of spaces separates two words.
+ * When two words are equally long, the one appearing first wins.
+ *
+ * @param {string} sentence - The sentence to analyze.
+ * @returns {string} The longest word.
+ */
+export function longWord(sentence: string): string {
+  if (!sentence) return '';
+
+  const words = sentence.split(/\s+/);
+  let maxLength = 0;
+  let longestWord = '';
+
+  for (const word of words) {
+    const length = word.length;
+    if (length > maxLength) {
+      maxLength = length;
+      longestWord = word;
+    }
+  }
+
+  return longestWord;
+}
+```

@@ -1,0 +1,35 @@
+id: b097-meter-ladder
+task_type: function_implementation
+task: >-
+  Implement meter_charge. A metered plan prices consumption through a
+  ladder of tiers, each tier a [span, rate] pair: the span is how many
+  units the tier covers, a positive integer, and the rate is the tier's
+  price per unit in thousandths of a cent, a non-negative integer.
+  Consumption fills the ladder in order, exhausting each tier's span
+  before touching the next. A tier's charge is the units it absorbed
+  times its rate, turned into whole cents by rounding half a cent or
+  more up, and the bill is the sum of those per-tier cents — every tier
+  rounds on its own, so a tier owing 1499 thousandths bills 1 cent, two
+  such tiers bill 2 cents in total, where a single rounding of the
+  combined 2998 would bill 3. Return the billed cents. Reject a units
+  count that is not a non-negative integer, an empty ladder, a span that
+  is not a positive integer, a rate that is not a non-negative integer,
+  and consumption exceeding the ladder's combined span, with an error.
+target: solution.py
+target_content: |
+  def meter_charge(units: int, tiers: list) -> int:
+      if isinstance(units, bool) or not isinstance(units, int):
+          raise ValueError("units must be an integer")
+      if units < 0:
+          raise ValueError("units must not be negative")
+      # TODO: validate the ladder, fill the tiers in order, round each
+      # tier's thousandths to whole cents half up, and total the bill;
+      # reject consumption past the ladder's combined span.
+      raise NotImplementedError
+interface: "def meter_charge(units: int, tiers: list) -> int"
+stop_conditions:
+  - Whether tiers the consumption never reaches are still validated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

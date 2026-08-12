@@ -212,3 +212,40 @@ longer it waits; or choose a different known effect on unreleased material.
 Recorded rather than resolved, because choosing is #225's job and this record
 should not pre-empt it — but the "free today" clause is a real expiry, and the
 first tune drawn from `bundle-ts` closes that door.
+
+## Correction — 2026-08-10 (#225)
+
+The positive-control paragraph above mis-attributes CLM-0017's material, and
+the mis-attribution priced one of the three routes wrongly. The retirement,
+the release, and the guard are untouched; what changes is the arithmetic the
+chooser faced.
+
+**The ~+20pp effect was not measured on the twenty JS/TS contracts.**
+CLM-0017's positive control is "the original twenty contracts, the original
+harness, c0, with that one sentence appended" — local-ai's unported **Python**
+contracts under local-ai's own harness (`records/claims/CLM-0017.json`;
+`records/measurements/python-bundle-2026-08-07/output-rule-probe.jsonl`):
+7/20 → 11/20 first-pass, 427.4 → 121.5 mean completion tokens. The mcgyvr port
+of that material is `bundle-py`; `bundle-ts` shares roughly two-thirds of the
+underlying problems — the declaration's own note records this — but is not
+what the control ran on. This is the arm-A/arm-B confusion #234 corrected in
+three documents, standing in a fourth, and #231's body carried it too.
+
+**So "un-release `bundle-ts`" never bought an exact control**, and an exact
+replay is unattractive at any price, for two reasons this record already
+contains elsewhere. The vendored originals are not a declared set, and
+mcgyvr's rig nulls the effect by construction — `render_user_message` always
+carries the output rule, which is CLM-0017's own explanation of arm A's flat
+65/70/70/70 at p = 1.00 — so recovering the effect on any mcgyvr-served
+material requires a condition with the rule *removed*, not the old tasks
+back. And at n = 20 the historical result sits below this record's own wall:
++4 discordant, best-case two-sided p = 0.125.
+
+**The choice this record left to #225 is made (2026-08-10): the first route.**
+The control becomes a **rule-ablation condition** — the output-shape sentence
+stripped from the rendered user message for one arm — recovered
+**directionally** on the generated bench, where n = 400 and the effect's
+measured mechanism (the completion-token collapse) give it room to be
+decidable. The ablation knob belongs to the condition matrix (#113). #231's
+body is corrected to match, and the un-release route lapses unchosen — the
+released corpus stands whole.

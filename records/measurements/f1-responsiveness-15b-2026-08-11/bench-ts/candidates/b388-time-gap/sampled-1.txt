@@ -1,0 +1,23 @@
+```typescript
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  if (!is_valid_time(fromHour, fromMinute) || !is_valid_time(toHour, toMinute)) {
+    throw new Error('Invalid time format.');
+  }
+
+  const hours_diff = Math.abs(toHour - fromHour);
+  // Convert minutes into full days
+  const days_diff = Math.floor(hours_diff / 24);
+
+  let total_minutes = hours_diff * 60 + toMinute - fromMinute;
+
+  if (days_diff > 0) {
+    total_minutes += 1440; // Add a day for each day difference
+  }
+
+  return total_minutes;
+}
+
+function is_valid_time(hour: number, minute: number): boolean {
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+```

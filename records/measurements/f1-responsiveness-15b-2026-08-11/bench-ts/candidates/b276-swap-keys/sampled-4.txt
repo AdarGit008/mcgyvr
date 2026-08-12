@@ -1,0 +1,21 @@
+```ts
+/**
+ * Swaps keys in a mapping from names to codes to a mapping from codes to names.
+ * In case of conflicts, prioritizes keeping the name that comes first alphabetically.
+ *
+ * @param names - A record with string keys (names) and string values (codes).
+ * @returns A new record with string keys (codes) and string values (names).
+ */
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+    const sortedNames = Object.entries(names)
+        .sort(([_, codeA], [_, codeB]) => codeA.localeCompare(codeB))
+        .map(([name, _]) => name);
+
+    return sortedNames.reduce((acc, name) => {
+        if (names[name] !== '') {
+            acc[names[name]] = name;
+        }
+        return acc;
+    }, {} as Record<string, string>);
+}
+```

@@ -1,0 +1,21 @@
+```ts
+export function waveCount(readings: number[]): number {
+    if (!readings || readings.length <= 1) return 0;
+
+    let prevReading = readings[0];
+    let count = 0;
+
+    for (let i = 1; i < readings.length; i++) {
+        const currentReading = readings[i];
+
+        // Determine the direction of change
+        if ((prevReading > 0 && currentReading <= 0) || (prevReading < 0 && currentReading >= 0)) {
+            count++;
+        }
+
+        prevReading = currentReading;
+    }
+
+    return count;
+}
+```

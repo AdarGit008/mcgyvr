@@ -1,0 +1,25 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    left = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+    refused = []
+
+    def _why_refused(charge_id, bucket, amount):
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+        if bucket not in caps:
+            return "unknown"
+        if amount > caps[bucket][1]:
+            return "single"
+        if amount > left[bucket]:
+            return "cap"
+        return None
+
+    for charge_id, bucket, amount in charges:
+        reason = _why_refused(charge_id, bucket, amount)
+        if reason is not None:
+            refused.append((charge_id, reason))
+        else:
+            left[bucket] -= amount
+
+    return {"left": left, "refused": refused}
+```

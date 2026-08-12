@@ -1,0 +1,26 @@
+```ts
+function crateFill(items: number, crates: number): number[] {
+  if (crates === 0) return [];
+
+  const itemPerCrane = Math.floor(items / crates);
+  const remainder = items % crates;
+
+  let result: number[] = [];
+  for (let i = 0; i < crates; i++) {
+    result.push(itemPerCrane + (i < remainder ? 1 : 0));
+  }
+
+  return result;
+}
+
+function crateTotal(sizes: number[]): number {
+  if (!sizes.length) return 0;
+
+  let total = 0;
+  for (const size of sizes) {
+    total += size;
+  }
+
+  return total;
+}
+```

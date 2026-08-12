@@ -1,0 +1,17 @@
+id: b296-tag-pair
+task_type: function_implementation
+task: >-
+  Implement tagOpen and tagPair. tagOpen returns the name inside a
+  marker written between angle brackets, dropping a leading slash when
+  there is one. tagPair says whether an opening marker and a closing
+  marker name the same thing. Reject with an error any marker not
+  wrapped in angle brackets.
+target: solution.ts
+interface: "export function tagOpen(marker: string): string
+export function tagPair(opening: string, closing: string): boolean"
+stop_conditions:
+  - Whether markers differing only in case should be considered to name the same thing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

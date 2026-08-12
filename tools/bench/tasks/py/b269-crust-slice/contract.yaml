@@ -1,0 +1,15 @@
+id: b269-crust-slice
+task_type: function_implementation
+task: >-
+  Implement crust_slice. Given a file name, return the part before its
+  final dot. A name carrying no dot at all comes back unchanged, and
+  so does a name whose only dot is its very first character, since
+  that dot begins a hidden name rather than an extension.
+target: solution.py
+interface: "def crust_slice(name: str) -> str"
+stop_conditions:
+  - Whether a dot inside a directory part of a longer path should be considered is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

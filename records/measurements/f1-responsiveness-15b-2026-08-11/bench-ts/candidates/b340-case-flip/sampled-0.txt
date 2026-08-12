@@ -1,0 +1,13 @@
+```ts
+/**
+ * Text with the case of every letter turned over.
+ */
+export function swapCase(text: string): string {
+  return text.split('').map(char => {
+    if (char.match(/[a-zA-Z]/)) {
+      return char === char.toUpperCase() ? char.toLowerCase() : char.toUpperCase();
+    }
+    return char;
+  }).join('');
+}
+```

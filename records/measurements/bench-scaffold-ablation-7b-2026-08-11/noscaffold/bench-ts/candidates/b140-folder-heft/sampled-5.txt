@@ -1,0 +1,86 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+  const result: string[] = [];
+  function walk(node: object, currentPath: string) {
+    for (const key in node) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        if (typeof key !== 'string' || key.length === 0 || key.includes('/')) {
+          throw new Error('Invalid node name');
+        }
+        const newPath = currentPath ? `${currentPath}/${key}` : key;
+        if (typeof node[key] === 'object' && !Array.isArray(node[key])) {
+          walk(node[key], newPath);
+        } else if (typeof node[key] === 'number' && Number.isInteger(node[key]) && node[key] >= 0) {
+          result.push(newPath);
+        } else {
+          throw new Error('Node must be a folder or file with valid properties');
+        }
+      }
+    }
+  }
+  walk(root, '');
+  return result;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+  let total = 0;
+  function sum(node: object): void {
+    for (const key in node) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        if (typeof node[key] === 'number' && Number.isInteger(node[key]) && node[key] >= 0) {
+          total += node[key];
+        } else if (typeof node[key] === 'object' && !Array.isArray(node[key])) {
+          sum(node[key]);
+        } else {
+          throw new Error('Node must be a folder or file with valid properties');
+        }
+      }
+    }
+  }
+  sum(root);
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Min bytes must be a non-negative whole number');
+  }
+
+  const result: [string, number][] = [];
+  const filePathsList = filePaths(root);
+  const fileMap: { [path: string]: number } = {};
+
+  for (const path of filePathsList) {
+    const parts = path.split('/').slice(1); // Remove the root name
+    let currentPath = '';
+    let bytes = 0;
+    for (const part of parts) {
+      currentPath += (currentPath ? '/' : '') + part;
+      if (fileMap[currentPath]) {
+        bytes += fileMap[currentPath];
+      }
+    }
+    fileMap[path] = bytes;
+  }
+
+  for (const path in fileMap) {
+    if (Object.prototype.hasOwnProperty.call(fileMap, path)) {
+      const fullPath = filePathsList.find(p => p.startsWith(path));
+      if (fullPath && fileMap[fullPath] >= minBytes) {
+        result.push([fullPath, fileMap[fullPath]]);
+      }
+    }
+  }
+
+  return result;
+}
+```

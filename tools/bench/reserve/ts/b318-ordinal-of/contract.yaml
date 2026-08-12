@@ -1,0 +1,15 @@
+id: b318-ordinal-of
+task_type: function_implementation
+task: >-
+  Implement ordinalOf. Return a whole number carrying its English
+  ordinal ending: a number ending in one takes st, in two takes nd, in
+  three takes rd, and everything else takes th. The teens are the
+  exception, so 11, 12 and 13 all take th.
+target: solution.ts
+interface: "export function ordinalOf(value: number): string"
+stop_conditions:
+  - Whether zero should take an ending at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

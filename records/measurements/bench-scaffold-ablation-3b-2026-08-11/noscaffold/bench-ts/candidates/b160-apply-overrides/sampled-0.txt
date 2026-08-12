@@ -1,0 +1,25 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be an array");
+  }
+
+  return overrides.reduce((acc, override) => {
+    const [name, value] = override.split('=', 2);
+
+    if (typeof name !== 'string' || typeof value !== 'string') {
+      throw new Error("each override must be a string");
+    }
+    if (!value.length && !name.length) {
+      throw new Error("overrides cannot contain empty strings");
+    }
+
+    if (!base.hasOwnProperty(name)) {
+      throw new Error(`setting name '${name}' does not exist in base`);
+    }
+
+    acc[name] = value;
+    return acc;
+  }, { ...base });
+}
+```

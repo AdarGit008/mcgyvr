@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "string",
+  "steering_band": "g3",
+  "target_symbol": {"ts": "parseSpan", "py": "parse_span"}
+}

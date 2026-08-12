@@ -1,0 +1,55 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  const [start, end] = span.split("-").map(time => {
+    const [hour, minute] = time.split(":").map(Number);
+    return hour * 60 + minute;
+  });
+
+  if (isNaN(start) || isNaN(end)) {
+    throw new Error("Invalid time format");
+  }
+
+  booked.sort((a, b) => {
+    const [startA, endA] = a.split("-").map(time => {
+      const [hour, minute] = time.split(":").map(Number);
+      return hour * 60 + minute;
+    });
+    const [startB, endB] = b.split("-").map(time => {
+      const [hour, minute] = time.split(":").map(Number);
+      return hour * 60 + minute;
+    });
+
+    if (isNaN(startA) || isNaN(endA) || isNaN(startB) || isNaN(endB)) {
+      throw new Error("Invalid time format");
+    }
+
+    return startA - startB;
+  });
+
+  const openWindows: string[] = [];
+  let previousEnd = 0;
+
+  for (const [start, end] of booked) {
+    if (start < previousEnd) {
+      // Overlapping appointment
+      continue;
+    }
+    if (previousEnd !== 0) {
+      openWindows.push(`${String(previousEnd).padStart(4, "0")}-${String(start).padStart(4, "0")}`);
+    }
+    previousEnd = end;
+  }
+
+  if (previousEnd < end) {
+    openWindows.push(`${String(previousEnd).padStart(4, "0")}-${String(end).padStart(4, "0")}`);
+  } else if (openWindows.length === 0) {
+    return "none";
+  }
+
+  return openWindows.join(", ");
+}
+```

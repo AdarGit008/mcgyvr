@@ -1,0 +1,5 @@
+```python
+def sort_by_len(words: list) -> list:
+    # Sort by length, then by alphabetical order for words of the same length
+    return sorted(words, key=lambda word: (len(word), word))
+```

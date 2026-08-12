@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def lap_best(laps: List[int]) -> int:
+    """The quickest completed lap of a session, treating zero as uncompleted."""
+    if not laps:
+        return 0
+    
+    total_zeros = 0
+    best_lap = float('inf')
+    
+    for lap in laps:
+        if lap == 0:
+            total_zeros += 1
+        else:
+            if lap < best_lap:
+                best_lap = lap
+    
+    # If there are no completed laps, return the total number of zeros.
+    if total_zeros == len(laps):
+        return total_zeros
+    
+    # Otherwise, return the best lap found.
+    return best_lap
+```

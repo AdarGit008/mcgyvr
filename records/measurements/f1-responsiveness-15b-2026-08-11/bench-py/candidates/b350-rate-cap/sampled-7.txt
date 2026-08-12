@@ -1,0 +1,14 @@
+```python
+def rate_cap(price: int, rate: int, most: int) -> int:
+    # Ensure the rate is non-negative
+    if rate < 0:
+        raise ValueError("Rate cannot be negative.")
+    
+    # Calculate the maximum increase that won't exceed the largest allowed increase
+    max_increase = min(rate // 100, most)
+    
+    # Raise the price by the maximum allowable increase, rounding down
+    new_price = price + max_increase
+    
+    return new_price
+```

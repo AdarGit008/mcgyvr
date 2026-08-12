@@ -1,0 +1,12 @@
+```ts
+function driftCheck(readings: number[], step: number): number {
+    if (readings.length < 2) return -1;
+
+    for (let i = 0; i < readings.length - 1; i++) {
+        const diff = Math.abs(readings[i] - readings[i + 1]);
+        if (diff > step) return i;
+    }
+
+    return -1;
+}
+```

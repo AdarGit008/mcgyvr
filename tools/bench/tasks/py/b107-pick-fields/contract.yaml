@@ -1,0 +1,22 @@
+id: b107-pick-fields
+task_type: function_implementation
+task: >-
+  Implement pick_fields. The first argument is a list of records, each a
+  mapping from field names to values; the second is the list of field
+  names to read. Return one row per record, in record order: a list
+  holding that record's value for each named field, in the order the
+  names were given. A name ending in ? is optional — its stem is the name
+  without the marker, and a record lacking the stem reads as None in that
+  spot; every other name is required in every record. Reject records
+  that are not a list, a record that is not a mapping, a field list that
+  is not a non-empty list, a field name that is not a string, a name
+  whose stem is empty, two names sharing one stem with or without the
+  marker, and a record missing a required field, with an error.
+target: solution.py
+interface: "def pick_fields(records: list, fields: list) -> list"
+stop_conditions:
+  - Whether a marker may appear anywhere other than a name's end is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

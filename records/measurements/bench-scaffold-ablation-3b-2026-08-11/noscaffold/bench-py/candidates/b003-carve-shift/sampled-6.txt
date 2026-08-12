@@ -1,0 +1,41 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    """
+    Carve a shift into work stretches based on given parameters.
+    
+    Parameters:
+        start (int): The start of the shift.
+        end (int): The end of the shift (exclusive).
+        span (int): The maximum duration of each stretch.
+        rest (int): The duration between consecutive stretches.
+        least (int): The minimum duration for a kept stretch.
+
+    Returns:
+        list: A list of half-open [from, to) pairs representing work stretches.
+            Each stretch is at most 'span' units long and separated by 'rest'.
+            The final stretch may be shorter than span if the shift length is short.
+    
+    Raises:
+        ValueError: If any argument is invalid (not a whole number, incorrect bounds).
+    """
+    if not all(isinstance(x, int) for x in [start, end, span, rest, least]):
+        raise ValueError("All arguments must be integers.")
+    if start >= end:
+        raise ValueError("Start must precede end.")
+    if span < 1 or rest < 1 or least > span:
+        raise ValueError("Span and rest must be at least 1, and least cannot exceed span.")
+
+    stretches = []
+    current = start
+    while current + least <= end:
+        next_end = min(current + span, end)
+        stretched = max(next_end - current, least)
+        if stretched > 0:
+            stretches.append((current, current + stretched))
+            current += stretch
+            if current >= end:
+                break
+            current += rest
+
+    return stretches
+```

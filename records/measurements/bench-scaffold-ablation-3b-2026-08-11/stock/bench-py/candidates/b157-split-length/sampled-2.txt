@@ -1,0 +1,19 @@
+```python
+LADDER = (("m", 1000), ("cm", 10), ("mm", 1))
+
+
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int):
+        raise ValueError("Length must be a whole number.")
+    if mm < 0:
+        raise ValueError("Length cannot be negative.")
+
+    result = []
+    for unit_name, conversion_factor in LADDER:
+        count = mm // conversion_factor
+        if count > 0:
+            result.append(f"{count}{unit_name}")
+        mm %= conversion_factor
+
+    return " ".join(result) or "0mm"
+```

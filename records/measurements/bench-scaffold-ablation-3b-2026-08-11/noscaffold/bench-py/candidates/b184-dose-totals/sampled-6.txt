@@ -1,0 +1,46 @@
+```python
+from typing import Dict
+
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total amount of each reagent in millilitres from a pour log.
+
+    Args:
+    log (list of [str, str]): A list where each entry is a [reagent, amount]
+                                pair. The amount is a decimal string in
+                                millilitres.
+
+    Returns:
+    dict: A dictionary mapping reagent names to their total amounts in millilitres.
+          Each total is written as a decimal string with the correct number of
+          decimal places based on the finest entry received for that reagent.
+    """
+
+    def parse_amount(amount_str: str) -> float:
+        """Parse an amount string and return its numeric value."""
+        try:
+            return float(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount_str}")
+
+    # Initialize a dictionary to hold the total amounts
+    totals = {}
+
+    for reagent, amount_str in log:
+        try:
+            amount = parse_amount(amount_str)
+            if reagent not in totals:
+                totals[reagent] = 0.0
+            totals[reagent] += amount
+
+        except ValueError as e:
+            raise ValueError(f"Error processing {amount_str} for {reagent}: {e}")
+
+    # Format each total to the correct number of decimal places
+    formatted_totals = {
+        reagent: format(total, f".{len(log) - log.count('0')}f")
+        for reagent, total in totals.items()
+    }
+
+    return formatted_totals
+```

@@ -1,0 +1,27 @@
+```ts
+/**
+ * Total each reagent exactly from a list of [reagent, amount] entries in pour order,
+ * returning a mapping from reagent to its total written back as a decimal string.
+ * @param log - List of [reagent, amount] entries.
+ * @returns A mapping from reagent to its total.
+ */
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(\.\d{1,3})?$/.test(amount)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+
+    totals[reagent] = (totals[reagent] || 0) + parseFloat(amount);
+  }
+
+  const result: Record<string, string> = {};
+  for (const reagent in totals) {
+    const total = Math.round(totals[reagent] * 1000) / 1000;
+    result[reagent] = total.toFixed(total !== Math.floor(total) ? 3 : 0);
+  }
+
+  return result;
+}
+```

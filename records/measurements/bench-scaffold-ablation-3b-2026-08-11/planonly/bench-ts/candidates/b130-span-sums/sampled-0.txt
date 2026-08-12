@@ -1,0 +1,68 @@
+```typescript
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new Error('Invalid span input');
+  }
+
+  const parts = text.split(' ');
+  if (parts.length < 3) {
+    throw new Error('Not enough parts in the span');
+  }
+
+  const unitMap: { [unit: string]: number } = {
+    'yd': 36,
+    'ft': 12,
+    'in': 1
+  };
+
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    if (!/^\d+$/.test(parts[i]) || parts[i].length > 1) {
+      throw new Error('Invalid part in the span');
+    }
+
+    const value = parseInt(parts[i], 10);
+    const unit = parts[i + 1];
+
+    if (!(unit in unitMap)) {
+      throw new Error(`Unknown unit: ${unit}`);
+    }
+
+    totalInches += value * unitMap[unit];
+    i++;
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || isNaN(inches) || inches < 0) {
+    throw new Error('Invalid input: inches must be a non-negative integer');
+  }
+
+  const units = [36, 12, 1];
+  const parts: string[] = [];
+
+  for (let i = 0; i < units.length; i++) {
+    let value = Math.floor(inches / units[i]);
+    if (value > 0) {
+      parts.push(`${value}${i === 2 ? 'in' : i === 1 ? 'ft' : 'yd'}`);
+      inches -= value * units[i];
+    }
+  }
+
+  return parts.join(' ');
+}
+
+export function addSpans(first: string, second: string): string {
+  const totalInchesFirst = parseSpan(first);
+  const totalInchesSecond = parseSpan(second);
+
+  if (isNaN(totalInchesFirst) || isNaN(totalInchesSecond)) {
+    throw new Error('Invalid span inputs');
+  }
+
+  return formatSpan(totalInchesFirst + totalInchesSecond);
+}
+```

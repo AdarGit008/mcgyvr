@@ -1,0 +1,28 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+    if (
+        typeof amount !== 'number' ||
+        !Number.isInteger(amount) || amount < 0 ||
+        typeof unit !== 'string' ||
+        typeof base !== 'string' ||
+        defs[base] === undefined
+    ) {
+        throw new Error('Invalid input');
+    }
+
+    const stack: { unit: string, factor: number }[] = [{ unit, factor: 1 }];
+
+    while (stack.length > 0) {
+        const { unit, factor } = stack.pop()!;
+        if (unit === base) {
+            return amount * factor;
+        }
+        if (defs[unit] === undefined || Number.isInteger(defs[unit][0]) === false || defs[unit][0] <= 0) {
+            throw new Error('Invalid input');
+        }
+        stack.push({ unit: defs[unit][1], factor: factor * defs[unit][0] });
+    }
+
+    return amount;
+}
+```

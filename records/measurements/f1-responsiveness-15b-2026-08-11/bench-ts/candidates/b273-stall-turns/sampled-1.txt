@@ -1,0 +1,20 @@
+```ts
+export function stallTurns(counts: number[], limit: number): number {
+  if (limit <= 0) {
+    throw new Error("Limit must be greater than zero");
+  }
+
+  let turns = 0;
+  for (let i = 0; i < counts.length; i++) {
+    let currentCount = counts[i];
+    while (currentCount > limit && i < counts.length - 1) {
+      currentCount -= limit;
+      i++; // Move to the next customer
+      turns++;
+    }
+    turns += Math.max(0, currentCount); // Add remaining items for this customer
+  }
+
+  return turns;
+}
+```

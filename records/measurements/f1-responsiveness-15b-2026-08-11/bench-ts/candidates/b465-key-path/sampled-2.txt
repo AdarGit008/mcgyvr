@@ -1,0 +1,23 @@
+```ts
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  if (!store || typeof head !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const result = [];
+  let currentPath = '';
+
+  for (const [name, stop] of Object.entries(store)) {
+    if (stop === head) {
+      break;
+    }
+    if (currentPath) {
+      currentPath += '.';
+    }
+    currentPath += name;
+    result.push(name);
+  }
+
+  return result;
+}
+```

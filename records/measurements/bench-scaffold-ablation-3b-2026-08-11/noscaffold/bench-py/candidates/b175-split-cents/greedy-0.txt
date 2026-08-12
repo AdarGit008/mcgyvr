@@ -1,0 +1,38 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """
+    Split total cents among partners based on their share weights.
+
+    :param total: Total takings in whole cents (non-negative integer).
+    :param weights: List of partner's share weights (positive integers).
+    :return: List of parts each partner receives.
+    :raises ValueError: If total is not a non-negative integer, weights are invalid,
+                       or total is not divisible by the sum of weights.
+    """
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total must be a non-negative integer.")
+    
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    
+    if not all(isinstance(weight, int) and weight > 0 for weight in weights):
+        raise ValueError("All weights must be positive integers.")
+    
+    total_cents = total
+    total_weight = sum(weights)
+    
+    if total % total_weight != 0:
+        raise ValueError("Total takings cannot be split evenly among partners.")
+    
+    parts = [total_cents * (weight / total_weight) // 1 for weight in weights]
+    remaining_cents = total_cents - sum(parts)
+    
+    # Distribute remaining cents to the partners with the largest discarded fraction
+    sorted_parts = sorted(zip(parts, weights), key=lambda x: x[0] % 1, reverse=True)
+    for i, (part, weight) in enumerate(sorted_parts):
+        if remaining_cents > 0:
+            parts[i] += 1
+            remaining_cents -= 1
+    
+    return parts
+```

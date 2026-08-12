@@ -1,0 +1,22 @@
+id: b162-center-banner
+task_type: function_implementation
+task: >-
+  Implement centerBanner. A banner board is a single row of width
+  character cells showing one label; every cell the label does not cover
+  holds the fill character. Return the full row: the label with the
+  spare cells split evenly between its two sides, and when the split is
+  uneven the extra cell goes to the right, so the label OPEN on a board
+  of width 11 filled with dots is "...OPEN....". A label exactly as wide
+  as the board fills the row alone, and an empty label yields a row of
+  fill alone. Reject a label that is not a string, a label holding a
+  newline, a width that is not a positive whole number, a label wider
+  than the board, and a fill that is not a one-character string, with an
+  error.
+target: solution.ts
+interface: "export function centerBanner(label: string, width: number, fill: string): string"
+stop_conditions:
+  - How a tab character inside the label counts toward its width is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

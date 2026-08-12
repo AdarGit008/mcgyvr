@@ -1,0 +1,24 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || Array.isArray(links) && !links.length) {
+    throw new Error('Invalid links argument');
+  }
+
+  const visited = new Set<string>();
+  const path: string[] = [start];
+
+  while (path[path.length - 1] in links) {
+    const nextPost = links[path[path.length - 1]];
+    if (!nextPost || typeof nextPost !== 'string' || !links[nextPost]) {
+      throw new Error('Invalid handoff');
+    }
+    if (visited.has(nextPost)) {
+      throw new Error('Circular handoff detected');
+    }
+    visited.add(nextPost);
+    path.push(nextPost);
+  }
+
+  return path;
+}
+```

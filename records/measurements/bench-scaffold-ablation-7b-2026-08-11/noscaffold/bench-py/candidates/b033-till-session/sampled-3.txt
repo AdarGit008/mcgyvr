@@ -1,0 +1,71 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers")
+
+    state = {
+        "items": {},
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    def update_items(item, quantity):
+        if item not in state["items"]:
+            state["items"][item] = quantity
+        else:
+            state["items"][item] += quantity
+
+    def scan_item(item):
+        if item in prices:
+            update_items(item, 1)
+
+    def void_item(item):
+        if item in state["items"] and state["items"][item] > 0:
+            update_items(item, -1)
+
+    def pay(cents):
+        nonlocal state
+        state["paid"] += cents
+        change = state["paid"] - state["total"]
+        state["change"] = max(change, 0)
+        if change >= 0:
+            state["total"] = 0
+
+    def close_session():
+        nonlocal state
+        if not state["items"]:
+            raise ValueError("Cannot close an empty session")
+        state["total"] = sum(prices[item] * quantity for item, quantity in state["items"].items())
+        pay(state["total"])
+
+    def cancel_session():
+        nonlocal state
+        state["items"] = {}
+        state["total"] = 0
+        state["paid"] = 0
+        state["change"] = 0
+
+    actions = {
+        "scan": scan_item,
+        "void": void_item,
+        "pay": pay,
+        "close": close_session,
+        "cancel": cancel_session
+    }
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Each event must be a list of length 2")
+        action, payload = event
+        if action not in actions:
+            raise ValueError(f"Unknown action: {action}")
+        if action == "close":
+            close_session()
+        elif action == "cancel":
+            cancel_session()
+        else:
+            actions[action](payload)
+
+    return state
+```

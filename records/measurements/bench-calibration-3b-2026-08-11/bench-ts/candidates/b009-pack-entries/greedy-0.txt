@@ -1,0 +1,27 @@
+```ts
+export function packEntries(entries: [string, string][]): string {
+  if (!Array.isArray(entries)) {
+    throw new Error("Input must be an array of key-value pairs.");
+  }
+
+  const escapedPairs = entries.map(([key, value]) => {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("All keys and values must be strings.");
+    }
+    if (!key) {
+      throw new Error("Keys cannot be empty.");
+    }
+    if (entries.some(([, v], i) => i !== entries.indexOf(key) && v === key)) {
+      throw new Error("Duplicate keys are not allowed.");
+    }
+
+    const escapeChar = "\\";
+    let escapedKey = key.replace(/[$\\=;]/g, char => `${escapeChar}${char}`);
+    let escapedValue = value.replace(/[$\\;]/g, char => `${escapeChar}${char}`);
+
+    return `${escapedKey}=${escapedValue}`;
+  });
+
+  return escapedPairs.join(";");
+}
+```

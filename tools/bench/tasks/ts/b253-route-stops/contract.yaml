@@ -1,0 +1,16 @@
+id: b253-route-stops
+task_type: function_implementation
+task: >-
+  Implement routeStops and routeHops. routeStops breaks a route
+  written as stop names joined by greater-than signs into the stops
+  themselves, trimming any spaces around each one. routeHops counts
+  the journeys between stops, one fewer than the stops, and none at
+  all for a blank route.
+target: solution.ts
+interface: "export function routeStops(route: string): string[]\nexport function routeHops(route: string): number"
+stop_conditions:
+  - Whether a route may name the same stop twice is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

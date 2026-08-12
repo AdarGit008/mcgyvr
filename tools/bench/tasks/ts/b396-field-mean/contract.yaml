@@ -1,0 +1,15 @@
+id: b396-field-mean
+task_type: function_implementation
+task: >-
+  Implement fieldMean. Given records that each may carry a named
+  numeric field, return the mean of that field across them, rounded
+  down. A record lacking the field is passed over, and a set in which
+  none carry it averages to nothing.
+target: solution.ts
+interface: "export function fieldMean(records: Record<string, number>[], field: string): number"
+stop_conditions:
+  - Whether a record whose field is not a number should be passed over is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

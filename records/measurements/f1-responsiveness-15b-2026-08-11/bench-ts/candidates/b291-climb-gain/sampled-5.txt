@@ -1,0 +1,16 @@
+```ts
+export function legGain(start: number, end: number): number {
+  return start < end ? end - start : 0;
+}
+
+export function climbGain(heights: number[]): number {
+  let totalGain = 0;
+
+  for (let i = 0; i < heights.length - 1; i++) {
+    const gain = legGain(heights[i], heights[i + 1]);
+    totalGain += gain;
+  }
+
+  return totalGain;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+/**
+ * Draw a count as that many hashes, but never more than a stated width,
+ * and mark a bar that had to be cut short by ending it in a greater-than sign
+ * in place of the last hash. A count of nothing draws an empty bar.
+ *
+ * @param {number} count - The number of hashes to draw.
+ * @param {number} width - The maximum width for the bar.
+ * @returns {string}
+ */
+export function tallyBar(count: number, width: number): string {
+    if (count < 0 || width <= 0) {
+        throw new Error("Invalid input: count and width must be non-negative.");
+    }
+
+    let result = "";
+    for (let i = 0; i < Math.min(count, width); i++) {
+        result += "#";
+    }
+
+    if (result.length < width) {
+        result += ">";
+    }
+
+    return result;
+}
+```

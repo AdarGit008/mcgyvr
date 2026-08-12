@@ -1,0 +1,49 @@
+```typescript
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (length <= 0) throw new Error("Run length must be a positive integer");
+  if (!Number.isInteger(bits) || bits < 0 || bits >= words.length * 32) throw new Error("Bit index out of bounds");
+
+  const capacityWords = Math.ceil(length / 32);
+  if (words.length !== capacityWords) throw new Error("Word count does not match capacity");
+  for (let word of words) {
+    if (!Number.isInteger(word) || word < 0 || word > 4294967295) throw new Error("Invalid bitmap word");
+  }
+
+  for (let start = 0; start <= bits - length; start++) {
+    let free = true;
+    for (let i = start; i < start + length; i++) {
+      if (bitAt(words, i)) {
+        free = false;
+        break;
+      }
+    }
+    if (free) return start;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (length <= 0) throw new Error("Run length must be a positive integer");
+  if (!Number.isInteger(start) || start < 0 || start >= words.length * 32) throw new Error("Start index out of bounds");
+
+  const capacityWords = Math.ceil(length / 32);
+  for (let i = start; i < start + length; i++) {
+    if (bitAt(words, i)) throw new Error("Run touches an occupied block");
+  }
+
+  return words.map((word, index) => {
+    if (index * 32 >= start && index * 32 < start + length) {
+      return word | ((1 << length) - 1) << (start % 32);
+    }
+    return word;
+  });
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0 || index >= words.length * 32) throw new Error("Index out of bounds");
+  const word = Math.floor(index / 32);
+  const bitPos = index % 32;
+  return (words[word] >> bitPos) & 1;
+}
+```

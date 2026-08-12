@@ -1,0 +1,19 @@
+```ts
+export function hexSplit(colour: string): string[] {
+  if (typeof colour !== 'string' || colour.length !== 8) {
+    throw new Error('Input must be a hash followed by six hexadecimal digits');
+  }
+
+  const hexDigits = colour.slice(1); // Remove the '#' at the beginning
+  return hexDigits.match(/.{2}/g) ?? [];
+}
+
+export function hexJoin(parts: string[]): string {
+  if (!Array.isArray(parts) || parts.length !== 3) {
+    throw new Error('Input must be an array of exactly three two-digit hexadecimal values');
+  }
+
+  const formattedParts = parts.map(part => part.padStart(2, '0').toLowerCase());
+  return `#${formattedParts.join('')}`;
+}
+```

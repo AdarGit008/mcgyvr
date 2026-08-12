@@ -1,0 +1,20 @@
+id: b506-hug-text
+task_type: bug_fix
+task: >-
+  hug_text puts a mark on both ends of a text. A text already carrying
+  the mark at both ends is left alone; carrying it at one end only is
+  not enough to be left alone. Fix hug_text. A text holding nothing
+  takes a mark at each end. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def hug_text(text: str, mark: str) -> str:
+      if text.startswith(mark):
+          return text
+      return mark + text + mark
+interface: "def hug_text(text: str, mark: str) -> str"
+stop_conditions:
+  - Whether a mark holding nothing should leave the text untouched is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

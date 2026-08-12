@@ -1,0 +1,88 @@
+id: b032-bitmap-runs
+task_type: function_implementation
+task: >-
+  Implement findFreeRun; bitAt and occupyRun are already written and share
+  its layout. The bitmap is a list of 32-bit words, integers from 0 to
+  4294967295; bit i of the map lives in word i div 32 at bit position
+  i mod 32, and a set bit marks an occupied block. bitAt returns bit i as
+  0 or 1, rejecting an index that is not an integer inside the words.
+  occupyRun returns a new word list with the run of length blocks starting
+  at start marked occupied, leaving its argument unmodified, and rejects a
+  run that does not lie wholly inside the words and a run touching an
+  occupied block. findFreeRun takes the capacity in blocks: the word list
+  must hold exactly ceil(capacity/32) words, a set bit at or beyond the
+  capacity is an error, and it returns the smallest start of a run of
+  length free blocks lying entirely below the capacity, or -1 when none
+  exists. All three reject a bitmap word that is not an integer from 0 to
+  4294967295; findFreeRun additionally rejects a capacity that is not a
+  positive integer, a word count that disagrees with the capacity, and a
+  run length that is not a positive integer. Each rejection is an error.
+target: solution.ts
+target_content: |
+  /** A block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied. */
+  const WORD_BITS = 32;
+  const WORD_MAX = 0xffffffff;
+
+  function checkWords(words: number[]): void {
+    for (const word of words) {
+      if (!Number.isInteger(word) || word < 0 || word > WORD_MAX) {
+        throw new Error("bitmap words must be integers from 0 to 4294967295");
+      }
+    }
+  }
+
+  function bitOf(words: number[], index: number): number {
+    return (words[Math.floor(index / WORD_BITS)] >>> index % WORD_BITS) & 1;
+  }
+
+  export function bitAt(words: number[], index: number): number {
+    checkWords(words);
+    if (!Number.isInteger(index)) {
+      throw new Error("bit index must be an integer");
+    }
+    if (index < 0 || index >= words.length * WORD_BITS) {
+      throw new Error("bit index is outside the words");
+    }
+    return bitOf(words, index);
+  }
+
+  export function occupyRun(words: number[], start: number, length: number): number[] {
+    checkWords(words);
+    if (!Number.isInteger(start) || start < 0) {
+      throw new Error("run start must be a non-negative integer");
+    }
+    if (!Number.isInteger(length) || length <= 0) {
+      throw new Error("run length must be a positive integer");
+    }
+    if (start + length > words.length * WORD_BITS) {
+      throw new Error("run leaves the words");
+    }
+    for (let i = start; i < start + length; i++) {
+      if (bitOf(words, i) === 1) {
+        throw new Error("run touches an occupied block");
+      }
+    }
+    const marked = words.slice();
+    for (let i = start; i < start + length; i++) {
+      const word = Math.floor(i / WORD_BITS);
+      marked[word] = (marked[word] | (1 << i % WORD_BITS)) >>> 0;
+    }
+    return marked;
+  }
+
+  export function findFreeRun(words: number[], bits: number, length: number): number {
+    // TODO: validate the capacity against the words, reject stray bits at
+    // or beyond it, and return the smallest start of a free run of the
+    // given length below the capacity, or -1.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function findFreeRun(words: number[], bits: number, length: number): number
+  export function occupyRun(words: number[], start: number, length: number): number[]
+  export function bitAt(words: number[], index: number): number
+stop_conditions:
+  - Whether an empty word list is lawful for bitAt and occupyRun is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

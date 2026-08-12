@@ -1,0 +1,41 @@
+id: b024-unpack-frames
+task_type: bug_fix
+task: >-
+  unpackFrames decodes a framed wire string too trustingly. The format is
+  zero or more frames — each a decimal length, a ':', exactly that many
+  payload characters, and a closing ';' — followed by a mandatory trailer:
+  a '#', the decimal frame count, and a closing ';' that ends the string.
+  Lengths and the count are plain digits with no leading zeros ('0' itself
+  is fine), and a payload may contain any characters, including ':', '#'
+  and ';', because only its declared length delimits it. The current code
+  returns whatever it scraped, so malformed streams decode silently. Fix
+  it and add the missing validation, rejecting each of these with an
+  error: a payload shorter than its declared length, a frame that does not
+  close with ';', a frame length that is missing, a leading zero on a
+  length or on the count, a length not followed by ':', a stream without
+  its trailer, a trailer count that disagrees with the number of frames
+  decoded, text after the trailer, and a non-string argument. Valid input
+  returns the list of payloads, and '#0;' alone is the empty stream.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Decode a framed wire string: length-prefixed frames, then a count trailer. */
+  export function unpackFrames(stream: string): string[] {
+    const frames: string[] = [];
+    let cursor = 0;
+    while (cursor < stream.length && stream[cursor] !== "#") {
+      const colon = stream.indexOf(":", cursor);
+      const length = parseInt(stream.slice(cursor, colon), 10);
+      const payload = stream.slice(colon + 1, colon + 1 + length);
+      frames.push(payload);
+      cursor = colon + 1 + length + 1;
+    }
+    return frames;
+  }
+interface: "export function unpackFrames(stream: string): string[]"
+stop_conditions:
+  - Whether non-ASCII digits in a length are accepted is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

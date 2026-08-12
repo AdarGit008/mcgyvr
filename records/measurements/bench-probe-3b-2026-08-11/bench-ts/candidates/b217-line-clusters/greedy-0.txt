@@ -1,0 +1,38 @@
+```typescript
+export function lineClusters(stops: string[], links: [string, string][]): string[][] {
+  const stopSet = new Set(stops);
+  const graph: Map<string, Set<string>> = new Map();
+
+  // Build the graph from links
+  for (const [from, to] of links) {
+    if (!stopSet.has(from) || !stopSet.has(to)) continue;
+    graph.set(from, (graph.get(from) || new Set()).add(to));
+    graph.set(to, (graph.get(to) || new Set()).add(from));
+  }
+
+  const clusters: string[][] = [];
+
+  // Helper function to perform DFS and find connected components
+  function dfs(start: string, visited: Set<string>, cluster: string[]): void {
+    if (!visited.has(start)) {
+      visited.add(start);
+      cluster.push(start);
+      for (const neighbor of graph.get(start) || []) {
+        dfs(neighbor, visited, cluster);
+      }
+    }
+  }
+
+  // Find all clusters
+  stopSet.forEach(stop => {
+    const visited = new Set<string>();
+    const cluster: string[] = [];
+    dfs(stop, visited, cluster);
+    if (cluster.length > 0) {
+      clusters.push(cluster.sort());
+    }
+  });
+
+  return clusters;
+}
+```

@@ -1,0 +1,30 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    """
+    Return the value of a cache entry if it is still usable.
+
+    :param entry: A dictionary with fields 'value', 'stored', and 'ttl'.
+    :param now: The current tick.
+    :return: The value of the record if it is still usable, otherwise raises ValueError.
+    """
+    if not isinstance(entry, dict) or len(entry) != 3:
+        raise ValueError("Entry must be a dictionary with exactly three fields.")
+    
+    value = entry.get('value')
+    stored = entry.get('stored')
+    ttl = entry.get('ttl')
+
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string.")
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("Stored must be a non-negative integer.")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("TTL must be a positive integer.")
+    if not isinstance(now, int) or now < stored:
+        raise ValueError("Now must be an integer at least as large as stored.")
+
+    if now >= stored + ttl:
+        raise ValueError("Record is no longer usable at the current tick.")
+
+    return value
+```

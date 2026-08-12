@@ -1,0 +1,77 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null || Array.isArray(root)) throw new Error('Invalid node');
+  
+  const paths: string[] = [];
+  
+  const traverse = (node: object, pathPrefix: string) => {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    
+    for (const [name, value] of Object.entries(node)) {
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+      
+      const currentPath = pathPrefix ? `${pathPrefix}/${name}` : name;
+      paths.push(currentPath);
+      
+      if (typeof value === 'number') {
+        if (!Number.isInteger(value) || value < 0) throw new Error('Invalid bytes');
+      } else if (Array.isArray(value)) {
+        for (const child of value) traverse(child, currentPath);
+      } else throw new Error('Invalid node structure');
+    }
+  };
+  
+  traverse(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  
+  const totalBytes = Object.entries(root).reduce((sum, [_, value]) => {
+    if (typeof value === 'number') {
+      if (!Number.isInteger(value) || value < 0) throw new Error('Invalid bytes');
+      return sum + value;
+    } else if (Array.isArray(value)) {
+      return sum + value.reduce((subSum, child) => subSum + treeBytes(child), 0);
+    } else throw new Error('Invalid node structure');
+  }, 0);
+  
+  return totalBytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  if (!Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+  
+  const heavyFoldersList: [string, number][] = [];
+  
+  const traverse = (node: object, path: string, currentBytes: number): void => {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    
+    if (currentBytes >= minBytes) {
+      heavyFoldersList.push([path, currentBytes]);
+    }
+    
+    for (const [name, value] of Object.entries(node)) {
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) throw new Error('Invalid name');
+      
+      let nextPath = path ? `${path}/${name}` : name;
+      let nextBytes = currentBytes;
+      
+      if (typeof value === 'number') {
+        nextBytes += value;
+      } else if (Array.isArray(value)) {
+        traverse(value[0], nextPath, 0);
+      } else throw new Error('Invalid node structure');
+    }
+    
+    if (path) {
+      heavyFoldersList.push([path, currentBytes]);
+    }
+  };
+  
+  traverse(root, '', 0);
+  return heavyFoldersList;
+}
+```

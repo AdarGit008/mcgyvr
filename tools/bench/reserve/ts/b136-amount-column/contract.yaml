@@ -1,0 +1,62 @@
+id: b136-amount-column
+task_type: function_implementation
+task: >-
+  Implement totalAmounts; its digit-arithmetic helpers are already written.
+  The input is a list of amount strings, each decimal digits with an
+  optional dot followed by one or more fraction digits; an underscore may
+  sit between two digits of the whole part as visual grouping, as in
+  "1_204.50". Sum the amounts exactly by digit arithmetic — a total may
+  exceed what floating point holds — and return it as a string whose whole
+  part is grouped with underscores every three digits from the right and
+  whose fraction carries exactly as many digits as the longest fraction
+  among the inputs, or no dot at all when no input has one. Reject an
+  argument that is not a list, an empty list, an amount that is not a
+  string, and a malformed amount — empty, a digit missing before its dot or
+  after it, an underscore not between two whole-part digits, or any other
+  character — with an error.
+target: solution.ts
+target_content: |
+  /** Sum a column of decimal amount strings exactly, by digit arithmetic. */
+
+  function addDigits(a: string, b: string): string {
+    let carry = 0;
+    let out = "";
+    const width = Math.max(a.length, b.length);
+    for (let i = 0; i < width; i++) {
+      const da = i < a.length ? Number(a[a.length - 1 - i]) : 0;
+      const db = i < b.length ? Number(b[b.length - 1 - i]) : 0;
+      const sum = da + db + carry;
+      out = String(sum % 10) + out;
+      carry = Math.floor(sum / 10);
+    }
+    return carry > 0 ? String(carry) + out : out;
+  }
+
+  function groupThousands(digits: string): string {
+    let grouped = "";
+    for (let i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 === 0) {
+        grouped += "_";
+      }
+      grouped += digits[i];
+    }
+    return grouped;
+  }
+
+  export function totalAmounts(amounts: string[]): string {
+    // TODO: validate every amount, align the fraction digits, and add with
+    // addDigits so totals beyond float precision stay exact; group the
+    // whole part of the result with groupThousands.
+    let total = 0;
+    for (const amount of amounts) {
+      total += Number(amount.replace(/_/g, ""));
+    }
+    return String(total);
+  }
+interface: "export function totalAmounts(amounts: string[]): string"
+stop_conditions:
+  - Whether leading zeros in an amount's whole part are accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

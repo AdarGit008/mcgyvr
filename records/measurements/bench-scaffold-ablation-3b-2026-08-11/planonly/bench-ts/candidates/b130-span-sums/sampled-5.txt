@@ -1,0 +1,70 @@
+```typescript
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Invalid span text');
+  }
+
+  const parts = text.split(/\s+/).filter(Boolean);
+
+  const unitMap = {
+    yd: 36,
+    ft: 12,
+    in: 1
+  };
+
+  if (parts.length < 3 || !parts.every(part => /^\d+$/.test(part))) {
+    throw new Error('Invalid span text');
+  }
+
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length - 1; i += 2) {
+    const value = parseInt(parts[i], 10);
+    const unit = parts[i + 1];
+    if (!unitMap[unit]) {
+      throw new Error('Invalid span text');
+    }
+    totalInches += value * unitMap[unit];
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0) {
+    throw new Error('Invalid input for formatSpan');
+  }
+
+  const units = [
+    { value: 36, unit: 'yd' },
+    { value: 12, unit: 'ft' },
+    { value: 1, unit: 'in' }
+  ];
+
+  let formattedParts: string[] = [];
+
+  for (let i = 0; i < units.length; i++) {
+    const { value, unit } = units[i];
+    const count = Math.floor(inches / value);
+    if (count > 0) {
+      formattedParts.push(count.toString() + unit);
+      inches -= count * value;
+    }
+  }
+
+  return formattedParts.join(' ');
+}
+
+export function addSpans(first: string, second: string): string {
+  const totalInchesFirst = parseSpan(first);
+  const totalInchesSecond = parseSpan(second);
+
+  if (totalInchesFirst === undefined || totalInchesSecond === undefined) {
+    throw new Error('Invalid span text');
+  }
+
+  const totalInchesSum = totalInchesFirst + totalInchesSecond;
+
+  return formatSpan(totalInchesSum);
+}
+```

@@ -1,0 +1,36 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (!Number.isInteger(freshFor) || freshFor <= 0) {
+        throw new Error("freshFor must be a positive whole number");
+    }
+    if (!Number.isInteger(size) || size <= 0) {
+        throw new Error("size must be a positive whole number");
+    }
+
+    const cache: { [tileName: string]: { tick: number; tileName: string }[] } = {};
+    let nextEvictIndex = 0;
+
+    return requests.map(([tick, tileName]) => {
+        if (cache[tileName] && cache[tileName].some(req => req.tick <= tick)) {
+            return [tick, tileName];
+        }
+
+        while (Object.keys(cache).length >= size) {
+            const evictKey = Object.keys(cache)[nextEvictIndex];
+            if (cache[evictKey][0].tick < cache[nextEvictIndex + 1]?.[0].tick || (cache[evictKey][0].tick === cache[nextEvictIndex + 1]?.[0].tick && evictKey < Object.keys(cache)[nextEvictIndex + 1])) {
+                delete cache[evictKey];
+                nextEvictIndex = (nextEvictIndex + 1) % size;
+            } else {
+                nextEvictIndex++;
+            }
+        }
+
+        if (!cache[tileName]) {
+            cache[tileName] = [];
+        }
+        cache[tileName].push({ tick, tileName });
+
+        return [tick, tileName];
+    });
+}
+```

@@ -1,0 +1,5 @@
+def unit_price(total: int, count: int) -> int:
+    """The price of one unit, in whole pence."""
+    if count == 0:
+        raise ValueError("count cannot be zero")
+    return total // count

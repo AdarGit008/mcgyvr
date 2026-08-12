@@ -1,0 +1,71 @@
+```ts
+/**
+ * Applies the day's stock moves to the opening sheet and returns the closing sheet.
+ * @param opening - A semicolon-separated string of item names and counts.
+ * @param moves - A semicolon-separated string of name+qty or name-qty moves.
+ * @returns The closing sheet as a sorted semicolon-separated string of item names and counts.
+ */
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Both arguments must be strings.');
+  }
+
+  const parseEntry = (entry: string): { name: string; count: number } => {
+    const [name, countStr] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(countStr)) {
+      throw new Error(`Malformed sheet entry: ${entry}`);
+    }
+    return { name, count: parseInt(countStr, 10) };
+  };
+
+  const applyMove = (
+    items: Map<string, number>,
+    move: string
+  ): Map<string, number> => {
+    const [action, rest] = move.split(':');
+    const [name, qtyStr] = action.split(/[-+]/);
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(qtyStr)) {
+      throw new Error(`Malformed move: ${move}`);
+    }
+    const qty = parseInt(qtyStr, 10);
+    if (qty <= 0) {
+      throw new Error('Move quantity must be a positive integer.');
+    }
+
+    if (!items.has(name)) {
+      if (/^\d+$/.test(action)) {
+        items.set(name, qty);
+      } else {
+        throw new Error(`Issue of an item the sheet does not hold: ${name}`);
+      }
+    } else {
+      const currentCount = items.get(name)!;
+      if (action === '-' && currentCount < qty) {
+        throw new Error('Issue of more units than the item then holds.');
+      }
+      items.set(name, action === '+' ? currentCount + qty : currentCount - qty);
+    }
+
+    return items;
+  };
+
+  const entries = opening.split(';').filter(Boolean).map(parseEntry);
+  const movesList = moves.split(';').filter(Boolean);
+
+  if (new Set(entries.map(entry => entry.name)).size !== entries.length) {
+    throw new Error('Duplicate name on the opening sheet.');
+  }
+
+  const itemsMap = new Map<string, number>(entries.map(entry => [entry.name, entry.count]));
+
+  for (const move of movesList) {
+    applyMove(itemsMap, move);
+  }
+
+  return Array.from(itemsMap.entries())
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .sort()
+    .join(';');
+}
+```

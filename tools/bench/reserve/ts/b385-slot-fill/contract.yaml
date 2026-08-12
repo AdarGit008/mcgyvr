@@ -1,0 +1,28 @@
+id: b385-slot-fill
+task_type: bug_fix
+task: >-
+  slotFill lays labels out across a board of a fixed number of slots,
+  leaving any slot it has no label for empty, and it stops as soon as
+  the labels run out so the board comes back short. Fix it. Labels
+  beyond the board are left off. An empty label is rejected with an
+  error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Labels laid across a board of a fixed number of slots. */
+  export function slotFill(labels: string[], slots: number): string[] {
+    const board: string[] = [];
+    for (let i = 0; i < labels.length && i < slots; i += 1) {
+      if (labels[i] === "") {
+        throw new Error("a label must not be empty");
+      }
+      board.push(labels[i]);
+    }
+    return board;
+  }
+interface: "export function slotFill(labels: string[], slots: number): string[]"
+stop_conditions:
+  - Whether the board may hold no slots at all is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

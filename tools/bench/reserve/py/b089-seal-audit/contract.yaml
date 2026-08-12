@@ -1,0 +1,29 @@
+id: b089-seal-audit
+task_type: function_implementation
+task: >-
+  Implement audit_chain, with seal_of underneath it. A depot keeps a
+  tamper-evident trail of custody records, each a mapping with seq, note
+  and seal. seal_of computes the seal of a note string on top of a previous
+  seal: starting from the previous seal, fold in each character left to
+  right by multiplying the running value by 31, adding the character code,
+  and keeping the remainder modulo 9973; an empty note therefore seals to
+  the previous value unchanged. audit_chain walks the trail: seq must count
+  1, 2, 3 and so on in order; the first record's seal must equal seal_of of
+  its note on top of 0, and every later record's seal must equal seal_of of
+  its note on top of the seal stored on the record before it, so one bad
+  seal does not hide the records after it. Return the list of seq numbers
+  whose seal does not check out, in order; an empty or fully intact trail
+  yields an empty list. Reject an argument that is not a list, a record
+  that is not a mapping carrying seq, note and seal, a note that is not a
+  string, a seal that is not an integer, and a seq that breaks the count,
+  with an error.
+target: solution.py
+interface: |-
+  def audit_chain(records: list) -> list
+  def seal_of(note: str, prev: int) -> int
+stop_conditions:
+  - Whether note characters outside plain ASCII are in scope is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,19 @@
+```ts
+/**
+ * Trims the given line to at most the specified limit, adding "..." if necessary.
+ *
+ * @param line The line to be trimmed.
+ * @param limit The maximum number of characters allowed in the trimmed line. Must be 4 or more.
+ * @returns The trimmed line with "..." added if it exceeds the limit.
+ */
+export function trimTo(line: string, limit: number): string {
+    if (limit < 4) {
+        throw new Error("Limit must be at least 4.");
+    }
+
+    const length = line.length;
+    const truncatedLength = Math.min(limit - 3, length); // Subtract 3 for "..." and 1 for the last character
+
+    return truncatedLength === length ? line : line.slice(0, truncatedLength) + "...";
+}
+```

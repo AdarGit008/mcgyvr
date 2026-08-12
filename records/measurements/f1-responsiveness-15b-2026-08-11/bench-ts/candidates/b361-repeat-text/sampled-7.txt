@@ -1,0 +1,22 @@
+```ts
+// solution.ts
+
+/**
+ * Repeats a given phrase a specified number of times, with each copy separated by a given separator.
+ *
+ * @param phrase The phrase to be repeated.
+ * @param times The number of times the phrase should be repeated.
+ * @param between The string used to separate the repetitions. Defaults to an empty string.
+ * @returns A Phrase containing the repeated phrases joined by the separator, or an empty string if times is 0 or less.
+ */
+export function repeatText(phrase: string, times: number, between = ''): string {
+    if (typeof phrase !== 'string') {
+        throw new Error('Invalid input: phrase must be a string.');
+    }
+    if (!Number.isInteger(times) || times <= 0) {
+        throw new Error('Invalid input: times must be a positive integer.');
+    }
+
+    return Array.from({ length: times }, (_, i) => phrase).join(between);
+}
+```

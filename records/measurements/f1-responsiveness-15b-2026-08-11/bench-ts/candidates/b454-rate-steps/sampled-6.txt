@@ -1,0 +1,20 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount <= 0) {
+    throw new Error("Amount must be positive");
+  }
+
+  const percentage = (percent / 100) * amount;
+  const totalCharge = fixed + Math.floor(percentage);
+  return Math.max(totalCharge, amount);
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!Array.isArray(amounts)) {
+    throw new Error("amounts must be an array");
+  }
+
+  const result: number[] = amounts.map(amount => stepRate(amount, fixed, percent));
+  return result;
+}
+```

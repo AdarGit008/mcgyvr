@@ -1,0 +1,15 @@
+id: b357-line-number
+task_type: function_implementation
+task: >-
+  Implement line_number. Return a block of text with each line
+  carrying its number in front, counting from one, written as the
+  number, a colon and a space. A block holding no text at all comes
+  back empty.
+target: solution.py
+interface: "def line_number(block: str) -> str"
+stop_conditions:
+  - Whether the numbers should be lined up when they run to different widths is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

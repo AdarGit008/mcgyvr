@@ -1,0 +1,17 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count > width:
+        raise ValueError("Count cannot exceed width")
+    
+    if count == 0:
+        return " "
+    
+    # Generate the bar with sufficient hashes
+    bar = "#" * count
+    
+    # If count is less than width, mark it with a greater-than sign
+    if count < width:
+        bar += ">"
+    
+    return bar
+```

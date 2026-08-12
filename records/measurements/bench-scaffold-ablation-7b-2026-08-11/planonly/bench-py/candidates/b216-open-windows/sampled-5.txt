@@ -1,0 +1,40 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hour, minute = map(int, time_str.split(':'))
+        if not (0 <= hour < 24 and 0 <= minute < 60):
+            raise ValueError("Invalid time format")
+        return hour, minute
+
+    def time_to_minutes(hour: int, minute: int) -> int:
+        return hour * 60 + minute
+
+    def minutes_to_time(minutes: int) -> str:
+        hour = minutes // 60
+        minute = minutes % 60
+        return f"{hour:02}:{minute:02}"
+
+    span_start, span_end = span.split('-')
+    if len(booked) > 0:
+        booked.sort()
+    else:
+        return "none"
+
+    open_intervals = []
+    start_minutes = time_to_minutes(parse_time(span_start), 0)
+    end_minutes = time_to_minutes(parse_time(span_end), 0)
+
+    for booking in booked:
+        booking_start, booking_end = booking.split('-')
+        booking_start_minutes = time_to_minutes(parse_time(booking_start), 0)
+        booking_end_minutes = time_to_minutes(parse_time(booking_end), 0)
+
+        if booking_start_minutes > start_minutes:
+            open_intervals.append(minutes_to_time(start_minutes) + '-' + minutes_to_time(booking_start_minutes))
+        start_minutes = max(start_minutes, booking_end_minutes)
+
+    if start_minutes < end_minutes:
+        open_intervals.append(minutes_to_time(start_minutes) + '-' + minutes_to_time(end_minutes))
+
+    return ', '.join(open_intervals) if open_intervals else "none"
+```

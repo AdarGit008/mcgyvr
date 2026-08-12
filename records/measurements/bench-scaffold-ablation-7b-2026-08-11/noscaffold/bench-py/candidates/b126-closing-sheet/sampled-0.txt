@@ -1,0 +1,34 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple:
+        name, count = entry.split(':')
+        if not name.islower() or not count.isdigit():
+            raise ValueError("Malformed sheet entry")
+        return name, int(count)
+
+    def apply_moves(sheet: dict, move_entries: list) -> dict:
+        for move in move_entries:
+            name, action, qty = move.partition('+') if '+' in move else (move.partition('-')[0], '-', 1)
+            qty = int(qty)
+            if not name.islower() or qty <= 0:
+                raise ValueError("Malformed move")
+            if action == '-' and name not in sheet or action == '+' and name not in sheet:
+                raise ValueError("Issue of an item the sheet does not hold")
+            if action == '+' and sheet[name] + qty < sheet[name]:
+                raise ValueError("Issue of more units than the item then holds")
+            sheet[name] += qty * (-1 if action == '-' else 1)
+        return {name: count for name, count in sheet.items() if count > 0}
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Non-string argument")
+
+    opening_entries = opening.split(';') if opening else []
+    moves_entries = moves.split(';') if moves else []
+
+    sheet = {name: count for name, count in (parse_entry(entry) for entry in opening_entries)}
+    if len(sheet) != len(opening_entries):
+        raise ValueError("Duplicate name on the opening sheet")
+
+    closing_sheet = apply_moves(sheet, moves_entries)
+    return ';'.join(f"{name}:{count}" for name, count in sorted(closing_sheet.items()))
+```

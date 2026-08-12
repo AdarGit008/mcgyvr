@@ -1,0 +1,13 @@
+```python
+from typing import *
+from collections import *
+
+def set_minus(entries: list, remove: list) -> List:
+    # Create a set for faster lookup
+    remove_set = set(remove)
+    
+    # Use list comprehension to filter out elements from entries that are in remove_set
+    result = [entry for entry in entries if entry not in remove_set]
+    
+    return result
+```

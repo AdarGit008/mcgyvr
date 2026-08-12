@@ -1,0 +1,95 @@
+```typescript
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  // Validate price list
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state = OPEN;
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("event must be a list: " + JSON.stringify(event));
+    }
+    const [action, ...payload] = event;
+    switch (action) {
+      case 'scan':
+        if (!prices.hasOwnProperty(payload[0])) {
+          throw new Error("unknown item: " + payload[0]);
+        }
+        cart[payload[0]] = (cart[payload[0]] || 0) + 1;
+        total += prices[payload[0]];
+        break;
+      case 'void':
+        if (!cart.hasOwnProperty(payload[0])) {
+          throw new Error("item not in cart: " + payload[0]);
+        }
+        cart[payload[0]] = Math.max(cart[payload[0]] - 1, 0);
+        total -= prices[payload[0]];
+        break;
+      case 'close':
+        if (state !== OPEN) {
+          throw new Error("cannot close session in state: " + state);
+        }
+        if (Object.keys(cart).length === 0) {
+          throw new Error("cannot close session with empty cart");
+        }
+        state = PAYMENT;
+        break;
+      case 'pay':
+        const amount = payload[0];
+        if (!Number.isInteger(amount) || amount <= 0) {
+          throw new Error("pay amount must be a positive integer: " + amount);
+        }
+        paid += amount;
+        if (paid >= total) {
+          change = paid - total;
+          state = PAID;
+        }
+        break;
+      case 'cancel':
+        if (state !== OPEN && state !== PAYMENT) {
+          throw new Error("cannot cancel session in state: " + state);
+        }
+        state = CANCELLED;
+        break;
+      default:
+        throw new Error("unknown action: " + action);
+    }
+
+    // Check for illegal events after the session is paid or cancelled
+    if ((state === PAID || state === CANCELLED) && event.length > 1) {
+      throw new Error("illegal event after payment/cancellation: " + JSON.stringify(event));
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

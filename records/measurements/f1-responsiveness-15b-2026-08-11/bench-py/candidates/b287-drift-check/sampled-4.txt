@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def drift_check(readings: List[int], step: int) -> int:
+    if not readings or len(readings) < 2:
+        return -1
+    
+    for i in range(1, len(readings)):
+        if abs(readings[i] - readings[i-1]) > step:
+            return i
+    
+    return -1
+```

@@ -1,0 +1,39 @@
+```typescript
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+  if (!input) return [];
+
+  const parseOption = (segment: string): string[] => {
+    const [key, value] = segment.split('=');
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) throw new Error('Invalid key');
+
+    // Strip double quotes from the value if present
+    return value ? [key, value.replace(/^"|"$/g, '')] : [key];
+  };
+
+  let result: string[][] = [];
+  let currentSegment = '';
+  let inQuotes = false;
+
+  for (const char of input) {
+    if (char === ';') {
+      if (!inQuotes) {
+        result.push(parseOption(currentSegment.trim()));
+        currentSegment = '';
+      } else {
+        currentSegment += char;
+      }
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+      currentSegment += char;
+    } else {
+      currentSegment += char;
+    }
+  }
+
+  // Handle the last segment
+  if (currentSegment) result.push(parseOption(currentSegment.trim()));
+
+  return result;
+}
+```

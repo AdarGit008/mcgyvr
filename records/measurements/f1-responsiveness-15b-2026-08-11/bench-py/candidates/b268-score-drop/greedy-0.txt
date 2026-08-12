@@ -1,0 +1,17 @@
+```python
+def score_drop(scores: list) -> int:
+    if not scores:
+        return 0
+
+    lowest_score = min(scores)
+    count_of_lowest = scores.count(lowest_score)
+
+    if count_of_lowest > 1:
+        # Remove the second occurrence of the lowest score
+        scores.remove(lowest_score)
+    else:
+        # Remove the lowest score directly
+        scores.pop()
+
+    return sum(scores)
+```

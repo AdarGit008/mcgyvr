@@ -1,0 +1,29 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replace placeholders in the template with corresponding values from the mapping.
+
+    :param template: A string containing literal text and placeholders of the form {name}.
+                    Placeholders must be properly enclosed in braces and may contain letters,
+                    digits, or underscores. Placeholder names cannot be empty.
+    :param values: A dictionary mapping placeholder names to their replacement values.
+    :return: The modified string with placeholders replaced by their corresponding values.
+
+    Raises:
+        ValueError: If the template contains an unterminated placeholder, a malformed name,
+                    or an unknown placeholder name.
+    """
+    if not isinstance(template, str) or not isinstance(values, dict):
+        raise ValueError("Both template and values must be of type str and dict respectively.")
+
+    def replace_placeholder(match):
+        name = match.group(1)
+        if not name.isalnum() or '_' in name:
+            raise ValueError(f"Invalid placeholder name: {name}")
+        return values.get(name, "")
+
+    import re
+    return re.sub(r'\{(\w+)\}', replace_placeholder, template)
+```
+
+This implementation uses regular expressions to find and replace placeholders in the template. It checks for valid placeholder names and raises a `ValueError` if any are invalid or do not exist in the provided mapping.

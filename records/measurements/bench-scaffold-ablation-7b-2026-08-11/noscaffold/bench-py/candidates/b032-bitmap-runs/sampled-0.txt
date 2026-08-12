@@ -1,0 +1,56 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    """
+    Returns the smallest start of a run of length free blocks lying entirely below the capacity,
+    or -1 when none exists. Raises ValueError for invalid arguments.
+    """
+
+    if not (isinstance(bits, int) and bits > 0):
+        raise ValueError("Invalid bit count")
+    if len(words) != (bits + 31) // 32:
+        raise ValueError("Word count disagrees with capacity")
+    if not (isinstance(length, int) and length > 0):
+        raise ValueError("Invalid run length")
+
+    for start in range(bits - length + 1):
+        occupied = False
+        for i in range(start, start + length):
+            if words[i // 32] & (1 << (i % 32)):
+                occupied = True
+                break
+        if not occupied:
+            return start
+
+    return -1
+
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    """
+    Returns a new word list with the run of length blocks starting at start marked occupied.
+    Raises ValueError for invalid arguments.
+    """
+
+    if not isinstance(start, int):
+        raise ValueError("Invalid start index")
+    if not (isinstance(length, int) and length > 0):
+        raise ValueError("Invalid run length")
+
+    new_words = words[:]
+    for i in range(start, start + length):
+        word_index = i // 32
+        bit_position = i % 32
+        new_words[word_index] |= (1 << bit_position)
+    return new_words
+
+
+def bit_at(words: list[int], index: int) -> int:
+    """
+    Returns the bit at the given index as 0 or 1. Raises ValueError for invalid arguments.
+    """
+
+    if not isinstance(index, int):
+        raise ValueError("Invalid index")
+    word_index = index // 32
+    bit_position = index % 32
+    return (words[word_index] >> bit_position) & 1
+```

@@ -1,0 +1,49 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or len(node) != 2:
+        raise ValueError("Node must be a mapping with exactly two items")
+    name, content = node.items()
+    if not isinstance(name, str) or not name or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes")
+    if 'bytes' in content and 'children' in content:
+        raise ValueError("Node cannot have both bytes and children")
+    if 'bytes' in content:
+        if not isinstance(content['bytes'], int) or content['bytes'] < 0:
+            raise ValueError("Bytes must be a non-negative whole number")
+    elif 'children' in content:
+        if not isinstance(content['children'], list):
+            raise ValueError("Children must be a list")
+
+def validate_min_bytes(min_bytes):
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number")
+
+def walk_tree(root, path, min_bytes, result):
+    node = root[path]
+    if 'bytes' in node:
+        return
+    total = sum(walk_tree(child, path + '/' + child['name'], min_bytes, result) for child in node['children'])
+    if total >= min_bytes:
+        result.append([path, total])
+    return total
+
+def file_paths(root: dict) -> list:
+    paths = []
+    def walk(node, path):
+        if 'bytes' in node:
+            paths.append(path)
+        else:
+            for child in node['children']:
+                walk(child, path + '/' + child['name'])
+    walk(root, root['name'])
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    return sum(walk_tree(child, child['name'], 0, []) for child in root['children'])
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    validate_min_bytes(min_bytes)
+    result = []
+    walk_tree(root, root['name'], min_bytes, result)
+    return result
+```

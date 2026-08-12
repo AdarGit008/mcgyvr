@@ -1,0 +1,12 @@
+```ts
+// solution.ts
+
+export function tallyBar(count: number, width: number): string {
+  if (count < 0 || count > width) {
+    throw new Error('Count must be between 0 and width');
+  }
+
+  const hashes = '#'.repeat(Math.min(count, width));
+  return `${hashes}>`;
+}
+```

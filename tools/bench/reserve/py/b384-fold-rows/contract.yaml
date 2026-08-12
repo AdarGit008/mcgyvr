@@ -1,0 +1,37 @@
+id: b384-fold-rows
+task_type: bug_fix
+task: >-
+  row_widest returns the number of values in the longest of a grid's
+  rows. fold_rows pads every row out to that width with zeros, and it
+  pads to the width of the first row instead. Fix fold_rows. A grid
+  with no rows folds to no rows. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def row_widest(grid: list) -> int:
+      widest = 0
+      for row in grid:
+          if len(row) > widest:
+              widest = len(row)
+      return widest
+
+
+  def fold_rows(grid: list) -> list:
+      """Every row padded out to the widest row's width."""
+      if not grid:
+          return []
+      width = len(grid[0])
+      folded = []
+      for row in grid:
+          padded = list(row)
+          while len(padded) < width:
+              padded.append(0)
+          folded.append(padded)
+      return folded
+interface: "def row_widest(grid: list) -> int
+def fold_rows(grid: list) -> list"
+stop_conditions:
+  - Whether a value other than zero should be used for the padding is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

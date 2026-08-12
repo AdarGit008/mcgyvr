@@ -1,0 +1,23 @@
+id: b189-deal-bags
+task_type: function_implementation
+task: >-
+  Implement dealBags. A depot deals its parcels into courier bags that hold
+  different amounts: parcels lists the parcel codes in arrival order and caps
+  gives each bag's capacity, one positive whole number per bag, bag 0 first.
+  Deal one parcel at a time going round the bags in order, starting at bag 0
+  and returning to bag 0 after the last bag; a bag already holding its
+  capacity is passed over and the parcel goes to the next bag with room, so
+  the small bags drop out of the round early. Once every bag is full the
+  parcels still in hand are spare. Return a mapping with loads, one list of
+  parcel codes per bag in bag order holding what that bag took in the order
+  it took it, and spare, the parcels left over in arrival order. Reject a
+  parcels or caps argument that is not a list and a caps list that is empty
+  or holds a capacity that is not a positive whole number, with an error.
+target: solution.ts
+interface: "export function dealBags(parcels: string[], caps: number[]): { loads: string[][]; spare: string[] }"
+stop_conditions:
+  - Whether parcel codes that are not strings must be handled is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

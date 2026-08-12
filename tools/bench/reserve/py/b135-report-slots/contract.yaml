@@ -1,0 +1,79 @@
+id: b135-report-slots
+task_type: bug_fix
+task: >-
+  fill_report lays out numeric report lines and leans on format_fixed, whose
+  rounding is wrong at the edges. Fix format_fixed: it renders a finite
+  number with exactly the requested count of fraction digits — no dot when
+  the count is zero — rounding half away from zero, where today a half can
+  land one step toward zero or toward positive infinity instead; and a
+  negative value whose rendering rounds to nothing must drop its minus
+  sign, where today -0.00 escapes. Also add the missing validation: reject
+  a value that is not a finite number and a decimals count that is not an
+  integer from zero to six, with an error. fill_report already walks its
+  template correctly and must keep doing so: a slot is an opening square
+  bracket, then a name of letters or underscores, a width and a decimals
+  count separated by colons, then a closing square bracket; the named value
+  is rendered by format_fixed and padded on the left with spaces up to
+  width, never truncated when it comes out wider; every other character, a
+  lone closing bracket included, passes through untouched. A slot never
+  closed, a slot not of exactly three parts, a malformed name, a width that
+  is not a positive integer, and a name missing from the values are errors.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Fixed-point rendering and the report slots that lay the numbers out."""
+
+
+  def format_fixed(value, decimals):
+      scale = 10 ** decimals
+      scaled = round(value * scale)
+      magnitude = abs(scaled)
+      whole = magnitude // scale
+      sign = "-" if value < 0 else ""
+      if decimals == 0:
+          return sign + str(whole)
+      fraction = str(magnitude % scale).rjust(decimals, "0")
+      return f"{sign}{whole}.{fraction}"
+
+
+  def fill_report(template, values):
+      if not isinstance(template, str):
+          raise ValueError("template must be a string")
+      out = []
+      at = 0
+      letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+      while at < len(template):
+          ch = template[at]
+          if ch != "[":
+              out.append(ch)
+              at += 1
+              continue
+          close = template.find("]", at + 1)
+          if close < 0:
+              raise ValueError("slot never closed")
+          parts = template[at + 1:close].split(":")
+          if len(parts) != 3:
+              raise ValueError("a slot is name:width:decimals")
+          name, width_text, decimals_text = parts
+          if name == "" or any(c not in letters for c in name):
+              raise ValueError(f"malformed slot name: {name}")
+          if not width_text.isdigit() or int(width_text) < 1:
+              raise ValueError("width must be a positive integer")
+          if not decimals_text.isdigit():
+              raise ValueError("decimals must be digits")
+          if name not in values:
+              raise ValueError(f"no value for slot: {name}")
+          rendered = format_fixed(values[name], int(decimals_text))
+          width = int(width_text)
+          out.append(rendered if len(rendered) >= width else rendered.rjust(width, " "))
+          at = close + 1
+      return "".join(out)
+interface: |-
+  def format_fixed(value: float, decimals: int) -> str
+  def fill_report(template: str, values: dict) -> str
+stop_conditions:
+  - Whether negative zero keeps its minus sign is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

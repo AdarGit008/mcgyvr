@@ -1,0 +1,54 @@
+```typescript
+export function filePaths(root: object): string[] {
+  if (typeof root !== "object" || root === null) throw new Error("Invalid node");
+  const result: string[] = [];
+  const walk = (node: any, path: string) => {
+    for (const name in node) {
+      if (name === "children") continue;
+      if (typeof name !== "string" || name.length === 0 || name.includes("/"))
+        throw new Error("Invalid name");
+      const fullPath = path ? `${path}/${name}` : name;
+      result.push(fullPath);
+      walk(node[name], fullPath);
+    }
+  };
+  walk(root, "");
+  return result;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== "object" || root === null) throw new Error("Invalid node");
+  const bytes = root.bytes;
+  if (typeof bytes === "number" && Number.isInteger(bytes) && bytes >= 0)
+    return bytes;
+  if (Array.isArray(root.children))
+    return root.children.reduce((acc, child) => acc + treeBytes(child), 0);
+  throw new Error("Invalid node");
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof minBytes !== "number" || !Number.isInteger(minBytes) || minBytes < 0)
+    throw new Error("Invalid minBytes");
+  const result: [string, number][] = [];
+  const walk = (node: any, path: string, total: number): number => {
+    if (typeof node.bytes === "number" && Number.isInteger(node.bytes) && node.bytes >= 0) {
+      return total + node.bytes;
+    }
+    if (Array.isArray(node.children)) {
+      let currentTotal = total;
+      for (const child of node.children) {
+        const childPath = path ? `${path}/${child.name}` : child.name;
+        currentTotal = walk(child, childPath, currentTotal);
+        if (currentTotal >= minBytes && !result.some(([p]) => p === path)) {
+          result.push([path, currentTotal]);
+        }
+      }
+    } else {
+      throw new Error("Invalid node");
+    }
+    return currentTotal;
+  };
+  walk(root, "", 0);
+  return result;
+}
+```

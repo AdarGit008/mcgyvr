@@ -1,0 +1,25 @@
+id: b159-run-press
+task_type: function_implementation
+task: >-
+  Implement run_press. A print shop's press serves its queue strictly in
+  order: jobs is a list of [name, pages] pairs — a non-empty string and
+  a positive whole number — queued front first, and budget is how many
+  pages the shift may still print. Serve from the front: a job whose
+  pages fit within what remains of the budget is printed and its pages
+  are spent, and the first job that does not fit stops all serving — it
+  and every job behind it waits, even one small enough to fit, because
+  the press never jumps the queue. Return a mapping with printed, the
+  names served in order, waiting, the names left in order, and pages,
+  the total pages spent. Validate every job in the list, waiting ones
+  included. Reject a jobs argument that is not a list, a job that is
+  not a two-item pair, a name that is not a non-empty string, a page
+  count that is not a positive whole number, and a budget that is not a
+  non-negative whole number, with an error.
+target: solution.py
+interface: "def run_press(jobs: list, budget: int) -> dict"
+stop_conditions:
+  - Whether two jobs may share a name is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

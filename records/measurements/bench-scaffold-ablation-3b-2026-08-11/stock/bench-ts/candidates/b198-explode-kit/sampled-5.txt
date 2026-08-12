@@ -1,0 +1,44 @@
+```
+import { max } from 'lodash';
+
+/** Total the base parts an order of a kit consumes. */
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!Object.prototype.hasOwnProperty.call(catalog, kit)) {
+    throw new Error(`the catalog does not define ${kit}`);
+  }
+  
+  const recurse = (currentKit: string, currentWant: number): Record<string, number> => {
+    if (currentWant <= 0) return {};
+
+    const recipe = catalog[currentKit];
+    if (!recipe) throw new Error(`unexpected error in recurse`);
+
+    const partsMap = recipe.parts.reduce((acc, [partName, partCount]) => {
+      acc[partName] = 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    let totalPartsUsed = 0;
+    let basePartTotals: Record<string, number> = {};
+
+    for (const [partName, partCount] of recipe.parts) {
+      if (!partsMap[partName]) continue; // Skip base parts
+
+      const subKitWant = Math.ceil(currentWant / recipe.makes);
+      const subKitPartsUsed = recurse(partName, subKitWant);
+
+      totalPartsUsed += partCount * subKitWant;
+      for (const [subPartName, subPartCount] of Object.entries(subKitPartsUsed)) {
+        basePartTotals[subPartName] = (basePartTotals[subPartName] || 0) + subPartCount;
+      }
+    }
+
+    const runsNeeded = max([1, Math.ceil(currentWant / recipe.makes)])!;
+    basePartTotals[kit] = runsNeeded * totalPartsUsed;
+
+    return basePartTotals;
+  };
+
+  return recurse(kit, want);
+}
+```

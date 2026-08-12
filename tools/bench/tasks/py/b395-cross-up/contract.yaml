@@ -1,0 +1,14 @@
+id: b395-cross-up
+task_type: function_implementation
+task: >-
+  Implement cross_up. Return how many times a run of readings crosses
+  a level going upward, a crossing being a reading that reaches the
+  level when the reading immediately before it stood below.
+target: solution.py
+interface: "def cross_up(readings: list, level: int) -> int"
+stop_conditions:
+  - Whether the first reading should count as a crossing when it already reaches the level is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

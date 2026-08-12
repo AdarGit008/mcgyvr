@@ -1,0 +1,24 @@
+id: b100-seat-roster
+task_type: function_implementation
+task: >-
+  Implement normalizeSeats. The input lists the raw seats of one
+  booking, each entry naming a hall seat as a row letter followed by a
+  seat number: the letter may be written in either case, a single hyphen
+  may sit between letter and number, the number runs one to three digits
+  and may carry leading zeros, and the whole entry may be padded with
+  surrounding whitespace. Normalize each entry to the uppercase letter
+  immediately followed by the number with its leading zeros stripped, so
+  b-07 becomes B7, and return the normalized seats in input order; an
+  empty booking stays an empty list. The same physical seat must not be
+  booked twice, so two entries that normalize to the same seat are an
+  error. Reject an argument that is not a list, an entry that is not a
+  string, a blank entry, an entry that strays from the seat form in any
+  other way, and a seat number of zero, with an error.
+target: solution.ts
+interface: "export function normalizeSeats(raw: string[]): string[]"
+stop_conditions:
+  - Whether the hall bounds which row letters or seat numbers exist is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

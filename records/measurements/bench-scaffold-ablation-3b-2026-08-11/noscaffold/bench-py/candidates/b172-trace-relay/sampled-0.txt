@@ -1,0 +1,33 @@
+```python
+from typing import Dict
+
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Trace a sequence of posts the watch is handed from in order from start to the post that hands on to the empty name.
+
+    :param links: A dictionary mapping each post's name to the name of the next post.
+    :param start: The starting post name.
+    :return: A list of post names visited, starting with start and ending with the final handoff post.
+    :raises ValueError: If the links argument is not a dictionary, or if start is not in links,
+                         or if there's an invalid handoff between posts, or if a loop is detected.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    if start not in links:
+        raise ValueError(f"start '{start}' is not in the links dictionary")
+
+    visited = set()
+    current_post = start
+    result = [current_post]
+
+    while current_post != "":
+        if current_post in visited:
+            raise ValueError("Handoff loop detected")
+        visited.add(current_post)
+        if current_post not in links:
+            raise ValueError(f"Invalid handoff: {current_post} does not have a next post")
+        current_post = links[current_post]
+        result.append(current_post)
+
+    return result
+```

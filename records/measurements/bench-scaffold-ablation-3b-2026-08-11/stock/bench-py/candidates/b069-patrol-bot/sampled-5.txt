@@ -1,0 +1,34 @@
+```python
+def clamp_move(position: int, delta: int, width: int) -> list:
+    if not isinstance(width, int) or width < 1:
+        raise ValueError("width must be a positive integer")
+    if not isinstance(position, int) or not 0 <= position < width:
+        raise ValueError("position must sit inside the corridor")
+    if not isinstance(delta, int) or delta == 0:
+        raise ValueError("a move must be a non-zero integer")
+    landed = min(width - 1, max(0, position + delta))
+    return [landed, landed != position + delta]
+
+
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    
+    bumps = 0
+    visited = {start}
+    
+    for move in moves:
+        landed, wall_bumped = clamp_move(start, move, width)
+        
+        if wall_bumped:
+            bumps += 1
+        
+        visited.add(landed)
+        start = landed
+    
+    return {
+        "position": start,
+        "bumps": bumps,
+        "visited": len(visited) - 1  # Subtract 1 to exclude the start position
+    }
+```

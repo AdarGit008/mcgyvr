@@ -1,0 +1,75 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = {
+    state: 'open',
+    cart: {} as Record<string, number>,
+    total: 0,
+    paid: 0
+  };
+
+  const validActions = new Set(['scan', 'void', 'close', 'pay', 'cancel']);
+
+  function validatePrice(price: number): void {
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid price');
+    }
+  }
+
+  function validateEvent(event: (string | number)[], state: string): void {
+    if (event.length < 2 || !validActions.has(event[0] as string)) {
+      throw new Error('Invalid event format');
+    }
+    switch (event[0]) {
+      case 'scan':
+        if (state !== 'open' || !prices[event[1]]) {
+          throw new Error('Illegal scan action');
+        }
+        break;
+      case 'void':
+        if (state !== 'open' || !initialState.cart[event[1]]) {
+          throw new Error('Illegal void action');
+        }
+        break;
+      case 'close':
+        if (state !== 'open' || Object.keys(initialState.cart).length === 0) {
+          throw new Error('Illegal close action');
+        }
+        initialState.total = Object.entries(initialState.cart).reduce((acc, [item, quantity]) => acc + prices[item] * quantity, 0);
+        initialState.state = 'payment';
+        break;
+      case 'pay':
+        if (state !== 'payment' || !Number.isInteger(event[1]) || event[1] <= 0) {
+          throw new Error('Illegal pay action');
+        }
+        initialState.paid += event[1];
+        initialState.change = state === 'paid' ? initialState.paid - initialState.total : 0;
+        initialState.state = 'paid';
+        break;
+      case 'cancel':
+        initialState.cart = {};
+        initialState.state = 'cancelled';
+        break;
+    }
+  }
+
+  const eventsCopy = [...events];
+  let sessionState = { ...initialState };
+
+  while (eventsCopy.length > 0) {
+    validatePrice(prices[eventsCopy[0][1] as string]);
+    validateEvent(eventsCopy.shift()!, sessionState.state);
+  }
+
+  if (!['paid', 'cancelled'].includes(sessionState.state)) {
+    throw new Error('Session not paid or cancelled');
+  }
+
+  return {
+    state: sessionState.state,
+    items: Object.entries(sessionState.cart).sort(([name1], [name2]) => name1.localeCompare(name2)),
+    total: sessionState.total,
+    paid: sessionState.paid,
+    change: sessionState.change
+  };
+}
+```

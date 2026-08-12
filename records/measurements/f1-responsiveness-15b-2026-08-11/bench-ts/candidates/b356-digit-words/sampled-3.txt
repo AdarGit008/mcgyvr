@@ -1,0 +1,16 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error("Input must be a single digit between 0 and 9.");
+  }
+  return "zero".padStart(digit + 1, "zero");
+}
+
+export function digitWords(digits: string): string {
+  if (!/^\d+$/.test(digits)) {
+    throw new Error("Input must be a sequence of digits only.");
+  }
+
+  return digits.split('').map(digitWord).join(' ');
+}
+```

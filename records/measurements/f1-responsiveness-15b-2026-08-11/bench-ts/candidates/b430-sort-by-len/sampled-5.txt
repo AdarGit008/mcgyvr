@@ -1,0 +1,15 @@
+```ts
+export function sortByLen(words: string[]): string[] {
+  if (!words) return [];
+
+  // Check for duplicate values in the input
+  const uniqueWords = [...new Set(words)];
+  if (uniqueWords.length !== words.length) {
+    throw new Error('Duplicate values found in the input');
+  }
+
+  // Sort by length, then alphabetically if lengths are equal
+  const sortedWords = uniqueWords.sort((a, b) => a.length - b.length || a.localeCompare(b));
+  return sortedWords;
+}
+```

@@ -1,0 +1,15 @@
+```ts
+/** A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  if (store === null || store === undefined) return store;
+
+  const hidden: Record<string, string> = {};
+  for (const key in store) {
+    if (key === null || key === undefined) continue;
+    hidden["*".repeat(key.length)] = store[key];
+  }
+  return hidden;
+}
+```

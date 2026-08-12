@@ -1,0 +1,17 @@
+```python
+from typing import *
+import collections
+
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if now_out_of < 0:
+        raise ValueError("Total out of cannot be negative.")
+    
+    if mark > now_out_of:
+        return 0
+    
+    new_mark = round(mark * (now_out_of / was_out_of))
+    if new_mark >= now_out_of:
+        return now_out_of
+    else:
+        return new_mark
+```

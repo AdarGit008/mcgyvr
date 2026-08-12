@@ -1,0 +1,19 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if total < 0 or diners <= 0:
+        raise ValueError("Total must be non-negative and number of diners must be positive.")
+    
+    # Calculate the base amount each diner pays without considering leftover pennies
+    base_amount = total // diners
+    
+    # Calculate the leftover pennies after distributing the base amount to all diners
+    leftover_pennies = total % diners
+    
+    # Determine how many people get an extra penny (the first person gets one)
+    extra_pennies = 1 if leftover_pennies > 0 else 0
+    
+    # Calculate the final payment for each diner, including any leftover pennies
+    payments = [base_amount + i for i in range(extra_pennies)] + [base_amount]
+    
+    return payments
+```

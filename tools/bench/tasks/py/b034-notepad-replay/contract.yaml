@@ -1,0 +1,58 @@
+id: b034-notepad-replay
+task_type: bug_fix
+task: >-
+  replay_notepad replays a notepad editing session incorrectly. Fix it: the
+  input is a list of commands applied in order to a buffer that starts
+  empty. A type command, ["type", text], appends its text, which must be a
+  non-empty string. An erase command, ["erase", n], removes the last n
+  characters and may never remove more than the buffer holds — at present
+  an oversized erase silently empties the buffer instead of failing. A
+  replace command, ["replace", old, new], rewrites the last occurrence of
+  old with new — at present it rewrites the first occurrence. An undo
+  command, ["undo", k], reverts the last k edits not yet undone, and a
+  redo command, ["redo", k], re-applies the last k undone edits, most
+  recent first; a fresh type, erase or replace after an undo discards the
+  undone edits — at present redo resurrects them. Also add the missing
+  validation: reject a command that is not a list of a known action and
+  exactly its payloads, an unknown action, a type text that is not a
+  non-empty string, a replace old text that is not a non-empty string or
+  does not occur in the buffer, an erase count that is not a positive
+  integer or exceeds the buffer, and an undo or redo count that is not a
+  positive integer or exceeds the edits available, with an error. Return
+  the final buffer. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+  def replay_notepad(commands):
+      buffer = ""
+      past = []
+      future = []
+      for command in commands:
+          action = command[0]
+          if action == "type":
+              past.append(buffer)
+              buffer += command[1]
+          elif action == "erase":
+              past.append(buffer)
+              buffer = buffer[: len(buffer) - command[1]]
+          elif action == "replace":
+              past.append(buffer)
+              buffer = buffer.replace(command[1], command[2], 1)
+          elif action == "undo":
+              for _ in range(command[1]):
+                  future.append(buffer)
+                  buffer = past.pop()
+          elif action == "redo":
+              for _ in range(command[1]):
+                  past.append(buffer)
+                  buffer = future.pop()
+      return buffer
+interface: "def replay_notepad(commands: list) -> str"
+stop_conditions:
+  - Whether a replace whose old and new texts are equal counts as a fresh edit is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

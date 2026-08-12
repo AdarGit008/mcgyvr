@@ -1,0 +1,22 @@
+```typescript
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') throw new Error('body must be a string');
+  if (body.length < 3) throw new Error('line must be at least three characters long');
+
+  const tag = body.split('').reduce((sum, char) => (sum + char.charCodeAt(0)) % 256, 0);
+  return tag.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') throw new Error('line must be a string');
+
+  const [body, tag] = line.split('~').map(s => s.trim());
+  if (!body || !tag) throw new Error('line must contain exactly one tilde');
+  if (line[line.length - 1] === '~' || body[body.length - 1] === '~') throw new Error('last character of body cannot be ~');
+  
+  const calculatedTag = lineTag(body);
+  if (calculatedTag !== tag) throw new Error('tag does not match the calculated tag');
+
+  return body;
+}
+```

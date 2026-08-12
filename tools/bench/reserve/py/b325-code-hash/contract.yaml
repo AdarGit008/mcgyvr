@@ -1,0 +1,15 @@
+id: b325-code-hash
+task_type: function_implementation
+task: >-
+  Implement code_hash. Add up the alphabet position of every letter of
+  a code, counting a as one and ignoring case, then return that total
+  within a stated number of buckets. Characters that are not letters
+  add nothing. Reject a bucket count of zero or less with an error.
+target: solution.py
+interface: "def code_hash(code: str, buckets: int) -> int"
+stop_conditions:
+  - Whether two codes landing in one bucket should be told apart is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,32 @@
+{
+  "record": "measurement/mbpp-plus-1.5b/1",
+  "issue": 225,
+  "date": "2026-08-11",
+  "question": "ADR-0021 makes qwen2.5-coder:1.5b the floor unit — the bench's obligation. ADR-0023 requires the floor unit located before a band is authored for it, because two bands were designed for the 3B from an inherited mapping and both undershot. Where does the 1.5B sit on MBPP+-shaped difficulty, on the same instrument and the same host that produced the 3B's 70.6/60.6?",
+  "result": {
+    "mbpp_base_pass1": 0.672,
+    "mbpp_plus_pass1": 0.569,
+    "n_tasks": 378,
+    "decode": "greedy, one seed"
+  },
+  "comparison": {
+    "qwen2.5-coder:3b": {
+      "mbpp_base_pass1": 0.706,
+      "mbpp_plus_pass1": 0.606,
+      "source": "records/measurements/mbpp-plus-3b-2026-08-10/"
+    },
+    "gap_plus_pp": 3.7,
+    "note": "Same instrument, same host, same serving path, same cap, same decode. The two numbers are comparable in the sense ADR-0024 requires: one rig, one ollama build (0.32.4 on srv1)."
+  },
+  "protocol": {
+    "eval": "EvalPlus 0.3.1, --backend openai, --greedy, dataset mbpp (MBPP+, 378 tasks, base + plus tests), max_new_tokens 768 (the provider default), deliberately identical to the 3B run so the two are one comparison and not two",
+    "server": "Ollama 0.32.4 OpenAI-compatible endpoint on srv1:11434 — the same serving path every rig sweep uses, and the same host the 3B's number came from. Under ADR-0024 srv1 is capacity rather than the measurement rig; this run is on srv1 anyway BECAUSE the 3B's comparator is, and a cross-host comparison is the thing ADR-0024 refuses.",
+    "client_host": "srv1 (localhost), venv ~/evalplus031",
+    "wall_clock": "codegen 7m14s, evaluate ~18s"
+  },
+  "artifact": {
+    "model": "qwen2.5-coder:1.5b (Ollama tag, Q4_K_M, 1.5B, ollama id d7372fd82851, 986 MB, context length 32768)"
+  },
+  "caveat": "MBPP is a front-door benchmark and its 378 ids are on the campaign blocklist (ADR-0020). 12.2-20.8% of its gold solutions appear verbatim in major pretraining corpora (Riddell, Ni & Cohan, NAACL 2024, arXiv 2403.04811), so 56.9% is an upper bound and contamination inflates it. The caveat cuts the same direction as it did for the 3B, which is what makes the two comparable: whatever contamination is worth here, it is worth to both. MBPP+ is a LOCATOR only, never an instrument — #225's own words — and nothing is adopted from it.",
+  "conclusion": "The floor unit is 3.7pp below the 3B on MBPP+ plus tests (56.9% vs 60.6%) and 3.4pp below on base (67.2% vs 70.6%). That gap is far smaller than the same two models show on d1 (35% vs 50%, 15pp) and on the bench, where the 3B reads ~4% and the 1.5B has not been swept. The model gap therefore WIDENS with problem shape: at MBPP shape the two are nearly equivalent, at d1 shape the 3B is half again better, at bench shape both floor. Two consequences. (1) The 30-50% aim is not out of reach for the 1.5B — MBPP+ shape is if anything too EASY for it at 56.9%, which places ADR-0023's 2-4 behaviour target correctly: somewhat harder than MBPP, far easier than the bench's 8-13. (2) A band authored where the 1.5B works may not separate the 1.5B from the 3B. That satisfies ADR-0021's obligation (the floor unit is measurable) and does NOT by itself satisfy #224, which needs a band where models separate. Those are different requirements and this measurement says they may not be met by one set."
+}

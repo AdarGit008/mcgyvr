@@ -1,0 +1,43 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (!fragment || typeof fragment !== 'string' || !Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid die entry');
+    }
+    if (table.has(fragment)) {
+      throw new Error(`Fragment '${fragment}' listed twice`);
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+
+  if (!label || typeof label !== 'string' || !label.length) {
+    throw new Error('Invalid label');
+  }
+
+  const memo = new Map<string, number>();
+  const dp = (i: number): number => {
+    if (i === label.length) return 0;
+    if (memo.has(i)) return memo.get(i)!;
+
+    let minCost = Infinity;
+    for (const [fragment, price] of table.entries()) {
+      const nextI = i + fragment.length;
+      if (nextI <= label.length && label.substring(i, nextI) === fragment) {
+        minCost = Math.min(minCost, price + dp(nextI));
+      }
+    }
+
+    memo.set(i, minCost);
+    return minCost;
+  };
+
+  const result = dp(0);
+  return result === Infinity ? -1 : result;
+}
+```

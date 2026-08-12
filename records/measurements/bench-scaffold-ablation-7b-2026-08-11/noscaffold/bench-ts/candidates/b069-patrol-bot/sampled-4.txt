@@ -1,0 +1,35 @@
+```ts
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Invalid corridor width');
+  }
+  if (!Number.isInteger(start) || start < 0 || start >= width) {
+    throw new Error('Invalid starting position');
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error('Invalid moves argument');
+  }
+
+  let position = start;
+  let bumps = 0;
+  const visited = new Set<number>();
+
+  for (const move of moves) {
+    if (!Number.isInteger(move) || move === 0) {
+      throw new Error('Invalid move');
+    }
+    [position, bumps] = clampMove(position, move, width);
+    visited.add(position);
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  const newPosition = position + delta;
+  if (newPosition < 0 || newPosition >= width) {
+    return [position, true];
+  }
+  return [newPosition, false];
+}
+```

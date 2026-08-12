@@ -1,0 +1,26 @@
+```python
+def digit_word(digit: int) -> str:
+    """Name a single digit in English."""
+    if not isinstance(digit, int) or not 0 <= digit < 10:
+        raise ValueError("Input must be an integer between 0 and 9")
+    return str(digit)
+
+def digit_words(digits: str) -> str:
+    """Return every digit of a run of digits in order, joined by single spaces."""
+    if not isinstance(digits, str):
+        raise ValueError("Input must be a string")
+    
+    result = []
+    current_digit = ""
+    for char in digits:
+        if char.isdigit():
+            current_digit += char
+        else:
+            if current_digit:
+                result.append(digit_word(int(current_digit)))
+                current_digit = ""
+    if current_digit:
+        result.append(digit_word(int(current_digit)))
+    
+    return " ".join(result)
+```

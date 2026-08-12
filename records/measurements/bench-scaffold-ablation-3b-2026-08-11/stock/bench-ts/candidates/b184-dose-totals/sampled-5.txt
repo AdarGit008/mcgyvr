@@ -1,0 +1,33 @@
+```ts
+/** Exact per-reagent totals of a pour log, counted in thousandths. */
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const thousandths: Record<string, number> = {};
+  const places: Record<string, number> = {};
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(?:\.(\d{1,3}))?$/.test(amount)) {
+      throw new Error("amount is not a decimal of at most three places: " + amount);
+    }
+    const digits = (amount.match(/\.(\d+)$/) as RegExpMatchArray)?.[1] ?? "";
+    const sign = amount.startsWith("-") ? -1 : 1;
+    thousandths[reagent] = (thousandths[reagent] ?? 0) + sign * Number(amount.replace(/-/g, "").replace(".", "")) * Math.pow(10, 3 - digits.length);
+    places[reagent] = Math.max(places[reagent] ?? 0, digits.length);
+  }
+  const totals: Record<string, string> = {};
+  for (const [reagent, total] of Object.entries(thousandths)) {
+    let formattedTotal: string;
+    if (total === 0) {
+      formattedTotal = "0";
+    } else {
+      const fractionalPart = Math.abs(total) % 1;
+      let placesCount = places[reagent];
+      // Adjust for rounding up to the nearest thousandth
+      if (fractionalPart >= 0.5 && total > 0) {
+        placesCount += 1;
+      }
+      formattedTotal = total.toFixed(placesCount);
+    }
+    totals[reagent] = formattedTotal;
+  }
+  return totals;
+}
+```

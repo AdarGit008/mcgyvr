@@ -1,0 +1,20 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    units = {unit}
+    while unit != base and unit in defs:
+        factor, finer = defs[unit]
+        if not isinstance(factor, int) or factor <= 0 or finer not in defs:
+            raise ValueError(f"invalid definition for {unit}")
+        
+        amount *= factor
+        unit = finer
+        units.add(unit)
+    
+    if unit != base or len(units) == len(defs):
+        raise ValueError("loop detected in definition chain")
+    
+    return amount
+```

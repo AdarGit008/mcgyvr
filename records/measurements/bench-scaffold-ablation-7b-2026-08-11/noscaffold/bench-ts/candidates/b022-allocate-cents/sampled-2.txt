@@ -1,0 +1,57 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The decimal amount string to parse.
+ * @returns The parsed integer cents.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string' || !/^\d+(\.\d{2})?$/.test(text)) {
+    throw new Error('Invalid amount format');
+  }
+  return Math.floor(Number(text) * 100);
+}
+
+/**
+ * Formats a non-negative integer cents back into a decimal amount string.
+ * @param cents - The integer cents to format.
+ * @returns The formatted decimal amount string.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0) {
+    throw new Error('Invalid cents');
+  }
+  return cents.toFixed(2);
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total integer cents to allocate.
+ * @param weights - The list of integer weights for allocation.
+ * @returns An array of allocated integer cents for each weight.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Invalid weights');
+  }
+  if (weights.some(weight => typeof weight !== 'number' || weight < 0)) {
+    throw new Error('Invalid weights');
+  }
+  if (weights.reduce((sum, weight) => sum + weight, 0) === 0) {
+    throw new Error('Weights must sum to a non-zero value');
+  }
+  if (typeof totalCents !== 'number' || totalCents < 0) {
+    throw new Error('Invalid total cents');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const baseAllocation = Math.floor(totalCents / totalWeight);
+  const remainder = totalCents % totalWeight;
+  const allocations = weights.map(weight => Math.floor(baseAllocation * weight));
+
+  for (let i = 0; i < remainder; i++) {
+    allocations[i]++;
+  }
+
+  return allocations;
+}
+```

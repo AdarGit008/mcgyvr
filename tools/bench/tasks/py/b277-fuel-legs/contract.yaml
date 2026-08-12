@@ -1,0 +1,15 @@
+id: b277-fuel-legs
+task_type: function_implementation
+task: >-
+  Implement fuel_legs. A tank holds a whole number of litres and each
+  leg of a journey burns a stated number of them. Return how many
+  complete legs can be run before refuelling. A tank that cannot cover
+  even one leg runs none. Reject with an error a burn of zero or less.
+target: solution.py
+interface: "def fuel_legs(litres: int, burn: int) -> int"
+stop_conditions:
+  - Whether the fuel left over after the last complete leg should be reported as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,24 @@
+```python
+def digit_word(digit: int) -> str:
+    """Return the word for a single digit in English."""
+    if digit < 0 or digit > 9:
+        raise ValueError("Digit must be between 0 and 9")
+    return str(digit)
+
+def digit_words(digits: str) -> str:
+    """Return words for every digit of a run of digits, separated by spaces."""
+    if not digits.isdigit():
+        raise ValueError("Input must be a string of digits")
+    
+    result = ""
+    i = 0
+    while i < len(digits):
+        start = i
+        while i < len(digits) and digits[i].isdigit():
+            i += 1
+        digit_word_str = digit_word(int(digits[start:i]))
+        if result:
+            result += " "
+        result += digit_word_str
+    return result
+```

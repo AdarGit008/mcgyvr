@@ -1,0 +1,18 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    if not isinstance(mask, int):
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(catalog, list) or len(catalog) == 0:
+        raise ValueError("Catalog must be a non-empty list of strings")
+    
+    state_dict = {}
+    for i, flag in enumerate(catalog):
+        if not isinstance(flag, str) or not flag.strip():
+            raise ValueError("Flag name must be a non-empty string")
+        if flag in state_dict:
+            raise ValueError("Repeated flag name: {}".format(flag))
+        
+        state_dict[flag] = (mask & (1 << i)) != 0
+    
+    return state_dict
+```

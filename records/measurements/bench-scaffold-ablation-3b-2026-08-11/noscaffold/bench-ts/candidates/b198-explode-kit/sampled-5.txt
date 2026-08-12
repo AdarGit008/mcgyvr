@@ -1,0 +1,26 @@
+```ts
+type CatalogEntry = { makes: number; parts: [string, number][] };
+
+export function explodeKit(catalog: Record<string, CatalogEntry>, kit: string, want: number): Record<string, number> {
+    if (want < 0) throw new Error("Want units must be non-negative");
+    const result: Record<string, number> = {};
+
+    function consume(kitName: string, units: number): void {
+        if (!catalog[kitName]) throw new Error(`Kit not found: ${kitName}`);
+        const { makes, parts } = catalog[kitName];
+
+        // Calculate how many whole runs are needed to get at least want units
+        const runCount = Math.ceil(want / makes);
+        for (let i = 0; i < runCount; i++) {
+            parts.forEach(([part, count]) => {
+                result[part] = (result[part] || 0) + count;
+                if (catalog[part]) consume(part, catalog[part].makes * count);
+            });
+        }
+    }
+
+    consume(kit, want);
+
+    return result;
+}
+```

@@ -1,0 +1,34 @@
+```ts
+/**
+ * stepsOn generates an array of numbers containing 'count' elements,
+ * starting from 'first', inclusive.
+ *
+ * @param first The starting number of the sequence.
+ * @param count The number of elements in the sequence.
+ * @returns An array of numbers from 'first' to 'first + count - 1'.
+ */
+export function stepsOn(first: number, count: number): number[] {
+    if (count <= 0) {
+        throw new Error('Count must be a positive integer');
+    }
+    return Array.from({ length: count }, (_, i) => first + i);
+}
+
+/**
+ * holeFind searches for the first element in 'seen' that does not exist
+ * in the range from 'first' to 'first + count - 1'.
+ *
+ * @param seen The array of numbers to search through.
+ * @param first The starting number of the sequence.
+ * @param count The number of elements in the sequence.
+ * @returns The missing element or undefined if no such element exists.
+ */
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+    const expectedRange = new Set<number>();
+    for (let i = first; i < first + count; i++) {
+        expectedRange.add(i);
+    }
+
+    return seen.find((num) => !expectedRange.has(num));
+}
+```

@@ -1,0 +1,18 @@
+```ts
+function moveStock(opening: number, moves: number[]): number {
+  let quantity = opening;
+  
+  for (const move of moves) {
+    if (quantity + move < 0) {
+      // If adding this removal would bring the quantity below zero,
+      // remove what's needed to make it non-negative.
+      quantity = Math.max(0, quantity + move);
+    } else {
+      // Otherwise, add the positive movement.
+      quantity += move;
+    }
+  }
+
+  return quantity;
+}
+```

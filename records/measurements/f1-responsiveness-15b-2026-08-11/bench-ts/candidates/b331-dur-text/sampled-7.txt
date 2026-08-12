@@ -1,0 +1,22 @@
+```ts
+export function durHours(minutes: number): number {
+    if (minutes < 0) {
+        throw new Error("Minutes cannot be negative.");
+    }
+    
+    return Math.floor(minutes / 60);
+}
+
+export function durText(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const minutesLeft = minutes % 60;
+    
+    if (minutes >= 60) {
+        return `${hours}h${padZero(minutesLeft, 2)}m`;
+    } else if (hours === 0) {
+        return `0m`;
+    } else {
+        return `${hours}h0m`;
+    }
+}
+```

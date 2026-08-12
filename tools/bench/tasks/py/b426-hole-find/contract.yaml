@@ -1,0 +1,16 @@
+id: b426-hole-find
+task_type: function_implementation
+task: >-
+  Implement steps_on and hole_find. steps_on returns the numbers a
+  sequence should hold, running from a first number for a stated
+  count. hole_find returns the first of those the sequence is missing,
+  or nothing at all when it is missing none.
+target: solution.py
+interface: "def steps_on(first: int, count: int) -> list
+def hole_find(seen: list, first: int, count: int) -> int"
+stop_conditions:
+  - Whether the sequence may hold numbers outside the run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

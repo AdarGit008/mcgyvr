@@ -1,0 +1,24 @@
+```python
+def vend_credit(coins: list, price: int) -> int:
+    """
+    Process coins into credit for vending machine items.
+
+    :param coins: List of coin values in cents (5, 10, 25, 100).
+    :param price: Price of one item in cents.
+    :return: Remaining credit after processing all coins.
+    """
+    if not isinstance(coins, list) or not all(isinstance(c, int) and c >= 0 for c in coins):
+        raise ValueError("Invalid coin values.")
+    if not isinstance(price, int) or price <= 0 or price % 5 != 0:
+        raise ValueError("Price must be a positive multiple of 5.")
+
+    credit = 0
+    for coin in coins:
+        if coin not in [5, 10, 25, 100]:
+            continue
+        credit += coin
+        while credit >= price:
+            credit -= price
+
+    return credit
+```

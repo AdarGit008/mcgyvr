@@ -1,0 +1,14 @@
+```python
+from math import floor
+
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    if gross <= 0:
+        return 0
+    
+    after_fee = gross - fee
+    percentage_to_subtract = after_fee * rate // 100
+    net_pay_after_percentage = max(after_fee - percentage_to_subtract, 0)
+    
+    return max(net_pay_after_percentage - fee, 0)
+```

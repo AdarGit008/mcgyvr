@@ -1,0 +1,28 @@
+```ts
+/**
+ * Shorten a number to its shortest form according to rules:
+ * - Below 1000: stand as is (e.g., "5", "234")
+ * - Between 1000 and 999,999: use 'k' as a suffix (e.g., "1.2k") with rounded down decimals
+ * - Above 1,000,000: use 'm' as a suffix (e.g., "2.3m") with rounded down decimals
+ *
+ * @param value The number to be shortened.
+ * @returns The shortest possible string representation of the number.
+ */
+export function shortNum(value: number): string {
+  if (!isFinite(value) || !isNumber(value)) {
+    throw new Error("Input must be a finite and a number");
+  }
+
+  const suffix = value >= 1000000 ? 'm' : 'k';
+  const decimalPart = Math.floor(value / 10 ** suffix.length).toFixed(1);
+
+  return `${value.toFixed(0)}${suffix} ${decimalPart}`;
+}
+
+/**
+ * Helper function to check if the given number is finite and a valid number.
+ */
+function isFiniteAndNumber(value: any): boolean {
+  return !isNaN(value) && !isInfinity(value);
+}
+```

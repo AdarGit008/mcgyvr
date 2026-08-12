@@ -1,0 +1,36 @@
+```ts
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid prefix");
+  }
+  const octets = [255, 255, 255, 255];
+  for (let i = 0; i < prefix; i++) {
+    octets[i >> 3] &= ~(1 << (7 - (i % 8)));
+  }
+  return `${octets[0]}.${octets[1]}.${octets[2]}.${octets[3]}`;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string') {
+    throw new Error("Invalid mask");
+  }
+  const parts = mask.split('.');
+  if (parts.length !== 4) {
+    throw new Error("Invalid mask");
+  }
+  let count = 0;
+  for (const part of parts) {
+    const num = parseInt(part, 10);
+    if (isNaN(num) || num < 0 || num > 255 || (part[0] === '0' && part !== '0')) {
+      throw new Error("Invalid mask");
+    }
+    count <<= 8;
+    count |= num;
+  }
+  const prefix = Math.floor(Math.log2(count));
+  if ((count >>> (32 - prefix)) !== 0) {
+    throw new Error("Invalid mask");
+  }
+  return prefix;
+}
+```

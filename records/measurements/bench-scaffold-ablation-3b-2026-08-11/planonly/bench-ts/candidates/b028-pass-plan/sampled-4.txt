@@ -1,0 +1,50 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || tripDays.some(day => typeof day !== 'number' || day <= 0)) {
+    throw new Error('Invalid trip days');
+  }
+  if (!Array.isArray(passes) || passes.length === 0) {
+    throw new Error('No pass kinds available');
+  }
+
+  const passesBySpan = passes.map(p => ({ span, cost: p.cost }));
+  passesBySpan.sort((a, b) => a.span - b.span);
+
+  function canCover(day: number, purchases: { start: number; end: number }[]): boolean {
+    for (const { start, end } of purchases) {
+      if (day >= start && day <= end) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const dp = Array(tripDays.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i < tripDays.length + 1; i++) {
+    for (const { span, cost } of passesBySpan) {
+      if (tripDays[i - 1] >= span && !canCover(tripDays[i - 1], purchases)) {
+        dp[i] = Math.min(dp[i], dp[tripDays[i - 1] - span + 1] + cost);
+      }
+    }
+  }
+
+  const total = dp[tripDays.length];
+  if (total === Infinity) {
+    throw new Error('No valid plan found');
+  }
+
+  let purchases: { start: number; end: number }[] = [];
+  for (let i = tripDays.length; i > 0; i--) {
+    for (const { span, cost } of passesBySpan) {
+      if (dp[i] === dp[i - span + 1] + cost && !canCover(tripDays[i - 1], purchases)) {
+        purchases.push({ start: tripDays[i - 1], end: tripDays[i - 1] + span - 1 });
+        break;
+      }
+    }
+  }
+
+  return { total, purchases };
+}
+```

@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def score_drop(scores: List[int]) -> int:
+    if not scores:
+        return 0
+    
+    lowest_score = min(scores)
+    
+    if scores.count(lowest_score) > 1:
+        # Find the second occurrence of the lowest score and remove it
+        index_to_remove = scores.index(lowest_score, scores.index(lowest_score) + 1)
+        scores.pop(index_to_remove)
+    else:
+        scores.remove(lowest_score)
+    
+    return sum(scores)
+```

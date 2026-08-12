@@ -1,0 +1,28 @@
+id: b025-room-rota
+task_type: function_implementation
+task: >-
+  Implement assign_rooms, the heart of a small room-rota module whose two
+  companions you must also provide. A meeting is a half-open pair of
+  integers, start before end. spans_overlap reports whether two meetings
+  share any instant — meetings that merely touch do not — and rejects a
+  pair whose start does not precede its end, or an endpoint that is not
+  an integer, with an error. assign_rooms takes meetings in any order and
+  returns, aligned with the input order, the room index each meeting
+  uses: meetings are seated by earliest start, ties by earliest end, then
+  by input position, and each takes the lowest-numbered room whose
+  previous meeting has ended by its start, opening a new room only when
+  every existing room is busy. It validates each meeting exactly as
+  spans_overlap validates its spans, and no meetings yield an empty list.
+  peak_rooms reports how many rooms the whole rota needs, zero when there
+  are no meetings.
+target: solution.py
+interface: |-
+  def spans_overlap(a: list, b: list) -> bool
+  def assign_rooms(meetings: list) -> list
+  def peak_rooms(meetings: list) -> int
+stop_conditions:
+  - Whether meeting times may be negative is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

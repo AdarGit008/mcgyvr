@@ -1,0 +1,11 @@
+```python
+from typing import *
+from collections import *
+
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if len(code) < width:
+        return code.ljust(width, "0")
+    else:
+        return code[:width]
+```

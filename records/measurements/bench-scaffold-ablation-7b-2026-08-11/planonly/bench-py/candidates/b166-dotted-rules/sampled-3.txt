@@ -1,0 +1,19 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "":
+        raise ValueError("Name must be a non-empty string")
+
+    for rule_name, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("Rule values must be strings")
+        if "*" in rule_name and (rule_name != "*" and not rule_name.endswith(".*")):
+            raise ValueError("Star in selector must stand alone or end with '.*'")
+
+    for rule_name in sorted(rules.keys(), key=lambda x: (-len(x), x)):
+        if rule_name == name:
+            return rules[rule_name]
+        elif rule_name.endswith(".*") and name.startswith(rule_name[:-2]):
+            return rules[rule_name]
+
+    return None
+```

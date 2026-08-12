@@ -1,0 +1,64 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_sheet(sheet_text):
+        if not isinstance(sheet_text, str):
+            raise ValueError("Invalid opening sheet format")
+        
+        entries = sheet_text.split(';')
+        count_map = {}
+        
+        for entry in entries:
+            parts = entry.split(':')
+            if len(parts) != 2 or not parts[0].isalpha() or not parts[1].isdigit():
+                raise ValueError("Invalid opening sheet entry format")
+            
+            item_name, qty_str = parts
+            qty = int(qty_str)
+            count_map[item_name] = qty
+        
+        return count_map
+
+    def parse_moves(move_text):
+        if not isinstance(move_text, str):
+            raise ValueError("Invalid moves format")
+        
+        entries = move_text.split(';')
+        transactions = []
+        
+        for entry in entries:
+            parts = entry.split('+', '-', ' ')
+            if len(parts) != 3 or not parts[0].isalpha() or not parts[1].isdigit() or not parts[2] in {'+', '-'}:
+                raise ValueError("Invalid move format")
+            
+            item_name, qty_str, action = parts
+            qty = int(qty_str)
+            transactions.append((item_name, qty, action))
+        
+        return transactions
+
+    def update_counts(count_map, transactions):
+        for item_name, qty, action in transactions:
+            if item_name not in count_map:
+                raise ValueError(f"Item {item_name} not found in opening sheet")
+            
+            current_count = count_map[item_name]
+            if action == '+':
+                new_count = current_count + qty
+                if new_count < 0:
+                    raise ValueError(f"Issue: cannot issue more than the item {item_name} has (only {current_count} left)")
+            elif action == '-':
+                new_count = current_count - qty
+                if new_count < 0:
+                    raise ValueError(f"Issue: cannot issue more than the item {item_name} then has")
+            
+            count_map[item_name] = new_count
+
+    def format_sheet(count_map):
+        return ';'.join(f'{name}:{qty}' for name, qty in sorted(count_map.items()) if qty > 0)
+
+    opening_counts = parse_sheet(opening)
+    move_transactions = parse_moves(moves)
+    update_counts(opening_counts, move_transactions)
+    
+    return format_sheet(opening_counts)
+```

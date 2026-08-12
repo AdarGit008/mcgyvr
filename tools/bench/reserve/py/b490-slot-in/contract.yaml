@@ -1,0 +1,15 @@
+id: b490-slot-in
+task_type: function_implementation
+task: >-
+  Implement slot_in. Place one further reading into a run already
+  standing in order, so the run stays in order. A reading matching one
+  already there is placed after it. A reading larger than everything
+  there closes the run.
+target: solution.py
+interface: "def slot_in(ordered: list[int], value: int) -> list[int]"
+stop_conditions:
+  - Whether a run arriving out of order should first be put in order is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

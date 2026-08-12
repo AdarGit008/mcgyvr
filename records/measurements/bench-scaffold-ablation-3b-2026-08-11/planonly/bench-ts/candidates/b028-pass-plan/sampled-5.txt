@@ -1,0 +1,52 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+  if (passes.length === 0) throw new Error("Pass list cannot be empty");
+
+  tripDays.forEach(day => {
+    if (!Number.isInteger(day) || day <= 0) throw new Error("Trip days must be strictly increasing positive integers");
+  });
+
+  passes.forEach(pass => {
+    if (!Number.isInteger(pass.span) || pass.span <= 0) throw new Error("Pass span must be a positive integer");
+    if (typeof pass.cost !== "number" || pass.cost < 0 || !Number.isInteger(pass.cost)) throw new Error("Pass cost must be a non-negative integer");
+  });
+
+  const sortedTripDays = tripDays.slice().sort((a, b) => a - b);
+  const purchasePlan: { startDay: number; span: number }[] = [];
+  let remainingDays = Array.from({ length: sortedTripDays[sortedTripDays.length - 1] + 1 }, () => true);
+
+  for (const day of sortedTripDays) {
+    let minCost = Infinity;
+    let bestPurchase: { startDay: number; span: number } | null = null;
+
+    for (const pass of passes) {
+      const cost = pass.cost;
+      const span = pass.span;
+      if (span <= 1 || day + span > remainingDays.length) continue;
+
+      let currentCost = cost * Math.ceil((day - purchasePlan[purchasePlan.length - 1]?.[0] ?? 0) / span);
+      for (let i = 0; i < span; i++) {
+        if (!remainingDays[day + i]) break;
+        currentCost += pass.cost;
+      }
+
+      if (currentCost < minCost) {
+        minCost = currentCost;
+        bestPurchase = { startDay: day, span };
+      }
+    }
+
+    if (bestPurchase === null) throw new Error("No valid plan exists to cover all trip days");
+
+    purchasePlan.push(bestPurchase);
+    for (let i = 0; i < bestPurchase.span; i++) {
+      remainingDays[day + i] = false;
+    }
+  }
+
+  const totalCost = purchasePlan.reduce((acc, { cost }) => acc + cost, 0);
+
+  return { total: totalCost, purchases: purchasePlan };
+}
+```

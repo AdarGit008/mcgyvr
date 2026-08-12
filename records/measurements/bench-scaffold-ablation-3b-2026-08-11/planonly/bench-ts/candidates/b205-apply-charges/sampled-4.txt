@@ -1,0 +1,43 @@
+```typescript
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  if (charges.some(([id]) => id !== id.toString())) {
+    throw new Error("Charge IDs must be positive whole numbers");
+  }
+
+  const result: { left: Record<string, number>; refused: [string, number][] } = {
+    left: {},
+    refused: []
+  };
+
+  charges.forEach(([id, bucketName, amount]) => {
+    if (amount <= 0) {
+      throw new Error("Charge amounts must be positive whole numbers");
+    }
+
+    const cap = caps[bucketName];
+    if (!cap) {
+      result.refused.push([id, "unknown"]);
+      return;
+    }
+
+    const [wholeAllowance, singleCharge] = cap;
+
+    if (amount > singleCharge) {
+      result.refused.push([id, "single"]);
+      return;
+    }
+
+    if (amount > wholeAllowance - Math.abs(amount)) {
+      result.refused.push([id, "cap"]);
+      return;
+    }
+
+    const newLeft = { ...result.left };
+    newLeft[bucketName] = wholeAllowance - amount;
+
+    result.left = newLeft;
+  });
+
+  return result;
+}
+```

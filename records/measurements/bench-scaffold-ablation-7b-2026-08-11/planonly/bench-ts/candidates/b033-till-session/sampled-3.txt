@@ -1,0 +1,62 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const priceKeys = Object.keys(prices);
+  if (events.length > 0 && !priceKeys.includes(events[0][1] as string)) {
+    throw new Error("First item scanned is not in the price list");
+  }
+
+  let cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+  let state: "open" | "payment" | "paid" | "cancelled" = "open";
+
+  for (const event of events) {
+    if (state === "paid" || state === "cancelled") {
+      throw new Error("Event after session is paid or cancelled");
+    }
+
+    const [action, payload] = event;
+    switch (action) {
+      case "scan":
+        if (typeof payload !== "string" || !priceKeys.includes(payload)) {
+          throw new Error("Invalid scan event payload");
+        }
+        cart[payload] = (cart[payload] ?? 0) + 1;
+        break;
+      case "void":
+        if (typeof payload !== "string" || !cart.hasOwnProperty(payload)) {
+          throw new Error("Invalid void event payload");
+        }
+        cart[payload]--;
+        if (cart[payload] === 0) {
+          delete cart[payload];
+        }
+        break;
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("Cannot close an empty cart");
+        }
+        total = Object.values(cart).reduce((acc, quantity) => acc + quantity * prices[quantity.toString()], 0);
+        state = "payment";
+        break;
+      case "pay":
+        if (typeof payload !== "number" || payload <= 0 || !Number.isInteger(payload)) {
+          throw new Error("Invalid pay event payload");
+        }
+        paid += payload;
+        change = paid - total;
+        state = "paid";
+        break;
+      case "cancel":
+        state = "cancelled";
+        break;
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+  }
+
+  const items: [string, number][] = Object.entries(cart).sort(([a], [b]) => a.localeCompare(b));
+  return { state, items, total, paid, change };
+}
+```

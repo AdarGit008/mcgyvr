@@ -1,0 +1,16 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  const hoursDiff = toHour - fromHour;
+  const minutesDiff = toMinute - fromMinute;
+
+  // If the second time is on the following day and is earlier than the first,
+  // adjust the difference to be the difference between midnight of the first day
+  // and the second time.
+  if (hoursDiff < 0 || (hoursDiff === 0 && minutesDiff < 0)) {
+    hoursDiff += 24;
+    minutesDiff += 60;
+  }
+
+  return minutesDiff;
+}
+```

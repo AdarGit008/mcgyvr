@@ -1,0 +1,52 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Returns free stretches of a clinic's day given its span and booked appointments.
+    """
+    
+    def parse_time(time_str: str) -> int:
+        # Parse time string to minutes since midnight
+        hour, minute = map(int, time_str.split(':'))
+        return hour * 60 + minute
+    
+    def format_time(minutes: int) -> str:
+        # Format minutes back into HH:MM string
+        hours = minutes // 60
+        minutes %= 60
+        return f"{hours:02}:{minutes:02}"
+    
+    # Parse the span and appointments
+    try:
+        start, end = span.split('-')
+        if len(start) != 5 or len(end) != 5 or start[-1] != '-' or end[-1] != '-':
+            raise ValueError("Invalid format for span or appointment.")
+    except (ValueError, IndexError):
+        raise ValueError("Span and appointments must be two clock times joined by a hyphen.")
+    
+    # Convert the span and appointments to minutes since midnight
+    start_minutes = parse_time(start)
+    end_minutes = parse_time(end)
+    booked_minutes = sorted(parse_time(app) for app in booked)
+    
+    free_stretches = []
+    j = 0
+    
+    for i in range(len(booked_minutes)):
+        # Add the time between the last book and current book
+        if j < len(booked_minutes) - 1:
+            free_stretches.append(format_time(booked_minutes[j]))
+        
+        # Update the start of the next free stretch
+        j += 1
+    
+    # Check for any remaining free stretches after the last booked appointment
+    if j < len(booked_minutes):
+        free_stretches.append(format_time(booked_minutes[-1]))
+    
+    # If no free stretches, return "none"
+    if not free_stretches:
+        return "none"
+    
+    # Return free stretches joined by ", "
+    return ', '.join(free_stretches)
+```

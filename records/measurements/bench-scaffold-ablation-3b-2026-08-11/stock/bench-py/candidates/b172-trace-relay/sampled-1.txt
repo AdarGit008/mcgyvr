@@ -1,0 +1,24 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+    if start not in links: raise ValueError("start is not a post")
+    
+    route = []
+    visited = set()
+    post = start
+    
+    while post != "":
+        if post in visited:
+            raise ValueError("Watch comes back to a post already visited")
+        
+        route.append(post)
+        visited.add(post)
+        
+        next_post = links.get(post, "")
+        if next_post == post:
+            raise ValueError("Handoff naming a post that links does not name")
+        
+        post = next_post
+    
+    return route
+```

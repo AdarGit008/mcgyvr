@@ -1,0 +1,20 @@
+id: b460-pad-time
+task_type: bug_fix
+task: >-
+  pad_time writes an hour and a minute as a clock reading, each of
+  them two digits with a colon between, and it pads only the hour. Fix
+  it. An hour or minute already two digits long is written as it
+  stands. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def pad_time(hour: int, minute: int) -> str:
+      """An hour and a minute written as a clock reading."""
+      h = "0" + str(hour) if hour < 10 else str(hour)
+      return h + ":" + str(minute)
+interface: "def pad_time(hour: int, minute: int) -> str"
+stop_conditions:
+  - Whether an hour above twenty-three should be accepted is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

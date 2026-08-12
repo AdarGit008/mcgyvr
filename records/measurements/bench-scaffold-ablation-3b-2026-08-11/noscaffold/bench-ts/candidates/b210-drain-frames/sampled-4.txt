@@ -1,0 +1,35 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  const isSingleChar = /^[a-zA-Z0-9]$/.test(marker);
+
+  if (!isSingleChar) {
+    throw new Error("Marker must be a single character.");
+  }
+
+  let pending = "";
+  const frames: string[] = [];
+  let currentFrame = "";
+
+  for (const chunk of chunks) {
+    currentFrame += chunk;
+    // Check for ending markers
+    while (currentFrame.includes(marker + marker)) {
+      // Remove the doubled marker and split into two frames
+      const [first, second] = currentFrame.split(marker);
+      frames.push(first);
+      currentFrame = second.substr(1); // Remove the leading marker from the next frame
+    }
+  }
+
+  // Check if there's a pending frame or a leftover marker at the end
+  if (currentFrame !== "") {
+    const parts = currentFrame.split(marker);
+    frames.push(parts[0]);
+    if (parts.length > 1) {
+      pending = parts[1];
+    }
+  }
+
+  return { frames, pending };
+}
+```

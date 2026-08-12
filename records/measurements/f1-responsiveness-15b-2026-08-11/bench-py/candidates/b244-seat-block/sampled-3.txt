@@ -1,0 +1,12 @@
+```python
+def seat_block(label: str) -> list:
+    if not label or len(label) != 2 or label[1].lower() != label[1]:
+        raise ValueError("Invalid seat label")
+    
+    try:
+        row = int(label[:-1])
+    except ValueError as e:
+        raise ValueError(f"Invalid row number: {e}")
+    
+    return [row, label[-1]]
+```

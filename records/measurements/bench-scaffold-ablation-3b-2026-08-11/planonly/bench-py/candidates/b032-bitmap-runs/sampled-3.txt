@@ -1,0 +1,58 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    if len(words) != (capacity + 31) // 32:
+        raise ValueError("Word count does not match the capacity.")
+    
+    if not all(isinstance(word, int) and 0 <= word < 4294967295 for word in words):
+        raise ValueError("Each word must be an integer from 0 to 4294967295.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    n_words = len(words)
+    for i in range(n_words):
+        if bits & (1 << i):
+            capacity -= i * 32 + bit_at(words[i], i % 32)
+        
+        if capacity < length:
+            return -1
+    
+    return 0
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start index must be a non-negative integer.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    n_words = len(words)
+    if start >= capacity or start + length > capacity:
+        raise ValueError("Run lies outside the capacity or touches an occupied block.")
+    
+    for i in range(start // 32, (start + length) // 32):
+        word = words[i]
+        for j in range(32 * i % 32, min((start + length) % 32, 32)):
+            if bit_at(words[i], j):
+                raise ValueError("Run touches an occupied block.")
+        
+        mask = ((1 << length) - 1) << (start % 32)
+        words[i] |= mask
+    
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index must be a non-negative integer.")
+    
+    word_index = index // 32
+    bit_index = index % 32
+    
+    if not (0 <= word_index < len(words)):
+        raise ValueError("Index is out of bounds for the bitmap.")
+    
+    return (words[word_index] >> bit_index) & 1
+```

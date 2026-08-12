@@ -1,0 +1,8 @@
+```python
+def fuel_legs(litres: int, burn: int) -> int:
+    if burn <= 0:
+        raise ValueError("burn must be greater than zero")
+    
+    return litres // burn
+```
+This code snippet implements the `fuel_legs` function according to the problem description. It includes a check for valid input and performs integer division to determine how many complete legs can be run before refuelling. The implementation is straightforward, adhering to the rules of the task contract.

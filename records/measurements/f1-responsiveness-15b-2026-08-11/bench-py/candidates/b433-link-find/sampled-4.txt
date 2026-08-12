@@ -1,0 +1,14 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    result = []
+    stack = []
+    for char in line:
+        if char == opens:
+            stack.append(char)
+        elif char == closes:
+            if not stack or stack[-1] != opens:
+                return []  # Closing marker without a matching opening
+            stack.pop()
+            result.append(line[stack[-1]:char].strip())  # Append the part between the last and current closing marker
+    return result
+```

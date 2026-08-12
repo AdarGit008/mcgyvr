@@ -1,0 +1,33 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings.")
+
+    try:
+        stock = {item.split(':')[0]: int(item.split(':')[1]) for item in opening.split(';') if item}
+    except (ValueError, KeyError):
+        raise ValueError("Malformed sheet entry.")
+
+    move_entries = moves.split(';')
+    for move in move_entries:
+        if not move:
+            continue
+        try:
+            name, action, qty = move.partition(':')
+            qty = int(qty)
+        except ValueError:
+            raise ValueError("Malformed move.")
+        
+        if action == '+':
+            if name in stock:
+                raise ValueError(f"Duplicate item: {name}")
+            stock[name] = qty
+        elif action == '-':
+            if name not in stock or stock[name] < qty:
+                raise ValueError(f"Issue of {qty} units from {name}, stock insufficient.")
+            stock[name] -= qty
+        else:
+            raise ValueError("Invalid move format.")
+
+    return ';'.join(f"{item}:{stock[item]}" for item in sorted(stock) if stock[item] > 0)
+```

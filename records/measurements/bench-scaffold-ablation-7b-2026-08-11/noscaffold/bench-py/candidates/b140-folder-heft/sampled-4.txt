@@ -1,0 +1,51 @@
+```python
+def file_paths(root: dict) -> list:
+    paths = []
+    
+    def walk(node: dict, current_path: str):
+        if "name" in node and isinstance(node["name"], str) and "/" not in node["name"]:
+            if "bytes" in node and node["children"] is None:
+                paths.append(current_path + node["name"])
+            elif "children" in node and node["bytes"] is None:
+                for child in node["children"]:
+                    walk(child, current_path + node["name"] + "/")
+    
+    walk(root, "")
+    return paths
+
+
+def tree_bytes(root: dict) -> int:
+    if "name" not in root or not isinstance(root["name"], str) or "/" in root["name"]:
+        raise ValueError("Invalid node name")
+    if "children" in root and "bytes" in root:
+        raise ValueError("Node cannot have both children and bytes")
+    
+    if "children" in root:
+        return sum(tree_bytes(child) for child in root["children"])
+    elif "bytes" in root:
+        if not isinstance(root["bytes"], int) or root["bytes"] < 0:
+            raise ValueError("Invalid byte value")
+        return root["bytes"]
+    else:
+        return 0
+
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Invalid min_bytes value")
+    
+    def walk(node: dict, current_path: str, total_bytes: int) -> bool:
+        if "name" in node and isinstance(node["name"], str) and "/" not in node["name"]:
+            if "bytes" in node and node["children"] is None:
+                total_bytes += node["bytes"]
+                if total_bytes >= min_bytes:
+                    results.append([current_path + node["name"], total_bytes])
+            elif "children" in node and node["bytes"] is None:
+                for child in node["children"]:
+                    walk(child, current_path + node["name"] + "/", total_bytes)
+        return total_bytes
+    
+    results = []
+    walk(root, "", 0)
+    return results
+```

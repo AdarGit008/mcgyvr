@@ -1,0 +1,41 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """
+    Distribute total cents among partners based on their share weights.
+    Return the parts in partner order, handling errors for invalid input.
+    """
+
+    if not isinstance(total, int):
+        raise ValueError("total must be an integer")
+
+    if total < 0:
+        raise ValueError("total cannot be negative")
+
+    if not isinstance(weights, list):
+        raise ValueError("weights must be a list")
+
+    if len(weights) == 0:
+        raise ValueError("weights list cannot be empty")
+
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("all weights must be positive whole numbers")
+
+    total_cents = total
+
+    # Calculate each partner's fair share
+    shares = []
+    total_weight = sum(weights)
+    for weight in weights:
+        share = total_cents * (weight / total_weight)
+        shares.append(int(share))
+
+    # Distribute the remainder to partners with the largest discarded fraction
+    remainder = total_cents - sum(shares)
+    if remainder != 0:
+        sorted_indices = sorted(range(len(weights)), key=lambda x: (shares[x] - (total_cents * weights[x] / total_weight), -x))
+        for i in sorted_indices[:remainder]:
+            shares[i] += 1
+
+    return shares
+```

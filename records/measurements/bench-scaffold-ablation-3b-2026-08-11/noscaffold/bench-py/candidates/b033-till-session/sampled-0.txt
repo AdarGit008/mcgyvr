@@ -1,0 +1,61 @@
+```python
+from typing import Dict
+
+def run_till_session(events: list, prices: dict) -> dict:
+    if not isinstance(prices, dict):
+        raise ValueError("Prices must be a dictionary.")
+    
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    session_status = "open"
+
+    for event in events:
+        action = event[0]
+        
+        if action == "scan":
+            item = event[1]
+            if item not in prices:
+                raise ValueError(f"Unknown item: {item}")
+            cart[item] = cart.get(item, 0) + 1
+            total += prices[item]
+        
+        elif action == "void":
+            item = event[1]
+            if item not in cart or cart[item] == 0:
+                raise ValueError(f"Cannot void non-existent item: {item}")
+            cart[item] -= 1
+            if cart[item] == 0:
+                del cart[item]
+            total -= prices[item]
+        
+        elif action == "close":
+            if session_status != "open" or not cart:
+                raise ValueError("Session must be open with items to close.")
+            session_status = "payment"
+        
+        elif action == "pay":
+            cents = event[1]
+            if cents < 0 or cents % 1 != 0:
+                raise ValueError("Pay amount must be a positive integer.")
+            paid += cents
+            if paid >= total:
+                change = paid - total
+                session_status = "paid"
+        
+        elif action == "cancel":
+            if session_status not in ("open", "payment"):
+                raise ValueError("Session cannot be cancelled while closed or already paid.")
+            session_status = "cancelled"
+        
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    return {
+        "items": sorted(cart.items()),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

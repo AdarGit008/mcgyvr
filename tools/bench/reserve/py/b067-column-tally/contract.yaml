@@ -1,0 +1,41 @@
+id: b067-column-tally
+task_type: bug_fix
+task: >-
+  tally_column summarises one column of a numeric table incorrectly. The
+  table is a non-empty list of rows, each row a list of numbers sharing
+  one length, and the column argument names which column to read. The
+  summary reports count, the number of rows; total, the sum of the
+  column's values; and low and high, the smallest and largest value in
+  the column, as {count, total, low, high}. At present a zero sitting in
+  the column is dropped from every statistic as though the cell were
+  missing, a column whose values are all above zero still reports a low
+  of 0, and a column whose values are all below zero reports a high of 0.
+  Fix the aggregation so every cell of the chosen column counts and the
+  extremes come from the data alone. Also add the missing validation:
+  reject a table with no rows, rows that do not share one length, a
+  column index that is not an integer from 0 to the row width minus one,
+  and a cell in the chosen column that is not a number, with an error.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def tally_column(table, column):
+      count, total = 0, 0
+      low, high = 0, 0
+      for row in table:
+          value = row[column]
+          if not value:
+              continue
+          count += 1
+          total += value
+          if value < low:
+              low = value
+          if value > high:
+              high = value
+      return {"count": count, "total": total, "low": low, "high": high}
+interface: "def tally_column(table: list, column: int) -> dict"
+stop_conditions:
+  - How a row that is not a list at all is treated is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

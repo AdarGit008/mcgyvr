@@ -1,0 +1,65 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers")
+
+    state = {
+        "items": {},
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open"
+    }
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Each event must be a list of action and exactly one payload")
+
+        action, payload = event
+        if action == "scan":
+            if state["status"] != "open":
+                raise ValueError("Scan is unlawful in the current session state")
+            if payload not in prices:
+                raise ValueError(f"Item '{payload}' not found in price list")
+            state["items"][payload] = state["items"].get(payload, 0) + 1
+        elif action == "void":
+            if state["status"] != "open":
+                raise ValueError("Void is unlawful in the current session state")
+            if payload not in state["items"]:
+                raise ValueError(f"Item '{payload}' not in cart")
+            state["items"][payload] -= 1
+            if state["items"][payload] == 0:
+                del state["items"][payload]
+        elif action == "close":
+            if state["status"] != "open":
+                raise ValueError("Close is unlawful in the current session state")
+            if not state["items"]:
+                raise ValueError("Cannot close with an empty cart")
+            state["total"] = sum(prices[item] * quantity for item, quantity in state["items"].items())
+            state["status"] = "payment"
+        elif action == "pay":
+            if state["status"] != "payment":
+                raise ValueError("Pay is unlawful in the current session state")
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("Pay amount must be a positive integer")
+            state["paid"] += payload
+            state["change"] = max(state["paid"] - state["total"], 0)
+            state["status"] = "paid"
+        elif action == "cancel":
+            if state["status"] not in ["open", "payment"]:
+                raise ValueError("Cancel is unlawful in the current session state")
+            state["items"].clear()
+            state["total"] = 0
+            state["paid"] = 0
+            state["change"] = 0
+            state["status"] = "cancelled"
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return {
+        "items": sorted([[item, quantity] for item, quantity in state["items"].items()]),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

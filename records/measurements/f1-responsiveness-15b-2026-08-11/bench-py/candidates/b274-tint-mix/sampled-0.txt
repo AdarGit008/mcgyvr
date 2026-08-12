@@ -1,0 +1,18 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if volume_a < 0 or volume_b < 0 or strength_a > 100 or strength_b > 100:
+        raise ValueError("Strengths must be between 0 and 100.")
+    
+    # Ensure the volumes are non-zero
+    if not (volume_a and volume_b):
+        return 0
+    
+    # Calculate the total volume to be mixed
+    total_volume = volume_a + volume_b
+    
+    # Calculate the total strength of the mixture
+    total_strength = (strength_a * volume_a + strength_b * volume_b) / total_volume * 100
+    
+    # Round down to a whole percent
+    return int(total_strength)
+```

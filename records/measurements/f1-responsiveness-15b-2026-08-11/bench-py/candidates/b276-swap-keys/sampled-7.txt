@@ -1,0 +1,19 @@
+```python
+from typing import Dict
+
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping from each code to a name,
+    with ties broken by lexicographical order. Names with empty code are excluded.
+    """
+    if not names:
+        return {}
+    
+    # Extract all names for easy comparison
+    names_list = list(names.keys())
+    
+    # Sort the names and use a dictionary comprehension to create the swapped mapping
+    swapped_names = {names_list[i]: i for i in range(len(names_list))}
+    
+    return swapped_names
+```

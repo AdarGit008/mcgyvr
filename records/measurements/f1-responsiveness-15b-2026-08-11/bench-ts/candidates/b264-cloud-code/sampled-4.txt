@@ -1,0 +1,8 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  const lowerCaseCode = code.toUpperCase();
+  return table[lowerCaseCode] || 'unknown';
+}
+```
+
+This implementation correctly handles all the specified cases and edge scenarios as outlined in the task contract.

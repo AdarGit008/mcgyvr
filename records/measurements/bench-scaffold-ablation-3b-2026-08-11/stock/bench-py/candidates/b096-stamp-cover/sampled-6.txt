@@ -1,0 +1,39 @@
+```python
+def stamp_table(dies: list) -> dict:
+    table = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not fragment:
+            raise ValueError("a die fragment must be a non-empty string")
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("a die price must be a positive integer")
+        if fragment in table:
+            raise ValueError("die listed twice: " + fragment)
+        table[fragment] = price
+    return table
+
+
+def stamp_cover(label: str, dies: list) -> int:
+    if not isinstance(label, str) or not label:
+        raise ValueError("the label must be a non-empty string")
+    
+    price_table = stamp_table(dies)
+    
+    def min_price_for_prefix(prefix: str) -> int:
+        if prefix == "":
+            return 0
+        best_price = float('inf')
+        for die in price_table:
+            if prefix.startswith(die):
+                remaining_prefix = prefix[len(die):]
+                min_remaining_price = min_price_for_prefix(remaining_prefix)
+                total_price = price_table[die] + min_remaining_price
+                best_price = min(best_price, total_price)
+        return best_price
+    
+    label_price = min_price_for_prefix(label)
+    
+    if label_price == float('inf'):
+        raise ValueError("no sequence of dies can spell the label")
+    
+    return label_price
+```

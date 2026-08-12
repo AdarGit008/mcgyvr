@@ -1,0 +1,9 @@
+```python
+def gross_price(net: int, rate: int) -> int:
+    """A net price with a whole-percent tax added, in whole pence."""
+    if rate == 0:
+        return net
+    tax_pence = net * (rate / 100)
+    rounded_tax_pence = round(tax_pence)
+    return net + rounded_tax_pence
+```

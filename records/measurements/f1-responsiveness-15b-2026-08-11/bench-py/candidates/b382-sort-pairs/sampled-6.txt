@@ -1,0 +1,12 @@
+```python
+from typing import Dict, List
+
+def field_of(record: dict, field: str) -> int:
+    if field not in record:
+        raise ValueError(f"Record does not have field '{field}'")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    sorted_records = sorted(records, key=lambda x: x[field])
+    return sorted_records
+```

@@ -1,0 +1,45 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """
+    Compute the sum of every cell in specified query blocks within a grid.
+
+    Args:
+        grid (list): A non-empty 2D list where each row is a list of integers.
+                      All rows are of equal length.
+        queries (list): A list of four-element lists, each representing a
+                       block [top, left, bottom, right] to query. Each element must be an integer.
+
+    Returns:
+        list: A list of sums corresponding to each query block.
+    """
+
+    if not grid or not grid[0]:
+        raise ValueError("Grid must contain at least one row and one cell.")
+
+    for i in range(1, len(grid)):
+        if len(grid[i]) != len(grid[0]):
+            raise ValueError("All rows in the grid must have the same number of cells.")
+
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("Each query must be a list of exactly four integers.")
+        top, left, bottom, right = query
+        if top >= bottom or left >= right:
+            raise ValueError("Queries must have top strictly less than bottom and left strictly less than right.")
+
+    rows, cols = len(grid), len(grid[0])
+    prefix_sum = [[0] * (cols + 1) for _ in range(rows + 1)]
+
+    for i in range(1, rows + 1):
+        for j in range(1, cols + 1):
+            prefix_sum[i][j] = grid[i - 1][j - 1] + prefix_sum[i][j - 1] + prefix_sum[i - 1][j] - prefix_sum[i - 1][j - 1]
+
+    totals = []
+    for top, left, bottom, right in queries:
+        row1, col1 = top, left
+        row2, col2 = bottom, right
+        total = prefix_sum[row2 + 1][col2 + 1] - prefix_sum[row1][col2 + 1] - prefix_sum[row2 + 1][col1] + prefix_sum[row1][col1]
+        totals.append(total)
+
+    return totals
+```

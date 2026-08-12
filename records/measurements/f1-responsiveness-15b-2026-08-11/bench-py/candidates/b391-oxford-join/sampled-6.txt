@@ -1,0 +1,18 @@
+```python
+def oxford_join(names: list) -> str:
+    if not names:
+        return ""
+    
+    result = []
+    for i, name in enumerate(names):
+        result.append(name)
+        
+        if (i + 1) < len(names) and isinstance(names[i], str) and isinstance(names[i+1], str):
+            result.append("and")
+        elif (i + 2) == len(names) and isinstance(names[-1], str):
+            pass
+        else:
+            result.append(", ")
+    
+    return "".join(result)
+```

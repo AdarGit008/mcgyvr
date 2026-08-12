@@ -1,0 +1,50 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) {
+    throw new Error("Grid must have at least one row and one cell");
+  }
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  for (let i = 1; i < rows; i++) {
+    if (grid[i].length !== cols) {
+      throw new Error("All rows must have the same number of cells");
+    }
+  }
+
+  for (const row of grid) {
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("All cells must be integers");
+      }
+    }
+  }
+
+  for (const query of queries) {
+    if (query.length !== 4) {
+      throw new Error("Each query must have exactly four integers");
+    }
+    const [top, left, bottom, right] = query;
+    if (top < 0 || top >= rows || left < 0 || left >= cols || bottom <= top || right <= left) {
+      throw new Error("Invalid query bounds");
+    }
+  }
+
+  const prefixSum = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      prefixSum[i][j] = grid[i][j] + (i > 0 ? prefixSum[i - 1][j] : 0) + (j > 0 ? prefixSum[i][j - 1] : 0) - (i > 0 && j > 0 ? prefixSum[i - 1][j - 1] : 0);
+    }
+  }
+
+  return queries.map(([top, left, bottom, right]) => {
+    const total = prefixSum[bottom - 1][right - 1];
+    if (top > 0) total -= prefixSum[top - 1][right - 1];
+    if (left > 0) total -= prefixSum[bottom - 1][left - 1];
+    if (top > 0 && left > 0) total += prefixSum[top - 1][left - 1];
+    return total;
+  });
+}
+```

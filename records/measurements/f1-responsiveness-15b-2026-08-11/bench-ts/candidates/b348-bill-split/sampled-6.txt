@@ -1,0 +1,28 @@
+```ts
+/**
+ * billSplit divides a total bill among a given number of diners so that each pays a whole number of pence,
+ * with the first diner paying in full and any remaining pennies shared equally among them.
+ *
+ * @param total - The total bill amount in pence.
+ * @param diners - The number of diners splitting the bill.
+ * @returns An array where each element represents how much each diner pays in pence.
+ */
+export function billSplit(total: number, diners: number): number[] {
+  if (diners === 0) {
+    throw new Error("Cannot divide by zero.");
+  }
+
+  const perDiner = Math.floor(total / diners);
+  const remainder = total % diners;
+
+  const payments = Array.from({ length: diners }, (_, index) => {
+    if (index === 0) {
+      return perDiner;
+    } else {
+      return perDiner + (remainder >= index ? 1 : 0);
+    }
+  });
+
+  return payments;
+}
+```

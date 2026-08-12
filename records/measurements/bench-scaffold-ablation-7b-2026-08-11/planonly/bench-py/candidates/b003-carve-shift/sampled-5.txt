@@ -1,0 +1,21 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    if not all(isinstance(x, int) and x >= 0 for x in [span, rest]):
+        raise ValueError("Span and rest must be whole numbers.")
+    if not (1 <= span > least > 0):
+        raise ValueError("Invalid span or least value.")
+    if start < end:
+        stretches = []
+        current = start
+        while current + span < end:
+            stretch_end = min(current + span, end)
+            if stretch_end - current >= least:
+                stretches.append((current, stretch_end))
+                current += span + rest
+            else:
+                break
+        stretches.append((current, min(current + span, end)))
+        return stretches
+    else:
+        raise ValueError("Start must precede end.")
+```

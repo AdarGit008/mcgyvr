@@ -1,0 +1,26 @@
+id: b197-mask-fault
+task_type: function_implementation
+task: >-
+  Implement mask_fault. A log viewer filters lines with a mask built from
+  literal characters, the wildcards "*" and "?", bracket classes such as
+  "[abc]" or "[a-z]", and backslash escapes, where a backslash makes the
+  character after it a plain member both inside and outside a class. Before
+  the mask is compiled, report the first fault a left-to-right scan meets,
+  as a message naming a 0-based index into the mask. A backslash standing
+  as the mask's last character is met at the backslash and reads
+  "dangling escape at N". A class is judged when its closing "]" is met: a
+  dash standing between two members marks a range, and when the member
+  after the dash sorts below the member before it the message reads
+  "reversed range at N" for the index of the member before the dash. A "["
+  that no "]" ever closes is met at the end of the mask and reads
+  "unclosed class at N" for the index of that "[". Return "ok" when the
+  mask holds no fault.
+target: solution.py
+interface: "def mask_fault(mask: str) -> str"
+stop_conditions:
+  - Whether a class holding no members at all counts as a fault is not stated.
+  - Which message wins when an unclosed class also holds a dangling escape is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

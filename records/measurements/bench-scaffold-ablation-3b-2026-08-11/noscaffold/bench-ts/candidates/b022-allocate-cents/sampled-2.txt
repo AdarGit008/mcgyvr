@@ -1,0 +1,65 @@
+```typescript
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Text must be a string');
+  }
+  
+  const regex = /^\d+(\.\d{2})?$/;
+  const match = text.match(regex);
+  
+  if (!match) {
+    throw new Error('Invalid amount format');
+  }
+  
+  let cents = parseInt(text.replace('.', ''), 10);
+
+  return cents;
+}
+
+export function formatAmount(cents: number): string {
+  if (cents < 0) {
+    throw new Error('Cents must be non-negative');
+  }
+
+  const dollars = Math.floor(cents / 100);
+  const centsStr = String(cents % 100).padStart(2, '0');
+
+  return `${dollars}.${centsStr}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (totalCents < 0) {
+    throw new Error('Total cents must be non-negative');
+  }
+  
+  if (!Array.isArray(weights)) {
+    throw new Error('Weights must be an array');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+
+  if (totalWeight === 0 || weights.some(weight => typeof weight !== 'number' || weight < 0)) {
+    throw new Error('Invalid weights');
+  }
+  
+  const shares = [];
+  let remainingCents = totalCents;
+
+  for (let i = 0; i < weights.length; i++) {
+    if (weights[i] === 0) continue;
+
+    const floorShare = Math.floor(remainingCents / totalWeight);
+    shares.push(floorShare);
+
+    remainingCents -= floorShare * totalWeight;
+    totalWeight -= weights[i];
+  }
+
+  while (remainingCents > 0 && shares.length > 0) {
+    shares[shares.length - 1]++;
+    remainingCents--;
+  }
+
+  return shares;
+}
+```

@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { expandCronField } from "./solution.ts";
+
+assert.deepEqual(expandCronField("*", 1, 5), [1, 2, 3, 4, 5], "star spans the bounds");
+assert.deepEqual(expandCronField("30", 0, 59), [30], "single number");
+assert.deepEqual(expandCronField("3,1,2", 1, 5), [1, 2, 3], "list comes back sorted");
+assert.deepEqual(expandCronField("10-13", 0, 59), [10, 11, 12, 13], "range is inclusive");
+assert.deepEqual(expandCronField("*/15", 0, 59), [0, 15, 30, 45], "star with a step");
+assert.deepEqual(expandCronField("2-11/3", 0, 59), [2, 5, 8, 11], "range with a step");
+assert.deepEqual(expandCronField("1-3,2-4", 1, 10), [1, 2, 3, 4], "overlap collapses");
+assert.deepEqual(expandCronField("0,20-22,*/30", 0, 59), [0, 20, 21, 22, 30], "mixed items merge");
+assert.throws(() => expandCronField(42, 0, 59), Error, "non-string field is rejected");
+assert.throws(() => expandCronField("", 0, 59), Error, "empty field is rejected");
+assert.throws(() => expandCronField("1,", 0, 59), Error, "empty item is rejected");
+assert.throws(() => expandCronField("5-2", 0, 59), Error, "reversed range is rejected");
+assert.throws(() => expandCronField("*/0", 0, 59), Error, "zero step is rejected");
+assert.throws(() => expandCronField("5/2", 0, 59), Error, "step on a single number is rejected");
+assert.throws(() => expandCronField("61", 0, 59), Error, "number above the bounds is rejected");
+assert.throws(() => expandCronField("3-", 0, 59), Error, "range missing its high end is rejected");
+assert.throws(() => expandCronField("1-3x", 0, 59), Error, "letters are rejected");
+console.log("ok");

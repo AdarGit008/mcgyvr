@@ -1,0 +1,88 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function validateRule(rule: string): void {
+  if (!/^!?/.test(rule)) {
+    throw new Error(`Invalid rule: ${rule}`);
+  }
+  const segments = splitStrict(rule.slice(1), "rule");
+  for (const segment of segments) {
+    if (segment === "*") {
+      continue;
+    }
+    if (segment.length === 0 || segment.includes("//")) {
+      throw new Error(`Invalid rule: ${rule}`);
+    }
+  }
+}
+
+function validatePath(path: string): void {
+  const segments = splitStrict(path, "path");
+  for (const segment of segments) {
+    if (segment.length === 0 || segment.includes("//")) {
+      throw new Error(`Invalid path: ${path}`);
+    }
+  }
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  listing.forEach(validatePath);
+  rules.forEach(validateRule);
+
+  const result = [];
+  for (const path of listing) {
+    let lastMatchingRule = null;
+    for (let i = rules.length - 1; i >= 0; i--) {
+      const rule = rules[i];
+      const pattern = rule.startsWith("!") ? rule.slice(1) : `!${rule}`;
+      if (segmentFits(pattern, path)) {
+        lastMatchingRule = rule;
+        break;
+      }
+    }
+    if (lastMatchingRule && !lastMatchingRule.startsWith("!")) {
+      result.push(path);
+    }
+  }
+
+  return result;
+}
+```

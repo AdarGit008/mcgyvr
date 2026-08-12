@@ -1,0 +1,21 @@
+```ts
+export function swapPair(first: string, second: string): string {
+  if (typeof first !== 'string' || typeof second !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+  return second + first;
+}
+
+export function swapAll(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('The input must be a string');
+  }
+
+  let result = '';
+  for (let i = 0; i < text.length; i += 2) {
+    const pair = text[i] + text[i + 1];
+    result += swapPair(pair[0], pair[1]);
+  }
+  return result;
+}
+```

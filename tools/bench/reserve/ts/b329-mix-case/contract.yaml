@@ -1,0 +1,15 @@
+id: b329-mix-case
+task_type: function_implementation
+task: >-
+  Implement mixCase. Return the text with its letters alternating
+  case, the first letter upper, the next lower and so on. A character
+  that is not a letter is left exactly as it is and does not move the
+  alternation along.
+target: solution.ts
+interface: "export function mixCase(text: string): string"
+stop_conditions:
+  - Whether the alternation should start again at each new word is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

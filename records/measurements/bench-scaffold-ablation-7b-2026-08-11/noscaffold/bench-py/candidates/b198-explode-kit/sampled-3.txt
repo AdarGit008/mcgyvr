@@ -1,0 +1,25 @@
+```python
+from math import ceil
+from collections import defaultdict
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def consume(part, count):
+        if part in catalog:
+            parts_needed = ceil(count / catalog[part]['makes'])
+            for component, component_count in catalog[part]['parts']:
+                result[component] += parts_needed * component_count
+            return parts_needed * catalog[part]['makes']
+        else:
+            result[part] += count
+            return count
+    
+    if kit not in catalog:
+        raise ValueError(f"kit '{kit}' is not defined in the catalog")
+    
+    result = defaultdict(int)
+    consume(kit, want)
+    return dict(result)
+```

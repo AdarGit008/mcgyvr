@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres <= 0:
+        raise ValueError("Leg distance must be positive")
+    return seconds // kilometres
+
+def pace_list(legs: List[tuple[int, float]]) -> List[float]:
+    if not legs:
+        raise ValueError("No legs provided")
+    
+    for time, distance in legs:
+        if distance <= 0:
+            raise ValueError("Leg distance must be positive")
+        
+        pace = time / distance
+        pace_rounded = int(pace)
+        
+        # Ensure the pace is exactly equal to the floating-point result
+        if pace - pace_rounded != 0.0:
+            raise ValueError(f"Pace calculation error for leg {time} km: expected {pace}, got {pace_rounded}")
+        
+        yield pace_rounded
+```

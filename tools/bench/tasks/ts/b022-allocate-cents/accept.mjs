@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { parseAmount, formatAmount, allocateCents } from "./solution.ts";
+
+assert.deepEqual(allocateCents(100, [1, 1]), [50, 50], "even split");
+assert.deepEqual(allocateCents(101, [1, 1]), [51, 50], "tie goes to the earliest");
+assert.deepEqual(allocateCents(100, [1, 1, 1]), [34, 33, 33], "three-way split");
+assert.deepEqual(allocateCents(10, [1, 1, 3]), [2, 2, 6], "exact division");
+assert.deepEqual(allocateCents(7, [1, 2]), [2, 5], "largest remainder wins");
+assert.deepEqual(allocateCents(10, [0, 1]), [0, 10], "zero weight takes nothing");
+assert.deepEqual(allocateCents(0, [2, 3]), [0, 0], "zero total, all zeros");
+assert.deepEqual(allocateCents(1, [1, 1, 1]), [1, 0, 0], "one cent, three shares");
+assert.throws(() => allocateCents(100, []), Error, "empty weights rejected");
+assert.throws(() => allocateCents(100, [1, -2]), Error, "negative weight rejected");
+assert.throws(() => allocateCents(100, [1, 0.5]), Error, "fractional weight rejected");
+assert.throws(() => allocateCents(100, [0, 0]), Error, "zero weight sum rejected");
+assert.throws(() => allocateCents(-5, [1]), Error, "negative total rejected");
+assert.equal(parseAmount("12.34"), 1234, "dotted amount parses to cents");
+assert.equal(parseAmount("7"), 700, "whole amount parses to cents");
+assert.throws(() => parseAmount("12.3"), Error, "one fraction digit rejected");
+assert.equal(formatAmount(1234), "12.34", "cents format back to dotted form");
+assert.equal(formatAmount(5), "0.05", "small amounts keep two digits");
+console.log("ok");

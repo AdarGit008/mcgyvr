@@ -1,0 +1,35 @@
+```ts
+export function stripTags(line: string): string {
+  let result = '';
+  let i = 0;
+  const stack: string[] = [];
+
+  while (i < line.length) {
+    if (line[i] === '<') {
+      if (stack.length > 0 && !isQuotationMark(stack[stack.length - 1])) {
+        // Start of a new marker
+        stack.push(line[i]);
+      }
+    } else if (line[i] === '>') {
+      if (stack.length > 0) {
+        // End of the current marker
+        const popped = stack.pop();
+        if (popped !== '"') {
+          result += line.substring(i + 1, stack.length > 0 ? i : line.length);
+        }
+      }
+    } else if (!isQuotationMark(popped)) {
+      // Append non-markers to the result
+      result += line[i];
+    }
+
+    i++;
+  }
+
+  return result;
+}
+
+function isQuotationMark(char: string): boolean {
+  return char === '"' || char === "'";
+}
+```

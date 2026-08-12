@@ -1,0 +1,14 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if not store or not head:
+        raise ValueError("Store is empty or head is None")
+    
+    path = []
+    for name, stop in store.items():
+        if name == head and stop:
+            continue
+        elif name.startswith(head):
+            path.append(name)
+    
+    return path
+```

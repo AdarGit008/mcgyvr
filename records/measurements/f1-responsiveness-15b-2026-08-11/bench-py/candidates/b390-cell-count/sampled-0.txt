@@ -1,0 +1,13 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid or not all(grid):
+        return 0
+
+    count = 0
+    for row in grid:
+        count += sum(1 for cell in row if cell == value)
+
+    return count
+```
+
+This solution adheres to the interface requirements and checks for empty grids, non-empty grids without elements, and values that match the specified criteria. It provides a clear and concise implementation that meets the given task contract.

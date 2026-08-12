@@ -1,0 +1,18 @@
+```python
+
+
+def live_count(neighbours):
+    if len(neighbours) != 8:
+        raise ValueError("neighbours must contain exactly eight values")
+    
+    return sum(1 for cell in neighbours if cell)
+
+
+def live_next(alive, neighbours):
+    if alive and not (live_count(neighbours) == 2 or live_count(neighbours) == 3):
+        return False
+    elif not alive and live_count(neighbours) == 3:
+        return True
+    else:
+        return alive
+```

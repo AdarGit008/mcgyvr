@@ -39,7 +39,7 @@ from tree_sitter_typescript import (
     language_typescript as _ts_language,
 )
 
-from mcgyvr.gate.adapter import LanguageAdapter, require_tool
+from mcgyvr.gate.adapter import LanguageAdapter, plain_env, require_tool
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
 
@@ -126,6 +126,7 @@ class JavaScriptAdapter(LanguageAdapter):
             cwd=repo,
             capture_output=True,
             text=True,
+            env=plain_env(),
         )
         try:
             results = json.loads(proc.stdout or "[]")
@@ -319,6 +320,7 @@ def _prettier_differing(prettier: str, paths: Sequence[str], repo: Path) -> set[
         cwd=repo,
         capture_output=True,
         text=True,
+        env=plain_env(),
     )
     return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
 
@@ -336,6 +338,7 @@ def _prettier_reflowed_lines(prettier: str, path: str, repo: Path) -> set[int]:
         cwd=repo,
         capture_output=True,
         text=True,
+        env=plain_env(),
     )
     if proc.returncode != 0:
         return set()

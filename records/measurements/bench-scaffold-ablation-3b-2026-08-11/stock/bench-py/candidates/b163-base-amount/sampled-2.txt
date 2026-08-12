@@ -1,0 +1,30 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    def walk_units(current_unit, current_amount):
+        # Check if the current unit is the base
+        if current_unit == base:
+            return current_amount
+        
+        # Check if the current unit is defined
+        if current_unit not in defs:
+            raise ValueError(f"Unit '{current_unit}' is not defined")
+        
+        factor, finer = defs[current_unit]
+        
+        # Check if the factor is a positive integer
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError("Factor must be a positive integer")
+        
+        # Calculate the amount in the finer unit
+        return walk_units(finer, current_amount * factor)
+    
+    try:
+        return walk_units(unit, amount)
+    except ValueError as e:
+        raise ValueError(f"Error converting amount: {e}")
+```
+
+This implementation defines a helper function `walk_units` to recursively multiply the amount by the factor of the finer unit until it reaches the base unit. It also includes checks for non-negative integers, undefined units, negative factors, and loops in the definition chain.

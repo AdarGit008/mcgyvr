@@ -1,0 +1,17 @@
+```ts
+export function digitCount(value: number): number {
+  if (typeof value !== 'number' || !isFinite(value)) {
+    throw new Error('value must be a finite number');
+  }
+
+  let count = 0;
+  value = Math.abs(value); // Remove minus sign if present
+
+  while (value > 0) {
+    value /= 10;
+    count++;
+  }
+
+  return count;
+}
+```

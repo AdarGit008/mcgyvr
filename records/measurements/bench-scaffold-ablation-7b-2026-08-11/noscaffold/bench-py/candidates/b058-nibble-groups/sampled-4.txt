@@ -1,0 +1,12 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("value must be a non-negative integer")
+    if not isinstance(width, int) or width <= 0 or width % 4 != 0 or width > 32:
+        raise ValueError("width must be a positive multiple of four that does not exceed 32")
+    if value >= (1 << width):
+        raise ValueError("value does not fit in the specified width")
+
+    binary_str = f"{value:0{width}b}"
+    return " ".join(binary_str[i:i+4] for i in range(0, width, 4))
+```

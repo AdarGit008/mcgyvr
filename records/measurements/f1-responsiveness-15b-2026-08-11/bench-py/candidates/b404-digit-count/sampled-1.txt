@@ -1,0 +1,11 @@
+```python
+def digit_count(value: int) -> int:
+    if isinstance(value, str):
+        return len(list(filter(str.isdigit, value)))
+    elif isinstance(value, (int, float)):
+        if value < 0:
+            return digit_count(-value)
+        return len(str(abs(value)))
+    else:
+        raise ValueError("Input must be an integer or string.")
+```

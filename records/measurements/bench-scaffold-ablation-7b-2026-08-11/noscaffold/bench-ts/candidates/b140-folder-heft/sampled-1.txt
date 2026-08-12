@@ -1,0 +1,92 @@
+```ts
+/**
+ * Returns the paths of files in the storage tree.
+ * @param root - The root of the storage tree.
+ * @returns An array of file paths.
+ */
+export function filePaths(root: object): string[] {
+  const result: string[] = [];
+
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Invalid root');
+  }
+
+  function walk(node: any, path: string) {
+    if (typeof node !== 'object' || node === null) {
+      return;
+    }
+    if (typeof node.name !== 'string' || node.name.includes('/')) {
+      throw new Error('Invalid name');
+    }
+    if ('children' in node && ('bytes' in node || Object.keys(node).length > 2)) {
+      throw new Error('Invalid node');
+    }
+    if ('bytes' in node && (typeof node.bytes !== 'number' || !Number.isInteger(node.bytes) || node.bytes < 0)) {
+      throw new Error('Invalid bytes');
+    }
+    if ('children' in node) {
+      for (const child of node.children) {
+        walk(child, path.length > 0 ? `${path}/${node.name}` : node.name);
+      }
+    } else {
+      result.push(path.length > 0 ? `${path}/${node.name}` : node.name);
+    }
+  }
+
+  walk(root, '');
+  return result;
+}
+
+/**
+ * Returns the total bytes of a node in the storage tree.
+ * @param root - The root of the storage tree.
+ * @returns The total bytes.
+ */
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Invalid root');
+  }
+
+  function walk(node: any): number {
+    if ('children' in node) {
+      return node.children.reduce((sum, child) => sum + walk(child), 0);
+    } else if ('bytes' in node) {
+      return node.bytes;
+    }
+    throw new Error('Invalid node');
+  }
+
+  return walk(root);
+}
+
+/**
+ * Returns the paths and bytes of folders with a total size of at least minBytes.
+ * @param root - The root of the storage tree.
+ * @param minBytes - The minimum total bytes for a folder to be included.
+ * @returns An array of [path, bytes] pairs.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Invalid root');
+  }
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const result: [string, number][] = [];
+
+  function walk(node: any, path: string): number {
+    let bytes = treeBytes(node);
+    if (bytes >= minBytes) {
+      result.push([path, bytes]);
+    }
+    for (const child of (node.children || [])) {
+      bytes += walk(child, path.length > 0 ? `${path}/${(child as any).name}` : (child as any).name);
+    }
+    return bytes;
+  }
+
+  walk(root, '');
+  return result;
+}
+```

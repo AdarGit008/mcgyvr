@@ -1,0 +1,16 @@
+id: b365-limit-run
+task_type: function_implementation
+task: >-
+  Implement overLimit and limitRun. overLimit says whether a reading
+  stands above a limit. limitRun returns the readings from the start
+  of a run up to but not including the first that does, so a run whose
+  opening reading is already over gives nothing back.
+target: solution.ts
+interface: "export function overLimit(reading: number, limit: number): boolean
+export function limitRun(readings: number[], limit: number): number[]"
+stop_conditions:
+  - Whether the reading that broke the limit should be reported too is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

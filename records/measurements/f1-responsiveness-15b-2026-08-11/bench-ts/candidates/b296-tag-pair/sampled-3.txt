@@ -1,0 +1,14 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^\s*<\w+\s*>$/i.test(marker)) {
+    throw new Error("Invalid marker format");
+  }
+  return marker.startsWith('/') ? marker.slice(1) : marker;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  const cleanOpening = opening.replace(/^\/?/, '');
+  const cleanClosing = closing.replace(/^\/?/, '');
+  return cleanOpening === cleanClosing;
+}
+```

@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def line_cost(price: int, quantity: int) -> int:
+    """Returns the total cost of one line."""
+    return price * quantity
+
+def basket_cost(lines: List[int], discount: int) -> int:
+    """Adds up values from lines and applies a discount."""
+    # Calculate total cost before discount
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    # Apply the discount without exceeding 100%
+    discounted_cost = total_cost * (1 - discount / 100)
+    
+    # Round down to nearest whole pence
+    return int(discounted_cost + 0.5)
+```

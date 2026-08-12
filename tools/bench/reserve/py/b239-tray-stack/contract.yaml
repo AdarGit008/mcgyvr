@@ -1,0 +1,15 @@
+id: b239-tray-stack
+task_type: function_implementation
+task: >-
+  Implement tray_push and tray_top. tray_push returns a new tray stack
+  with an item resting on top, leaving the stack it was given
+  untouched. tray_top reports the item currently on top, and reports
+  nothing at all when the stack is empty.
+target: solution.py
+interface: "def tray_push(stack: list, item: str) -> list\ndef tray_top(stack: list)"
+stop_conditions:
+  - Whether an item already present lower in the stack may be pushed again is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

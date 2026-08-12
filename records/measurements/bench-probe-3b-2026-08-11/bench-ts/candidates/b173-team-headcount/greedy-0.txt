@@ -1,0 +1,26 @@
+```typescript
+export function teamHeadcount(chart: Record<string, string[]>, name: string): number {
+  if (typeof chart !== 'object' || !chart) {
+    throw new Error('Invalid chart');
+  }
+  if (!Object.keys(chart).includes(name)) {
+    throw new Error('Name not found in chart');
+  }
+
+  const visited = new Set<string>();
+  let count = 0;
+
+  function dfs(worker: string): void {
+    if (visited.has(worker)) return;
+    visited.add(worker);
+    count++;
+    for (const report of chart[worker]) {
+      dfs(report);
+    }
+  }
+
+  dfs(name);
+
+  return count;
+}
+```

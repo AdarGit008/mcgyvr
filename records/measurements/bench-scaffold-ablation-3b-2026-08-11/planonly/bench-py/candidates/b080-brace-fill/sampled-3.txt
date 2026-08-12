@@ -1,0 +1,33 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+    
+    result = []
+    i = 0
+    
+    while i < len(template):
+        if template[i] == '{':
+            start = i + 1
+            end = start
+            
+            # Find the end of the placeholder
+            while end < len(template) and (template[end].isalpha() or template[end].isdigit() or template[end] == '_'):
+                end += 1
+            
+            placeholder_name = template[start:end]
+            
+            if not placeholder_name:
+                raise ValueError("Placeholder name cannot be empty.")
+            
+            if placeholder_name not in values:
+                raise ValueError(f"Unknown placeholder: {placeholder_name}.")
+            
+            result.append(values[placeholder_name])
+        else:
+            result.append(template[i])
+        
+        i += 1
+    
+    return ''.join(result)
+```

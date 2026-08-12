@@ -1,0 +1,16 @@
+```ts
+export function codeValid(code: string, length: number): boolean {
+  if (length <= 0) {
+    throw new Error('Invalid input: Length must be greater than zero');
+  }
+
+  for (let i = 0; i < length; i++) {
+    const char = code.charCodeAt(i);
+    if (!(/[A-Z0-9]/.test(char))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+```

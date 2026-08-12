@@ -1,0 +1,18 @@
+```ts
+export function digitCount(value: number): number {
+  if (typeof value !== 'number' || isNaN(value)) {
+    throw new Error("Argument must be a non-negative number.");
+  }
+
+  const negative = value < 0;
+  const absValue = Math.abs(value);
+  let count = 1; // Count the sign
+
+  while (absValue > 9) {
+    absValue /= 10;
+    count += 1;
+  }
+
+  return negative ? count - 1 : count;
+}
+```

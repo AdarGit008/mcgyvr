@@ -1,0 +1,28 @@
+```ts
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0 || current >= target) return current;
+
+  const sign = Math.sign(target - current);
+  let next = current + Math.min(step, Math.abs(target - current));
+
+  while (next < target) {
+    next += sign * step;
+  }
+
+  return next;
+}
+
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0 || start >= target) return [start];
+
+  const result = [];
+  let current = start;
+
+  while (current <= target) {
+    result.push(current);
+    current += step;
+  }
+
+  return result;
+}
+```

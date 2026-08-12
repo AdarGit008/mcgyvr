@@ -1,0 +1,40 @@
+id: b010-normalize-label
+task_type: bug_fix
+task: >-
+  normalizeLabel cleans up user-typed labels incorrectly: whitespace
+  around the label turns into stray hyphens instead of being removed, and
+  a run of consecutive separators becomes several hyphens instead of one.
+  Fix it: trim surrounding whitespace, lowercase, replace every run of
+  spaces, underscores and hyphens with a single hyphen, and drop any
+  hyphens left at either end, so a label typed as " Team  Alpha " becomes
+  "team-alpha". The 32-character limit and the reserved names "new",
+  "all" and "none" continue to apply, judged on the finished label. Also
+  add the missing validation: reject a non-string argument, any character
+  in the trimmed input other than ASCII letters, digits, spaces,
+  underscores and hyphens, and a label that is empty once normalized,
+  with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Normalize a user-typed label into its canonical hyphenated form. */
+
+  const RESERVED = ["new", "all", "none"];
+
+  export function normalizeLabel(raw: string): string {
+    let label = raw.toLowerCase();
+    label = label.split(" ").join("-");
+    label = label.split("_").join("-");
+    if (label.length > 32) {
+      throw new Error("label is longer than 32 characters");
+    }
+    if (RESERVED.includes(label)) {
+      throw new Error("label is a reserved name");
+    }
+    return label;
+  }
+interface: "export function normalizeLabel(raw: string): string"
+stop_conditions:
+  - Which rejection wins when a label violates more than one rule is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

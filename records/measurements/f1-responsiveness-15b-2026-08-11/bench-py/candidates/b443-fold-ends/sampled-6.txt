@@ -1,0 +1,22 @@
+```python
+def fold_ends(values: list) -> list:
+    """
+    Fold a list onto itself by adding each element to its corresponding position from the other end.
+    
+    Args:
+    values (list): The input list to be folded.
+    
+    Returns:
+    list: A new list containing the totals of the original and folded lists, in sequence.
+    """
+    if not values:
+        return []
+    
+    # Calculate the total without considering the middle element
+    total = sum(values[:-1])
+    
+    # Create a new list with the adjusted elements from both ends
+    result = [total] + values[1:] + values[:-1]
+    
+    return result
+```

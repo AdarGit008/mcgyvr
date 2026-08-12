@@ -1,0 +1,27 @@
+id: b129-tab-stops
+task_type: function_implementation
+task: >-
+  Implement render_tabbed. A plain-text report lays each line out against a
+  row of tab stops, each stop a [column, kind] pair: the column a positive
+  integer counted from the line's start, the kind either left or right, the
+  columns strictly increasing. Split the line on its tab characters; the
+  first piece sits at column zero. Each later piece is placed by the first
+  stop whose column lies strictly past the laid text's current length: a
+  left stop pads the laid text with spaces out to its column and the piece
+  follows; a right stop sets the piece down so it ends at the stop, its
+  last character landing in the column just before it. When no stop lies
+  past the current length, or when a right-kind placement would not start
+  strictly past the laid text, the piece instead follows after a single
+  space. Return the laid-out line. Reject a line that is not a string, a
+  line holding a newline or carriage return, stops that are not a list, a
+  stop that is not a two-item [column, kind] pair, a column that is not a
+  positive integer, a kind other than left and right, and columns that do
+  not strictly increase, with an error.
+target: solution.py
+interface: "def render_tabbed(line: str, stops: list) -> str"
+stop_conditions:
+  - Whether trailing spaces left by an empty final piece are trimmed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,34 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    def split_strict(s: str) -> list[str]:
+        if not s or s[0] == '/' or s[-1] == '/':
+            raise ValueError("Path or pattern contains empty segment")
+        return s.split('/')
+
+    def match_rule(path_tokens: list[str], rule: str) -> bool:
+        rule_tokens = split_strict(rule)
+        for i, token in enumerate(rule_tokens):
+            if token == '*':
+                continue
+            elif token != path_tokens[i]:
+                return False
+        return True
+
+    output = []
+    for path in listing:
+        found_match = False
+        if isinstance(path, str) and path:
+            path_tokens = split_strict(path)
+            for rule in rules:
+                if isinstance(rule, str):
+                    if match_rule(path_tokens, rule):
+                        output.append(path)
+                        found_match = True
+                        break
+                else:
+                    raise ValueError("Each rule must be a string")
+        else:
+            raise ValueError("Listing and rules must not contain empty strings")
+
+    return output
+```

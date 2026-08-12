@@ -1,0 +1,25 @@
+```ts
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  if (opens.length !== closes.length) throw new Error('Opens and closes must have the same length');
+  const markerPairs = Array.from({ length: opens.length }, (_, i) => ({ open: opens[i], close: closes[i] }));
+  
+  let result: string[] = [];
+  let currentMarkerIndex = -1;
+  let currentPair = markerPairs[0];
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === currentPair.open) {
+      currentMarkerIndex++;
+      currentPair = markerPairs[currentMarkerIndex];
+      result.push(line.substring(i, currentMarkerIndex + 1));
+    } else if (currentMarkerIndex !== -1 && char === currentPair.close) {
+      currentMarkerIndex--;
+      currentPair = markerPairs[currentMarkerIndex];
+    }
+  }
+  
+  return result;
+}
+```

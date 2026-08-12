@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    if not phrase or not times:
+        return ''
+    
+    result = phrase * times
+    if between and len(result) > 1:
+        return between.join(result)
+    else:
+        return result
+```

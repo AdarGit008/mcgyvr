@@ -1,0 +1,32 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural form of an English noun.
+
+    Args:
+        noun (str): The singular noun to be pluralized.
+    
+    Returns:
+        str: The plural form of the given noun.
+    """
+    if not noun:
+        raise ValueError("Input must be a non-empty string")
+    
+    # Check for irregular forms
+    irregular_forms = {
+        "city": "cities",
+        "mouse": "mice",
+        "person": "people",
+        "sex": "species"
+    }
+    if noun in irregular_forms:
+        return irregular_forms[noun]
+    
+    # General rules
+    if noun.endswith(("s", "x", "ch", "sh")):
+        return noun + "es"
+    elif noun.endswith("y"):
+        return noun[:-1] + "ies"
+    else:
+        return noun + "s"
+```

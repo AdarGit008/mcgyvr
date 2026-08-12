@@ -1,0 +1,20 @@
+```ts
+export function legGain(start: number, end: number): number {
+  if (start === end) return 0;
+  if (end < start) {
+    [start, end] = [end, start];
+  }
+  return Math.abs(end - start);
+}
+
+export function climbGain(heights: number[]): number {
+  let totalGain = 0;
+  for (let i = 0; i < heights.length - 1; i++) {
+    const gain = legGain(heights[i], heights[i + 1]);
+    if (gain > 0) {
+      totalGain += gain;
+    }
+  }
+  return totalGain;
+}
+```

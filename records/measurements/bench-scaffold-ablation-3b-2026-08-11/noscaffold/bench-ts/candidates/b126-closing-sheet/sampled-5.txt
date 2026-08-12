@@ -1,0 +1,52 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+    if (typeof opening !== 'string' || typeof moves !== 'string') {
+        throw new Error('Invalid argument: expected strings for both inputs.');
+    }
+
+    const parseEntry = (entry: string): [string, number] => {
+        const [name, countStr] = entry.split(':');
+        const count = parseInt(countStr, 10);
+        if (!isNaN(count) && /^[a-z]+$/.test(name)) {
+            return [name, count];
+        }
+        throw new Error('Invalid sheet entry: item name must be lowercase letters and count must be a decimal integer.');
+    };
+
+    const parseMoves = (moves: string): [string, number][] => {
+        if (moves === '') return [];
+
+        return moves.split(';').map(move => {
+            const [nameQty] = move.split('+', 1);
+            const [name, qtyStr] = nameQty.split('-');
+            const qty = parseInt(qtyStr, 10);
+
+            if (!isNaN(qty) && /^[a-z]+$/.test(name)) {
+                return [name, qty];
+            }
+            throw new Error('Invalid move: quantity must be a positive integer.');
+        });
+    };
+
+    const entries = opening.split(';').map(parseEntry).reduce((acc, [name, count]) => {
+        if (!acc[name]) acc[name] = 0;
+        acc[name] += count;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const movesMap: Record<string, number> = parseMoves(moves).reduce((acc, [name, qty]) => {
+        if (movesMap[name] && movesMap[name] >= qty) {
+            acc[name] -= qty;
+        } else {
+            throw new Error('Insufficient stock for move.');
+        }
+        return acc;
+    }, { ...entries });
+
+    const filteredEntries = Object.entries(movesMap).filter(([name, count]) => count > 0);
+
+    if (filteredEntries.length === 0) return '';
+
+    return filteredEntries.map(([name, count]) => `${name}:${count}`).join(';');
+}
+```

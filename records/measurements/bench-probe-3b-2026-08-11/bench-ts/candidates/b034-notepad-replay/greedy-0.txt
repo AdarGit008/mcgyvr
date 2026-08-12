@@ -1,0 +1,71 @@
+```ts
+/** Replay a notepad editing session: type, erase, replace, undo and redo. */
+export function replayNotepad(commands: (string | number)[][]): string {
+  let buffer = "";
+  const past: { action: string; text?: string }[] = [];
+  const future: { action: string; text?: string }[] = [];
+
+  for (const command of commands) {
+    if (!Array.isArray(command) || command.length < 2) {
+      throw new Error("Invalid command format");
+    }
+
+    const [action, ...payload] = command;
+
+    switch (action) {
+      case "type":
+        if (typeof payload[0] !== "string" || payload[0].trim() === "") {
+          throw new Error("Type text must be a non-empty string");
+        }
+        past.push({ action, text: buffer });
+        buffer += payload[0];
+        break;
+      case "erase":
+        const eraseCount = typeof payload[0] !== "number" || payload[0] <= 0 ? 0 : payload[0];
+        if (eraseCount > buffer.length) {
+          throw new Error("Erase count exceeds buffer length");
+        }
+        past.push({ action, text: buffer });
+        buffer = buffer.slice(0, buffer.length - eraseCount);
+        break;
+      case "replace":
+        const oldText = typeof payload[0] !== "string" || payload[0].trim() === "" ? "" : payload[0];
+        const newText = typeof payload[1] !== "string" || payload[1].trim() === "" ? "" : payload[1];
+        if (oldText.length === 0) {
+          throw new Error("Replace old text must be a non-empty string");
+        }
+        const lastOccurrenceIndex = buffer.lastIndexOf(oldText);
+        if (lastOccurrenceIndex === -1) {
+          throw new Error(`Replace old text "${oldText}" not found in buffer`);
+        }
+        past.push({ action, text: buffer });
+        buffer = buffer.slice(0, lastOccurrenceIndex) + newText + buffer.slice(lastOccurrenceIndex + oldText.length);
+        break;
+      case "undo":
+        const undoCount = typeof payload[0] !== "number" || payload[0] <= 0 ? 0 : payload[0];
+        if (undoCount > past.length) {
+          throw new Error("Undo count exceeds available edits");
+        }
+        for (let i = 0; i < undoCount; i++) {
+          future.push({ action: past[past.length - 1].action, text: past[past.length - 1].text });
+          buffer = past.pop()!.text!;
+        }
+        break;
+      case "redo":
+        const redoCount = typeof payload[0] !== "number" || payload[0] <= 0 ? 0 : payload[0];
+        if (redoCount > future.length) {
+          throw new Error("Redo count exceeds available edits");
+        }
+        for (let i = 0; i < redoCount; i++) {
+          past.push({ action: future[future.length - 1].action, text: future[future.length - 1].text });
+          buffer = future.pop()!.text!;
+        }
+        break;
+      default:
+        throw new Error(`Unknown action "${action}"`);
+    }
+  }
+
+  return buffer;
+}
+```

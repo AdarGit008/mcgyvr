@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { normalizeLocaleTag } from "./solution.ts";
+
+assert.equal(normalizeLocaleTag("en"), "en", "bare language stays");
+assert.equal(normalizeLocaleTag("EN_us"), "en-US", "case and separator normalize");
+assert.equal(normalizeLocaleTag("zh-hans-cn"), "zh-Hans-CN", "script and region recase");
+assert.equal(normalizeLocaleTag("sr_lATN_rs"), "sr-Latn-RS", "mixed-case script recases");
+assert.equal(normalizeLocaleTag("es-419"), "es-419", "digit region kept as-is");
+assert.equal(normalizeLocaleTag("yue"), "yue", "three-letter language");
+assert.equal(normalizeLocaleTag("sl-rozaj"), "sl-rozaj", "variant without script or region");
+assert.equal(normalizeLocaleTag("AZ-LATN-X-OLD"), "az-Latn-x-old", "private-use part lowercases");
+assert.throws(() => normalizeLocaleTag(42), Error, "non-string is rejected");
+assert.throws(() => normalizeLocaleTag(""), Error, "empty tag is rejected");
+assert.throws(() => normalizeLocaleTag("en--US"), Error, "empty subtag is rejected");
+assert.throws(() => normalizeLocaleTag("e"), Error, "one-letter language is rejected");
+assert.throws(() => normalizeLocaleTag("en-Lat"), Error, "three-letter second subtag fits no slot");
+assert.throws(() => normalizeLocaleTag("en-US-Latn"), Error, "script after region is rejected");
+assert.throws(() => normalizeLocaleTag("en-Latn-GB-boont-extra"), Error, "five core subtags are rejected");
+assert.throws(() => normalizeLocaleTag("en-x"), Error, "bare x marker is rejected");
+assert.throws(() => normalizeLocaleTag("en-x-waytoolong9"), Error, "overlong private-use subtag");
+console.log("ok");

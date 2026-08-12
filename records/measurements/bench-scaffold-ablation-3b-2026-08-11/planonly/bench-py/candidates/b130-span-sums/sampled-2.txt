@@ -1,0 +1,46 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Invalid span text")
+    
+    parts = text.split()
+    total_inches = 0
+    
+    for part in parts:
+        value_str, unit_str = part[:-1], part[-1]
+        
+        if not value_str.isdigit() or int(value_str) < 0:
+            raise ValueError("Invalid value in span text")
+        
+        value = int(value_str)
+        
+        if unit_str.lower() == 'yd':
+            total_inches += value * 36
+        elif unit_str.lower() == 'ft':
+            total_inches += value * 12
+        elif unit_str.lower() == 'in':
+            total_inches += value
+        else:
+            raise ValueError("Unknown unit in span text")
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Invalid total inches")
+    
+    parts = []
+    units = ['yd', 'ft', 'in']
+    
+    for unit in units:
+        value = inches // (12 if unit == 'yd' else 36)
+        if value > 0:
+            parts.append(f"{value}{unit}")
+            inches %= (12 if unit == 'yd' else 36)
+    
+    return ' '.join(parts)
+
+def add_spans(first: str, second: str) -> str:
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

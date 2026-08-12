@@ -1,0 +1,16 @@
+id: b259-gloss-lookup
+task_type: function_implementation
+task: >-
+  Implement glossFind and glossTerms. glossFind looks a term up in a
+  glossary whatever case it was typed in and hands back the
+  definition, or nothing at all when the term is absent. glossTerms
+  lists the glossary's terms in alphabetical order, in the case they
+  were stored.
+target: solution.ts
+interface: "export function glossFind(gloss: Record<string, string>, term: string): string | null\nexport function glossTerms(gloss: Record<string, string>): string[]"
+stop_conditions:
+  - Which definition wins when a glossary holds two terms differing only in case is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,26 @@
+```ts
+export function applyOverrides(
+  base: Record<string, string>,
+  overrides: string[],
+): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Invalid overrides argument");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    if (typeof override !== "string") {
+      throw new Error("Invalid override argument");
+    }
+    const [name, value] = override.split("=");
+    if (!value || name === "") {
+      throw new Error("Invalid override argument");
+    }
+
+    merged[name] = value;
+  }
+
+  return merged;
+}
+```

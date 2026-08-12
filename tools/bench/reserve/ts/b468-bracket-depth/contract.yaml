@@ -1,0 +1,16 @@
+id: b468-bracket-depth
+task_type: function_implementation
+task: >-
+  Implement bracketDepth. Report the deepest nesting reached by round
+  brackets in a text, with a text holding none reported as nothing.
+  Every other character is passed over. Reject a text where a bracket
+  closes before it opens, or that ends with one still open, with an
+  error.
+target: solution.ts
+interface: "export function bracketDepth(text: string): number"
+stop_conditions:
+  - Whether square or curly brackets should count toward the nesting is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

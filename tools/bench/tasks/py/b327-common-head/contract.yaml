@@ -1,0 +1,15 @@
+id: b327-common-head
+task_type: function_implementation
+task: >-
+  Implement common_head. Return the longest run of characters that
+  every word in a list begins with. A list holding one word gives that
+  word back whole, and a list with no words, or whose words share no
+  opening character, gives empty text.
+target: solution.py
+interface: "def common_head(words: list) -> str"
+stop_conditions:
+  - Whether words differing only in case should be compared ignoring it is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

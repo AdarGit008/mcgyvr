@@ -1,0 +1,67 @@
+```ts
+/**
+ * Parses a span string into total inches.
+ */
+export function parseSpan(text: string): number {
+    if (typeof text !== 'string' || !text.trim()) {
+        throw new Error('Invalid input');
+    }
+
+    const units = ['yd', 'ft', 'in'];
+    let result = 0;
+
+    for (const part of text.split(/\s+/)) {
+        if (!part) continue;
+        const match = part.match(/(\d+)\s*(yd|ft|in)/);
+        if (!match) throw new Error('Invalid input');
+
+        const value = parseInt(match[1], 10);
+        if (isNaN(value) || value < 0) throw new Error('Invalid input');
+        if (value > 0 && part.startsWith('0')) throw new Error('Invalid input');
+
+        const unitIndex = units.indexOf(match[2]);
+        if (unitIndex === -1 || unitIndex !== units.length - 1) throw new Error('Invalid input');
+
+        result += value * (36 ** (units.length - 1 - unitIndex));
+    }
+
+    return result;
+}
+
+/**
+ * Formats a non-negative integer of total inches into the canonical span format.
+ */
+export function formatSpan(inches: number): string {
+    if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) {
+        throw new Error('Invalid input');
+    }
+
+    let result = '';
+    const units = ['yd', 'ft', 'in'];
+
+    for (const unit of units) {
+        const factor = unit === 'yd' ? 36 : unit === 'ft' ? 12 : 1;
+        const value = Math.floor(inches / factor);
+        if (value > 0) {
+            result += `${value}${unit}`;
+            inches %= factor;
+        }
+    }
+
+    return result || '0in';
+}
+
+/**
+ * Adds two span strings and returns their sum in the canonical span format.
+ */
+export function addSpans(first: string, second: string): string {
+    if (typeof first !== 'string' || typeof second !== 'string') {
+        throw new Error('Invalid input');
+    }
+
+    const firstInches = parseSpan(first);
+    const secondInches = parseSpan(second);
+
+    return formatSpan(firstInches + secondInches);
+}
+```

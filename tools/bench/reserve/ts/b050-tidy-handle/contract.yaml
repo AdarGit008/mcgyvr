@@ -1,0 +1,29 @@
+id: b050-tidy-handle
+task_type: bug_fix
+task: >-
+  normalizeHandle turns a free-form display name into a canonical account
+  handle incorrectly. Fix it: leading and trailing whitespace is trimmed
+  and letters are lowercased, then every run of spaces, underscores and
+  hyphens, in any mix, becomes a single hyphen — at present each
+  separator becomes its own hyphen, so inner runs come out as several
+  hyphens in a row. Also add the validation the function never performs:
+  reject an argument that is not a string, and, after collapsing, reject
+  a handle that is empty, one holding any character other than a
+  lowercase letter, a digit or a hyphen, one that begins or ends with a
+  hyphen, and one shorter than 3 or longer than 20 characters; every
+  rejection is an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Canonical account handles from free-form display names. */
+
+  export function normalizeHandle(raw: string): string {
+    const handle = raw.trim().toLowerCase();
+    return handle.replace(/ /g, "-").replace(/_/g, "-");
+  }
+interface: "export function normalizeHandle(raw: string): string"
+stop_conditions:
+  - Whether a maximum length applies to the raw input before normalization is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,38 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    const parseTime = (time: string): [number, number] => {
+        const [hours, minutes] = time.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) throw new Error('Invalid time format');
+        return [hours, minutes];
+    };
+
+    const formatTime = ([hours, minutes]: [number, number]): string => 
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+    const [startSpan, endSpan] = span.split('-').map(parseTime);
+    if (startSpan[0] >= endSpan[0]) throw new Error('Invalid span format');
+
+    const freeSlots: string[] = [];
+    let currentEnd = startSpan;
+
+    for (const booking of booked.sort((a, b) => {
+        const [startA, endA] = a.split('-').map(parseTime);
+        const [startB, endB] = b.split('-').map(parseTime);
+        return startA[0] * 60 + startA[1] - (startB[0] * 60 + startB[1]);
+    })) {
+        const [startBooking, endBooking] = booking.split('-').map(parseTime);
+        if (currentEnd[0] < startBooking[0] || (currentEnd[0] === startBooking[0] && currentEnd[1] < startBooking[1])) {
+            freeSlots.push(formatTime(currentEnd) + '-' + formatTime(startBooking));
+        }
+        currentEnd = endBooking;
+    }
+
+    if (endSpan[0] > currentEnd[0] || (endSpan[0] === currentEnd[0] && endSpan[1] > currentEnd[1])) {
+        freeSlots.push(formatTime(currentEnd) + '-' + formatTime(endSpan));
+    } else if (freeSlots.length === 0) {
+        return 'none';
+    }
+
+    return freeSlots.join(', ');
+}
+```

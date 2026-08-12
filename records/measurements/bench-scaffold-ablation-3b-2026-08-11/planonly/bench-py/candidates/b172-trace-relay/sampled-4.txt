@@ -1,0 +1,27 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    
+    if start not in links or links[start] != "":
+        raise ValueError(f"start post '{start}' must be in links and hand off to the empty name")
+    
+    visited = set()
+    path = [start]
+    
+    while start != "":
+        next_post = links[start]
+        
+        if next_post == "" or next_post in visited:
+            raise ValueError("handoffs cannot come back to a post already visited")
+        
+        visited.add(start)
+        path.append(next_post)
+        
+        if not isinstance(next_post, str):
+            raise ValueError(f"next post '{next_post}' is not a valid string name")
+        
+        start = next_post
+    
+    return path
+```

@@ -1,0 +1,30 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if size <= 0 or fresh_for < 0:
+        raise ValueError("fresh_for and size must be positive integers.")
+    
+    cache = {}
+    
+    def add_to_cache(tick, name):
+        if len(cache) >= size:
+            key_to_remove = min(cache.keys())
+            del cache[key_to_remove]
+        
+        cache[tick] = name
+    
+    renders = []
+    
+    for tick, name in requests:
+        if tick < 0:
+            raise ValueError("tick cannot be negative.")
+        
+        if tick not in cache or tick + fresh_for <= cache[tick]:
+            # Fresh render
+            add_to_cache(tick, name)
+            renders.append([tick, name])
+        else:
+            # Use cached render
+            renders.append([tick, cache[tick]])
+    
+    return renders
+```

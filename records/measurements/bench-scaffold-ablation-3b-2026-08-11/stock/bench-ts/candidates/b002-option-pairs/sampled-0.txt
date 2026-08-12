@@ -1,0 +1,82 @@
+```ts
+export function parseOption(segment: string): [string, string] {
+  if (typeof segment !== 'string') throw new Error('invalid argument');
+  const eq = segment.indexOf('='); // Find the index of the equals sign
+  if (eq === -1) { // No equals sign found
+    throw new Error("malformed option segment: " + segment); // Invalid format
+  }
+  const key = segment.slice(0, eq); // Extract the key
+  const valueStart = eq + 1; // Start of the value
+
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment); // Invalid key
+  }
+
+  let rawValue = segment.slice(valueStart);
+  const isQuoted = rawValue.startsWith('"') && rawValue.endsWith('"');
+
+  if (isQuoted) {
+    rawValue = rawValue.slice(1, -1).trim(); // Trim and remove quotes
+  } else {
+    while (rawValue.length > 0 && /[^a-zA-Z0-9_]/.test(rawValue[0])) {
+      rawValue = rawValue.slice(1);
+    }
+    while (rawValue.length > 0 && /[^a-zA-Z0-9_]/.test(rawValue[rawValue.length - 1])) {
+      rawValue = rawValue.slice(0, -1);
+    }
+  }
+
+  return [key, rawValue];
+}
+
+export function scanPairs(input: string): [string, string][] {
+  if (typeof input !== 'string') throw new Error('invalid argument');
+  const result: [string, string][] = [];
+  let currentKey: string | null = null;
+  let currentBuffer = '';
+  let state = 'key'; // key or value
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === ';') {
+      if (state === 'value' && currentKey !== null) {
+        result.push([currentKey, currentBuffer]);
+        currentKey = null;
+        state = 'key';
+      }
+      continue;
+    }
+
+    if (input[i] === '"') {
+      if (state === 'key' && currentKey !== null) {
+        currentBuffer += input[i];
+        continue;
+      }
+    }
+
+    if (state === 'key') {
+      if (/[^a-zA-Z0-9_]/.test(input[i])) {
+        throw new Error("malformed option segment: " + input); // Invalid key
+      }
+      currentBuffer += input[i];
+    } else if (state === 'value') {
+      currentBuffer += input[i];
+    }
+
+    if (input[i] === '"') {
+      state = 'key';
+      currentKey = currentBuffer;
+      currentBuffer = '';
+    } else if (currentBuffer.length > 0 && input[i].match(/[^a-zA-Z0-9_]/)) {
+      throw new Error("invalid quoted value: " + input); // Unterminated quote
+    }
+  }
+
+  if (state === 'key' || (state === 'value' && currentKey !== null)) {
+    result.push([currentKey, currentBuffer]);
+  } else if (currentKey !== null) {
+    throw new Error("repeated key: " + input); // Repeated key
+  }
+
+  return result;
+}
+```

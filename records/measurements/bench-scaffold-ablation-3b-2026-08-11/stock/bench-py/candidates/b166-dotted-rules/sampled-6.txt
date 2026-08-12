@@ -1,0 +1,36 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    # Function to check if a selector matches the provided name
+    def is_selector_match(selector: str, candidate_name: str) -> bool:
+        return selector.startswith(candidate_name)
+    
+    # Handle the special case of an empty rules dictionary
+    if not rules:
+        return None
+    
+    # Initialize variables to track the best match and its value
+    best_match = None
+    best_value = None
+    
+    # Iterate over all selectors in the rules
+    for selector, value in rules.items():
+        # Ensure the rule value is a string
+        if not isinstance(value, str):
+            raise ValueError(f"rule value '{value}' must be a string")
+        
+        # Check if the selector matches the name exactly
+        if is_selector_match(selector, name):
+            return value
+        
+        # Check if the selector is a prefix wildcard and matches the name
+        elif selector.endswith(".*") and is_selector_match(selector[:-2], name):
+            if best_value is None or len(selector) > len(best_match):
+                best_match = selector
+                best_value = value
+    
+    # If none of the selectors matched, return the lone star rule
+    return rules.get('*', default=None)
+```

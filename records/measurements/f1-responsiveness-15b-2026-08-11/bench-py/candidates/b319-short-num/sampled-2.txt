@@ -1,0 +1,27 @@
+```python
+def short_num(value: int) -> str:
+    """
+    Shorten a number to its most appropriate form: below a thousand is written as it stands,
+    a thousand or more takes 'k', and a million or more takes 'm'.
+    The shortened number keeps one decimal place, rounded down.
+    
+    :param value: int
+    :return: str
+    """
+    if not isinstance(value, int):
+        raise ValueError("Input must be an integer")
+    if value < 0:
+        raise ValueError("Value cannot be negative")
+    
+    # Handle single-digit numbers directly
+    if value < 10:
+        return str(value)
+    
+    # Handle thousands and above
+    elif value < 1000:
+        return f"{value}k"
+    
+    # Handle millions and above
+    else:
+        return f"{value}m"
+```

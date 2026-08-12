@@ -1,0 +1,22 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const key in store) {
+    if (!result[store[key]]) {
+      result[store[key]] = 1;
+    } else {
+      result[store[key]]++;
+    }
+  }
+  return result;
+}
+
+// Test cases
+assert.deepStrictEqual(valueKeys({}), {});
+assert.deepStrictEqual(valueKeys({'apple': 'fruit', 'banana': 'fruit', 'cherry': 'fruit'}), {'fruit': 3});
+assert.deepStrictEqual(valueKeys({'empty': '', 'null': null, 'undefined': undefined}), {'' : 1, null: 1, undefined: 1 });
+assert.deepStrictEqual(valueKeys({0: 'zero', 1: 'one', -1: '-one', Infinity: 'infinity'}), {'zero': 1, 'one': 1, '-one': 1, 'infinity': 1});
+assert.deepStrictEqual(valueKeys({'a': 'b', 'b': 'c', 'c': 'd'}), { 'b': 2, 'c': 2, 'd': 1 });
+```

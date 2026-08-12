@@ -1,0 +1,16 @@
+```ts
+/**
+ * Checks if all readings in the provided array fall within the specified range [low, high].
+ * If any reading is outside this range, returns false; otherwise, true.
+ * 
+ * @param readings - An array of numbers representing the readings to be checked.
+ * @param low - The lower bound of the acceptable range.
+ * @param high - The upper bound of the acceptable range.
+ * @returns True if all readings are within the range, false otherwise.
+ */
+export function rangeCheck(readings: number[], low: number, high: number): boolean {
+    if (low > high) throw new Error("Range cannot be negative");
+    
+    return readings.every(reading => reading >= low && reading <= high);
+}
+```

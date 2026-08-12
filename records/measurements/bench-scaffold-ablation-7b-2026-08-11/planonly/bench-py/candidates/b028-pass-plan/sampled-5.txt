@@ -1,0 +1,37 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or all(not isinstance(day, int) or day <= 0 for day in trip_days):
+        raise ValueError("Trip days must be positive integers and strictly increasing")
+    if not passes or any(not isinstance(p, dict) or 'span' not in p or 'cost' not in p for p in passes):
+        raise ValueError("Passes must be non-empty list of dictionaries with 'span' and 'cost'")
+    if any(not isinstance(p['span'], int) or p['span'] <= 0 for p in passes):
+        raise ValueError("Span must be a positive integer")
+    if any(not isinstance(p['cost'], (int, float)) or p['cost'] < 0 for p in passes):
+        raise ValueError("Cost must be a non-negative number")
+
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    last_purchase = [-1] * (n + 1)
+
+    for i in range(n):
+        for pass_kind in passes:
+            span = pass_kind['span']
+            cost = pass_kind['cost']
+            if i + span <= n:
+                if dp[i] + cost < dp[i + span]:
+                    dp[i + span] = dp[i] + cost
+                    last_purchase[i + span] = (trip_days[i], span)
+
+    if dp[n] == float('inf'):
+        raise ValueError("No valid pass plan found to cover all trip days")
+
+    purchases = []
+    i = n
+    while i > 0:
+        start, span = last_purchase[i]
+        purchases.append([start, span])
+        i -= span
+
+    return {'total': dp[n], 'purchases': purchases[::-1]}
+```

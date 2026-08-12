@@ -1,0 +1,15 @@
+id: b283-dupe-keys
+task_type: function_implementation
+task: >-
+  Implement dupeKeys. Given a list of record identifiers, return those
+  that appear more than once, each reported a single time and in the
+  order of its first appearance. Identifiers seen only once are left
+  out, and a list with no repeats gives an empty result.
+target: solution.ts
+interface: "export function dupeKeys(ids: string[]): string[]"
+stop_conditions:
+  - Whether identifiers differing only in case should count as the same one is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

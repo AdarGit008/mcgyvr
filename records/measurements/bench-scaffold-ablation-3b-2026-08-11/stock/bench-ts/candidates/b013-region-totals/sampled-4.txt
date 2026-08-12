@@ -1,0 +1,64 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (
+    !Array.isArray(grid) ||
+    grid.length === 0 ||
+    !grid.every(row => Array.isArray(row))
+  ) {
+    throw new Error("grid must be a non-empty list of rows");
+  }
+  const width = grid[0].length;
+  if (width === 0) {
+    throw new Error("rows must be non-empty lists");
+  }
+  for (const row of grid) {
+    if (!Array.isArray(row) || row.length !== width) {
+      throw new Error("rows must all share one length");
+    }
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("cells must be integers");
+      }
+    }
+  }
+
+  const prefixSumTable: number[][] = [];
+  for (let y = 0; y < grid.length; y++) {
+    const row: number[] = [];
+    let sum = 0;
+    for (let x = 0; x < width; x++) {
+      sum += grid[y][x];
+      row.push(sum);
+    }
+    prefixSumTable.push(row);
+  }
+
+  return queries.map(([top, left, bottom, right]) => {
+    if (
+      !Array.isArray([top, left, bottom, right]) ||
+      [top, left, bottom, right].length !== 4
+    ) {
+      throw new Error("queries must be lists of exactly four integers");
+    }
+    const [t, l, b, r] = [top, left, bottom, right];
+    if (t >= b || l >= r) {
+      throw new Error("query top must be strictly less than its bottom and left must be strictly less than its right");
+    }
+    if (
+      t < 0 ||
+      l < 0 ||
+      b > grid.length ||
+      r > width
+    ) {
+      throw new Error("queries must not reach outside the grid");
+    }
+
+    const blockSum = (prefixSumTable[b - 1][r] -
+                        prefixSumTable[t][r] +
+                        prefixSumTable[b - 1][l] -
+                        prefixSumTable[t][l]);
+
+    return blockSum;
+  });
+}
+```

@@ -1,0 +1,41 @@
+```ts
+export function inQuote(ch: string): boolean {
+  // Check if the character is a quotation mark
+  return ch === '"';
+}
+
+export function quoteSplit(line: string): string[] {
+  // Split the line on commas, except for commas inside quotes
+  let result = [];
+  let quoted = false;
+  let current = '';
+
+  for (const char of line) {
+    if (quoted) {
+      // If we are inside a quotation mark, add the character to the current piece
+      current += char;
+      if (char === '"') {
+        // If we see another quotation mark outside a pair, close the quote and add it to the result
+        quoted = false;
+        current += '"';
+        result.push(current);
+        current = '';
+      }
+    } else {
+      // If we are not inside a quotation mark, add the character to the current piece if it's not a comma
+      if (char !== ',') {
+        current += char;
+      } else {
+        // Add the current piece to the result and start a new one
+        result.push(current);
+        current = '';
+      }
+    }
+  }
+
+  // Add any remaining characters in the current piece to the result
+  result.push(current);
+
+  return result;
+}
+```

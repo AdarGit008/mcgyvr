@@ -1,0 +1,45 @@
+```ts
+export function mergeSettings(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): Record<string, string> {
+  if (typeof base !== 'object' || typeof ours !== 'object' || typeof theirs !== 'object') {
+    throw new Error('All inputs must be objects.');
+  }
+
+  const merged: Record<string, string> = {};
+
+  for (const key in base) {
+    if (!base.hasOwnProperty(key)) continue;
+    if (typeof base[key] !== 'string') {
+      throw new Error(`Base value for key "${key}" is not a string.`);
+    }
+    merged[key] = base[key];
+  }
+
+  for (const key in ours) {
+    if (!ours.hasOwnProperty(key)) continue;
+    if (typeof ours[key] !== 'string') {
+      throw new Error(`Ours value for key "${key}" is not a string.`);
+    }
+    const theirsValue = theirs[key];
+    if (theirsValue === undefined || theirsValue === null) {
+      merged[key] = ours[key];
+    } else if (base[key] !== theirsValue) {
+      throw new Error(`Conflict: Key "${key}" has different values in base and ours.`);
+    }
+  }
+
+  for (const key in theirs) {
+    if (!theirs.hasOwnProperty(key)) continue;
+    if (typeof theirs[key] !== 'string') {
+      throw new Error(`Theirs value for key "${key}" is not a string.`);
+    }
+    const baseValue = base[key];
+    if (baseValue === undefined || baseValue === null) {
+      merged[key] = theirs[key];
+    } else if (baseValue !== theirs[key]) {
+      throw new Error(`Conflict: Key "${key}" has different values in base and theirs.`);
+    }
+  }
+
+  return merged;
+}
+```

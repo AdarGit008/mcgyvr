@@ -1,0 +1,33 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> int:
+        hour, minute = map(int, time_str.split(':'))
+        return hour * 60 + minute
+
+    def to_time_string(minutes: int) -> str:
+        hours = minutes // 60
+        minutes %= 60
+        return f"{hours:02}:{minutes:02}"
+
+    if len(span.split('-')) != 2 or any(time_str.count(':') != 2 for time_str in span.split('-')):
+        raise ValueError("Invalid span format. Must be 'HH:MM-HH:MM'.")
+
+    start_time, end_time = map(parse_time, span.split('-'))
+    booked_times = sorted(map(parse_time, booked))
+
+    free_stretches = []
+    i = 0
+
+    for time in range(start_time, end_time + 1):
+        if i < len(booked_times) and time == booked_times[i]:
+            i += 1
+        else:
+            free_stretches.append(time)
+
+    if not free_stretches or (free_stretches[0] == start_time and free_stretches[-1] == end_time):
+        return "none"
+    else:
+        return ', '.join(to_time_string(free) for free in free_stretches)
+```
+
+This implementation defines `open_windows` that calculates the open windows of a clinic's day based on the provided span and booked appointments. It includes helper functions to parse and format times, validate the input, and iterate through the time slots to determine free stretches.

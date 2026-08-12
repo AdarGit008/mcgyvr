@@ -1,0 +1,24 @@
+```ts
+type Tally = { first: number; second: number; taken: number[] };
+
+export function endGrab(cards: number[]): Tally {
+  if (cards.length === 0) return { first: 0, second: 0, taken: [] };
+  if (cards.length === 1) return { first: cards[0], second: 0, taken: [cards[0]] };
+
+  let first = cards[0];
+  let second = cards[cards.length - 1];
+  const taken: number[] = [];
+
+  while (cards.length > 1) {
+    if (first === second) {
+      taken.push(first);
+      first = cards.shift()!;
+    } else {
+      taken.push(second);
+      second = cards.pop()!;
+    }
+  }
+
+  return { first, second, taken };
+}
+```

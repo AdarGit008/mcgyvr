@@ -1,0 +1,15 @@
+id: b337-char-swap
+task_type: function_implementation
+task: >-
+  Implement swap_pair and swap_all. swap_pair returns two characters
+  in the other order. swap_all walks a text in twos and swaps each
+  pair it finds, leaving a final odd character exactly where it is.
+target: solution.py
+interface: "def swap_pair(first: str, second: str) -> str
+def swap_all(text: str) -> str"
+stop_conditions:
+  - Whether a space should be swapped like any other character is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

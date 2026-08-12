@@ -1,0 +1,16 @@
+```python
+def word_reverse(line: str) -> str:
+    result = []
+    word = ''
+    for char in line:
+        if char != ' ' and char.isalpha():
+            word += char
+        elif char == ' ' or not word:
+            if word:
+                result.append(word[::-1])
+            word = ''
+    # Append the last word if it's not already added
+    if word:
+        result.append(word[::-1])
+    return ' '.join(result)
+```

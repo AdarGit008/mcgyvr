@@ -1,0 +1,21 @@
+id: b191-match-station
+task_type: function_implementation
+task: >-
+  Implement match_station. A dispatcher types a fragment and the radio log
+  resolves it against the station names on file, comparing throughout while
+  ignoring letter case. A name that equals the fragment beats a name that
+  merely begins with it, and a name that begins with the fragment beats a
+  name that only holds it somewhere inside; a name that does not hold the
+  fragment at all is no candidate. Among the candidates of the winning kind
+  the shorter name wins, and between two of equal length the one earlier in
+  alphabetical order wins. Return the winning name spelled as it stands on
+  file, or a null result when no name holds the fragment. Reject an empty
+  fragment with an error.
+target: solution.py
+interface: "def match_station(names: list, fragment: str) -> str"
+stop_conditions:
+  - How two names that differ only in letter case rank against each other is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

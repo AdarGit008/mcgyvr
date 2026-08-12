@@ -1,0 +1,13 @@
+```ts
+export function setMinus(entries: string[], remove: string[]): string[] {
+  // Convert input strings to case-insensitive sets for easy comparison
+  const entriesSet = new Set(entries.map(entry => entry.toLowerCase()));
+  const removeSet = new Set(remove.map(entry => entry.toLowerCase()));
+
+  // Initialize the result set with elements from entries that are not in remove
+  const resultSet = new Set(entriesSet.filter(entry => !removeSet.has(entry)));
+
+  // Convert the result set back to an array and return it
+  return Array.from(resultSet);
+}
+```

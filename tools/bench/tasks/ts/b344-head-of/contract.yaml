@@ -1,0 +1,23 @@
+id: b344-head-of
+task_type: bug_fix
+task: >-
+  headOf returns the first few entries of a list and it returns the
+  last few instead. Fix it. Asking for more entries than the list
+  holds returns all of them, and asking for none returns nothing.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The first few entries of a list. */
+  export function headOf(entries: string[], count: number): string[] {
+    if (count <= 0) {
+      return [];
+    }
+    return entries.slice(-count);
+  }
+interface: "export function headOf(entries: string[], count: number): string[]"
+stop_conditions:
+  - Whether a count below zero should be treated as none is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

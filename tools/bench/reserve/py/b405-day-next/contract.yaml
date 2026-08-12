@@ -1,0 +1,15 @@
+id: b405-day-next
+task_type: function_implementation
+task: >-
+  Implement day_next. The days of the week are numbered zero to six.
+  Given today's number and the number of the day wanted, return how
+  many days away that day is, counting a whole week ahead when the day
+  wanted is today itself.
+target: solution.py
+interface: "def day_next(today: int, wanted: int) -> int"
+stop_conditions:
+  - Whether a day number outside zero to six should be brought within the week first is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

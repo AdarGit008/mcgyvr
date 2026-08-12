@@ -1,0 +1,21 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+  const seen = new Set<string>();
+  while (unit !== base) {
+    if (seen.has(unit)) {
+      throw new Error("loop detected in definition chain");
+    }
+    seen.add(unit);
+    const [factor, finer] = defs[unit];
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("invalid factor in definition");
+    }
+    amount *= factor;
+    unit = finer;
+  }
+  return amount;
+}
+```

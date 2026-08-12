@@ -1,0 +1,33 @@
+```python
+from typing import Dict
+
+def trace_relay(links: Dict[str, str], start: str) -> list:
+    """Walks through handoffs from 'start' to the empty string, checking for invalid links and circular paths."""
+    
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary.")
+    if start not in links:
+        raise ValueError(f"Start post '{start}' is not in the links dictionary.")
+    if links.get(start) == "":  # Start at the end post
+        return [""]
+    
+    visited = set()
+    handoffs = []
+    
+    current_post = start
+    
+    while current_post != "":
+        if current_post in visited:
+            raise ValueError("The watch comes back to a post already visited.")
+        
+        visited.add(current_post)
+        handoffs.append(current_post)
+        
+        next_post = links.get(current_post)
+        if next_post is None or not isinstance(next_post, str):
+            raise ValueError(f"Handoff from '{current_post}' is invalid.")
+        
+        current_post = next_post
+    
+    return handoffs
+```

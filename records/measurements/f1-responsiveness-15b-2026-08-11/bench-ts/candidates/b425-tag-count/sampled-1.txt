@@ -1,0 +1,31 @@
+```ts
+export function tagCount(line: string): number {
+  if (!line) throw new Error("Line cannot be empty");
+  
+  let count = 0;
+  let depth = 0;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '<') {
+      depth++;
+      if (depth > 1) continue; // Skip nested markers
+    }
+    
+    if (char === '>') {
+      depth--;
+    }
+    
+    if (depth === 0 && count > 0) {
+      return count; // Complete a marker
+    }
+    
+    if (depth === 0 && char !== '<') {
+      count++; // Found a new marker
+    }
+  }
+  
+  throw new Error("Unmatched closing bracket found");
+}
+```

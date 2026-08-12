@@ -1,0 +1,33 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def _explode(kit_name: str, needed: int) -> dict:
+        if kit_name not in catalog:
+            raise ValueError(f"kit '{kit_name}' is not defined in the catalog")
+        
+        recipe = catalog[kit_name]
+        makes = recipe["makes"]
+        parts = recipe["parts"]
+        
+        runs_needed = -(-needed // makes)  # Ceiling division
+        consumed_parts = {part: count * runs_needed for part, count in parts}
+        
+        return consumed_parts
+    
+    total_consumed = {}
+    stack = [(kit, want)]
+    
+    while stack:
+        current_kit, quantity = stack.pop()
+        consumed = _explode(current_kit, quantity)
+        
+        for part, part_quantity in consumed.items():
+            if part in catalog:
+                stack.append((part, part_quantity))
+            else:
+                total_consumed[part] = total_consumed.get(part, 0) + part_quantity
+    
+    return total_consumed
+```

@@ -1,0 +1,31 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """
+    Apply command-line overrides to a flat mapping of setting names to string values.
+
+    :param base: A flat mapping of setting names to strings.
+    :param overrides: A list of strings where each override is 'setting_name=value'.
+    :return: A new dictionary with overridden settings, leaving the original base unchanged.
+    """
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+
+    result = base.copy()
+
+    for override in overrides:
+        equals_index = override.find('=')
+        if equals_index == -1 or equals_index == 0 or equals_index == len(override) - 1:
+            raise ValueError("Override must contain exactly one '=' character.")
+        
+        setting_name, value = override[0:equals_index], override[equals_index+1:]
+        
+        if not (setting_name and isinstance(setting_name, str)):
+            raise ValueError("Setting name must be a non-empty string.")
+
+        if setting_name not in base:
+            raise ValueError(f"Base does not contain the setting '{setting_name}'.")
+
+        result[setting_name] = value
+
+    return result
+```

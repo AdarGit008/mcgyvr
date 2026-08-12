@@ -1,0 +1,24 @@
+```ts
+export function pluralOf(noun: string): string {
+  if (typeof noun !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+
+  const vowels = ['a', 'e', 'i', 'o', 'u'];
+  const lastCharLowerCase = noun.slice(-1).toLowerCase();
+
+  if (vowels.includes(lastCharLowerCase)) {
+    return noun + 'es';
+  } else if (lastCharLowerCase === 's') {
+    return noun;
+  } else if (lastCharLowerCase === 'x' || lastCharLowerCase === 'ch' || lastCharLowerCase === 'sh') {
+    return noun + 'es';
+  } else if (lastCharLowerCase === 'y') {
+    if (noun.length > 1 || !vowels.includes(noun.slice(-2))) {
+      return noun + 'ies';
+    }
+  }
+
+  return noun + 's';
+}
+```

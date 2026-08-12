@@ -1,0 +1,27 @@
+```ts
+
+export function hourRate(rate: number): number {
+  return rate;
+}
+
+/** Pay for a week, with overtime beyond forty hours. */
+export function weekPay(hours: number, rate: number): number {
+  if (hours > 40) {
+    const regularHours = Math.min(40, hours);
+    const excessHours = Math.max(0, hours - 40);
+
+    // First 40 hours are paid at the standard rate
+    let weeklyPay = regularHours * hourRate(rate);
+
+    // Overtime beyond 40 hours is paid at half the standard rate
+    // but only up to twice the regular rate (72 hours), after which it's double
+    const overtimeMax = Math.min(72, excessHours);
+    const overtime = Math.max(0, excessHours - 72);
+
+    weeklyPay += overtime * hourRate(rate) / 2;
+
+    // Ensure weekly pay is rounded down
+    return Math.floor(weeklyPay);
+  }
+}
+```

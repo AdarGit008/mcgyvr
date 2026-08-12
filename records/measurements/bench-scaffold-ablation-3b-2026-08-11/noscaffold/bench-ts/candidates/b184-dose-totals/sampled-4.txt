@@ -1,0 +1,31 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals = new Map<string, number>();
+
+  for (const [reagent, amount] of log) {
+    if (!isValidAmount(amount)) throw new Error('Invalid amount format');
+
+    const amountNum = parseFloat(amount);
+    const roundedAmount = Math.round(amountNum * 1000);
+
+    const currentTotal = totals.get(reagent) || 0;
+    totals.set(reagent, currentTotal + roundedAmount);
+  }
+
+  return Object.fromEntries(totals.entries().map(([reagent, total]) => {
+    if (total === 0) return [reagent, ''];
+    const sign = total < 0 ? '-' : '';
+    let numStr = Math.abs(total).toString();
+    if (!numStr.includes('.')) numStr += '.0';
+    while (numStr.length > 4 && numStr.endsWith('0')) {
+      numStr = numStr.slice(0, -1);
+    }
+    return [reagent, sign + numStr];
+  }));
+}
+
+function isValidAmount(amount: string): boolean {
+  const regex = /^-?\d+(\.\d{1,3})?$/;
+  return regex.test(amount) && (amount === '0' || amount[amount.length - 1] !== '.');
+}
+```

@@ -1,0 +1,10 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    # Create a set from the remove list for faster lookup time
+    remove_set = set(remove)
+    
+    # Use list comprehension to filter out entries that are in both lists
+    result = [entry for entry in entries if entry not in remove_set]
+    
+    return result
+```

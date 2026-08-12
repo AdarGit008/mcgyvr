@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def oxford_join(names: List[str]) -> str:
+    if not names:
+        return ""
+
+    result = []
+    for i, name in enumerate(names):
+        if i == 0 and len(names) == 1:
+            result.append(name)
+        elif i < len(names) - 2:
+            result.append(f"{name} and")
+        else:
+            result.append(f"{name}")
+
+    return "; ".join(result)
+```

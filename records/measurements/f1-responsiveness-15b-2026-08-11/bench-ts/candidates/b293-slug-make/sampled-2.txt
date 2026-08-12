@@ -1,0 +1,9 @@
+```ts
+function slugWord(word: string): string {
+  return word.replace(/[^a-zA-Z0-9]/g, '');
+}
+
+function slugMake(phrase: string): string {
+  return phrase.split(' ').map(slugWord).filter(Boolean).join('-');
+}
+```

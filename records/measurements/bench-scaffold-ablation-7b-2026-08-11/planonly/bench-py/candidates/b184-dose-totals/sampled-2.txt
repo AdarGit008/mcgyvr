@@ -1,0 +1,22 @@
+```python
+from collections import defaultdict
+
+def dose_totals(log: list) -> dict:
+    totals = defaultdict(float)
+    
+    for reagent, amount_str in log:
+        if not re.match(r'^[+-]?\d+(\.\d{1,3})?$', amount_str):
+            raise ValueError("Invalid amount format")
+        
+        amount = float(amount_str)
+        totals[reagent] += amount
+    
+    result = {}
+    for reagent, total in totals.items():
+        if total.is_integer():
+            result[reagent] = f"{int(total)}"
+        else:
+            result[reagent] = f"{total:.3f}".rstrip('0').rstrip('.')
+    
+    return result
+```

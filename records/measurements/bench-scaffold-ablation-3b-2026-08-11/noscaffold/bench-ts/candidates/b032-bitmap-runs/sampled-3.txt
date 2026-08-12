@@ -1,0 +1,85 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Array.isArray(words) || !Number.isInteger(bits) || !Number.isInteger(length)) {
+    throw new Error("Invalid input types.");
+  }
+  if (words.some(word => word < 0 || word > 4294967295)) {
+    throw new Error("Bitmap words must be integers from 0 to 4294967295.");
+  }
+  const totalBits = words.length * 32;
+  if (bits !== totalBits) {
+    throw new Error("The number of bits does not match the capacity.");
+  }
+  if (length <= 0 || length > 4294967295) {
+    throw new Error("Run length must be a positive integer.");
+  }
+
+  const wordIndex = Math.floor(length / 32);
+  const bitInWord = length % 32;
+
+  for (let i = wordIndex; i < words.length; i++) {
+    if ((words[i] & ((1 << bitInWord) - 1)) === 0) {
+      // Find the first free run starting at this word
+      let consecutiveFreeBits = bitInWord;
+      while (consecutiveFreeBits < 32 && (words[i] >> (consecutiveFreeBits + 1)) % 2 === 0) {
+        consecutiveFreeBits++;
+      }
+      if (consecutiveFreeBits >= length) {
+        return i * 32 + bitInWord;
+      }
+    } else {
+      // If the current word is occupied, reset consecutive free bits
+      consecutiveFreeBits = 0;
+    }
+  }
+
+  return -1; // No free run found below the capacity
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Array.isArray(words) || !Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error("Invalid input types.");
+  }
+  if (words.some(word => word < 0 || word > 4294967295)) {
+    throw new Error("Bitmap words must be integers from 0 to 4294967295.");
+  }
+  const totalBits = words.length * 32;
+  if (start >= totalBits) {
+    throw new Error("Start index is out of bounds.");
+  }
+  if (length <= 0 || length > 4294967295) {
+    throw new Error("Run length must be a positive integer.");
+  }
+
+  const end = start + length;
+
+  for (let i = Math.floor(start / 32); i < Math.ceil(end / 32); i++) {
+    const bitInWord = start % 32;
+    const wordMask = ((1 << length) - 1) << bitInWord;
+    words[i] |= wordMask;
+
+    if (i === Math.floor(end / 32)) {
+      // Ensure the last word does not exceed capacity
+      words[i] &= ~(0xFFFFFFFF << (end % 32));
+    }
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Array.isArray(words) || !Number.isInteger(index)) {
+    throw new Error("Invalid input types.");
+  }
+  if (words.some(word => word < 0 || word > 4294967295)) {
+    throw new Error("Bitmap words must be integers from 0 to 4294967295.");
+  }
+
+  const wordIndex = Math.floor(index / 32);
+  if (wordIndex >= words.length) {
+    throw new Error("Index is out of bounds.");
+  }
+  const bitInWord = index % 32;
+  return (words[wordIndex] >> bitInWord) & 1;
+}
+```

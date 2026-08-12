@@ -1,0 +1,37 @@
+id: b092-query-terms
+task_type: function_implementation
+task: >-
+  Implement tokenizeQuery; the argument check at the top is already
+  written. A search-box query is a run of terms separated by one or more
+  spaces. A term opening with a double quote is a phrase: it runs to the
+  next double quote, may hold spaces, and must not be empty. A term
+  opening with + is a required word and one opening with - is an excluded
+  word: the characters after the sign, up to the next space or the end of
+  the query, form the word, and there must be at least one. Every other
+  term is a plain word running to the next space or the end. Return the
+  terms in order as [kind, text] pairs, where kind is phrase, must, not
+  or word, and text carries neither the quotes nor the sign. Reject a
+  non-string argument, a query that is empty or all spaces, a phrase
+  missing its closing quote, an empty phrase, and a + or - with no word
+  after it, with an error.
+target: solution.ts
+target_content: |
+  const SIGN_KINDS: Record<string, string> = { "+": "must", "-": "not" };
+
+  export function tokenizeQuery(input: string): string[][] {
+    if (typeof input !== "string" || input.trim() === "") {
+      throw new Error("tokenizeQuery expects a non-empty query");
+    }
+    const pairs: string[][] = [];
+    // TODO: walk the query character by character; lift each quoted
+    // phrase out whole, read the + and - signs, collect plain words, and
+    // reject an unterminated phrase, an empty phrase and a dangling sign.
+    throw new Error("not implemented");
+  }
+interface: "export function tokenizeQuery(input: string): string[][]"
+stop_conditions:
+  - How a double quote after the first character of a term is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

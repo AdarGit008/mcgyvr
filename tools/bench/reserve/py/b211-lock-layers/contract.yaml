@@ -1,0 +1,21 @@
+id: b211-lock-layers
+task_type: function_implementation
+task: >-
+  Implement resolve_layers. A tool's settings are folded from ordered
+  layers, lowest precedence first. Each layer carries three parts: set, a
+  mapping of setting names to the string values it assigns; drop, a list
+  of names it removes; and lock, a list of names it freezes. Fold the
+  layers in order, and inside one layer apply its assignments first, then
+  its removals, and only then bring its locks into force. A frozen name is
+  settled for good: once some layer has locked it, no later layer's
+  assignment or removal reaches it, and a name locked before it was ever
+  assigned simply stays absent. Return the mapping of names to their
+  settled values.
+target: solution.py
+interface: "def resolve_layers(layers: list[dict]) -> dict[str, str]"
+stop_conditions:
+  - Whether one layer may name the same setting in both its assignments and its removals is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

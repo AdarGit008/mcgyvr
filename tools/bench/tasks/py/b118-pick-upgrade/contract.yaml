@@ -1,0 +1,54 @@
+id: b118-pick-upgrade
+task_type: bug_fix
+task: >-
+  pick_upgrade chooses the wrong firmware build to install. A build is
+  decimal numbers joined by dots, "2.14" or "2.14.3", no leading zeros;
+  builds compare numerically position by position with a missing
+  position counting as zero, so "2.10" is newer than "2.9.9" and "2.3"
+  names the same build as "2.3.0". The helper compare_builds implements
+  that comparison correctly and must not change. pick_upgrade takes the
+  installed build and the offered builds and must return the newest
+  offer that keeps the installed build's leading number and is strictly
+  newer than what is installed, or None when no offer qualifies. Today
+  it returns the last qualifying offer instead of the newest, it treats
+  the installed build itself as an upgrade, and it checks nothing, so a
+  malformed offer such as "1.x" or "01.2" can slip through. Fix the
+  selection and add the missing validation: reject an installed build or
+  an offer that is not a string or not of the dotted form above, and an
+  offers argument that is not a list, with an error. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  """Firmware build selection within an installed release line."""
+
+
+  def compare_builds(a, b):
+      left = [int(part) for part in a.split(".")]
+      right = [int(part) for part in b.split(".")]
+      for i in range(max(len(left), len(right))):
+          x = left[i] if i < len(left) else 0
+          y = right[i] if i < len(right) else 0
+          if x > y:
+              return 1
+          if x < y:
+              return -1
+      return 0
+
+
+  def pick_upgrade(installed, offers):
+      best = None
+      for offer in offers:
+          if offer.split(".")[0] != installed.split(".")[0]:
+              continue
+          if compare_builds(offer, installed) >= 0:
+              best = offer
+      return best
+interface: |-
+  def pick_upgrade(installed: str, offers: list) -> str | None
+  def compare_builds(a: str, b: str) -> int
+stop_conditions:
+  - Which of two distinct offers naming the same build at different depths is returned is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

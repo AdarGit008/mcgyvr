@@ -1,0 +1,12 @@
+```python
+def swap_case(text: str) -> str:
+    """Text with the case of every letter turned over."""
+    return ''.join(char.lower() if char.isupper() else char.upper() for char in text)
+```
+
+Explanation:
+- The function `swap_case` now iterates through each character in the input string `text`.
+- For each character, it checks if it is uppercase using `char.isupper()`.
+- If it is uppercase, it converts it to lowercase using `char.lower()` and appends it to the result.
+- If it is not uppercase (i.e., it is lowercase or a digit), it leaves it unchanged and appends it to the result.
+- Finally, it joins all the characters in the result list into a single string and returns it.

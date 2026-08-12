@@ -1,0 +1,38 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("marker must be a single character")
+    
+    buffer = "".join(chunks)
+    frames = []
+    pending = []
+    frame_start = None
+    doubled_marker_found = False
+
+    for i, char in enumerate(buffer):
+        if char == marker:
+            if doubled_marker_found:
+                # This is the second occurrence of a doubled marker, which ends the current frame
+                frames.append("".join(pending))
+                pending.clear()
+                doubled_marker_found = False
+            else:
+                # This is a lone marker that ends the current frame
+                if frame_start is not None:
+                    frames.append(buffer[frame_start:i])
+                frame_start = i + 1
+        elif char == marker and frame_start is not None:
+            # Found a doubled marker within an existing frame
+            doubled_marker_found = True
+            pending.append(marker)
+        else:
+            # Collect characters for the current frame or pending text
+            if frame_start is not None:
+                pending.append(char)
+
+    # If there's remaining pending text after the last frame, add it
+    if pending:
+        frames.append("".join(pending))
+
+    return {"frames": frames, "pending": buffer[frame_start:] if frame_start is not None else ""}
+```

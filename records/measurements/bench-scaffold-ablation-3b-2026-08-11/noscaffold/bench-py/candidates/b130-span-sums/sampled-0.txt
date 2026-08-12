@@ -1,0 +1,79 @@
+```python
+def parse_span(text: str) -> int:
+    """Parse a span text into total inches."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    # Split the input by spaces and strip whitespace
+    parts = [part.strip() for part in text.split()]
+    if len(parts) != 3:
+        raise ValueError("Span must contain exactly three parts: yards, feet, inches.")
+    
+    # Define conversion factors
+    yard_to_inches = 36
+    foot_to_inches = 12
+    
+    # Parse each part and validate the units
+    parsed_parts = []
+    for part in parts:
+        if not part.isdigit():
+            raise ValueError("Invalid value: contains non-numeric characters.")
+        
+        try:
+            value = int(part)
+        except ValueError as e:
+            raise ValueError(f"Invalid value: {e}")
+        
+        unit = parts[parts.index(part) + 1]
+        if unit not in ['yd', 'ft', 'in']:
+            raise ValueError(f"Unknown unit: {unit}.")
+        
+        parsed_parts.append((value, unit))
+    
+    # Convert to total inches
+    total_inches = 0
+    for value, unit in parsed_parts:
+        if unit == 'yd':
+            total_inches += value * yard_to_inches
+        elif unit == 'ft':
+            total_inches += value * foot_to_inches
+        elif unit == 'in':
+            total_inches += value
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """Render a non-negative integer of total inches canonically."""
+    if not isinstance(inches, int):
+        raise ValueError("Input must be an integer.")
+    
+    # Define conversion factors
+    yard_to_inches = 36
+    foot_to_inches = 12
+    
+    # Determine the largest unit and convert to it
+    yards = inches // yard_to_inches
+    feet = (inches % yard_to_inches) // foot_to_inches
+    inches = inches % foot_to_inches
+    
+    # Format the result without zero-valued parts
+    formatted_parts = []
+    if yards > 0:
+        formatted_parts.append(f"{yards}yd")
+    if feet >= 3 or (feet == 2 and inches > 0):
+        formatted_parts.append(f"{feet}ft")
+    if inches > 0:
+        formatted_parts.append(f"{inches}in")
+    
+    return ' '.join(formatted_parts)
+
+def add_spans(first: str, second: str) -> str:
+    """Add two span texts and return the result in canonical form."""
+    total_inches_first = parse_span(first)
+    total_inches_second = parse_span(second)
+    
+    total_inches_sum = total_inches_first + total_inches_second
+    
+    # Format the sum to canonical form
+    return format_span(total_inches_sum)
+```

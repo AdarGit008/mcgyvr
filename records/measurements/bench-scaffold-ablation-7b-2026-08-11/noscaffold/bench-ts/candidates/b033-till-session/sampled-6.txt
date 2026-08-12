@@ -1,0 +1,76 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const validActions = new Set(['scan', 'void', 'close', 'pay', 'cancel']);
+  let cart: Record<string, number> = {};
+  let state: 'open' | 'payment' | 'paid' | 'cancelled' = 'open';
+  let total = 0;
+  let paid = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) throw new Error('Invalid event format');
+
+    const [action, payload] = event;
+    if (!validActions.has(action)) throw new Error(`Unknown action: ${action}`);
+
+    switch (action) {
+      case 'scan':
+        const itemName = payload as string;
+        if (typeof itemName !== 'string' || !prices[itemName]) throw new Error(`Invalid scan item: ${itemName}`);
+        if (state !== 'open') throw new Error('Cannot scan while not open');
+
+        cart[itemName] = (cart[itemName] || 0) + 1;
+        break;
+
+      case 'void':
+        const voidItemName = payload as string;
+        if (typeof voidItemName !== 'string' || !cart[voidItemName]) throw new Error(`Invalid void item: ${voidItemName}`);
+        if (state !== 'open') throw new Error('Cannot void while not open');
+
+        cart[voidItemName]--;
+        if (cart[voidItemName] === 0) delete cart[voidItemName];
+        break;
+
+      case 'close':
+        if (Object.keys(cart).length === 0) throw new Error('Cannot close with empty cart');
+        if (state !== 'open') throw new Error('Cannot close while not open');
+
+        state = 'payment';
+        total = Object.entries(cart).reduce((acc, [item, quantity]) => acc + prices[item] * quantity, 0);
+        break;
+
+      case 'pay':
+        const payAmount = payload as number;
+        if (typeof payAmount !== 'number' || payAmount <= 0) throw new Error(`Invalid pay amount: ${payAmount}`);
+        if (state !== 'payment') throw new Error('Cannot pay while not in payment');
+
+        paid += payAmount;
+        if (paid >= total) {
+          change = Math.max(paid - total, 0);
+          state = 'paid';
+        }
+        break;
+
+      case 'cancel':
+        if (state === 'open' || state === 'payment') {
+          cart = {};
+          state = 'cancelled';
+        } else if (state !== 'cancelled') {
+          throw new Error('Cannot cancel a paid or already cancelled session');
+        }
+        break;
+    }
+
+    if (state === 'paid' || state === 'cancelled') {
+      throw new Error('No events allowed after the session is paid or cancelled');
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change
+  };
+}
+```

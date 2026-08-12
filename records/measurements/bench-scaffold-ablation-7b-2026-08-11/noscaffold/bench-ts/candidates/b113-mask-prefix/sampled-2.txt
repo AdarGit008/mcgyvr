@@ -1,0 +1,64 @@
+```ts
+/**
+ * Converts a prefix length to a network mask.
+ * @param prefix - The number of leading ones in the mask (0-32).
+ * @returns A string representing the network mask.
+ */
+export function maskFromPrefix(prefix: number): string {
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+        throw new Error('Invalid prefix');
+    }
+
+    const octets = [];
+    for (let i = 0; i < 4; i++) {
+        if (prefix >= 8) {
+            octets.push(255);
+            prefix -= 8;
+        } else {
+            octets.push((1 << prefix) - 1);
+            break;
+        }
+    }
+
+    for (let i = octets.length; i < 4; i++) {
+        octets.push(0);
+    }
+
+    return octets.join('.');
+}
+
+/**
+ * Converts a network mask to its prefix length.
+ * @param mask - A string representing the network mask in dotted-quad format.
+ * @returns The number of leading ones in the mask.
+ */
+export function prefixFromMask(mask: string): number {
+    if (typeof mask !== 'string') {
+        throw new Error('Invalid input');
+    }
+
+    const parts = mask.split('.');
+    if (parts.length !== 4) {
+        throw new Error('Invalid mask format');
+    }
+
+    let prefix = 0;
+    for (let part of parts) {
+        if (!/^\d+$/.test(part)) {
+            throw new Error('Invalid mask field');
+        }
+        const num = parseInt(part, 10);
+        if (num < 0 || num > 255) {
+            throw new Error('Invalid mask value');
+        }
+
+        if ((num & (num + 1)) !== 0) {
+            throw new Error('Mask has broken ones');
+        }
+
+        prefix += part === '0' ? 8 : Math.floor(Math.log2(256 - num));
+    }
+
+    return prefix;
+}
+```

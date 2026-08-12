@@ -1,0 +1,22 @@
+```ts
+/**
+ * Raises a base to a whole power by multiplying it by itself that many times.
+ * A power of nothing gives one, whatever the base.
+ *
+ * @param base The base number to raise to a power.
+ * @param power The exponent to which the base is raised.
+ * @returns The result of base raised to the power.
+ */
+export function powerOf(base: number, power: number): number {
+    if (base < 0 && power !== Math.floor(power)) {
+        throw new Error("Power must be an integer for non-negative bases.");
+    } else if (power === 0) {
+        return 1;
+    }
+    let result = 1;
+    for (let i = 0; i < power; i++) {
+        result *= base;
+    }
+    return result;
+}
+```

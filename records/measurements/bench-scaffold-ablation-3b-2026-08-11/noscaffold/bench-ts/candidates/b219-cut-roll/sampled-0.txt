@@ -1,0 +1,44 @@
+```typescript
+
+export type Cut = {
+  takings: number;
+  pieces: number[];
+};
+
+function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative whole number.");
+  }
+  
+  const memo = new Map<string, Cut>();
+
+  function helper(currentLength: number): Cut {
+    if (currentLength === 0) {
+      return { takings: 0, pieces: [] };
+    }
+
+    const key = `${currentLength}`;
+    if (memo.has(key)) {
+      return memo.get(key)!;
+    }
+
+    let bestCut: Cut = { takings: -Infinity, pieces: [] };
+
+    for (const [pieceLength, piecePrice] of board) {
+      if (currentLength >= pieceLength) {
+        const { takings: subTakings, pieces: subPieces } = helper(currentLength - pieceLength);
+        const totalTakings = piecePrice + subTakings;
+        if (totalTakings > bestCut.takings || 
+            (totalTakings === bestCut.takings && subPieces.length > bestCut.pieces.length)) {
+          bestCut = { takings: totalTakings, pieces: [...subPieces, pieceLength] };
+        }
+      }
+    }
+
+    memo.set(key, bestCut);
+    return bestCut;
+  }
+
+  return helper(length);
+}
+```

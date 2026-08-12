@@ -1,0 +1,72 @@
+```
+/** The cheapest set of travel passes covering every trip day. */
+
+function validatePlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+
+  // Sort passes by their cost per day to find the most expensive pass first
+  passes.sort((a, b) => a.cost / a.span - b.cost / b.span);
+
+  // Initialize variables to track the cheapest plan and current trip coverage
+  let total = 0;
+  const purchases: number[][] = [];
+  let currentTripIndex = 0;
+
+  // Iterate over each pass
+  for (const { span, cost } of passes) {
+    if (currentTripIndex >= tripDays.length) {
+      break;
+    }
+
+    // Calculate the start day of the next purchase
+    const nextPurchaseStartDay = Math.max(tripDays[currentTripIndex], currentTripIndex + 1);
+
+    // Determine how many days this pass can cover starting from nextPurchaseStartDay
+    const daysCovered = Math.min(span - (nextPurchaseStartDay - currentTripIndex), tripDays.length - nextPurchaseStartDay);
+
+    // If the pass covers the entire remaining trip, make it a purchase
+    if (daysCovered === tripDays.length - nextPurchaseStartDay) {
+      purchases.push([nextPurchaseStartDay, span]);
+      total += cost;
+      currentTripIndex = tripDays.length; // Mark all trips as covered
+    } else {
+      // Otherwise, partially cover the remaining trips and update total
+      purchases.push([nextPurchaseStartDay, daysCovered + 1]);
+      total += cost * (daysCovered + 1) / span;
+      currentTripIndex += daysCovered + 1;
+    }
+  }
+
+  return { total, purchases };
+}
+```

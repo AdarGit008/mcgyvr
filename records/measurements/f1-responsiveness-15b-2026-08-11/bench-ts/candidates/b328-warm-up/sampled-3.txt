@@ -1,0 +1,13 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function warmUp(readings: number[], floor: number): number[] {
+  if (readings.length === 0 || floor === null) {
+    throw new Error("Invalid input");
+  }
+
+  let dropIndex = readings.findIndex(reading => reading >= floor);
+
+  return dropIndex !== -1 ? readings.slice(dropIndex + 1) : [];
+}
+```

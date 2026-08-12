@@ -1,0 +1,21 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+    if not isinstance(row, int) or not isinstance(column, int):
+        raise ValueError("Row and column must be integers")
+    if len(grid) == 0:
+        return None
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[0]):
+        return None
+    return grid[row][column]
+
+def diag_of(grid: list) -> list:
+    if not isinstance(grid, list):
+        raise ValueError("Grid must be a list")
+    if len(grid) == 0:
+        return []
+    if len(grid) != len(grid[0]):
+        raise ValueError("Grid must be square for diagnonal calculation")
+    return [grid[i][i] for i in range(len(grid))]
+```

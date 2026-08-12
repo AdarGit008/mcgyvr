@@ -1,0 +1,34 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    """
+    Returns a tally with one amount added to the count of a given name,
+    leaving the original tally unchanged.
+
+    :param tally: A dictionary representing tallies, where each key is a name and the value is its count.
+    :param name: The name to whose count we want to add the amount.
+    :param amount: The amount to be added to the count of the given name.
+    """
+    if name in tally:
+        tally[name] += amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    """
+    Returns a combined tally with counts for shared names added together.
+
+    :param left: A dictionary representing tallies.
+    :param right: Another dictionary representing tallies to be merged.
+    """
+    result = {}
+    for name, amount in left.items():
+        if name in result:
+            result[name] += amount
+        else:
+            result[name] = amount
+    for name, amount in right.items():
+        if name in result:
+            result[name] += amount
+        else:
+            result[name] = amount
+    return result
+```

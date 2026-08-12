@@ -1,0 +1,9 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "string",
+  "steering_band": "f1",
+  "target_symbol": {
+    "ts": "slugMake",
+    "py": "slug_make"
+  }
+}

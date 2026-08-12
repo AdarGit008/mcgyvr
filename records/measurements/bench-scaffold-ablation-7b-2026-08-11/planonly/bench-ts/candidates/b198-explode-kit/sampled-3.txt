@@ -1,0 +1,23 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (want <= 0) throw new Error('Invalid want count');
+  if (!catalog[kit]) throw new Error(`Unknown kit: ${kit}`);
+
+  const result: Record<string, number> = {};
+
+  function chargeParts(parts: [string, number][], runs: number): void {
+    for (const [part, count] of parts) {
+      if (catalog[part]) {
+        chargeParts(catalog[part].parts, Math.ceil(count * runs / catalog[part].makes));
+      } else {
+        result[part] = (result[part] || 0) + count * runs;
+      }
+    }
+  }
+
+  const runsNeeded = Math.ceil(want / catalog[kit].makes);
+  chargeParts(catalog[kit].parts, runsNeeded);
+
+  return result;
+}
+```

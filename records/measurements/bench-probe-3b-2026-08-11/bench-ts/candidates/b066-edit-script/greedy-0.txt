@@ -1,0 +1,42 @@
+```ts
+export function applyEditScript(original: string, script: [string, any][]): string {
+  if (typeof original !== 'string') throw new Error('Original must be a string');
+  
+  const ops = script.map(([op, value]) => ({
+    op,
+    value: typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null
+  }));
+
+  for (const { op, value } of ops) {
+    if (!['copy', 'skip', 'insert'].includes(op)) throw new Error('Unknown op name');
+    if (op === 'copy' || op === 'skip') {
+      if (value == null) throw new Error('Copy or skip count must be a positive integer');
+      if (value > original.length) throw new Error('Op reads past the end of the original');
+    } else if (op === 'insert') {
+      if (typeof value !== 'string' || value.trim() === '') throw new Error('Insert text must be a non-empty string');
+    }
+  }
+
+  let result = '';
+  let index = 0;
+
+  for (const { op, value } of ops) {
+    switch (op) {
+      case 'copy':
+        result += original.slice(index, index + value);
+        index += value;
+        break;
+      case 'skip':
+        index += value;
+        break;
+      case 'insert':
+        result += value;
+        break;
+    }
+  }
+
+  if (index !== original.length) throw new Error('Script stops before the original is used up');
+
+  return result;
+}
+```

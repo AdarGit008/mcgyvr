@@ -1,0 +1,34 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function seatRun(row: string, party: number): number {
+  if (party === 0) return -1;
+
+  const freeSeats = row.split('.').filter(segment => segment.trim() !== '');
+  const fullStopIndex = row.indexOf('.');
+  let maxFreeSeats = 0;
+  let firstFreeSeatIndex = -1;
+
+  for (let i = 0; i < freeSeats.length; ++i) {
+    const freeSeatsCount = freeSeats[i].length;
+    if (freeSeatsCount >= party && freeSeatsCount > maxFreeSeats) {
+      maxFreeSeats = freeSeatsCount;
+      firstFreeSeatIndex = fullStopIndex + i * party;
+    }
+  }
+
+  return firstFreeSeatIndex;
+}
+
+// Check function to verify the correctness of the seatRun function
+function check() {
+  assert(seatRun("...x...", 3) === 4);
+  assert(seatRun(".x.x", 2) === 1);
+  assert(seatRun("xx...", 0) === -1);
+  assert(seatRun("xxxxx....", 5) === 7);
+  console.log("All tests passed!");
+}
+
+// Run the check function to verify the solution
+check();
+```

@@ -1,0 +1,16 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+    if start not in links: raise ValueError("start is not a post")
+    route = [start]
+    post = start
+    while True:
+        next_post = links.get(post)
+        if next_post is None or next_post == "":
+            break
+        if next_post in route:
+            raise ValueError(f"watch comes round again at {next_post}")
+        route.append(next_post)
+        post = next_post
+    return route
+```

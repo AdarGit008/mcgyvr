@@ -1,0 +1,15 @@
+```python
+def fold_ends(values: list) -> list:
+    if len(values) == 0:
+        return []
+    
+    total = sum(values)
+    
+    if len(values) % 2 != 0:
+        middle_index = len(values) // 2
+        result = [total] + values[:middle_index][::-1] + values[middle_index+1:]
+    else:
+        result = [total] * (len(values) // 2)
+    
+    return result
+```

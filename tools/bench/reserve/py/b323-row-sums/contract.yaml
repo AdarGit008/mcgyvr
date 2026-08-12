@@ -1,0 +1,15 @@
+id: b323-row-sums
+task_type: function_implementation
+task: >-
+  Implement row_sums. Given a grid written as a list of rows, return
+  the total of each row in the order the rows appear. A row holding no
+  values totals zero, and a grid with no rows at all gives an empty
+  list.
+target: solution.py
+interface: "def row_sums(grid: list) -> list"
+stop_conditions:
+  - Whether every row must hold the same number of values is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

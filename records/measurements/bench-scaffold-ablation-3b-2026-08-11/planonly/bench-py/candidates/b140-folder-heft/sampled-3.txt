@@ -1,0 +1,66 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict):
+        raise ValueError("All nodes must be mappings.")
+    
+    if 'name' in node:
+        name = node['name']
+        if not isinstance(name, str) or '/' in name:
+            raise ValueError("Names must be non-empty strings without slashes.")
+
+    if 'bytes' in node and 'children' in node:
+        raise ValueError("A node cannot have both bytes and children.")
+    
+    if 'bytes' in node:
+        if not isinstance(node['bytes'], int) or node['bytes'] < 0:
+            raise ValueError("Bytes must be non-negative whole numbers.")
+    
+    if 'children' in node:
+        if not isinstance(node['children'], list):
+            raise ValueError("Children must be lists.")
+
+def validate_min_bytes(min_bytes):
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number.")
+
+def file_paths(root: dict) -> list:
+    def walk(node, path):
+        paths = []
+        if 'name' in node and 'bytes' not in node:
+            paths.append(path + [node['name']])
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                paths.extend(walk(child, path + [node['name']]))
+        return paths
+    
+    validate_node(root)
+    return walk(root, [])
+
+def tree_bytes(root: dict) -> int:
+    def traverse(node):
+        total = 0
+        if 'bytes' in node:
+            total += node['bytes']
+        elif 'children' in node:
+            for child in node['children']:
+                total += traverse(child)
+        return total
+    
+    validate_node(root)
+    return traverse(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    def walk(node, path):
+        if tree_bytes(node) >= min_bytes:
+            paths.append([path + [node['name']], tree_bytes(node)])
+        
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                walk(child, path + [node['name']])
+    
+    validate_node(root)
+    validate_min_bytes(min_bytes)
+    paths = []
+    walk(root, [])
+    return paths
+```

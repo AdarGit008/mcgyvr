@@ -1,0 +1,27 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (freshFor <= 0 || !Number.isInteger(freshFor) || size <= 0 || !Number.isInteger(size)) {
+        throw new Error("Invalid arguments");
+    }
+
+    const cache: { [tileName: string]: { tick: number; tile: string } } = {};
+    const queue: string[] = [];
+    let renders: [number, string][] = [];
+
+    for (const [tick, tile] of requests) {
+        if (cache[tile] && tick >= cache[tile].tick + freshFor) {
+            renders.push([tick, tile]);
+        } else {
+            while (Object.keys(cache).length === size) {
+                const oldestTile = queue.shift();
+                if (oldestTile) delete cache[oldestTile];
+            }
+            cache[tile] = { tick, tile };
+            queue.push(tile);
+            renders.push([tick, tile]);
+        }
+    }
+
+    return renders;
+}
+```

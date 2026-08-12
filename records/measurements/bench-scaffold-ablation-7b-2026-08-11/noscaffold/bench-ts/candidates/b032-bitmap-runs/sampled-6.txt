@@ -1,0 +1,62 @@
+```typescript
+/**
+ * Returns bit i as 0 or 1, rejecting an index that is not an integer inside the words.
+ */
+export function bitAt(words: number[], index: number): number {
+    if (!Number.isInteger(index) || index < 0 || Math.floor(index / 32) >= words.length || index % 32 > 31) {
+        throw new Error("Invalid index");
+    }
+    const wordIndex = Math.floor(index / 32);
+    return (words[wordIndex] >> (index % 32)) & 1;
+}
+
+/**
+ * Returns a new word list with the run of length blocks starting at start marked occupied,
+ * leaving its argument unmodified, and rejects a run that does not lie wholly inside the words
+ * and a run touching an occupied block.
+ */
+export function occupyRun(words: number[], start: number, length: number): number[] {
+    if (length <= 0 || start < 0 || Math.floor(start / 32) >= words.length || start % 32 + length > 32) {
+        throw new Error("Invalid run");
+    }
+    const result = [...words];
+    for (let i = start; i < start + length; i++) {
+        if (bitAt(result, i)) {
+            throw new Error("Run overlaps with occupied block");
+        }
+        result[Math.floor(i / 32)] |= 1 << (i % 32);
+    }
+    return result;
+}
+
+/**
+ * Returns the smallest start of a run of length free blocks lying entirely below the capacity,
+ * or -1 when none exists. Rejects a bitmap word that is not an integer from 0 to 4294967295;
+ * findFreeRun additionally rejects a capacity that is not a positive integer, a word count
+ * that disagrees with the capacity, and a run length that is not a positive integer.
+ */
+export function findFreeRun(words: number[], bits: number, length: number): number {
+    if (!Number.isInteger(bits) || bits < 0 || bits % 32 !== 0 || words.length !== Math.ceil(bits / 32)) {
+        throw new Error("Invalid bitmap");
+    }
+    if (length <= 0 || Math.floor(length / 32) >= words.length || length > 32) {
+        throw new Error("Invalid run length");
+    }
+
+    for (let start = 0; start + length <= bits; start += 32) {
+        let freeCount = 0;
+        for (let i = start; i < start + length && freeCount < length; i++) {
+            if (!bitAt(words, i)) {
+                freeCount++;
+            } else {
+                freeCount = 0;
+            }
+        }
+        if (freeCount === length) {
+            return start;
+        }
+    }
+
+    return -1;
+}
+```

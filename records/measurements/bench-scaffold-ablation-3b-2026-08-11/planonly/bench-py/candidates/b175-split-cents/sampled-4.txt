@@ -1,0 +1,44 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    """
+    Split total cents into parts based on partner weights.
+
+    :param total: The day's takings in whole cents.
+    :param weights: A list of positive whole numbers representing partners' share weights.
+    :return: A list of parts in partner order.
+    """
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total must be a non-negative integer.")
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list.")
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("All weights must be positive whole numbers.")
+
+    total_cents = total
+    parts = [0] * len(weights)
+
+    # First, distribute the total cents according to their shares
+    for i, weight in enumerate(weights):
+        share = total_cents * weight // sum(weights)
+        parts[i] += share
+        total_cents -= share
+
+    # Distribute the leftover cents to the largest discarded fractions
+    # Start from the partner with the largest discarded fraction and work backwards
+    while total_cents > 0:
+        max_fraction = -1.0
+        max_index = -1
+        for i, weight in enumerate(weights):
+            if parts[i] == 0:
+                fraction = total_cents / (len(weights) - len(parts))
+                if fraction > max_fraction:
+                    max_fraction = fraction
+                    max_index = i
+
+        # Add the leftover cents to the partner with the largest discarded fraction
+        parts[max_index] += 1
+        total_cents -= 1
+
+    return parts
+```

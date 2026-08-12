@@ -1,0 +1,25 @@
+```python
+"""Lay a straight eastward conveyor run across a factory floor plan."""
+
+
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if row < 0 or row >= len(floor):
+        raise ValueError("the run starts off the plan")
+    
+    # Check if the run would pass the last column
+    if col + length > len(floor[row]):
+        raise ValueError("the run would leave the plan")
+    
+    # Check if any cell in the run is not open
+    for i in range(length):
+        if floor[row][col + i] != '.':
+            raise ValueError("a cell in the run is not open")
+    
+    # Write the conveyor run cells
+    cells = list(floor[row])
+    for i in range(length):
+        cells[col + i] = '='
+    
+    # Return the plan with only that row changed
+    return [cells] + floor[1:]
+```

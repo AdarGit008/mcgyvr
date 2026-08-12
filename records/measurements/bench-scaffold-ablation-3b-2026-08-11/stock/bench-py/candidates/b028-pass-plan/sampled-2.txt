@@ -1,0 +1,64 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover.get("span", None)
+        cost = cover.get("cost", None)
+        if span is None or isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if cost is None or isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+    
+    trip_days = sorted(set(trip_days))  # Remove duplicates and sort
+    pass_kinds_by_cost_span = {}
+    
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        pass_kinds_by_cost_span[(cost, span)] = pass_kinds_by_cost_span.get((cost, span), []) + [cover]
+    
+    best_plan = None
+    min_total_cost = float('inf')
+    
+    for _, pass_list in pass_kinds_by_cost_span.items():
+        total_cost = 0
+        purchases = []
+        
+        last_coverage_end = 0
+        
+        for cover in sorted(pass_list, key=lambda x: x["span"]):
+            start_day = max(last_coverage_end + 1, cover["start"])
+            
+            if start_day > trip_days[-1]:
+                break
+            
+            end_day = min(start_day + cover["span"] - 1, trip_days[-1])
+            
+            total_cost += cover["cost"]
+            purchases.append([start_day, cover["span"]])
+            
+            last_coverage_end = end_day
+        
+        if total_cost < min_total_cost:
+            min_total_cost = total_cost
+            best_plan = purchases
+    
+    return {
+        "total": min_total_cost,
+        "purchases": best_plan
+    }
+```

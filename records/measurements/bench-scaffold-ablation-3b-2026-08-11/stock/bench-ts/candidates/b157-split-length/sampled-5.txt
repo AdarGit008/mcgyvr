@@ -1,0 +1,22 @@
+```ts
+const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Input must be a non-negative whole number.");
+  }
+
+  const result: string[] = [];
+  let remainingMM = mm;
+
+  for (const [symbol, value] of LADDER) {
+    const count = Math.floor(remainingMM / value);
+    if (count > 0) {
+      result.push(`${count}${symbol}`);
+    }
+    remainingMM %= value;
+  }
+
+  return result.join(" ");
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function scoreDrop(scores: number[]): number {
+  if (scores.length <= 1) return 0;
+
+  scores.sort((a, b) => a - b);
+  const lowestScore = scores[0];
+  let droppedCount = 0;
+
+  for (let i = 1; i < scores.length; i++) {
+    if (scores[i] === lowestScore) {
+      // Drop only one occurrence of the lowest score
+      droppedCount++;
+      if (droppedCount >= 2) break;
+    } else {
+      // Keep other scores as they are
+      break;
+    }
+  }
+
+  let total = 0;
+  for (let i = 0; i < scores.length - droppedCount; i++) {
+    total += scores[i];
+  }
+
+  return total;
+}
+```

@@ -1,0 +1,62 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    def is_valid_path(path: str) -> bool:
+        if not isinstance(path, str) or path == "":
+            return False
+        segments = path.split('/')
+        return all(segment != "" for segment in segments)
+
+    def is_valid_rule(rule: str) -> bool:
+        if not isinstance(rule, str):
+            return False
+        if rule == "!":
+            return True
+        if rule.startswith("!"):
+            rule = rule[1:]
+        segments = rule.split('/')
+        return all(segment != "" for segment in segments)
+
+    def matches_pattern(path_segment: str, pattern_segment: str) -> bool:
+        if pattern_segment == "*":
+            return True
+        return path_segment == pattern_segment
+
+    def match_rule(path: str, rule: str) -> bool:
+        if rule.startswith("!"):
+            return False
+        path_segments = path.split('/')
+        rule_segments = rule.split('/')
+        if len(rule_segments) > len(path_segments):
+            return False
+        for i in range(len(rule_segments)):
+            if not matches_pattern(path_segments[i], rule_segments[i]):
+                return False
+        return True
+
+    def drop_rule(path: str, rule: str) -> bool:
+        if rule.startswith("!"):
+            return False
+        path_segments = path.split('/')
+        rule_segments = rule[1:].split('/')
+        if len(rule_segments) > len(path_segments):
+            return False
+        for i in range(len(rule_segments)):
+            if not matches_pattern(path_segments[i], rule_segments[i]):
+                return True
+        return False
+
+    def apply_rules(path: str, rules: list) -> bool:
+        last_match = None
+        for rule in rules:
+            if is_valid_rule(rule):
+                if match_rule(path, rule):
+                    last_match = True
+                elif drop_rule(path, rule):
+                    last_match = False
+            else:
+                raise ValueError(f"Invalid rule: {rule}")
+        return last_match
+
+    filtered_paths = [path for path in listing if is_valid_path(path) and apply_rules(path, rules)]
+    return filtered_paths
+```

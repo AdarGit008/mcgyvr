@@ -1,0 +1,24 @@
+id: b366-batch-ends
+task_type: bug_fix
+task: >-
+  batch_ends reports the position of the last entry of each full batch
+  of a stated size, and it reports the position of the first entry
+  instead. Fix it. A final part-batch has no last entry to report and
+  is left out. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def batch_ends(count: int, size: int) -> list:
+      """The position of the last entry of each full batch."""
+      ends = []
+      start = 0
+      while start + size <= count:
+          ends.append(start)
+          start += size
+      return ends
+interface: "def batch_ends(count: int, size: int) -> list"
+stop_conditions:
+  - What a batch size of zero or less should report is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

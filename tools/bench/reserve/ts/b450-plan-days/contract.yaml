@@ -1,0 +1,16 @@
+id: b450-plan-days
+task_type: function_implementation
+task: >-
+  Implement daysFor and planDays. daysFor returns how many whole days
+  a job of a stated size takes at a stated rate a day, rounding up so
+  a part day counts as one. planDays returns the days each of several
+  jobs takes, in order. Reject a rate of zero or less with an error.
+target: solution.ts
+interface: "export function daysFor(size: number, rate: number): number
+export function planDays(sizes: number[], rate: number): number[]"
+stop_conditions:
+  - Whether two jobs could share a day is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,20 @@
+id: b217-line-clusters
+task_type: function_implementation
+task: >-
+  Implement lineClusters. A tram operator holds stops, the list of stop names
+  it serves with no name listed twice, and links, the track segments between
+  them as [from, to] pairs; a segment carries trams both ways and the same
+  segment may be listed more than once. Two stops belong to the same cluster
+  when a run of segments joins them, however many segments long, and a stop no
+  segment touches forms a cluster of its own. Return every cluster as a list
+  of its stop names sorted alphabetically, and return the clusters ordered by
+  their alphabetically first stop. An operator serving no stops has no
+  clusters.
+target: solution.ts
+interface: "export function lineClusters(stops: string[], links: [string, string][]): string[][]"
+stop_conditions:
+  - Whether a segment may name a stop the stop list does not hold is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

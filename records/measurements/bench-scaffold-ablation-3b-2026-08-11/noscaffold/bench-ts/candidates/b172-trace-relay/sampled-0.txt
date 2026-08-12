@@ -1,0 +1,23 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) {
+    throw new Error('Invalid links argument');
+  }
+  const seen = new Set<string>();
+  let currentPost = start;
+  const visitedPosts: string[] = [];
+
+  while (currentPost && !seen.has(currentPost)) {
+    seen.add(currentPost);
+    visitedPosts.push(currentPost);
+
+    if (!links[currentPost]) {
+      throw new Error('Invalid handoff in links');
+    }
+
+    currentPost = links[currentPost];
+  }
+
+  return visitedPosts;
+}
+```

@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List, Tuple
+
+def apply_charges(caps: dict, charges: list) -> Dict[str, Tuple[int, str]]:
+    if not all(isinstance(amount, int) and amount > 0 for charge in charges):
+        raise ValueError("All charge amounts must be positive whole numbers.")
+
+    left = caps.copy()
+    refused = []
+
+    for i, (charge_id, bucket_name, amount) in enumerate(charges):
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+            continue
+
+        allowance, single_charge = caps[bucket_name]
+
+        if amount > single_charge:
+            refused.append((charge_id, "single"))
+            continue
+
+        if allowance < amount:
+            refused.append((charge_id, "cap"))
+            continue
+
+        left[bucket_name] -= amount
+
+    return {
+        bucket: (allowance, reason) for bucket, (allowance, _) in left.items()
+    }
+```

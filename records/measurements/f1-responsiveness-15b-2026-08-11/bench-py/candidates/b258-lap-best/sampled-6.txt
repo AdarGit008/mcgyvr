@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def lap_best(laps: List[int]) -> int:
+    """The quickest completed lap of a session."""
+    if not laps:
+        return 0
+    
+    best = float('inf')  # Initialize with positive infinity to correctly identify zero
+    for lap in laps:
+        if lap < best and lap != 0:  # Check for non-zero lap times for better precision
+            best = lap
+    
+    return int(best)  # Convert back to integer, ensuring no fractional part
+```
+
+This solution fixes the bug where zero was incorrectly being considered a completed lap. It also ensures that the function correctly identifies and returns the smallest non-zero lap time, which aligns with the requirement of reporting the quickest completed lap.

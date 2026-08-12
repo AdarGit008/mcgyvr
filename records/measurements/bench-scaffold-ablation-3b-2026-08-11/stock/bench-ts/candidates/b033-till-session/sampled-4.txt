@@ -1,0 +1,70 @@
+```typescript
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  let cart: { [key: string]: number } = {};
+  let state = OPEN;
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (event.length !== 2 || typeof event[1] !== "string") {
+      throw new Error("invalid event format");
+    }
+
+    const [action, payload] = event;
+
+    switch (state) {
+      case OPEN:
+        if (!prices.hasOwnProperty(payload)) {
+          throw new Error("unknown item: " + payload);
+        }
+        cart[payload] = (cart[payload] || 0) + 1;
+        total += prices[payload];
+        break;
+      case PAYMENT:
+        if (!prices.hasOwnProperty(payload)) {
+          throw new Error("unknown item: " + payload);
+        }
+        cart[payload] = (cart[payload] || 0) + 1;
+        total += prices[payload];
+        break;
+      case PAID:
+        throw new Error("cannot modify a paid session");
+      case CANCELLED:
+        throw new Error("cannot modify a cancelled session");
+
+      default:
+        throw new Error("unknown state: " + state);
+    }
+  }
+
+  if (state !== OPEN && total === 0) {
+    throw new Error("invalid final state: cart is empty but not open");
+  }
+
+  return {
+    state,
+    items: Object.entries(cart)
+      .map(([name, quantity]) => [name, quantity])
+      .sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

@@ -1,0 +1,57 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid argument type');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':').map((part) => part.trim());
+    const count = parseInt(countStr, 10);
+    if (isNaN(count)) throw new Error('Invalid count');
+    return [name, count];
+  };
+
+  const parseMove = (move: string): { name: string; qty: number } => {
+    const [name, qtyStr] = move.split('+').map((part) => part.trim());
+    const qty = parseInt(qtyStr, 10);
+    if (isNaN(qty)) throw new Error('Invalid quantity');
+    return { name, qty };
+  };
+
+  const sheetEntries: Map<string, number> = opening
+    .split(';')
+    .filter((entry) => entry.length > 0)
+    .map(parseEntry)
+    .reduce((acc, [name, count]) => {
+      acc.set(name, count);
+      return acc;
+    }, new Map());
+
+  if (moves !== '') {
+    const movesList = moves
+      .split(';')
+      .filter((move) => move.length > 0)
+      .map(parseMove);
+
+    movesList.forEach(({ name, qty }) => {
+      const currentCount = sheetEntries.get(name);
+      if (!currentCount) throw new Error('Issue of an item not in the opening sheet');
+      if (qty <= 0) throw new Error('Invalid quantity for issue');
+
+      if (currentCount - qty < 0) {
+        throw new Error(`Issue of more units than the item then holds`);
+      }
+
+      sheetEntries.set(name, currentCount - qty);
+    });
+  }
+
+  const closingSheet = Array.from(sheetEntries)
+    .filter(([name, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+
+  return closingSheet === ';' ? '' : closingSheet;
+}
+```

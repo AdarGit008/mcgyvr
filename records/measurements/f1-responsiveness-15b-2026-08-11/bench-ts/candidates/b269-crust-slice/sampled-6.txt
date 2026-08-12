@@ -1,0 +1,9 @@
+```ts
+export function crustSlice(name: string): string {
+  if (!name || name.includes('\\')) {
+    throw new Error('Invalid input');
+  }
+  const lastDotIndex = name.lastIndexOf('.');
+  return lastDotIndex === -1 ? name : name.substring(0, lastDotIndex);
+}
+```

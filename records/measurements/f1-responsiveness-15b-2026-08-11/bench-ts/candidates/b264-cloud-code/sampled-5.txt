@@ -1,0 +1,6 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  const parsedCode = code.toUpperCase();
+  return table[parsedCode] || 'unknown';
+}
+```

@@ -1,0 +1,16 @@
+id: b381-merge-tally
+task_type: function_implementation
+task: >-
+  Implement add_one and merge_tally. add_one returns a tally with a
+  stated amount added to one name's count, leaving the tally it was
+  given unchanged. merge_tally returns the two tallies combined, with
+  counts for a shared name added together.
+target: solution.py
+interface: "def add_one(tally: dict, name: str, amount: int) -> dict
+def merge_tally(left: dict, right: dict) -> dict"
+stop_conditions:
+  - Whether a count may fall below zero once combined is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

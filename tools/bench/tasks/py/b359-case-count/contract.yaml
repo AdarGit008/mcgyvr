@@ -1,0 +1,15 @@
+id: b359-case-count
+task_type: function_implementation
+task: >-
+  Implement case_count. Return how many capital letters and how many
+  small letters a text holds, the capitals first. Characters that are
+  not letters are counted as neither, and a text holding no letters
+  returns two zeros.
+target: solution.py
+interface: "def case_count(text: str) -> list"
+stop_conditions:
+  - Whether a letter outside the English alphabet should be counted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

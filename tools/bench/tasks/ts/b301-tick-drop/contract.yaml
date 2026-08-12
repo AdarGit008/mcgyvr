@@ -1,0 +1,20 @@
+id: b301-tick-drop
+task_type: bug_fix
+task: >-
+  everyOther returns every second entry of a log, beginning with the
+  first, and it begins with the second instead. Fix it. A log holding
+  one entry returns that entry, and an empty log returns nothing.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Every second entry of a log, beginning with the first. */
+  export function everyOther(entries: string[]): string[] {
+    return entries.filter((entry, index) => index % 2 === 1);
+  }
+interface: "export function everyOther(entries: string[]): string[]"
+stop_conditions:
+  - Whether the entries should be counted from the newest end of the log instead is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

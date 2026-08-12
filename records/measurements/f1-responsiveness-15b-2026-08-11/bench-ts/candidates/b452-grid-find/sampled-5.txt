@@ -1,0 +1,27 @@
+```ts
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+  if (!grid || !Array.isArray(grid) || grid.length === 0) {
+    throw new Error('Grid must be provided and non-empty');
+  }
+  if (typeof row !== 'number' || row < 0 || row >= grid.length) {
+    throw new Error('Row index out of bounds');
+  }
+  if (typeof column !== 'number' || column < 0 || column >= grid[row].length) {
+    throw new Error('Column index out of bounds');
+  }
+
+  return grid[row][column] === value;
+}
+
+export function gridFind(grid: number[][], value: number): number[] {
+  for (let i = 0; i < grid.length; i++) {
+    for (let j = 0; j < grid[i].length; j++) {
+      if (grid[i][j] === value) {
+        return [i, j];
+      }
+    }
+  }
+
+  throw new Error('Value not found in the grid');
+}
+```

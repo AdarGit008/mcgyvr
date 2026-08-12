@@ -1,0 +1,15 @@
+```python
+def split_length(mm: int) -> str:
+    if mm < 0:
+        raise ValueError("Negative length is not allowed.")
+    
+    metres = mm // 1000
+    centimetres = (mm % 1000) // 10
+    millimetres = mm % 10
+    
+    units = [f"{metres}m" if metres else "",
+             f"{centimetres}cm" if centimetres else "",
+             f"{millimetres}mm" if millimetres else ""]
+    
+    return ' '.join(units).strip()
+```

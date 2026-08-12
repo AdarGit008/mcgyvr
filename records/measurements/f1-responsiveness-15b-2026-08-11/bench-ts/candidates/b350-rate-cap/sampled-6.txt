@@ -1,0 +1,10 @@
+```ts
+export function rateCap(price: number, rate: number, most: number): number {
+  if (rate < 0 || most < 0) return price; // Invalid rates
+
+  const maxIncrease = Math.floor(most / 100); // Convert the largest increase to a whole percent
+  const newPrice = price + maxIncrease;
+
+  return newPrice;
+}
+```

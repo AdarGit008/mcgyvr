@@ -1,0 +1,45 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  
+  if (!Array.isArray(weights)) {
+    throw new Error("Weights must be an array of numbers.");
+  }
+  
+  if (weights.length === 0) {
+    throw new Error("Weights cannot be empty.");
+  }
+  
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("Each weight must be a positive integer.");
+    }
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (total % totalWeight !== 0) {
+    throw new Error("Total must be divisible by the sum of weights.");
+  }
+
+  const parts: number[] = [];
+  for (const [i, weight] of weights.entries()) {
+    const part = Math.floor(total * weight / totalWeight);
+    parts.push(part);
+
+    // Calculate the remainder to distribute
+    const remainder = (total - parts.reduce((sum, part) => sum + part, 0)) % weights.length;
+
+    // Distribute the remainder to the partners with the largest discarded fraction
+    for (let j = i; j < weights.length && remainder > 0; j++) {
+      if (parts[j] === Math.floor(total * (j + 1) / totalWeight)) {
+        parts[j]++;
+        remainder--;
+      }
+    }
+  }
+
+  return parts;
+}
+```

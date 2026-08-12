@@ -1,0 +1,64 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!isNaN(count) && !isNaN(Number(countStr)) && count >= 0) {
+      return [name.trim(), count];
+    }
+    throw new Error('Malformed sheet entry');
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, qtyStr] = move.split('+').join('-').split('-');
+    const qty = parseInt(qtyStr, 10);
+    if (!isNaN(qty) && !isNaN(Number(qtyStr)) && qty > 0) {
+      return [name.trim(), qty];
+    }
+    throw new Error('Malformed move');
+  };
+
+  const openSheetEntries = opening.split(';').map(parseEntry).reduce(
+    (acc, entry) => {
+      if (!acc.some(([existingName]) => existingName === entry[0])) {
+        acc.push(entry);
+      } else {
+        throw new Error('Duplicate name on the opening sheet');
+      }
+      return acc;
+    },
+    [] as [string, number][]
+  );
+
+  const applyMoves = (sheet: [string, number][]): [string, number][] => {
+    return moves.split(';').map(move => {
+      const [name, qty] = parseMove(move);
+      const idx = sheet.findIndex(([existingName]) => existingName === name);
+      if (idx !== -1) {
+        if (sheet[idx][1] >= qty) {
+          sheet[idx][1] -= qty;
+          if (sheet[idx][1] === 0) {
+            sheet.splice(idx, 1);
+          }
+          return sheet;
+        } else {
+          throw new Error(`Issue of ${qty} units from item ${name}`);
+        }
+      } else {
+        throw new Error(`Issue of ${qty} units of non-existent item ${name}`);
+      }
+    });
+  };
+
+  const result = applyMoves(openSheetEntries);
+
+  return result
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+}
+```

@@ -1,0 +1,45 @@
+id: b096-stamp-cover
+task_type: function_implementation
+task: >-
+  Implement stamp_cover, whose helper stamp_table is already written. An
+  engraving die prints one fixed text fragment and costs its listed price
+  every time it is pressed; the dies argument lists [fragment, price]
+  entries. stamp_table turns that list into a lookup of fragment to price,
+  rejecting a fragment that is not a non-empty string, a price that is
+  not a positive integer, and a fragment listed twice, with an error.
+  stamp_cover returns the cheapest total price of any sequence of die
+  presses whose fragments, laid end to end, spell the label exactly; a
+  die may be pressed any number of times, and the cheapest plan may skip
+  the longest die — for the label aaaa with aaa priced 1, aa priced 2 and
+  a priced 5, pressing aa twice costs 4 while any plan using aaa pays at
+  least 6. Reject a label that is not a non-empty string and a label that
+  no sequence of dies can spell, with an error.
+target: solution.py
+target_content: |
+  def stamp_table(dies: list) -> dict:
+      table = {}
+      for fragment, price in dies:
+          if not isinstance(fragment, str) or not fragment:
+              raise ValueError("a die fragment must be a non-empty string")
+          if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+              raise ValueError("a die price must be a positive integer")
+          if fragment in table:
+              raise ValueError("die listed twice: " + fragment)
+          table[fragment] = price
+      return table
+
+
+  def stamp_cover(label: str, dies: list) -> int:
+      # TODO: validate the label, build the table with stamp_table, and
+      # find the cheapest sequence of die presses spelling the label
+      # exactly; reject a label no sequence can spell.
+      raise NotImplementedError
+interface: |-
+  def stamp_cover(label: str, dies: list) -> int
+  def stamp_table(dies: list) -> dict
+stop_conditions:
+  - How long a label the engraver may be asked to price is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

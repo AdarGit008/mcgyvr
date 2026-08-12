@@ -1,0 +1,7 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or end > len(text):
+        raise ValueError("Invalid place(s)")
+    
+    return text[start:end]
+```

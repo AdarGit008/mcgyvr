@@ -1,0 +1,23 @@
+id: b303-swap-ends
+task_type: bug_fix
+task: >-
+  swap_ends returns a list with its first and last entries exchanged,
+  and it exchanges them inside the list it was given rather than
+  returning a new one, so the caller's list is altered. Fix it. A list
+  shorter than two entries comes back unchanged. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def swap_ends(items: list) -> list:
+      """A list with its first and last entries exchanged."""
+      if len(items) < 2:
+          return items
+      items[0], items[-1] = items[-1], items[0]
+      return items
+interface: "def swap_ends(items: list) -> list"
+stop_conditions:
+  - Whether the returned list should share its inner entries with the one it was given is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

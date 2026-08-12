@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def leg_gain(start: int, end: int) -> int:
+    if start < 0 or end < 0:
+        raise ValueError("Start and end must be non-negative")
+    return end - start
+
+def climb_gain(heights: List[int]) -> int:
+    return sum(leg_gain(heights[i], heights[(i + 1) % len(heights)]) for i in range(len(heights)))
+```

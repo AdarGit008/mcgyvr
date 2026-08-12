@@ -1,0 +1,45 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int):
+        raise ValueError("Prefix must be an integer.")
+    if prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be between 0 and 32 (inclusive).")
+    
+    # Create a binary string of the specified number of leading ones followed by zeros
+    mask_bits = '1' * prefix + '0' * (32 - prefix)
+    
+    # Convert each group of eight bits to an octal number
+    mask_octets = [int(mask_bits[i:i+8], 2) for i in range(0, 32, 8)]
+    
+    return '.'.join(map(str, mask_octets))
+
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string.")
+    
+    # Validate the number of dot-separated fields
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields.")
+    
+    # Validate each octet
+    for part in parts:
+        if not part.isdigit():
+            raise ValueError(f"Field {part} is not a decimal digit.")
+        value = int(part)
+        if value < 0 or value > 255:
+            raise ValueError(f"Octet {value} is out of range (0-255).")
+        
+        # Ensure there are no leading zeros except for '0'
+        if part.startswith('0') and len(part) > 1:
+            raise ValueError(f"Leading zero in octet {part}.")
+    
+    # Convert each octet to binary
+    mask_bits = ''.join(format(int(octet), '08b') for octet in parts)
+    
+    # Count the number of leading ones
+    prefix = mask_bits.find('0')
+    
+    return prefix
+```

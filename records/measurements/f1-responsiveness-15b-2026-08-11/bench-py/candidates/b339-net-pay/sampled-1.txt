@@ -1,0 +1,20 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    # Subtract the flat fee first
+    post_fee = gross - fee
+    
+    # Calculate the percentage to deduct from the remaining amount
+    percentage_to_deduct = (post_fee * rate) // 100
+    
+    # Apply the percentage deduction to the remaining amount
+    if percentage_to_deduct > 0:
+        after_percentage = post_fee - percentage_to_deduct
+    else:
+        after_percentage = post_fee
+    
+    # Ensure the pay does not fall below zero
+    final_pay = max(after_percentage, 0)
+    
+    return final_pay
+```

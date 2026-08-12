@@ -1,0 +1,15 @@
+id: b246-parcel-side
+task_type: function_implementation
+task: >-
+  Implement parcelGirth and parcelOversize. parcelGirth is twice the
+  width plus twice the height. parcelOversize says whether a parcel
+  breaks a carrier limit: its length added to its girth must stay at
+  or under the limit, and only a parcel strictly above it is oversize.
+target: solution.ts
+interface: "export function parcelGirth(width: number, height: number): number\nexport function parcelOversize(length: number, width: number, height: number, limit: number): boolean"
+stop_conditions:
+  - Which of the three sides counts as the length when a parcel is turned on its side is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

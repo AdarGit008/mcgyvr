@@ -1,0 +1,27 @@
+```ts
+/** Melt a row of ice one simultaneous step at a time. */
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== "string" || row.length === 0) {
+    throw new Error("thawRow expects a non-empty string row");
+  }
+  if (!/^[.#]+$/.test(row)) {
+    throw new Error("row must contain only '#' and '.' characters");
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error("steps must be a non-negative whole number");
+  }
+
+  let cells = row.split("");
+  for (let step = 0; step < steps; step++) {
+    cells = cells.map((cell, index) => {
+      if (cell === "." || (index > 0 && cells[index - 1] === ".") || (index < cells.length - 1 && cells[index + 1] === ".")) {
+        return ".";
+      } else if ((index === 0 || cell === "#") && (index === cells.length - 1 || cell === "#")) {
+        return ".";
+      }
+      return cell;
+    });
+  }
+  return cells.join("");
+}
+```

@@ -1,0 +1,29 @@
+```python
+import re
+
+
+def dose_totals(log):
+    """Exact per-reagent totals of a pour log, counted in thousandths."""
+    total_dict = {}
+    places_dict = {}
+
+    for reagent, amount in log:
+        written = re.fullmatch(r"-?\d+(?:\.(\d{1,3}))?", amount)
+        if written is None:
+            raise ValueError("amount is not a decimal of at most three places: " + amount)
+        
+        digits = written.group(1) or ""
+        sign = -1 if amount.startswith("-") else 1
+        bare = amount.replace("-", "").replace(".", "")
+        
+        total_dict[reagent] = total_dict.get(reagent, 0) + sign * int(bare) * 10 ** (3 - len(digits))
+        places_dict[reagent] = max(places_dict.get(reagent, 0), len(digits))
+
+    totals = {}
+    for reagent, total in total_dict.items():
+        finest_place_count = places_dict[reagent]
+        formatted_total = "{:.{}f}".format(total / 1000.0, finest_place_count)
+        totals[reagent] = formatted_total
+
+    return totals
+```

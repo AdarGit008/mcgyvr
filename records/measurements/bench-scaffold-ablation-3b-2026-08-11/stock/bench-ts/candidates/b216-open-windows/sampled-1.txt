@@ -1,0 +1,37 @@
+```ts
+/** Report the stretches of a clinic's day that no appointment covers. */
+export function openWindows(span: string, booked: string[]): string {
+  const clock = /^\d{2}:\d{2}$/;
+  const minutes = (range: string): number[] => {
+    const parts = range.split("-");
+    if (parts.length !== 2 || !clock.test(parts[0]) || !clock.test(parts[1])) {
+      throw new Error("a range must be written HH:MM-HH:MM: " + range);
+    }
+    return parts.map((at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3)));
+  };
+  const stamp = (at: number): string =>
+    String(Math.floor(at / 60)).padStart(2, "0") + ":" + String(at % 60).padStart(2, "0");
+  const free: string[] = [];
+  if (!clock.test(span)) {
+    throw new Error("span must be written HH:MM-HH:MM: " + span);
+  }
+  const [start, end] = minutes(span);
+
+  booked.forEach((appointment) => {
+    const [appStart, appEnd] = minutes(appointment);
+    if (appStart <= start && appEnd >= end) {
+      // The entire span is covered by an appointment.
+      return;
+    } else if (appStart < start && appEnd > start) {
+      // There's a free stretch before the appointment.
+      free.push(stamp(start) + "-" + stamp(appStart));
+    }
+    if (appStart < end && appEnd > end) {
+      // There's a free stretch after the appointment.
+      free.push(stamp(appEnd) + "-" + stamp(end));
+    }
+  });
+
+  return free.length === 0 ? "none" : free.join(", ");
+}
+```

@@ -1,0 +1,15 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    total = 0
+    count = 0
+
+    for record in records:
+        if isinstance(record.get(field), (int, float)):
+            total += record[field]
+            count += 1
+
+    if count == 0:
+        return 0
+
+    return total // count
+```

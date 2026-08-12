@@ -1,0 +1,10 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (rate < 0) {
+    throw new Error("Rate cannot be negative");
+  }
+
+  const preTaxPrice = gross / (1 + rate / 100);
+  return Math.floor(preTaxPrice);
+}
+```

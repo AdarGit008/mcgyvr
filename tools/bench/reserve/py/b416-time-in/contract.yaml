@@ -1,0 +1,20 @@
+id: b416-time-in
+task_type: bug_fix
+task: >-
+  time_in says whether a minute of the day falls inside a window given
+  by an opening and a closing minute, and it fails on a window that
+  runs over midnight, where the closing minute stands below the
+  opening one. Fix it. The opening minute is inside and the closing
+  one is not. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def time_in(minute: int, opens: int, closes: int) -> bool:
+      """Whether a minute of the day falls inside a window."""
+      return opens <= minute < closes
+interface: "def time_in(minute: int, opens: int, closes: int) -> bool"
+stop_conditions:
+  - Whether a window that opens and closes at the same minute is ever open is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

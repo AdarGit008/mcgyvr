@@ -1,0 +1,40 @@
+```python
+def parse_amount(text: str) -> int:
+    """Parse a decimal amount string into integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    parts = text.split('.')
+    if len(parts) == 1:
+        return int(parts[0]) * 100
+    elif len(parts) == 2 and parts[1].isdigit() and len(parts[1]) == 2:
+        return int(parts[0]) * 100 + int(parts[1])
+    else:
+        raise ValueError("Invalid amount string format")
+
+def format_amount(cents: int) -> str:
+    """Render non-negative integer cents as a dotted decimal string."""
+    if not isinstance(cents, int) or cents < 0:
+        raise ValueError("Input must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Split total_cents across weights proportionally."""
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list")
+    if any(not isinstance(w, int) or w < 0 for w in weights):
+        raise ValueError("Weights must be non-negative integers")
+    if sum(weights) == 0:
+        raise ValueError("Sum of weights must be greater than zero")
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("Total cents must be a non-negative integer")
+
+    proportion = [total_cents * w / sum(weights) for w in weights]
+    shares = [int(p) for p in proportion]
+    remainder = total_cents - sum(shares)
+
+    for i in range(remainder):
+        max_index = shares.index(max(shares))
+        shares[max_index] += 1
+
+    return shares
+```

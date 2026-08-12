@@ -1,0 +1,17 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  if (fromHour < 0 || fromHour > 23 || fromMinute < 0 || fromMinute > 59 || toHour < 0 || toHour > 23 || toMinute < 0 || toMinute > 59) {
+    throw new Error("Hour and minute must be between 0 and 23, inclusive.");
+  }
+
+  const hours = (toHour - fromHour + 24) % 24;
+  const minutes = Math.abs(toMinute - fromMinute);
+
+  // Adjust for cases where toTime is earlier than fromTime on the same day
+  if (hours > 0 && minutes === 0) {
+    return 1440 - hours * 60; // Total minutes in a day minus the hours that have passed
+  }
+
+  return minutes;
+}
+```

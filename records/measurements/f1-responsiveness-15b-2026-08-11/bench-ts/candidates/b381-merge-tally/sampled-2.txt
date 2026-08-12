@@ -1,0 +1,19 @@
+```ts
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  if (typeof tally[name] === 'undefined') {
+    tally[name] = 0;
+  }
+  tally[name] += amount;
+  return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  const combined: Record<string, number> = { ...left };
+  for (const name in right) {
+    if (right.hasOwnProperty(name)) {
+      combined[name] = (combined[name] || 0) + right[name];
+    }
+  }
+  return combined;
+}
+```

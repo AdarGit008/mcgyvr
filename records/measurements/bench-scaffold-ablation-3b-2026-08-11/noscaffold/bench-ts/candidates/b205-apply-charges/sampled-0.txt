@@ -1,0 +1,32 @@
+```typescript
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  if (!charges.every(([id, bucketName, amount]) => typeof id === 'string' && typeof bucketName === 'string' && Number.isInteger(amount) && amount > 0)) {
+    throw new Error("Invalid charge amount");
+  }
+
+  const left: Record<string, number> = {};
+  const refused: [string, string][] = [];
+
+  charges.forEach(([id, bucketName, amount]) => {
+    if (!caps[bucketName]) {
+      refused.push([id, "unknown"]);
+      return;
+    }
+
+    const [allowance, singleCharge] = caps[bucketName];
+    if (amount > singleCharge) {
+      refused.push([id, "single"]);
+      return;
+    }
+
+    if (amount > allowance) {
+      refused.push([id, "cap"]);
+      return;
+    }
+
+    left[bucketName] = allowance - amount;
+  });
+
+  return { left, refused };
+}
+```

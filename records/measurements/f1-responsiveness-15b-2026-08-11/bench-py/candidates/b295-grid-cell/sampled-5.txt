@@ -1,0 +1,37 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """
+    Returns a spreadsheet name from a row and column index.
+
+    Parameters:
+    - row (int): The row index (starting from 0).
+    - column (int): The column index (starting from 0).
+
+    Returns:
+    - str: The spreadsheet name.
+    """
+    if not isinstance(row, int) or not isinstance(column, int):
+        raise ValueError("Both row and column must be integers.")
+    
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    cell_name = ""
+    for i in range(column):
+        cell_name += alphabet[i % 26]
+    return f"A{row+1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    """
+    Returns a list of spreadsheet names for every cell in a grid.
+
+    Parameters:
+    - rows (int): The number of rows in the grid.
+    - columns (int): The number of columns in the grid.
+
+    Returns:
+    - list: A list of spreadsheet names.
+    """
+    if not isinstance(rows, int) or not isinstance(columns, int):
+        raise ValueError("Both rows and columns must be integers.")
+    
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

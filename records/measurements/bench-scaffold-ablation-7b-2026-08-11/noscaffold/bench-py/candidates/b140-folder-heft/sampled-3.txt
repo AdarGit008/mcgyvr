@@ -1,0 +1,58 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or 'name' not in node:
+        raise ValueError("Node must be a dictionary with a 'name' key.")
+    if not isinstance(node['name'], str) or not node['name']:
+        raise ValueError("Node name must be a non-empty string.")
+    if '/' in node['name']:
+        raise ValueError("Node name cannot contain a slash.")
+    if 'bytes' in node and 'children' in node:
+        raise ValueError("Node cannot have both 'bytes' and 'children'.")
+    if 'bytes' in node and not isinstance(node['bytes'], int) or node.get('bytes', 0) < 0:
+        raise ValueError("Bytes must be a non-negative integer.")
+    if 'children' in node and not isinstance(node['children'], list):
+        raise ValueError("Children must be a list.")
+
+def file_paths(root: dict) -> list:
+    def _file_paths(node, current_path=""):
+        path = f"{current_path}/{node['name']}" if current_path else node['name']
+        if 'bytes' in node:
+            return [path]
+        if 'children' not in node:
+            raise ValueError("Node must have either 'bytes' or 'children'.")
+        paths = []
+        for child in node['children']:
+            paths.extend(_file_paths(child, path))
+        return paths
+
+    validate_node(root)
+    return _file_paths(root)
+
+def tree_bytes(root: dict) -> int:
+    def _tree_bytes(node):
+        if 'bytes' in node:
+            return node['bytes']
+        if 'children' not in node:
+            raise ValueError("Node must have either 'bytes' or 'children'.")
+        return sum(_tree_bytes(child) for child in node['children'])
+
+    validate_node(root)
+    return _tree_bytes(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer.")
+
+    def _heavy_folders(node, current_path=""):
+        path = f"{current_path}/{node['name']}" if current_path else node['name']
+        total_bytes = tree_bytes({**node, 'path': path})
+        if total_bytes >= min_bytes:
+            yield [path, total_bytes]
+        if 'children' not in node:
+            return
+        for child in node['children']:
+            yield from _heavy_folders(child, path)
+
+    validate_node(root)
+    return list(_heavy_folders(root))
+```

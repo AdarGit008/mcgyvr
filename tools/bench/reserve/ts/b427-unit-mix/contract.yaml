@@ -1,0 +1,16 @@
+id: b427-unit-mix
+task_type: function_implementation
+task: >-
+  Implement unitMix. A recipe is given as a number of whole units and
+  a number of parts, where a stated number of parts make one unit.
+  Return the total tidied so the parts fall below that number, as the
+  units first and the parts second. Reject a number of parts to the
+  unit of zero or less with an error.
+target: solution.ts
+interface: "export function unitMix(units: number, parts: number, perUnit: number): number[]"
+stop_conditions:
+  - Whether a number of parts below nothing should borrow a unit is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

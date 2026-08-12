@@ -1,0 +1,27 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (freshFor <= 0 || !Number.isInteger(freshFor)) throw new Error("Invalid freshFor");
+  if (size <= 0 || !Number.isInteger(size)) throw new Error("Invalid size");
+
+  const cache: { [tile: string]: { tick: number; name: string } } = {};
+  const renders: [number, string][] = [];
+
+  for (const [tick, tile] of requests) {
+    if (cache[tile]) {
+      if (tick >= cache[tile].tick + freshFor) {
+        renders.push([tick, tile]);
+        cache[tile] = { tick, name: tile };
+      }
+    } else {
+      if (Object.keys(cache).length >= size) {
+        const oldestTile = Object.entries(cache).sort((a, b) => a[1].tick - b[1].tick)[0][0];
+        delete cache[oldestTile];
+      }
+      renders.push([tick, tile]);
+      cache[tile] = { tick, name: tile };
+    }
+  }
+
+  return renders;
+}
+```

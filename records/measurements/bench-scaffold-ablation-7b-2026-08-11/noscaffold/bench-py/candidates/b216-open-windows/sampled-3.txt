@@ -1,0 +1,23 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hh, mm = time_str.split(':')
+        return int(hh), int(mm)
+
+    def format_time(hh: int, mm: int) -> str:
+        return f"{hh:02}:{mm:02}"
+
+    span_start, span_end = parse_time(span.split('-')[0]), parse_time(span.split('-')[1])
+    booked_intervals = sorted([parse_time(app.split('-')[0]) + parse_time(app.split('-')[1]) for app in booked])
+
+    free_stretches = []
+    current = span_start
+    for start, end in booked_intervals:
+        if start > current:
+            free_stretches.append(format_time(*current) + '-' + format_time(*(start[0], start[1] - 1)))
+        current = max(current, end)
+    if current < span_end:
+        free_stretches.append(format_time(*current) + '-' + format_time(span_end))
+
+    return ', '.join(free_stretches) if free_stretches else 'none'
+```

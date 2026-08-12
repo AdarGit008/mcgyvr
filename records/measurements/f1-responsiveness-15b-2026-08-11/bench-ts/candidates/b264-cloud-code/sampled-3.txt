@@ -1,0 +1,14 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+    // Normalize input to upper case to match the table keys
+    const normalizedCode = code.toUpperCase();
+
+    // Check if the code is in the table and return its description
+    if (normalizedCode in table) {
+        return table[normalizedCode];
+    }
+
+    // If the code is not found, return 'unknown'
+    return 'unknown';
+}
+```

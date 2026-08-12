@@ -1,0 +1,12 @@
+```python
+def last_four(number: str) -> str:
+    if not number:
+        raise ValueError("Input must be a non-empty string")
+    return number[-4:]
+
+def mask_card(number: str) -> str:
+    if not number:
+        raise ValueError("Input must be a non-empty string")
+    stars = '*' * len(number)
+    return f"{stars[:-4]}{number[-4:]}"
+```

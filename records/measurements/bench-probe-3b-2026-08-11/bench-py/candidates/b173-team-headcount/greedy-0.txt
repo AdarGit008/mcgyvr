@@ -1,0 +1,32 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    """
+    Calculate the total number of workers covered by a given worker's report chain.
+
+    :param chart: A dictionary mapping each worker to their direct reports.
+    :param name: The name of the worker whose headcount is to be calculated.
+    :return: The total number of workers covered by the report chain, including the worker themselves.
+    """
+    if not isinstance(chart, dict):
+        raise ValueError("Chart must be a dictionary.")
+    
+    if name not in chart:
+        raise ValueError(f"Name '{name}' is not a key in the chart.")
+    
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("All reports must be strings.")
+    
+    visited = set()
+    queue = [name]
+    headcount = 0
+    
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        headcount += 1
+        queue.extend(chart.get(current, []))
+    
+    return headcount
+```

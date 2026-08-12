@@ -1,0 +1,13 @@
+```typescript
+export function lastFour(number: string): string {
+  return number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  if (!/^\d+$/.test(number)) {
+    throw new Error('Invalid card number');
+  }
+  const stars = '*'.repeat(number.length - 4);
+  return stars + number.slice(-4);
+}
+```

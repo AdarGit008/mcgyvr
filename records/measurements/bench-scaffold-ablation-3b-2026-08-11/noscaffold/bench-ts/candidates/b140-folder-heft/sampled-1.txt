@@ -1,0 +1,98 @@
+```ts
+
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+
+  const traverse = (node: any, currentPath: string = '') => {
+    if (!isObject(node) || !Array.isArray(node.children)) {
+      throw new Error('Invalid node structure');
+    }
+
+    for (const [name, child] of Object.entries(node)) {
+      if (typeof name !== 'string' || name.includes('/')) {
+        throw new Error('Node name must be a non-empty string without slashes');
+      }
+      const newPath = `${currentPath}${currentPath ? '/' : ''}${name}`;
+
+      if (isObject(child) && Array.isArray(child.children)) {
+        traverse(child, newPath);
+      } else if (!Array.isArray(child) || typeof child !== 'number') {
+        throw new Error('Node must have either children or bytes');
+      } else {
+        paths.push(newPath);
+      }
+    }
+  };
+
+  traverse(root);
+
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  const calculateSize = (node: any): number => {
+    if (!isObject(node) || !Array.isArray(node.children)) {
+      throw new Error('Invalid node structure');
+    }
+
+    let size = 0;
+
+    for (const child of node.children) {
+      if (isObject(child) && Array.isArray(child.children)) {
+        size += calculateSize(child);
+      } else if (!Array.isArray(child) || typeof child !== 'number') {
+        throw new Error('Node must have either children or bytes');
+      } else {
+        size += child;
+      }
+    }
+
+    return size;
+  };
+
+  return calculateSize(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || !isObject(root) || Array.isArray(root)) {
+    throw new Error('Invalid root structure');
+  }
+  if (typeof minBytes !== 'number' || minBytes < 0) {
+    throw new Error('Min bytes must be a non-negative whole number');
+  }
+
+  const heavyFolders: [string, number][] = [];
+
+  const traverse = (node: any, currentPath: string = '', totalSize: number = 0) => {
+    if (!isObject(node) || !Array.isArray(node.children)) {
+      throw new Error('Invalid node structure');
+    }
+
+    for (const [name, child] of Object.entries(node)) {
+      if (typeof name !== 'string' || name.includes('/')) {
+        throw new Error('Node name must be a non-empty string without slashes');
+      }
+      const newPath = `${currentPath}${currentPath ? '/' : ''}${name}`;
+
+      if (isObject(child) && Array.isArray(child.children)) {
+        traverse(child, newPath, totalSize + node.bytes);
+      } else if (!Array.isArray(child) || typeof child !== 'number') {
+        throw new Error('Node must have either children or bytes');
+      } else {
+        const newSize = totalSize + child;
+        if (newSize >= minBytes && !heavyFolders.some(([path]) => path === newPath)) {
+          heavyFolders.push([newPath, newSize]);
+        }
+      }
+
+      if (!heavyFolders.some(([path]) => path === newPath)) {
+        traverse(node, currentPath, totalSize);
+      }
+    }
+  };
+
+  traverse(root);
+
+  return heavyFolders;
+}
+```

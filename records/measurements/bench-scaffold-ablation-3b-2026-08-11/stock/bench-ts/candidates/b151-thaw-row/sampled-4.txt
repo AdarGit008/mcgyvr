@@ -1,0 +1,32 @@
+```typescript
+/** Melt a row of ice one simultaneous step at a time. */
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== "string" || row.length === 0) {
+    throw new Error("thawRow expects a non-empty string row");
+  }
+  if (!/^[#.]+$/.test(row)) {
+    throw new Error("row must contain only '#' and '.' characters");
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error("steps must be a non-negative integer");
+  }
+
+  const melt = (input: string): string => {
+    return input.split('').map((cell, index) => {
+      if (
+        cell === "#" &&
+        (index === 0 || row[index - 1] === "." || index === row.length - 1)
+      ) {
+        return ".";
+      }
+      return cell;
+    }).join('');
+  };
+
+  for (let i = 0; i < steps; i++) {
+    row = melt(row);
+  }
+
+  return row;
+}
+```

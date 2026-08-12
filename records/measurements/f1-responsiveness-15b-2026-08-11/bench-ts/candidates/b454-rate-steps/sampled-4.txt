@@ -1,0 +1,20 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount <= 0 || !Number.isFinite(amount)) throw new Error("amount must be a positive finite number");
+
+  const share = Math.floor((percent / 100) * amount);
+  return Math.round(fixed + share);
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (amounts.length === 0 || !Array.isArray(amounts)) throw new Error("amounts must be an array of positive finite numbers");
+
+  const result: number[] = [];
+  for (const amount of amounts) {
+    if (amount <= 0 || !Number.isFinite(amount)) throw new Error("amounts must be a positive finite numbers");
+    const share = Math.floor((percent / 100) * amount);
+    result.push(Math.round(fixed + share));
+  }
+  return result;
+}
+```

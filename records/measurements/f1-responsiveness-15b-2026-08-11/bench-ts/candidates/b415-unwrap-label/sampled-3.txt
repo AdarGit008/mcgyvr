@@ -1,0 +1,11 @@
+```ts
+/** A label with one surrounding pair of brackets removed. */
+export function unwrapLabel(label: string): string {
+  if (label.startsWith("[")) {
+    // Remove the last character if it's a bracket, otherwise remove the entire pair
+    const lastChar = label.charAt(label.length - 1);
+    return label.slice(0, label.length - 2) + (lastChar !== '[' ? '' : '');
+  }
+  return label;
+}
+```

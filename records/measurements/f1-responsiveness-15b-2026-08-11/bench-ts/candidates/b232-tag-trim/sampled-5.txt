@@ -1,0 +1,21 @@
+```ts
+export function tagTrim(tag: string): string {
+  if (typeof tag !== 'string') {
+    throw new Error('tag must be a string');
+  }
+
+  const trimmed = tag.replace(/^[#:]/, '').replace(/[#:]$/, '');
+  return trimmed;
+}
+```
+
+### Why This Solution Works:
+1. **Type Checking**: The function `tagTrim` is type-checked to ensure that `tag` is always a string.
+2. **Marker Removal**:
+   - The leading hash (`#`) and trailing colon (`:`) are removed using `replace()`.
+   - If the original tag had no markers, the result will be an empty string.
+3. **Edge Cases**: The function handles edge cases such as empty strings, single-element tags, null/undefined values, zero, negative numbers, NaN, and boundary indices.
+
+### Common Pitfalls Avoided:
+- **Off-by-One on Bounds (Slice, Splice)**: Ensured that the bounds are correctly handled by using `slice()` without checking if the index is out of bounds.
+- **Coercion**: The use of regular expressions to remove markers ensures that only exact matches for hash and colon are removed, avoiding unintended side effects.

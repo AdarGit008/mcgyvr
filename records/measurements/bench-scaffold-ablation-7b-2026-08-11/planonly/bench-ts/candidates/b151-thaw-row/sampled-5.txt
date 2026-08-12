@@ -1,0 +1,26 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row === '' || /[^#.]/.test(row) || typeof steps !== 'number' || steps < 0 || !Number.isInteger(steps)) {
+    throw new Error('Invalid input');
+  }
+
+  if (steps === 0) return row;
+
+  let result = row;
+  for (let i = 0; i < steps; i++) {
+    let nextResult = '';
+    for (let j = 0; j < result.length; j++) {
+      if ((j === 0 || result[j - 1] === '.') && result[j] === '#') {
+        nextResult += '.';
+      } else if ((j === result.length - 1 || result[j + 1] === '.') && result[j] === '#') {
+        nextResult += '.';
+      } else {
+        nextResult += result[j];
+      }
+    }
+    result = nextResult;
+  }
+
+  return result;
+}
+```

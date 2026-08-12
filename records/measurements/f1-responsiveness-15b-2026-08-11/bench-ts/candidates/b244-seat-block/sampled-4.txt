@@ -1,0 +1,11 @@
+```ts
+export function seatBlock(label: string): (number | string)[] {
+  const regex = /^[0-9]+[A-Z]$/;
+  if (!regex.test(label)) {
+    throw new Error("Invalid seat label");
+  }
+  const digits = label.slice(0, -1);
+  const letter = label.slice(-1).toUpperCase();
+  return [parseInt(digits), letter];
+}
+```

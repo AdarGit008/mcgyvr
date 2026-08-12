@@ -1,0 +1,16 @@
+id: b497-fold-rests
+task_type: function_implementation
+task: >-
+  isRest says whether an entry is a rest, meaning it holds nothing
+  once its blank space is taken off. foldRests gives back the run with
+  every unbroken stretch of rests standing as a single dash, and every
+  other entry left as it was. Implement foldRests.
+target: solution.ts
+interface: "export function isRest(entry: string): boolean
+export function foldRests(entries: string[]): string[]"
+stop_conditions:
+  - Whether a run made up only of rests should give back a single dash is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

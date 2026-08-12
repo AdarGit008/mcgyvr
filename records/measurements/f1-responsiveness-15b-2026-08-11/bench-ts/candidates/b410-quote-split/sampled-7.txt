@@ -1,0 +1,34 @@
+```ts
+export function inQuote(ch: string): boolean {
+  return ch === '"';
+}
+
+export function quoteSplit(line: string): string[] {
+  const result = [];
+  let inQuotes = false;
+  let currentPart = '';
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+        currentPart += char;
+      } else {
+        inQuotes = false;
+        currentPart += char;
+        result.push(currentPart);
+        currentPart = '';
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(currentPart);
+      currentPart = '';
+    } else {
+      currentPart += char;
+    }
+  }
+  if (currentPart) {
+    result.push(currentPart);
+  }
+  return result;
+}
+```

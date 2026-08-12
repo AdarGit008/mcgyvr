@@ -1,0 +1,74 @@
+```
+/** Close out a stockroom count sheet after a day's receive and issue moves. */
+
+function parseSheet(opening: string): Map<string, number> {
+  const held = new Map<string, number>();
+  if (opening === "") {
+    return held;
+  }
+  for (const part of opening.split(";")) {
+    const colon = part.indexOf(":");
+    if (colon < 0) {
+      throw new Error(`sheet entry has no colon: ${part}`);
+    }
+    const name = part.slice(0, colon);
+    const count = part.slice(colon + 1);
+    if (!/^[a-z]+$/.test(name)) {
+      throw new Error(`bad item name: ${part}`);
+    }
+    if (!/^(?:0|[1-9]\d*)$/.test(count)) {
+      throw new Error(`bad count: ${part}`);
+    }
+    if (held.has(name)) {
+      throw new Error(`duplicate sheet entry: ${name}`);
+    }
+    held.set(name, Number(count));
+  }
+  return held;
+}
+
+function applyMoves(held: Map<string, number>, moves: string): void {
+  for (const part of moves.split(";")) {
+    if (!part) continue;
+    const sign = part.slice(0, 1);
+    if (sign !== "+" && sign !== "-") {
+      throw new Error(`bad move sign: ${part}`);
+    }
+    const nameAndQty = part.slice(1).split(":");
+    if (nameAndQty.length !== 2) {
+      throw new Error(`malformed move: ${part}`);
+    }
+    const [name, qtyStr] = nameAndQty;
+    const qty = Number(qtyStr);
+    if (!/^(?:0|[1-9]\d*)$/.test(qtyStr)) {
+      throw new Error(`bad quantity in move: ${part}`);
+    }
+    if (!held.has(name)) {
+      throw new Error(`issue of unknown item: ${name}`);
+    }
+    const currentCount = held.get(name)!;
+    if ((sign === "+" && qty > 0) || (sign === "-" && qty > 0 && currentCount >= qty)) {
+      held.set(name, sign === "+" ? currentCount + qty : currentCount - qty);
+    } else if (qty === 0) {
+      continue;
+    } else if (sign === "-") {
+      throw new Error(`issue of more units than held: ${part}`);
+    }
+  }
+}
+
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== "string" || typeof moves !== "string") {
+    throw new Error("closingSheet expects two strings");
+  }
+  const held = parseSheet(opening);
+  applyMoves(held, moves);
+  const entries: string[] = [];
+  for (const name of [...held.keys()].sort()) {
+    if (held.get(name)! > 0) {
+      entries.push(`${name}:${held.get(name)}`);
+    }
+  }
+  return entries.join(";");
+}
+```

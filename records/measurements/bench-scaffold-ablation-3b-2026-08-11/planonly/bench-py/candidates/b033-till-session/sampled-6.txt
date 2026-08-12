@@ -1,0 +1,90 @@
+```python
+from typing import Dict, List
+
+def run_till_session(events: List[List[str]], prices: Dict[str, int]) -> Dict[str, any]:
+    if not events or not prices:
+        raise ValueError("Price list and events must be provided.")
+
+    def is_legal_for_open(state):
+        return state["session_state"] == "open" and state["cart"]
+
+    def is_legal_for_pay(state):
+        return state["session_state"] in {"open", "pay"} and state["total"] > 0
+
+    def add_item_to_cart(cart, item):
+        if item not in prices:
+            raise ValueError("Unknown item.")
+        cart[item] = cart.get(item, 0) + 1
+
+    def remove_item_from_cart(cart, item):
+        if item not in cart or cart[item] == 0:
+            raise ValueError("Invalid void action.")
+        cart[item] -= 1
+        if cart[item] == 0:
+            del cart[item]
+
+    state = {
+        "session_state": "open",
+        "cart": {},
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    for event in events:
+        action, payload = event
+
+        if action == "scan":
+            if not is_legal_for_open(state):
+                raise ValueError("Scan illegal in current session state.")
+            item_name = payload[0]
+            add_item_to_cart(state["cart"], item_name)
+            state["total"] += prices[item_name]
+
+        elif action == "void":
+            if not is_legal_for_open(state):
+                raise ValueError("Void illegal in current session state.")
+            item_name = payload[0]
+            remove_item_from_cart(state["cart"], item_name)
+            if item_name in state["cart"]:
+                state["total"] -= prices[item_name]
+
+        elif action == "close":
+            if not is_legal_for_open(state):
+                raise ValueError("Close illegal in current session state.")
+            if not state["cart"]:
+                raise ValueError("Cannot close with empty cart.")
+            state["session_state"] = "pay"
+            state["total"] += state["paid"]
+
+        elif action == "pay":
+            if not is_legal_for_pay(state):
+                raise ValueError("Pay illegal in current session state.")
+            pay_amount = payload[0]
+            if pay_amount < 0:
+                raise ValueError("Payment amount must be positive.")
+            if pay_amount > state["total"]:
+                raise ValueError("Insufficient funds.")
+            state["paid"] += pay_amount
+            state["change"] = state["total"] - state["paid"]
+            state["session_state"] = "completed"
+
+        elif action == "cancel":
+            if not is_legal_for_open(state):
+                raise ValueError("Cancel illegal in current session state.")
+            state["cart"].clear()
+            state["total"] = 0
+            state["paid"] = 0
+            state["change"] = 0
+            state["session_state"] = "cancelled"
+
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return {
+        "items": [list(item) for item in sorted(state["cart"].items())],
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

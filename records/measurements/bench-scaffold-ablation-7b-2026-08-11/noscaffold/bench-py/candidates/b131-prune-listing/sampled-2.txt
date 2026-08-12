@@ -1,0 +1,39 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def is_valid_path(path: str) -> bool:
+        return isinstance(path, str) and path != '' and '/' not in path[0] and '/' not in path[-1]
+
+    def is_valid_rule(rule: str) -> bool:
+        return isinstance(rule, str) and rule != '!'
+
+    if any(not is_valid_path(p) for p in listing):
+        raise ValueError("Invalid path")
+    if any(not is_valid_rule(r) for r in rules):
+        raise ValueError("Invalid rule")
+
+    def matches_pattern(path_segment: str, pattern_segment: str) -> bool:
+        return pattern_segment == '*' or path_segment == pattern_segment
+
+    def matches_rule(path: List[str], rule: str) -> bool:
+        if rule.startswith('!'):
+            return all(matches_pattern(p, r[1:]) for p, r in zip(path, rule[1:].split('/')) and len(rule.split('/')) > 1)
+        else:
+            return all(matches_pattern(p, r) for p, r in zip(path, rule.split('/')))
+
+    def last_matching_rule_index(path: List[str]) -> int:
+        for i, rule in enumerate(reversed(rules)):
+            if matches_rule(path, rule):
+                return len(rules) - 1 - i
+        return -1
+
+    surviving_paths = []
+    for path in listing:
+        path_segments = path.split('/')
+        index = last_matching_rule_index(path_segments)
+        if index != -1 and rules[index].startswith('!'):
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

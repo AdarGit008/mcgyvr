@@ -1,0 +1,18 @@
+```python
+def tags_of(line):
+    lines = line.split(',')
+    return [tag.strip().lower() for tag in lines if tag]
+
+def tag_index(lines: list) -> dict:
+    tag_dict = {}
+    for index, line in enumerate(lines):
+        try:
+            parsed_line = line.strip()
+            if not parsed_line:
+                continue
+            tags = tags_of(parsed_line)
+            tag_dict[tuple(tags)] = [lines[index]]
+        except ValueError as e:
+            print(f"Error processing line {index + 1}: {e}")
+    return tag_dict
+```

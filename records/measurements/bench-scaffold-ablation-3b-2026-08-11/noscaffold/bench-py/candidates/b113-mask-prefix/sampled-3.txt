@@ -1,0 +1,63 @@
+```python
+def prefix_from_mask(mask: str) -> int:
+    """
+    Converts a dotted-quad mask string to its count of leading ones.
+
+    Args:
+        mask (str): A valid dotted-quad mask in decimal format.
+
+    Returns:
+        int: The count of leading ones in the mask.
+
+    Raises:
+        ValueError: If the input is not a valid masked address.
+    """
+    if not isinstance(mask, str) or len(mask.split(".")) != 4:
+        raise ValueError("Invalid mask format")
+
+    try:
+        octets = list(map(int, mask.split(".")))
+    except ValueError:
+        raise ValueError("Mask contains non-integer values")
+
+    leading_ones_count = 0
+    for octet in octets:
+        if octet == 255:
+            leading_ones_count += 8
+        elif 128 <= octet < 256:
+            # Handle cases where the mask is within the range of two bits (128-255)
+            for digit in str(octet):
+                if int(digit) != 0:
+                    leading_ones_count += 1
+        else:
+            raise ValueError("Invalid octet value")
+
+    return leading_ones_count
+
+def mask_from_prefix(prefix: int) -> str:
+    """
+    Converts a count of leading ones to its dotted-quad mask string.
+
+    Args:
+        prefix (int): The number of leading ones in the mask.
+
+    Returns:
+        str: A valid dotted-quad mask in decimal format.
+
+    Raises:
+        ValueError: If the input is not an integer from 0 to 32.
+    """
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer between 0 and 32")
+
+    mask = [255] * 4
+    for i in range(31, -1, -1):
+        if prefix >= 8:
+            mask[i // 8] -= 8
+            prefix -= 8
+        elif prefix > 0:
+            mask[i // 8] -= 1
+            prefix -= 1
+
+    return ".".join(map(str, mask))
+```

@@ -1,0 +1,32 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: Dict[str, Tuple[int, List[Tuple[str, int]]]], kit: str, want: int) -> Dict[str, int]:
+    """
+    Calculate total parts consumed to obtain a specific number of units of a kit.
+    
+    :param catalog: Dictionary mapping kit names to (makes, parts_list) tuples.
+    :param kit: Name of the kit to explode.
+    :param want: Number of units of the kit to produce.
+    :return: Dictionary mapping base parts to their total consumption count.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Invalid kit name: {kit}")
+    
+    def calculate_parts(units: int, current_kit: str) -> Dict[str, int]:
+        makes, parts_list = catalog[current_kit]
+        parts_count = {part[0]: part[1] for part in parts_list}
+        
+        if units <= 0:
+            return parts_count
+        
+        runs = (units + makes - 1) // makes
+        total_parts = {}
+        for component, count in parts_count.items():
+            sub_parts = calculate_parts(count * runs, component)
+            total_parts[component] = total_parts.get(component, 0) + sum(sub_parts.values())
+        
+        return total_parts
+    
+    return calculate_parts(want, kit)
+```

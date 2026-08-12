@@ -1,0 +1,42 @@
+```ts
+import { Map } from "typescript-collections";
+
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  
+  for (const [fragment, price] of dies) {
+    if (!fragment || typeof fragment !== 'string' || !Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid die entry');
+    }
+    
+    if (table.containsKey(fragment)) {
+      throw new Error('Fragment listed twice');
+    }
+    
+    table.put(fragment, price);
+  }
+  
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+  
+  if (!label || typeof label !== 'string' || label.length === 0) {
+    throw new Error('Invalid or empty label');
+  }
+  
+  const dp = Array.from({ length: label.length + 1 }, () => -Infinity);
+  dp[0] = 0;
+  
+  for (let i = 0; i < label.length; i++) {
+    for (let j = 0; j <= i; j++) {
+      if (table.containsKey(label.substring(j, i + 1))) {
+        dp[i + 1] = Math.max(dp[i + 1], dp[j] + table.get(label.substring(j, i + 1))!);
+      }
+    }
+  }
+  
+  return dp[label.length];
+}
+```

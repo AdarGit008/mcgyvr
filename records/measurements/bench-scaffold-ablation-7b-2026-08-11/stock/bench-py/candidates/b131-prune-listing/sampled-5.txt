@@ -1,0 +1,72 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def is_valid_rule(rule):
+        if not isinstance(rule, str) or rule == "":
+            return False
+        if rule.startswith("!" and len(rule) > 1:
+            return True
+        elif rule.count("!") != 0:
+            return False
+        return split_strict(rule, "rule")[0] != ""
+
+    def is_valid_path(path):
+        if not isinstance(path, str) or path == "":
+            return False
+        return split_strict(path, "path")[0] != ""
+
+    if any(not is_valid_rule(rule) for rule in rules):
+        raise ValueError("Invalid rule")
+    if any(not is_valid_path(path) for path in listing):
+        raise ValueError("Invalid path")
+
+    pruned_listing = []
+    for path in listing:
+        matched = False
+        for rule in rules:
+            is_keep = rule.startswith("!")
+            pattern_segments = split_strict(rule[1:], "rule")[0].split("/")
+            path_segments = split_strict(path, "path")[0].split("/")
+            if len(pattern_segments) > len(path_segments):
+                continue
+            if all(segment_fits(pattern, path_segment) for pattern, path_segment in zip(pattern_segments, path_segments)):
+                matched = True
+                if is_keep:
+                    pruned_listing.append(path)
+                    break
+        if not matched:
+            pruned_listing.append(path)
+
+    return pruned_listing
+```

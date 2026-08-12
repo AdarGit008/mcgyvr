@@ -1,0 +1,35 @@
+```ts
+import { keys } from "lodash";
+
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== "string" || name === "" || name.includes("*")) {
+    throw new Error("name must be a star-free non-empty string");
+  }
+
+  const isExactMatch = (selector: string) => selector === name;
+  const isValidSelector = (selector: string) =>
+    /^\*|\.*$/.test(selector) && !selector.endsWith(".*");
+
+  function getMatchingRule(ruleName: string): string | null {
+    if (!rules[ruleName]) return null;
+
+    if (isExactMatch(ruleName)) {
+      return rules[ruleName];
+    }
+
+    const allKeys = keys(rules);
+    const wildcardIndex = allKeys.findIndex(k => k.endsWith(".*"));
+
+    if (wildcardIndex !== -1) {
+      const wildcardKey = allKeys[wildcardIndex].slice(0, -2); // Remove the ".*"
+      if (!name.startsWith(wildcardKey)) return null;
+
+      return rules[ruleName];
+    }
+
+    return rules["*"];
+  }
+
+  return getMatchingRule(name);
+}
+```

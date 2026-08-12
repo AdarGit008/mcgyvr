@@ -1,0 +1,34 @@
+```python
+def number_sections(sections: list) -> list:
+    def number_section(section: dict, depth: int) -> str:
+        if not isinstance(section, dict):
+            raise ValueError("Invalid section type")
+        if "heading" not in section or not isinstance(section["heading"], str) or not section["heading"]:
+            raise ValueError("Invalid heading type")
+        if "children" not in section or not isinstance(section["children"], list):
+            raise ValueError("Invalid children type")
+
+        number = f"{depth + 1}{section['heading']}"
+        for child in section["children"]:
+            number += f".{number_section(child, depth + 1)}"
+        return number
+
+    if not isinstance(sections, list):
+        raise ValueError("Invalid outline type")
+    
+    return [number_section(section, 0) for section in sections]
+
+def section_count(sections: list) -> int:
+    def count_sections(section: dict) -> int:
+        if not isinstance(section, dict):
+            raise ValueError("Invalid section type")
+        if "children" not in section or not isinstance(section["children"], list):
+            raise ValueError("Invalid children type")
+
+        return 1 + sum(count_sections(child) for child in section["children"])
+
+    if not isinstance(sections, list):
+        raise ValueError("Invalid outline type")
+    
+    return sum(count_sections(section) for section in sections)
+```

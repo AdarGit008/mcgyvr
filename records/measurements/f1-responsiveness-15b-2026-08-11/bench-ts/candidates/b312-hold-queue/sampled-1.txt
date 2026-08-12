@@ -1,0 +1,98 @@
+```ts
+/**
+ * Holds up to `limit` callers in order of arrival, dropping the longest caller first when full.
+ * @param callers - The list of callers in the order they arrived.
+ * @param limit - The maximum number of callers to keep.
+ * @returns The hold queue as it stands at the end.
+ */
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error('Limit must be greater than zero');
+  }
+
+  // Use a max-heap to efficiently handle the longest caller first
+  const heap = new MaxHeap(callers);
+
+  while (heap.size() > limit) {
+    heap.pop();
+  }
+
+  return heap.toArray();
+}
+
+// Helper class to represent a heap
+class MaxHeap<T> {
+  private data: T[];
+  private compareFn: (a: T, b: T) => number;
+
+  constructor(data: T[], compareFn?: (a: T, b: T) => number) {
+    this.data = data;
+    this.compareFn = compareFn || (a, b) => b.localeCompare(a);
+    this.heapify();
+  }
+
+  get size(): number {
+    return this.data.length;
+  }
+
+  isEmpty(): boolean {
+    return this.size() === 0;
+  }
+
+  toArray(): T[] {
+    return [...this.data];
+  }
+
+  peek(): T | undefined {
+    return this.isEmpty() ? undefined : this.data[0];
+  }
+
+  push(value: T): void {
+    this.data.push(value);
+    this.bubbleUp(this.data.length - 1);
+  }
+
+  pop(): T | undefined {
+    if (this.isEmpty()) {
+      return undefined;
+    }
+    const root = this.data[0];
+    this.data[0] = this.data[this.data.length - 1];
+    this.data.pop();
+    this.bubbleDown(0);
+    return root;
+  }
+
+  private heapify(): void {
+    for (let i = Math.floor((this.size() - 2) / 2); i >= 0; i--) {
+      this.bubbleDown(i);
+    }
+  }
+
+  private bubbleUp(index: number): void {
+    while (index > 0 && this.compareFn(this.data[index], this.data[(index - 1) / 2]) > 0) {
+      [this.data[index], this.data[(index - 1) / 2]] = [this.data[(index - 1) / 2], this.data[index]];
+      index = (index - 1) / 2;
+    }
+  }
+
+  private bubbleDown(index: number): void {
+    const left = 2 * index + 1;
+    const right = 2 * index + 2;
+    let largest = index;
+
+    if (left < this.size() && this.compareFn(this.data[left], this.data[largest]) > 0) {
+      largest = left;
+    }
+
+    if (right < this.size() && this.compareFn(this.data[right], this.data[largest]) > 0) {
+      largest = right;
+    }
+
+    if (largest !== index) {
+      [this.data[index], this.data[largest]] = [this.data[largest], this.data[index]];
+      this.bubbleDown(largest);
+    }
+  }
+}
+```

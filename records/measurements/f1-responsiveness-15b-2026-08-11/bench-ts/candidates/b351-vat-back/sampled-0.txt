@@ -1,0 +1,8 @@
+```ts
+export function vatBack(gross: number, rate: number): number {
+  if (rate < -1 || rate > 100) throw new Error(`Invalid tax rate ${rate}`);
+
+  let originalPrice = gross / (1 + rate / 100);
+  return Math.floor(originalPrice);
+}
+```

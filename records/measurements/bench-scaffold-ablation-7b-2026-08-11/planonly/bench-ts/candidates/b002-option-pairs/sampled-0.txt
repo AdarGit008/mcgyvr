@@ -1,0 +1,61 @@
+```ts
+/**
+ * Parses an option segment into [key, value] pair.
+ * @param segment - The key=value segment to parse.
+ * @returns A tuple containing the key and value.
+ */
+export function parseOption(segment: string): [string, string] {
+  const parts = segment.split('=');
+  if (parts.length !== 2) throw new Error('Invalid option segment');
+  const key = parts[0].trim();
+  if (!/^[a-zA-Z_][a-zA-Z\d_]*$/.test(key)) throw new Error('Invalid key format');
+
+  let value = parts[1].trim();
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.slice(1, -1);
+  }
+
+  return [key, value];
+}
+
+/**
+ * Splits the options string into pairs.
+ * @param input - The options string to split.
+ * @returns An array of [key, value] pairs.
+ */
+export function scanPairs(input: string): [string, string][] {
+  if (typeof input !== 'string' || input === '') throw new Error('Invalid input');
+  const result: [string, string][] = [];
+  let insideQuotes = false;
+
+  for (let i = 0; i < input.length; ) {
+    if (input[i] === '"') {
+      insideQuotes = !insideQuotes;
+      i++;
+      continue;
+    }
+
+    if (!insideQuotes && input[i] === ';') {
+      i++;
+      continue;
+    }
+
+    const end = input.indexOf(';', i);
+    const segment = end !== -1 ? input.slice(i, end) : input.slice(i);
+
+    try {
+      const pair = parseOption(segment);
+      if (result.some(([k]) => k === pair[0])) throw new Error('Duplicate key');
+      result.push(pair);
+    } catch (error) {
+      throw new Error(`Invalid option: ${segment}. Cause: ${error.message}`);
+    }
+
+    i = end !== -1 ? end + 1 : input.length;
+  }
+
+  if (insideQuotes) throw new Error('Unterminated quote');
+
+  return result;
+}
+```

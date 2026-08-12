@@ -1,0 +1,15 @@
+id: b369-run-index
+task_type: function_implementation
+task: >-
+  Implement run_index. Return the position at which a value appears
+  for the nth time in a list, counting positions from zero, or minus
+  one when it does not appear that often. Reject a count of zero or
+  less with an error.
+target: solution.py
+interface: "def run_index(entries: list, value: str, nth: int) -> int"
+stop_conditions:
+  - Whether the count should be able to run from the end of the list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

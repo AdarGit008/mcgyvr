@@ -1,0 +1,15 @@
+```python
+from typing import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    # Normalize the hours and minutes to be within 0-23 range
+    from_hour = (from_hour + 24) % 24 if from_hour >= 24 else from_hour
+    to_hour = (to_hour + 24) % 24 if to_hour >= 24 else to_hour
+    
+    # Ensure the second time is at least as late as the first
+    if to_hour < from_hour or (to_hour == from_hour and to_minute <= from_minute):
+        to_hour += 1
+    
+    # Calculate the total minutes gap
+    return (to_hour * 60 + to_minute) - (from_hour * 60 + from_minute)
+```

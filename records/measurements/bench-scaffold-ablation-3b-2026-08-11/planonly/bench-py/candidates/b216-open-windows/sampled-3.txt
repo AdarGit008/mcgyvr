@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def open_windows(span: str, booked: List[str]) -> str:
+    def parse_time(time_str: str) -> int:
+        hours, minutes = map(int, time_str.split(':'))
+        return hours * 60 + minutes
+
+    def format_time(minutes: int) -> str:
+        return f"{minutes // 60:02}:{minutes % 60:02}"
+
+    if not span or not booked:
+        raise ValueError("Invalid input")
+
+    start, end = span.split('-')
+    start_minutes = parse_time(start)
+    end_minutes = parse_time(end)
+
+    for appointment in sorted(booked):
+        ap_start, ap_end = map(parse_time, appointment.split('-'))
+        if start_minutes < ap_start and ap_end <= end_minutes:
+            start_minutes = ap_end
+        elif start_minutes == ap_start and ap_end > end_minutes:
+            return "none"
+        elif ap_start < start_minutes < ap_end:
+            span = f"{format_time(start_minutes)}-{format_time(ap_start)}"
+        elif start_minutes <= ap_start < end_minutes and ap_end > end_minutes:
+            span = f"{format_time(start_minutes)}-{format_time(end_minutes)}"
+        elif start_minutes == ap_start and ap_end == end_minutes:
+            return "none"
+        
+    if start_minutes != end_minutes:
+        span = f"{format_time(start_minutes)}-{format_time(end_minutes)}"
+    
+    return span
+```

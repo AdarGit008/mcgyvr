@@ -1,0 +1,22 @@
+id: b167-seal-code
+task_type: function_implementation
+task: >-
+  Implement seal_code. A depot seals every crate code so a mistyped code is
+  caught at the gate. A code is a non-empty run of digits and capital
+  letters: a digit is worth its face value and A through Z are worth 10
+  through 35. The seal starts at 7 and folds the code left to right — for
+  each character the seal becomes twice itself plus that character's
+  worth, modulo 36. The final seal, written as its own character from the
+  alphabet 0 to 9 then A to Z, is appended to the code, so seal_code turns
+  "AB" into "ABN". Return the sealed code. Order matters: "BA" seals
+  differently, to "BAO". Reject a code that is not a string, an empty
+  code, and a code holding any character outside digits and capital
+  letters, with an error.
+target: solution.py
+interface: "def seal_code(code: str) -> str"
+stop_conditions:
+  - No upper bound on the length of a code is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

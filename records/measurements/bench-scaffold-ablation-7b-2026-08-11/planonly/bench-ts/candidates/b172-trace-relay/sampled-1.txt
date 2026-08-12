@@ -1,0 +1,26 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('Invalid links argument');
+  }
+
+  const posts = Object.keys(links);
+  if (!posts.includes(start)) {
+    throw new Error('Invalid start post');
+  }
+
+  const visited = new Set<string>();
+  let currentPost = start;
+
+  while (currentPost !== '') {
+    if (visited.has(currentPost)) {
+      throw new Error('Watch comes back to a post already visited');
+    }
+
+    visited.add(currentPost);
+    currentPost = links[currentPost];
+  }
+
+  return Array.from(visited);
+}
+```

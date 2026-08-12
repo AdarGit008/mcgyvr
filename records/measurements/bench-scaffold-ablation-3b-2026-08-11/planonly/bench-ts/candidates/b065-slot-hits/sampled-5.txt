@@ -1,0 +1,26 @@
+```
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+
+  const cache: Record<number, number> = {};
+
+  return keys.reduce((hits, key) => {
+    if (!Number.isInteger(key)) {
+      throw new Error("Key must be an integer.");
+    }
+
+    const slot = key % slots;
+
+    if (cache[slot] === undefined || cache[slot] !== key) {
+      hits++;
+    } else {
+      // If the slot already holds the key, it is a hit
+      cache[slot] = key;
+    }
+
+    return hits;
+  }, 0);
+}
+```

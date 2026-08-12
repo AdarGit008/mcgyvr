@@ -1,0 +1,22 @@
+```python
+def strip_tags(line: str) -> str:
+    result = ""
+    stack = []
+    quoting = False
+
+    for char in line:
+        if char == '"':
+            quoting = not quoting
+        elif char == '<' and not quoting:
+            stack.append(char)
+        elif char == '>' and not quoting:
+            if stack:
+                stack.pop()
+            else:
+                break
+
+        if not stack and not quoting:
+            result += char
+
+    return result
+```

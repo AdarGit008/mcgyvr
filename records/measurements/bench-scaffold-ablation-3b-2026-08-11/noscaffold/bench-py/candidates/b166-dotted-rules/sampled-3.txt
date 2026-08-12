@@ -1,0 +1,30 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Match a dotted option name against style rules and return the winning value or None.
+    
+    Args:
+        rules (dict): A dictionary where keys are selector strings and values are string values.
+        name (str): The dotted option name to resolve.
+
+    Returns:
+        str | None: The winning value if found, otherwise None.
+    """
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("The name must be a non-empty string.")
+    
+    if '.' in name and name.endswith('.*'):
+        raise ValueError("Selectors cannot end with '.*'.")
+    
+    if '*' in name and (name != "*" or '.' in name):
+        raise ValueError("A selector can only contain one '*' at the start.")
+
+    def is_covering(selector, name):
+        return selector == name or (selector.endswith('.*') and name.startswith(selector[:-2]))
+
+    for rule_selector, value in rules.items():
+        if is_covering(rule_selector, name) or rule_selector == '*':
+            return value
+
+    return None
+```

@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "numeric",
+  "steering_band": "g0",
+  "target_symbol": {"ts": "nearestDepot", "py": "nearest_depot"}
+}

@@ -1,0 +1,26 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (links === null || typeof links !== "object" || Array.isArray(links)) throw new Error("links must be a mapping");
+  if (!(start in links)) throw new Error("start is not a post");
+
+  const route: string[] = [];
+  let currentPost = start;
+  let visitedPosts = new Set<string>();
+
+  while (currentPost !== "") {
+    if (visitedPosts.has(currentPost)) {
+      throw new Error("a watch comes back to a post already visited");
+    }
+    visitedPosts.add(currentPost);
+    route.push(currentPost);
+
+    if (!(currentPost in links)) {
+      throw new Error("handoff naming a post that links does not name");
+    }
+
+    currentPost = links[currentPost];
+  }
+
+  return route;
+}
+```

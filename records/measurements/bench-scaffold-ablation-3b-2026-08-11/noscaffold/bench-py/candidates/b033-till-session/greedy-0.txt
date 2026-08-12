@@ -1,0 +1,80 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not events or not isinstance(prices, dict):
+        raise ValueError("Invalid input")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    def is_valid_price(price):
+        return isinstance(price, int) and price > 0
+
+    def is_valid_event(event):
+        return isinstance(event, list) and len(event) == 2
+
+    def get_item_price(item):
+        return prices.get(item)
+
+    def add_to_cart(item):
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+        state["items"].append([item, 1])
+        state["total"] += get_item_price(item)
+        state["paid"] = 0
+        state["change"] = 0
+
+    def remove_from_cart(item):
+        for i, (name, quantity) in enumerate(state["items"]):
+            if name == item:
+                if quantity > 1:
+                    state["items"][i][1] -= 1
+                else:
+                    del state["items"][i]
+                state["total"] -= get_item_price(item)
+                break
+        else:
+            raise ValueError(f"Item not in cart: {item}")
+
+    def pay(amount):
+        if amount <= 0 or not isinstance(amount, int):
+            raise ValueError("Invalid payment amount")
+        if state["paid"] + amount > state["total"]:
+            raise ValueError("Insufficient funds")
+        state["paid"] += amount
+        state["change"] = state["paid"] - state["total"]
+
+    def close_session():
+        if not state["items"]:
+            raise ValueError("Cannot close an empty cart")
+        state["state"] = "payment"
+        state["paid"] = 0
+        state["change"] = 0
+
+    for event in events:
+        action, payload = event
+        if action == "scan":
+            add_to_cart(payload)
+        elif action == "void":
+            remove_from_cart(payload)
+        elif action == "pay":
+            pay(payload)
+        elif action == "close":
+            close_session()
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+        # Check if the session is in an invalid state
+        if state["state"] == "payment" and not (0 <= state["paid"] <= state["total"]):
+            raise ValueError("Invalid payment amount")
+
+    return {
+        "items": sorted(state["items"]),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

@@ -1,0 +1,15 @@
+id: b428-run-decode
+task_type: function_implementation
+task: >-
+  Implement runDecode. A run is written as a letter followed by how
+  many times it repeats, so A3B1 stands for AAAB. Return the letters
+  written out in full. A count may run to more than one digit, and
+  empty text decodes to empty text.
+target: solution.ts
+interface: "export function runDecode(coded: string): string"
+stop_conditions:
+  - What a letter followed by no count at all should decode to is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

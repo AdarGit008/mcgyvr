@@ -1,0 +1,120 @@
+```ts
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  if (!prices || Object.keys(prices).length === 0) {
+    throw new Error("price list must contain at least one item");
+  }
+
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error(`price must be a positive integer: ${name}`);
+    }
+  }
+
+  let state = OPEN;
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2 || typeof event[0] !== "string") {
+      throw new Error(`event must be a list with an action and exactly its payload`);
+    }
+
+    const [action, ...payload] = event;
+    switch (action) {
+      case OPEN:
+        if (state === PAYMENT || state === PAID || state === CANCELLED) {
+          throw new Error("an open session cannot start while another is already open or paid");
+        }
+        break;
+      case PAYMENT:
+        if (state !== OPEN) {
+          throw new Error(`a payment event can only be added to an open session`);
+        }
+        break;
+      case PAID:
+        if (state !== PAYMENT || state === CANCELLED) {
+          throw new Error("a paid event cannot be added to an invalid session");
+        }
+        break;
+      case CANCELLED:
+        if (!(state === OPEN || state === PAYMENT)) {
+          throw new Error(`a cancel event can only be added to an open or payment session`);
+        }
+        break;
+      default:
+        throw new Error(`unknown action: ${action}`);
+    }
+
+    switch (action) {
+      case "scan":
+        const [itemName] = payload;
+        if (!(itemName in prices)) {
+          throw new Error(`an unknown item was scanned: ${itemName}`);
+        }
+        cart[itemName] = (cart[itemName] || 0) + 1;
+        total += prices[itemName];
+        break;
+      case "void":
+        const [voidItem] = payload;
+        if (!(voidItem in cart)) {
+          throw new Error(`an unknown item was voided: ${voidItem}`);
+        }
+        if (cart[voidItem] > 0) {
+          cart[voidItem]--;
+          total -= prices[voidItem];
+        } else {
+          throw new Error(`nothing to void`);
+        }
+        break;
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("cannot close a session with an empty cart");
+        }
+        state = PAYMENT;
+        total = Math.round(total);
+        break;
+      case "pay":
+        const [amount] = payload;
+        if (!Number.isInteger(amount) || amount <= 0) {
+          throw new Error(`payment amount must be a positive integer`);
+        }
+        paid += amount;
+        const change = paid - total;
+        state = PAID;
+        return { state, items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])), total, paid, change };
+      case "cancel":
+        if (state === OPEN || state === PAYMENT) {
+          state = CANCELLED;
+          cart = {};
+          total = 0;
+          paid = 0;
+          return { state, items: [], total, paid, change: 0 };
+        }
+        throw new Error(`cannot cancel an invalid session`);
+      default:
+        throw new Error(`unknown action: ${action}`);
+    }
+  }
+
+  if (state !== OPEN && !["paid", "cancelled"].includes(state)) {
+    throw new Error("session must be in one of the valid states: open, payment, paid or cancelled");
+  }
+
+  return { state, items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])), total, paid, change };
+}
+```

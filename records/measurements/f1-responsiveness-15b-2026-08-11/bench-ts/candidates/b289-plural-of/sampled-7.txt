@@ -1,0 +1,28 @@
+```ts
+export function pluralOf(noun: string): string {
+  if (typeof noun !== 'string') {
+    throw new Error('The input must be a string.');
+  }
+
+  const suffixes = ['s', 'x', 'ch', 'sh'];
+  const irregularPlurals = {
+    xy: 'ies',
+    y: {
+      vowelMatch: /^[aeiou]/i,
+      pluralSuffix: 'ies'
+    }
+  };
+
+  if (suffixes.includes(noun[noun.length - 1])) {
+    return noun + 's';
+  } else if (irregularPlurals.hasOwnProperty(noun.toLowerCase())) {
+    const irregularNoun = irregularPlurals[noun.toLowerCase()];
+    const matches = noun.match(irregularNoun.vowelMatch);
+    if (matches) {
+      return noun.slice(0, -1) + irregularNoun.pluralSuffix;
+    }
+  }
+
+  return noun + 's';
+}
+```

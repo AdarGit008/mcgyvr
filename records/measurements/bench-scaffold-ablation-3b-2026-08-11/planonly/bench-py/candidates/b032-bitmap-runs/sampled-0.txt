@@ -1,0 +1,49 @@
+```
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    """
+    Find the smallest start of a free run of `length` blocks below `capacity`.
+    Returns -1 if no such free run exists.
+    """
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    word_count = len(words)
+    if word_count != capacity // 32 + (1 if capacity % 32 != 0 else 0):
+        raise ValueError("The number of words does not match the capacity.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(word_count * 32 - length + 1):
+        if all(bit_at(words, j) == 0 for j in range(i, i + length)):
+            return i
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    """
+    Mark the run of `length` blocks starting at `start` as occupied.
+    The original list is modified and returned.
+    """
+    if not isinstance(start, int) or not 0 <= start < len(words) * 32 - length + 1:
+        raise ValueError("Start index must be a valid integer within the bounds.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(start, start + length):
+        bit_at(words, i) = 1
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    """
+    Get the bit at `index` from the bitmap.
+    Raises ValueError if the index is out of bounds.
+    """
+    word_index = index // 32
+    bit_position = index % 32
+    
+    if not isinstance(word_index, int) or not 0 <= word_index < len(words):
+        raise ValueError("Word index must be a valid integer.")
+    
+    return (words[word_index] >> bit_position) & 1
+```

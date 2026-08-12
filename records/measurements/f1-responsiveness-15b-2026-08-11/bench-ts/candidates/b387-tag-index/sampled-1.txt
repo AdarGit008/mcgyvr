@@ -1,0 +1,31 @@
+```ts
+import { isArray, isNumber } from 'lodash';
+
+export function tagsOf(line: unknown): string[] {
+  if (!isString(line)) {
+    throw new Error('Invalid input');
+  }
+
+  return line.split(',').map(tag => tag.trim().toLowerCase());
+}
+
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  const index = {};
+
+  for (const line of lines) {
+    if (!isText(line)) {
+      continue;
+    }
+
+    const tags = tagsOf(line);
+    for (const tag of tags) {
+      if (!index.hasOwnProperty(tag)) {
+        index[tag] = [];
+      }
+      index[tag].push(line);
+    }
+  }
+
+  return index;
+}
+```

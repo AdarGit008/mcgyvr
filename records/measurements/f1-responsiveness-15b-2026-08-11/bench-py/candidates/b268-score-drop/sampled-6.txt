@@ -1,0 +1,15 @@
+```python
+from typing import *
+from collections import *
+
+def score_drop(scores: list) -> int:
+    if len(scores) == 0 or len(scores) == 1:
+        return 0
+
+    # Find and remove the lowest unique score
+    lowest_unique_score = min(set(scores))
+    scores.remove(lowest_unique_score)
+
+    # Calculate the total of the remaining scores
+    return sum(scores)
+```

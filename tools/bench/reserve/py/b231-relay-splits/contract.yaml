@@ -1,0 +1,15 @@
+id: b231-relay-splits
+task_type: function_implementation
+task: >-
+  Implement relay_splits. Given the cumulative clock readings at the
+  end of each relay leg, return how long each leg itself took. The
+  first leg's time is the first reading. Reject a reading that is not
+  larger than the one before it with an error.
+target: solution.py
+interface: "def relay_splits(marks: list) -> list"
+stop_conditions:
+  - Whether a first reading of zero is acceptable is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

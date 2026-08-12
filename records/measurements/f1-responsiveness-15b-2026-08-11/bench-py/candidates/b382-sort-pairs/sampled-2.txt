@@ -1,0 +1,11 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    if field not in record:
+        raise ValueError(f"Record missing field '{field}'")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    # Ensure the function doesn't mutate the original records list
+    sorted_records = sorted(records.copy(), key=lambda x: x[field])
+    return sorted_records
+```

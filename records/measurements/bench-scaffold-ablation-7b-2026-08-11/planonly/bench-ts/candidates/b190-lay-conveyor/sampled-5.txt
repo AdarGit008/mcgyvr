@@ -1,0 +1,32 @@
+```ts
+/**
+ * Lays a conveyor run on the factory floor plan.
+ *
+ * @param {string[]} floor - The factory floor plan as a list of rows.
+ * @param {number} row - The row where the conveyor run starts (0-indexed).
+ * @param {number} col - The column where the conveyor run starts (0-indexed).
+ * @param {number} length - The length of the conveyor run.
+ * @returns {string[]} - The updated factory floor plan with the conveyor run laid.
+ */
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (length <= 0) {
+    throw new Error("The run must cover at least one cell.");
+  }
+  
+  const numRows = floor.length;
+  const numCols = floor[0].length;
+  
+  if (row < 0 || row >= numRows || col < 0 || col + length > numCols) {
+    throw new Error("The run would leave the plan.");
+  }
+  
+  const updatedFloor = floor.map((r, i) => {
+    if (i === row) {
+      return r.slice(0, col).concat(Array(length).fill("=")).concat(r.slice(col + length));
+    }
+    return r;
+  });
+  
+  return updatedFloor;
+}
+```

@@ -1,0 +1,14 @@
+```python
+def value_keys(store: dict) -> dict:
+    if store is None:
+        raise ValueError("Store cannot be None")
+    
+    counts = {}
+    for key in store.values():
+        if key in counts:
+            counts[key] += 1
+        else:
+            counts[key] = 1
+    
+    return counts
+```

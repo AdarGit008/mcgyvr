@@ -1,0 +1,35 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """
+    Calculate the total amount of each reagent from a list of pour log entries.
+
+    :param log: A list of [reagent, amount] entries where amount is a decimal string.
+    :return: A dictionary mapping each reagent to its total amount as a string.
+    """
+
+    def parse_amount(amount_str: str) -> float:
+        if ' ' in amount_str:
+            raise ValueError("Amount cannot contain spaces.")
+        try:
+            return float(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount '{amount_str}'. Must be a decimal.")
+
+    totals: Dict[str, int] = {}
+    max_places: int = 0
+
+    for reagent, amount in log:
+        if not isinstance(reagent, str) or not isinstance(amount, str):
+            raise ValueError("Log entries must contain strings.")
+        
+        total_amount = parse_amount(amount)
+        totals[reagent] = totals.get(reagent, 0) + int(total_amount * 1000)
+
+        # Update max_places based on the amount's decimal places
+        fractional_part = abs(amount).split('.')[1] if '.' in amount else '0'
+        max_places = max(max_places, len(fractional_part))
+
+    return {reagent: f"{total / 1000:.{max_places}f}" for reagent, total in totals.items()}
+```

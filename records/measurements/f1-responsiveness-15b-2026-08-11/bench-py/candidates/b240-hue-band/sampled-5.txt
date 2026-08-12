@@ -1,0 +1,14 @@
+```python
+def hue_band(degrees: int) -> str:
+    if degrees < 0:
+        degrees = (degrees + 360) % 360
+
+    if degrees < 60:
+        return "Red"
+    elif degrees < 180:
+        return "Green"
+    elif degrees < 240:
+        return "Blue"
+    else:
+        return "Red"
+```

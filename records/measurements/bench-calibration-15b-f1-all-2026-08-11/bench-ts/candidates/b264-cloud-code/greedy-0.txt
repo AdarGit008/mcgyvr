@@ -1,0 +1,9 @@
+```ts
+export function cloudCode(table: Record<string, string>, code: string): string {
+  const lowerCaseCode = code.toUpperCase();
+  if (!table.hasOwnProperty(lowerCaseCode)) {
+    return 'unknown';
+  }
+  return table[lowerCaseCode];
+}
+```

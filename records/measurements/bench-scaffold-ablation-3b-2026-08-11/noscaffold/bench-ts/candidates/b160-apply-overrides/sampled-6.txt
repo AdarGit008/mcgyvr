@@ -1,0 +1,21 @@
+```ts
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Overrides must be an array.");
+  }
+
+  return overrides.reduce((acc, override) => {
+    const [name, value] = override.split('=');
+
+    if (typeof name !== 'string' || typeof value !== 'string') {
+      throw new Error("Each override must be a string in the format 'name=value'.");
+    }
+    if (!name || !value) {
+      throw new Error("Overrides must contain at least a name and a value.");
+    }
+
+    acc[name] = value;
+    return acc;
+  }, { ...base });
+}
+```

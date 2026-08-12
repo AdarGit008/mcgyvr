@@ -1,0 +1,54 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Arguments must be strings');
+  }
+
+  const parseEntry = (entry: string) => {
+    const [name, countStr] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(countStr)) {
+      throw new Error('Malformed sheet entry');
+    }
+    return { name, count: parseInt(countStr, 10) };
+  };
+
+  const parseMove = (move: string) => {
+    if (!move.includes('+') && !move.includes('-')) {
+      throw new Error('Malformed move');
+    }
+    const [name, qtyStr] = move.split(/[-+]/);
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(qtyStr)) {
+      throw new Error('Malformed move');
+    }
+    return { name, action: move[0], quantity: parseInt(qtyStr, 10) };
+  };
+
+  const openingEntries = opening.split(';').filter(Boolean).map(parseEntry);
+  if (new Set(openingEntries.map(e => e.name)).size !== openingEntries.length) {
+    throw new Error('Duplicate item names on the opening sheet');
+  }
+
+  let currentSheet = { ...openingEntries.reduce((acc, entry) => ({ ...acc, [entry.name]: entry.count }), {}) };
+
+  moves.split(';').filter(Boolean).forEach(move => {
+    const m = parseMove(move);
+    if (!currentSheet[m.name]) {
+      throw new Error(`Item ${m.name} not found on the sheet`);
+    }
+    if ((m.action === '+' && m.quantity < 0) || (m.action === '-' && m.quantity > currentSheet[m.name])) {
+      throw new Error('Invalid move quantity');
+    }
+    currentSheet[m.name] += (m.action === '+' ? m.quantity : -m.quantity);
+    if (currentSheet[m.name] <= 0) {
+      delete currentSheet[m.name];
+    }
+  });
+
+  const result = Object.keys(currentSheet)
+    .sort()
+    .map(name => `${name}:${currentSheet[name]}`)
+    .join(';');
+
+  return result;
+}
+```

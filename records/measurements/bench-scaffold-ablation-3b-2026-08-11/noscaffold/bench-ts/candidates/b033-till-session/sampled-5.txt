@@ -1,0 +1,74 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    if (!Array.isArray(events) || !events.every(event => Array.isArray(event) && event.length > 0)) {
+        throw new Error("Invalid events");
+    }
+
+    const cart: Record<string, number> = {};
+    let sessionState = "open";
+    let total = 0;
+    let paid = 0;
+
+    for (const [action, ...payload] of events) {
+        if (!Array.isArray(payload) || payload.length !== action === "scan" ? 1 : 2) {
+            throw new Error("Invalid event");
+        }
+
+        switch (action) {
+            case "scan":
+                const itemName = payload[0];
+                if (typeof itemName !== "string" || !prices.hasOwnProperty(itemName)) {
+                    throw new Error("Unknown or invalid item name");
+                }
+                cart[itemName] = (cart[itemName] || 0) + 1;
+                total += prices[itemName];
+                break;
+            case "void":
+                const voidItemName = payload[0];
+                if (typeof voidItemName !== "string" || !cart.hasOwnProperty(voidItemName)) {
+                    throw new Error("Unknown or invalid item name");
+                }
+                cart[voidItemName] -= 1;
+                total -= prices[voidItemName];
+                if (cart[voidItemName] === 0) delete cart[voidItemName];
+                break;
+            case "close":
+                if (Object.keys(cart).length === 0) {
+                    throw new Error("Empty cart");
+                }
+                sessionState = "paid";
+                paid += total;
+                change = paid - total;
+                break;
+            case "pay":
+                const payAmount = payload[0];
+                if (!Number.isInteger(payAmount) || payAmount <= 0) {
+                    throw new Error("Invalid pay amount");
+                }
+                if (sessionState !== "paid") {
+                    throw new Error("Illegal to pay outside payment state");
+                }
+                paid += payAmount;
+                change = paid - total;
+                break;
+            case "cancel":
+                sessionState = "cancelled";
+                break;
+            default:
+                throw new Error("Unknown action");
+        }
+
+        if (sessionState === "paid" || sessionState === "cancelled") {
+            break;
+        }
+    }
+
+    return {
+        state: sessionState,
+        items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+        total: sessionState === "open" ? 0 : total,
+        paid: paid,
+        change: change
+    };
+}
+```

@@ -1,0 +1,31 @@
+id: b169-repeat-words
+task_type: function_implementation
+task: >-
+  Implement repeat_words. An editor flags the words a draft leans on. The
+  text holds only ASCII letters and spaces, runs of spaces separate words,
+  and words compare case-insensitively. Return, in order of each word's
+  first appearance, every distinct word — lowercased — whose count reaches
+  least; an empty text yields the empty list, and with least 1 every
+  distinct word is listed. For the text "Sun sun moon" with least 2 the
+  answer is the single word "sun". Reject a text that is not a string, a
+  text holding any character outside ASCII letters and spaces, and a least
+  that is not a positive whole number, with an error.
+target: solution.py
+target_content: |
+  def repeat_words(text, least):
+      if not isinstance(text, str):
+          raise ValueError("repeat_words expects a string")
+      if isinstance(least, bool) or not isinstance(least, int) or least < 1:
+          raise ValueError("least must be a positive whole number")
+      if any(ch != " " and not ("a" <= ch.lower() <= "z") for ch in text):
+          raise ValueError("text may hold only ASCII letters and spaces")
+      # TODO: tally the case-folded words in first-appearance order and
+      # return those whose count reaches least.
+      return []
+interface: "def repeat_words(text: str, least: int) -> list"
+stop_conditions:
+  - No upper bound on the length of the text or the number of words is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

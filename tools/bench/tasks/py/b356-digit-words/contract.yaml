@@ -1,0 +1,16 @@
+id: b356-digit-words
+task_type: function_implementation
+task: >-
+  Implement digit_word and digit_words. digit_word names a single
+  digit in English, so 0 is zero and 9 is nine. digit_words names
+  every digit of a run of digits in order, joined by single spaces,
+  and gives empty text for a run holding none.
+target: solution.py
+interface: "def digit_word(digit: int) -> str
+def digit_words(digits: str) -> str"
+stop_conditions:
+  - What should happen to a character that is not a digit is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,32 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not all(isinstance(x, int) for x in requests):
+        raise ValueError("All elements of the requests list must be integers.")
+    if not isinstance(fresh_for, int) or fresh_for < 0:
+        raise ValueError("fresh_for must be a non-negative integer.")
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive integer.")
+
+    cache = {}  # Dictionary to hold tile renders: {tick: [name]}
+    latest_ticks = {}  # Dictionary to track the latest tick for each tile name
+
+    def add_render(tick, name):
+        if name not in cache or tick > latest_ticks[name]:
+            if len(cache) >= size:
+                oldest_tick = min(latest_ticks.values())
+                oldest_name = next(iter(x for x in cache[oldest_tick] if x != name))
+                del cache[oldest_tick][cache[oldest_tick].index(oldest_name)]
+                print(f"Removing {oldest_name} at tick {oldest_tick} to make room.")
+            cache.setdefault(tick, []).append(name)
+        latest_ticks[name] = tick
+
+    result = []
+
+    for tick, name in requests:
+        if tick < 0:
+            raise ValueError("tick cannot be negative.")
+        add_render(tick, name)
+        result.append([tick, name])
+
+    return result
+```

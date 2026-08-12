@@ -1,0 +1,19 @@
+```ts
+export function commonHead(words: string[]): string {
+  if (!words || words.length === 0) return '';
+
+  let longestRun = '';
+  let currentRun = '';
+
+  for (const word of words) {
+    if (!currentRun || word.startsWith(currentRun)) {
+      currentRun += word[0];
+      longestRun = Math.max(longestRun, currentRun);
+    } else {
+      currentRun = word[0];
+    }
+  }
+
+  return longestRun;
+}
+```

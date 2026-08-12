@@ -1,0 +1,54 @@
+id: b012-stride-weave
+task_type: function_implementation
+task: >-
+  Complete a stride toolkit by implementing stride_weave. The toolkit's
+  sampling half is stride_take, which returns the items whose zero-based
+  index leaves remainder offset when divided by step, in their original
+  order, and stride_skip, which returns exactly the items stride_take leaves
+  out, also in order; both reject an items argument that is not a list, a
+  step that is not a positive integer, and an offset that is not an integer
+  from zero up to but not including step, with an error. stride_weave puts
+  strides back together: given a list of parts it walks them left to right,
+  taking the first unconsumed element of each part that still holds one,
+  then cycles back to the first part, passing over parts already spent,
+  until every part is spent, and returns the woven list. Weaving the step
+  strides of one list, offsets in rising order, rebuilds that list exactly;
+  no parts at all weave to an empty list. stride_weave rejects a parts
+  argument that is not a list and a part that is not a list, with an error.
+target: solution.py
+target_content: |
+  def _check_stride(items, step, offset):
+      if not isinstance(items, list):
+          raise ValueError("items must be a list")
+      if isinstance(step, bool) or not isinstance(step, int) or step < 1:
+          raise ValueError("step must be a positive integer")
+      if isinstance(offset, bool) or not isinstance(offset, int):
+          raise ValueError("offset must be an integer in [0, step)")
+      if not 0 <= offset < step:
+          raise ValueError("offset must be an integer in [0, step)")
+
+
+  def stride_take(items, step, offset):
+      _check_stride(items, step, offset)
+      return [item for index, item in enumerate(items) if index % step == offset]
+
+
+  def stride_skip(items, step, offset):
+      _check_stride(items, step, offset)
+      return [item for index, item in enumerate(items) if index % step != offset]
+
+
+  def stride_weave(parts):
+      # TODO: validate parts, then take one element from each unspent part in
+      # turn, cycling left to right until every part is spent.
+      return []
+interface: |-
+  def stride_take(items: list, step: int, offset: int) -> list
+  def stride_skip(items: list, step: int, offset: int) -> list
+  def stride_weave(parts: list) -> list
+stop_conditions:
+  - Whether the parts may hold elements of mixed types is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

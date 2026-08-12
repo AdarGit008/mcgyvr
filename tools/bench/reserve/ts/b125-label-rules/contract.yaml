@@ -1,0 +1,89 @@
+id: b125-label-rules
+task_type: bug_fix
+task: >-
+  bestAction picks the wrong rule; compileRules is correct and must not
+  change. compileRules turns a list of [pattern, action] pairs into the
+  rule table bestAction searches. A pattern faces a whole candidate
+  string: the character ? stands for exactly one character, a single *
+  stands for a run of zero or more characters, and every other character
+  stands for itself, so a pattern without * only fits text of exactly its
+  own length, and a pattern with * splits into a head anchored at the
+  start and a tail anchored at the end, fitting when the text is long
+  enough for both. compileRules records each rule's pattern, action and
+  literals — how many pattern characters are neither ? nor * — and
+  rejects a pattern or action that is not a non-empty string, a pattern
+  holding more than one *, and a pattern repeated in the list, with an
+  error. bestAction must return the action of the fitting rule with the
+  most literals, the earliest such rule on a tie, or a null result when no
+  rule fits, and must reject a candidate that is not a string with an
+  error — that rejection is missing. At present bestAction checks a
+  pattern only up to its * against the start of the candidate: the end is
+  never anchored and lengths are never compared, so a starless pattern
+  accepts any longer text that begins correctly and a *-tail is ignored,
+  and it returns the first rule in table order that survives this loose
+  test, so rule order silently outranks literals. Fix bestAction to
+  anchor both ends and pick by literals. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Wildcard label rules: compile once, then pick the most specific action. */
+
+  type CompiledRule = { pattern: string; action: string; literals: number };
+
+  function segmentMatches(segment: string, text: string, from: number): boolean {
+    for (let i = 0; i < segment.length; i += 1) {
+      const wanted = segment[i];
+      if (wanted !== "?" && wanted !== text[from + i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  export function compileRules(pairs: [string, string][]): CompiledRule[] {
+    const rules: CompiledRule[] = [];
+    const seen = new Set<string>();
+    for (const [pattern, action] of pairs) {
+      if (typeof pattern !== "string" || pattern === "") {
+        throw new Error("pattern must be a non-empty string");
+      }
+      if (typeof action !== "string" || action === "") {
+        throw new Error("action must be a non-empty string");
+      }
+      const star = pattern.indexOf("*");
+      if (star !== -1 && pattern.indexOf("*", star + 1) !== -1) {
+        throw new Error("at most one * per pattern");
+      }
+      if (seen.has(pattern)) {
+        throw new Error(`pattern repeated: ${pattern}`);
+      }
+      seen.add(pattern);
+      let literals = 0;
+      for (const piece of pattern) {
+        if (piece !== "?" && piece !== "*") {
+          literals += 1;
+        }
+      }
+      rules.push({ pattern, action, literals });
+    }
+    return rules;
+  }
+
+  export function bestAction(rules: CompiledRule[], text: string): string | null {
+    for (const rule of rules) {
+      const star = rule.pattern.indexOf("*");
+      const head = star === -1 ? rule.pattern : rule.pattern.slice(0, star);
+      if (text.length >= head.length && segmentMatches(head, text, 0)) {
+        return rule.action;
+      }
+    }
+    return null;
+  }
+interface: |-
+  export function compileRules(pairs: [string, string][]): CompiledRule[]
+  export function bestAction(rules: CompiledRule[], text: string): string | null
+stop_conditions:
+  - Whether the candidate text may itself contain ? or * as ordinary characters is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

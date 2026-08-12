@@ -1,0 +1,93 @@
+```python
+from typing import Dict, List
+
+def run_till_session(events: list, prices: dict) -> dict:
+    def validate_price(price):
+        if not isinstance(price, int) or price <= 0:
+            raise ValueError("Price must be a positive integer.")
+
+    def validate_event(event):
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Event must be a list of two elements.")
+        action, payload = event
+        if not isinstance(action, str) or not (action == "scan" or action == "void" or 
+                                              action == "close" or action == "pay" or 
+                                              action == "cancel"):
+            raise ValueError(f"Unknown action: {event[0]}")
+        
+        if action == "scan" and payload not in prices:
+            raise ValueError("Item not found in price list.")
+        if action == "void" and payload not in cart:
+            raise ValueError("Item not in the cart.")
+
+    def validate_pay_amount(amount):
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Pay amount must be a positive integer.")
+
+    def validate_close_with_empty_cart(cart):
+        return len(cart) == 0
+
+    def update_cart(action, item, quantity, cart, prices):
+        if action == "scan":
+            cart[item] = cart.get(item, 0) + quantity
+        elif action == "void":
+            if cart.get(item, 0) > 0:
+                cart[item] -= quantity
+            else:
+                raise ValueError("Void of an item not in the cart.")
+
+    def process_event(action, payload, session_state):
+        if session_state['status'] == 'open':
+            if action == "scan":
+                update_cart(action, payload, 1, session_state['cart'], prices)
+            elif action == "void":
+                update_cart(action, payload, -1, session_state['cart'], prices)
+            elif action == "close" and session_state['cart']:
+                total = sum(prices[item] * quantity for item, quantity in session_state['cart'].items())
+                if total > 0:
+                    return {"status": "payment", "total": total, "paid": 0, "change": total}
+            elif action == "pay":
+                validate_pay_amount(payload)
+                paid = payload
+                change = total - paid
+                if paid >= total:
+                    session_state['status'] = 'paid'
+                else:
+                    return {"status": "payment", "total": total, "paid": paid, "change": change}
+            elif action == "cancel":
+                session_state['status'] = 'cancelled'
+        else:
+            raise ValueError(f"Event illegal in current state: {action}")
+
+    def run_session(events, prices):
+        session_state = {
+            'cart': {},
+            'status': 'open',
+            'total': 0
+        }
+        
+        for event in events:
+            validate_event(event)
+            result = process_event(*event, session_state)
+            if result is not None:
+                return result
+        
+        if session_state['status'] == 'cancelled':
+            raise ValueError("Session cancelled.")
+        elif session_state['status'] == 'open' and session_state['cart']:
+            raise ValueError("Session open with an empty cart.")
+
+    # Initial validation
+    for price in prices.values():
+        validate_price(price)
+    
+    # Run the session
+    return run_session(events, prices)
+
+# Example usage:
+prices = {"apple": 100, "banana": 200}
+events = [["scan", "apple"], ["scan", "banana"], ["void", "apple"], ["close"]]
+print(run_till_session(events, prices))
+```
+
+This implementation provides a function `run_till_session` that processes a list of events to simulate a point-of-sale system. It includes validation for price lists, events, and session states, ensuring that only valid operations are performed. The function returns the final state of the session after processing all events.

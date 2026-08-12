@@ -1,0 +1,21 @@
+```python
+def line_tag(body: str) -> str:
+    return format(sum(map(ord, body)), '02x')
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    if line[-1] != '~':
+        raise ValueError("Third-from-last character must be a tilde (~).")
+    
+    body_tag = line_tag(line[:-2])
+    
+    if body_tag != line[-2:]:
+        raise ValueError(f"Tag mismatch: {body_tag} vs. {line[-2:]}.")
+    
+    return line[:-2]
+```

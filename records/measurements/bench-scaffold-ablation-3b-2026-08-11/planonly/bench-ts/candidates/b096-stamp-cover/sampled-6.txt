@@ -1,0 +1,44 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  
+  for (const [fragment, price] of dies) {
+    if (!isNonEmptyString(fragment) || !Number.isInteger(price) || price <= 0) {
+      throw new Error("Invalid die entry");
+    }
+    
+    if (table.has(fragment)) {
+      throw new Error(`Fragment "${fragment}" listed twice`);
+    }
+    
+    table.set(fragment, price);
+  }
+  
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+  
+  if (!isNonEmptyString(label)) {
+    throw new Error("Invalid label");
+  }
+  
+  const dp = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+  
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length && label.substring(i - fragment.length, i) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+  
+  return dp[label.length];
+}
+
+function isNonEmptyString(value: any): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+```

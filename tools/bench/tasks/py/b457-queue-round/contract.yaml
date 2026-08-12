@@ -1,0 +1,30 @@
+id: b457-queue-round
+task_type: bug_fix
+task: >-
+  served_by returns who is served on a given turn of a queue that
+  comes round again once it reaches the end. queue_round returns who
+  is served on each turn up to a stated count, and it stops at the end
+  of the queue instead of coming round. Fix queue_round. Reject an
+  empty queue with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def served_by(queue: list, turn: int) -> str:
+      if not queue:
+          raise ValueError("a queue needs somebody in it")
+      return queue[turn % len(queue)]
+
+
+  def queue_round(queue: list, turns: int) -> list:
+      """Who is served on each turn, the queue coming round again."""
+      served = []
+      for turn in range(min(turns, len(queue))):
+          served.append(served_by(queue, turn))
+      return served
+interface: "def served_by(queue: list, turn: int) -> str
+def queue_round(queue: list, turns: int) -> list"
+stop_conditions:
+  - Whether a turn below nothing should count backward is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

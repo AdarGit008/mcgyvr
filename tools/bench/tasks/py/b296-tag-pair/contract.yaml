@@ -1,0 +1,17 @@
+id: b296-tag-pair
+task_type: function_implementation
+task: >-
+  Implement tag_open and tag_pair. tag_open returns the name inside a
+  marker written between angle brackets, dropping a leading slash when
+  there is one. tag_pair says whether an opening marker and a closing
+  marker name the same thing. Reject with an error any marker not
+  wrapped in angle brackets.
+target: solution.py
+interface: "def tag_open(marker: str) -> str
+def tag_pair(opening: str, closing: str) -> bool"
+stop_conditions:
+  - Whether markers differing only in case should be considered to name the same thing is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

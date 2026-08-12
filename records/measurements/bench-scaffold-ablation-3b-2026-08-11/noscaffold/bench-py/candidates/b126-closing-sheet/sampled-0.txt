@@ -1,0 +1,65 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_sheet(sheet_str):
+        if not isinstance(sheet_str, str):
+            raise ValueError("Opening sheet must be a string.")
+        
+        entries = sheet_str.split(';')
+        parsed_entries = []
+        
+        for entry in entries:
+            parts = entry.split(':')
+            if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+                raise ValueError("Invalid format in opening sheet.")
+            
+            item, count = parts
+            parsed_entries.append((item, int(count)))
+        
+        return parsed_entries
+
+    def parse_moves(moves_str):
+        if not isinstance(moves_str, str):
+            raise ValueError("Moves must be a string.")
+        
+        entries = moves_str.split(';')
+        parsed_entries = []
+        
+        for entry in entries:
+            parts = entry.split('+') if '+' in entry else entry.split('-')
+            if len(parts) != 2 or not all(part.isdigit() for part in parts):
+                raise ValueError("Invalid format in move.")
+            
+            item, qty = parts
+            parsed_entries.append((item, int(qty)))
+        
+        return parsed_entries
+
+    def update_sheet(sheet, moves):
+        for item, qty in moves:
+            if item not in sheet:
+                raise ValueError(f"Cannot issue {qty} of non-existent item '{item}'.")
+            
+            new_count = sheet[item] - qty
+            if new_count < 0:
+                raise ValueError(f"Issuing {qty} units from an item with only {sheet[item]} left.")
+            
+            sheet[item] = new_count
+        
+        # Filter out items with zero count
+        return [item + ':' + str(count) for item, count in sheet.items() if count > 0]
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Invalid input type.")
+
+    try:
+        opening_entries = parse_sheet(opening)
+        moves_entries = parse_moves(moves)
+
+        # Update the sheet based on moves
+        updated_sheet = update_sheet(dict(opening_entries), moves_entries)
+
+        return ';'.join(updated_sheet)
+    
+    except ValueError as e:
+        return str(e)
+```

@@ -1,0 +1,19 @@
+```ts
+export function ringSlot(capacity: number, writes: number, k: number): number {
+  if (capacity <= 0 || writes < 0 || k < 0) {
+    throw new Error('Invalid input');
+  }
+
+  const slots = Array.from({ length: capacity }, (_, i) => i);
+  const survivors = [];
+
+  for (let i = 0; i < writes; i++) {
+    const slot = slots[i % capacity];
+    if (!survivors.includes(slot)) {
+      survivors.push(slot);
+    }
+  }
+
+  return survivors[k] ?? -1;
+}
+```

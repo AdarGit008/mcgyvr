@@ -1,0 +1,28 @@
+```ts
+
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (links === null || typeof links !== "object" || Array.isArray(links)) throw new Error("links must be a mapping");
+  if (!(start in links)) throw new Error("start is not a post");
+
+  const route: string[] = [];
+  let currentPost = start;
+  const visitedPosts = new Set<string>();
+
+  while (currentPost !== "") {
+    if (!visitedPosts.has(currentPost)) {
+      visitedPosts.add(currentPost);
+      route.push(currentPost);
+
+      if (!links.hasOwnProperty(currentPost)) {
+        throw new Error("handoff naming a post that links does not name");
+      }
+
+      currentPost = links[currentPost];
+    } else {
+      throw new Error("a run of handoffs that comes back to a post already visited");
+    }
+  }
+
+  return route;
+}
+```

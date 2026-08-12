@@ -1,0 +1,31 @@
+```python
+from typing import *
+from collections import *
+
+def dose_totals(log: list) -> dict:
+    """
+    Calculate and return the total millilitres of each reagent from a pour log.
+
+    :param log: List of [reagent, amount] entries as strings in pour order.
+    :return: Dictionary mapping reagents to their total millilitres as strings.
+    """
+    totals = defaultdict(float)
+    for entry in log:
+        reagent, amount_str = entry
+        try:
+            amount = float(amount_str.replace(',', ''))  # Convert to float and remove commas
+        except ValueError:
+            raise ValueError(f"Invalid amount '{amount_str}'")
+
+        totals[reagent] += amount / 1000  # Add to total in thousandths
+
+    # Determine the precision for each reagent based on the log entries.
+    precision = min(len(str(amount)) * -2 for amount in totals.values() if amount != 0)
+
+    result = {}
+    for reagent, total in totals.items():
+        formatted_total = format(total, f".{precision}f")
+        result[reagent] = formatted_total
+
+    return result
+```

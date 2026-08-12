@@ -1,0 +1,24 @@
+id: b200-fleet-hops
+task_type: function_implementation
+task: >-
+  Implement fleet_hops. A vendor has published count releases, numbered 0
+  for the oldest through count-1 for the newest, and lts holds the numbers
+  of the releases that carry long-term support, in no particular order. A
+  device moves in hops: from release i a hop reaches at most release
+  i + hop, but a hop may never pass a long-term-support release without
+  landing on it, so the device lands on the lowest long-term-support
+  release strictly above i and strictly below the release it would
+  otherwise reach, and lands on that reach otherwise, never above the
+  newest release. builds gives the release each device of the fleet runs
+  now. Return the total number of hops the fleet makes bringing every
+  device to the newest release, counting each device separately; a device
+  already on the newest release makes no hop. Reject a device running a
+  release that is not a whole number from 0 through count-1 with an error.
+target: solution.py
+interface: "def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int"
+stop_conditions:
+  - Whether a hop of zero may be given is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,25 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    if start not in links:
+        raise ValueError(f"start '{start}' is not a valid post name")
+    
+    visited = set()
+    path = []
+    current = start
+    
+    while True:
+        path.append(current)
+        visited.add(current)
+        
+        next_post = links.get(current)
+        if next_post is None or next_post == "":
+            break
+        elif next_post in visited:
+            raise ValueError("walk comes back to a post already visited")
+        else:
+            current = next_post
+    
+    return path
+```

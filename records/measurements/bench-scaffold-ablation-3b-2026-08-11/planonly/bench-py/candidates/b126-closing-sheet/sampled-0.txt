@@ -1,0 +1,45 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not (name.islower() and count.isdigit()):
+            raise ValueError("Invalid sheet entry format")
+        return name, int(count)
+
+    def apply_move(sheet: dict[str, int], move: str) -> None:
+        name, qty = move.split('+') if '+' in move else move.split('-')
+        qty = int(qty)
+        if not (name.islower() and qty > 0):
+            raise ValueError("Invalid move format")
+
+        if name in sheet:
+            sheet[name] += qty
+        elif name == '':
+            raise ValueError("Cannot apply an empty move")
+        elif qty > sheet.get(name, 0):
+            raise ValueError("Insufficient stock for move")
+
+    def render_sheet(sheet: dict[str, int]) -> str:
+        return ';'.join(f"{name}:{count}" for name, count in sorted(sheet.items()) if count > 0)
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings")
+
+    sheet = {}
+    try:
+        for entry in opening.split(';'):
+            name, count = parse_entry(entry)
+            if name in sheet:
+                raise ValueError(f"Duplicate item name: {name}")
+            sheet[name] = count
+    except ValueError as e:
+        return str(e)
+
+    try:
+        for move in moves.split(';'):
+            apply_move(sheet, move)
+    except ValueError as e:
+        return str(e)
+
+    return render_sheet(sheet)
+```

@@ -1,0 +1,41 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """
+    Decodes a note that has been stored in a mail-safe escaped form.
+    """
+    
+    def fold_lines(line: str) -> str:
+        """Fold lines by removing trailing spaces and tabs."""
+        return line.rstrip(' \t')
+    
+    def decode_escape(escaped: str) -> str:
+        """Decode an escape sequence if it is valid."""
+        if len(escaped) != 3 or escaped[0] != '=' or not all(c.isupper() for c in escaped[1:]):
+            raise ValueError("Invalid escape sequence")
+        return chr(int(escaped[1:], 16))
+    
+    def process_line(line: str, decoded_text: str) -> tuple[str, str]:
+        """Process a line to handle folding and decoding."""
+        folded = fold_lines(line)
+        if folded.endswith('='):
+            if len(folded) == 2:
+                return (decoded_text[:-1], '')
+            else:
+                decoded_text += decode_escape(folded[1:3])
+                return (decoded_text, folded[3:])
+        else:
+            decoded_text += folded
+            return (decoded_text, '')
+
+    # Initialize variables
+    decoded_text = ''
+    lines = text.splitlines()
+
+    # Process each line in the note
+    for line in lines:
+        decoded_text, remaining_line = process_line(line, decoded_text)
+        if remaining_line and not remaining_line.startswith('='):
+            raise ValueError("Invalid escape sequence at end of note")
+
+    return decoded_text
+```

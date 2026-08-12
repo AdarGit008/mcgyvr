@@ -1,0 +1,18 @@
+```ts
+export function digitCount(value: number): number {
+  if (value === 0) return 1;
+
+  const isNegative = value < 0;
+  const absoluteValue = Math.abs(value);
+
+  let count = 0;
+  while (absoluteValue > 0) {
+    count++;
+    absoluteValue = Math.floor(absoluteValue / 10);
+  }
+
+  if (isNegative) count++;
+
+  return count;
+}
+```

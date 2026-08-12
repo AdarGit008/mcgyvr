@@ -1,0 +1,87 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || Array.isArray(root) || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+
+  const paths: string[] = [];
+
+  function walk(node: any, path: string = ''): void {
+    if (typeof node !== 'object' || Array.isArray(node) || node === null) {
+      throw new Error('Node is invalid');
+    }
+    if (typeof node.name !== 'string' || node.name.includes('/')) {
+      throw new Error('Name must be a non-empty string not containing slashes');
+    }
+    if (('bytes' in node && 'children' in node) || ('bytes' in node && !node.children)) {
+      throw new Error('Node must have either bytes or children, but not both');
+    }
+    if (typeof node.bytes !== 'number' || isNaN(node.bytes) || node.bytes < 0) {
+      throw new Error('Bytes must be a non-negative whole number');
+    }
+
+    const currentPath = path ? `${path}/${node.name}` : node.name;
+    paths.push(currentPath);
+
+    if ('children' in node && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        walk(child, currentPath);
+      }
+    }
+  }
+
+  walk(root);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  const bytes = filePaths(root).reduce((acc, path) => acc + 1, 0); // Assuming each file is one byte
+  return bytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || Array.isArray(root) || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+  if (typeof minBytes !== 'number' || isNaN(minBytes) || minBytes < 0) {
+    throw new Error('Min bytes must be a non-negative whole number');
+  }
+
+  const heavyFolders: [string, number][] = [];
+  let currentPath = '';
+  let currentBytes = 0;
+
+  function walk(node: any): void {
+    if (typeof node !== 'object' || Array.isArray(node) || node === null) {
+      throw new Error('Node is invalid');
+    }
+    if (typeof node.name !== 'string' || node.name.includes('/')) {
+      throw new Error('Name must be a non-empty string not containing slashes');
+    }
+    if (('bytes' in node && 'children' in node) || ('bytes' in node && !node.children)) {
+      throw new Error('Node must have either bytes or children, but not both');
+    }
+    if (typeof node.bytes !== 'number' || isNaN(node.bytes) || node.bytes < 0) {
+      throw new Error('Bytes must be a non-negative whole number');
+    }
+
+    currentBytes += node.bytes;
+    const currentPath = path ? `${path}/${node.name}` : node.name;
+
+    if ('children' in node && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        walk(child);
+      }
+    } else {
+      heavyFolders.push([currentPath, currentBytes]);
+      currentBytes = 0;
+    }
+
+    currentPath = '';
+  }
+
+  walk(root);
+
+  return heavyFolders.filter(([path, bytes]) => bytes >= minBytes);
+}
+```

@@ -1,0 +1,10 @@
+```ts
+export function camelBreak(name: string): string[] {
+  if (typeof name !== 'string') {
+    throw new Error('Invalid input type');
+  }
+
+  const words = name.split(/(?=[A-Z])/);
+  return words.map(word => word.toLowerCase());
+}
+```

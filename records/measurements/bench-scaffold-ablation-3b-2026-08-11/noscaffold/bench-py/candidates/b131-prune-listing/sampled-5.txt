@@ -1,0 +1,60 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    if not isinstance(listing, list) or not all(isinstance(path, str) for path in listing):
+        raise ValueError("Listing must be a non-empty list of strings.")
+    
+    if not isinstance(rules, list) or not all(isinstance(rule, str) for rule in rules):
+        raise ValueError("Rules must be a non-empty list of strings.")
+    
+    def parse_pattern(pattern: str) -> tuple:
+        segments = pattern.split('/')
+        parsed_segments = []
+        
+        for segment in segments:
+            if segment == '':
+                raise ValueError("Empty segment found in path or pattern.")
+            elif segment.startswith('*'):
+                parsed_segments.append((segment[1:], '*'))
+            else:
+                parsed_segments.append((segment, None))
+        
+        return tuple(parsed_segments)
+    
+    def match_rule(path: str, rule: tuple) -> bool:
+        current_path = path.split('/')
+        rules_iter = iter(rule)
+        
+        for segment in current_path:
+            try:
+                pattern_segment, _ = next(rules_iter)
+            except StopIteration:
+                return False
+            
+            if pattern_segment == '*':
+                while segment and (segment.startswith('*') or segment[0] != pattern_segment[1]):
+                    segment = segment[1:]
+                if not segment:
+                    return True
+            elif segment != pattern_segment:
+                return False
+        
+        return rules_iter exhausted
+    
+    def clean_path(path: str) -> str:
+        parts = path.split('/')
+        cleaned_parts = [part for part in parts if part]
+        return '/'.join(cleaned_parts)
+    
+    valid_listing = []
+    for path in listing:
+        path = clean_path(path)
+        
+        matches = [rule for rule in rules if match_rule(path, parse_pattern(rule))]
+        if matches:
+            if any(rule.startswith('!') for rule in matches):
+                valid_listing.append(path)
+        else:
+            raise ValueError(f"Unsupported path '{path}' or rule(s) '{rules}'.")
+    
+    return valid_listing
+```

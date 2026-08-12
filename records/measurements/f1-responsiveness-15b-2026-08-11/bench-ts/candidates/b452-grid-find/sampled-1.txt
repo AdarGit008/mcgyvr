@@ -1,0 +1,21 @@
+```ts
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+    for (let i = 0; i < grid.length; i++) {
+        if (grid[i][column] === value) {
+            return true;
+        }
+    }
+    throw new Error('Value not found in the grid');
+}
+
+export function gridFind(grid: number[][], value: number): number[] {
+    for (let i = 0; i < grid.length; i++) {
+        for (let j = 0; j < grid[i].length; j++) {
+            if (grid[i][j] === value) {
+                return [i, j];
+            }
+        }
+    }
+    throw new Error('Value not found in the grid');
+}
+```

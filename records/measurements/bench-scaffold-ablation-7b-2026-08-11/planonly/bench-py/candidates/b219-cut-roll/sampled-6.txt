@@ -1,0 +1,24 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number")
+
+    dp = [[(0, []) for _ in range(length + 1)] for _ in range(len(board) + 1)]
+
+    for i in range(1, len(board) + 1):
+        piece_length, price = board[i - 1]
+        if piece_length > length:
+            continue
+        for j in range(piece_length, length + 1):
+            scrap_price = dp[i - 1][j - piece_length][0] + price
+            cut_price, cut_pieces = dp[i - 1][j]
+            if scrap_price >= cut_price or (scrap_price == cut_price and piece_length > max(cut_pieces)):
+                dp[i][j] = (scrap_price, [piece_length] + cut_pieces)
+            else:
+                dp[i][j] = (cut_price, cut_pieces)
+
+    return {
+        "takings": dp[len(board)][length][0],
+        "pieces": dp[len(board)][length][1]
+    }
+```

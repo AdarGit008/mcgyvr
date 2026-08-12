@@ -1,0 +1,20 @@
+```python
+LADDER = (("m", 1000), ("cm", 10), ("mm", 1))
+
+
+def split_length(mm: int) -> str:
+    if mm < 0 or not isinstance(mm, (int, float)):
+        raise ValueError("Length must be a non-negative whole number.")
+    
+    length_parts = []
+    for unit, divisor in LADDER:
+        count = mm // divisor
+        if count > 0:
+            length_parts.append(f"{count}{unit}")
+        mm %= divisor
+    
+    if not length_parts:
+        return "0mm"
+    
+    return " ".join(length_parts)
+```

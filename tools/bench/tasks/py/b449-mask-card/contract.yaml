@@ -1,0 +1,16 @@
+id: b449-mask-card
+task_type: function_implementation
+task: >-
+  Implement last_four and mask_card. last_four returns the last four
+  characters of a card number, or the whole of it when it is shorter.
+  mask_card returns the number with everything but its last four
+  replaced by stars, one star for each character hidden.
+target: solution.py
+interface: "def last_four(number: str) -> str
+def mask_card(number: str) -> str"
+stop_conditions:
+  - Whether spaces inside a card number should be hidden too is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

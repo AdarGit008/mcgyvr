@@ -1,0 +1,38 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+  if (!timeRegex.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  const times = booked.flatMap(item => {
+    const match = item.match(timeRegex);
+    if (match) {
+      return [`${match[1]}:${match[2]}`, `${match[3]}:${match[4]}`];
+    }
+    throw new Error(`Invalid appointment format: ${item}`);
+  });
+
+  times.sort((a, b) => a.localeCompare(b));
+
+  const spanStart = parseInt(span.split('-')[0].replace(':', ''), 10);
+  const spanEnd = parseInt(span.split('-')[1].replace(':', ''), 10);
+
+  let current = spanStart;
+  const freeSlots: string[] = [];
+
+  for (const time of times) {
+    const [start, end] = time.split(':').map(t => parseInt(t, 10));
+    if (start > current) {
+      freeSlots.push(`${current.toString().padStart(2, '0')}:${'00'.padStart(2, '0')}-${start.toString().padStart(2, '0')}:${'00'.padStart(2, '0')}`);
+    }
+    current = Math.max(current, end);
+  }
+
+  if (current < spanEnd) {
+    freeSlots.push(`${current.toString().padStart(2, '0')}:${'00'.padStart(2, '0')}-${spanEnd.toString().padStart(2, '0')}:${'00'.padStart(2, '0')}`);
+  }
+
+  return freeSlots.length === 0 ? "none" : freeSlots.join(", ");
+}
+```

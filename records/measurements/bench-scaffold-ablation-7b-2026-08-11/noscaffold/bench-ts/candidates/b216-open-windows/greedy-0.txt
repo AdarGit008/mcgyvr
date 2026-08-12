@@ -1,0 +1,52 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const timeRegex = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/;
+  if (!timeRegex.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  const parseTime = (timeStr: string): [number, number] => {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return [hours, minutes];
+  };
+
+  const toMinutes = ([hours, minutes]: [number, number]): number =>
+    hours * 60 + minutes;
+
+  const spanTimes = span.split("-").map(parseTime).map(toMinutes);
+  const bookedTimes = booked.map((time) => {
+    if (!timeRegex.test(time)) {
+      throw new Error("Invalid appointment format");
+    }
+    return time.split("-").map(parseTime).map(toMinutes);
+  });
+
+  const [start, end] = spanTimes;
+  const freeSlots: number[][] = [];
+
+  let currentStart = start;
+
+  for (const [bookedStart, bookedEnd] of bookedTimes) {
+    if (bookedStart > currentStart) {
+      freeSlots.push([currentStart, bookedStart]);
+    }
+    currentStart = Math.max(currentStart, bookedEnd);
+  }
+
+  if (currentStart < end) {
+    freeSlots.push([currentStart, end]);
+  }
+
+  if (freeSlots.length === 0) {
+    return "none";
+  }
+
+  const formatTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const minutesLeft = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutesLeft).padStart(2, '0')}`;
+  };
+
+  return freeSlots.map(([start, end]) => formatTime(start) + "-" + formatTime(end)).join(", ");
+}
+```

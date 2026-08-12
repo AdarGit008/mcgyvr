@@ -1,0 +1,21 @@
+id: b041-trim-caption
+task_type: function_implementation
+task: >-
+  Implement trim_caption. Shorten a caption to a character budget: when the
+  text holds at most limit characters, return it unchanged. Otherwise
+  return a shortened form ending in the single ellipsis character "…",
+  which itself counts one character toward the limit. Start from the first
+  limit-1 characters of the text; when the character of the original just
+  past that cut is not a space and the kept part holds a space, drop back
+  to the last space so no word is split; a first word too long to fit is
+  simply cut short. Remove any spaces left hanging before the ellipsis.
+  Reject a text that is not a string and a limit that is not a positive
+  whole number, with an error.
+target: solution.py
+interface: "def trim_caption(text: str, limit: int) -> str"
+stop_conditions:
+  - How characters beyond the basic multilingual plane are counted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

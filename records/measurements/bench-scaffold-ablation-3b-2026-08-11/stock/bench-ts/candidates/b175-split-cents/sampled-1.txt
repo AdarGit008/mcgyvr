@@ -1,0 +1,32 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total)) throw new Error("total must be whole cents");
+  if (total < 0) throw new Error("total may not be negative");
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error("weights must be a non-empty list");
+  if (!weights.every((w) => Number.isInteger(w) && w > 0)) throw new Error("a weight is a positive whole number");
+
+  const totalCents = total * 100; // Convert to cents
+  const whole = weights.reduce((a, b) => a + b, 0);
+  if (totalCents % whole !== 0) throw new Error("total cannot be split into equal parts with given weights");
+
+  const partSizes = weights.map((w) => Math.floor(totalCents * w / whole));
+  let leftoverCents = totalCents - partSizes.reduce((a, b) => a + b);
+
+  let largestDiscardedFractionIndex = -1;
+  let largestDiscardedFractionSize = 0;
+
+  // Find the largest discarded fraction
+  for (let i = 0; i < weights.length; i++) {
+    const discardedFractionSize = partSizes[i] * whole / totalCents - weights[i];
+    if (discardedFractionSize > largestDiscardedFractionSize) {
+      largestDiscardedFractionIndex = i;
+      largestDiscardedFractionSize = discardedFractionSize;
+    }
+  }
+
+  // Distribute leftover cents to the partner with the largest discarded fraction
+  partSizes[largestDiscardedFractionIndex] += leftoverCents;
+
+  return partSizes.map((size, index) => size / 100); // Convert back to dollars and cents
+}
+```

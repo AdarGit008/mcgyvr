@@ -1,0 +1,36 @@
+```
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    if not isinstance(start, int) or start < 0 or start >= width:
+        raise ValueError("Start position must be an integer within the corridor.")
+    if not isinstance(moves, list):
+        raise ValueError("Moves argument must be a list of integers.")
+
+    def clamp_move(position: int, delta: int, width: int) -> dict:
+        new_position = position + delta
+        if new_position < 0:
+            return [0, True]
+        elif new_position >= width:
+            return [width - 1, True]
+        else:
+            return [new_position, False]
+
+    visited_cells = {start}
+    position = start
+    bumps = 0
+
+    for move in moves:
+        result = clamp_move(position, move, width)
+        position = result[0]
+        if result[1]:
+            bumps += 1
+        if position != start:
+            visited_cells.add(position)
+
+    return {
+        "position": position,
+        "bumps": bumps,
+        "visited": len(visited_cells) - 1  # Subtract start to count only distinct cells
+    }
+```

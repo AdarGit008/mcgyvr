@@ -1,0 +1,25 @@
+id: b087-queue-report
+task_type: function_implementation
+task: >-
+  Implement queue_report. A single pickup counter opens at minute zero and
+  serves one order at a time. The input is a list of orders, each a pair
+  of the minute it was placed (a non-negative integer) and the minutes it
+  takes to hand over (a positive integer), listed in the order they were
+  placed with placement minutes never decreasing. An order begins service
+  at its placement minute or when the counter finishes the order before
+  it, whichever is later; its wait is the minutes between placement and
+  the start of service. Return a mapping with waited, the sum of every
+  wait, longest, the largest single wait, and idle, the minutes the
+  counter sat unoccupied between opening and handing over the last order;
+  an empty list yields all three as zero. Reject an argument that is not a
+  list, an entry that is not a pair of two integers, a negative placement
+  minute, a hand-over time that is not positive, and a placement minute
+  smaller than the one before it, with an error.
+target: solution.py
+interface: "def queue_report(orders: list) -> dict"
+stop_conditions:
+  - Whether the counter ever closes — an upper bound on the clock — is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

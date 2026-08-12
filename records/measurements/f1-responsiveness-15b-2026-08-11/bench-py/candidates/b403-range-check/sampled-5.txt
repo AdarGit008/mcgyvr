@@ -1,0 +1,33 @@
+```python
+class RangeCheckError(Exception):
+    def __init__(self, value):
+        super().__init__(f"Range check failed: {value} is out of range")
+
+def range_check(readings: list, low: int, high: int) -> bool:
+    # Check for empty input
+    if not readings:
+        return True
+
+    # Check for None input as per the contract
+    if readings is None:
+        raise ValueError("Readings cannot be None")
+
+    # Ensure all readings are integers for simplicity (but this could be relaxed)
+    try:
+        readings = [int(r) for r in readings]
+    except TypeError:
+        raise ValueError("All readings must be integers")
+
+    # Check if the low or high is out of range
+    if low < 0 or high < 0:
+        raise ValueError("Low and high bounds must be non-negative")
+    if low > high:
+        raise RangeCheckError(low)
+    
+    # Check each reading
+    for reading in readings:
+        if reading < low or reading > high:
+            return False
+    
+    return True
+```

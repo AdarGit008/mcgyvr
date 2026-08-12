@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def path_clean(path: str) -> str:
+    # Filter out empty segments and keep only single dots
+    cleaned = [s for s in path.split('/') if s and s != '.']
+    
+    # Remove every segment of two dots by dropping it together with the segment standing before it
+    cleaned = [cleaned[i-1] + cleaned[i] for i, segment in enumerate(cleaned) if segment == '..' and i > 0]
+    
+    # Join the remaining segments back into a single string
+    return '/'.join(cleaned)
+```

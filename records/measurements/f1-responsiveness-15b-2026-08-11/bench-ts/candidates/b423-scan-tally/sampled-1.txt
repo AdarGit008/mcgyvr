@@ -1,0 +1,14 @@
+```ts
+import { stepValue } from './step-value';
+
+export function scanTally(steps: string[]): number[] {
+  let total = 0;
+  for (const step of steps) {
+    const val = stepValue(step);
+    if (val !== 0) {
+      total += val;
+    }
+  }
+  return [total];
+}
+```

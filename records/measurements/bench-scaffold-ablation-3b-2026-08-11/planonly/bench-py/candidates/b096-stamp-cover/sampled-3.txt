@@ -1,0 +1,46 @@
+```python
+from typing import List, Dict
+
+def stamp_table(dies: List[List[str, int]]) -> Dict[str, int]:
+    """
+    Build a lookup of fragment to price from die entries.
+    Raises ValueError if any fragment is not unique or not valid.
+    """
+    table = {}
+    for fragment, price in dies:
+        if not isinstance(fragment, str) or not isinstance(price, int):
+            raise ValueError("Invalid die entry: fragment must be a string and price must be an integer.")
+        if fragment == "":
+            raise ValueError("Fragment cannot be an empty string.")
+        if price <= 0:
+            raise ValueError("Price must be positive.")
+        
+        if fragment in table:
+            raise ValueError(f"Duplicate fragment '{fragment}' found.")
+        
+        table[fragment] = price
+    
+    return table
+
+def stamp_cover(label: str, dies: List[List[str, int]]) -> int:
+    """
+    Return the cheapest total price of any sequence of die presses spelling
+    the label exactly.
+    Raises ValueError if the label is not a non-empty string or no sequence can spell it.
+    """
+    if not isinstance(label, str) or len(label) == 0:
+        raise ValueError("Label must be a non-empty string.")
+    
+    table = stamp_table(dies)
+    
+    n = len(label)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    
+    for i in range(1, n + 1):
+        for j, fragment in enumerate(table.keys()):
+            if label[i - 1:i] == fragment:
+                dp[i] = min(dp[i], dp[i - len(fragment)] + table[fragment])
+    
+    return dp[n]
+```

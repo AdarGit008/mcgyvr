@@ -1,0 +1,50 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError("Span must contain exactly three parts.")
+    
+    yards, feet, inches = parts
+    
+    units_map = {'yd': 36, 'ft': 12, 'in': 1}
+    total_inches = 0
+    
+    for part in (yards, feet, inches):
+        if not all(c.isdigit() and c != '0' for c in part):
+            raise ValueError("Value must be a plain decimal integer with no leading zero.")
+        
+        value = int(part)
+        unit = parts[parts.index(part) + 1]
+        
+        if unit not in units_map:
+            raise ValueError(f"Unknown unit: {unit}")
+        
+        total_inches += value * units_map[unit]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if inches < 0:
+        raise ValueError("Inches must be a non-negative integer.")
+    
+    units = [(36, 'yd'), (12, 'ft'), (1, 'in')]
+    result = []
+    
+    for value, unit in units:
+        if inches >= value:
+            count = inches // value
+            result.append(f"{count}{unit}")
+            inches %= value
+    
+    return ' '.join(result).strip() or "0in"
+
+def add_spans(first: str, second: str) -> str:
+    total_inches_first = parse_span(first)
+    total_inches_second = parse_span(second)
+    
+    combined_inches = total_inches_first + total_inches_second
+    return format_span(combined_inches)
+```

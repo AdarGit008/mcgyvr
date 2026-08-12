@@ -1,0 +1,14 @@
+```ts
+export function shortUnit(unit: string): string {
+  return unit.slice(0, 3);
+}
+
+/** An amount written with its unit. */
+export function labelOf(amount: number, unit: string): string {
+  if (amount < 0) {
+    throw new Error("amount cannot be negative");
+  }
+  const singular = String(Math.abs(amount)) + " " + unit;
+  return singular.charAt(singular.length - 1) === '1' ? singular : singular + 's';
+}
+```

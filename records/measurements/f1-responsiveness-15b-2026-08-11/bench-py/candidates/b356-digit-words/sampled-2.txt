@@ -1,0 +1,46 @@
+```python
+def digit_word(digit: int) -> str:
+    # Out-of-scope behavior: Invalid input validation
+    if not 0 <= digit <= 9:
+        raise ValueError("Invalid digit. Digit must be in the range 0 to 9.")
+
+    return {
+        0: "zero",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine"
+    }[digit]
+
+
+def digit_words(digits: str) -> str:
+    # Out-of-scope behavior: Invalid input validation
+    if not digits.isdigit():
+        raise ValueError("Invalid input. Input must contain only digits.")
+
+    words = []
+    i = 0
+
+    while i < len(digits):
+        current_word = ""
+        start = i
+
+        # Find the end of the digit run
+        for j in range(i + 1, len(digits) + 1):
+            try:
+                int(digits[j])
+            except ValueError:
+                break
+            else:
+                current_word += digits[start]
+
+        words.append(current_word)
+        i = j
+
+    return " ".join(words)
+```

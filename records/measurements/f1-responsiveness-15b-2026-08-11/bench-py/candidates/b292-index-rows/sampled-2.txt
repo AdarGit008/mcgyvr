@@ -1,0 +1,19 @@
+```python
+def row_key(name: str) -> str:
+    if name[0].isdigit():
+        raise ValueError("Row keys must be non-digit strings.")
+    return name[0].upper()
+
+def index_rows(names: list) -> dict:
+    if not names:
+        return {}
+    
+    index = {}
+    for i, name in enumerate(names):
+        row_key_value = row_key(name)
+        if row_key_value not in index:
+            index[row_key_value] = []
+        index[row_key_value].append(i)
+    
+    return index
+```

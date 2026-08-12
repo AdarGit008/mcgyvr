@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List[str], budget: int) -> List[str]:
+    if not dishes or budget < 0:
+        return []
+    
+    prices = [d.split()[1] for d in dishes]
+    sorted_prices = sorted(set(prices), reverse=True)
+    
+    selected_dishes = []
+    for price in sorted_prices:
+        filtered_dishes = [dish for dish, p in zip(dishes, prices) if int(p) <= price]
+        filtered_dishes.sort()
+        selected_dishes.extend(filtered_dishes)
+        
+    return selected_dishes
+```

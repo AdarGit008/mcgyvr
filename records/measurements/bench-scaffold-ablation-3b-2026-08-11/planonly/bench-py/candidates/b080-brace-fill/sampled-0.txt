@@ -1,0 +1,28 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replaces placeholders in the template with corresponding values from the mapping.
+
+    Args:
+        template (str): The literal text holding placeholders.
+        values (dict): A dictionary mapping placeholder names to their replacements.
+
+    Returns:
+        str: The output string with placeholders replaced.
+
+    Raises:
+        ValueError: If the template contains an unterminated closing brace,
+                   a placeholder has an empty or invalid name, or if the
+                   placeholder is not found in the mapping.
+    """
+    def process_placeholder(match):
+        placeholder = match.group(0)
+        name = placeholder[1:-1]
+        if not name.isalnum() or len(name) == 0:
+            raise ValueError(f"Invalid placeholder: {placeholder}")
+        return values.get(name, "")
+
+    import re
+    # Use regex to find all placeholders and replace them with their corresponding values
+    return re.sub(r'\{([a-zA-Z0-9_]+)\}', process_placeholder, template)
+```

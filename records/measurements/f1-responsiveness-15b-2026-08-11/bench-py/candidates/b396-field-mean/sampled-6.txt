@@ -1,0 +1,12 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    if not records or not isinstance(field, str):
+        raise ValueError("Invalid input")
+    
+    numeric_records = [r for r in records if r.get(field, None) is not None and isinstance(r[field], (int, float))]
+    if not numeric_records:
+        return 0
+    
+    mean = sum(numeric_record[field] for numeric_record in numeric_records) // len(numeric_records)
+    return mean
+```

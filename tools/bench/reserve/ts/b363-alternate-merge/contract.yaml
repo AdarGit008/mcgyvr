@@ -1,0 +1,14 @@
+id: b363-alternate-merge
+task_type: function_implementation
+task: >-
+  Implement alternateMerge. Take entries from two lists in turn,
+  starting with the first list, and return them as one list. When one
+  list runs out the rest of the other follows in order.
+target: solution.ts
+interface: "export function alternateMerge(left: string[], right: string[]): string[]"
+stop_conditions:
+  - Whether the turn should start with the longer list instead is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

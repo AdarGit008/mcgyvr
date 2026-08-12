@@ -1,0 +1,31 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    """
+    Render value as unsigned binary in exactly width bits.
+    Most significant bit first, left-padded with zeros to the full width,
+    and split into groups of four bits joined by single spaces.
+    
+    Raises ValueError for invalid inputs:
+    - Non-negative integer value
+    - Positive multiple of four or exceeds 32 width
+    - Value that does not fit in width bits
+    """
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    
+    if not (1 <= width % 4 == 0 <= 32):
+        raise ValueError("Width must be a positive multiple of four and no more than 32 bits.")
+    
+    binary_str = bin(value)[2:]  # Convert to binary string, dropping '0b'
+    if len(binary_str) > width:
+        raise ValueError(f"Value {value} does not fit in {width} bits.")
+    
+    # Pad with zeros at the start to match the required width
+    padded_binary = binary_str.zfill(width)
+    
+    # Split into groups of four and join with spaces
+    grouped_bits = [padded_binary[i:i+4] for i in range(0, len(padded_binary), 4)]
+    
+    return ' '.join(grouped_bits)
+
+```

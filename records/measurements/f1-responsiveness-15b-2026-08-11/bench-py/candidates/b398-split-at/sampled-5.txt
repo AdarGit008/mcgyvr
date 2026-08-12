@@ -1,0 +1,33 @@
+```python
+#!/usr/bin/env python
+
+def split_at(entries: list, marker: str) -> list:
+    """
+    Break a list into two parts at the first occurrence of a given marker,
+    returning the elements before and after the marker in separate lists.
+    
+    Parameters:
+    entries (list): The list to be split.
+    marker (str): The marker used to split the list.
+    
+    Returns:
+    tuple: A tuple containing two lists, the first being the part of the list
+           before the marker, and the second being the part after the marker.
+    """
+    try:
+        index = entries.index(marker)
+        return entries[:index], entries[index + 1:]
+    except ValueError:
+        return [], entries
+
+# Sample check function to verify the correctness of the solution
+def check():
+    assert split_at([], 'a') == ([], [])
+    assert split_at(['a', 'b'], 'a') == ([], ['b'])
+    assert split_at(['a', 'b'], 'c') == (['a'], ['b'])
+    assert split_at(['a', 'b', 'c'], 'b') == (['a'], ['c'])
+    assert split_at(['a', 'b', 'c', 'd'], 'c') == (['a', 'b'], ['d'])
+    print("All tests passed!")
+
+check()
+```

@@ -1,0 +1,35 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            if not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+    
+    prefix_sums = [[0] * (width + 1) for _ in range(len(grid) + 1)]
+    for i in range(1, len(grid) + 1):
+        for j in range(1, width + 1):
+            prefix_sums[i][j] = grid[i-1][j-1] + prefix_sums[i-1][j] + prefix_sums[i][j-1] - prefix_sums[i-1][j-1]
+    
+    results = []
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("queries must be a list of exactly four integers")
+        top, left, bottom, right = query
+        if not isinstance(top, int) or not isinstance(left, int) or not isinstance(bottom, int) or not isinstance(right, int):
+            raise ValueError("queries must be a list of exactly four integers")
+        if top >= bottom or left >= right:
+            raise ValueError("top must be strictly less than bottom and left must be strictly less than right")
+        if bottom > len(grid) or right > width:
+            raise ValueError("query reaches outside the grid")
+        
+        results.append(prefix_sums[bottom][right] - prefix_sums[top][right] - prefix_sums[bottom][left] + prefix_sums[top][left])
+    
+    return results
+```

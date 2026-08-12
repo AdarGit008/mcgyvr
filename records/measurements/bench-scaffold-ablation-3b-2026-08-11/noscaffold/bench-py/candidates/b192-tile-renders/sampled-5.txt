@@ -1,0 +1,29 @@
+```python
+from typing import List
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not isinstance(fresh_for, int) or not isinstance(size, int):
+        raise ValueError("Both fresh_for and size must be positive whole numbers.")
+    
+    if fresh_for <= 0 or size <= 0:
+        raise ValueError("Both fresh_for and size must be positive whole numbers.")
+    
+    renders: dict = {}
+    cache_size: int = 0
+    
+    for tick, tile_name in requests:
+        if tick < 0:
+            raise ValueError("Tick cannot be negative.")
+        
+        if tile_name not in renders or tick >= renders[tile_name][0] + fresh_for:
+            if cache_size == size:
+                oldest_tick = min(renders.values(), key=lambda x: (x[0], x[1]))[0]
+                oldest_tile = next((k for k, v in renders.items() if v[0] == oldest_tick), None)
+                del renders[oldest_tile]
+                cache_size -= 1
+        
+            renders[tile_name] = (tick, tile_name)
+            cache_size += 1
+    
+    return [[tick, tile_name] for tick, tile_name in renders.values()]
+```

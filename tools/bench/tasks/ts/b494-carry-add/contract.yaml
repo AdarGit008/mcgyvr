@@ -1,0 +1,15 @@
+id: b494-carry-add
+task_type: function_implementation
+task: >-
+  Implement carryAdd. Add two counts held as runs of single figures,
+  the weightiest figure first, and give the answer in the same form.
+  Work from the light end, carrying into the next place where a pair
+  reaches ten. The two runs need not be the same length.
+target: solution.ts
+interface: "export function carryAdd(left: number[], right: number[]): number[]"
+stop_conditions:
+  - Whether a run opening with a figure of nothing should be tidied is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

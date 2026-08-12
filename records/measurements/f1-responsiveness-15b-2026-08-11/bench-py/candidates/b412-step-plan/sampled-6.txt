@@ -1,0 +1,33 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    # Check if start equals to end
+    if start == end:
+        return False
+
+    # Iterate through each move in the allowed list
+    for move in allowed:
+        # If the move from start to end is found, return True
+        if move[0] == start and move[1] == end:
+            return True
+
+    # Return False if no allowed move from start to end is found
+    return False
+
+
+def step_plan(states: list, allowed: list) -> int:
+    # Check if the input states list is empty or contains only one state
+    if len(states) < 2:
+        raise ValueError("Input must contain at least two states")
+
+    # Iterate through each pair of consecutive states in the states list
+    for i in range(len(states) - 1):
+        start = states[i]
+        end = states[i + 1]
+
+        # Check if the current move from start to end is allowed
+        if not step_allowed(start, end, allowed):
+            return i
+
+    # Return the length of the states list if every move is allowed
+    return len(states) - 1
+```

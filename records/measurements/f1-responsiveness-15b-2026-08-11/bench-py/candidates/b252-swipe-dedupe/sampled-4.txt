@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def swipe_dedupe(swipes: List) -> List:
+    """
+    Given card swipes in the order they were recorded, drop any swipe that simply repeats
+    the one immediately before it, keeping the first of each such run. A card swiped again later,
+    with a different card in between, is kept.
+    
+    :param swipes: a list of card numbers (integers)
+    :return: a list of unique card numbers in chronological order
+    """
+    if not swipes:
+        return []
+
+    deduped = [swipes[0]]
+    for i in range(1, len(swipes)):
+        if swipes[i] != deduped[-1]:
+            deduped.append(swipes[i])
+
+    return deduped
+```
+
+This solution meets the contract requirements by implementing the `swipe_dedupe` function as specified. It follows PEP 8 guidelines and avoids mutable default arguments or recursion without a clear base case or depth bound, ensuring the function behaves predictably for different inputs.

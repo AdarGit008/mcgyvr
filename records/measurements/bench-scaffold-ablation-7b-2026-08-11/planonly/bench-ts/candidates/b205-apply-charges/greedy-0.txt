@@ -1,0 +1,36 @@
+```ts
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  const left: Record<string, number> = {};
+  const refused: [string, string][] = [];
+
+  for (const [id, bucket, amount] of charges) {
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error("Invalid charge amount");
+    }
+
+    if (!(bucket in caps)) {
+      refused.push([id, "unknown"]);
+      continue;
+    }
+
+    const [allowance, maxSingleCharge] = caps[bucket];
+    if (amount > maxSingleCharge) {
+      refused.push([id, "single"]);
+      continue;
+    }
+
+    if (left[bucket] === undefined || left[bucket] < amount) {
+      refused.push([id, "cap"]);
+      continue;
+    }
+
+    left[bucket] -= amount;
+  }
+
+  for (const bucket in caps) {
+    left[bucket] = caps[bucket][0];
+  }
+
+  return { left, refused };
+}
+```

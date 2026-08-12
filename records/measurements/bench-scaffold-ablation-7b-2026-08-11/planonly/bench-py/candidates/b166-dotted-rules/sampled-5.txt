@@ -1,0 +1,24 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Invalid name")
+    if any("*" in key for key in rules.keys() if len(key.split(".")) > 1):
+        raise ValueError("Star cannot be part of a dotted prefix")
+
+    exact_match = rules.get(name)
+    if exact_match is not None:
+        return exact_match
+
+    longest_wildcard = None
+    for selector, value in rules.items():
+        if isinstance(value, str) and (selector == "*" or selector.endswith(".*")):
+            if selector.startswith("*") and len(selector.split(".")) > 1:
+                raise ValueError("Star cannot be part of a dotted prefix")
+            if selector == "*":
+                continue
+            base_selector = selector.rsplit(".", 1)[0]
+            if name.startswith(base_selector) and (longest_wildcard is None or len(base_selector) > len(longest_wildcard)):
+                longest_wildcard = base_selector
+
+    return rules.get(longest_wildcard) if longest_wildcard else None
+```

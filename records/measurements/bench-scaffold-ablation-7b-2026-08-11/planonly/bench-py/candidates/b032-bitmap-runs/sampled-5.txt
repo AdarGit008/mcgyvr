@@ -1,0 +1,74 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    """
+    Find the smallest start of a free run of blocks below the capacity.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param bits: Total bit count in the bitmap.
+    :param length: Length of the run to find (positive integer).
+    :return: Smallest start index of the free run, or -1 if none exists.
+    """
+    if not (isinstance(words, list) and all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words)):
+        raise ValueError("Invalid bitmap words")
+    if bits < 0 or length < 1:
+        raise ValueError("Invalid capacity or run length")
+
+    num_words = (bits + 31) // 32
+    if len(words) != num_words:
+        raise ValueError("Bit count and word count mismatch")
+    if bit_at(words, bits - 1) == 1:
+        raise ValueError("Set bit at or beyond capacity")
+
+    target_length = length * 32
+    for start in range(bits - target_length + 1):
+        if all(bit_at(words, start + i * 32) == 0 for i in range(length)):
+            return start
+
+    return -1
+
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    """
+    Occupy a run of bits in the bitmap.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param start: Start index of the run to occupy (non-negative integer).
+    :param length: Length of the run to occupy (positive integer).
+    :return: New list with the run marked as occupied.
+    """
+    if not (isinstance(words, list) and all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words)):
+        raise ValueError("Invalid bitmap words")
+    if start < 0 or length < 1:
+        raise ValueError("Invalid start or run length")
+
+    new_words = words.copy()
+    target_length = length * 32
+    end = start + target_length
+
+    if end > len(new_words) * 32:
+        raise ValueError("Run extends beyond the bitmap")
+    for i in range(start, end):
+        word_index = i // 32
+        bit_index = i % 32
+        new_words[word_index] |= (1 << bit_index)
+
+    return new_words
+
+
+def bit_at(words: list[int], index: int) -> int:
+    """
+    Get the value of a single bit in the bitmap.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param index: Index of the bit to get (non-negative integer).
+    :return: Value of the bit (0 or 1).
+    """
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap words")
+    if index < 0:
+        raise ValueError("Negative index")
+
+    word_index = index // 32
+    bit_index = index % 32
+    return (words[word_index] >> bit_index) & 1
+```

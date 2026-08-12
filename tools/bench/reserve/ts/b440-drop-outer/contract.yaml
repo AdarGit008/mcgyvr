@@ -1,0 +1,14 @@
+id: b440-drop-outer
+task_type: function_implementation
+task: >-
+  Implement dropOuter. Return a list without its first and last
+  entries. A list of two entries comes back empty, and a list of one
+  entry or none comes back empty as well.
+target: solution.ts
+interface: "export function dropOuter(entries: string[]): string[]"
+stop_conditions:
+  - Whether the entries dropped should be reported as well is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

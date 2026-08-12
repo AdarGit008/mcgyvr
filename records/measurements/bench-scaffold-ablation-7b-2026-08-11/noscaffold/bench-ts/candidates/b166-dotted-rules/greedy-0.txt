@@ -1,0 +1,33 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name === '' || name.includes('*')) {
+    throw new Error('Invalid name');
+  }
+
+  let bestMatch: [string, string] | null = null;
+
+  for (const selector in rules) {
+    const value = rules[selector];
+    if (typeof value !== 'string') {
+      throw new Error('Invalid rule value');
+    }
+
+    if (selector === name) {
+      return value;
+    } else if (selector.endsWith('.*')) {
+      const prefix = selector.slice(0, -2);
+      if (name.startsWith(prefix)) {
+        if (!bestMatch || bestMatch[0].length < selector.length) {
+          bestMatch = [selector, value];
+        }
+      }
+    } else if (selector === '*') {
+      if (!bestMatch) {
+        bestMatch = [selector, value];
+      }
+    }
+  }
+
+  return bestMatch ? bestMatch[1] : null;
+}
+```

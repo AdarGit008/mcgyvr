@@ -1,0 +1,15 @@
+```ts
+export function stampBuild(major: number, minor: number, patch: number): number {
+  if (!Number.isInteger(major) || !Number.isInteger(minor) || !Number.isInteger(patch)) {
+    throw new Error('Major, minor, and patch must be whole numbers.');
+  }
+  if (major < 0 || minor < 0 || patch < 0) {
+    throw new Error('Major, minor, and patch cannot be negative.');
+  }
+  if (major === 1000 || minor === 1000 || patch === 1000) {
+    throw new Error('Major, minor, or patch of 1000 or more is not allowed.');
+  }
+
+  return patch + 1000 * minor + 1000000 * major;
+}
+```

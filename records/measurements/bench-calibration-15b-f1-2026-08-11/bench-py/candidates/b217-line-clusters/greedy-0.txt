@@ -1,0 +1,29 @@
+```python
+from typing import List
+
+def line_clusters(stops: list[str], links: list[tuple[str, str]]) -> list[list[str]]:
+    if not stops or not links:
+        return []
+
+    clusters = []
+    visited = set()
+
+    for stop in stops:
+        if stop in visited:
+            continue
+        cluster = [stop]
+        visited.add(stop)
+
+        for link in links:
+            from_stop, to_stop = link
+            if from_stop == stop and to_stop not in visited:
+                cluster.append(to_stop)
+                visited.add(to_stop)
+            elif to_stop == stop and from_stop not in visited:
+                cluster.append(from_stop)
+                visited.add(from_stop)
+
+        clusters.append(sorted(cluster))
+
+    return sorted(clusters, key=lambda x: x[0])
+```

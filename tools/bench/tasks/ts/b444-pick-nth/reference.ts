@@ -1,0 +1,7 @@
+/** The entry at a place, counting places from one. */
+export function pickNth(entries: string[], place: number): string {
+  if (place < 1 || place > entries.length) {
+    return "";
+  }
+  return entries[place - 1];
+}

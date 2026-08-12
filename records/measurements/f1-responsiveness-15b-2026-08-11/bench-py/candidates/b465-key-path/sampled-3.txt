@@ -1,0 +1,14 @@
+```python
+
+from typing import List
+
+
+def key_path(store: dict, head: str) -> list:
+    if not store:
+        raise ValueError("store is empty")
+    if not isinstance(head, str):
+        raise ValueError("'head' must be a string")
+
+    keys = [key for key in store.keys() if key.endswith(f".{head}")]
+    return keys
+```

@@ -1,0 +1,29 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+    if (!Number.isInteger(amount) || amount < 0) {
+        throw new Error("Amount must be a non-negative whole number.");
+    }
+    if (defs[unit] === undefined) {
+        throw new Error(`Unit ${unit} is not defined.`);
+    }
+
+    const findFactorRecurse = (currentUnit: string): number => {
+        const [factor, finer] = defs[currentUnit];
+        if (finer === base) {
+            return factor;
+        }
+        if (defs[finer] === undefined) {
+            throw new Error("Chain loops so it can never reach the base.");
+        }
+
+        return amount * findFactorRecurse(finer);
+    };
+
+    try {
+        return findFactorRecurse(unit);
+    } catch (error) {
+        console.error(error.message);
+        throw error;
+    }
+}
+```

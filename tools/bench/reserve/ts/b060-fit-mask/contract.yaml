@@ -1,0 +1,44 @@
+id: b060-fit-mask
+task_type: bug_fix
+task: >-
+  fitMask fits a text against a form input mask incorrectly. In a mask,
+  A stands for one ASCII letter, 9 stands for one ASCII digit, and
+  every other character stands for itself. Fitting returns the text
+  with each letter slot's character uppercased and everything else kept
+  as it is. At present a text longer than its mask is accepted with its
+  tail silently dropped, and a letter slot takes any character at all,
+  uppercasing whatever it gets. Fix both: fitting must consume the mask
+  and the text together, and every way the text can miss the mask must
+  be an error — a text whose length differs from the mask's, a letter
+  slot given anything but an ASCII letter, a digit slot given anything
+  but an ASCII digit, and a literal slot that does not equal the mask's
+  character. Also add the missing validation: reject a mask that is not
+  a non-empty string and a text that is not a string, with an error.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Fit a text to a form input mask: A takes a letter, 9 a digit, else literal. */
+  export function fitMask(mask: string, text: string): string {
+    let fitted = "";
+    for (let i = 0; i < mask.length; i++) {
+      const ch = mask[i];
+      const c = text[i];
+      if (ch === "A") {
+        fitted += c.toUpperCase();
+      } else if (ch === "9" && /[0-9]/.test(c)) {
+        fitted += c;
+      } else if (ch !== "A" && ch !== "9" && c === ch) {
+        fitted += c;
+      } else {
+        throw new Error("slot " + ch + " cannot take " + c);
+      }
+    }
+    return fitted;
+  }
+interface: "export function fitMask(mask: string, text: string): string"
+stop_conditions:
+  - Whether the text is Unicode-normalized before fitting is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

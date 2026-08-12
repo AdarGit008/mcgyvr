@@ -1,0 +1,24 @@
+```python
+from typing import List, Tuple
+
+def span_merge(spans: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    if not spans:
+        return []
+
+    # Sort the spans by their start time
+    sorted_spans = sorted(spans, key=lambda x: x[0])
+
+    merged_spans = []
+    current_span = None
+
+    for span in sorted_spans:
+        if current_span is None or span[0] > current_span[1]:
+            # If no current span or the current span ends before this span starts
+            current_span = span
+            merged_spans.append(span)
+        else:
+            # Extend the current span to cover both spans
+            current_span = (current_span[0], max(current_span[1], span[1]))
+
+    return merged_spans
+```

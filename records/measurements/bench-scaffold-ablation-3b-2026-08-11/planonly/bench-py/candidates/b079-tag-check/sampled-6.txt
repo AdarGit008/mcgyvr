@@ -1,0 +1,25 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the integrity check tag for a body string."""
+    return format(sum(ord(char) for char in body), '02x')
+
+def check_line(line: str) -> str:
+    """Validate and extract the body of a tagged line."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    tilde_index = line.rfind('~')
+    if tilde_index == -1 or tilde_index >= len(line) - 2:
+        raise ValueError("Tilde separator not found or out of bounds.")
+    
+    body_tag = line[tilde_index + 1:]
+    computed_tag = line_tag(line[:tilde_index])
+    
+    if body_tag != computed_tag:
+        raise ValueError(f"Tag mismatch: expected {computed_tag}, got {body_tag}.")
+    
+    return line[:tilde_index]
+```

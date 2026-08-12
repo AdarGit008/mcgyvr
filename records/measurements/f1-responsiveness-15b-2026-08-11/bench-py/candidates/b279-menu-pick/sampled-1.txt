@@ -1,0 +1,13 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    if not dishes or budget < 0:
+        return []
+    
+    # Filter dishes based on price and name
+    filtered_dishes = [dish for dish in dishes if dish['price'] <= budget]
+    
+    # Sort dishes by name, ascending price (if prices are equal), then by price (descending)
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x['name'], -x['price']))
+    
+    return [dish['name'] for dish in sorted_dishes]
+```

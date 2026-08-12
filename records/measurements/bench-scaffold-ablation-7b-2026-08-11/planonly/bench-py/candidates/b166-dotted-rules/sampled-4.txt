@@ -1,0 +1,16 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string")
+    
+    exact_match = rules.get(name)
+    if exact_match is not None:
+        return exact_match
+    
+    wildcard_matches = [value for selector, value in rules.items() if selector.endswith('.*') and name.startswith(selector[:-2])]
+    if wildcard_matches:
+        return max(wildcard_matches, key=lambda x: len(x.split('.')))
+    
+    universal_match = rules.get('*')
+    return universal_match
+```

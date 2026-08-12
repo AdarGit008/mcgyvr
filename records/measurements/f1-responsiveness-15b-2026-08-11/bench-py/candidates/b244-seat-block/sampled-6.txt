@@ -1,0 +1,9 @@
+```python
+def seat_block(label: str) -> list:
+    if len(label) != 3 or not label[0].isdigit() or label[2] != 'C':
+        raise ValueError("Invalid seat label format")
+    
+    row = int(label[0])
+    letter = label[1]
+    return [row, letter]
+```

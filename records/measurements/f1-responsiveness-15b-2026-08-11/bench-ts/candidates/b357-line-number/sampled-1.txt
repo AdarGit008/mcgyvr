@@ -1,0 +1,24 @@
+```ts
+// BEGIN SOLUTION
+
+/**
+ * Wraps each line of the input text with its number.
+ *
+ * @param {string} block - The input text containing multiple lines.
+ * @returns {string} A string where each line is prefixed by its line number.
+ */
+export function lineNumber(block: string): string {
+  if (block === "") return "";
+  
+  const lines = block.split("\n");
+  let result = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    result += `${i + 1}: ${lines[i]}\n`;
+  }
+
+  return result;
+}
+
+// END SOLUTION
+```

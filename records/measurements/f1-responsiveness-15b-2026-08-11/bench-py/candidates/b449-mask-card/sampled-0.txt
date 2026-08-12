@@ -1,0 +1,27 @@
+```python
+def last_four(number: str) -> str:
+    """
+    Returns the last four characters of a card number,
+    or the whole of it when it is shorter.
+
+    :param number: A string representing the card number.
+    :return: The last four characters or the full card number.
+    """
+    if not number:
+        raise ValueError("Card number cannot be empty")
+    if len(number) < 4:
+        return number
+    return number[-4:]
+
+def mask_card(number: str) -> str:
+    """
+    Returns the number with everything but its last four replaced by stars,
+    one star for each character hidden.
+
+    :param number: A string representing the card number.
+    :return: The masked card number.
+    """
+    if not number:
+        raise ValueError("Card number cannot be empty")
+    return '*' * len(number)[:-4] + number[-4:]
+```

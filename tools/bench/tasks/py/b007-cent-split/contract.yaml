@@ -1,0 +1,48 @@
+id: b007-cent-split
+task_type: bug_fix
+task: >-
+  split_evenly divides a total given in whole cents into a number of parts
+  incorrectly: it rounds each share on its own, so for many totals the
+  parts no longer add up to the total that was split. Fix it: the returned
+  parts must sum to exactly the total, no two parts may differ by more
+  than one cent, and the parts must be in non-increasing order, so any
+  extra cents land on the earliest parts. Also add the missing validation:
+  reject a total that is not a non-negative integer and a ways count that
+  is not a positive integer, with an error. The other helpers in the file
+  are correct and their behaviour must not change. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  """Cent-exact money helpers for order totals."""
+
+
+  def split_evenly(total_cents: int, ways: int) -> list:
+      share = round(total_cents / ways)
+      return [share for _ in range(ways)]
+
+
+  def apply_bps(cents: int, bps: int) -> int:
+      if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+          raise ValueError("cents must be a non-negative integer")
+      if isinstance(bps, bool) or not isinstance(bps, int) or bps < 0:
+          raise ValueError("bps must be a non-negative integer")
+      return (cents * bps + 5000) // 10000
+
+
+  def sum_parts(parts: list) -> int:
+      total = 0
+      for part in parts:
+          if isinstance(part, bool) or not isinstance(part, int):
+              raise ValueError("parts must be integers")
+          total += part
+      return total
+interface: |-
+  def split_evenly(total_cents: int, ways: int) -> list
+  def apply_bps(cents: int, bps: int) -> int
+  def sum_parts(parts: list) -> int
+stop_conditions:
+  - How many parts a caller might request (an upper bound on ways) is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

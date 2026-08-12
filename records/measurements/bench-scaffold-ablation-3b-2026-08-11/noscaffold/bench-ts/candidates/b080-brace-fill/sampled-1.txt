@@ -1,0 +1,25 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('The template must be a string.');
+  }
+
+  const placeholders = template.match(/\{\w+\}/g);
+  if (!placeholders) return template;
+
+  placeholders.forEach(match => {
+    const placeholderName = match.slice(1, -1);
+    if (
+      !values.hasOwnProperty(placeholderName) ||
+      !/[a-zA-Z0-9_]/.test(placeholderName)
+    ) {
+      throw new Error(`Invalid placeholder name: ${placeholderName}`);
+    }
+  });
+
+  return placeholders.reduce((acc, match) => {
+    const placeholderName = match.slice(1, -1);
+    return acc.replace(match, values[placeholderName]);
+  }, template);
+}
+```

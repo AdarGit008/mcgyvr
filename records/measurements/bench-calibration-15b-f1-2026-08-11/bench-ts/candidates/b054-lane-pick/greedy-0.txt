@@ -1,0 +1,33 @@
+```ts
+export function pickLane(queues: number[], closed: number[]): number {
+  if (!Array.isArray(queues) || queues.length === 0) {
+    throw new Error("Invalid input: queues must be a non-empty list");
+  }
+
+  if (typeof queues[0] !== "number") {
+    throw new Error("Invalid input: queues must contain only numbers");
+  }
+
+  if (!Array.isArray(closed) || closed.length === 0) {
+    throw new Error("Invalid input: closed must be a non-empty list");
+  }
+
+  if (!closed.every(index => typeof index === "number" && index >= 0)) {
+    throw new Error("Invalid input: closed must contain only non-negative integers pointing at lanes");
+  }
+
+  if (queues.length === closed.length) {
+    throw new Error("All lanes are closed, cannot pick a lane");
+  }
+
+  let best = 0;
+  for (let lane = 1; lane < queues.length; lane++) {
+    if (!closed.includes(lane)) {
+      if (queues[lane] <= queues[best]) {
+        best = lane;
+      }
+    }
+  }
+  return best;
+}
+```

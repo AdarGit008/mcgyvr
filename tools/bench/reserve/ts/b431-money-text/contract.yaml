@@ -1,0 +1,14 @@
+id: b431-money-text
+task_type: function_implementation
+task: >-
+  Implement moneyText. Write an amount of pence as pounds and pence:
+  the pounds, a full stop, and always two digits of pence. An amount
+  under a pound still shows a nought before the stop.
+target: solution.ts
+interface: "export function moneyText(pence: number): string"
+stop_conditions:
+  - Whether an amount below nothing should carry its sign is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

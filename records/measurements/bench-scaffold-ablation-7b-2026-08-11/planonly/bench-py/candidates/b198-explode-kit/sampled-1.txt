@@ -1,0 +1,25 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want < 0:
+        raise ValueError("Cannot order a negative number of units")
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog")
+
+    def run_recipe(recipe):
+        parts_consumed = {}
+        for component, count in recipe["parts"]:
+            if component in catalog:
+                sub_parts = run_recipe(catalog[component])
+                for part, sub_count in sub_parts.items():
+                    parts_consumed[part] = parts_consumed.get(part, 0) + sub_count * count
+            else:
+                parts_consumed[component] = parts_consumed.get(component, 0) + count
+        return parts_consumed
+
+    runs_needed = -(-want // recipe["makes"]) if want > 0 else 1
+    recipe = catalog[kit]
+    total_parts_consumed = run_recipe(recipe)
+    for part in list(total_parts_consumed.keys()):
+        total_parts_consumed[part] *= runs_needed
+    return total_parts_consumed
+```

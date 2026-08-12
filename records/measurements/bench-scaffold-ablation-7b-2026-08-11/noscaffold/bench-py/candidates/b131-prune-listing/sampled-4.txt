@@ -1,0 +1,47 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def match_pattern(path_segments: List[str], pattern_segments: List[str]) -> bool:
+        if len(pattern_segments) > 1 and pattern_segments[-1] == '':
+            raise ValueError("Pattern contains an empty segment")
+        for path, pattern in zip(path_segments, pattern_segments):
+            if pattern == '*' or pattern == path:
+                continue
+            return False
+        return True
+
+    def is_valid_path(path: str) -> bool:
+        segments = path.split('/')
+        if not all(segment for segment in segments):
+            raise ValueError("Path contains an empty segment")
+        return True
+
+    def is_valid_rule(rule: str) -> bool:
+        if rule == '!':
+            raise ValueError("Rule cannot be a bare exclamation mark")
+        if rule.count('*') > 1 or (rule.count('*') == 1 and '*' not in rule.split('/')[0]):
+            raise ValueError("Pattern contains multiple stars or star in non-leading segment")
+        return True
+
+    pruned_listing = []
+    for path in listing:
+        if not is_valid_path(path):
+            continue
+        last_match = None
+        for rule in rules:
+            if not is_valid_rule(rule):
+                continue
+            if rule.startswith('!'):
+                keep_rule = True
+                rule = rule[1:]
+            else:
+                keep_rule = False
+            pattern_segments = rule.split('/')
+            path_segments = path.split('/')
+            if match_pattern(path_segments, pattern_segments):
+                last_match = 'keep' if keep_rule else 'drop'
+        if last_match != 'drop':
+            pruned_listing.append(path)
+    return pruned_listing
+```

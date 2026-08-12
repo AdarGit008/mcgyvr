@@ -1,0 +1,35 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if total <= 0:
+        raise ValueError("Total takings must be a positive integer.")
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list of positive integers.")
+    if len(weights) == 0:
+        raise ValueError("Weights list cannot be empty.")
+    
+    sum_weights = sum(weights)
+    if sum_weights <= 0:
+        raise ValueError("Sum of weights must be a positive integer.")
+    
+    parts = []
+    leftover_cents = total
+    
+    for weight in weights:
+        share = total * (weight / sum_weights) // 1
+        leftover_cents -= share
+        parts.append(share)
+    
+    # Calculate the number of fractional shares to distribute
+    fractional_shares_count = sum(1 for part in parts if part != 0)
+    
+    # Distribute the leftover cents in descending order of discarded fractions
+    while leftover_cents > 0 and fractional_shares_count > 0:
+        max_fractional_share = max(parts, key=lambda x: (x - (total * (x / sum_weights)) // 1))
+        if max_fractional_share != 0:
+            parts[parts.index(max_fractional_share)] += 1
+            leftover_cents -= 1
+            fractional_shares_count -= 1
+    
+    return parts
+
+```

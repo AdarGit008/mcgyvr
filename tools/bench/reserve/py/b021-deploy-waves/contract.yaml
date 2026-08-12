@@ -1,0 +1,22 @@
+id: b021-deploy-waves
+task_type: function_implementation
+task: >-
+  Implement deploy_waves. The input is a list of services, each a pair of a
+  service name and the list of names it depends on. Compute the deployment
+  order as waves: the first wave holds every service with no dependencies,
+  and each later wave holds every service whose dependencies all appear in
+  strictly earlier waves. Sort each wave alphabetically. Return the list of
+  waves; an empty input yields an empty list, and the order the services
+  arrive in never affects the result. Reject a duplicate service name, a
+  name that is not a non-empty string, a dependency that is not a string, a
+  dependency on an unknown service, a service that depends on itself, the
+  same dependency listed twice for one service, and a dependency cycle with
+  an error.
+target: solution.py
+interface: "def deploy_waves(services: list) -> list"
+stop_conditions:
+  - Whether service names are compared case-sensitively is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

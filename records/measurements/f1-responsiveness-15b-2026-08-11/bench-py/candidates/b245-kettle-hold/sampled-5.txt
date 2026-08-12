@@ -1,0 +1,17 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings or not target:
+        raise ValueError("Input lists must be non-empty and target must be a number.")
+
+    count = 0
+    current_holding = False
+    for reading in readings:
+        if reading >= target:
+            current_holding = True
+            if not count:
+                count += 1
+        elif current_holding:
+            break
+
+    return count
+```

@@ -1,0 +1,37 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || !rules) {
+    throw new Error('Rules must be an object');
+  }
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  const isDotted = name.includes('.');
+  const isStar = name === '*';
+
+  if (isStar && (!isDotted || name.endsWith('.*'))) {
+    throw new Error('Invalid star usage');
+  }
+
+  const findMatch = (path: string): string | null => {
+    if (!rules.hasOwnProperty(path)) return null;
+
+    let match = rules[path];
+
+    if (match === '*') {
+      return path;
+    }
+
+    if (isDotted && path.endsWith('.*')) {
+      const prefix = path.split('.')[0];
+      const wildcardMatch = findMatch(prefix);
+      if (wildcardMatch) return wildcardMatch;
+    }
+
+    return match;
+  };
+
+  return isStar ? null : findMatch(name);
+}
+```

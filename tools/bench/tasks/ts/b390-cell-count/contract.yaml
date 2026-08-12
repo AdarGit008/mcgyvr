@@ -1,0 +1,14 @@
+id: b390-cell-count
+task_type: function_implementation
+task: >-
+  Implement cellCount. Given a grid written as a list of rows, return
+  how many of its cells hold a stated value. A grid with no rows, and
+  a grid whose rows hold nothing, both hold none of anything.
+target: solution.ts
+interface: "export function cellCount(grid: number[][], value: number): number"
+stop_conditions:
+  - Whether cells holding values of different kinds should ever match is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

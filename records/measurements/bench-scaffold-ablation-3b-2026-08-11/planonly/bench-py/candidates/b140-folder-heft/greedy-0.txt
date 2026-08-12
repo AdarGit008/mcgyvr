@@ -1,0 +1,70 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or len(node) != 1:
+        raise ValueError("Node must be a mapping with exactly one key-value pair.")
+    
+    key, value = next(iter(node.items()))
+    
+    if not isinstance(key, str) or "/" in key:
+        raise ValueError("Key must be a non-empty string without slashes.")
+    
+    if "bytes" in node and "children" in node:
+        raise ValueError("Node cannot have both bytes and children.")
+    
+    if "bytes" in node:
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("Bytes must be a non-negative whole number.")
+    
+    if "children" in node:
+        if not isinstance(value, list):
+            raise ValueError("Children must be a list.")
+        
+        for child in value:
+            validate_node(child)
+
+def file_paths(root: dict) -> list:
+    paths = []
+    stack = [(root, [])]
+    
+    while stack:
+        current, path = stack.pop()
+        if "bytes" in current:
+            paths.append("/".join(path))
+        elif "children" in current:
+            for child in current["children"]:
+                stack.append((child, path + [current["name"]]))
+    
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    validate_node(root)
+    
+    if "bytes" in root:
+        return root["bytes"]
+    
+    total = 0
+    for child in root.get("children", []):
+        total += tree_bytes(child)
+    
+    return total
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    validate_node(root)
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number.")
+    
+    paths = []
+    stack = [(root, [], 0)]
+    
+    while stack:
+        current, path, total = stack.pop()
+        
+        if "bytes" in current and total + current["bytes"] >= min_bytes:
+            paths.append("/".join(path))
+        
+        if "children" in current:
+            for i, child in enumerate(current["children"]):
+                stack.append((child, path + [current["name"]], total + (current.get("bytes", 0))))
+    
+    return paths
+```

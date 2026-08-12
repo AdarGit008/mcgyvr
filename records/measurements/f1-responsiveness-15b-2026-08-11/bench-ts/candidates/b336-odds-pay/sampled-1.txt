@@ -1,0 +1,20 @@
+```ts
+export function payout(stake: number, odds: number): number {
+  if (stake < 0) {
+    throw new Error("Stake cannot be negative");
+  }
+  return stake * odds;
+}
+
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  let total = 0;
+  for (const bet of bets) {
+    const { stake, odds, won } = bet;
+    if (!won) {
+      continue;
+    }
+    total += payout(stake, odds);
+  }
+  return total;
+}
+```

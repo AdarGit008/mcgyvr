@@ -1,0 +1,15 @@
+```ts
+export function checkDigit(code: string): number {
+  if (typeof code !== 'string' || !code.match(/\d+/)) {
+    throw new Error("Invalid input. Code must be a non-empty string containing only digits.");
+  }
+
+  const digitSum = Array.from(code).reduce((acc, curr) => acc + parseInt(curr, 10), 0);
+
+  if (digitSum % 10 === 0) {
+    return 0;
+  } else {
+    return 10 - (digitSum % 10);
+  }
+}
+```

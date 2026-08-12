@@ -1,0 +1,24 @@
+id: b341-key-miss
+task_type: bug_fix
+task: >-
+  lookUp returns the value a mapping holds for a key, or a stated
+  fallback when the key is absent, and it hands back the fallback when
+  the stored value is empty text as well. Fix it so only an absent key
+  takes the fallback. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A mapping's value for a key, or a fallback when it is absent. */
+  export function lookUp(
+    store: Record<string, string>,
+    key: string,
+    fallback: string,
+  ): string {
+    return store[key] || fallback;
+  }
+interface: "export function lookUp(store: Record<string, string>, key: string, fallback: string): string"
+stop_conditions:
+  - Whether a key should be matched ignoring case is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

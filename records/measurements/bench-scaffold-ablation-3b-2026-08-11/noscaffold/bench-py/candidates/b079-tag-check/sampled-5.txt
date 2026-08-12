@@ -1,0 +1,35 @@
+```python
+def line_tag(body: str) -> str:
+    """
+    Computes the tag for a given body string as the sum of its character codes modulo 256,
+    rendered as exactly two lowercase hexadecimal digits, zero-padded.
+    Raises ValueError if the input is not a string.
+    """
+    if not isinstance(body, str):
+        raise ValueError("Input must be a string")
+    
+    tag = sum(ord(char) for char in body) % 256
+    return f"{tag:02x}"
+
+def check_line(line: str) -> str:
+    """
+    Verifies a tagged line and returns its body.
+    Raises ValueError for invalid lines.
+    """
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string")
+    
+    # Split the line into body and tag
+    parts = line.split('~', 1)
+    if len(parts) != 2:
+        raise ValueError("Line must contain exactly one '~' character")
+    
+    body, expected_tag = parts
+    
+    # Verify the tag integrity
+    calculated_tag = line_tag(body)
+    if calculated_tag != expected_tag:
+        raise ValueError(f"Tag does not match: {calculated_tag} != {expected_tag}")
+    
+    return body
+```

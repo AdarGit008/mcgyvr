@@ -1,0 +1,31 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || !rules) {
+    throw new Error('Rules must be an object');
+  }
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  const isStar = (str: string): boolean => str === '*';
+  const hasDot = (str: string): boolean => str.includes('.');
+  const endsWithStar = (str: string): boolean => str.endsWith('*');
+
+  if (!isStar(name) && !hasDot(name)) {
+    return rules[name] || null;
+  }
+
+  let bestMatch: [string, string] | null = null;
+
+  for (const [selector, value] of Object.entries(rules)) {
+    const isExactMatch = selector === name;
+    const isWildcardMatch = hasDot(selector) && endsWithStar(selector);
+
+    if (isExactMatch || (isWildcardMatch && (!bestMatch || selector.length > bestMatch[0].length))) {
+      bestMatch = [selector, value];
+    }
+  }
+
+  return bestMatch ? bestMatch[1] : isStar(name) ? null : undefined;
+}
+```

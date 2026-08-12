@@ -1,0 +1,20 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("the run starts off the plan");
+  }
+  const cells = floor[row].split("");
+  if (!cells.every(cell => cell === ".")) {
+    throw new Error("conveyor run overlaps with an existing machine");
+  }
+  if (col + length > cells.length) {
+    throw new Error("conveyor run exceeds the factory floor width");
+  }
+
+  return floor.map((row, rIndex) =>
+    row.split('').map((cell, cIndex) => 
+      rIndex === row && cIndex >= col && cIndex < col + length ? "=" : cell
+    ).join('')
+  );
+}
+```

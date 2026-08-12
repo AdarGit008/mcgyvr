@@ -1,0 +1,33 @@
+```ts
+/**
+ * Replays a stream of integer cache keys against a direct-mapped cache with a given number of slots,
+ * counting the number of hits (when a key is requested and its slot holds exactly that key).
+ * Throws an error if the slot count is not a positive integer or any key is not an integer.
+ *
+ * @param keys - An array of integers representing cache keys to be replayed against the cache.
+ * @param slots - A positive integer representing the number of slots in the direct-mapped cache.
+ * @returns The total number of hits.
+ */
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+
+  const cache = new Array<number>(slots).fill(-1);
+  let hitCount = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error("All keys must be integers.");
+    }
+
+    const slot = Math.abs(key % slots);
+    if (cache[slot] === key) {
+      hitCount++;
+    }
+    cache[slot] = key;
+  }
+
+  return hitCount;
+}
+```

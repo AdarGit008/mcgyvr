@@ -1,0 +1,51 @@
+```ts
+/* solution.ts */
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Both listing and rules must be arrays.");
+  }
+
+  const isPattern = (pattern: string): boolean => /^[^*][^\s]*[*]?[^\s]*$/.test(pattern);
+
+  const matchesPattern = (path: string, pattern: string): boolean => {
+    if (!isPattern(pattern)) {
+      throw new Error("Invalid pattern format.");
+    }
+
+    const pathSegments = path.split('/');
+    const patternSegments = pattern.split('*').flatMap(segment =>
+      segment === '' ? [''] : Array.from({ length: segment.length + 1 }, (_, i) => '*')
+    );
+
+    for (let i = 0; i < Math.min(pathSegments.length, patternSegments.length); i++) {
+      if (!patternSegments[i].match(pathSegments[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const prunePath = (path: string, rules: string[]): boolean => {
+    for (const rule of rules) {
+      if (rule.startsWith('!')) {
+        // Keep rule
+        if (!matchesPattern(path, rule.slice(1))) continue;
+        return false; // Path is kept
+      } else {
+        // Drop rule
+        if (matchesPattern(path, rule)) return true; // Path is dropped
+      }
+    }
+    return false; // No matching rule, path survives
+  };
+
+  const cleanedListing = listing.filter(
+    path => typeof path === 'string' && path !== '' && !/^[\/]*$/.test(path)
+  );
+
+  return cleanedListing.filter(path => prunePath(path, rules));
+}
+
+```

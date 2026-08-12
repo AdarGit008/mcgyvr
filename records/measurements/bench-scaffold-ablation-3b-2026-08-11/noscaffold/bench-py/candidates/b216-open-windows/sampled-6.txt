@@ -1,0 +1,35 @@
+```python
+from typing import List
+
+def open_windows(span: str, booked: List[str]) -> str:
+    def parse_time(time_str: str) -> int:
+        hour, minute = map(int, time_str.split(':'))
+        return hour * 60 + minute
+
+    def format_time(minutes: int) -> str:
+        hours, minutes = divmod(minutes, 60)
+        return f"{hours:02}:{minutes:02}"
+
+    start, end = span.split('-')
+    if parse_time(start) > parse_time(end):
+        raise ValueError("Invalid span: start time is later than end time")
+
+    booked_times = sorted(parse_time(time) for time in booked)
+
+    free_stretches = []
+    prev_end = 0
+    for booked_time in booked_times:
+        if booked_time < prev_end:
+            continue
+
+        if booked_time != prev_end:
+            free_stretch = format_time(prev_end)
+            free_stretches.append(free_stretch)
+
+        prev_end = max(booked_time, parse_time(end))
+
+    if len(free_stretches) == 0 and parse_time(start) < parse_time(end):
+        return "none"
+    else:
+        return ", ".join(free_stretches)
+```

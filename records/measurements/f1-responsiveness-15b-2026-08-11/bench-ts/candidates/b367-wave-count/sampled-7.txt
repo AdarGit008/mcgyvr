@@ -1,0 +1,15 @@
+```ts
+export function waveCount(readings: number[]): number {
+  if (readings.length <= 1) return 0;
+
+  let changes = 0;
+  for (let i = 1; i < readings.length; i++) {
+    if ((readings[i] > readings[i - 1] && readings[i + 1] < readings[i]) ||
+        (readings[i] < readings[i - 1] && readings[i + 1] > readings[i])) {
+      changes++;
+    }
+  }
+
+  return changes;
+}
+```

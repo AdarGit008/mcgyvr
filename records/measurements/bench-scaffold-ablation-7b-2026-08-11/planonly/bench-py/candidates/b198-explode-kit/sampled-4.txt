@@ -1,0 +1,31 @@
+```python
+from typing import Dict
+
+
+def explode_kit(catalog: Dict[str, dict], kit: str, want: int) -> Dict[str, int]:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+
+    def calculate_parts(kit_name: str, needed_units: int) -> Dict[str, int]:
+        recipe = catalog.get(kit_name)
+        if not recipe:
+            raise ValueError(f"kit '{kit_name}' is not defined in the catalog")
+
+        makes = recipe['makes']
+        parts = recipe['parts']
+        runs_needed = (needed_units + makes - 1) // makes
+
+        total_parts = {}
+        for component, count_per_run in parts.items():
+            if component in catalog:
+                # Component is a kit, recurse to calculate its parts
+                sub_parts = calculate_parts(component, runs_needed * count_per_run)
+                total_parts.update(sub_parts)
+            else:
+                # Component is a base part
+                total_parts[component] = total_parts.get(component, 0) + runs_needed * count_per_run
+
+        return total_parts
+
+    return calculate_parts(kit, want)
+```

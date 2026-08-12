@@ -1,0 +1,6 @@
+```ts
+export function warmUp(readings: number[], floor: number): number[] {
+  let warmup = readings.filter(reading => reading >= floor);
+  return warmup;
+}
+```

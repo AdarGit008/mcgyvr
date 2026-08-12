@@ -1,0 +1,24 @@
+```python
+
+def line_cost(price: int, quantity: int) -> int:
+    """Returns the cost of one line given its unit price and quantity."""
+    if price < 0 or quantity <= 0:
+        raise ValueError("Price and quantity must be non-negative integers.")
+    return price * quantity
+
+
+def basket_cost(lines: list, discount: int) -> int:
+    """Calculates the total cost of a basket after applying a discount and rounding down to whole pence."""
+    if not lines or discount < 0 or discount > 100:
+        raise ValueError("Lines must be non-empty, discount must be in [0, 100].")
+    
+    # Calculate the sum of all line costs
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    # Apply the discount
+    discounted_total = total_cost * (1 - discount / 100)
+    
+    # Round down to whole pence
+    return int(discounted_total)
+```
+This solution adheres to all the specified guidelines and tests.

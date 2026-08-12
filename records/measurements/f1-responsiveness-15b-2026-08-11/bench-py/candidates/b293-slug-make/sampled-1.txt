@@ -1,0 +1,16 @@
+```python
+def slug_word(word: str) -> str:
+    """Converts a word to lowercase with no non-alphanumeric characters."""
+    return ''.join(c for c in word if c.isalnum())
+
+def slug_make(phrase: str) -> str:
+    """Joins the slugged words of a phrase, separated by hyphens."""
+    # Split the phrase into words based on spaces
+    words = phrase.split()
+    
+    # Apply slug_word to each word, filtering out empty strings
+    slugged_words = [slug_word(word) for word in words if slug_word(word)]
+    
+    # Join the slugged words with hyphens
+    return '-'.join(slugged_words)
+```

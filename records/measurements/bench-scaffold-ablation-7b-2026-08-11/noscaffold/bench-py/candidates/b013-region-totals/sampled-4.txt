@@ -1,0 +1,29 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    rows = len(grid)
+    cols = len(grid[0])
+    
+    # Validate grid dimensions and uniformity
+    if not all(len(row) == cols for row in grid):
+        raise ValueError("All rows must have the same number of columns.")
+    
+    # Validate queries
+    for query in queries:
+        if len(query) != 4 or not (isinstance(q, int) for q in query):
+            raise ValueError("Each query must be a list of exactly four integers.")
+        top, left, bottom, right = query
+        if not (0 <= top < bottom <= rows and 0 <= left < right <= cols):
+            raise ValueError("Query indices are out of bounds or invalid.")
+    
+    # Compute prefix sum table
+    prefix_sum = [[0] * (cols + 1) for _ in range(rows + 1)]
+    for i in range(1, rows + 1):
+        for j in range(1, cols + 1):
+            prefix_sum[i][j] = grid[i - 1][j - 1] + prefix_sum[i - 1][j] + prefix_sum[i][j - 1] - prefix_sum[i - 1][j - 1]
+    
+    # Process queries
+    return [
+        (prefix_sum[bottom][right] - prefix_sum[top][right] - prefix_sum[bottom][left] + prefix_sum[top][left])
+        for top, left, bottom, right in queries
+    ]
+```

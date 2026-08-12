@@ -1,0 +1,78 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  const walk = (node: any, path: string = "") => {
+    if (!isObject(node) || typeof node !== 'object' || Array.isArray(node)) {
+      throw new Error("Invalid tree structure");
+    }
+    for (const [name, child] of Object.entries(node)) {
+      if (typeof name !== "string" || !/^[^\s\/]+$/.test(name) || name.includes("/")) {
+        throw new Error("Invalid node name or path");
+      }
+      const newPath = path + "/" + name;
+      if (isObject(child)) {
+        walk(child, newPath);
+      } else if (typeof child === "number" && Number.isInteger(child) && child >= 0) {
+        paths.push(newPath);
+      } else {
+        throw new Error("Invalid node type");
+      }
+    }
+  };
+  walk(root);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (!isObject(root)) {
+    throw new Error("Invalid root structure");
+  }
+  const sum = (acc: number, child: any): number => {
+    if (typeof child === "number" && Number.isInteger(child) && child >= 0) {
+      return acc + child;
+    }
+    return acc;
+  };
+  return Object.values(root).reduce(sum, 0);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (!isObject(root)) {
+    throw new Error("Invalid root structure");
+  }
+  if (typeof minBytes !== "number" || minBytes < 0 || !Number.isInteger(minBytes)) {
+    throw new Error("Invalid minBytes value");
+  }
+
+  const result: [string, number][] = [];
+
+  const walk = (node: any, path: string = "") => {
+    if (!isObject(node) || typeof node !== 'object' || Array.isArray(node)) {
+      return;
+    }
+    let totalBytes = 0;
+    for (const [name, child] of Object.entries(node)) {
+      if (typeof name !== "string" || !/^[^\s\/]+$/.test(name) || name.includes("/")) {
+        continue;
+      }
+      const newPath = path + "/" + name;
+      if (isObject(child)) {
+        walk(child, newPath);
+        totalBytes += treeBytes(child);
+      } else if (typeof child === "number" && Number.isInteger(child) && child >= 0) {
+        totalBytes += child;
+      } else {
+        return;
+      }
+    }
+
+    if (totalBytes >= minBytes) {
+      result.push([path, totalBytes]);
+    }
+  };
+
+  walk(root);
+
+  return result;
+}
+```

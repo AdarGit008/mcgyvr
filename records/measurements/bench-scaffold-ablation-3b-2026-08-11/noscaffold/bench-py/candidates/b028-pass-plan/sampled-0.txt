@@ -1,0 +1,37 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or not isinstance(trip_days[0], int):
+        raise ValueError("trip_days must be a non-empty list of positive integers")
+    if any(i > j for i, j in zip(trip_days[:-1], trip_days[1:])):
+        raise ValueError("trip_days must be strictly increasing")
+
+    if not passes or not all(isinstance(p, dict) and "span" in p and "cost" in p for p in passes):
+        raise ValueError("passes must be a non-empty list of dictionaries with 'span' and 'cost' keys")
+
+    trip_days = sorted(trip_days)
+    total_cost = 0
+    purchases = []
+
+    i, j = 0, 0
+
+    while i < len(trip_days):
+        if j == len(passes) or trip_days[i] > passes[j]["span"] + trips[j][0]:
+            raise ValueError("Invalid pass schedule")
+
+        if trip_days[i] >= purchases[-1][0] + purchases[-1][1]:
+            total_cost += passes[j]["cost"]
+            purchases.append([trip_days[i], passes[j]["span"]])
+        else:
+            for k in range(j, len(passes)):
+                if trip_days[i] < passes[k]["span"] + trips[k][0]:
+                    break
+            if trip_days[i] >= purchases[-1][0] + purchases[-1][1]:
+                total_cost += passes[j]["cost"]
+                purchases.append([trip_days[i], passes[j]["span"]])
+            else:
+                j += 1
+
+        i += 1
+
+    return {"total": total_cost, "purchases": purchases}
+```

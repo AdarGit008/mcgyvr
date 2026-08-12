@@ -1,0 +1,22 @@
+```python
+
+def swap_keys(names: dict) -> dict:
+    # Create a dictionary that maps codes to names, ignoring case for duplicates
+    code_to_names = {}
+    for name, code in names.items():
+        code_lower = code.lower()
+        if code_lower not in code_to_names:
+            code_to_names[code_lower] = [name]
+        else:
+            # Sort the names by their original order and add to the list
+            sorted_names = sorted([n for n in names.values() if n == name])
+            code_to_names[code_lower].extend(sorted_names)
+
+    # Convert the list of names back to a set to remove duplicates, then back to a dictionary
+    swapped_keys = {code: {} for code in code_to_names}
+    for code, names_list in code_to_names.items():
+        names_set = set(names_list)
+        swapped_keys[code] = {name for name in names_set}
+
+    return swapped_keys
+```

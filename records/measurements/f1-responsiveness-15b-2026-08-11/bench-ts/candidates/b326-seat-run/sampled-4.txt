@@ -1,0 +1,20 @@
+```ts
+function seatRun(row: string, party: number): number {
+  if (party === 0) return -1; // Early exit for zero-party scenario
+
+  let maxFree = 0;
+  let currentFree = 0;
+
+  for (let i = 0; i < row.length; i++) {
+    const seat = row[i];
+    if (seat === '.') {
+      currentFree++;
+      maxFree = Math.max(maxFree, currentFree);
+    } else {
+      currentFree = 0;
+    }
+  }
+
+  return maxFree >= party ? Math.min(row.lastIndexOf('.') - (maxFree - party), row.length) : -1;
+}
+```

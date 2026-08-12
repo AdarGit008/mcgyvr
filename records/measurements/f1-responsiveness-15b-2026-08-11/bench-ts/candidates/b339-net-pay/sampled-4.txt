@@ -1,0 +1,17 @@
+```ts
+/**
+ * Gross pay less a percentage and then a flat fee. */
+export function netPay(gross: number, rate: number, fee: number): number {
+  if (gross === 0 || isNaN(gross) || !isFinite(gross)) {
+    throw new Error("Gross pay must be a finite number greater than zero.");
+  }
+
+  const afterFee = gross - fee;
+  if (afterFee < 0) {
+    return 0;
+  }
+
+  const percentagePayed = Math.floor((afterFee * rate) / 100);
+  return Math.max(afterFee - percentagePayed, 0);
+}
+```

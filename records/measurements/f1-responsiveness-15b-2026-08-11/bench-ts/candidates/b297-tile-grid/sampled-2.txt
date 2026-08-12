@@ -1,0 +1,12 @@
+```ts
+export function tilesAcross(length: number, tile: number): number {
+  return Math.ceil(length / tile);
+}
+
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  const totalLength = width + height;
+  const requiredTiles = tilesAcross(totalLength, tile);
+  const totalSpare = spare * requiredTiles;
+  return Math.ceil(totalSpare / tile) + requiredTiles;
+}
+```

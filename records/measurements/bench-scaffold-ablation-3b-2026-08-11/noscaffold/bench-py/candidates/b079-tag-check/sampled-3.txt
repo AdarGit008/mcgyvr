@@ -1,0 +1,31 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the tag for a line based on the sum of character codes modulo 256."""
+    return hex(sum(ord(char) for char in body))[-2:].zfill(2)
+
+def check_line(line: str) -> str:
+    """Verify and return the body of a tagged line."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    # Split the line into parts
+    parts = line.rsplit('~', 1)
+    
+    if len(parts) != 2:
+        raise ValueError("Invalid line format: missing tilde character.")
+    
+    body, tag = parts
+    
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    
+    computed_tag = line_tag(body)
+    
+    if tag != computed_tag:
+        raise ValueError(f"Tag mismatch: expected {computed_tag}, got {tag}.")
+    
+    return body
+```

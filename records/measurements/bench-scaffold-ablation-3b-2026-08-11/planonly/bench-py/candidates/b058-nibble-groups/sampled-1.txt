@@ -1,0 +1,25 @@
+```python
+from typing import Union
+
+def format_bits(value: int, width: int) -> str:
+    """
+    Render value as unsigned binary in exactly width bits:
+    most significant bit first, left-padded with zeros to the full width,
+    and split into groups of four bits joined by single spaces.
+    
+    Raise ValueError with a short message for invalid arguments.
+    Accepts non-negative integers and widths that are positive multiples of four
+    up to 32. Rejects values that do not fit in width bits or negative numbers.
+    """
+    if value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    
+    if width <= 0 or width % 4 != 0:
+        raise ValueError("Width must be a positive multiple of four and at most 32.")
+    
+    if value.bit_length() > width:
+        raise ValueError("Value does not fit in the specified number of bits.")
+    
+    binary_representation = format(value, 'b')
+    return ' '.join(binary_representation[(i * 4):(i + 1) * 4] for i in range((width + 3) // 4))
+```

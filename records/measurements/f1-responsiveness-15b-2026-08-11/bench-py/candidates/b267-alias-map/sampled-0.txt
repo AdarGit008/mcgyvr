@@ -1,0 +1,9 @@
+```python
+def alias_resolve(aliases: dict, name: str) -> str:
+    return aliases.get(name, name)
+
+
+def alias_names(aliases: dict) -> list:
+    named = [name for name in aliases if name != aliases[name]]
+    return sorted(named)
+```

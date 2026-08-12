@@ -1,0 +1,33 @@
+id: b243-bin-spill
+task_type: bug_fix
+task: >-
+  binAdd and binSpill keep counts per bin. binAdd adds a count to one
+  bin and returns the updated record without changing the one it was
+  given. binSpill lists the bins standing above a limit, in the order
+  the bins were first added, and it has the comparison wrong: it also
+  lists a bin sitting exactly at the limit. Fix it. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** Counts held per bin, and the bins standing above a limit. */
+  export function binSpill(
+    bins: Record<string, number>,
+    limit: number,
+  ): string[] {
+    return Object.keys(bins).filter((name) => bins[name] >= limit);
+  }
+
+  export function binAdd(
+    bins: Record<string, number>,
+    name: string,
+    count: number,
+  ): Record<string, number> {
+    return { ...bins, [name]: (bins[name] ?? 0) + count };
+  }
+interface: "export function binSpill(bins: Record<string, number>, limit: number): string[]\nexport function binAdd(bins: Record<string, number>, name: string, count: number): Record<string, number>"
+stop_conditions:
+  - Whether a bin holding a negative count can ever spill is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

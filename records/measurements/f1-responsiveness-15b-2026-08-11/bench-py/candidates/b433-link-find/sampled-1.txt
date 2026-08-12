@@ -1,0 +1,18 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    matches = []
+    depth = 0
+    starts_with_open = False
+
+    for i, char in enumerate(line):
+        if char == opens and not starts_with_open:
+            depth += 1
+            starts_with_open = True
+        elif char == closes:
+            depth -= 1
+            if depth == 0:
+                matches.append(line[i + 1:])
+                starts_with_open = False
+
+    return matches
+```

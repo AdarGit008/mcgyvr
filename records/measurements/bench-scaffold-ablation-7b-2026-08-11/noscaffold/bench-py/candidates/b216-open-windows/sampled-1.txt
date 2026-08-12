@@ -1,0 +1,42 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hours, minutes = time_str.split(':')
+        return int(hours), int(minutes)
+
+    def format_time(hour: int, minute: int) -> str:
+        return f'{hour:02}:{minute:02}'
+
+    def is_valid_time(time_str: str) -> bool:
+        try:
+            parse_time(time_str)
+            return True
+        except ValueError:
+            return False
+
+    if not (is_valid_time(span.split('-')[0]) and is_valid_time(span.split('-')[1])):
+        raise ValueError("Invalid span format")
+    if any(not is_valid_time(appointment) for appointment in booked):
+        raise ValueError("Invalid booking format")
+
+    start_hour, start_minute = parse_time(span.split('-')[0])
+    end_hour, end_minute = parse_time(span.split('-')[1])
+
+    free_slots = []
+    current_start = start_hour * 60 + start_minute
+
+    for appointment in sorted(booked):
+        appointment_start_hour, appointment_start_minute = parse_time(appointment.split('-')[0])
+        appointment_end_hour, appointment_end_minute = parse_time(appointment.split('-')[1])
+        appointment_start = appointment_start_hour * 60 + appointment_start_minute
+        appointment_end = appointment_end_hour * 60 + appointment_end_minute
+
+        if current_start < appointment_start:
+            free_slots.append(f"{format_time(start_hour, start_minute)}-{format_time(appointment_start_hour, appointment_start_minute)}")
+        current_start = max(current_start, appointment_end)
+
+    if current_start < end_hour * 60 + end_minute:
+        free_slots.append(f"{format_time(current_start // 60, current_start % 60)}-{format_time(end_hour, end_minute)}")
+
+    return ", ".join(free_slots) or "none"
+```

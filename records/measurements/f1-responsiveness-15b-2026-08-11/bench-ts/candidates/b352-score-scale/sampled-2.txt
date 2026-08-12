@@ -1,0 +1,19 @@
+```typescript
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (mark < 0) {
+    throw new Error('Mark cannot be negative');
+  }
+
+  if (wasOutOf === 0 && nowOutOf !== 0) {
+    return 0; // No scaling needed if the original total is zero
+  }
+
+  let scaledMark = Math.floor((mark / wasOutOf) * nowOutOf);
+
+  if (scaledMark > nowOutOf) {
+    scaledMark = nowOutOf;
+  }
+
+  return scaledMark;
+}
+```

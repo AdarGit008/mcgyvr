@@ -1,0 +1,36 @@
+```python
+from typing import *
+import re
+
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total dosage for each reagent in a pour log.
+
+    :param log: A list of [reagent, amount] entries where amount is a string.
+    :return: A dictionary mapping reagents to their total dosage as strings.
+    """
+
+    # Define a regular expression pattern for valid amounts
+    amount_pattern = re.compile(r'^-?\d+(\.\d{1,3})?$')
+
+    totals = {}
+
+    for item in log:
+        reagent, amount_str = item
+
+        if not isinstance(reagent, str) or not isinstance(amount_str, str):
+            raise ValueError("Invalid input type: reagent and amount must be strings.")
+
+        if not amount_pattern.match(amount_str):
+            raise ValueError(f"Amount '{amount_str}' is not a valid decimal string.")
+
+        # Convert the amount to a float, rounding to 3 decimal places
+        amount = round(float(amount_str), 3)
+
+        if reagent in totals:
+            totals[reagent] += amount
+        else:
+            totals[reagent] = amount
+
+    return {reagent: f"{total:.3f}" for reagent, total in totals.items()}
+```

@@ -1,0 +1,8 @@
+def batch_ends(count: int, size: int) -> list:
+    """The position of the last entry of each full batch."""
+    ends = []
+    start = 0
+    while start + size <= count:
+        ends.append(start + size - 1)
+        start += size
+    return ends

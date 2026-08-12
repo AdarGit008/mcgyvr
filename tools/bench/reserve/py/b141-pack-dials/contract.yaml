@@ -1,0 +1,19 @@
+id: b141-pack-dials
+task_type: function_implementation
+task: >-
+  Implement pack_dials. The input is a flat mapping from dial names to
+  integer positions, one saved preset of a mixing desk. Serialize the
+  preset as one line: render every pair as name=position, order the pairs
+  by name ascending, and join them with single semicolons, so a preset of
+  tone at 2 and bass at 10 renders as "bass=10;tone=2". An empty mapping
+  renders as the empty string. Reject an argument that is not a plain
+  mapping, an empty dial name, a name containing "=" or ";", a position
+  that is not an integer, and a negative position, with an error.
+target: solution.py
+interface: "def pack_dials(dials: dict) -> str"
+stop_conditions:
+  - Whether a name with uppercase letters sorts before or after lowercase names is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,57 @@
+```typescript
+export function parseOption(segment: string): [string, string] {
+  const eq = segment.indexOf("=");
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(segment.slice(0, eq))) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [segment.slice(0, eq), raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== "string") {
+    throw new Error("input must be a string");
+  }
+  const segments = input.split(";");
+  let result: [string, string][] = [];
+  let seenKeys = new Set<string>();
+
+  for (const segment of segments) {
+    const trimmedSegment = segment.trim();
+    if (!trimmedSegment) continue;
+
+    let eqIndex = trimmedSegment.indexOf("=");
+    if (eqIndex === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(trimmedSegment.slice(0, eqIndex))) {
+      throw new Error(`malformed option segment: ${trimmedSegment}`);
+    }
+
+    const key = trimmedSegment.slice(0, eqIndex);
+    if (seenKeys.has(key)) {
+      throw new Error(`repeated key: ${key}`);
+    }
+    seenKeys.add(key);
+
+    let rawValue = trimmedSegment.slice(eqIndex + 1).trim();
+    if (rawValue.startsWith('"') && !rawValue.endsWith('"')) {
+      throw new Error("unterminated quoted value");
+    }
+    if (!rawValue.endsWith('"')) {
+      rawValue = trimQuotes(rawValue);
+    }
+
+    result.push([key, rawValue]);
+  }
+
+  return result;
+}
+
+function trimQuotes(value: string): string {
+  while (value.startsWith('"') && value.endsWith('"')) {
+    value = value.slice(1, -1).trim();
+  }
+  return value;
+}
+```

@@ -1,0 +1,18 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    if rate < 0:
+        raise ValueError("Invalid rate")
+    
+    rate_percent = rate / 100.0
+    
+    # Calculate the amount of tax before rounding
+    tax_amount = gross * rate_percent
+    
+    # Apply floor division to avoid floating-point precision issues
+    rounded_tax_amount = int(tax_amount)
+    
+    # Calculate the previous price without tax
+    previous_price = gross - rounded_tax_amount
+    
+    return previous_price
+```

@@ -1,0 +1,13 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) throw new Error("Row out of bounds");
+  if (col < 0 || col + length > floor[row].length) throw new Error("Run leaves the plan");
+  if (!floor.every(row => row.split('').every(cell => cell === '.'))) throw new Error("Non-open cell found");
+
+  const result = floor.map(r => r.split(''));
+  for (let i = 0; i < length; i++) {
+    result[row][col + i] = '=';
+  }
+  return result.map(row => row.join(''));
+}
+```

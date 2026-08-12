@@ -1,0 +1,38 @@
+```typescript
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (!Number.isInteger(freshFor) || freshFor < 0) throw new Error("freshFor must be a positive whole number");
+  if (!Number.isInteger(size) || size <= 0) throw new Error("size must be a positive whole number");
+
+  const cache: [number, string][] = [];
+  const renders: [number, string][] = [];
+
+  for (const [tick, tile] of requests) {
+    if (tick < 0) throw new Error("tick cannot be negative");
+
+    let indexToRemove: number | null = null;
+
+    if (cache.length >= size) {
+      // Find the oldest render and the one with the smallest name
+      const oldestRenderIndex = cache.findIndex(([t, _]) => t === tick - freshFor);
+      const minNameIndex = cache.findIndex(([_, n], i) => 
+        indexToRemove !== null && (n > cache[indexToRemove][1] || (n === cache[indexToRemove][1] && i < indexToRemove))
+      );
+
+      if (oldestRenderIndex !== -1) {
+        indexToRemove = oldestRenderIndex;
+      } else if (minNameIndex !== -1) {
+        indexToRemove = minNameIndex;
+      }
+    }
+
+    if (indexToRemove !== null) {
+      cache.splice(indexToRemove, 1);
+    }
+
+    cache.push([tick, tile]);
+    renders.push([tick, tile]);
+  }
+
+  return renders;
+}
+```

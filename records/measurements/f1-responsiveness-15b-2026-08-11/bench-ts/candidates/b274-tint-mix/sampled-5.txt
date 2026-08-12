@@ -1,0 +1,20 @@
+```ts
+export function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (!Number.isInteger(volumeA) || !Number.isInteger(strengthA) || !Number.isInteger(volumeB) || !Number.isInteger(strengthB)) {
+    throw new Error('All input values must be integers');
+  }
+
+  const strengthAPercent = strengthA / 100;
+  const strengthBPercent = strengthB / 100;
+
+  if (strengthAPercent + strengthBPercent > 1) {
+    throw new Error('Strength of the mixture cannot exceed 100%');
+  }
+
+  const totalVolume = volumeA + volumeB;
+
+  const mixedStrength = (volumeA * strengthAPercent + volumeB * strengthBPercent) / totalVolume * 100;
+
+  return Math.floor(mixedStrength);
+}
+```

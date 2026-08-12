@@ -1,0 +1,71 @@
+```ts
+export function parseSpan(text: string): number {
+  const regex = /^(\d+)(?:yd|ft|in)? ?\s*(\d+)(?:yd|ft|in)? ?\s*(\d+)(?:yd|ft|in)?$|^(\d+)$/;
+  const match = text.match(regex);
+  
+  if (!match) {
+    throw new Error("Invalid span format");
+  }
+
+  let totalInches = 0;
+
+  for (let i = 1; i <= 3; i++) {
+    const value = parseInt(match[i] || '0', 10);
+    const unit = match[i + 3];
+
+    if (!/^(yd|ft|in)$/.test(unit)) {
+      throw new Error("Invalid unit");
+    }
+
+    switch (unit) {
+      case "yd":
+        totalInches += value * 36;
+        break;
+      case "ft":
+        totalInches += value * 12;
+        break;
+      case "in":
+        totalInches += value;
+        break;
+    }
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0) {
+    throw new Error("Invalid input: inches must be a non-negative integer");
+  }
+
+  const yards = Math.floor(inches / 36);
+  const feet = Math.floor((inches % 36) / 12);
+  const remainingInches = inches % 12;
+
+  let result = '';
+  
+  if (yards > 0) {
+    result += `${yards}yd `;
+  }
+  if (feet > 0) {
+    result += `${feet}ft `;
+  }
+  if (remainingInches > 0 || remainingInches === 0 && yards === 0 && feet === 0) {
+    result += `${remainingInches}in`;
+  }
+
+  return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+  const total1 = parseSpan(first);
+  const total2 = parseSpan(second);
+
+  if (isNaN(total1) || isNaN(total2)) {
+    throw new Error("Invalid input");
+  }
+
+  const sumInches = total1 + total2;
+  return formatSpan(sumInches);
+}
+```

@@ -1,0 +1,23 @@
+```python
+from typing import *
+from collections import *
+
+def payout(stake: int, odds: int) -> int:
+    if stake < 0:
+        raise ValueError("Stake cannot be negative")
+    
+    return stake * odds
+
+def settle_all(bets: list) -> int:
+    total_payout = 0
+    winners_count = 0
+    
+    for bet in bets:
+        stake, odds = bet
+        
+        if winnings := payout(stake, odds):
+            total_payout += winnings
+            winners_count += 1
+    
+    return total_payout if winners_count > 0 else 0
+```

@@ -1,0 +1,25 @@
+```ts
+export function checkLine(line: string): string {
+    if (typeof line !== 'string') {
+        throw new Error('Invalid argument: expected a string');
+    }
+    if (line.length < 3) {
+        throw new Error('Invalid line length');
+    }
+    const body = line.slice(0, -3);
+    const tag = lineTag(body);
+    if (line[line.length - 3] !== '~' || line.slice(-2) !== tag) {
+        throw new Error('Invalid line format');
+    }
+    return body;
+}
+
+export function lineTag(body: string): string {
+    let sum = 0;
+    for (const char of body) {
+        sum += char.charCodeAt(0);
+    }
+    const hex = sum.toString(16).padStart(2, '0');
+    return hex;
+}
+```

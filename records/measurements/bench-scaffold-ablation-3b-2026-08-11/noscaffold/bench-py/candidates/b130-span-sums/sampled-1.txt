@@ -1,0 +1,65 @@
+```python
+def parse_span(text: str) -> int:
+    """
+    Parse a span string in yards, feet, and inches into total inches.
+    
+    :param text: A string representing the span in 'yd ft in' format.
+    :return: Total inches as an integer.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError("Span must contain exactly three parts: yards, feet, and inches.")
+
+    for part in parts:
+        try:
+            value = int(part[:-1])
+            unit = part[-1].lower()
+        except ValueError:
+            raise ValueError(f"Invalid value '{part}'. Must be a plain decimal integer.")
+        
+        if value < 0 or (unit != 'yd' and unit != 'ft' and unit != 'in'):
+            raise ValueError(f"Invalid unit '{unit}'. Units must be 'yd', 'ft', or 'in'.")
+    
+    total_inches = 36 * int(parts[0]) + 12 * int(parts[1]) + int(parts[2])
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """
+    Format total inches into canonical string representation.
+    
+    :param inches: Total inches as an integer.
+    :return: Canonical string representing the span in 'yd ft in' format.
+    """
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Inches must be a non-negative integer.")
+    
+    yards = inches // 36
+    feet = (inches % 36) // 12
+    inches %= 12
+    
+    parts = [str(yards)] if yards else []
+    parts.append(str(feet)) if feet != 0 else []
+    parts.append(str(inches))
+    
+    return ' '.join(parts)
+
+def add_spans(first: str, second: str) -> str:
+    """
+    Add two span texts and return their sum in canonical format.
+    
+    :param first: First span string.
+    :param second: Second span string.
+    :return: Sum of the two spans as a string.
+    """
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Both inputs must be strings.")
+    
+    total_inches1 = parse_span(first)
+    total_inches2 = parse_span(second)
+    total_inches_sum = total_inches1 + total_inches2
+    
+    return format_span(total_inches_sum)
+```

@@ -1,0 +1,14 @@
+```python
+def mid_pair(values: list) -> list:
+    if len(values) == 0:
+        return [None, None]
+    
+    values.sort()
+    n = len(values)
+    m = n // 2
+    
+    return [
+        values[m - 1] if n % 2 else (values[m - 1] + values[m]) / 2,
+        values[m] if n % 2 else (values[m - 1] + values[m]) / 2
+    ]
+```

@@ -1,0 +1,28 @@
+id: b474-bin-rotate
+task_type: bug_fix
+task: >-
+  binRotate moves every entry forward by a given number of places,
+  with entries running off the end coming back at the front. Fix
+  binRotate. A move of nothing leaves the run as it is, an empty run
+  stays empty, and a move as long as the run returns it unchanged.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function binRotate(entries: string[], places: number): string[] {
+    if (entries.length === 0) {
+      return [];
+    }
+    const shift = places % entries.length;
+    const out: string[] = [];
+    for (let i = 0; i < entries.length; i += 1) {
+      out.push(entries[(i + shift) % entries.length]);
+    }
+    return out;
+  }
+interface: "export function binRotate(entries: string[], places: number): string[]"
+stop_conditions:
+  - Whether a number of places below nothing should turn the run the other way is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

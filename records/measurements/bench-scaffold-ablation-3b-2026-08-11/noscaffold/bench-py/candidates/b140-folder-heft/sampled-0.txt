@@ -1,0 +1,79 @@
+```python
+def file_paths(root: dict) -> list:
+    """Return a list of paths for every file in the tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    def walk(node: dict, path: str = "") -> None:
+        nonlocal paths  # Declare paths as a global variable
+        if not isinstance(path, str) or "/" in path:
+            raise ValueError("Path must be a string without slashes.")
+        
+        for name, value in node.items():
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                walk(value, new_path)
+            elif isinstance(value, int):
+                paths.append(new_path)
+
+    paths = []
+    walk(root)
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    """Return the total bytes in the tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    def traverse(node: dict) -> int:
+        nonlocal total
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary.")
+        
+        for name, value in node.items():
+            if "/" in name:
+                raise ValueError("Name cannot contain slashes.")
+            
+            if isinstance(value, dict):
+                total += traverse(value)
+            elif isinstance(value, int) and value >= 0:
+                total += value
+            else:
+                raise ValueError("Value must be a non-negative integer.")
+        
+        return total
+
+    total = 0
+    traverse(root)
+    return total
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Return a list of paths for every folder with bytes >= min_bytes."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min_bytes must be a non-negative integer.")
+    
+    def check_folder(node: dict, path: str = "", total_bytes_so_far: int = 0) -> list:
+        nonlocal heavy_folders_paths
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary.")
+        
+        for name, value in node.items():
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                heavy_folders_paths.extend(check_folder(value, new_path, total_bytes_so_far))
+            elif isinstance(value, int) and value >= 0:
+                total_bytes_so_far += value
+                if total_bytes_so_far >= min_bytes:
+                    heavy_folders_paths.append(new_path)
+            else:
+                raise ValueError("Value must be a non-negative integer.")
+        
+        return heavy_folders_paths
+
+    heavy_folders_paths = []
+    check_folder(root, "", tree_bytes(root))
+    return heavy_folders_paths
+```

@@ -1,0 +1,18 @@
+```ts
+export function shortNum(value: number): string {
+  if (value === null || value === undefined) {
+    throw new Error("Value cannot be null or undefined");
+  }
+
+  const thousand = 1000;
+  const million = 1_000_000;
+
+  if (value < thousand) {
+    return `${value}`;
+  } else if (value >= thousand && value < million) {
+    return `${Math.floor(value / thousand)}k`;
+  } else {
+    return `${Math.floor(value / million)}m`;
+  }
+}
+```

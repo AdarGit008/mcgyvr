@@ -1,0 +1,29 @@
+```typescript
+export function formatBits(value: number, width: number): string {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error('Value must be a non-negative integer.');
+  }
+  
+  if (!Number.isInteger(width) || width <= 0 || width % 4 !== 0 || width > 32) {
+    throw new Error('Width must be a positive multiple of four and not exceed 32.');
+  }
+
+  const binaryString = value.toString(2);
+
+  if (binaryString.length > width) {
+    throw new Error('Value does not fit in the specified number of bits.');
+  }
+
+  const paddedBinaryString = '0'.repeat(width - binaryString.length) + binaryString;
+
+  let result = '';
+  for (let i = 0; i < paddedBinaryString.length; i += 4) {
+    result += paddedBinaryString.slice(i, i + 4);
+    if (i + 4 < paddedBinaryString.length) {
+      result += ' ';
+    }
+  }
+
+  return result.trim();
+}
+```

@@ -1,0 +1,34 @@
+```ts
+export function orderReleaseTags(tags: string[]): string[] {
+  if (tags.length === 0) return [];
+
+  const sortedTags = tags.sort((a, b) => {
+    const [majorA, minorA, patchA] = a.match(/\d+(\.\d+){2}(?:-\w+\d*)?$/)?.slice(1).map(Number) || [0, 0, 0];
+    const [majorB, minorB, patchB] = b.match(/\d+(\.\d+){2}(?:-\w+\d*)?$/)?.slice(1).map(Number) || [0, 0, 0];
+
+    if (majorA !== majorB) return majorA - majorB;
+    if (minorA !== minorB) return minorA - minorB;
+    if (patchA !== patchB) return patchA - patchB;
+
+    const previewLabelA = a.match(/-\w+\d*$/)?.[0];
+    const previewLabelB = b.match(/-\w+\d*$/)?.[0];
+
+    if (previewLabelA && !previewLabelB) return -1;
+    if (!previewLabelA && previewLabelB) return 1;
+
+    if (previewLabelA && previewLabelB) {
+      const labelA = previewLabelA.toLowerCase();
+      const labelB = previewLabelB.toLowerCase();
+
+      if (labelA < labelB) return -1;
+      if (labelA > labelB) return 1;
+
+      return Number(labelA.replace(/(\d+)/, (_, num) => parseInt(num)));
+    }
+
+    return 0;
+  });
+
+  return sortedTags;
+}
+```

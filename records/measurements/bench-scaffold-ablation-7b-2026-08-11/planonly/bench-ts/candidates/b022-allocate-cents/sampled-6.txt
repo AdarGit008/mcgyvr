@@ -1,0 +1,61 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The string to parse.
+ * @returns The parsed amount in cents.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid input type');
+  }
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) {
+    throw new Error('Invalid amount format');
+  }
+  return Math.round(Number(text) * 100);
+}
+
+/**
+ * Formats a non-negative integer cents value into a dotted form with exactly two fraction digits.
+ * @param cents - The cents to format.
+ * @returns The formatted amount string.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0 || !Number.isInteger(cents)) {
+    throw new Error('Invalid input type or value');
+  }
+  return cents.toFixed(2);
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total number of cents to allocate.
+ * @param weights - The list of integer weights.
+ * @returns An array of allocated cents for each weight.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Invalid or empty weights list');
+  }
+  if (weights.some(weight => typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight))) {
+    throw new Error('Non-negative integer weights are required');
+  }
+  if (weights.reduce((sum, weight) => sum + weight, 0) === 0) {
+    throw new Error('Weights must sum to a non-zero value');
+  }
+  if (typeof totalCents !== 'number' || totalCents < 0 || !Number.isInteger(totalCents)) {
+    throw new Error('Invalid or negative total cents');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const baseAllocation = Math.floor((totalCents * weight) / totalWeight for weight of weights);
+  const remainder = totalCents - baseAllocation.reduce((sum, allocation) => sum + allocation, 0);
+
+  return weights.map((weight, index) => {
+    if (weight === 0) return 0;
+    const allocation = baseAllocation[index];
+    const additionalCent = remainder > 0 && (baseAllocation[index] / weight) % 1 !== 0 ? 1 : 0;
+    return allocation + additionalCent;
+  });
+}
+```

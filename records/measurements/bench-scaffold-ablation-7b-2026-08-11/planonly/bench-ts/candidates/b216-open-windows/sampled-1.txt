@@ -1,0 +1,59 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const timePattern = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+
+  if (!timePattern.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  booked.forEach(appointment => {
+    if (!timePattern.test(appointment)) {
+      throw new Error("Invalid appointment format");
+    }
+  });
+
+  const [startHour, startMinute, endHour, endMinute] = span
+    .split("-")
+    .flatMap(time => time.split(":").map(Number));
+
+  booked.sort((a, b) => a.localeCompare(b));
+
+  const result: { start: number; end: number }[] = [];
+  let currentStart = startHour * 60 + startMinute;
+
+  for (const app of booked) {
+    const [appStartHour, appStartMinute, appEndHour, appEndMinute] = app
+      .split("-")
+      .flatMap(time => time.split(":").map(Number));
+
+    const appStart = appStartHour * 60 + appStartMinute;
+    const appEnd = appEndHour * 60 + appEndMinute;
+
+    if (appStart > currentStart) {
+      result.push({ start: currentStart, end: appStart });
+    }
+
+    currentStart = Math.max(currentStart, appEnd);
+  }
+
+  if (currentStart < endHour * 60 + endMinute) {
+    result.push({ start: currentStart, end: endHour * 60 + endMinute });
+  }
+
+  if (result.length === 0) {
+    return "none";
+  }
+
+  return result
+    .map(({ start, end }) =>
+      `${String(start / 60 | 0).padStart(2, '0')}:${String((start % 60)).padStart(
+        2,
+        '0'
+      )}-${String(end / 60 | 0).padStart(2, '0')}:${String((end % 60)).padStart(
+        2,
+        '0'
+      )}`
+    )
+    .join(", ");
+}
+```

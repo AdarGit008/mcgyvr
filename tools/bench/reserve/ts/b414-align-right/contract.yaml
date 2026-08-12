@@ -1,0 +1,16 @@
+id: b414-align-right
+task_type: function_implementation
+task: >-
+  Implement widestOf and alignRight. widestOf returns the length of
+  the longest entry in a list, or nothing when the list is empty.
+  alignRight returns the entries with spaces put in front of each so
+  they all reach that width.
+target: solution.ts
+interface: "export function widestOf(entries: string[]): number
+export function alignRight(entries: string[]): string[]"
+stop_conditions:
+  - Whether a character other than a space should ever be used to align is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

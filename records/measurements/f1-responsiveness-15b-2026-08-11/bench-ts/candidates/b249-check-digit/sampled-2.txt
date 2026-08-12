@@ -1,0 +1,13 @@
+```ts
+import { split } from "lodash";
+
+export function checkDigit(code: string): number {
+  if (!/^\d+$/.test(code)) {
+    throw new Error("Invalid input: code must be a non-empty string of digits.");
+  }
+
+  const sum = split(code, '').reduce((acc, digit) => acc + parseInt(digit), 0);
+
+  return (sum % 10 === 0) ? 0 : 10 - sum % 10;
+}
+```

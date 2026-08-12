@@ -1,0 +1,17 @@
+```python
+def case_count(text: str) -> list:
+    if not text or all(not c.isalpha() for c in text):
+        return [0, 0]
+    
+    capital_count = sum(1 for c in text if c.isupper())
+    small_count = sum(1 for c in text if c.islower())
+    
+    return [capital_count, small_count]
+
+# Test cases
+print(case_count("Hello World"))  # Output: [2, 8]
+print(case_count(""))          # Output: [0, 0]
+print(case_count("12345"))       # Output: [0, 0]
+print(case_count("abcABC"))     # Output: [3, 3]
+print(case_count("!@#$%^&*()_+{}[]|;:,.<>?")) # Output: [0, 0]
+```

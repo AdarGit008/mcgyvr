@@ -1,0 +1,31 @@
+```ts
+import { sort } from 'lodash';
+
+export function payout(stake: number, odds: number): number {
+  if (stake < 0) {
+    throw new Error('Stake cannot be negative');
+  }
+  return stake * odds;
+}
+
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+  const filteredBets = bets.filter(bet => bet.won);
+  if (filteredBets.length === 0) {
+    return 0;
+  }
+
+  const totalStake = filteredBets.reduce((acc, bet) => acc + bet.stake, 0);
+  const oddsArray = filteredBets.map(bet => bet.odds);
+  const sortedOdds = sort(oddsArray).reverse();
+
+  let totalPayout = 0;
+  for (let i = 0; i < filteredBets.length; i++) {
+    const stake = filteredBets[i].stake;
+    const odds = sortedOdds[i];
+    const payout = stake * odds;
+    totalPayout += payout;
+  }
+
+  return totalPayout;
+}
+```

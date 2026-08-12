@@ -1,0 +1,43 @@
+id: b086-relative-steps
+task_type: function_implementation
+task: >-
+  Implement relative_steps, whose helper split_absolute is already written.
+  An absolute path is the root "/" alone or a "/" followed by
+  slash-separated segments: split_absolute returns the segment list — the
+  root yields an empty list — and rejects a non-string argument, a path
+  that does not begin with a slash, an empty segment left by a doubled or
+  trailing slash, and a segment that is "." or "..", with an error.
+  relative_steps validates both of its arguments with split_absolute, then
+  returns the walk that leads from the first location, a directory, to the
+  second, its destination: drop the longest shared run of leading
+  segments, climb out of each remaining directory segment with "..", then
+  descend through the remaining destination segments, everything joined
+  with slashes. When nothing remains on either side the two coincide and
+  the walk is ".".
+target: solution.py
+target_content: |
+  def split_absolute(path: str) -> list:
+      if not isinstance(path, str) or not path.startswith("/"):
+          raise ValueError("expected an absolute path")
+      if path == "/":
+          return []
+      segments = path[1:].split("/")
+      for segment in segments:
+          if segment in ("", ".", ".."):
+              raise ValueError("bad segment: " + segment)
+      return segments
+
+
+  def relative_steps(from_dir: str, to_path: str) -> str:
+      # TODO: validate both arguments with split_absolute, drop the shared
+      # leading segments, climb with ".." and descend into what is left.
+      raise NotImplementedError
+interface: |-
+  def relative_steps(from_dir: str, to_path: str) -> str
+  def split_absolute(path: str) -> list
+stop_conditions:
+  - Whether a segment may contain spaces or other unusual characters is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

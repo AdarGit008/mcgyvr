@@ -1,0 +1,13 @@
+```ts
+export function kettleHold(readings: number[], target: number): number {
+    let count = 0;
+    for (let i = readings.length - 1; i >= 0; i--) {
+        if (readings[i] >= target) {
+            count++;
+            // If we find a reading exactly at the target, stop counting
+            if (readings[i] === target) break;
+        }
+    }
+    return count;
+}
+```

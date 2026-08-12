@@ -1,0 +1,86 @@
+```ts
+import { splitStrict } from "./utils";
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Both listing and rules must be arrays.");
+  }
+
+  for (const rule of rules) {
+    if (typeof rule !== "string" || rule.length === 0) {
+      throw new Error("Each rule must be a non-empty string.");
+    }
+  }
+
+  for (const path of listing) {
+    if (typeof path !== "string" || path.length === 0) {
+      throw new Error("Each path must be a non-empty string.");
+    }
+  }
+
+  const validRules = rules.map((rule, index) => {
+    try {
+      return splitStrict(rule);
+    } catch (error) {
+      console.error(`Invalid rule at index ${index}:`, error.message);
+      return [];
+    }
+  });
+
+  const validListing = listing.map((path, index) => {
+    try {
+      return splitStrict(path);
+    } catch (error) {
+      console.error(`Invalid path at index ${index}:`, error.message);
+      return [];
+    }
+  });
+
+  const result: string[] = [];
+
+  for (const path of validListing) {
+    let matchedRuleIndex = -1;
+
+    for (let i = 0; i < validRules.length; i++) {
+      if (pathMatchesRule(path, validRules[i])) {
+        matchedRuleIndex = i;
+        break;
+      }
+    }
+
+    if (matchedRuleIndex !== -1 && rules[matchedRuleIndex].startsWith("!")) {
+      result.push(listing[listings.indexOf(path)]);
+    }
+  }
+
+  return [...new Set(result)]; // Remove duplicates
+}
+
+function pathMatchesRule(path: string[], rule: string[]): boolean {
+  for (let i = 0; i < Math.min(path.length, rule.length); i++) {
+    if (
+      rule[i] === "*" &&
+      !rule.slice(i).every(segment => segment.startsWith("*"))
+    ) {
+      return false;
+    }
+
+    const ruleSegment = rule[i];
+    const pathSegment = path[i];
+
+    if (ruleSegment !== "*" && ruleSegment !== pathSegment) {
+      return false;
+    }
+  }
+
+  if (path.length > rule.length) {
+    for (let i = rule.length; i < path.length; i++) {
+      if (!path[i].startsWith("/")) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+```

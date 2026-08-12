@@ -1,0 +1,27 @@
+```ts
+/**
+ * Transforms a 2D grid (list of rows) into its transposed version.
+ * The first row becomes the first column, and so on for all rows in the grid.
+ * 
+ * @param {number[][]} grid - The 2D grid to be transposed.
+ * @returns {number[][]} The transposed grid.
+ */
+export function gridFlip(grid: number[][]): number[][] {
+    if (!grid.length) return [];
+
+    const numRows = grid.length;
+    const numCols = grid[0].length;
+
+    // Create a new array with the transposed dimensions
+    let transposedGrid: number[][] = Array.from({ length: numCols }, () => []);
+
+    for (let i = 0; i < numRows; i++) {
+        for (let j = 0; j < numCols; j++) {
+            // Assign elements from original grid to the transposed position
+            transposedGrid[j][i] = grid[i][j];
+        }
+    }
+
+    return transposedGrid;
+}
+```

@@ -1,0 +1,10 @@
+```typescript
+export function powerOf(base: number, power: number): number {
+  if (power < 0) throw new Error("Power must be non-negative");
+  let result = base;
+  for (let i = 1; i < power; i++) {
+    result *= base;
+  }
+  return result;
+}
+```

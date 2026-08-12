@@ -1,0 +1,23 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    
+    def consume_parts(kit_name, quantity):
+        recipe = catalog[kit_name]
+        makes = recipe['makes']
+        runs = math.ceil(quantity / makes)
+        for component, count in recipe['parts']:
+            if component in catalog:
+                consume_parts(component, runs * count)
+            else:
+                totals[component] = totals.get(component, 0) + runs * count
+    
+    totals = {}
+    consume_parts(kit, want)
+    return totals
+```

@@ -1,0 +1,62 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!grid.length || grid[0].length === 0) {
+    throw new Error("Grid must have at least one row and one cell.");
+  }
+
+  for (let i = 1; i < grid.length; i++) {
+    if (grid[i].length !== grid[0].length) {
+      throw new Error("All rows in the grid must have the same length.");
+    }
+  }
+
+  const prefixSumTable: number[][][] = [];
+  for (let i = 0; i <= grid.length; i++) {
+    prefixSumTable[i] = [];
+    for (let j = 0; j <= grid[0].length; j++) {
+      prefixSumTable[i][j] = [];
+    }
+  }
+
+  for (let row = 0; row < grid.length; row++) {
+    for (let col = 0; col < grid[row].length; col++) {
+      if (!Number.isInteger(grid[row][col])) {
+        throw new Error("All cells in the grid must be integers.");
+      }
+      prefixSumTable[row + 1][col + 1] =
+        prefixSumTable[row][col + 1] +
+        prefixSumTable[row + 1][col] +
+        grid[row][col] -
+        prefixSumTable[row][col];
+    }
+  }
+
+  const results: number[] = [];
+  for (const query of queries) {
+    if (!Array.isArray(query) || query.length !== 4) {
+      throw new Error("Each query must be a list of exactly four integers.");
+    }
+
+    const [top, left, bottom, right] = query;
+    if (
+      top >= bottom ||
+      left >= right ||
+      top < 0 ||
+      left < 0 ||
+      bottom > grid.length ||
+      right > grid[0].length
+    ) {
+      throw new Error("Query bounds are out of range or invalid.");
+    }
+
+    const total = prefixSumTable[bottom][right] -
+                  prefixSumTable[top][right] -
+                  prefixSumTable[bottom][left] +
+                  prefixSumTable[top][left];
+
+    results.push(total);
+  }
+
+  return results;
+}
+```

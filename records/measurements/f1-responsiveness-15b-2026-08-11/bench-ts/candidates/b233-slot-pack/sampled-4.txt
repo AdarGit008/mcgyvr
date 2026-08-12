@@ -1,0 +1,15 @@
+```ts
+/** Group items into slots of a fixed capacity, in order. */
+export function slotPack(items: string[], capacity: number): string[][] {
+  if (capacity <= 0) throw new Error("Capacity must be greater than zero.");
+
+  const slots: string[][] = [];
+  let i = 0;
+  while (i < items.length) {
+    const end = Math.min(i + capacity, items.length);
+    slots.push(items.slice(i, end));
+    i += capacity;
+  }
+  return slots;
+}
+```

@@ -1,0 +1,29 @@
+```ts
+export function rowKey(name: string): string {
+  if (!name) {
+    throw new Error("Name cannot be empty");
+  }
+  return name.charAt(0).toUpperCase();
+}
+
+export function indexRows(names: string[]): Record<string, string[]> {
+  if (!names || names.length === 0) {
+    return {};
+  }
+
+  const index: Record<string, string[]> = {};
+
+  for (const name of names) {
+    if (!name) {
+      continue;
+    }
+    const rowKey = rowKey(name);
+    if (!index[rowKey]) {
+      index[rowKey] = [];
+    }
+    index[rowKey].push(name);
+  }
+
+  return index;
+}
+```

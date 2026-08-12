@@ -1,0 +1,22 @@
+```ts
+export function capAfter(passage: string): string {
+  if (typeof passage !== 'string') {
+    throw new Error('The input must be a string');
+  }
+
+  const sentences = passage.split('. ');
+  let result = '';
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i].trim();
+    if (sentence) {
+      // Capitalize the first letter of each sentence
+      const capitalizedSentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+      // Add the full stop and capitalize it, unless it's at the end of the passage
+      result += capitalizedSentence + '. ';
+    }
+  }
+
+  return result.trim();
+}
+```

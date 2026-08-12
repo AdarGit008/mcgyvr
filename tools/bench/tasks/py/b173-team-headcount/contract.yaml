@@ -1,0 +1,19 @@
+id: b173-team-headcount
+task_type: function_implementation
+task: >-
+  Implement team_headcount. A bakery's shift chart maps every worker's name to
+  the list of names that report directly to that worker, an empty list for a
+  worker who leads nobody; every name that appears as a report is itself a key
+  of the chart. Given one name, return how many workers that name covers: the
+  worker themselves plus everyone below them, however many levels the
+  reporting lines run. Reject a chart that is not a mapping, a name that is
+  not a key of the chart, a list of reports that is not a list, and a report
+  that is not a string, with an error.
+target: solution.py
+interface: "def team_headcount(chart: dict, name: str) -> int"
+stop_conditions:
+  - Whether a chart whose reporting lines lead back to a worker already counted must be detected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

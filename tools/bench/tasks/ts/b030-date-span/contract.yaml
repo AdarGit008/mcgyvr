@@ -1,0 +1,53 @@
+id: b030-date-span
+task_type: bug_fix
+task: >-
+  spanDays counts the days between two calendar dates incorrectly around
+  leap years. Fix it: each date is a [year, month, day] triple of the
+  proleptic Gregorian calendar, and the result is how many days lie from
+  the start date to the end date, the start day counted and the end day
+  not, so equal dates span zero. A leap year is one divisible by 4, except
+  that century years are leap only when divisible by 400: 1900 gives
+  February 28 days while 2000 gives it 29. The current code applies the
+  divisible-by-4 rule alone, so any span touching a century year drifts.
+  Also add the missing validation: reject with an error a start date after
+  the end date, a month outside 1 to 12, a day outside the real length of
+  its month in its year (February 29 only in a leap year), and a date
+  component that is not an integer. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** How many days lie between two proleptic Gregorian calendar dates. */
+
+  const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  function isLeap(year: number): boolean {
+    return year % 4 === 0;
+  }
+
+  function monthLength(year: number, month: number): number {
+    if (month === 2 && isLeap(year)) {
+      return 29;
+    }
+    return MONTH_LENGTHS[month - 1];
+  }
+
+  function toOrdinal(date: number[]): number {
+    const [year, month, day] = date;
+    const prior = year - 1;
+    let days = prior * 365;
+    days += Math.floor(prior / 4);
+    for (let m = 1; m < month; m += 1) {
+      days += monthLength(year, m);
+    }
+    return days + day;
+  }
+
+  export function spanDays(start: number[], end: number[]): number {
+    return toOrdinal(end) - toOrdinal(start);
+  }
+interface: "export function spanDays(start: number[], end: number[]): number"
+stop_conditions:
+  - Whether years before 1 or a date list of the wrong length must be handled is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

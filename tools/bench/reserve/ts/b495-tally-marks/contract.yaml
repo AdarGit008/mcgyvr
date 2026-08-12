@@ -1,0 +1,16 @@
+id: b495-tally-marks
+task_type: function_implementation
+task: >-
+  markValue names what one mark is worth. tallyMarks totals a line of
+  marks, but a mark standing straight after another of its own kind is
+  worth twice its usual value. Implement tallyMarks. A line holding no
+  marks totals nothing.
+target: solution.ts
+interface: "export function markValue(mark: string): number
+export function tallyMarks(line: string): number"
+stop_conditions:
+  - Whether a run of three of a kind should double again on the third is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

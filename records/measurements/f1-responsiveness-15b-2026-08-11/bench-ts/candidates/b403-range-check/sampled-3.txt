@@ -1,0 +1,11 @@
+```ts
+export function rangeCheck(readings: number[], low: number, high: number): boolean {
+  if (readings.length === 0) return true;
+  
+  for (const reading of readings) {
+    if (reading < low || reading > high) return false;
+  }
+  
+  return true;
+}
+```

@@ -1,0 +1,58 @@
+```typescript
+/** A sectioned sales report: item lines, subtotals, and a ranked summary. */
+
+function ranked(a: [string, number, number], b: [string, number, number]): number {
+  if (a[2] !== b[2]) {
+    return b[2] - a[2];
+  }
+  return a[0] < b[0] ? -1 : 1;
+}
+
+export function sectionReport(rows: [string, string, number][]): { lines: [string, string, string, number][]; sections: [string, number, number][]; grand: number } {
+  if (!Array.isArray(rows)) {
+    throw new Error("rows must be a list");
+  }
+  for (const row of rows) {
+    if (!Array.isArray(row) || row.length !== 3) {
+      throw new Error("each row must be a three-item list");
+    }
+    const [section, label, amount] = row;
+    if (typeof section !== "string" || section.trim() === "") {
+      throw new Error("section must be a non-empty string");
+    }
+    if (typeof label !== "string" || label.trim() === "") {
+      throw new Error("label must be a non-empty string");
+    }
+    if (!Number.isInteger(amount)) {
+      throw new Error("amount must be an integer");
+    }
+  }
+
+  const lines: [string, string, string, number][] = [];
+  const sections: { [section: string]: { count: number; subtotal: number } } = {};
+  let grand = 0;
+
+  for (const [section, label, amount] of rows) {
+    if (!sections[section]) {
+      sections[section] = { count: 0, subtotal: 0 };
+    }
+    sections[section].count += 1;
+    sections[section].subtotal += amount;
+    lines.push(["item", section, label, amount]);
+    grand += amount;
+  }
+
+  for (const [section, { count, subtotal }] of Object.entries(sections).sort((a, b) => {
+    if (b[1].subtotal !== a[1].subtotal) {
+      return b[1].subtotal - a[1].subtotal;
+    }
+    return a[0] < b[0] ? -1 : 1;
+  })) {
+    lines.push(["section", section, "", subtotal]);
+  }
+
+  lines.push(["grand", "", "", grand]);
+
+  return { lines, sections: Object.entries(sections).map(([section, { count, subtotal }]) => [section, count, subtotal]), grand };
+}
+```

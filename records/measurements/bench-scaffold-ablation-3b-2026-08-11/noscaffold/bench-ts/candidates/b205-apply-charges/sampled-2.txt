@@ -1,0 +1,43 @@
+```typescript
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  if (typeof caps !== 'object' || !Array.isArray(charges)) {
+    throw new Error('Invalid input types');
+  }
+
+  const result: { left: Record<string, number>; refused: [string, string][] } = {
+    left: {},
+    refused: []
+  };
+
+  charges.forEach(([chargeId, bucketName, amount]) => {
+    if (typeof chargeId !== 'string' || typeof bucketName !== 'string' || typeof amount !== 'number') {
+      throw new Error('Invalid charge format');
+    }
+
+    const [allowance, maxSingleCharge] = caps[bucketName] || [];
+    if (!allowance || !maxSingleCharge) {
+      result.refused.push([chargeId, 'unknown']);
+      return;
+    }
+
+    if (amount <= 0 || !Number.isInteger(amount)) {
+      throw new Error('Invalid amount');
+    }
+
+    if (amount > maxSingleCharge) {
+      result.refused.push([chargeId, 'single']);
+      return;
+    }
+
+    if (amount > allowance) {
+      result.refused.push([chargeId, 'cap']);
+      return;
+    }
+
+    const remaining = Math.max(0, allowance - amount);
+    result.left[bucketName] = remaining;
+  });
+
+  return result;
+}
+```

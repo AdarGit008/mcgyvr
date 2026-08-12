@@ -1,0 +1,57 @@
+```python
+def scan_pairs(text: str) -> list:
+    """
+    Scans an options string into a list of key-value pairs.
+
+    :param text: The input string containing key=value segments separated by semicolons.
+    :return: A list of [key, value] pairs parsed from the options string.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    result = []
+    if not text.strip():
+        return result
+    
+    parts = text.split(';')
+    for part in parts:
+        try:
+            key, value = parse_option(part)
+            result.append((key, value))
+        except ValueError as e:
+            print(f"Error parsing option '{part}': {e}")
+    
+    return result
+
+def parse_option(segment: str) -> list:
+    """
+    Parses a single segment of the options string into a [key, value] pair.
+
+    :param segment: A key=value segment from the options string.
+    :return: A list containing the parsed key and value.
+    """
+    if not isinstance(segment, str):
+        raise ValueError("Segment must be a string.")
+    
+    equal_index = segment.find('=')
+    
+    # Check for quoted values
+    if equal_index != -1:
+        left_quote = segment.rfind('"')
+        right_quote = segment.find('"', left_quote + 1)
+        
+        if left_quote == -1 or right_quote == -1:
+            raise ValueError("Unmatched quotes.")
+        
+        key = segment[:left_quote]
+        value = segment[left_quote + 1:right_quote].strip()
+    else:
+        key = segment
+        value = ''
+    
+    # Validate the key is a bare identifier
+    if not (key.isidentifier() and key.isspace()):
+        raise ValueError("Invalid key format.")
+    
+    return [key, value]
+```

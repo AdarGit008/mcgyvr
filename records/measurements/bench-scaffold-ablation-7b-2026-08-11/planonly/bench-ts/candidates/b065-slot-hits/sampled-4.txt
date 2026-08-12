@@ -1,0 +1,24 @@
+```ts
+export function slotHits(keys: number[], slots: number): number {
+  if (!Array.isArray(keys) || keys.some(key => !Number.isInteger(key))) {
+    throw new Error('Invalid keys');
+  }
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error('Invalid slots count');
+  }
+
+  const cache = Array.from({ length: slots }, () => -1);
+  let hits = 0;
+
+  for (const key of keys) {
+    const slot = key % slots;
+    if (cache[slot] === key) {
+      hits++;
+    } else {
+      cache[slot] = key;
+    }
+  }
+
+  return hits;
+}
+```

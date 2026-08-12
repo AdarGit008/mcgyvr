@@ -1,0 +1,36 @@
+id: b154-throttle-calls
+task_type: function_implementation
+task: >-
+  Implement throttle_calls. The input is the arrival times of calls in whole
+  seconds, in non-decreasing order, together with a call limit and a window
+  length in seconds. Walk the calls in order and decide each one: a call is
+  accepted when fewer than limit earlier accepted calls still count at its
+  arrival, where an accepted call at time s counts at an arrival t while
+  t - s is less than window, and stops counting once t - s reaches window.
+  Refused calls never count against later arrivals. Return one boolean per
+  call, in order, True for accepted. Reject an arrivals argument that is
+  not a list, an arrival that is not a non-negative whole number, arrivals
+  that decrease, a limit that is not a positive whole number, and a window
+  that is not a positive whole number, with an error.
+target: solution.py
+target_content: |
+  """Decide each call against a sliding window of the accepted arrivals."""
+
+
+  def throttle_calls(times: list, limit: int, window: int) -> list:
+      if not isinstance(times, list):
+          raise ValueError("throttle_calls expects a list of arrival times")
+      for knob in (limit, window):
+          if isinstance(knob, bool) or not isinstance(knob, int) or knob < 1:
+              raise ValueError("limit and window must be positive integers")
+      # TODO: validate the arrivals, then walk them keeping the accepted
+      # times younger than window; accept while fewer than limit remain
+      # counted, and never let a refused call count later.
+      raise NotImplementedError
+interface: "def throttle_calls(times: list, limit: int, window: int) -> list"
+stop_conditions:
+  - No upper bound on the number of calls or the size of an arrival time is stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,23 @@
+```ts
+export function stepBack(moves: string): number {
+  if (typeof moves !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let position = 0;
+  for (const move of moves) {
+    switch (move) {
+      case 'F':
+        position++;
+        break;
+      case 'B':
+        position--;
+        break;
+    }
+    if (position < 0) {
+      return 0;
+    }
+  }
+  return position;
+}
+```

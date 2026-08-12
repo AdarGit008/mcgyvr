@@ -1,0 +1,58 @@
+```typescript
+/** The cheapest set of travel passes covering every trip day. */
+
+function validatePlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+
+  // Sort trips and pass spans in ascending order
+  const sortedTrips = [...tripDays].sort((a, b) => a - b);
+  const sortedPasses = passes.sort((a, b) => a.span - b.span);
+
+  let totalCost = 0;
+  let purchases: number[][] = [];
+  let currentTripIndex = 0;
+
+  for (const pass of sortedPasses) {
+    while (
+      currentTripIndex < sortedTrips.length &&
+      sortedTrips[currentTripIndex] <= sortedTrips[sortedTrips.length - 1] + pass.span - 1
+    ) {
+      totalCost += pass.cost;
+      purchases.push([sortedTrips[currentTripIndex], pass.span]);
+      currentTripIndex++;
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

@@ -1,0 +1,23 @@
+```python
+class Bet:
+    def __init__(self, stake, odds):
+        if stake < 0:
+            raise ValueError("Stake must be non-negative")
+        self.stake = stake
+        self.odds = odds
+
+def payout(stake: int, odds: int) -> int:
+    return stake * odds
+
+def settle_all(bets: list) -> int:
+    total_payout = 0
+    for bet in bets:
+        if bet.stake > 0 and bet.odds > 0:
+            total_payout += payout(bet.stake, bet.odds)
+    return total_payout
+```
+
+Explanation:
+- The `Bet` class is defined with a constructor to initialize the stake and odds.
+- `payout` takes a `stake` and an `odds`, calculates the payout using the formula `stake * odds`, and returns it.
+- `settle_all` iterates over the list of bets, checks if each bet has a positive stake and nonzero odds, calculates the payout for that bet, adds it to the total, and finally returns the total payout.

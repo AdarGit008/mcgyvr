@@ -1,0 +1,43 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    def is_valid_path_or_pattern(s: str) -> bool:
+        if not isinstance(s, str):
+            return False
+        if s == "":
+            return False
+        if s in ("/", "///"):
+            return False
+        if "//" in s or "/!" in s or "!/" in s:
+            return False
+        return True
+
+    def matches_pattern(path: str, pattern: str) -> bool:
+        path_segments = path.split("/")
+        pattern_segments = pattern.split("/")
+        if len(pattern_segments) > len(path_segments):
+            return False
+        for p, r in zip(pattern_segments, path_segments):
+            if p != "*" and p != r:
+                return False
+        return True
+
+    def should_keep_path(path: str, rules: list) -> bool:
+        for rule in rules:
+            if not is_valid_path_or_pattern(rule):
+                raise ValueError("Invalid rule")
+            if rule.startswith("!"):
+                if matches_pattern(path, rule[1:]):
+                    return True
+            elif matches_pattern(path, rule):
+                return False
+        return False
+
+    filtered_listing = []
+    for path in listing:
+        if not is_valid_path_or_pattern(path):
+            raise ValueError("Invalid path")
+        if should_keep_path(path, rules):
+            filtered_listing.append(path)
+
+    return filtered_listing
+```

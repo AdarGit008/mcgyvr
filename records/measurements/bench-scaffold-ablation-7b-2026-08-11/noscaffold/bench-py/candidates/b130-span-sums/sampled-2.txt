@@ -1,0 +1,61 @@
+```python
+def parse_span(text: str) -> int:
+    """Convert a span text into total inches."""
+    if not isinstance(text, str):
+        raise ValueError("Expected a string")
+    
+    parts = text.split()
+    total_inches = 0
+    units_seen = set()
+    
+    for part in parts:
+        value, unit = part[:-2], part[-2:]
+        
+        if not value.isdigit():
+            raise ValueError("Invalid value format")
+        value = int(value)
+        
+        if unit not in {'yd', 'ft', 'in'}:
+            raise ValueError("Unknown unit")
+        if unit in units_seen:
+            raise ValueError("Repeated unit")
+        units_seen.add(unit)
+        
+        if unit == 'yd':
+            total_inches += value * 36
+        elif unit == 'ft':
+            total_inches += value * 12
+        else:
+            total_inches += value
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """Render a non-negative integer of total inches canonically."""
+    if not isinstance(inches, int):
+        raise ValueError("Expected an integer")
+    if inches < 0:
+        raise ValueError("Negative value")
+    
+    yards = inches // 36
+    inches %= 36
+    feet = inches // 12
+    inches %= 12
+    
+    parts = []
+    if yards > 0:
+        parts.append(f"{yards}yd")
+    if feet > 0:
+        parts.append(f"{feet}ft")
+    if inches > 0:
+        parts.append(f"{inches}in")
+    
+    return ' '.join(parts) or "0in"
+
+def add_spans(first: str, second: str) -> str:
+    """Add two span texts and return their sum in canonical form."""
+    first_inches = parse_span(first)
+    second_inches = parse_span(second)
+    total_inches = first_inches + second_inches
+    return format_span(total_inches)
+```

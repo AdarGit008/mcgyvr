@@ -1,0 +1,36 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Apply 'steps' of freezing or thawing to the ice-meltwater row.
+
+    :param row: String representing a row of "#" for ice and "." for meltwater.
+    :param steps: Number of freeze-thaw cycles to apply.
+    :return: The row after exactly 'steps' freeze-thaw cycles.
+    """
+    if not isinstance(row, str) or not row:
+        raise ValueError("Row must be a non-empty string.")
+    
+    if not (row.isalnum() and all(c in '#.' for c in row)):
+        raise ValueError("Row can only contain '#' or '.' characters.")
+    
+    try:
+        steps = int(steps)
+        if steps < 0:
+            raise ValueError("Step count must be a non-negative integer.")
+    except ValueError as e:
+        raise ValueError(f"Invalid step count: {e}")
+    
+    for _ in range(steps):
+        new_row = []
+        for i, char in enumerate(row):
+            if char == '#':
+                if i == 0 or row[i + 1] == '.' or (i < len(row) - 1 and row[i - 1] == '.'):
+                    new_row.append('.')
+                else:
+                    new_row.append('#')
+            else:
+                new_row.append(char)
+        row = ''.join(new_row)
+    
+    return row
+```

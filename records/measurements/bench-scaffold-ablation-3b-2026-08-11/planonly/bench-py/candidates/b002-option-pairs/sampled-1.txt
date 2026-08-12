@@ -1,0 +1,67 @@
+```python
+def parse_option(segment: str) -> list:
+    """
+    Parses one option segment into a [key, value] pair.
+    :param segment: A string of key=value format.
+    :return: A list containing the key and value.
+    """
+    if '=' not in segment:
+        raise ValueError("Segment does not contain an equals sign.")
+    
+    key, value = segment.split('=', 1)
+    
+    # Remove leading/trailing whitespace from both key and value
+    key = key.strip()
+    value = value.strip()
+    
+    # Check for quoted values
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    elif '"' in value:
+        raise ValueError("Quoted value is not closed.")
+    
+    return [key, value]
+
+
+def scan_pairs(text: str) -> list:
+    """
+    Parses a string of key=value options separated by semicolons.
+    :param text: A string containing the options.
+    :return: A list of parsed option pairs.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    if len(text) == 0:
+        return []
+    
+    # Split the text on semicolons outside double quotes
+    result = []
+    in_quotes = False
+    current_segment = ""
+    
+    for char in text:
+        if char == ';':
+            if not in_quotes:
+                if current_segment:
+                    try:
+                        result.append(parse_option(current_segment))
+                    except ValueError as e:
+                        raise ValueError(f"Error parsing option: {e}")
+                current_segment = ""
+            else:
+                current_segment += ';'
+        elif char == '"':
+            in_quotes = not in_quotes
+        else:
+            current_segment += char
+    
+    # Handle the last segment if there is one
+    if current_segment:
+        try:
+            result.append(parse_option(current_segment))
+        except ValueError as e:
+            raise ValueError(f"Error parsing option: {e}")
+    
+    return result
+```

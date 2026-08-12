@@ -1,0 +1,54 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Arguments must be strings');
+  }
+
+  const parseEntry = (entry: string) => {
+    const [name, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(count) || count < 0) {
+      throw new Error('Malformed sheet entry');
+    }
+    return { name, count };
+  };
+
+  const parseMove = (move: string) => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(qty) || qty <= 0) {
+      throw new Error('Malformed move');
+    }
+    return { name, type: move.startsWith('+') ? '+' : '-', qty };
+  };
+
+  const entries = opening.split(';').map(parseEntry);
+  const movesList = moves.split(';').map(parseMove);
+
+  const sheet = new Map<string, number>();
+  for (const entry of entries) {
+    if (sheet.has(entry.name)) {
+      throw new Error('Duplicate name on the opening sheet');
+    }
+    sheet.set(entry.name, entry.count);
+  }
+
+  for (const move of movesList) {
+    const currentCount = sheet.get(move.name);
+    if (!currentCount) {
+      throw new Error('Issue of an item the sheet does not hold');
+    }
+    if ((move.type === '+' && move.qty > Number.MAX_SAFE_INTEGER - currentCount) || (move.type === '-' && currentCount < move.qty)) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+    sheet.set(move.name, currentCount + (move.type === '+' ? move.qty : -move.qty));
+  }
+
+  const closedEntries = Array.from(sheet.entries())
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name}:${count}`);
+
+  return closedEntries.join(';');
+}
+```

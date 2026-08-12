@@ -1,0 +1,53 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer between 0 and 32")
+    
+    mask = ['255'] * 4
+    for i in range(31 - prefix):
+        mask[i // 8] = '0'
+    return '.'.join(mask)
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str) or len(mask.split('.')) != 4:
+        raise ValueError("Mask must be a string with exactly four dot-separated fields")
+    
+    try:
+        octets = [int(octet) for octet in mask.split('.')]
+        for i, octet in enumerate(octets):
+            if not (0 <= octet <= 255):
+                raise ValueError("Each octet must be between 0 and 255")
+    except ValueError as e:
+        raise ValueError(f"Invalid octet in mask: {e}")
+    
+    one_bits = 0
+    for octet in octets:
+        for bit in range(8):
+            if octet & (1 << bit) != 0:
+                one_bits += 1
+            else:
+                break
+    
+    return one_bits
+
+def validate_mask(mask: str) -> None:
+    # Validate general structure and format of the mask string
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields")
+    
+    for part in parts:
+        if not all(c.isdigit() or c == '0' for c in part):
+            raise ValueError("Each octet must contain only decimal digits and leading zeros")
+        
+        value = int(part)
+        if not (0 <= value <= 255):
+            raise ValueError(f"Octet {part} is out of range (0-255)")
+        
+        # Ensure one bits are broken by a zero
+        for i in range(1, len(parts)):
+            if parts[i] == '0' and parts[i - 1] != '0':
+                raise ValueError("One bits must not be broken by a zero")
+```
+
+This code includes both `mask_from_prefix` and `prefix_from_mask`, with validation functions to ensure the input is correctly formatted and within valid ranges.

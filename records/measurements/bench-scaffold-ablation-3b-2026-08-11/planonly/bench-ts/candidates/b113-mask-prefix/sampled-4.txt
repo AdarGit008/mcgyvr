@@ -1,0 +1,59 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Prefix must be an integer from 0 to 32.");
+  }
+
+  let mask = "255.255.255.255";
+  for (let i = 0; i < 32 - prefix; ++i) {
+    mask = mask.replace(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/, (_, a, b, c, d) => {
+      return (parseInt(a, 10) & ~(2 ** (31 - i))) + "." +
+             (parseInt(b, 10) & ~(2 ** (31 - i))) + "." +
+             (parseInt(c, 10) & ~(2 ** (31 - i))) + "." +
+             (parseInt(d, 10) & ~(2 ** (31 - i)));
+    });
+  }
+  return mask;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("Mask must be a string.");
+  }
+
+  const parts = mask.split(".");
+  if (parts.length !== 4) {
+    throw new Error("Mask must have exactly four dot-separated fields.");
+  }
+
+  let leadingOnes = 32;
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      throw new Error(`Field ${part} must contain only decimal digits.`);
+    }
+    const num = parseInt(part, 10);
+    if (num < 0 || num > 255) {
+      throw new Error(`Field ${part} must be between 0 and 255.`);
+    }
+    if (num !== 0 && !/\b0+\b/.test(part)) {
+      leadingOnes -= part.length - part.replace(/0/, '').length;
+    } else if (num === 0) {
+      // If the field is zero, we need to ensure that all following fields are also zero
+      for (let i = parts.indexOf(part); i < parts.length; ++i) {
+        if (parts[i] !== '0') {
+          throw new Error("Mask must not have a zero bit broken by a zero.");
+        }
+      }
+    } else {
+      // If the field is greater than 0, we need to ensure that all following fields are also non-zero
+      for (let i = parts.indexOf(part); i < parts.length; ++i) {
+        if (parts[i] === '0') {
+          throw new Error("Mask must not have a zero bit broken by a zero.");
+        }
+      }
+    }
+  }
+
+  return leadingOnes;
+}
+```

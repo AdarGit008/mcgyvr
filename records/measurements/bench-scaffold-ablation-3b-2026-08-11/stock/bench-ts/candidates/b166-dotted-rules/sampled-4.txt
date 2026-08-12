@@ -1,0 +1,44 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== "string" || name === "" || name.includes("*")) {
+    throw new Error("name must be a star-free non-empty string");
+  }
+
+  const getRuleValue = (selector: string): string | null => {
+    return rules[selector];
+  };
+
+  const isExactMatch = (key: string, value: string) => key === value;
+
+  const isWildcardMatch = (key: string, value: string) => key.startsWith(value + ".*");
+
+  const getLongestWildcardMatch = (key: string): [string, number] | null => {
+    let longestPrefix = "";
+    for (let i = key.length - 1; i > 0; i--) {
+      if (key[i] === "." && isWildcardMatch(key.slice(0, i), value)) {
+        if (i > longestPrefix.length) {
+          longestPrefix = key.slice(0, i);
+        }
+      }
+    }
+    return longestPrefix ? [longestPrefix, key.length - longestPrefix.length] : null;
+  };
+
+  const findMatchingRule = (name: string): [string, string | null] => {
+    if (!isExactMatch(name, rules[name])) {
+      const wildcardResult = getLongestWildcardMatch(name);
+      if (wildcardResult) {
+        return [wildcardResult[0], rules[wildcardResult[0]]];
+      }
+    }
+    return [name, rules[name]];
+  };
+
+  try {
+    const [matchedSelector, matchedValue] = findMatchingRule(name);
+    return matchedValue || null;
+  } catch (error: any) {
+    throw new Error(`Error matching setting: ${error.message}`);
+  }
+}
+```

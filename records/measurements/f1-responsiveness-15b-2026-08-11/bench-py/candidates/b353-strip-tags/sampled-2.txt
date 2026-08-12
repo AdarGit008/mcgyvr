@@ -1,0 +1,19 @@
+```python
+def strip_tags(line: str) -> str:
+    result = []
+    depth = 0
+
+    for char in line:
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            if depth > 0:
+                depth -= 1
+            else:
+                break
+        else:
+            if depth == 0 and any(char.isalpha() or char.isdigit()):
+                result.append(char)
+
+    return ''.join(result)
+```

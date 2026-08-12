@@ -1,0 +1,60 @@
+id: b132-drain-lanes
+task_type: bug_fix
+task: >-
+  drainLanes empties planned service lanes incorrectly. Fix it: the plan is
+  a non-empty list of pairs, each a lane name and its quota, giving the
+  visiting order for one round; the items are pairs of a label and the lane
+  it joins, queued per lane in arrival order. The drain runs in rounds:
+  each round visits every planned lane in order and takes up to its quota
+  of the oldest labels that lane still holds; rounds repeat until every
+  lane is empty. Today a lane that comes up short of its quota mid-round
+  stops the whole drain, stranding labels still queued in other lanes — a
+  short take must simply move on to the next lane. An item that names a
+  lane the plan never declares is quietly discarded today; make it an
+  error. Also add the missing validation: reject an empty plan, a plan
+  entry that is not a pair of a non-empty string lane and a positive
+  integer quota, a lane declared twice, and an item that is not a pair of
+  two strings, with an error. Return a mapping with order, the labels in
+  drained order, and rounds, how many rounds the drain ran — zero when
+  there was nothing to drain. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Drain labelled items across planned lanes, round by round. */
+  export function drainLanes(
+    plan: [string, number][],
+    items: [string, string][],
+  ): { order: string[]; rounds: number } {
+    const queues = new Map<string, string[]>();
+    for (const [lane] of plan) {
+      queues.set(lane, []);
+    }
+    for (const [label, lane] of items) {
+      const queue = queues.get(lane);
+      if (queue !== undefined) {
+        queue.push(label);
+      }
+    }
+    const order: string[] = [];
+    let rounds = 0;
+    while (true) {
+      rounds += 1;
+      for (const [lane, quota] of plan) {
+        const queue = queues.get(lane) as string[];
+        let taken = 0;
+        while (taken < quota && queue.length > 0) {
+          order.push(queue.shift() as string);
+          taken += 1;
+        }
+        if (taken < quota) {
+          return { order, rounds };
+        }
+      }
+    }
+  }
+interface: "export function drainLanes(plan: [string, number][], items: [string, string][]): { order: string[]; rounds: number }"
+stop_conditions:
+  - Whether duplicate labels across items are allowed is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,33 @@
+```ts
+export function spanMerge(spans: number[][]): number[][] {
+  if (!spans || !spans.length) return [];
+
+  spans.sort((a, b) => a[0] - b[0]);
+
+  const mergedSpans: number[][] = [];
+  let currentStart = spans[0][0];
+  let currentEnd = spans[0][1];
+
+  for (let i = 1; i < spans.length; i++) {
+    const start = spans[i][0];
+    const end = spans[i][1];
+
+    if (start <= currentEnd) {
+      // Span overlaps or touches the current span
+      currentEnd = Math.max(currentEnd, end);
+    } else {
+      // No overlap, add the current span to the merged list and update start and end
+      mergedSpans.push([currentStart, currentEnd]);
+      currentStart = start;
+      currentEnd = end;
+    }
+  }
+
+  // Add the last span if it extends past the end of the previous one
+  if (currentStart <= currentEnd) {
+    mergedSpans.push([currentStart, currentEnd]);
+  }
+
+  return mergedSpans;
+}
+```

@@ -1,0 +1,15 @@
+id: b316-diff-count
+task_type: function_implementation
+task: >-
+  Implement diffCount. Compare two lists position by position and
+  return how many positions hold different values. When one list is
+  longer than the other, each of its extra positions counts as a
+  difference too.
+target: solution.ts
+interface: "export function diffCount(left: number[], right: number[]): number"
+stop_conditions:
+  - Whether a list may hold values of different kinds in the same position is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

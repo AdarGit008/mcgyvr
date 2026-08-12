@@ -1,0 +1,15 @@
+id: b255-vote-lead
+task_type: function_implementation
+task: >-
+  Implement voteLead. Given ballots that each name one candidate,
+  return the candidate named on the most of them. When two or more
+  candidates tie for the most, return whichever of their names sorts
+  first alphabetically. Reject an empty pile of ballots with an error.
+target: solution.ts
+interface: "export function voteLead(ballots: string[]): string"
+stop_conditions:
+  - Whether candidate names differing only in case should be treated as one candidate is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { cheapestPassPlan } from "./solution.ts";
+
+assert.deepEqual(cheapestPassPlan([], [{ span: 1, cost: 5 }]), { total: 0, purchases: [] }, "no trips cost nothing");
+assert.deepEqual(cheapestPassPlan([3], [{ span: 1, cost: 4 }]), { total: 4, purchases: [[3, 1]] }, "one day one pass");
+assert.deepEqual(cheapestPassPlan([3], [{ span: 1, cost: 4 }, { span: 7, cost: 3 }]), { total: 3, purchases: [[3, 7]] }, "cheaper kind wins");
+assert.deepEqual(cheapestPassPlan([1, 2, 3, 4, 5], [{ span: 1, cost: 2 }, { span: 7, cost: 8 }]), { total: 8, purchases: [[1, 7]] }, "one long pass beats five short");
+assert.deepEqual(cheapestPassPlan([1, 15, 30], [{ span: 1, cost: 2 }, { span: 7, cost: 8 }]), { total: 6, purchases: [[1, 1], [15, 1], [30, 1]] }, "sparse days buy short passes");
+assert.deepEqual(cheapestPassPlan([1, 4, 6, 7, 8, 20], [{ span: 1, cost: 2 }, { span: 7, cost: 7 }, { span: 30, cost: 15 }]), { total: 11, purchases: [[1, 1], [4, 7], [20, 1]] }, "mixed plan");
+assert.deepEqual(cheapestPassPlan([2], [{ span: 1, cost: 3 }, { span: 5, cost: 3 }]), { total: 3, purchases: [[2, 1]] }, "tie prefers the first-listed kind");
+assert.deepEqual(cheapestPassPlan([1, 2], [{ span: 1, cost: 0 }]), { total: 0, purchases: [[1, 1], [2, 1]] }, "free passes still purchased");
+assert.deepEqual(cheapestPassPlan([10], [{ span: 30, cost: 9 }]), { total: 9, purchases: [[10, 30]] }, "span may reach past the last day");
+assert.deepEqual(cheapestPassPlan([1, 7], [{ span: 7, cost: 3 }]), { total: 3, purchases: [[1, 7]] }, "last covered day is start plus span minus 1");
+assert.deepEqual(cheapestPassPlan([1, 8], [{ span: 7, cost: 3 }]), { total: 6, purchases: [[1, 7], [8, 7]] }, "day past the span needs a second pass");
+assert.throws(() => cheapestPassPlan([0], [{ span: 1, cost: 1 }]), Error, "day zero is rejected");
+assert.throws(() => cheapestPassPlan([1.5], [{ span: 1, cost: 1 }]), Error, "fractional day is rejected");
+assert.throws(() => cheapestPassPlan([5, 5], [{ span: 1, cost: 1 }]), Error, "repeated day is rejected");
+assert.throws(() => cheapestPassPlan([1], []), Error, "empty pass list is rejected");
+assert.throws(() => cheapestPassPlan([1], [{ span: 0, cost: 1 }]), Error, "zero span is rejected");
+assert.throws(() => cheapestPassPlan([1], [{ span: 1, cost: -2 }]), Error, "negative cost is rejected");
+console.log("ok");

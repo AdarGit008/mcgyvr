@@ -1,0 +1,32 @@
+```python
+def climb_budget(tolls: list) -> int:
+    """
+    Calculate the minimum cost to climb a scaffold's toll board.
+
+    :param tolls: List of strings representing the toll costs for each rung.
+    :return: The minimum total cost to climb from the ground to the top rung.
+    """
+    if not tolls:
+        return 0
+
+    # Validate tolls
+    for i, toll in enumerate(tolls):
+        if not toll.isdigit() or toll.startswith('0'):
+            raise ValueError(f"Invalid toll at position {i}: '{toll}'")
+
+    # Convert tolls to integers
+    tolls = [int(toll) for toll in tolls]
+
+    # Initialize the minimum cost array
+    min_costs = [float('inf')] * len(tolls)
+    min_costs[0] = 0
+
+    # Calculate the minimum cost to reach each rung
+    for i in range(1, len(tolls)):
+        if i > 1:
+            min_costs[i] = min(min_costs[i - 2], min_costs[i - 1]) + tolls[i]
+        else:
+            min_costs[i] = min_costs[i - 1] + tolls[i]
+
+    return min_costs[-1]
+```

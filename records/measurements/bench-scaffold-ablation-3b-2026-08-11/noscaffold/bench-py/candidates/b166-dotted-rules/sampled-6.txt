@@ -1,0 +1,48 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Match a dotted option name against style rules.
+
+    :param rules: A dictionary where keys are selectors and values are strings.
+    :param name: A dotted option name (e.g., "editor.font.size").
+    :return: The winning value for the option or None if no selector matches.
+    :raises ValueError: If input is invalid.
+    """
+    # Validate input
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if name == "*":
+        return next((value for value in rules.values() if value), None)
+    
+    parts = name.split(".")
+    
+    def is_covering_selector(selector):
+        # Check if selector is covering (*) or ends with (.*)
+        return selector == "*" or selector.endswith(".*")
+    
+    candidates = []
+    
+    for i, part in enumerate(parts[:-1]):
+        key = ".".join(parts[:i+2])
+        if key in rules:
+            candidates.append((key, rules[key]))
+    
+    # Check the last part as an exact match
+    last_part_key = ".".join(parts)
+    if last_part_key in rules:
+        candidates.append((last_part_key, rules[last_part_key]))
+    
+    # Find the best matching key
+    winning_key = None
+    for key, value in candidates:
+        if is_covering_selector(key):
+            continue
+    
+        if winning_key is not None and len(key) > len(winning_key):
+            continue
+        
+        winning_key = key
+    
+    return rules.get(winning_key)
+```

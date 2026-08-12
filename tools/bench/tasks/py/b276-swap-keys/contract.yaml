@@ -1,0 +1,15 @@
+id: b276-swap-keys
+task_type: function_implementation
+task: >-
+  Implement swap_keys. Given a mapping of names to codes, return the
+  mapping the other way round, from each code to a name. When two
+  names share one code, the name that sorts first is the one kept. A
+  name whose code is empty text is left out altogether.
+target: solution.py
+interface: "def swap_keys(names: dict) -> dict"
+stop_conditions:
+  - Whether codes should be compared ignoring case when deciding that two names share one is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

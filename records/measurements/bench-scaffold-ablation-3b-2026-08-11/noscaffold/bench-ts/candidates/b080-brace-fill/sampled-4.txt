@@ -1,0 +1,23 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Invalid input: Template must be a string.');
+  }
+
+  const placeholders = template.match(/\{([a-zA-Z0-9_]+)\}/g);
+  if (!placeholders) return template; // No placeholders
+
+  placeholders.forEach((placeholder, index) => {
+    const match = placeholder.match(/(\{)([a-zA-Z0-9_]+)(\})/);
+    const name = match?.[2];
+
+    if (!name || !values[name]) {
+      throw new Error(`Error: Placeholder '${name}' not found in values.`);
+    }
+
+    template = template.replace(match[0], values[name]);
+  });
+
+  return template;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+export function tallyBar(count: number, width: number): string {
+  if (width < 0) throw new Error("Width must be non-negative");
+
+  let bar = "";
+  for (let i = 0; i < count; i++) {
+    bar += "#";
+  }
+
+  if (bar.length > width) {
+    bar = bar.slice(0, width);
+    bar += ">";
+  }
+
+  return bar;
+}
+```

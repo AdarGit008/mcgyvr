@@ -1,0 +1,28 @@
+```typescript
+/** Total the base parts an order of a kit consumes. */
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!Object.prototype.hasOwnProperty.call(catalog, kit)) {
+    throw new Error(`the catalog does not define ${kit}`);
+  }
+  const totals: Record<string, number> = {};
+
+  function explode(partList: [string, number][], partsUsed: Set<string>, currentTotal: number): void {
+    for (const [component, count] of partList) {
+      if (!partsUsed.has(component)) {
+        const subKitInfo = catalog[component];
+        if (subKitInfo) {
+          explode(subKitInfo.parts, partsUsed, Math.ceil(currentTotal / subKitInfo.makes));
+          partsUsed.add(component);
+        } else {
+          totals[component] = totals[component] ?? 0;
+          totals[component] += count * currentTotal;
+        }
+      }
+    }
+  }
+
+  explode(catalog[kit].parts, new Set(), want);
+
+  return totals;
+}
+```

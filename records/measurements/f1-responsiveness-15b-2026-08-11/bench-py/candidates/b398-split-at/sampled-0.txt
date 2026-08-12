@@ -1,0 +1,18 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    """
+    Break a list in two at the first entry equal to a marker, returning what stood before it and what stood after, with the marker itself in neither.
+
+    :param entries: The list to be split.
+    :param marker: The marker value used to split the list.
+    :return: A tuple containing the two parts of the split list.
+    """
+    if not entries:
+        return [], []
+
+    index = next((i for i, entry in enumerate(entries) if entry == marker), None)
+    if index is None:
+        return entries, []
+    else:
+        return entries[:index], entries[index+1:]
+```

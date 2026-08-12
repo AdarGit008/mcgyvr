@@ -1,0 +1,6 @@
+```python
+def strip_ends(text: str, mark: str) -> str:
+    """The text with a character removed from both of its ends."""
+    out = text.lstrip(mark)
+    return out.rstrip(mark)
+```

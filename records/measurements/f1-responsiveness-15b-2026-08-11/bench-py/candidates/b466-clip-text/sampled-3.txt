@@ -1,0 +1,9 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start > end:
+        raise ValueError("Start place cannot be above or equal to end place")
+    
+    return text[start:end]
+```
+
+This solution adheres to the contract by providing a function `clip_text` that returns a substring of the input text between two specified places, inclusive of the start but exclusive of the end. It includes error handling for invalid input by raising a `ValueError` if the start place exceeds the end place.

@@ -1,0 +1,6 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or end > len(text):
+        raise ValueError("First place must be within the text boundaries.")
+    return text[start:end]
+```

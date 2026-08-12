@@ -1,0 +1,15 @@
+id: b432-swap-halves
+task_type: function_implementation
+task: >-
+  Implement swapHalves. Move the first half of a text to the end, so
+  the second half comes first. A text of an odd length keeps its
+  middle character with the first half, and an empty text comes back
+  empty.
+target: solution.ts
+interface: "export function swapHalves(text: string): string"
+stop_conditions:
+  - Whether the halves should split the other way for an odd length is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,58 @@
+```ts
+/** Fixed-point money helpers: parse, format, and allocate integer cents. */
+
+export function parseAmount(text: string): number {
+  if (typeof text !== "string") {
+    throw new Error("amount must be a string");
+  }
+  const match = /^(\d+)(?:\.(\d{2}))?$/.exec(text);
+  if (match === null) {
+    throw new Error(`malformed amount: ${text}`);
+  }
+  const whole = Number(match[1]);
+  const cents = match[2] === undefined ? 0 : Number(match[2]);
+  return whole * 100 + cents;
+}
+
+export function formatAmount(cents: number): string {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new Error("cents must be a non-negative integer");
+  }
+  const whole = Math.floor(cents / 100);
+  const rest = String(cents % 100).padStart(2, "0");
+  return `${whole}.${rest}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error("weights must be a non-empty array");
+  }
+  if (weights.some(weight => typeof weight !== "number" || weight < 0)) {
+    throw new Error("all weights must be non-negative integers");
+  }
+  if (!Number.isInteger(totalCents) || totalCents < 0) {
+    throw new Error("totalCents must be a non-negative integer");
+  }
+  const sum = weights.reduce((acc, weight) => acc + weight, 0);
+  if (sum === 0) {
+    throw new Error("weights must sum to a non-zero value");
+  }
+
+  let result = weights.map(() => Math.floor(totalCents * 100 / sum));
+  let remainder = totalCents - result.reduce((acc, val) => acc + val, 0);
+
+  const indices = Array.from({ length: weights.length }, (_, i) => i);
+  indices.sort((a, b) => (totalCents * weights[b] / sum) % 1 - (totalCents * weights[a] / sum) % 1);
+
+  for (const index of indices) {
+    if (remainder > 0) {
+      result[index]++;
+      remainder--;
+    } else {
+      break;
+    }
+  }
+
+  return result.map(val => Math.floor(val / 100));
+}
+```

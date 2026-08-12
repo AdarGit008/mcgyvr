@@ -1,0 +1,25 @@
+id: b406-rename-field
+task_type: bug_fix
+task: >-
+  rename_field returns records with one field renamed, and it leaves
+  the old name in place alongside the new one. Fix it. A record
+  lacking the old name is left exactly as it was, and the records it
+  was given are never altered. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def rename_field(records: list, was: str, now: str) -> list:
+      """Records with one field renamed."""
+      out = []
+      for record in records:
+          copied = dict(record)
+          if was in copied:
+              copied[now] = copied[was]
+          out.append(copied)
+      return out
+interface: "def rename_field(records: list, was: str, now: str) -> list"
+stop_conditions:
+  - Whether renaming onto a name the record already holds should be allowed is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,36 @@
+```ts
+function pruneListing(listing: string[], rules: string[]): string[] {
+  const splitStrict = (path: string) => path.split('/').filter(segment => segment !== '');
+
+  for (const rule of rules) {
+    if (typeof rule !== 'string' || rule === '' || rule === '!') throw new Error('Invalid rule');
+  }
+
+  for (const path of listing) {
+    const segments = splitStrict(path);
+    if (segments.length === 0 || (segments.length === 1 && segments[0] === '')) throw new Error('Invalid path');
+  }
+
+  return listing.filter(path => {
+    const segments = splitStrict(path);
+    let lastRule = '';
+
+    for (const rule of rules) {
+      const ruleSegments = splitStrict(rule.startsWith('!') ? rule.slice(1) : rule);
+      if (ruleSegments.length > segments.length) continue;
+
+      let match = true;
+      for (let i = 0; i < ruleSegments.length; i++) {
+        if (ruleSegments[i] !== '*' && ruleSegments[i] !== segments[i]) {
+          match = false;
+          break;
+        }
+      }
+
+      if (match) lastRule = rule.startsWith('!') ? 'keep' : 'drop';
+    }
+
+    return lastRule === 'keep';
+  });
+}
+```

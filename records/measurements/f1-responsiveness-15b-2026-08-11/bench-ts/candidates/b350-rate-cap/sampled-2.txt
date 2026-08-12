@@ -1,0 +1,11 @@
+```ts
+export function rateCap(price: number, rate: number, most: number): number {
+  if (price === null || price === undefined) {
+    throw new Error("Price cannot be null or undefined");
+  }
+  
+  const baseRate = price / 100;
+  const increase = Math.min(baseRate * rate, most);
+  return (baseRate + increase) * 100;
+}
+```

@@ -1,0 +1,18 @@
+```ts
+export function stripTags(line: string): string {
+  let result = '';
+  let inTag = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '<') {
+      inTag = true;
+    } else if (line[i] === '>') {
+      inTag = false;
+      result += line.slice(i + 1);
+      break;
+    } else if (!inTag) {
+      result += line[i];
+    }
+  }
+  return result;
+}
+```

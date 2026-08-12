@@ -1,0 +1,17 @@
+```python
+def short_unit(unit: str) -> str:
+    return unit[:3]
+
+
+def label_of(amount: int, unit: str) -> str:
+    """An amount written with its unit."""
+    if amount < 0:
+        raise ValueError("amount cannot be negative")
+    singular = f"{amount} {unit}"
+    plural = f"{amount}s"
+    if amount == 1:
+        return singular
+    else:
+        return plural
+
+```

@@ -1,0 +1,57 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    """
+    Prune paths based on ordered rules. A rule matches a path if it starts with an exclamation mark
+    for keep or contains a star (*) to match leading segments of the path.
+    """
+
+    def is_valid_path(path: str) -> bool:
+        return isinstance(path, str) and path != "" and not any(segment == "" for segment in path.split('/'))
+
+    def is_valid_rule(rule: str) -> bool:
+        return isinstance(rule, str) and rule != "" and not (rule.startswith("!/") or rule.endswith("/") or " //" in rule)
+
+    if not all(is_valid_path(path) and is_valid_rule(rule) for path in listing + rules):
+        raise ValueError("Invalid input: path or rule is not a string, empty, or invalid format.")
+
+    def match_pattern(pattern: str, path: str) -> bool:
+        segments = pattern.split('/')
+        i = 0
+        j = 0
+        while i < len(segments) and j < len(path):
+            if segments[i] == "*":
+                j += 1
+            elif segments[i] != path[j]:
+                return False
+            else:
+                i += 1
+                j += 1
+        return i == len(segments)
+
+    def prune_path(path: str, rules: List[str]) -> bool:
+        for rule in rules:
+            if rule.startswith("!/"):
+                keep = True
+                for segment in rule[2:].split('/'):
+                    if not match_pattern(segment, path):
+                        keep = False
+                        break
+                return keep
+            else:
+                for segment in rule.split('/'):
+                    if not match_pattern(segment, path):
+                        return False
+                return True
+
+    # Sort rules by length to ensure longer patterns match before shorter ones
+    rules.sort(key=len, reverse=True)
+    
+    surviving_paths = []
+    for path in listing:
+        if prune_path(path, rules):
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

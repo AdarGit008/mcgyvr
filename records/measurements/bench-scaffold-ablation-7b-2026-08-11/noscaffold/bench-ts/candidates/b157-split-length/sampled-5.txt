@@ -1,0 +1,32 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length");
+  }
+
+  const m = Math.floor(mm / 1000);
+  const cm = Math.floor((mm % 1000) / 10);
+  const mmPart = mm % 10;
+
+  if (m > 0 && cm === 0 && mmPart === 0) {
+    return `${m}m`;
+  }
+  if (m > 0 && cm > 0 && mmPart === 0) {
+    return `${m}m ${cm}cm`;
+  }
+  if (m > 0 && cm > 0 && mmPart > 0) {
+    return `${m}m ${cm}cm ${mmPart}mm`;
+  }
+  if (m === 0 && cm > 0 && mmPart === 0) {
+    return `${cm}cm`;
+  }
+  if (m === 0 && cm > 0 && mmPart > 0) {
+    return `${cm}cm ${mmPart}mm`;
+  }
+  if (m === 0 && cm === 0 && mmPart > 0) {
+    return `${mmPart}mm`;
+  }
+
+  return "0mm";
+}
+```

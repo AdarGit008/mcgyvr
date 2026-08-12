@@ -1,0 +1,16 @@
+```python
+def common_head(words: list) -> str:
+    if not words:
+        return ""
+    
+    first_word = words[0].lower()
+    longest_run = first_word
+    
+    for word in words[1:]:
+        if word.lower().startswith(first_word):
+            longest_run += word.lower()[len(first_word):]
+        else:
+            break
+    
+    return longest_run
+```

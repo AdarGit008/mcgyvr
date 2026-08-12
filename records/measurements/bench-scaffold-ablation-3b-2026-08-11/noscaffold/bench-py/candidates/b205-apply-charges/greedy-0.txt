@@ -1,0 +1,37 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to buckets based on their quotas.
+
+    :param caps: Mapping from bucket name to a pair of (allowance, max_single_charge).
+    :param charges: List of tuples (charge_id, bucket_name, amount).
+    :return: Dictionary with left allowance for each bucket and refused charges.
+    """
+    if not all(isinstance(c, tuple) and len(c) == 3 for c in charges):
+        raise ValueError("Charges must be a list of triples (charge_id, bucket_name, amount).")
+
+    result = {bucket: cap for bucket, cap in caps.items()}
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+            continue
+
+        allowance, max_single_charge = caps[bucket_name]
+
+        if amount <= 0 or not isinstance(amount, int):
+            raise ValueError("Amount must be a positive whole number.")
+
+        if amount > max_single_charge:
+            refused.append((charge_id, "single"))
+            continue
+
+        if amount > allowance:
+            refused.append((charge_id, "cap"))
+            continue
+
+        result[bucket_name] -= amount
+
+    return result
+```

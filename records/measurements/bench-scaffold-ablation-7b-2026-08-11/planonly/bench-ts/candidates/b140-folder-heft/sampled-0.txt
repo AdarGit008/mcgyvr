@@ -1,0 +1,68 @@
+```ts
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  function walk(node: any, currentPath: string) {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    for (const name in node) {
+      if (Object.prototype.hasOwnProperty.call(node, name)) {
+        if (typeof name !== 'string' || name.trim() === '' || name.includes('/')) throw new Error('Invalid name');
+        const newPath = currentPath ? `${currentPath}/${name}` : name;
+        paths.push(newPath);
+        if ('children' in node[name] && Array.isArray(node[name].children)) {
+          walk(node[name].children, newPath);
+        }
+      }
+    }
+  }
+  walk(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  if ('bytes' in root && typeof root.bytes === 'number') return root.bytes;
+  if ('children' in root && Array.isArray(root.children)) {
+    return root.children.reduce((total, child) => total + treeBytes(child), 0);
+  }
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid node');
+  const bytes = Number(root.bytes);
+  if (!Number.isInteger(bytes) || bytes < 0) throw new Error('Invalid bytes');
+  return bytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+
+  const paths: string[] = [];
+  const sizes: Record<string, number> = {};
+
+  function walk(node: any, currentPath: string): number {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    let total = 0;
+    for (const name in node) {
+      if (Object.prototype.hasOwnProperty.call(node, name)) {
+        const newPath = currentPath ? `${currentPath}/${name}` : name;
+        paths.push(newPath);
+        if ('children' in node[name] && Array.isArray(node[name].children)) {
+          total += walk(node[name].children, newPath);
+        } else if ('bytes' in node[name] && typeof node[name].bytes === 'number') {
+          total += node[name].bytes;
+        }
+      }
+    }
+    sizes[currentPath] = total;
+    return total;
+  }
+
+  walk(root, '');
+
+  const result: [string, number][] = [];
+  for (const path of paths) {
+    if (sizes[path] >= minBytes) {
+      result.push([path, sizes[path]]);
+    }
+  }
+
+  return result;
+}
+```

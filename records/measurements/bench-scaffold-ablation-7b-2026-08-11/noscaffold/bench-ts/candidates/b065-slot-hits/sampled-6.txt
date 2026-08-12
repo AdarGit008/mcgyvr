@@ -1,0 +1,35 @@
+```ts
+import { isInteger } from "lodash";
+
+/**
+ * Replays a stream of integer cache keys against a direct-mapped cache with a given number of slots,
+ * all slots starting empty. Returns the total number of hits.
+ *
+ * @param keys - Array of integers representing cache keys to be replayed.
+ * @param slots - Positive integer representing the number of slots in the cache.
+ * @returns Total number of hits.
+ */
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+
+  const cache: (number | null)[] = Array(slots).fill(null);
+  let hits = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error("All keys must be integers.");
+    }
+
+    const slotIndex = key % slots;
+    if (cache[slotIndex] === key) {
+      hits++;
+    } else {
+      cache[slotIndex] = key;
+    }
+  }
+
+  return hits;
+}
+```

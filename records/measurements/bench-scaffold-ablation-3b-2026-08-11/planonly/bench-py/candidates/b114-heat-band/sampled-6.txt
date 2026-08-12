@@ -1,0 +1,42 @@
+```python
+def run_thermostat(start: int, low: int, high: int, power: int, drifts: list) -> dict:
+    if not isinstance(start, int):
+        raise ValueError("start must be an integer")
+    if not isinstance(low, int):
+        raise ValueError("low must be an integer")
+    if not isinstance(high, int):
+        raise ValueError("high must be an integer")
+    if not isinstance(power, int) or power <= 0:
+        raise ValueError("power must be a positive integer")
+    if not isinstance(drifts, list):
+        raise ValueError("drifts must be a list")
+    
+    for d in drifts:
+        if not isinstance(d, int):
+            raise ValueError("each element in drifts must be an integer")
+    
+    temperature = start
+    heated = 0
+    switches = 0
+    coldest = start
+    
+    for d in drifts:
+        current_temp = temperature + d
+        
+        if current_temp < low:
+            temperature += power
+            heated += 1
+            switches += 1
+            coldest = min(coldest, current_temp)
+        
+        elif current_temp >= high:
+            temperature -= power
+            heated += 1
+            switches += 1
+            coldest = min(coldest, current_temp)
+        
+        else:
+            temperature = current_temp
+    
+    return {"temp": temperature, "heated": heated, "switches": switches, "coldest": coldest}
+```

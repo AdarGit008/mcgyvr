@@ -1,0 +1,55 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of given unit into its corresponding amount in the base unit.
+    
+    :param amount: non-negative integer representing the amount of the unit
+    :param unit: string representing the unit name
+    :param defs: dictionary mapping unit names to a pair [factor, finer]
+                indicating how many finer units fit in one unit
+    :param base: string representing the base unit name
+    :return: integer representing the equivalent amount in the base unit
+    :raises ValueError: if the input is invalid
+    """
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative integer.")
+    
+    if not isinstance(unit, str):
+        raise ValueError("Unit must be a string.")
+    
+    if not isinstance(defs, dict):
+        raise ValueError("Defs must be a dictionary.")
+    
+    if not isinstance(base, str):
+        raise ValueError("Base must be a string.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unknown unit: {unit}")
+    
+    if base not in defs or defs[base] != (0, None):
+        raise ValueError(f"Invalid base unit definition for: {base}")
+    
+    factor, finer = defs[unit]
+    
+    if not isinstance(factor, int) or factor <= 0:
+        raise ValueError("Factor must be a positive integer.")
+    
+    if finer is not None and finer not in defs:
+        raise ValueError(f"Unknown finer unit: {finer}")
+    
+    def convert(amount, unit):
+        if unit == base:
+            return amount
+        if unit in defs:
+            factor, finer = defs[unit]
+            return amount * factor + convert(amount // factor, finer)
+        else:
+            raise ValueError(f"Unknown unit: {unit}")
+    
+    try:
+        result = convert(amount, unit)
+    except OverflowError:
+        raise ValueError("Amount is too large to convert.")
+    
+    return result
+```

@@ -1,0 +1,17 @@
+id: b472-price-tier
+task_type: function_implementation
+task: >-
+  tierRate names the charge in cents for one unit at a given count.
+  tierCost gives the whole charge in cents for that count, taking
+  every unit at the rate its count earns. Implement tierCost. A count
+  of nothing costs nothing, and any other charge is lifted to a
+  hundred cents where it falls below that.
+target: solution.ts
+interface: "export function tierRate(units: number): number
+export function tierCost(units: number): number"
+stop_conditions:
+  - Whether a count below nothing should be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

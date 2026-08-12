@@ -1,0 +1,28 @@
+```ts
+/**
+ * Returns the longest run of characters that every word in a list begins with.
+ * A list holding one word gives that word back whole, and a list with no words,
+ * or whose words share no opening character, gives empty text.
+ */
+export function commonHead(words: string[]): string {
+  if (words.length === 0) return '';
+
+  let prefix = words[0][0];
+  let maxLength = 1;
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i].toLowerCase();
+    const isPrefixMatched = word.startsWith(prefix);
+
+    if (!isPrefixMatched) break;
+
+    const currentLength = word.length;
+    if (currentLength > maxLength) {
+      maxLength = currentLength;
+      prefix = word[0];
+    }
+  }
+
+  return prefix.repeat(maxLength);
+}
+```

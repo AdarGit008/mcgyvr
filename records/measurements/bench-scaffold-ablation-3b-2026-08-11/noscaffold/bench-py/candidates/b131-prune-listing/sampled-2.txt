@@ -1,0 +1,41 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    """Prune paths based on given rules."""
+    
+    def is_valid_path(path):
+        if not isinstance(path, str) or not path.strip() or path.count('/') == 0:
+            raise ValueError("Invalid path.")
+        return True
+
+    def is_valid_rule(rule):
+        if not isinstance(rule, str):
+            raise ValueError("Invalid rule.")
+        if rule.startswith('!') and len(rule) != 1 or rule.startswith('*'):
+            raise ValueError("Invalid rule format.")
+        return True
+
+    if not all(map(is_valid_path, listing)) or not all(map(is_valid_rule, rules)):
+        raise ValueError("Invalid input.")
+
+    def match(path, pattern):
+        path_segments = path.split('/')
+        pattern_segments = pattern.split('/')
+
+        for p, r in zip(path_segments, pattern_segments):
+            if p.startswith('*'):
+                if not r or any(c != '*' and c != '/' for c in r):
+                    return False
+            elif p != r:
+                return False
+
+        # If the rule is a keep rule (starts with '!'), it matches anything.
+        return pattern == '!' or len(pattern_segments) <= len(path_segments)
+
+    def prune_path(path, rules):
+        for rule in reversed(rules):
+            if match(path, rule):
+                return True
+        return False
+
+    return [path for path in listing if not prune_path(path, rules)]
+```

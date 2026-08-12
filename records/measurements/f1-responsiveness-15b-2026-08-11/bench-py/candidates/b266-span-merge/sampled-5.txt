@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def span_merge(spans: List[List[int]]) -> List[List[int]]:
+    if not spans:
+        return []
+
+    # Sort the spans by start time
+    sorted_spans = sorted(spans, key=lambda x: x[0])
+
+    merged_spans = [sorted_spans[0]]
+    for span in sorted_spans[1:]:
+        if span[0] <= merged_spans[-1][1]:
+            # Merge overlapping or touching spans
+            merged_spans[-1][1] = max(merged_spans[-1][1], span[1])
+        else:
+            # Add non-overlapping span to the result
+            merged_spans.append(span)
+
+    return merged_spans
+```

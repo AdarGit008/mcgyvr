@@ -1,0 +1,35 @@
+```ts
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  const result = {
+    left: { ...caps },
+    refused: [] as [string, string][],
+  };
+
+  for (const [chargeId, bucketName, amount] of charges) {
+    if (typeof amount !== 'number' || amount <= 0 || !Number.isInteger(amount)) {
+      throw new Error('Amount must be a positive whole number');
+    }
+
+    const cap = caps[bucketName];
+    if (!cap) {
+      result.refused.push([chargeId, 'unknown']);
+      continue;
+    }
+
+    const [allowance, singleCharge] = cap;
+    if (amount > singleCharge) {
+      result.refused.push([chargeId, 'single']);
+      continue;
+    }
+
+    if (result.left[bucketName] < amount) {
+      result.refused.push([chargeId, 'cap']);
+      continue;
+    }
+
+    result.left[bucketName] -= amount;
+  }
+
+  return result;
+}
+```

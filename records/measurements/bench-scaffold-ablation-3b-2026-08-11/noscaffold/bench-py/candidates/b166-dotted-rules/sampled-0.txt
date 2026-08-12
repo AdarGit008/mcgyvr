@@ -1,0 +1,33 @@
+```python
+from typing import Dict, Optional
+
+
+def match_setting(rules: Dict[str, str], name: str) -> Optional[str]:
+    if not isinstance(name, str):
+        raise ValueError("name must be a non-empty string")
+
+    if len(name) == 0:
+        return None
+
+    if "." not in name and name != "*":
+        raise ValueError("name must contain a dot or be '*'")
+
+    if "*" in name:
+        if name.count("*") != 1 or name.endswith("."):
+            raise ValueError(
+                "selector star must stand alone or end the selector as '.*'"
+            )
+
+    winning_value: Optional[str] = None
+
+    for rule_key, rule_value in rules.items():
+        if rule_key == name:
+            # Exact match
+            return rule_value
+        elif name.startswith(rule_key + "."):
+            # Wildcard match
+            if winning_value is None or len(rule_key) > len(winning_value):
+                winning_value = rule_value
+
+    return winning_value
+```

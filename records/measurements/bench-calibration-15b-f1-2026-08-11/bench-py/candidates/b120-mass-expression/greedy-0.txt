@@ -1,0 +1,42 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Invalid input: empty string")
+    
+    terms = text.split()
+    if len(terms) % 2 != 1:
+        raise ValueError("Invalid input: terms and operators must alternate ending on a term")
+    
+    total = 0
+    for i in range(len(terms)):
+        if i % 2 == 0:
+            try:
+                count = int(terms[i])
+            except ValueError:
+                raise ValueError(f"Invalid term: {terms[i]}")
+            
+            if count < 0:
+                raise ValueError("Invalid term: negative count")
+            
+            total += count
+        else:
+            operator = terms[i]
+            if operator not in "+-":
+                raise ValueError(f"Invalid operator: {operator}")
+            
+            if operator == '+':
+                total += 1
+            elif operator == '-':
+                total -= 1
+    
+    if total < 0:
+        raise ValueError("Invalid tally: running amount below zero")
+    
+    if unit.lower() not in ['g', 'kg', 't']:
+        raise ValueError(f"Invalid goal unit: {unit}")
+    
+    if total % 1000 != 0:
+        raise ValueError("Invalid tally: total not whole in the goal unit")
+    
+    return total
+```

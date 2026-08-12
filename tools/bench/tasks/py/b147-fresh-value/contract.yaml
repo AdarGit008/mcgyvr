@@ -1,0 +1,20 @@
+id: b147-fresh-value
+task_type: function_implementation
+task: >-
+  Implement fresh_value. A cache keeps each record as a mapping of three
+  fields: value, the cached string; stored, the integer tick the record
+  was written; and ttl, how many ticks the record stays usable. The record
+  is usable from tick stored up to but not including tick stored + ttl.
+  Given a record and the current tick now, return the record's value while
+  the record is still usable. Reject an entry that is not such a record, a
+  value that is not a string, a stored that is not a non-negative integer,
+  a ttl that is not a positive integer, a now that is not an integer at
+  least stored, and a record no longer usable at now, with an error.
+target: solution.py
+interface: "def fresh_value(entry: dict, now: int) -> str"
+stop_conditions:
+  - How a record carrying extra fields beyond the three is treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

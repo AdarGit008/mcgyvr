@@ -1,0 +1,28 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    def match(pathsegments: list[str], patternsegments: list[str]) -> bool:
+        if len(patternsegments) == 0:
+            return True
+        if pathsegments[0] == "!" or (patternsegments[0] == "*" and len(pathsegments) > 1):
+            return match(pathsegments[1:], patternsegments)
+        elif pathsegments[0] != patternsegments[0]:
+            return False
+        else:
+            return match(pathsegments[1:], patternsegments[1:])
+
+    def validate_path(path: str) -> None:
+        segments = path.split("/")
+        if not all(segment and segment != "." for segment in segments):
+            raise ValueError("Invalid path")
+
+    def prune(path: str, rules: list[str]) -> bool:
+        validate_path(path)
+        pathsegments = path.split("/")
+        for rule in rules:
+            patternsegments = rule.split("/")
+            if match(pathsegments, patternsegments):
+                return not (rule.startswith("!"))
+        return True
+
+    return [path for path in listing if prune(path, rules)]
+```

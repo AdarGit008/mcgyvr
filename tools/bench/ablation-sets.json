@@ -1,0 +1,128 @@
+{
+  "record": "bench/ablation-sets/1",
+  "issue": 225,
+  "why": "Which problems the scaffold ablation is read over, declared apart from the numbers so the choice cannot be made by them. Two sets are derived here, never listed: `analysis` is `dispatched` minus `excluded`, and `strict` is `analysis` minus `borderline`. A third list would be a third thing to keep in agreement.",
+  "dispatched": {
+    "why": "The 34 problems the sweeps ran, under all three conditions on both models: every bench problem that is a function_implementation carrying a scaffold. The rule is mechanical and a test re-derives it. The other 19 scaffolded bench problems are bug_fix, where the scaffold IS the problem \u2014 a buggy program with nothing to remove, since deleting it deletes the task rather than enlarging it. Reading over all 34 is a fact about the run and not the pre-registered question, and it is where the answer differs: on all 34 the 7B whole-scaffold contrast reads sign p=0.049/0.021, on the 27 it reads p=0.18/0.15. The seven carried the significance.",
+    "ids": [
+      "b002-option-pairs",
+      "b003-carve-shift",
+      "b013-region-totals",
+      "b022-allocate-cents",
+      "b028-pass-plan",
+      "b032-bitmap-runs",
+      "b033-till-session",
+      "b058-nibble-groups",
+      "b065-slot-hits",
+      "b069-patrol-bot",
+      "b079-tag-check",
+      "b080-brace-fill",
+      "b096-stamp-cover",
+      "b113-mask-prefix",
+      "b114-heat-band",
+      "b126-closing-sheet",
+      "b130-span-sums",
+      "b131-prune-listing",
+      "b140-folder-heft",
+      "b151-thaw-row",
+      "b157-split-length",
+      "b160-apply-overrides",
+      "b163-base-amount",
+      "b166-dotted-rules",
+      "b172-trace-relay",
+      "b175-split-cents",
+      "b184-dose-totals",
+      "b190-lay-conveyor",
+      "b192-tile-renders",
+      "b198-explode-kit",
+      "b205-apply-charges",
+      "b210-drain-frames",
+      "b216-open-windows",
+      "b219-cut-roll"
+    ],
+    "rule": {
+      "task_type": "function_implementation",
+      "target_content": "non-empty in both arms"
+    }
+  },
+  "excluded": {
+    "why": "The ablation removes the scaffold; these seven have task prose telling the model a helper it can no longer see is already written. The noscaffold and planonly prompts therefore contradict themselves, and what they measure is a model's response to an impossible instruction. Mechanical, and re-derived from the contracts by a test \u2014 the rule is the phrase, not this list.",
+    "phrase": "already written",
+    "ids": [
+      {
+        "id": "b002-option-pairs",
+        "prose": "Implement scanPairs, whose helper parseOption is already written."
+      },
+      {
+        "id": "b032-bitmap-runs",
+        "prose": "Implement findFreeRun; bitAt and occupyRun are already written and share its layout."
+      },
+      {
+        "id": "b069-patrol-bot",
+        "prose": "Implement runPatrol; clampMove is already written."
+      },
+      {
+        "id": "b079-tag-check",
+        "prose": "Implement checkLine, whose helper lineTag is already written."
+      },
+      {
+        "id": "b096-stamp-cover",
+        "prose": "Implement stampCover, whose helper stampTable is already written."
+      },
+      {
+        "id": "b113-mask-prefix",
+        "prose": "Implement prefixFromMask; maskFromPrefix is already written and shares its dotted-quad layout."
+      },
+      {
+        "id": "b140-folder-heft",
+        "prose": "Implement heavyFolders, the report at the top of a small storage-tree module whose two companions are already written."
+      }
+    ]
+  },
+  "borderline": {
+    "why": "Dropped in `strict` because the scaffold carries something the prose does not, so a scaffold-arm advantage there is partly an information effect rather than a volume one. Judgement, not a rule: recorded with its reasoning so a reader can disagree with it by name.",
+    "ids": [
+      {
+        "id": "b033-till-session",
+        "why": "The scaffold is the only place the four state words are spelled ('open'/'payment'/'paid'/'cancelled'); the prose names the states in English but never as return literals, and a near miss fails eleven assertions at once."
+      },
+      {
+        "id": "b163-base-amount",
+        "why": "Python only: accept.py catches ValueError alone, and an undefined unit invites KeyError from a bare lookup. The scaffold's visible `raise ValueError` is the only thing pinning the class. The TS arm is volume-only."
+      },
+      {
+        "id": "b172-trace-relay",
+        "why": "Python only: both rejection paths are wrong-type/missing-key conditions where TypeError or KeyError is idiomatic, and either crashes a checker that catches ValueError alone. The TS arm is volume-only."
+      },
+      {
+        "id": "b175-split-cents",
+        "why": "Python only: two of five rejection cases are wrong-type conditions where TypeError is the idiomatic choice, and the checker catches ValueError alone. The TS arm is volume-only."
+      }
+    ]
+  },
+  "audit": {
+    "artifact": "records/sessions/lane/225/2026-08-11-ablation-eligibility-audit.json",
+    "covers": [
+      "b003-carve-shift",
+      "b013-region-totals",
+      "b022-allocate-cents",
+      "b028-pass-plan",
+      "b033-till-session",
+      "b058-nibble-groups",
+      "b069-patrol-bot",
+      "b080-brace-fill",
+      "b113-mask-prefix",
+      "b126-closing-sheet",
+      "b131-prune-listing",
+      "b140-folder-heft",
+      "b163-base-amount",
+      "b172-trace-relay",
+      "b175-split-cents",
+      "b184-dose-totals",
+      "b190-lay-conveyor",
+      "b192-tile-renders"
+    ],
+    "limit": "The audit read 18 of the 34 dispatched problems (its other 16 entries are candidates that were never dispatched, including reserve-only ids). `strict` therefore drops the borderline cases the audit found, which is not the same as dropping every borderline case there is. A wider audit could only shrink `strict` further.",
+    "systematic_finding": "104 of 109 Python checkers catch ValueError alone while only 37 of 109 Python contracts name ValueError in target_content. Three of the four borderline cases are instances of that one corpus-level property, not four independent judgements."
+  }
+}

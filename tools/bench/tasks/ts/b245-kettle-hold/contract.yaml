@@ -1,0 +1,15 @@
+id: b245-kettle-hold
+task_type: function_implementation
+task: >-
+  Implement kettleHold. Given temperature readings in the order they
+  were taken and a target, report how many readings at the very end of
+  the run sat at or above that target without interruption. A run that
+  dips below the target stops the count there.
+target: solution.ts
+interface: "export function kettleHold(readings: number[], target: number): number"
+stop_conditions:
+  - Whether a reading exactly at the target counts as holding is stated, but what a fractional target means is not.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

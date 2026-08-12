@@ -1,0 +1,30 @@
+```python
+from typing import *
+from collections import *
+
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+    
+    free_seats = 0
+    min_free_seats = float('inf')
+    current_run_start = -1
+    
+    for i in range(len(row)):
+        if row[i] == '.':
+            free_seats += 1
+            if current_run_start == -1:
+                current_run_start = i
+        elif row[i] == 'x':
+            if free_seats >= party:
+                min_free_seats = min(min_free_seats, free_seats)
+                current_run_start = -1
+                free_seats = 0
+    
+    if free_seats >= party:
+        return current_run_start
+    else:
+        return -1
+```
+
+This solution efficiently finds the first seat of the earliest run of free seats long enough to hold the party. It iterates through the row, counting free seats and updating the minimum length of such runs as it goes.

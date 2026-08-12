@@ -1,0 +1,16 @@
+id: b292-index-rows
+task_type: function_implementation
+task: >-
+  Implement row_key and index_rows. row_key returns the first letter
+  of a name in upper case. index_rows files names under their row_key,
+  each group holding its names in the order they arrived. An empty
+  list of names gives an empty index.
+target: solution.py
+interface: "def row_key(name: str) -> str
+def index_rows(names: list) -> dict"
+stop_conditions:
+  - What key a name beginning with a digit should be filed under is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

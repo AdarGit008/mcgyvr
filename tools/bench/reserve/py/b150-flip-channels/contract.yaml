@@ -1,0 +1,20 @@
+id: b150-flip-channels
+task_type: function_implementation
+task: >-
+  Implement flip_channels. A lighting board packs its sixteen channel
+  switches into one word: bit 0 holds channel 0, up through bit 15 for
+  channel 15, a one bit meaning the channel is live. Flipping a channel
+  turns a live channel dark and a dark one live. Return the word with
+  every channel from lo through hi inclusive flipped and every channel
+  outside that span untouched; flipping the same span twice restores the
+  original word. Reject a word that is not an integer from 0 to 65535, a
+  lo or hi that is not an integer from 0 to 15, and a lo greater than hi,
+  with an error.
+target: solution.py
+interface: "def flip_channels(word: int, lo: int, hi: int) -> int"
+stop_conditions:
+  - Whether the rejection for a bad word or a bad bound takes precedence when both are bad is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

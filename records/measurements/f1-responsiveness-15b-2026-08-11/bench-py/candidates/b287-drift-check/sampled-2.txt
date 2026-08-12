@@ -1,0 +1,16 @@
+```python
+def drift_check(readings: list, step: int) -> int:
+    if not readings or len(readings) < 2:
+        return -1
+
+    current_position = 0
+    while True:
+        next_position = position + step
+        if next_position >= len(readings):
+            break
+        if readings[current_position] != readings[next_position]:
+            return current_position
+        current_position = next_position
+
+    return -1
+```

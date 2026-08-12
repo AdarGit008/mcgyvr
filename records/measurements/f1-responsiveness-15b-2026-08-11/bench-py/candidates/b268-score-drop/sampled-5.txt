@@ -1,0 +1,12 @@
+```python
+def score_drop(scores: list) -> int:
+    if len(scores) <= 1:
+        return 0
+    
+    sorted_scores = sorted(scores)
+    
+    # Find the second lowest score
+    for i in range(1, len(sorted_scores)):
+        if sorted_scores[i] != sorted_scores[i - 1]:
+            return sum(scores) - sorted_scores[i]
+```

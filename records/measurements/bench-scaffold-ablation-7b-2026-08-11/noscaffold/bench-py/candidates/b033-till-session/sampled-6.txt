@@ -1,0 +1,62 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("Price must be a positive integer")
+    
+    state = {
+        "items": {},
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open"
+    }
+    
+    for event in events:
+        action = event[0]
+        if len(event) != 2:
+            raise ValueError("Invalid event format")
+        
+        if action == "scan":
+            item, = event[1:]
+            if item not in prices:
+                raise ValueError(f"Item {item} is not available in the price list")
+            if state["status"] != "open":
+                raise ValueError("Cannot scan while session is closed or paid")
+            state["items"][item] = state["items"].get(item, 0) + 1
+        elif action == "void":
+            item, = event[1:]
+            if item not in state["items"]:
+                raise ValueError(f"Item {item} is not in the cart")
+            if state["status"] != "open":
+                raise ValueError("Cannot void while session is closed or paid")
+            state["items"][item] -= 1
+            if state["items"][item] == 0:
+                del state["items"][item]
+        elif action == "close":
+            if state["status"] != "open" or not state["items"]:
+                raise ValueError("Cannot close an empty session or a closed session")
+            state["total"] = sum(prices[item] * quantity for item, quantity in state["items"].items())
+            state["status"] = "payment"
+        elif action == "pay":
+            if state["status"] != "payment":
+                raise ValueError("Cannot pay during an open session")
+            cents, = event[1:]
+            if not isinstance(cents, int) or cents <= 0:
+                raise ValueError("Pay amount must be a positive integer")
+            state["paid"] += cents
+            state["change"] = max(state["paid"] - state["total"], 0)
+            state["status"] = "closed"
+        elif action == "cancel":
+            if state["status"] != "open" and state["status"] != "payment":
+                raise ValueError("Cannot cancel a closed session")
+            state["status"] = "cancelled"
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    return {
+        "items": sorted([[item, quantity] for item, quantity in state["items"].items()]),
+        "total": state.get("total", 0),
+        "paid": state.get("paid", 0),
+        "change": state.get("change", 0)
+    }
+```

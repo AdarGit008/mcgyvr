@@ -1,0 +1,15 @@
+id: b437-overlap-any
+task_type: function_implementation
+task: >-
+  Implement overlapAny. Given bookings each written as a start and an
+  end, say whether any two of them overlap. A booking that ends
+  exactly where another begins does not overlap it, and fewer than two
+  bookings never overlap.
+target: solution.ts
+interface: "export function overlapAny(bookings: number[][]): boolean"
+stop_conditions:
+  - Whether a booking may end before it starts is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

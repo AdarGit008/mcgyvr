@@ -1,0 +1,22 @@
+```typescript
+/**
+ * Divides a total bill between diners so that each pays a whole number of pence,
+ * except the first diner who also takes whatever pennies are left over. Returns an array
+ * of payments for each diner in order.
+ *
+ * @param total - The total amount of money to be divided.
+ * @param diners - The number of diners to split the bill among.
+ * @returns An array where each element is a payment for a diner.
+ */
+export function billSplit(total: number, diners: number): number[] {
+  if (diners === 0) {
+    throw new Error("No diners means no payments.");
+  }
+
+  const [billPerDiner, leftOver] = total % diners !== 0
+    ? [total / diners + leftOver, leftOver]
+    : [Math.floor(total / dinners), 0];
+
+  return Array.from({ length: diners }, (_, i) => billPerDiner + (i === 0 ? leftOver : 0));
+}
+```

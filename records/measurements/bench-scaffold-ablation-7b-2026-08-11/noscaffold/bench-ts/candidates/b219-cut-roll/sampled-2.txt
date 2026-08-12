@@ -1,0 +1,33 @@
+```typescript
+export interface Cut {
+  takings: number;
+  pieces: number[];
+}
+
+function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative whole number');
+  }
+
+  const dp = Array.from({ length: length + 1 }, () => ({ takings: 0, pieces: [] as number[] }));
+
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let bestPieces: number[] = [];
+
+    for (const [pieceLength, price] of board) {
+      if (i >= pieceLength) {
+        const takings = dp[i - pieceLength].takings + price;
+        if (takings > maxTakings || (takings === maxTakings && pieceLength > bestPieces[0])) {
+          maxTakings = takings;
+          bestPieces = [pieceLength, ...dp[i - pieceLength].pieces];
+        }
+      }
+    }
+
+    dp[i] = { takings: maxTakings, pieces: bestPieces };
+  }
+
+  return dp[length];
+}
+```

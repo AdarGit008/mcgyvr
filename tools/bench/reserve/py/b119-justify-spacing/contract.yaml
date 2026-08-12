@@ -1,0 +1,42 @@
+id: b119-justify-spacing
+task_type: function_implementation
+task: >-
+  Implement justify_spacing. A paragraph arrives already broken into
+  lines: a non-empty list of lines, each line a non-empty list of words,
+  a word a non-empty string containing no spaces. For a column of the
+  given width, return one list of gap widths per line, a gap counting
+  the spaces set between one neighbouring pair of words. Every line but
+  the last is set full measure: its gaps together absorb exactly the
+  width left beyond the letters, split as evenly as possible, the
+  leftmost gaps taking any extra space, every gap at least one space
+  wide. The last line, and any line of a single word, is set ragged:
+  every gap exactly one space, a lone word yielding no gaps at all.
+  Reject a width that is not a positive integer, a paragraph that is
+  not a non-empty list, a line that is not a non-empty list, a word
+  that is not a non-empty string, a word containing a space, and a line
+  whose words with one space per gap overrun the width, with an error.
+target: solution.py
+target_content: |
+  """Gap widths that justify a paragraph's lines to a column."""
+
+
+  def justify_spacing(width, lines):
+      if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
+          raise ValueError("width must be a positive integer")
+      if not isinstance(lines, list) or not lines:
+          raise ValueError("a paragraph is a non-empty list of lines")
+      spacing = []
+      for row, line in enumerate(lines):
+          if not isinstance(line, list) or not line:
+              raise ValueError("a line is a non-empty list of words")
+          # TODO: validate the words, check the line fits the width, and
+          # append this line's gap widths — full measure for body lines,
+          # single spaces for the last line and for a lone word.
+      return spacing
+interface: "def justify_spacing(width: int, lines: list) -> list"
+stop_conditions:
+  - Whether words may contain characters other than letters is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

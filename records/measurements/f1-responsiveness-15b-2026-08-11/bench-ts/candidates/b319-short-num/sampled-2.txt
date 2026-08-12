@@ -1,0 +1,16 @@
+```ts
+/**
+ * Converts a number to a shortened form:
+ * - below 1000 is written as it stands
+ * - 1000-9999 is written as "k" followed by one decimal place (rounded down)
+ * - 1000000 or more is written as "m" followed by one decimal place (rounded down)
+ * @param value The number to convert.
+ * @returns A string representing the shortened form of the number.
+ */
+export function shortNum(value: number): string {
+  if (value < 1000) return value.toString();
+  const isMillion = value >= 1000000;
+  const roundedValue = Math.round(value / 1000);
+  return `${isMillion ? 'm' : 'k'}${roundedValue.toFixed(1)}`;
+}
+```

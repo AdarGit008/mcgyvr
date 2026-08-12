@@ -1,0 +1,23 @@
+```python
+def common_head(words: list) -> str:
+    if len(words) == 0:
+        return ""
+
+    # Find the first word with a valid character to start the common head
+    for i, word in enumerate(words):
+        if all(ch.isalpha() or ch.isspace() for ch in word):
+            break
+
+    else:
+        return ""  # No valid words found
+
+    # Get the length of this first word
+    common_head_length = len(words[0])
+
+    # Check if the rest of the words start with the same character as the first word
+    for word in words[1:]:
+        if not any(word.startswith(ch) for ch in words[0]):
+            return ""  # A word does not match
+
+    return words[0][:common_head_length]
+```

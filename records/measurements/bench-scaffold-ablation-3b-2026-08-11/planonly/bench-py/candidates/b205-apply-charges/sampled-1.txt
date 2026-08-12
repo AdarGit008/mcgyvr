@@ -1,0 +1,34 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to bucket allowances according to specified rules.
+
+    Parameters:
+    caps (dict): Mapping from bucket name to a tuple of whole allowance and largest single charge.
+    charges (list): List of tuples containing charge id, bucket name, and amount.
+
+    Returns:
+    dict: Object with 'left' mapping bucket names to their remaining allowances and 'refused' as list of refused charges.
+    """
+    def _why_refused(charge_id, bucket_name, amount):
+        if bucket_name not in caps:
+            return "unknown"
+        allowance, single_charge = caps[bucket_name]
+        if amount > single_charge:
+            return "single"
+        if amount > allowance:
+            return "cap"
+        return None
+
+    left = {bucket: whole for bucket, (whole, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        reason = _why_refused(charge_id, bucket_name, amount)
+        if reason is not None:
+            refused.append((charge_id, reason))
+        else:
+            left[bucket_name] -= amount
+
+    return {'left': left, 'refused': refused}
+```

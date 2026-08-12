@@ -1,0 +1,21 @@
+```python
+from typing import *
+from collections import *
+
+def split_cents(total: int, weights: list) -> list:
+    if total % 1 != 0 or total < 0 or not isinstance(weights, list):
+        raise ValueError("Total must be a whole number and non-negative, and weights must be a list.")
+    
+    weight_sum = sum(weights)
+    parts = [total * weight // weight_sum for weight in weights]
+    remainder = total - sum(parts)
+
+    # Find the partners with the largest discarded fraction
+    discarded_fractions = [(parts[i] / weights[i]) % 1 for i in range(len(weights))]
+    max_fraction_index = discarded_fractions.index(max(discarded_fractions))
+    
+    # Distribute the remainder to the partner with the largest discarded fraction
+    parts[max_fraction_index] += remainder
+
+    return parts
+```

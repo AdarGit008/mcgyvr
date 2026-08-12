@@ -1,0 +1,51 @@
+```typescript
+interface ThawRowError extends Error {
+  name: "ThawRowError";
+}
+
+export function thawRow(row: string, steps: number): string {
+  // Validate row input
+  if (typeof row !== "string" || row.trim() === "") {
+    throw new ThawRowError("Input must be a non-empty string.");
+  }
+  
+  const validChars = ["#", "."];
+  for (const char of row) {
+    if (!validChars.includes(char)) {
+      throw new ThawRowError("Input can only contain '#' or '.' characters.");
+    }
+  }
+
+  // Validate steps input
+  if (typeof steps !== "number" || !Number.isInteger(steps) || steps < 0) {
+    throw new ThawRowError("Step count must be a non-negative integer.");
+  }
+
+  // Function to apply one thaw step
+  const applyThawStep = (currentRow: string): string => {
+    let nextRow = "";
+    for (let i = 0; i < currentRow.length; i++) {
+      if (
+        currentRow[i] === "#" &&
+        ((i === 0 && currentRow[1] !== "#") ||
+          (i === currentRow.length - 1 && currentRow[i - 1] !== "#") ||
+          (currentRow[i - 1] === "." || currentRow[i + 1] === "."))
+      ) {
+        // Ice at either end or beside meltwater becomes water
+        nextRow += ".";
+      } else {
+        // Ice wall-in by ice on both sides survives
+        nextRow += "#";
+      }
+    }
+    return nextRow;
+  };
+
+  // Apply thaw steps
+  for (let i = 0; i < steps; i++) {
+    row = applyThawStep(row);
+  }
+
+  return row;
+}
+```

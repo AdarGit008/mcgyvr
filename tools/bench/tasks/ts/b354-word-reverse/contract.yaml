@@ -1,0 +1,15 @@
+id: b354-word-reverse
+task_type: function_implementation
+task: >-
+  Implement wordReverse. Return a line with the letters of each word
+  turned back to front, the words themselves keeping the order they
+  came in. Any run of spaces separates two words, and the words come
+  back joined by a single space.
+target: solution.ts
+interface: "export function wordReverse(line: string): string"
+stop_conditions:
+  - Whether punctuation at the end of a word should move to its front is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

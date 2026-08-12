@@ -1,0 +1,15 @@
+id: b289-plural-of
+task_type: function_implementation
+task: >-
+  Implement plural_of. Return the plural of an English noun. A noun
+  ending in s, x, ch or sh takes es. A noun ending in y after a
+  consonant loses the y and takes ies instead. Every other noun simply
+  takes s.
+target: solution.py
+interface: "def plural_of(noun: str) -> str"
+stop_conditions:
+  - Whether an irregular noun forming its plural by a vowel change should be handled is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

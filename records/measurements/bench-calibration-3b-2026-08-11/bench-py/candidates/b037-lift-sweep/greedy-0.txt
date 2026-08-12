@@ -1,0 +1,74 @@
+```python
+"""A lift's service sweep: split directional call buttons around the
+boarding floor, run the sweep, and measure the travel it costs."""
+
+
+def split_calls(start: int, calls: list) -> dict:
+    if isinstance(start, bool) or not isinstance(start, int):
+        raise ValueError("boarding floor must be an integer")
+    if not isinstance(calls, list):
+        raise ValueError("calls must be a list")
+    up = set()
+    down = set()
+    for call in calls:
+        if not isinstance(call, list) or len(call) != 2:
+            raise ValueError("each call is a [floor, direction] pair")
+        floor, direction = call
+        if isinstance(floor, bool) or not isinstance(floor, int):
+            raise ValueError("call floor must be an integer")
+        if direction not in ("up", "down"):
+            raise ValueError("call direction must be up or down")
+        if direction == "up":
+            up.add(floor)
+        else:
+            down.add(floor)
+    up_floors = sorted(up)
+    return {
+        "up_ahead": [floor for floor in up_floors if floor >= start],
+        "up_behind": [floor for floor in up_floors if floor < start],
+        "down": sorted(down),
+    }
+
+
+def run_lift(start: int, calls: list) -> list:
+    parts = split_calls(start, calls)
+    stops = []
+    # Add up_ahead floors
+    stops.extend(parts["up_ahead"])
+    # Add down floors in descending order
+    stops.extend(sorted(parts["down"], reverse=True))
+    # Add up_behind floors
+    stops.extend(parts["up_behind"])
+    return stops
+
+
+def lift_distance(start: int, stops: list) -> int:
+    if isinstance(start, bool) or not isinstance(start, int):
+        raise ValueError("boarding floor must be an integer")
+    if not isinstance(stops, list):
+        raise ValueError("stops must be a list")
+    at = start
+    travelled = 0
+    for stop in stops:
+        if isinstance(stop, bool) or not isinstance(stop, int):
+            raise ValueError("each stop must be an integer")
+        travelled += abs(stop - at)
+        at = stop
+    return travelled
+
+
+def sweep_report(start: int, calls: list) -> dict:
+    stops = run_lift(start, calls)
+    travelled = lift_distance(start, stops)
+    reversals = 0
+    at = start
+    last_step = 0
+    for stop in stops:
+        step = 0 if stop == at else (1 if stop > at else -1)
+        if step != 0:
+            if last_step != 0 and step != last_step:
+                reversals += 1
+            last_step = step
+        at = stop
+    return {"stops": stops, "travelled": travelled, "reversals": reversals}
+```

@@ -1,0 +1,12 @@
+```ts
+export function durHours(minutes: number): number {
+    if (minutes < 0) throw new Error("Invalid value for minutes");
+    return Math.floor(minutes / 60);
+}
+
+export function durText(minutes: number): string {
+    const hours = durHours(minutes);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h${remainingMinutes < 10 ? '0' : ''}${remainingMinutes}m`;
+}
+```

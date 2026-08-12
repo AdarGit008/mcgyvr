@@ -1,0 +1,46 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Fill placeholders in the template with corresponding values from the dictionary.
+
+    Parameters:
+    - template (str): A string containing placeholders enclosed in braces.
+    - values (dict): A dictionary mapping placeholder names to their replacement strings.
+
+    Returns:
+    - str: The filled text after replacing placeholders with their values.
+
+    Raises:
+    - ValueError: If the template contains an unterminated placeholder,
+      an empty or malformed name, or a unknown name in the values dictionary.
+    """
+
+    def is_valid_name(name):
+        return name and all(char.isalnum() or char == '_' for char in name)
+
+    def find_next_placeholder(template, index):
+        start = index
+        while index < len(template) and template[index] != '{':
+            index += 1
+        if template[start:index].strip():
+            raise ValueError("Unterminated placeholder")
+        index += 1
+        end = index + 1
+        while index < len(template) and template[index].isalnum() or template[index] == '_':
+            index += 1
+        if index - end == 0:
+            raise ValueError("Empty or malformed name for placeholder")
+        return start, index
+
+    def replace_placeholder(match):
+        key = match.group(1)
+        if key not in values:
+            raise ValueError(f"Unknown placeholder: {key}")
+        return values[key]
+
+    import re
+    pattern = r'\{([^{}]+)\}'
+    filled_template = re.sub(pattern, replace_placeholder, template)
+
+    return filled_template
+```

@@ -1,0 +1,31 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== "string" || name === "" || name.includes("*")) {
+    throw new Error("name must be a star-free non-empty string");
+  }
+
+  const validSelector = (selector: string) => selector.endsWith(".*") && !selector.startsWith("*");
+
+  for (const [selector, value] of Object.entries(rules)) {
+    if (!validSelector(selector)) continue;
+
+    let prefixMatch = false;
+    const segments = name.split(/\./);
+
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i] === "*") {
+        return value;
+      }
+      if (selector.startsWith("*")) {
+        if (i === 0) prefixMatch = true;
+      } else if (prefixMatch && selector === segments.slice(0, i + 1).join(".")) {
+        return value;
+      }
+    }
+
+    if (selector === "*") return value;
+  }
+
+  return null;
+}
+```

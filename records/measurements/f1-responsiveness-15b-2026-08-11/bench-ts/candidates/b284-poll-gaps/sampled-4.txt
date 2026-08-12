@@ -1,0 +1,29 @@
+```ts
+export function pollGaps(minutes: number[]): number[] {
+  if (minutes.length < 2) {
+    return [];
+  }
+
+  let firstRunIndex = 0;
+  for (let i = 1; i < minutes.length; i++) {
+    if (minutes[i] !== minutes[i - 1]) {
+      firstRunIndex = i;
+      break;
+    }
+  }
+
+  if (firstRunIndex === minutes.length - 1) {
+    return [];
+  }
+
+  let lastRunIndex = minutes.length - 1;
+  for (let i = minutes.length - 2; i >= 0; i--) {
+    if (minutes[i] !== minutes[i + 1]) {
+      lastRunIndex = i;
+      break;
+    }
+  }
+
+  return [minutes[lastRunIndex] - minutes[firstRunIndex]];
+}
+```

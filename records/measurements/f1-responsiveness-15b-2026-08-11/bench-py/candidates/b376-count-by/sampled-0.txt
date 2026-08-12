@@ -1,0 +1,24 @@
+```python
+def count_by(records: list, field: str) -> dict:
+    if not isinstance(field, str):
+        raise ValueError("field must be a string")
+    
+    counter = {}
+    for record in records:
+        value = getattr(record, field)
+        if value is None:
+            continue
+        
+        if not value:
+            continue
+        
+        if not isinstance(value, (int, float, str)):
+            continue
+        
+        if value in counter:
+            counter[value] += 1
+        else:
+            counter[value] = 1
+    
+    return counter
+```

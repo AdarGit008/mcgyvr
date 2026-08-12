@@ -1,0 +1,10 @@
+```python
+def pad_code(code: str, width: int) -> str:
+    """A code padded with zeros to a fixed width."""
+    if len(code) >= width:
+        return code
+    else:
+        return "0" * (width - len(code)) + code
+```
+
+The original function `ljust` pads the string from right to left, which was not in line with the problem description. The new implementation iterates from the start of the string and pads it from left until the desired width is reached, ensuring that all characters are zeros except for the first incomplete section.

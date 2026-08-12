@@ -1,0 +1,37 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+  if (!Array.isArray(passes) || passes.length === 0) throw new Error("Pass list must not be empty.");
+
+  const trips = tripDays.filter(day => typeof day === 'number' && day > 0).sort((a, b) => a - b);
+  const sortedPasses = [...passes].sort((a, b) => a.span - b.span);
+
+  let totalCost = 0;
+  const purchases: number[][] = [];
+
+  for (let i = 0; i < trips.length; i++) {
+    let minCost = Infinity;
+    let bestPurchaseIndex = -1;
+
+    for (let j = 0; j < sortedPasses.length; j++) {
+      const { span, cost } = sortedPasses[j];
+      if (trips[i] + span > trips[trips.length - 1]) break;
+      const remainingDays = trips.slice(i).filter(day => day <= trips[i] + span - 1);
+      if (remainingDays.length < span) continue;
+
+      const currentCost = cost * Math.ceil(remainingDays.length / span);
+      if (currentCost < minCost) {
+        minCost = currentCost;
+        bestPurchaseIndex = j;
+      }
+    }
+
+    if (bestPurchaseIndex === -1) throw new Error("No pass can cover the trip day.");
+    const [startDay, span] = sortedPasses[bestPurchaseIndex];
+    totalCost += minCost;
+    purchases.push([startDay, span]);
+  }
+
+  return { total: totalCost, purchases };
+}
+```

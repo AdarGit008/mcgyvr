@@ -1,0 +1,57 @@
+```ts
+type Cut = { takings: number; pieces: number[] };
+
+/**
+ * Cut a fabric roll for the greatest takings the price board allows.
+ */
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("length must be a non-negative whole number");
+  }
+
+  // Sort boards by length in descending order
+  const sortedBoard = [...board].sort((a, b) => b[0] - a[0]);
+
+  // Initialize DP arrays
+  const dp: number[] = Array(length + 1).fill(0);
+  const prev: number[] = Array(length + 1).fill(0);
+
+  // Fill DP arrays
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let maxLength = 0;
+
+    sortedBoard.forEach(([piece, price]) => {
+      if (piece <= i) {
+        const currentTakings = dp[i - piece] + price;
+        if (currentTakings > maxTakings) {
+          maxTakings = currentTakings;
+          maxLength = piece;
+        }
+      }
+    });
+
+    dp[i] = maxTakings;
+    prev[i] = maxLength;
+  }
+
+  // Trace back to reconstruct the solution
+  const pieces: number[] = [];
+  let i = length;
+
+  while (i > 0) {
+    if (prev[i] === 0) {
+      pieces.push(0);
+      i -= 1;
+    } else {
+      pieces.push(prev[i]);
+      i -= prev[i];
+    }
+  }
+
+  // Reverse the pieces array to get the correct order
+  pieces.reverse();
+
+  return { takings: dp[length], pieces };
+}
+```

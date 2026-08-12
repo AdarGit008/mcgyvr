@@ -1,0 +1,40 @@
+```python
+def find_free_run(words: list[int], capacity: int, length: int) -> int:
+    if capacity <= 0 or not isinstance(capacity, int):
+        raise ValueError("Capacity must be a positive integer")
+    if not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Bitmap contains invalid values")
+    expected_words = (capacity + 31) // 32
+    if len(words) != expected_words:
+        raise ValueError(f"Word count {len(words)} does not match capacity {capacity}")
+    if length <= 0 or not isinstance(length, int):
+        raise ValueError("Length must be a positive integer")
+
+    for start in range(expected_words - length + 1):
+        free = True
+        for i in range(start, start + length):
+            if any(bit_at(words, j) == 1 for j in range(i * 32, (i + 1) * 32)):
+                free = False
+                break
+        if free:
+            return start
+
+    return -1
+
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    new_words = words[:]
+    for i in range(start, start + length):
+        word_index, bit_index = divmod(i * 32, 32)
+        if any(bit_at(new_words, j) == 1 for j in range(word_index * 32, (word_index + 1) * 32)):
+            raise ValueError("Run touches an occupied block")
+        new_words[word_index] |= 1 << bit_index
+    return new_words
+
+
+def bit_at(words: list[int], index: int) -> int:
+    word_index, bit_index = divmod(index, 32)
+    if not (0 <= word_index < len(words)):
+        raise ValueError("Index out of bounds")
+    return (words[word_index] >> bit_index) & 1
+```

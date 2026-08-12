@@ -1,0 +1,16 @@
+id: b281-tier-cost
+task_type: function_implementation
+task: >-
+  Implement tier_cost. Units are charged at a first rate up to an
+  included allowance and at a second rate for everything beyond it.
+  Return the cost of a number of units in whole pence. Usage inside
+  the allowance is charged at the first rate only. Reject with an
+  error a number of units below zero.
+target: solution.py
+interface: "def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int"
+stop_conditions:
+  - Whether an allowance below zero should be treated as no allowance at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

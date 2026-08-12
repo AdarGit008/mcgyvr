@@ -1,0 +1,15 @@
+id: b352-score-scale
+task_type: function_implementation
+task: >-
+  Implement scoreScale. Restate a mark given out of one total as a
+  mark out of another, rounded down. A mark standing above the total
+  it was given out of still cannot pass the new total, and a total of
+  nothing to scale from gives a mark of nothing.
+target: solution.ts
+interface: "export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number"
+stop_conditions:
+  - Whether a mark below zero should scale in the same way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

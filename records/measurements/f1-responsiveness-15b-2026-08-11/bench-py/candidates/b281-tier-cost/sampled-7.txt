@@ -1,0 +1,13 @@
+```python
+def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int:
+    if units < 0:
+        raise ValueError("Number of units cannot be negative")
+    
+    if allowance <= 0:
+        return units * first_rate
+    
+    chargeable_units = min(units, allowance)
+    remaining_units = max(0, units - allowance)
+    
+    return chargeable_units * first_rate + remaining_units * later_rate
+```

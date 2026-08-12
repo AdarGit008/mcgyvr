@@ -1,0 +1,40 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  if (!span.match(/^([0-9]{2}):([0-9]{2})-([0-9]{2}):([0-9]{2})$/)) {
+    throw new Error("Invalid span format");
+  }
+  if (booked.some(appointment => !appointment.match(/^([0-9]{2}):([0-9]{2})-([0-9]{2}):([0-9]{2})$/))) {
+    throw new Error("Invalid appointment format");
+  }
+
+  const [startHour, startMinute, endHour, endMinute] = span.split(':').map(Number);
+  const [bookedStartHours, bookedStartMinutes, bookedEndHours, bookedEndMinutes] = booked.map(appointment => {
+    const [hour, minute] = appointment.split(':').map(Number);
+    return { hour, minute };
+  });
+
+  const sortedBookedAppointments = [...bookedStarts, ...bookedEnds].sort((a, b) => {
+    if (a.hour !== b.hour) return a.hour - b.hour;
+    return a.minute - b.minute;
+  });
+
+  let start = [startHour, startMinute];
+  let result: string[] = [];
+
+  for (const { hour, minute } of sortedBookedAppointments) {
+    const next = [hour, minute];
+    if (start[0] < next[0] || (start[0] === next[0] && start[1] <= next[1])) {
+      // The current interval is fully covered by the booked appointment
+      continue;
+    }
+    result.push(`${String(start[0]).padStart(2, '0')}:${String(start[1]).padStart(2, '0')}-${String(next[0]).padStart(2, '0')}:${String(next[1]).padStart(2, '0')}`);
+    start = next;
+  }
+
+  if (result.length === 0) {
+    result.push("none");
+  }
+
+  return result.join(", ");
+}
+```

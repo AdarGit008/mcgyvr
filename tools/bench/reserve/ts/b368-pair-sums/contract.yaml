@@ -1,0 +1,14 @@
+id: b368-pair-sums
+task_type: function_implementation
+task: >-
+  Implement pairSums. Return the total of each neighbouring pair of
+  readings, in order, so four readings give three totals. Fewer than
+  two readings hold no pair at all and give an empty list.
+target: solution.ts
+interface: "export function pairSums(readings: number[]): number[]"
+stop_conditions:
+  - Whether a reading may be paired with one further away is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

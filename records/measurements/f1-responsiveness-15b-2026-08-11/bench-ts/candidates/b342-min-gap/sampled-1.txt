@@ -1,0 +1,18 @@
+```ts
+/** The smallest difference between any two values. */
+export function minGap(values: number[]): number {
+  if (values.length < 2) {
+    throw new Error('At least two numbers are required to calculate a gap.');
+  }
+
+  let smallest = Math.abs(values[1] - values[0]);
+  for (let i = 1; i < values.length - 1; i++) {
+    const gap = Math.abs(values[i + 1] - values[i]);
+    if (gap < smallest) {
+      smallest = gap;
+    }
+  }
+
+  return smallest;
+}
+```

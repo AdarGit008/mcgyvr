@@ -1,0 +1,16 @@
+id: b371-drop-every
+task_type: function_implementation
+task: >-
+  Implement keepIndex and dropEvery. keepIndex says whether the entry
+  at a place survives when every nth entry is dropped, places being
+  counted from one. dropEvery returns the entries that survive, in
+  order.
+target: solution.ts
+interface: "export function keepIndex(place: number, every: number): boolean
+export function dropEvery(entries: string[], every: number): string[]"
+stop_conditions:
+  - What dropping every entry, that is a count of one, should leave is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

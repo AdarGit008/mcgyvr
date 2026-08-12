@@ -1,0 +1,34 @@
+```ts
+/** Work stretches of a shift: span-long, rest-separated, short tails dropped. */
+export function carveShift(
+  start: number,
+  end: number,
+  span: number,
+  rest: number,
+  least: number,
+): number[][] {
+  if (start >= end) {
+    throw new Error("shift start must precede its end");
+  }
+  if (span < 1 || rest < 1) {
+    throw new Error("span and rest must be at least 1");
+  }
+  if (least < 1 || least > span) {
+    throw new Error("least must be between 1 and span");
+
+  const result: number[][] = [];
+  let current = start;
+
+  while (current < end) {
+    const nextEnd = Math.min(current + span, end);
+    if (nextEnd - current >= least) {
+      result.push([current, nextEnd]);
+      current = nextEnd + rest;
+    } else {
+      break;
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,43 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+  return line.split(',').map(tag => tag.trim()).filter(tag => tag);
+}
+
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  if (!Array.isArray(lines)) {
+    throw new Error('Input must be an array of strings.');
+  }
+
+  const index: Record<string, string[]> = {};
+
+  for (const line of lines) {
+    try {
+      const tags = tagsOf(line);
+      for (const tag of tags) {
+        index[tag] ||= [];
+        index[tag].push(line);
+      }
+    } catch (error) {
+      console.error(`Error processing line "${line}":`, error);
+      continue;
+    }
+  }
+
+  return index;
+}
+
+// Check function to verify the correctness of the solution
+function check() {
+  assert.deepStrictEqual(tagsOf("apple,banana,cherry"), ["apple", "banana", "cherry"], "tagsOf should split a comma-separated line into tags");
+  assert.deepStrictEqual(tagIndex(["apple,banana,cherry", "dog,eagle,fish"]), { apple: ["apple,banana,cherry"], banana: ["apple,banana,cherry"], cherry: ["apple,banana,cherry"], dog: ["dog,eagle,fish"], eagle: ["dog,eagle,fish"], fish: ["dog,eagle,fish"] }, "tagIndex should return a mapping from tags to lines");
+  assert.deepStrictEqual(tagsOf("   "), [], "tagsOf should reject an empty line");
+  assert.deepStrictEqual(tagIndex(["apple,banana,cherry", null]), { apple: ["apple,banana,cherry"], banana: ["apple,banana,cherry"], cherry: ["apple,banana,cherry"] }, "tagIndex should ignore null and undefined values in the input");
+}
+
+check();
+```

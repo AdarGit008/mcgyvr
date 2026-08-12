@@ -1,0 +1,16 @@
+id: b246-parcel-side
+task_type: function_implementation
+task: >-
+  Implement parcel_girth and parcel_oversize. parcel_girth is twice
+  the width plus twice the height. parcel_oversize says whether a
+  parcel breaks a carrier limit: its length added to its girth must
+  stay at or under the limit, and only a parcel strictly above it is
+  oversize.
+target: solution.py
+interface: "def parcel_girth(width: int, height: int) -> int\ndef parcel_oversize(length: int, width: int, height: int, limit: int) -> bool"
+stop_conditions:
+  - Which of the three sides counts as the length when a parcel is turned on its side is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

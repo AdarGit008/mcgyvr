@@ -1,0 +1,15 @@
+id: b437-overlap-any
+task_type: function_implementation
+task: >-
+  Implement overlap_any. Given bookings each written as a start and an
+  end, say whether any two of them overlap. A booking that ends
+  exactly where another begins does not overlap it, and fewer than two
+  bookings never overlap.
+target: solution.py
+interface: "def overlap_any(bookings: list) -> bool"
+stop_conditions:
+  - Whether a booking may end before it starts is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,56 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict):
+        raise ValueError("Node must be a dictionary")
+    name = node.get('name')
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    if '/' in name:
+        raise ValueError("Name cannot contain a slash")
+    bytes_ = node.get('bytes')
+    children = node.get('children')
+    if (bytes_ is None) == (children is None):
+        raise ValueError("Node must have either 'bytes' or 'children'")
+    if bytes_ is not None and not isinstance(bytes_, int) or (isinstance(bytes_, int) and bytes_ < 0):
+        raise ValueError("Bytes must be a non-negative integer")
+    if children is not None and not isinstance(children, list):
+        raise ValueError("Children must be a list")
+
+def validate_min_bytes(min_bytes):
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer")
+
+def file_paths(root: dict) -> list:
+    def _file_paths(node, path=""):
+        validate_node(node)
+        if 'children' in node:
+            for child in node['children']:
+                yield from _file_paths(child, f"{path}/{node['name']}")
+        else:
+            yield f"{path}/{node['name']}"
+    return list(_file_paths(root))
+
+def tree_bytes(root: dict) -> int:
+    def _tree_bytes(node):
+        validate_node(node)
+        if 'bytes' in node:
+            return node['bytes']
+        else:
+            return sum(_tree_bytes(child) for child in node['children'])
+    return _tree_bytes(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    validate_node(root)
+    validate_min_bytes(min_bytes)
+    
+    def _heavy_folders(node, path=""):
+        validate_node(node)
+        bytes_ = tree_bytes(node)
+        if bytes_ >= min_bytes:
+            yield [path, bytes_]
+        if 'children' in node:
+            for child in node['children']:
+                yield from _heavy_folders(child, f"{path}/{node['name']}")
+    
+    return list(_heavy_folders(root))
+```

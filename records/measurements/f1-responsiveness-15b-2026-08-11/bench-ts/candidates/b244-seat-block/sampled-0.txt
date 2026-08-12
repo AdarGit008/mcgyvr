@@ -1,0 +1,17 @@
+```ts
+/**
+ * Extracts the row number and letter from a seat label.
+ * @param label - The seat label to parse.
+ * @returns An array containing the row number and the letter, or an error message if invalid.
+ */
+export function seatBlock(label: string): (number | string)[] {
+  const regex = /^(\d+)([A-Z])$/;
+  const match = label.match(regex);
+  if (!match) {
+    return `'${label}' is not a valid run of digits followed by exactly one capital letter.'`;
+  }
+  const rowNumber = parseInt(match[1], 10);
+  const seatLetter = match[2];
+  return [rowNumber, seatLetter];
+}
+```

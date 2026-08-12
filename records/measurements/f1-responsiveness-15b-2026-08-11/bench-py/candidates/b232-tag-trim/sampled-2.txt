@@ -1,0 +1,11 @@
+```python
+def tag_trim(tag: str) -> str:
+    if not tag or ': ' in tag or '#:' in tag:
+        return tag.strip('#:')
+    elif tag.startswith('#'):
+        return tag[1:].strip(':')
+    elif tag.endswith(':'):
+        return tag[:-1].strip('#')
+    else:
+        return tag
+```

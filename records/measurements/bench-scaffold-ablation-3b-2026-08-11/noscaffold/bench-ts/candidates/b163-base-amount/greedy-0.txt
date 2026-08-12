@@ -1,0 +1,30 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("Amount must be a non-negative whole number.");
+  }
+  if (unit !== base && !defs[unit]) {
+    throw new Error(`Unit "${unit}" is not defined.`);
+  }
+
+  const convert = (amount: number, unit: string): number => {
+    const def = defs[unit];
+    if (!def) {
+      throw new Error(`Unit "${unit}" is not defined.`);
+    }
+    const [factor, finer] = def;
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("Factor must be a positive whole number.");
+    }
+
+    return amount * factor + convert(amount, finer);
+  };
+
+  try {
+    return convert(amount, unit);
+  } catch (error) {
+    console.error(error.message); // For debugging purposes
+    throw error;
+  }
+}
+```

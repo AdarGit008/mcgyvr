@@ -1,0 +1,12 @@
+```python
+def digit_count(value: int) -> int:
+    if value == 0:
+        return 1  # A zero is written with one digit.
+    elif value < 0:
+        value = -value  # Convert negative numbers to positive.
+    digits = 0
+    while value > 0:
+        digits += 1
+        value //= 10
+    return digits
+```

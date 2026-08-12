@@ -1,0 +1,32 @@
+id: b195-word-fields
+task_type: function_implementation
+task: >-
+  Implement describe_word. A controller packs its settings into a single
+  sixteen-bit word, and the fields list names those settings from the most
+  significant bit downward, each a two-item list of the setting's name and
+  its width in bits, the widths together covering all sixteen bits. Cut the
+  word into those settings, most significant first, and render each one as
+  its name, an equals sign and its reading, the renderings joined by
+  commas: a setting one bit wide reads on when its bit is set and off when
+  its bit is clear, while a wider setting reads as its unsigned value in
+  decimal. Return that rendering. Reject widths that do not add up to
+  sixteen, with an error.
+target: solution.py
+target_content: |
+  """Render a packed sixteen-bit settings word as named fields."""
+
+
+  def describe_word(word: int, fields: list) -> str:
+      if sum(width for _, width in fields) != 16:
+          raise ValueError("field widths must cover all sixteen bits")
+      parts = []
+      offset = 16
+      # TODO: cut each field off the top and render its reading
+      return ",".join(parts)
+interface: "def describe_word(word: int, fields: list) -> str"
+stop_conditions:
+  - Whether two fields may carry the same name is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

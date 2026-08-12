@@ -1,0 +1,35 @@
+```python
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str) or text == "":
+        raise ValueError("Input must be a non-empty string")
+
+    def parse_option(segment: str) -> list:
+        if not segment:
+            raise ValueError("Invalid option segment")
+        
+        try:
+            key_value = segment.split('=', 1)
+            key = key_value[0]
+            value = key_value[1] if len(key_value) > 1 else ""
+            
+            if not (key.isidentifier() and all(c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_' for c in key)):
+                raise ValueError("Invalid option key")
+                
+            value = value.strip('"')
+            
+            return [key, value]
+        except IndexError:
+            raise ValueError("Missing '=' in segment")
+
+    options = text.split(';')
+    result = []
+
+    for option in options:
+        if option.count('"') % 2 != 0:
+            raise ValueError("Quoted value is not closed")
+        
+        parsed = parse_option(option)
+        result.append(parsed)
+
+    return result
+```

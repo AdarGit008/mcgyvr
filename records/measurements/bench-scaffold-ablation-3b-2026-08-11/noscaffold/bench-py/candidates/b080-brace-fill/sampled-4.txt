@@ -1,0 +1,41 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replace placeholders in the template with values from the mapping.
+
+    :param template: A literal text holding placeholders enclosed in braces.
+    :param values: A dictionary containing the mappings for placeholder names to values.
+    :return: The filled template string.
+    """
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+    
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            start = i + 1
+            end = start
+            # Find the matching closing brace
+            while end < len(template) and template[end] != '}':
+                end += 1
+            
+            placeholder = template[start:end]
+            
+            # Validate the placeholder name
+            if not placeholder or not placeholder.isalnum():
+                raise ValueError(f"Invalid placeholder: {placeholder}")
+            
+            # Replace with the corresponding value from the dictionary
+            if placeholder in values:
+                result.append(values[placeholder])
+            else:
+                raise ValueError(f"Missing value for placeholder: {placeholder}")
+            
+            i = end + 1
+        else:
+            result.append(template[i])
+            i += 1
+    
+    return ''.join(result)
+```

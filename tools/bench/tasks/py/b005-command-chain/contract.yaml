@@ -1,0 +1,26 @@
+id: b005-command-chain
+task_type: function_implementation
+task: >-
+  Implement chain_of_command, headcount and widest_team over an
+  organisation chart. A chart node carries a name and a list called
+  reports holding the nodes for the people who report directly to it,
+  each of the same shape. chain_of_command walks the chart from its head
+  and returns the list of names leading from the head down to the given
+  person, both ends included; the head alone is a one-name chain. It
+  visits every node, and a node whose name is empty or not a string is
+  an error wherever it sits. A person found nowhere in the chart is an
+  error, as is a person found more than once, and a person argument
+  that is empty or not a string. headcount returns how many people the
+  chart holds, the head included. widest_team returns the largest count
+  of direct reports any single person has, zero when nobody has any.
+target: solution.py
+interface: |-
+  def chain_of_command(root: dict, person: str) -> list
+  def headcount(root: dict) -> int
+  def widest_team(root: dict) -> int
+stop_conditions:
+  - Whether a reports list may be missing rather than empty is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

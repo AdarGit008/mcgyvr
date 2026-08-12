@@ -1,0 +1,22 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if not isinstance(volume_a, int) or not isinstance(strength_a, int) or not isinstance(volume_b, int) or not isinstance(strength_b, int):
+        raise ValueError("All inputs must be integers.")
+    
+    if not 1 <= volume_a <= 1000 and not 1 <= strength_a <= 100:
+        raise ValueError("Volume and strength must be between 1 and 100.")
+    
+    if not isinstance(volume_b, int) or not isinstance(strength_b, int):
+        raise ValueError("All inputs must be integers.")
+    
+    if not 1 <= volume_b <= 1000 and not 1 <= strength_b <= 100:
+        raise ValueError("Volume and strength must be between 1 and 100.")
+    
+    total_volume = volume_a + volume_b
+    total_strength = (volume_a * strength_a + volume_b * strength_b) // total_volume
+    
+    if total_strength > 100:
+        return 100
+    
+    return total_strength
+```

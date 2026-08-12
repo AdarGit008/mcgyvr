@@ -1,0 +1,45 @@
+id: b094-relay-chain
+task_type: bug_fix
+task: >-
+  traceRelay walks a courier relay directory and mishandles broken and
+  circular chains. The directory maps each station's name to the name of
+  the station a parcel is handed to next, with the empty string marking a
+  station where the relay ends. Walking from start, the function must
+  return every station visited, in hand-off order, from start through the
+  terminal station inclusive. As written, a link naming a station the
+  directory does not hold is quietly taken as the end of the relay, and a
+  chain that circles back onto an earlier station returns a truncated
+  walk instead of failing. Fix both: reject a link to a station absent
+  from the directory and reject a relay that reaches any station twice,
+  with an error. Also add the missing validation: reject a start that is
+  not a string or is not in the directory, an empty string among the
+  directory's station names, and a link value that is not a string, with
+  an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Walks a courier relay directory station by station. */
+
+  export function traceRelay(links: Record<string, string>, start: string): string[] {
+    if (!(start in links)) {
+      throw new Error("unknown starting station");
+    }
+    const path: string[] = [];
+    let current = start;
+    const bound = Object.keys(links).length;
+    for (let step = 0; step < bound; step++) {
+      path.push(current);
+      const next = links[current];
+      if (next === "" || !(next in links)) {
+        return path;
+      }
+      current = next;
+    }
+    return path;
+  }
+interface: "export function traceRelay(links: Record<string, string>, start: string): string[]"
+stop_conditions:
+  - An upper bound on the length of a relay chain is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

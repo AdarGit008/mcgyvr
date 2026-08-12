@@ -1,0 +1,43 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+    if (
+        !Array.isArray(listing) ||
+        !Array.isArray(rules) ||
+        listing.some((p) => typeof p !== 'string' || p === '') ||
+        rules.some((r) => typeof r !== 'string' || (r.startsWith('!') && r.length === 1))
+    ) {
+        throw new Error('Invalid input');
+    }
+
+    const normalizedRules = rules.map(rule => {
+        if (rule.startsWith('!')) {
+            return { type: 'keep', pattern: rule.slice(1).split('/') };
+        } else {
+            return { type: 'drop', pattern: rule.split('/') };
+        }
+    });
+
+    const isValidSegment = (segment: string) => segment && segment !== '..' && !/\/$/.test(segment);
+
+    const matchesPattern = (pathSegments: string[], patternSegments: string[]): boolean => {
+        if (patternSegments.length > pathSegments.length) return false;
+        for (let i = 0; i < patternSegments.length; i++) {
+            const patternSegment = patternSegments[i];
+            const pathSegment = pathSegments[i];
+            if (patternSegment === '*') continue;
+            if (patternSegment !== pathSegment && !isValidSegment(pathSegment)) return false;
+        }
+        return true;
+    };
+
+    const matchesAnyRule = (path: string): boolean => {
+        const pathSegments = path.split('/').filter(isValidSegment);
+        for (const rule of normalizedRules) {
+            if (matchesPattern(pathSegments, rule.pattern)) return true;
+        }
+        return false;
+    };
+
+    return listing.filter(matchesAnyRule);
+}
+```

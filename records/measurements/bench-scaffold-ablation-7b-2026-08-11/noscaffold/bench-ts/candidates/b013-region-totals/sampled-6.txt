@@ -1,0 +1,43 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0 || grid[0].length === 0) {
+        throw new Error("Grid must have at least one row and one cell.");
+    }
+
+    const rowCount = grid.length;
+    const colCount = grid[0].length;
+
+    for (let row of grid) {
+        if (row.length !== colCount) {
+            throw new Error("All rows must have the same number of cells.");
+        }
+        for (let num of row) {
+            if (!Number.isInteger(num)) {
+                throw new Error("Grid cells must be integers.");
+            }
+        }
+    }
+
+    for (let query of queries) {
+        if (query.length !== 4) {
+            throw new Error("Each query must have exactly four integers.");
+        }
+        const [top, left, bottom, right] = query;
+        if (top >= bottom || left >= right || top < 0 || bottom > rowCount || left < 0 || right > colCount) {
+            throw new Error("Invalid query indices.");
+        }
+    }
+
+    const prefixSum: number[][] = Array.from({ length: rowCount + 1 }, () => Array(colCount + 1).fill(0));
+
+    for (let i = 1; i <= rowCount; i++) {
+        for (let j = 1; j <= colCount; j++) {
+            prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+        }
+    }
+
+    return queries.map(([top, left, bottom, right]) => {
+        return prefixSum[bottom][right] - prefixSum[top][right] - prefixSum[bottom][left] + prefixSum[top][left];
+    });
+}
+```

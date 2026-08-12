@@ -1,0 +1,17 @@
+id: b294-ramp-plan
+task_type: function_implementation
+task: >-
+  Implement rampStep and rampPlan. rampStep returns the next value
+  moving from one value toward a target by at most a given step, never
+  overshooting the target. rampPlan returns every value visited going
+  from a start to a target, both ends included. A start already at the
+  target gives just that one value.
+target: solution.ts
+interface: "export function rampStep(current: number, target: number, step: number): number
+export function rampPlan(start: number, target: number, step: number): number[]"
+stop_conditions:
+  - What should happen when the step is zero and the start is not already at the target is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

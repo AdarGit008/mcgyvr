@@ -1,0 +1,38 @@
+```ts
+import { ceil } from "mathjs";
+
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) throw new Error(`Kit '${kit}' not found in catalog`);
+  
+  const getPartsConsumed = (component: string, wantedUnits: number, currentRecipes: Set<string>): [number, Set<string>] => {
+    if (!catalog[component]) throw new Error(`Component '${component}' not found in catalog`);
+    
+    const { makes, parts } = catalog[component];
+    let totalConsumed = 0;
+    const uniqueRecipeIds = new Set(currentRecipes);
+
+    for (const [part, count] of parts) {
+      if (!catalog[part]) throw new Error(`Part '${part}' not found in catalog`);
+      
+      const { makes: partMakes } = catalog[part];
+      const requiredUnits = ceil(wantedUnits / makes);
+      totalConsumed += requiredUnits * count;
+      
+      if (uniqueRecipeIds.has(part)) continue;
+      
+      uniqueRecipeIds.add(part);
+      const [partConsumed, partRecipes] = getPartsConsumed(part, requiredUnits, uniqueRecipeIds);
+      totalConsumed += partConsumed;
+    }
+    
+    return [totalConsumed, uniqueRecipeIds];
+  };
+
+  const { totalConsumed } = getPartsConsumed(kit, want, new Set([kit]));
+  
+  return catalog.reduce((acc, item) => {
+    acc[item.name] = 0;
+    return acc;
+  }, {} as Record<string, number>);
+}
+```

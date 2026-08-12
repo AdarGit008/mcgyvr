@@ -1,0 +1,31 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error('Total must be a non-negative integer');
+  }
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Weights must be a non-empty array of positive integers');
+  }
+  if (weights.some(weight => !Number.isInteger(weight) || weight <= 0)) {
+    throw new Error('All weights must be positive integers');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const basePart = Math.floor(total * 100 / totalWeight) / 100;
+  const fractionalParts = weights.map(weight => (weight / totalWeight - basePart).toFixed(2));
+  let remainingCents = Math.round((total * 100) % totalWeight);
+
+  return weights.map((_, index) => {
+    const fraction = parseFloat(fractionalParts[index]);
+    if (fraction !== 0) {
+      const part = basePart + fraction;
+      if (remainingCents > 0) {
+        remainingCents--;
+        return Math.round(part * 100) / 100; // Ensure rounding is correct
+      }
+      return part;
+    }
+    return basePart;
+  });
+}
+```

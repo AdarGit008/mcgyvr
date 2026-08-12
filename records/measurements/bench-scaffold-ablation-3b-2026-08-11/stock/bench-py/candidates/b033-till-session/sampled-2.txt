@@ -1,0 +1,63 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+
+    cart = {}
+    total = 0
+    paid = 0
+    state = OPEN
+
+    for event in events:
+        if len(event) != 2:
+            raise ValueError("event must be a list with exactly two elements")
+        
+        action, payload = event
+        
+        if not isinstance(payload, str):
+            raise ValueError("payload of event must be a string: " + str(event))
+
+        if state == OPEN:
+            if action == "scan" and payload in prices:
+                cart.setdefault(payload, 0)
+                cart[payload] += 1
+                total += prices[payload]
+            elif action == "void":
+                if payload in cart:
+                    cart[payload] -= 1
+                    if cart[payload] == 0:
+                        del cart[payload]
+                    total -= prices[payload] if cart[payload] > 0 else 0
+            elif action == "close" and cart:
+                state = PAYMENT
+            else:
+                raise ValueError("illegal action in open session: " + str(event))
+        elif state == PAYMENT:
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("pay amount must be a positive integer: " + str(event))
+            paid += payload
+            change = total - paid
+            if paid >= total:
+                state = PAID
+                return {
+                    "items": sorted([(item, quantity) for item, quantity in cart.items()]),
+                    "total": total,
+                    "paid": paid,
+                    "change": change
+                }
+            else:
+                raise ValueError("pay amount not sufficient for total: " + str(event))
+        elif state == PAID or state == CANCELLED:
+            raise ValueError("illegal action after session is paid or cancelled: " + str(event))
+
+    raise ValueError("session ended illegally")
+```

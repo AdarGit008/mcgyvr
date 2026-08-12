@@ -1,0 +1,26 @@
+```ts
+export function lineTag(body: string): string {
+  if (typeof body !== "string") throw new Error("Line must be a string.");
+  if (body.length < 3) throw new Error("Line must be at least three characters long.");
+
+  let sum = 0;
+  for (let i = 0; i < body.length - 2; i++) {
+    const charCode = body.charCodeAt(i);
+    if (charCode >= 1 && charCode <= 126) { // Basic ASCII range
+      sum += charCode;
+    }
+  }
+
+  return ("0" + (sum % 256).toString(16)).slice(-2);
+}
+
+export function checkLine(line: string): string {
+  const tag = lineTag(line);
+
+  if (!line.endsWith("~")) throw new Error("Third-from-last character must be '~'.");
+  if (line.length <= 3) throw new Error("Line must be at least three characters long.");
+  if (line[line.length - 2] !== tag) throw new Error("Tag does not match body.");
+
+  return line.substring(0, line.indexOf("~"));
+}
+```

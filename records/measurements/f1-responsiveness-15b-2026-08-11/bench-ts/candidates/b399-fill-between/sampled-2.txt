@@ -1,0 +1,19 @@
+```ts
+// solution.ts
+
+/**
+ * Fills between every two neighbouring entries in the input array with a filler string.
+ * @param entries - The array of strings to be filled.
+ * @param filler - The string to fill between each pair of adjacent entries.
+ * @returns A new array with the filler inserted between each pair of adjacent entries.
+ */
+export function fillBetween(entries: string[], filler: string): string[] {
+  if (entries.length < 2) return entries; // No need for filler if there's only one or no entries
+
+  const result = [entries[0]]; // Start with the first entry
+  for (let i = 1; i < entries.length; i++) {
+    result.push(filler, entries[i]); // Add filler and the next entry
+  }
+  return result;
+}
+```

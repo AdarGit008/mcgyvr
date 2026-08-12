@@ -1,0 +1,20 @@
+```ts
+export function caseCount(text: string): number[] {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let capitalCount = 0;
+  let smallCount = 0;
+
+  for (const char of text) {
+    if (char >= 'A' && char <= 'Z') {
+      capitalCount++;
+    } else if (char >= 'a' && char <= 'z') {
+      smallCount++;
+    }
+  }
+
+  return [capitalCount, smallCount];
+}
+```

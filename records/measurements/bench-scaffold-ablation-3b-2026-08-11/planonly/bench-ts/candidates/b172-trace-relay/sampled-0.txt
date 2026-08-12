@@ -1,0 +1,34 @@
+```typescript
+type Post = string;
+
+export function traceRelay(links: Record<Post, Post>, start: Post): Post[] {
+    if (typeof links !== 'object' || !links) {
+        throw new Error('Invalid links argument: must be a mapping');
+    }
+
+    if (!Object.keys(links).includes(start)) {
+        throw new Error(`Start post '${start}' is not in links`);
+    }
+
+    const visitedPosts = new Set<Post>();
+    let currentPost = start;
+    const path: Post[] = [];
+
+    while (currentPost !== '') {
+        if (!visitedPosts.has(currentPost)) {
+            visitedPosts.add(currentPost);
+            path.push(currentPost);
+
+            if (links[currentPost] === undefined) {
+                throw new Error('Invalid handoff: links does not name post');
+            }
+
+            currentPost = links[currentPost];
+        } else {
+            throw new Error(`Watch comes back to a post already visited`);
+        }
+    }
+
+    return path;
+}
+```

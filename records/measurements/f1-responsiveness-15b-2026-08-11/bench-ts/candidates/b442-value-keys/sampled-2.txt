@@ -1,0 +1,17 @@
+```ts
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+    if (typeof store !== 'object' || store === null) {
+        throw new Error('Invalid input');
+    }
+
+    const result: Record<string, number> = {};
+    for (const key in store) {
+        if (!result[store[key]]) {
+            result[store[key]] = 0;
+        }
+        result[store[key]]++;
+    }
+
+    return result;
+}
+```

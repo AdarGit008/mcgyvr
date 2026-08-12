@@ -1,0 +1,8 @@
+```ts
+export function clipText(text: string, from: number, to: number): string {
+  if (from > text.length) {
+    throw new Error("First place is above the second");
+  }
+  return text.slice(from, Math.min(to + 1, text.length));
+}
+```

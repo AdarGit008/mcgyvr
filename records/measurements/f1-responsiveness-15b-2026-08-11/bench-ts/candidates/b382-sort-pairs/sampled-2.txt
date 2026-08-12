@@ -1,0 +1,33 @@
+```ts
+/**
+ * Retrieves the value associated with a specific field in a record or throws an error if the field does not exist.
+ * @param record - The record from which to retrieve the value.
+ * @param field - The name of the field to retrieve.
+ * @returns The value of the field, or throws an Error if the field does not exist.
+ */
+export function fieldOf(record: Record<string, number>, field: string): number {
+  if (!record.hasOwnProperty(field)) {
+    throw new Error(`Field ${field} not found in record.`);
+  }
+  return record[field];
+}
+
+/**
+ * Sorts an array of records by a specified field, breaking ties by leaving the earlier record earlier.
+ * @param records - The array of records to sort.
+ * @param field - The name of the field to use for sorting.
+ * @returns A new array of records sorted by the field.
+ */
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[] {
+  return records.sort((a, b) => {
+    const aValue = a[field];
+    const bValue = b[field];
+
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return aValue - bValue;
+    }
+
+    throw new Error(`Field ${field} must be comparable.`);
+  });
+}
+```

@@ -1,0 +1,74 @@
+```ts
+export function parseOption(segment: string): [string, string | null] {
+  if (typeof segment !== 'string' || segment === '') {
+    throw new Error("invalid input: expected a non-empty string");
+  }
+
+  const eq = segment.indexOf('=');
+  let key = segment.slice(0, eq);
+
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error(`malformed option segment: ${segment}`);
+  }
+
+  let raw = segment.slice(eq + 1);
+  const quoteIndex = raw.indexOf('"');
+
+  if (quoteIndex !== -1) {
+    // Unquoted value that is quoted inside a string
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      raw = raw.slice(1, -1).replace(/\\"/g, '"');
+    } else {
+      throw new Error(`unterminated quote in option segment: ${segment}`);
+    }
+  }
+
+  return [key, quoteIndex === -1 ? raw : null];
+}
+
+export function scanPairs(input: string): [string, string][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error("invalid input: expected a non-empty string");
+  }
+
+  const pairs: [string, string][] = [];
+  let currentPairKey: string | null = null;
+
+  for (let i = 0; i < input.length;) {
+    let key = '';
+    let eqIndex = -1;
+    let quoteIndex = -1;
+
+    // Find the next '=' and '"' characters
+    while (i < input.length && (eqIndex === -1 || quoteIndex === -1)) {
+      if (input[i] === '=') {
+        eqIndex = i;
+      }
+      if (input[i] === '"') {
+        quoteIndex = i;
+      }
+      i++;
+    }
+
+    // If there's no '=' or '"' character, it means the entire segment is a key
+    if (eqIndex === -1 && quoteIndex === -1) {
+      currentPairKey = key;
+      pairs.push([currentPairKey, null]);
+    } else {
+      const rawValue = input.slice(eqIndex + 1, quoteIndex !== -1 ? quoteIndex : input.length);
+      const [parsedKey, value] = parseOption(input.substring(eqIndex + 1));
+
+      if (pairs.some(([pairKey]) => pairKey === parsedKey)) {
+        throw new Error(`repeated key in option string: ${input}`);
+      }
+
+      pairs.push([parsedKey, value]);
+    }
+
+    // Move the pointer to after the current '=' or '"'
+    i = eqIndex !== -1 ? eqIndex + 1 : quoteIndex === -1 ? input.length : quoteIndex;
+  }
+
+  return pairs;
+}
+```

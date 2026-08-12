@@ -1,0 +1,21 @@
+id: b214-speaker-turns
+task_type: function_implementation
+task: >-
+  Implement foldTranscript. Every line of a transcript names a speaker,
+  then a colon, then what was said; only the first colon parts them, so
+  the words may carry colons of their own. Trim the speaker and the words
+  of surrounding spaces, and pass over a line whose words are empty once
+  trimmed — such a line interrupts nothing. Gather the surviving lines
+  into blocks: neighbouring lines from the same speaker make one block
+  whose text joins their words in order with a single space between, and a
+  speaker coming back after somebody else opens a fresh block. Return the
+  blocks in order, each carrying the speaker under speaker and the joined
+  words under text. Reject a line carrying no colon with an error.
+target: solution.ts
+interface: "export function foldTranscript(lines: string[]): { speaker: string; text: string }[]"
+stop_conditions:
+  - How a line whose speaker part is empty once trimmed should be treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

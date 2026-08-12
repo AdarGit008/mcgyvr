@@ -1,0 +1,16 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if mark < 0 or was_out_of <= 0 or now_out_of <= 0:
+        raise ValueError("Invalid input: mark must be non-negative and total marks cannot be zero.")
+    
+    if was_out_of == now_out_of:
+        return 0
+    
+    original_scale = (mark / was_out_of) * now_out_of
+    rounded_scale = int(original_scale + 0.5)
+    
+    if marked >= now_out_of:
+        return now_out_of
+    else:
+        return rounded_scale
+```

@@ -1,0 +1,15 @@
+id: b267-alias-map
+task_type: function_implementation
+task: >-
+  Implement aliasResolve and aliasNames. aliasResolve turns a name
+  into whatever it stands for, following one hop and no further, and
+  hands back the name itself when it stands for nothing. aliasNames
+  lists every name that stands for something, in alphabetical order.
+target: solution.ts
+interface: "export function aliasResolve(aliases: Record<string, string>, name: string): string\nexport function aliasNames(aliases: Record<string, string>): string[]"
+stop_conditions:
+  - Whether a name standing for itself should be reported as an alias is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

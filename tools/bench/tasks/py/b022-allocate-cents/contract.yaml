@@ -1,0 +1,57 @@
+id: b022-allocate-cents
+task_type: function_implementation
+task: >-
+  Implement allocate_cents, the allocator of a small fixed-point money
+  module whose two companions you must also provide. parse_amount turns a
+  decimal amount string — digits, optionally followed by a dot and exactly
+  two fraction digits, so "12.34" and "7" are valid — into integer cents,
+  and rejects any other text or a non-string with an error. format_amount
+  renders non-negative integer cents back into that dotted form with
+  exactly two fraction digits. allocate_cents splits total_cents across a
+  list of integer weights proportionally: every share starts at the floor
+  of its exact proportional value, and the cents left over are handed out
+  one apiece to the shares with the largest division remainders, earliest
+  index first on a tie, so the shares always sum exactly to total_cents. A
+  zero weight never receives a cent, and a zero total yields all-zero
+  shares. Reject an empty weight list, a weight that is not a non-negative
+  integer, weights that sum to zero, and a total that is not a
+  non-negative integer, with an error.
+target: solution.py
+target_content: |
+  """Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+  import re
+
+
+  def parse_amount(text: str) -> int:
+      if not isinstance(text, str):
+          raise ValueError("amount must be a string")
+      match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+      if match is None:
+          raise ValueError(f"malformed amount: {text}")
+      whole = int(match.group(1))
+      cents = 0 if match.group(2) is None else int(match.group(2))
+      return whole * 100 + cents
+
+
+  def format_amount(cents: int) -> str:
+      if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+          raise ValueError("cents must be a non-negative integer")
+      return f"{cents // 100}.{cents % 100:02d}"
+
+
+  def allocate_cents(total_cents: int, weights: list) -> list:
+      # TODO: validate the inputs, then hand out the leftover cents by
+      # largest remainder so the shares sum exactly to total_cents.
+      sum_w = sum(weights)
+      return [total_cents * weight // sum_w for weight in weights]
+interface: |-
+  def parse_amount(text: str) -> int
+  def format_amount(cents: int) -> str
+  def allocate_cents(total_cents: int, weights: list) -> list
+stop_conditions:
+  - Whether parse_amount accepts leading zeros in the integer part is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

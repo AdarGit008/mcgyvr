@@ -1,0 +1,16 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const placeholderPattern = /\{([a-zA-Z0-9_]+)\}/g;
+
+  return template.replace(placeholderPattern, (_, name) => {
+    if (!values.hasOwnProperty(name)) {
+      throw new Error(`Unknown placeholder: ${name}`);
+    }
+    return values[name];
+  });
+}
+```

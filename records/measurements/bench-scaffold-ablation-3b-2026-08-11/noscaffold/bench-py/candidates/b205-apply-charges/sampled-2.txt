@@ -1,0 +1,24 @@
+```python
+from typing import Dict, List
+
+def apply_charges(caps: Dict[str, Tuple[int, int]], charges: List[Tuple[int, str, int]]) -> Dict[str, Tuple[int, int]]:
+    if not all(isinstance(id, int) and isinstance(bucket, str) and isinstance(amount, int) for id, bucket, amount in charges):
+        raise ValueError("All charges must be integers.")
+    
+    left = caps.copy()
+    refused = []
+    
+    for charge_id, bucket, amount in charges:
+        if bucket not in caps:
+            refused.append((charge_id, "unknown"))
+            continue
+        allowance, single_charge = caps[bucket]
+        
+        if amount <= 0 or amount > single_charge:
+            refused.append((charge_id, "single" if amount > single_charge else "cap"))
+            continue
+        
+        left[bucket] -= amount
+    
+    return left, refused
+```

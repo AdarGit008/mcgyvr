@@ -1,0 +1,18 @@
+```ts
+// cellAt returns the value at a row and column of a grid, or nothing
+export function cellAt(grid: number[][], row: number, column: number): number {
+  if (!grid || !grid[row] || !grid[row][column]) return undefined;
+  return grid[row][column];
+}
+
+// diagOf returns the values running down the grid's main diagonal from
+// the top left, one for each row the grid holds.
+export function diagOf(grid: number[][]): number[] {
+  if (!grid) return [];
+  const result: number[] = [];
+  for (let i = 0; i < grid.length; i++) {
+    result.push(grid[i][i]);
+  }
+  return result;
+}
+```

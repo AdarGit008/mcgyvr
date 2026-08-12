@@ -1,0 +1,32 @@
+```ts
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') {
+    throw new Error('Invalid body type');
+  }
+  let sum = 0;
+  for (const char of body) {
+    sum += char.charCodeAt(0);
+  }
+  return sum.toString(16).padStart(2, '0').toLowerCase();
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Invalid line type');
+  }
+  if (line.length < 3) {
+    throw new Error('Line too short');
+  }
+  const tildeIndex = line.lastIndexOf('~');
+  if (tildeIndex === -1 || tildeIndex < 2) {
+    throw new Error('Invalid tilde position');
+  }
+  const body = line.slice(0, tildeIndex);
+  const tag = line.slice(tildeIndex + 1);
+  const expectedTag = lineTag(body);
+  if (tag !== expectedTag) {
+    throw new Error('Tag does not match body');
+  }
+  return body;
+}
+```

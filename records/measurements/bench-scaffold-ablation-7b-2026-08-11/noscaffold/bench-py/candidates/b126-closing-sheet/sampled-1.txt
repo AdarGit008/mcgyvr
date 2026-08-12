@@ -1,0 +1,43 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        parts = entry.split(':')
+        if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+            raise ValueError(f"Malformed sheet entry: {entry}")
+        return parts[0], int(parts[1])
+
+    def apply_moves(sheet: dict[str, int], move_entries: list[str]) -> dict[str, int]:
+        for move_entry in move_entries:
+            parts = move_entry.split('+')
+            if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+                raise ValueError(f"Malformed move: {move_entry}")
+            item, qty = parse_entry(f"{parts[0]}:{parts[1]}")
+            sheet[item] = sheet.get(item, 0) + int(qty)
+
+        for move_entry in move_entries:
+            parts = move_entry.split('-')
+            if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+                raise ValueError(f"Malformed move: {move_entry}")
+            item, qty = parse_entry(f"{parts[0]}:{parts[1]}")
+            if item not in sheet or sheet[item] < int(qty):
+                raise ValueError(f"Issue of more units than the item then holds: {item}-{qty}")
+            sheet[item] -= int(qty)
+            if sheet[item] == 0:
+                del sheet[item]
+
+        return sheet
+
+    opening_entries = [entry.strip() for entry in opening.split(';') if entry]
+    move_entries = [move.strip() for move in moves.split(';') if move]
+
+    if len(set(entry.split(':')[0] for entry in opening_entries)) != len(opening_entries):
+        raise ValueError("Duplicate name on the opening sheet")
+
+    sheet = dict(parse_entry(entry) for entry in opening_entries)
+    sheet = apply_moves(sheet, move_entries)
+
+    return ';'.join(f"{item}:{qty}" for item, qty in sorted(sheet.items()))
+```

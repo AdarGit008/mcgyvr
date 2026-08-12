@@ -1,0 +1,16 @@
+```ts
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (name === undefined || name === null) {
+    throw new Error("Name cannot be undefined or null");
+  }
+  return aliases[name] ?? name;
+}
+
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const resolved = Object.entries(aliases)
+    .filter(([key]) => key !== undefined && key !== null)
+    .map(([_, value])) =>
+      value === undefined || value === null ? key : value;
+  return resolved.sort();
+}
+```

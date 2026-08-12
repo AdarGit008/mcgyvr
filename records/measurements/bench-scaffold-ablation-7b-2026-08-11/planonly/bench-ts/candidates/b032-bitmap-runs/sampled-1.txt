@@ -1,0 +1,68 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer");
+  }
+
+  const capacityInWords = Math.ceil(bits / 32);
+  if (words.length !== capacityInWords) {
+    throw new Error("Word count disagrees with the capacity");
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    if (!Number.isInteger(word) || word < 0 || word > 4294967295) {
+      throw new Error("Bitmap word must be an integer from 0 to 4294967295");
+    }
+    if (i >= capacityInWords && word !== 0) {
+      throw new Error("Stray bits at or beyond the capacity are not allowed");
+    }
+  }
+
+  for (let start = 0; start <= bits - length * 32; start++) {
+    let freeCount = 0;
+    for (let i = start / 32 | 0; i < words.length && freeCount < length; i++) {
+      const word = words[i];
+      for (let j = Math.max(0, start % 32); j < 32 && freeCount < length; j++) {
+        if (!bitAt(words, start + freeCount)) {
+          freeCount++;
+        } else {
+          break;
+        }
+      }
+    }
+    if (freeCount === length) {
+      return start / 32 | 0;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  const newWords = [...words];
+  for (let i = start / 32 | 0; i < Math.ceil((start + length * 32) / 32); i++) {
+    if (i >= newWords.length) {
+      throw new Error("Run extends beyond the word list");
+    }
+    const setBit = (word: number, index: number): number => word | (1 << index);
+    newWords[i] = setBit(newWords[i], start % 32);
+    for (let j = start % 32 + 1; j < 32 && j - start % 32 < length; j++) {
+      if (bitAt(words, start + j - start % 32)) {
+        throw new Error("Run touches an occupied block");
+      }
+      newWords[i] = setBit(newWords[i], j);
+    }
+    start += 32;
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error("Index must be a non-negative integer");
+  }
+  const word = words[index / 32 | 0];
+  return (word >> (index % 32)) & 1;
+}
+```

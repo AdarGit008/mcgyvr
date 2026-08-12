@@ -1,0 +1,40 @@
+```python
+def line_tag(body: str) -> str:
+    """
+    Compute the tag for the given body string by summing its character codes modulo 256,
+    and format it as exactly two lowercase hexadecimal digits, zero-padded.
+    """
+    if not isinstance(body, str):
+        raise ValueError("Input must be a string.")
+    
+    total = sum(ord(char) for char in body)
+    return f"{total % 256:02x}"
+
+def check_line(line: str) -> str:
+    """
+    Verify the integrity of a tagged line and return its content.
+    The line must have exactly three characters.
+    The third-from-last character must be a tilde (~).
+    The last two characters must match the computed tag for the body up to that tilde.
+    An empty body is legal, but the total length is at least three characters.
+    """
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must have at least three characters.")
+    
+    last_char = line[-1]
+    third_from_last_char = line[-2]
+    
+    if third_from_last_char != '~':
+        raise ValueError("Third-from-last character must be '~'.")
+    
+    body = line[:-2]
+    computed_tag = line_tag(body)
+    
+    if last_char != computed_tag:
+        raise ValueError(f"Tag does not match the computed tag for the body: {computed_tag}")
+    
+    return body
+```

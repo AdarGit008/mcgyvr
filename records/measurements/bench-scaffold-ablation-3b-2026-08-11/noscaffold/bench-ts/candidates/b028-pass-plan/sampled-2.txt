@@ -1,0 +1,43 @@
+```typescript
+type PassInfo = { span: number; cost: number };
+
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: PassInfo[]
+): { total: number; purchases: number[][] } {
+  if (!tripDays || !Array.isArray(tripDays) || tripDays.some(day => typeof day !== 'number' || !Number.isInteger(day) || day <= 0)) {
+    throw new Error('Invalid trip days, must be a strictly increasing list of positive integers.');
+  }
+
+  if (!passes || !Array.isArray(passes) || passes.some(info => typeof info.span !== 'number' || typeof info.cost !== 'number' || info.span <= 0 || info.cost < 0)) {
+    throw new Error('Invalid pass information, must be a non-empty list of { span: positive integer, cost: non-negative integer } objects.');
+  }
+
+  const tripSet = new Set(tripDays);
+
+  if (tripSet.size !== tripDays.length) {
+    throw new Error('Duplicate trip days are not allowed.');
+  }
+
+  passes.sort((a, b) => a.cost - b.cost); // Sort by cost to find the cheapest plan first
+
+  let totalCost = 0;
+  const purchases: number[][] = [];
+  let currentEndDay = 0;
+
+  for (const pass of passes) {
+    while (currentEndDay < tripDays[tripDays.length - 1]) {
+      const nextDayToCover = Math.max(currentEndDay + 1, tripDays.find(day => day > currentEndDay)!);
+      if (nextDayToCover >= tripSet.size) break;
+
+      const daysToCover = Math.min(pass.span, tripDays.length - nextDayToCover + 1);
+      totalCost += pass.cost * daysToCover;
+      purchases.push([nextDayToCover, daysToCover]);
+
+      currentEndDay += daysToCover;
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

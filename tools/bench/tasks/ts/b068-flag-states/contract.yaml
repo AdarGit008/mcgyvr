@@ -1,0 +1,21 @@
+id: b068-flag-states
+task_type: function_implementation
+task: >-
+  Implement flagStates. A feature mask packs on-off flags into the bits of
+  a single non-negative integer, and a catalog lists the flag names in bit
+  order: the name at position i owns bit i, so a mask of 5 against read,
+  write, exec turns read and exec on and write off. Return a mapping that
+  holds every catalog name with its state as a boolean, true when the
+  flag's bit is set and false when it is clear. Reject a mask that is not
+  a non-negative integer, a catalog that is not a list holding at least
+  one name, a flag name that is not a non-empty string, a repeated flag
+  name, and a mask with a set bit at or beyond the catalog's length, with
+  an error.
+target: solution.ts
+interface: "export function flagStates(mask: number, catalog: string[]): Record<string, boolean>"
+stop_conditions:
+  - Whether a catalog longer than the machine word size must be supported is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

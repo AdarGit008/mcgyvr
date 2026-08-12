@@ -1,0 +1,16 @@
+id: b230-crate-fill
+task_type: function_implementation
+task: >-
+  Implement crate_fill and crate_total. crate_fill spreads a number of
+  items across a number of crates as evenly as it can, returning the
+  crate sizes largest first and handing the leftover items one each to
+  the leading crates. Asking for zero crates yields an empty list.
+  crate_total adds a list of crate sizes back up.
+target: solution.py
+interface: "def crate_fill(items: int, crates: int) -> list\ndef crate_total(sizes: list) -> int"
+stop_conditions:
+  - What a negative item count should produce is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

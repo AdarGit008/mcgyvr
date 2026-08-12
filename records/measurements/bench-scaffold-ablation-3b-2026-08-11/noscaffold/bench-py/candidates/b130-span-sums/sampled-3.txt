@@ -1,0 +1,63 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError("Span must contain exactly three parts.")
+    
+    yards, feet, inches = None, None, None
+    
+    units = {'yd': 36, 'ft': 12, 'in': 1}
+    values = []
+
+    for i in range(3):
+        if not parts[i].isdigit():
+            raise ValueError("Value must be a plain decimal integer.")
+        
+        value = int(parts[i])
+        unit = parts[i + 1]
+        
+        if unit not in units:
+            raise ValueError(f"Unknown unit: {unit}.")
+        
+        if values and values[-1] == units[unit]:
+            raise ValueError("Units cannot be repeated or out of order.")
+        
+        values.append(units[unit])
+    
+    if yards is None:
+        yards = 0
+    if feet is None:
+        feet = 0
+    if inches is None:
+        inches = 0
+    
+    return (yards * units['yd'] + feet * units['ft'] + inches)
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Inches must be a non-negative integer.")
+    
+    yards = inches // 36
+    remaining_inches = inches % 36
+    
+    feet = remaining_inches // 12
+    remaining_inches %= 12
+    
+    parts = []
+    
+    if yards > 0:
+        parts.append(f"{yards}yd")
+    if feet > 0:
+        parts.append(f"{feet}ft")
+    if remaining_inches > 0:
+        parts.append(f"{remaining_inches}in")
+    
+    return ' '.join(parts)
+
+def add_spans(first: str, second: str) -> str:
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

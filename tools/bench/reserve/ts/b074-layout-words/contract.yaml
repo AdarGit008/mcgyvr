@@ -1,0 +1,48 @@
+id: b074-layout-words
+task_type: bug_fix
+task: >-
+  layoutWords fills the lines of a fixed-width text column and overfills
+  them. Its helper lineWidth is already correct: a line of words is as wide
+  as its word lengths summed plus one space between each neighbouring pair,
+  and a line of no words has width zero. layoutWords places words greedily
+  in the given order: a word joins the current line when the line, with the
+  word and its joining space added, still fits within the column width, and
+  otherwise the word starts the next line. At present the fit check forgets
+  the joining space, so a built line can come out one character wider than
+  the column. Return the lines in order, each the list of words it carries,
+  with no empty lines; laying out no words gives no lines. Also add the
+  missing validation: reject a column width that is not a positive integer,
+  a word that is not a non-empty string, and a single word wider than the
+  whole column, with an error. lineWidth's behaviour must not change.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function lineWidth(words: string[]): number {
+    let width = 0;
+    for (const word of words) width += word.length;
+    return width + Math.max(words.length - 1, 0);
+  }
+
+  export function layoutWords(words: string[], width: number): string[][] {
+    const lines: string[][] = [];
+    let current: string[] = [];
+    for (const word of words) {
+      if (current.length === 0 || lineWidth(current) + word.length <= width) {
+        current.push(word);
+      } else {
+        lines.push(current);
+        current = [word];
+      }
+    }
+    if (current.length > 0) lines.push(current);
+    return lines;
+  }
+interface: |-
+  export function layoutWords(words: string[], width: number): string[][]
+  export function lineWidth(words: string[]): number
+stop_conditions:
+  - How a word that itself contains a space is treated is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

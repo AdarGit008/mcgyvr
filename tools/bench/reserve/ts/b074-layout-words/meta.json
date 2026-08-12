@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "data_structure",
+  "steering_band": "g0",
+  "target_symbol": {"ts": "layoutWords", "py": "layout_words"}
+}

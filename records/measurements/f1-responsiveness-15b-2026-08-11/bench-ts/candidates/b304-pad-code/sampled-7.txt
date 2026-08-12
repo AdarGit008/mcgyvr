@@ -1,0 +1,8 @@
+```ts
+/** A code padded with zeros to a fixed width. */
+export function padCode(code: string, width: number): string {
+  if (width <= 0) throw new Error("Width must be positive");
+  const padLength = Math.max(0, width - code.length);
+  return "0".repeat(padLength) + code;
+}
+```

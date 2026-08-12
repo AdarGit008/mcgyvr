@@ -1,0 +1,25 @@
+```ts
+function wordReverse(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return line.split(' ').map(word => {
+    let reversedWord = '';
+    for (let i = word.length - 1; i >= 0; i--) {
+      reversedWord += word[i];
+    }
+    return reversedWord;
+  }).join(' ');
+}
+
+// Check function to verify the correctness of the solution
+function check() {
+  console.assert(wordReverse("") === "", "Test with empty string failed");
+  console.assert(wordReverse("hello") === "olleh", "Test with single word 'hello' failed");
+  console.assert(wordReverse("world!") === "!dlrow", "Test with exclamation mark failed");
+  console.assert(wordReverse("this is a test") === "siht si a tset", "Test with multiple words failed");
+}
+
+check();
+```

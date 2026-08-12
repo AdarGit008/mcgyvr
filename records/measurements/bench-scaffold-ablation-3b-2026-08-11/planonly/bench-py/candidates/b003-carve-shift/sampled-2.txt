@@ -1,0 +1,33 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    """
+    Carve a shift into work stretches given start, end, span, rest, and least constraints.
+    Returns the stretches in order as [from, to) pairs of integers.
+    """
+
+    def validate_input():
+        if not (isinstance(start, int) and isinstance(end, int) and isinstance(span, int) and isinstance(rest, int) and isinstance(least, int)):
+            raise ValueError("All inputs must be whole numbers.")
+        if start >= end:
+            raise ValueError("Start must precede end.")
+        if span < 1 or rest < 1 or least < 1 or least > span:
+            raise ValueError("Span, rest, and least must be at least 1, and least cannot exceed span.")
+
+    validate_input()
+
+    stretches = []
+    while start < end:
+        # Calculate the next stretch size
+        if end - start >= span:
+            next_stretch_size = span
+        else:
+            next_stretch_size = end - start
+
+        # Add the work stretch to the list
+        stretches.append((start, min(start + next_stretch_size, end)))
+
+        # Skip rest units
+        start += rest
+
+    return stretches
+```

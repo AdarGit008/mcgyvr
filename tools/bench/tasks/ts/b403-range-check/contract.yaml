@@ -1,0 +1,15 @@
+id: b403-range-check
+task_type: function_implementation
+task: >-
+  Implement rangeCheck. Say whether every reading falls between a
+  stated low and high, both of those included. A run holding no
+  readings falls within any range. Reject a low standing above the
+  high with an error.
+target: solution.ts
+interface: "export function rangeCheck(readings: number[], low: number, high: number): boolean"
+stop_conditions:
+  - Whether a reading exactly on a bound should be reported apart is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

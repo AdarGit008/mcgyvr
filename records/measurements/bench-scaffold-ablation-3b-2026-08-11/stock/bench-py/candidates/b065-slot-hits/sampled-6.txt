@@ -1,0 +1,24 @@
+```python
+"""Count the hits a key stream scores on a direct-mapped cache."""
+
+
+def slot_hits(keys: list[int], slots: int) -> int:
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer.")
+    
+    held = [None] * slots
+    hits = 0
+    
+    for key in keys:
+        slot = key % slots
+        current_value = held[slot]
+        
+        if current_value is None or current_value == key:
+            held[slot] = key
+            hits += 1
+        else:
+            # Evict the existing value
+            held[slot] = key
+    
+    return hits
+```
