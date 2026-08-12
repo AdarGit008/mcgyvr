@@ -55,9 +55,13 @@ This is the third instance of one defect in one chain. ADR-0021 exists because
 D5 *"stated the number without stating its denominator"*; its own amendment
 records that the ambiguity *"survived one level down"*. It survived two.
 
-**Not decided here.** ADR-0021 states 8.2pp as a consequence and that figure is
-now wrong as written. Whether the record is amended a third time, and whether
-the 400 is re-read as 400 *bench-half* problems, is the owner's.
+**Amended after this session was written.** The owner approved the correction
+the same day and ADR-0021 carries a third amendment — *only the bench half is
+ever swept* — which withdraws the 8.2pp consequence and fixes the denominator as
+**paired cells actually swept**. It deliberately leaves three questions open:
+whether the 400 is re-read as 400 bench-half problems, whether the split changes
+prospectively, and whether the reserve is authored to the instrument's bar at
+all. All three wait on #231.
 
 ### 2. The sibling screen's premise, tested for the first time
 
@@ -178,8 +182,9 @@ which is the ordering `split.py`'s docstring exists to protect.
    No rig time.
 3. **The 0.55 warn band.** No measured support in the range it fires. The 0.70
    refusal keeps its justification and should stay.
-4. **ADR-0021's third amendment**, if the owner wants the 8.2pp consequence
-   corrected in the record rather than only here.
+4. ~~**ADR-0021's third amendment**~~ — **DONE**, approved by the owner
+   2026-08-12. The record now says the denominator is paired cells actually
+   swept, and names (1)–(3) above as the questions it does not settle.
 
 **Authoring stays paused.** `f1` is at 280 of 400, the brief is untouched, and
 nothing in this session re-aims it.

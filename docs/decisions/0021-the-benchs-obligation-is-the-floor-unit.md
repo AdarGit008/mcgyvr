@@ -160,6 +160,79 @@ outside it. The alarm the responsiveness run raised is substantially answered by
 fixing the denominator, and what remains is the open question of what the real
 per-lever `psi` is — **#231's to measure**, not this record's to assume.
 
+**That 8.2pp is withdrawn by the amendment below.** It is left standing here,
+struck rather than deleted, because the run records and session logs that quote
+it are evidence of what was believed on the day.
+
+## Amendment — 2026-08-12: only the bench half is ever swept
+
+The amendment above doubled for the two language arms and did not halve for the
+split. It counted **every authored problem**, and half of them are never
+dispatched.
+
+`tools/bench/split.py` assigns each admitted problem to the bench half or the
+reserve half from a salted hash of its id.
+[`docs/bench-design-2026-08-10.md`](../bench-design-2026-08-10.md) states the
+reserve is *"never swept in this lane: its representativeness comes from the
+construction, its difficulty is never measured here, and no rig tier serves
+it,"* and this record's own Consequences say *"the bench never depends on it."*
+It is #222's training material. The responsiveness run swept **135 bench-half
+ids and no reserve ids**, which is the rule working as designed.
+
+So an authored problem enters the statistic only if the split sent it to the
+bench. `f1` stands at 280 authored — **149 bench, 131 reserve**.
+
+> **DECIDED (2026-08-12, owner).** The denominator is **paired cells that are
+> actually swept** — bench-half problems, both arms. The reserve is authored
+> material and never instrument material, so it is counted in neither the MDE
+> nor any sizing figure.
+>
+> This corrects the amendment above rather than replacing it: a problem is still
+> worth two cells. It is worth **zero** if the split sent it to the reserve.
+
+Re-derive with `uv run python tools/bench/redundancy.py --section denominator`.
+At `psi_draw` = 0.659 and the realized 53.2% bench share:
+
+| authored | bench half | swept cells | MDE |
+|---:|---:|---:|---:|
+| 280 (today) | 149 | 298 | **13.4pp** |
+| 400 | 213 | 426 | **11.3pp** |
+| 800 | 426 | 852 | 8.0pp |
+
+**The two errors nearly cancel.** Doubling for arms without halving for the
+split returns almost exactly the 11.8pp the previous amendment was written to
+dispose of. **The completed 400 misses D5's +5 to +8pp rather than sitting at
+its edge**, and 800 swept cells needs roughly **790 authored problems**.
+
+This is one defect appearing a third time in one chain. This record exists
+because D5 *"stated the number without stating its denominator"*; the amendment
+above records that the ambiguity *"survived one level down"*. It survived two,
+and Decision (2)'s *"~400 paired problems per model measured"* is ambiguous in
+exactly the place that matters — it fixes which **model** is measured and never
+says whether the **problems** counted are the ones dispatched.
+
+**What this amendment does not decide.** Three questions follow from it and none
+is settled here:
+
+1. Whether the 400 is re-read as 400 *bench-half* problems (≈790 authored) or
+   the target resolution is re-priced against what 400 authored actually buys.
+2. Whether the remaining problems are assigned to the bench half by a declared,
+   prospective change to the split — which would cost the halves their
+   exchangeability, the *"difficulty-representative by construction"* property
+   #222 wanted.
+3. Whether the reserve continues to be authored to the instrument's bar at all.
+   [`docs/bench-sourcing-2026-08-10.md`](../bench-sourcing-2026-08-10.md)
+   justifies adopt-nothing by the bench being *"a measurement instrument"* whose
+   material must be non-public by construction; the reserve is not an
+   instrument, and it consumes 47% of every tranche.
+
+All three turn on the real per-lever `psi`, which is **#231's to measure**. At
+`psi` = 0.35 the same 400 authored resolve ~8.2pp and none of the three binds.
+**Nothing about the campaign's size should be decided before #231 reports.**
+
+Derivation and limits:
+`records/sessions/lane/225/2026-08-12-screen-and-denominator-adar.md`.
+
 ## Consequences
 
 - **The 1.5B is measured before it is designed for.** It has never been swept.
@@ -174,4 +247,7 @@ per-lever `psi` is — **#231's to measure**, not this record's to assume.
   Nothing in this record turns g0a/g0b into stratum points, and #224 must not
   read them as any.
 - **The reserve half keeps its equal size.** Nothing here changes #222's
-  capacity; the bench never depends on it.
+  capacity; the bench never depends on it. **That last clause is load-bearing
+  and was read too narrowly for a day** — because the bench never depends on the
+  reserve, reserve problems are not instrument material and cannot be counted
+  toward the 400. See the 2026-08-12 amendment on swept cells.
