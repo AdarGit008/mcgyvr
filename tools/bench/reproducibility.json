@@ -1,0 +1,15 @@
+{
+  "record": "reproducibility/1",
+  "issue": 113,
+  "doctrine": "The report states the deviation two identical runs may differ by, or states that none is declared. It never omits the property. A pass-rate table without it invites the reader to treat every delta as an effect, and the whole point of a condition matrix is that some of them are the instrument.",
+  "supplied_by": "#231. This issue built the declaration; the number that fills it is the null calibration's, and until #231 re-runs its null under the gate scorer (tools/bench/score.py — the acceptance-only figures it measured are not recoverable from a gate run, because Gate.run short-circuits) this list is correctly empty. An empty list is a state, not a gap: the report says 'not declared' and refuses to qualify anything.",
+  "matching": "A bound describes a run only when model, tier, gate_rungs and serving_build all match it. ADR-0019 D2 says the null is measured per target tier and does not transfer up the ladder; ADR-0024 says a serving build that nothing recorded has already moved results twice; and a bar that scores differently produces a different null, which is why gate_rungs is in the key rather than in the prose. Brittle on purpose — a null costs about 40 minutes to re-measure and a borrowed one costs a wrong published effect.",
+  "fields": {
+    "bound_pp": "The deviation the report declares, in percentage points. A contrast at or inside it is the instrument.",
+    "flips": "Verdicts that differed between the two runs.",
+    "cells": "Paired cells compared — the denominator bound_pp is over.",
+    "runs": "The two run directories under records/measurements/. A bound that cannot name them cannot be re-derived.",
+    "measured": "The date the pair was run, not the date it was entered here."
+  },
+  "bounds": []
+}

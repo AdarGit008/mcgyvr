@@ -24,6 +24,14 @@ report prints combined-minus-the-sum-of-singles, and prints **absent** rather
 than zero when a single-lever arm is missing from the run — a gap in the matrix
 is not evidence that two levers are additive.
 
+**The reproducibility bound.** Every table states the deviation two identical
+runs may differ by, and a contrast at or inside it is marked as the instrument
+rather than the lever. When no null has been measured for this model, at this
+tier, under this bar and on this serving build, the report says **not declared**
+and leaves every delta unqualified — it does not fall back to zero, to another
+tier's number, or to silence. The declaration is ``reproducibility.json``; the
+number that fills it is #231's.
+
     uv run --no-sync python tools/bench/report.py records/measurements/<run>/...
 """
 
@@ -55,6 +63,26 @@ matrix = _by_path("bench_matrix_report", HERE / "matrix.py")
 # The facts every cell in one table must agree on. A difference in any of them
 # is a second variable inside a contrast that claims to vary one thing.
 COMPARABLE = ("model", "endpoint", "serving_build", "tier", "gate_rungs")
+
+REPRO_FILE = HERE / "reproducibility.json"
+
+# What a declared bound must match before it may describe a run. ADR-0019 D2 —
+# the null is measured per target tier and does not transfer up the ladder;
+# ADR-0024 — a serving build nothing recorded has already moved results twice;
+# and a bar that scores differently produces a different null, which is why the
+# rungs are in the key rather than in the prose beside it.
+BOUND_MATCH = ("model", "tier", "gate_rungs", "serving_build")
+BOUND_FIELDS = (
+    *BOUND_MATCH,
+    "bound_pp",
+    "flips",
+    "cells",
+    "runs",
+    "issue",
+    "measured",
+)
+
+MARK = "†"
 
 
 class ReportError(Exception):
@@ -134,12 +162,71 @@ def require_comparable(cells: list[dict[str, Any]]) -> None:
             )
 
 
+def load_bounds(path: Path | None = None) -> list[dict[str, Any]]:
+    """The declared reproducibility bounds, each held to naming its own subject.
+
+    An empty list is a state rather than a gap — it means no null has been
+    measured yet, and the report says so. What is refused is a *partial* bound:
+    one that cannot say what it was measured on, or from which two runs, cannot
+    be re-derived and so is an assertion wearing a number's clothes.
+    """
+    source = path if path is not None else REPRO_FILE
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ReportError(f"no reproducibility declaration at {source}") from None
+    except json.JSONDecodeError as exc:
+        raise ReportError(f"{source} is not JSON: {exc}") from None
+    bounds = raw.get("bounds", [])
+    for entry in bounds:
+        missing = [k for k in BOUND_FIELDS if k not in entry]
+        if missing:
+            raise ReportError(
+                f"a reproducibility bound does not state {', '.join(missing)}; a "
+                "bound that cannot name its model, tier, bar, build and the two "
+                "runs it came from cannot be re-derived, and an unre-derivable "
+                "deviation is not a measurement"
+            )
+    return bounds
+
+
+def declared_bound(
+    manifest: dict[str, Any], bounds: list[dict[str, Any]]
+) -> tuple[dict[str, Any] | None, str]:
+    """The bound describing this run, or the reason none does.
+
+    The reason is returned rather than raised: a run with no null is a normal
+    state of the world — #231 supplies the number and the bench exists before it
+    — and the report's job is to say so in the table, not to refuse to print one.
+    """
+    for entry in bounds:
+        if all(entry[k] == manifest.get(k) for k in BOUND_MATCH):
+            return entry, ""
+    near = [
+        e
+        for e in bounds
+        if e["model"] == manifest.get("model") and e["tier"] == manifest.get("tier")
+    ]
+    if near:
+        differs = [k for k in BOUND_MATCH if near[0][k] != manifest.get(k)]
+        return None, (
+            f"the bound declared for this model at this tier was measured under "
+            f"a different {', '.join(differs)}, and a null does not transfer "
+            f"across that (ADR-0019 D2, ADR-0024)"
+        )
+    return None, (
+        f"no null has been measured for {manifest.get('model')} at tier "
+        f"{manifest.get('tier')}"
+    )
+
+
 def render(cells: list[dict[str, Any]]) -> str:
     """The table, its contrasts, and the interaction term for every combination."""
     if not cells:
         raise ReportError("no cells")
     require_comparable(cells)
     loaded = matrix.load()
+    bound, no_bound_because = declared_bound(cells[0]["manifest"], load_bounds())
     first = cells[0]["manifest"]
     by_condition = {c["condition"]: c for c in cells}
     rate = {c["condition"]: c["rate"] for c in cells}
@@ -162,6 +249,7 @@ def render(cells: list[dict[str, Any]]) -> str:
         "below is that tier's own and not the ladder's",
         f"- cells: {len(cells)} of {len(loaded.cells)} declared in "
         "`tools/bench/matrix.json`",
+        _reproducibility_line(bound, no_bound_because),
         "",
         "| condition | levers | n | pass | rate | vs baseline | prompt | completion |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
@@ -169,14 +257,17 @@ def render(cells: list[dict[str, Any]]) -> str:
 
     baseline = loaded.baseline.id
     base_rate = rate.get(baseline)
+    inside_null = False
     for cell in sorted(cells, key=lambda c: (len(_levers(loaded, c)), c["condition"])):
         name = cell["condition"]
         levers = "+".join(_levers(loaded, cell)) or "—"
-        delta = (
-            "—"
-            if base_rate is None or name == baseline
-            else f"{(cell['rate'] - base_rate) * 100:+.1f}pp"
-        )
+        if base_rate is None or name == baseline:
+            delta = "—"
+        else:
+            pp = (cell["rate"] - base_rate) * 100
+            within = bound is not None and abs(pp) <= bound["bound_pp"]
+            inside_null = inside_null or within
+            delta = f"{pp:+.1f}pp" + (MARK if within else "")
         prompt = (
             "—" if cell["prompt_tokens"] is None else f"{cell['prompt_tokens']:.0f}"
         )
@@ -190,6 +281,17 @@ def render(cells: list[dict[str, Any]]) -> str:
             f"{cell['rate'] * 100:.1f}% | {delta} | {prompt} | {completion} |"
         )
 
+    if inside_null and bound is not None:
+        lines.extend(
+            [
+                "",
+                f"{MARK} **inside the declared reproducibility bound** "
+                f"(±{bound['bound_pp']:.1f}pp). Two identical runs of this "
+                "instrument move this far, so the contrast is the instrument and "
+                "not the lever.",
+            ]
+        )
+
     if base_rate is None:
         lines.extend(
             [
@@ -201,9 +303,32 @@ def render(cells: list[dict[str, Any]]) -> str:
         )
         return "\n".join(lines)
 
-    lines.extend(_interactions(loaded, by_condition, rate))
+    lines.extend(_interactions(loaded, by_condition, rate, bound))
     lines.extend(_rejections(cells))
     return "\n".join(lines)
+
+
+def _reproducibility_line(bound: dict[str, Any] | None, because: str) -> str:
+    """State the deviation two identical runs may differ by, or that none is known.
+
+    #113's eighth acceptance item, and the half of it this issue owns: the report
+    declares the property, #231's null calibration supplies the number. The
+    unqualified case is written to be read as the warning it is — a delta smaller
+    than an undeclared drift is not a small effect, it is an unknown one.
+    """
+    if bound is None:
+        return (
+            f"- reproducibility: **not declared** — {because} (#231). Every "
+            "`vs baseline` figure below is unqualified: nothing here states how "
+            "much of one is the instrument's own drift"
+        )
+    runs = ", ".join(f"`{r}`" for r in bound["runs"])
+    return (
+        f"- reproducibility: **±{bound['bound_pp']:.1f}pp** — {bound['flips']} of "
+        f"{bound['cells']} paired cells changed verdict across two identical runs "
+        f"({runs}, measured {bound['measured']}, #{bound['issue']}). A contrast "
+        f"marked {MARK} is inside it"
+    )
 
 
 def _levers(loaded: Any, cell: dict[str, Any]) -> list[str]:
@@ -214,7 +339,10 @@ def _levers(loaded: Any, cell: dict[str, Any]) -> list[str]:
 
 
 def _interactions(
-    loaded: Any, by_condition: dict[str, Any], rate: dict[str, float]
+    loaded: Any,
+    by_condition: dict[str, Any],
+    rate: dict[str, float],
+    bound: dict[str, Any] | None = None,
 ) -> list[str]:
     """Combined effect minus the sum of the singles, per multi-lever cell."""
     multi = [
@@ -225,6 +353,17 @@ def _interactions(
     if not multi:
         return []
     lines = ["", "## Interaction", ""]
+    if bound is not None:
+        lines.extend(
+            [
+                f"The ±{bound['bound_pp']:.1f}pp bound above qualifies **one** "
+                "contrast. An interaction term is a difference of differences and "
+                "carries the drift of every arm inside it, so that figure is a "
+                f"floor on its noise rather than a bound on it — no term below is "
+                f"marked {MARK}.",
+                "",
+            ]
+        )
     for name in sorted(multi):
         term = matrix.interaction(loaded, name, rate)
         if term is None:

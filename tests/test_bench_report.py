@@ -9,8 +9,13 @@ things worth pinning are the refusals rather than the formatting:
   each other. That is the defect #189 shipped, folding a backend change into a
   weights contrast, and the one ADR-0024 closes.
 
-And the interaction term must be **absent** rather than zero when a
-single-lever arm is missing, because zero is a finding and absence is not.
+And two absences must be stated rather than defaulted:
+
+* the interaction term is **absent** rather than zero when a single-lever arm is
+  missing, because zero is a finding and absence is not;
+* the reproducibility bound is **not declared** rather than omitted when no null
+  has been measured for this model, tier, bar and build — a delta smaller than
+  an undeclared drift is not a small effect, it is an unknown one.
 """
 
 from __future__ import annotations
@@ -206,6 +211,142 @@ def test_the_interaction_term_is_absent_when_a_single_is_missing(
     text = report.render(cells)
     assert "not stated" in text
     assert "not evidence" in text
+
+
+# --- the reproducibility bound ----------------------------------------------
+
+
+def _bound(**overrides: Any) -> dict[str, Any]:
+    entry = {
+        "model": "qwen2.5-coder:1.5b",
+        "tier": "bench-py",
+        "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+        "serving_build": "0.32.5",
+        "bound_pp": 2.0,
+        "flips": 1,
+        "cells": 514,
+        "runs": ["bench-null-a-2026-08-12", "bench-null-b-2026-08-12"],
+        "issue": 231,
+        "measured": "2026-08-12",
+    }
+    entry.update(overrides)
+    return entry
+
+
+def _declare(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *bounds: Any
+) -> None:
+    path = tmp_path / "reproducibility.json"
+    path.write_text(json.dumps({"bounds": list(bounds)}))
+    monkeypatch.setattr(report, "REPRO_FILE", path)
+
+
+def test_the_declaration_this_repository_ships_loads(report: Any) -> None:
+    """Whatever is declared, it is declared in a shape the report can read."""
+    report.load_bounds()
+
+
+def test_an_undeclared_bound_is_stated_rather_than_omitted(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _declare(report, monkeypatch, tmp_path)
+    text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
+    assert "reproducibility: **not declared**" in text
+    assert "#231" in text
+    assert "unqualified" in text
+
+
+def test_a_declared_bound_names_the_two_runs_it_came_from(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _declare(report, monkeypatch, tmp_path, _bound())
+    text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
+    assert "reproducibility: **±2.0pp**" in text
+    assert "bench-null-a-2026-08-12" in text
+    assert "1 of 514 paired cells" in text
+
+
+def test_a_delta_inside_the_bound_is_marked_as_the_instrument(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """30/100 against 31/100 is +1.0pp, and two identical runs move 2.0pp."""
+    _declare(report, monkeypatch, tmp_path, _bound())
+    cells = [
+        report.read_cell(_cell(tmp_path, "stock", 30, n=100)),
+        report.read_cell(_cell(tmp_path, "planonly", 31, n=100)),
+    ]
+    text = report.render(cells)
+    assert "+1.0pp†" in text
+    assert "the contrast is the instrument and not the lever" in text
+
+
+def test_a_delta_outside_the_bound_is_left_unmarked(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _declare(report, monkeypatch, tmp_path, _bound())
+    cells = [
+        report.read_cell(_cell(tmp_path, "stock", 30, n=100)),
+        report.read_cell(_cell(tmp_path, "planonly", 40, n=100)),
+    ]
+    text = report.render(cells)
+    assert "+10.0pp |" in text
+    assert "pp†" not in text
+    assert "inside the declared reproducibility bound" not in text
+
+
+def test_a_null_measured_under_a_different_bar_does_not_describe_this_run(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A bar that scores differently produces a different null."""
+    _declare(report, monkeypatch, tmp_path, _bound(gate_rungs=["acceptance"]))
+    text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
+    assert "not declared" in text
+    assert "gate_rungs" in text
+
+
+def test_a_null_measured_on_a_different_build_does_not_describe_this_run(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ADR-0024: an ollama patch release moved results and nothing recorded it."""
+    _declare(report, monkeypatch, tmp_path, _bound(serving_build="0.32.4"))
+    text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
+    assert "not declared" in text
+    assert "serving_build" in text
+
+
+def test_a_null_from_another_tier_is_not_borrowed(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ADR-0019 D2: measured per target tier, and it does not transfer."""
+    _declare(report, monkeypatch, tmp_path, _bound(tier="bench-ts"))
+    text = report.render([report.read_cell(_cell(tmp_path, "stock", 3))])
+    assert "no null has been measured" in text
+
+
+def test_a_bound_that_cannot_be_re_derived_is_refused(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    entry = _bound()
+    del entry["runs"]
+    _declare(report, monkeypatch, tmp_path, entry)
+    with pytest.raises(report.ReportError, match="runs"):
+        report.load_bounds()
+
+
+def test_the_interaction_term_is_not_marked_against_a_single_contrast_bound(
+    report: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A difference of differences carries the drift of every arm inside it."""
+    _declare(report, monkeypatch, tmp_path, _bound())
+    cells = [
+        report.read_cell(_cell(tmp_path, "stock", 30, n=100)),
+        report.read_cell(_cell(tmp_path, "planonly", 20, n=100)),
+        report.read_cell(_cell(tmp_path, "norule", 40, n=100)),
+        report.read_cell(_cell(tmp_path, "planonly+norule", 20, n=100)),
+    ]
+    text = report.render(cells)
+    assert "floor on its noise rather than a bound on it" in text
+    assert "interaction -10.0pp" in text
 
 
 def test_additive_levers_are_named_as_such(report: Any, tmp_path: Path) -> None:
