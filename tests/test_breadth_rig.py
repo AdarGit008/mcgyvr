@@ -562,21 +562,30 @@ def _sweep_argv(out: Path, tasks: str, draws: int = 1, tier: str = "d1") -> list
 
 
 def _scorable_arm(monkeypatch: Any) -> None:
-    """Say the JS/TS runtime is present, because this is not about the runtime.
+    """Say the JS/TS environment is present, because this is not about it.
 
-    ``main`` refuses to dispatch on a machine whose Node cannot import a
-    ``.ts`` file directly, which is right — twenty red rows from a missing
-    runtime look exactly like a model that cannot write the language. But CI's
-    baseline job pins Node 20 and type stripping is unflagged only from 23.6,
-    so a test that reaches the loop through ``main`` would pass here and fail
-    there for a reason it is not about. These tests are about which cells hold
-    an observation; nothing in them scores anything.
+    ``main`` refuses to dispatch twice over: on a machine whose Node cannot
+    import a ``.ts`` file directly, and on one where a declared rung cannot
+    reject. Both refusals are right — twenty red rows from a missing runtime
+    look exactly like a model that cannot write the language, and a rate scored
+    by fewer rungs than it declares is worse than no rate. Neither is what these
+    tests are about: they are about which cells hold an observation, and nothing
+    in them scores anything.
+
+    So both are neutralised here, and the second one has to be. **BUILD-05 runs
+    the whole suite against the documented bootstrap on a clean checkout**, which
+    installs Python tooling and nothing else — so a rig test that needs eslint on
+    PATH does not fail on its own subject, it fails the clean-checkout contract.
+    The preflight's own behaviour is tested in ``tests/test_bench_score.py``,
+    where the toolchain is a declared precondition rather than an accident of the
+    machine.
     """
     monkeypatch.setattr(
         breadth.bundle,
         "JSTS",
         dataclasses.replace(breadth.bundle.JSTS, capability=lambda: None),
     )
+    monkeypatch.setattr(breadth.score, "require_rungs", lambda tasks, gate=None: None)
 
 
 def _always_passes(monkeypatch: Any) -> None:

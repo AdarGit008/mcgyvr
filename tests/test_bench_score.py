@@ -21,6 +21,7 @@ against the refusal, because the whole point is that it must not be silent.
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 import tempfile
 import types
@@ -58,17 +59,22 @@ def measure() -> types.ModuleType:
 def _js_toolchain_ready() -> bool:
     """Whether the TypeScript arm can be scored at all on this machine.
 
-    Two capabilities, and neither is a presence check — the same reasoning
-    ``node_runs_typescript`` already carries. The lint rung needs the *pinned*
-    parser, which lives in the repository's own ``node_modules`` and not on
-    PATH; and acceptance for a ``.ts`` target imports the solution, so a Node
-    without type stripping fails the reference for a reason about the runner.
+    Three capabilities, and none of them is "a package is installed" — which is
+    the mistake this predicate made on its first day and CI caught within the
+    hour. ``require_tool`` resolves every linter with ``shutil.which``, so a
+    toolchain sitting in ``node_modules/.bin`` is one the gate **cannot see**:
+    `npm ci` had run, the directory was there, the predicate said ready, and
+    eslint read as *not installed*. Present is not reachable, which is the same
+    shape one layer down from ADR-0025's "installed is not able to reject".
 
-    CI installs both in the ``test`` job (ADR-0025), so this skips on a
-    developer's machine without the toolchain and **not** on the runner, where
-    the property is actually guarded. A check that silently skips everywhere is
-    the same defect as a rung that silently passes.
+    So: the tools as the gate resolves them, the *pinned* parser they load (a
+    global eslint with no ``typescript-eslint`` is the inert case), and a Node
+    that strips types, because acceptance for a ``.ts`` target imports the
+    solution and a Node without stripping fails the reference for a reason about
+    the runner.
     """
+    if shutil.which("eslint") is None or shutil.which("prettier") is None:
+        return False
     if not (REPO / "node_modules" / "typescript-eslint").is_dir():
         return False
     spec = importlib.util.spec_from_file_location(
@@ -83,8 +89,32 @@ def _js_toolchain_ready() -> bool:
 
 requires_js_toolchain = pytest.mark.skipif(
     not _js_toolchain_ready(),
-    reason="no pinned JS toolchain, or this Node does not run TypeScript",
+    reason="no pinned JS toolchain on PATH, or this Node does not run TypeScript",
 )
+
+
+def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> None:
+    """The guard below must never be the reason the check stops running.
+
+    ``requires_js_toolchain`` is right to skip on a developer's machine and wrong
+    to skip on the runner that is supposed to be guarding the property — a check
+    that silently skips everywhere is the same defect as a rung that silently
+    passes, one layer out.
+
+    This asserts the **workflow**, not the environment, and that is the whole
+    point. An environment assertion gated on ``CI`` fails in the *baseline* job,
+    which runs this suite through BUILD-05's clean-checkout bootstrap and is
+    meant to have no JS toolchain at all. Reading the declaration instead holds
+    the one job that must have it, from any machine, with nothing to install.
+    """
+    workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    test_job = workflow[workflow.index("\n  test:") :]
+    assert "npm ci" in test_job, "the test job must install the pinned toolchain"
+    assert "node_modules/.bin" in test_job and "GITHUB_PATH" in test_job, (
+        "installing is not enough — `require_tool` resolves linters with "
+        "shutil.which, so node_modules/.bin must be exported onto PATH or "
+        "eslint and prettier read as not installed (ADR-0025)"
+    )
 
 
 def _score_reference(score: types.ModuleType, task: Any) -> Any:

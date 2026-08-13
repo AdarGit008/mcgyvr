@@ -47,8 +47,16 @@ jobs:
           node-version: "24"
       # `ci`, not `install`: the lockfile is the pin, and the parser version is
       # part of the bar it applies.
+      #
+      # The PATH line is not optional. `require_tool` resolves every linter with
+      # `shutil.which`, so a toolchain in `node_modules/.bin` is a toolchain the
+      # gate cannot see: eslint and prettier read as *not installed*, their rungs
+      # are skipped, and the preflight refuses the sweep. Installing without
+      # exporting is the same "present but unreachable" shape ADR-0025 is about.
       - name: install the pinned JS toolchain
-        run: npm ci
+        run: |
+          npm ci
+          echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.28"
