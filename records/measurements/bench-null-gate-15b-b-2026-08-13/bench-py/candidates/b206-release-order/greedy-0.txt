@@ -1,0 +1,34 @@
+```python
+def order_release_tags(tags: list) -> list:
+    if not tags:
+        return []
+
+    def parse_tag(tag):
+        parts = tag.split('.')
+        major, minor, patch = map(int, parts[:3])
+        preview_label = None
+        if len(parts) > 3 and '-' in parts[3]:
+            preview_label = parts[3].split('-')[1]
+        return major, minor, patch, preview_label
+
+    def compare_tags(tag1, tag2):
+        major1, minor1, patch1, preview_label1 = parse_tag(tag1)
+        major2, minor2, patch2, preview_label2 = parse_tag(tag2)
+
+        if major1 != major2:
+            return major1 - major2
+        elif minor1 != minor2:
+            return minor1 - minor2
+        elif patch1 != patch2:
+            return patch1 - patch2
+
+        if preview_label1 is None and preview_label2 is not None:
+            return 1
+        elif preview_label1 is not None and preview_label2 is None:
+            return -1
+        elif preview_label1 is not None and preview_label2 is not None:
+            return preview_label1.lower().index(preview_label2.lower()) if preview_label1.lower() != preview_label2.lower() else int(preview_label1) - int(preview_label2)
+
+    sorted_tags = sorted(tags, key=lambda tag: compare_tags(tag, tags[0]))
+    return sorted_tags
+```

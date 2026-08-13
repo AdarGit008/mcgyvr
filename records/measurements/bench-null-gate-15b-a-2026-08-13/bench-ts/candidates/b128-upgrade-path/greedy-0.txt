@@ -1,0 +1,40 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  if (typeof installed !== 'string') {
+    throw new Error('installed must be a string');
+  }
+  const parsedInstalled = parseFloat(installed);
+  if (!Number.isFinite(parsedInstalled) || isNaN(parsedInstalled)) {
+    throw new Error('installed must be a valid decimal number');
+  }
+
+  if (!Array.isArray(steps)) {
+    throw new Error('steps must be an array');
+  }
+
+  for (const step of steps) {
+    if (typeof step !== 'object' || step === null || typeof step.tag !== 'string' || typeof step.requires !== 'string') {
+      throw new Error('each step must be a {tag, requires} record');
+    }
+    const parsedTag = parseFloat(step.tag);
+    const parsedRequires = parseFloat(step.requires);
+    if (!Number.isFinite(parsedTag) || isNaN(parsedTag)) {
+      throw new Error(`step ${step.tag} must be a valid decimal number`);
+    }
+    if (!Number.isFinite(parsedRequires) || isNaN(parsedRequires)) {
+      throw new Error(`step ${step.requires} must be a valid decimal number`);
+    }
+
+    const parsedInstalledNum = parseFloat(installed);
+    const parsedTagNum = parseFloat(step.tag);
+
+    if (parsedTagNum <= parsedInstalledNum) {
+      throw new Error(`step ${step.tag} is not an upgrade from ${installed}`);
+    }
+  }
+
+  return steps[steps.length - 1].tag;
+}
+```

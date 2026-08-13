@@ -1,0 +1,22 @@
+```python
+def end_grab(cards: list) -> dict:
+    if not cards:
+        return {'first': 0, 'second': 0, 'taken': []}
+
+    first = max(cards[0], cards[-1])
+    second = min(cards[0], cards[-1])
+
+    taken = [first]
+    cards.pop(0)
+    cards.pop(-1)
+
+    while cards:
+        if first == second:
+            taken.append(first)
+            cards.pop(0)
+        else:
+            taken.append(second)
+            cards.pop(-1)
+
+    return {'first': sum(taken), 'second': sum(cards), 'taken': taken}
+```

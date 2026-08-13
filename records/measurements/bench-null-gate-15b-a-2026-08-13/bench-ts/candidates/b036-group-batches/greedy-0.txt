@@ -1,0 +1,58 @@
+```ts
+export function groupBatches(jobs: [string, string, number, number][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    throw new Error("jobs must be a non-empty array");
+  }
+
+  const jobMap = new Map<string, [number, number][]>();
+  for (const job of jobs) {
+    if (job.length !== 4 || typeof job[0] !== 'string' || typeof job[1] !== 'string' ||
+        typeof job[2] !== 'number' || typeof job[3] !== 'number') {
+      throw new Error("jobs must be a list of four-item arrays");
+    }
+    if (job[0].trim() === '' || job[1].trim() === '') {
+      throw new Error("name and group must be non-empty strings");
+    }
+    if (!Number.isInteger(job[2]) || !Number.isInteger(job[3])) {
+      throw new Error("priority and weight must be integers");
+    }
+    if (job[2] < 0 || job[3] < 1 || job[3] > capacity) {
+      throw new Error("weight must be an integer from 1 to the capacity");
+    }
+    const group = jobMap.get(job[1]);
+    if (!group) {
+      jobMap.set(job[1], [[job[0], job[2]]]);
+    } else {
+      group.push([job[0], job[2]]);
+    }
+  }
+
+  const batches: string[][] = [];
+  let currentBatch: [string, number][] = [];
+
+  for (const [group, jobs] of jobMap) {
+    if (!jobs.length) continue;
+
+    jobs.sort((a, b) => {
+      if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+      return b[1] - a[1];
+    });
+
+    let totalWeight = 0;
+    for (const [job, priority] of jobs) {
+      if (totalWeight + priority <= capacity) {
+        currentBatch.push([job]);
+        totalWeight += priority;
+      } else {
+        batches.push(currentBatch);
+        currentBatch = [[job]];
+        totalWeight = priority;
+      }
+    }
+
+    batches.push(currentBatch);
+  }
+
+  return batches;
+}
+```

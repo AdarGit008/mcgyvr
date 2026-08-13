@@ -1,0 +1,15 @@
+```python
+def hex_split(colour: str) -> list:
+    if len(colour) != 7 or colour[0] != '#':
+        raise ValueError("Invalid colour format. It must start with '#' and be exactly six hexadecimal digits.")
+    
+    parts = [colour[i:i+2].lower() for i in range(1, 7, 2)]
+    return parts
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3:
+        raise ValueError("Invalid number of parts. It must be exactly three.")
+    
+    joined_colour = '#' + ''.join(parts)
+    return joined_colour
+```

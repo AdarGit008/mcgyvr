@@ -1,0 +1,11 @@
+```ts
+/** A code padded with zeros to a fixed width. */
+export function padCode(code: string, width: number): string {
+  if (typeof code !== "string" || typeof width !== "number") {
+    throw new Error("Invalid input");
+  }
+
+  const padding = "0".repeat(width - code.length);
+  return code + padding;
+}
+```

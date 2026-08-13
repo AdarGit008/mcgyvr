@@ -1,0 +1,26 @@
+```ts
+export function rowKey(name: string): string {
+  if (typeof name !== 'string') {
+    throw new Error('name must be a string');
+  }
+  return name.charAt(0).toUpperCase();
+}
+
+export function indexRows(names: string[]): Record<string, string[]> {
+  if (!Array.isArray(names)) {
+    throw new Error('names must be an array');
+  }
+
+  const result: Record<string, string[]> = {};
+
+  for (const name of names) {
+    const rowKey = rowKey(name);
+    if (!result[rowKey]) {
+      result[rowKey] = [];
+    }
+    result[rowKey].push(name);
+  }
+
+  return result;
+}
+```

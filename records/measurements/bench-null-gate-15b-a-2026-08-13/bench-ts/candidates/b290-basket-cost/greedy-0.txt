@@ -1,0 +1,21 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (typeof price !== 'number' || typeof quantity !== 'number') {
+    throw new Error('Both price and quantity must be numbers');
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (!Array.isArray(lines) || lines.some(line => typeof line !== 'object' || !line.price || !line.quantity)) {
+    throw new Error('lines must be an array of objects with price and quantity properties');
+  }
+  if (typeof discount !== 'number') {
+    throw new Error('discount must be a number');
+  }
+
+  const totalCost = lines.reduce((acc, line) => acc + lineCost(line.price, line.quantity), 0);
+  const discountedTotal = Math.floor(totalCost * (1 - discount / 100));
+  return discountedTotal;
+}
+```

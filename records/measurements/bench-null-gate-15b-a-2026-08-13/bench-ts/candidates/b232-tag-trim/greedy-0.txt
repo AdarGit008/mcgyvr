@@ -1,0 +1,10 @@
+```ts
+export function tagTrim(tag: string): string {
+  if (typeof tag !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const trimmed = tag.replace(/^#/, '').replace(/:/g, '');
+  return trimmed;
+}
+```

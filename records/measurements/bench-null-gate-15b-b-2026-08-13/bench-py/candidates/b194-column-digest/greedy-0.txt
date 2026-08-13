@@ -1,0 +1,44 @@
+```python
+from typing import List, Dict
+
+def column_digest(rows: List[List[int]], column: int) -> Dict[str, float]:
+    if not rows or not 0 <= column < len(rows[0]):
+        raise ValueError("Invalid input")
+
+    count = 0
+    min_val = None
+    max_val = None
+    total_sum = 0
+
+    for row in rows:
+        if count >= len(row):
+            break
+        cell_value = row[column]
+        count += 1
+        total_sum += cell_value
+
+        if min_val is None or cell_value < min_val:
+            min_val = cell_value
+        if max_val is None or cell_value > max_val:
+            max_val = cell_value
+
+    if count == 0:
+        return {
+            "count": 0,
+            "min": 0,
+            "max": 0,
+            "mean": 0,
+            "median": 0
+        }
+
+    mean = total_sum / count
+    median = sorted(row[column] for row in rows)[count // 2]
+
+    return {
+        "count": count,
+        "min": min_val,
+        "max": max_val,
+        "mean": round(mean, 2),
+        "median": round(median, 2)
+    }
+```

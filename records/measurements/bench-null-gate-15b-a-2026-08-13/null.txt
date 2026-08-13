@@ -1,0 +1,41 @@
+# Null calibration — bench-null-gate-15b-a-2026-08-13 vs bench-null-gate-15b-b-2026-08-13
+
+scored by: Gate.run (#113's scorer)
+
+## Rig health — both runs, before any drift is read
+
+bench-py:
+  run a       257 cells   truncated   0   parse-refused   0   dispatch-lost   0
+  run b       257 cells   truncated   1   parse-refused   1   dispatch-lost   0
+bench-ts:
+  run a       257 cells   truncated   1   parse-refused   1   dispatch-lost   0
+  run b       257 cells   truncated   1   parse-refused   1   dispatch-lost   0
+
+## Drift, and what produced it
+
+bench-py  n = 257
+  pass          23/257 vs 23/257   net 0.00pp
+  d (flips)     0  = 0.00pp   (0 gained, 0 lost, exact p = 1.000)
+  byte-identical 232/257 = 90.3%
+  of the 25 cells whose text differed, 0 flipped (0.0%)
+  acceptance drift 0  (identical bytes, different verdict)
+
+bench-ts  n = 257
+  pass          33/257 vs 33/257   net 0.00pp
+  d (flips)     0  = 0.00pp   (0 gained, 0 lost, exact p = 1.000)
+  byte-identical 225/257 = 87.5%
+  of the 32 cells whose text differed, 0 flipped (0.0%)
+  acceptance drift 0  (identical bytes, different verdict)
+
+both arms pooled
+  n = 514 paired cells
+  d = 0 = 0.00pp   (0 gained, 0 lost, exact p = 1.000)
+  byte-identical 457/514 = 88.9%
+  acceptance drift 0
+
+## The stop condition, evaluated
+
+  d/n          0/514 = 0.00pp, 95% CI [0.00, 0.74] pp
+  bar          3.0pp (ADR-0019's adoption bar)
+  VERDICT      the stop condition does NOT fire — no cell moved. The drift is bounded by the interval, not by the zero: 0.74pp at 95%, which is what a declared bound must carry.
+  Acceptance drift is zero — no cell scored differently on identical bytes, which is the failure that would be unfixable.

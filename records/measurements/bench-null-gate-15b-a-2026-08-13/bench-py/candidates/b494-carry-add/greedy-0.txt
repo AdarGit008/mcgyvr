@@ -1,0 +1,38 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    """
+    Add two counts held as runs of single figures, the weightiest figure first,
+    and give the answer in the same form. Work from the light end, carrying into
+    the next place where a pair reaches ten.
+    
+    Parameters:
+    - left: List[int] representing the first count.
+    - right: List[int] representing the second count.
+    
+    Returns:
+    - List[int] representing the sum of the two counts.
+    """
+    # Initialize the result list with zeros
+    result = [0] * (max(len(left), len(right)) + 1)
+    
+    # Iterate from the least significant digit to the most significant digit
+    for i in range(max(len(left), len(right))):
+        # Add the current digits and carry if necessary
+        carry = left[i] + right[i]
+        
+        # Update the result list with the current digit
+        result[i] = carry % 10
+        
+        # Calculate the new carry
+        carry //= 10
+    
+    # If there is a remaining carry, add it to the most significant digit
+    if carry > 0:
+        result.append(carry)
+    
+    # Remove leading zeros from the result list
+    while len(result) > 1 and result[0] == 0:
+        result.pop(0)
+    
+    return result
+```

@@ -1,0 +1,16 @@
+```ts
+export function climbBudget(tolls: string[]): number {
+  if (tolls.length === 0) return 0;
+
+  let totalCost = 0;
+  for (let i = 0; i < tolls.length; i++) {
+    const toll = tolls[i];
+    if (!/^\d+$/.test(toll)) {
+      throw new Error(`Invalid toll at position ${i + 1}: "${toll}"`);
+    }
+    totalCost += parseInt(toll, 10);
+  }
+
+  return totalCost;
+}
+```

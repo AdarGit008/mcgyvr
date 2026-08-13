@@ -1,0 +1,58 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || typeof unit !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const terms = text.split(/\s+/);
+  let runningTotal = 0;
+  let drawCount = 0;
+
+  for (let i = 0; i < terms.length; i += 2) {
+    const term = terms[i];
+    const operator = terms[i + 1];
+
+    if (!isPlainCount(term)) {
+      throw new Error('Invalid term');
+    }
+
+    if (!isValidOperator(operator)) {
+      throw new Error('Invalid operator');
+    }
+
+    const count = parseInt(term, 10);
+    runningTotal += count;
+
+    if (operator === '-') {
+      drawCount++;
+      if (runningTotal < 0) {
+        throw new Error('Draw dips below zero');
+      }
+    } else if (drawCount > 0 && operator !== '+') {
+      throw new Error('Invalid draw');
+    }
+  }
+
+  const goalUnit = unit.toLowerCase();
+  if (!['g', 'kg', 't'].includes(goalUnit)) {
+    throw new Error('Invalid goal unit');
+  }
+
+  const goalMultiplier = goalUnit === 'g' ? 1 : goalUnit === 'kg' ? 1000 : 1000000;
+  const finalTotal = Math.round(runningTotal * goalMultiplier);
+
+  if (finalTotal % goalMultiplier !== 0) {
+    throw new Error('Total does not come out whole in the goal unit');
+  }
+
+  return finalTotal / goalMultiplier;
+}
+
+function isPlainCount(term: string): boolean {
+  return /^\d+$/.test(term);
+}
+
+function isValidOperator(operator: string): boolean {
+  return operator === '+' || operator === '-';
+}
+```

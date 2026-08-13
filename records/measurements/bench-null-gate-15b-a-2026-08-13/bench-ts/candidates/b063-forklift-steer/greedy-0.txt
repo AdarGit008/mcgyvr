@@ -1,0 +1,42 @@
+```ts
+export function steerForklift(aisles: number, bays: number, moves: string[]): number[] {
+  if (aisles <= 0 || bays <= 0) {
+    throw new Error("Aisle and bay counts must be positive integers.");
+  }
+
+  let [currentAisle, currentBay] = [0, 0];
+
+  for (const move of moves) {
+    switch (move) {
+      case "north":
+        if (currentBay === bays - 1) {
+          throw new Error("Cannot move north off the floor.");
+        }
+        currentBay++;
+        break;
+      case "south":
+        if (currentBay === 0) {
+          throw new Error("Cannot move south off the floor.");
+        }
+        currentBay--;
+        break;
+      case "east":
+        if (currentAisle === aisles - 1) {
+          throw new Error("Cannot move east off the floor.");
+        }
+        currentAisle++;
+        break;
+      case "west":
+        if (currentAisle === 0) {
+          throw new Error("Cannot move west off the floor.");
+        }
+        currentAisle--;
+        break;
+      default:
+        throw new Error(`Invalid move word: ${move}`);
+    }
+  }
+
+  return [currentAisle, currentBay];
+}
+```

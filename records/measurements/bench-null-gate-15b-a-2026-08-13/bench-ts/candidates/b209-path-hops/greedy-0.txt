@@ -1,0 +1,25 @@
+```ts
+export function pathHops(start: string, goal: string): number {
+  if (!start || !goal) throw new Error("Both start and goal paths must be provided.");
+
+  const normalizePath = (path: string): string[] => {
+    return path.split('/').filter(segment => segment !== '' && segment !== '.');
+  };
+
+  const startSegments = normalizePath(start);
+  const goalSegments = normalizePath(goal);
+
+  if (startSegments.length === 0 || goalSegments.length === 0) throw new Error("Paths must contain at least one segment.");
+
+  let sharedPrefixLength = 0;
+  for (let i = 0; i < Math.min(startSegments.length, goalSegments.length); i++) {
+    if (startSegments[i] !== goalSegments[i]) break;
+    sharedPrefixLength++;
+  }
+
+  const startHops = sharedPrefixLength + startSegments.length - sharedPrefixLength;
+  const goalHops = sharedPrefixLength + goalSegments.length - sharedPrefixLength;
+
+  return Math.abs(startHops - goalHops);
+}
+```

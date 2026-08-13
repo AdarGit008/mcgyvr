@@ -1,0 +1,17 @@
+```ts
+function codeSum(code: string): number {
+  return [...code].reduce((sum, char) => sum + (char >= '0' && char <= '9'), 0);
+}
+
+function goodCodes(codes: string[]): string[] {
+  const filteredCodes = codes.filter(code => code !== '');
+  const totalSums = filteredCodes.map(codeSum);
+
+  return totalSums.reduce((acc, sum, index) => {
+    if (sum % 3 === 0) {
+      acc.push(filteredCodes[index]);
+    }
+    return acc;
+  }, []);
+}
+```

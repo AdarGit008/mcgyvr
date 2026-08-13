@@ -1,0 +1,35 @@
+```ts
+export function selectorHits(values: number[], selector: string): number {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) {
+    throw new Error("Values must be a list of integers.");
+  }
+
+  if (typeof selector !== 'string' || selector === '') {
+    throw new Error("Selector must be a non-empty string.");
+  }
+
+  const terms = selector.split(',');
+  let count = 0;
+
+  for (const term of terms) {
+    const parts = term.split('-');
+    if (parts.length > 2) {
+      throw new Error("Term must be either a single integer or two integers joined by a hyphen.");
+    }
+
+    const [low, high] = parts.map(Number);
+    if (high !== undefined && low > high) {
+      throw new Error("Range's low end exceeds its high end.");
+    }
+
+    for (let i = 0; i < values.length; i++) {
+      if ((low === undefined || values[i] >= low) && (high === undefined || values[i] <= high)) {
+        count++;
+        break;
+      }
+    }
+  }
+
+  return count;
+}
+```

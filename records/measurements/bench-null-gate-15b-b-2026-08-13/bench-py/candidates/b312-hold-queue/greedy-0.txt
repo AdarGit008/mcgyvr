@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def hold_queue(callers: List[int], limit: int) -> List[int]:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    queue = []
+    for caller in callers:
+        if len(queue) < limit:
+            queue.append(caller)
+        else:
+            queue.pop(0)
+            queue.append(caller)
+    
+    return queue
+```

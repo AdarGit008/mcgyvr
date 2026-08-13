@@ -1,0 +1,29 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    pairs = []
+    for segment in text.split(";"):
+        if not isinstance(segment, str):
+            raise ValueError("non-string argument")
+        if segment == "":
+            continue
+        if segment.startswith('"') and segment.endswith('"'):
+            segment = segment[1:-1]
+        try:
+            key, value = parse_option(segment)
+        except ValueError as e:
+            raise ValueError(f"invalid option segment: {segment} - {e}")
+        pairs.append((key, value))
+    return pairs
+```

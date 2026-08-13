@@ -36,12 +36,29 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 M = ROOT / "records" / "measurements"
 
 sys.path.insert(0, str(ROOT / "tools" / "power"))
+sys.path.insert(0, str(ROOT / "tools" / "bench"))
 
 from mde import exact_p  # noqa: E402
 
-RUN_A = "bench-null-15b-a-2026-08-12"
-RUN_B = "bench-null-15b-b-2026-08-12"
+# One Wilson implementation for the campaign, not a second copy of the formula.
+from responsiveness import wilson  # noqa: E402
+
+# The pair this reads by default. It is the **gate-scored** null: #113 moved
+# scoring from the contract's acceptance command to `Gate.run`, which is a
+# different bar and therefore a different null. The 2026-08-12 pair below it was
+# measured under the old grader and its figure cannot be recomputed into this
+# one — `Gate.run` short-circuits, so a lint-rejected candidate never ran its
+# test. It is kept named, not deleted: a superseded measurement that vanishes
+# reads as one that was never taken.
+RUN_A = "bench-null-gate-15b-a-2026-08-13"
+RUN_B = "bench-null-gate-15b-b-2026-08-13"
+SUPERSEDED = ("bench-null-15b-a-2026-08-12", "bench-null-15b-b-2026-08-12")
 ARMS = ("bench-py", "bench-ts")
+
+# ADR-0019's adoption bar, and #231 check 1's stop condition: if the bench's own
+# drift reaches the smallest effect anyone would adopt on, an arm result cannot
+# be told from the instrument.
+STOP_CONDITION_PP = 3.0
 
 
 def greedy_rows(run: str, arm: str) -> dict[str, dict[str, Any]]:
@@ -62,8 +79,8 @@ def health(label: str, rows: dict[str, dict[str, Any]]) -> None:
     )
 
 
-def compare(arm: str) -> dict[str, Any]:
-    a, b = greedy_rows(RUN_A, arm), greedy_rows(RUN_B, arm)
+def compare(arm: str, run_a: str = RUN_A, run_b: str = RUN_B) -> dict[str, Any]:
+    a, b = greedy_rows(run_a, arm), greedy_rows(run_b, arm)
     shared = sorted(set(a) & set(b))
     same_bytes = [
         t for t in shared if a[t]["candidate_sha256"] == b[t]["candidate_sha256"]
@@ -90,24 +107,35 @@ def compare(arm: str) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.parse_args()
+    parser.add_argument("--run-a", default=RUN_A, help="first run directory name")
+    parser.add_argument("--run-b", default=RUN_B, help="second run directory name")
+    args = parser.parse_args()
+    run_a, run_b = args.run_a, args.run_b
 
     for arm in ARMS:
-        for run in (RUN_A, RUN_B):
+        for run in (run_a, run_b):
             if not (M / run / arm / "results.jsonl").exists():
                 print(f"missing: {run}/{arm}/results.jsonl", file=sys.stderr)
                 return 2
 
+    bars = {
+        tuple(sorted((run_a, run_b))): "Gate.run (#113's scorer)",
+        tuple(sorted(SUPERSEDED)): "the acceptance command alone — SUPERSEDED",
+    }
+    bar = bars.get(tuple(sorted((run_a, run_b))), "unrecorded")
+    print(f"# Null calibration — {run_a} vs {run_b}\n")
+    print(f"scored by: {bar}\n")
+
     print("## Rig health — both runs, before any drift is read\n")
     for arm in ARMS:
         print(f"{arm}:")
-        health("run a", greedy_rows(RUN_A, arm))
-        health("run b", greedy_rows(RUN_B, arm))
+        health("run a", greedy_rows(run_a, arm))
+        health("run b", greedy_rows(run_b, arm))
 
     print("\n## Drift, and what produced it\n")
     pooled: dict[str, list[str]] = collections.defaultdict(list)
     for arm in ARMS:
-        r = compare(arm)
+        r = compare(arm, run_a, run_b)
         n = len(r["shared"])
         for key in (
             "shared",
@@ -162,7 +190,49 @@ def main() -> int:
         f" = {len(pooled['same_bytes']) / n * 100:.1f}%"
     )
     print(f"  acceptance drift {len(pooled['acceptance_flips'])}")
-    return 0
+
+    # #231 check 1's stop condition, evaluated here rather than in prose, so the
+    # verdict cannot drift from the number it is a verdict about.
+    drift_pp = d / n * 100
+    lo, hi = (b * 100 for b in wilson(d, n))
+    print("\n## The stop condition, evaluated\n")
+    print(f"  d/n          {d}/{n} = {drift_pp:.2f}pp, 95% CI [{lo:.2f}, {hi:.2f}] pp")
+    print(f"  bar          {STOP_CONDITION_PP:.1f}pp (ADR-0019's adoption bar)")
+    ok = True
+    if drift_pp >= STOP_CONDITION_PP:
+        print(
+            "  VERDICT      **STOP** — the bench's own drift reaches the "
+            "smallest effect anyone would adopt on, so no arm result can be "
+            "told from the instrument. Fix the instrument before any arm."
+        )
+        ok = False
+    elif d == 0:
+        # No "3000000000x": a zero point estimate is not an infinitely quiet
+        # instrument, it is 514 cells that happened not to move. The interval is
+        # what bounds the drift, and it is what the report should declare.
+        print(
+            "  VERDICT      the stop condition does NOT fire — no cell moved. "
+            f"The drift is bounded by the interval, not by the zero: {hi:.2f}pp "
+            "at 95%, which is what a declared bound must carry."
+        )
+    else:
+        print(
+            f"  VERDICT      the stop condition does NOT fire — d clears the "
+            f"bar by {STOP_CONDITION_PP / drift_pp:.0f}x."
+        )
+    if pooled["acceptance_flips"]:
+        print(
+            "\n  Acceptance drift is NOT zero — identical bytes scored "
+            "differently. That is the harness rather than the model, and it "
+            "puts a floor under every contrast that no number of tasks lowers."
+        )
+        ok = False
+    else:
+        print(
+            "  Acceptance drift is zero — no cell scored differently on "
+            "identical bytes, which is the failure that would be unfixable."
+        )
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

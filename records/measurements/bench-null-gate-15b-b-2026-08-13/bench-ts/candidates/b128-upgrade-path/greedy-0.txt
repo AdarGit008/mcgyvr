@@ -1,0 +1,37 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  if (typeof installed !== 'string') {
+    throw new Error('installed must be a string');
+  }
+  const installedParts = installed.split('.');
+  if (installedParts.length !== 2 || !/^\d+(\.\d+)?$/.test(installed)) {
+    throw new Error('installed must be in the form "line.point" where line and point are decimal numbers');
+  }
+
+  let carried = installed;
+  for (const step of steps) {
+    if (!Array.isArray(step) || step.length !== 2 || typeof step[0] !== 'string' || typeof step[1] !== 'string') {
+      throw new Error('steps must be an array of {tag, requires} records');
+    }
+    const [stepTag, stepRequires] = step;
+    if (typeof stepTag !== 'string' || !/^\d+(\.\d+)?$/.test(stepTag)) {
+      throw new Error('step.tag must be in the form "line.point" where line and point are decimal numbers');
+    }
+    const [tagLine, tagPoint] = stepTag.split('.');
+    if (typeof stepRequires !== 'string' || !/^\d+(\.\d+)?$/.test(stepRequires)) {
+      throw new Error('step.requires must be in the form "line.point" where line and point are decimal numbers');
+    }
+    const [requiresLine, requiresPoint] = stepRequires.split('.');
+    if (tagLine !== requiresLine) {
+      continue;
+    }
+    if (tagPoint < requiresPoint) {
+      throw new Error(`step ${stepTag} requires at least ${step.requires}`);
+    }
+    carried = stepTag;
+  }
+  return carried;
+}
+```

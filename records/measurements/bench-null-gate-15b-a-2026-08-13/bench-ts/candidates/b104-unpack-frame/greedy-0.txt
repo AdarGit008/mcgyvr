@@ -1,0 +1,38 @@
+```ts
+export function unpackFrame(bytes: number[]): number[] {
+  if (!Array.isArray(bytes) || bytes.some(byte => byte < 0 || byte > 255)) {
+    throw new Error("Input must be an array of integers from 0 to 255.");
+  }
+
+  let readingCount = 0;
+  let varintBuffer: number[] = [];
+  let trailerSum = 0;
+
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0) {
+      break;
+    }
+    if (varintBuffer.length > 4 || bytes[i] & 0x80) {
+      throw new Error("Invalid varint format.");
+    }
+    varintBuffer.push(bytes[i]);
+    trailerSum += bytes[i];
+
+    if (bytes[i] & 0x80) {
+      const varint = parseInt(varintBuffer.join(''), 16);
+      readingCount += varint;
+      varintBuffer = [];
+    }
+
+    if (varintBuffer.length === 5 && !varintBuffer[4]) {
+      throw new Error("Invalid varint format.");
+    }
+  }
+
+  if (readingCount !== bytes.length - trailerSum) {
+    throw new Error("Invalid frame format.");
+  }
+
+  return bytes.slice(trailerSum + 1, bytes.length);
+}
+```

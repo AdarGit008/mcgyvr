@@ -1,0 +1,79 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || typeof unit !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const terms = text.split(/\s+/);
+  let runningTotal = 0;
+  let drawCount = 0;
+
+  for (let i = 0; i < terms.length; i += 2) {
+    const term = terms[i];
+    const operator = terms[i + 1];
+
+    if (!isPlainCount(term)) {
+      throw new Error('Invalid term');
+    }
+
+    if (!isValidOperator(operator)) {
+      throw new Error('Invalid operator');
+    }
+
+    const count = parseInt(term, 10);
+    runningTotal += count;
+
+    if (operator === '-') {
+      drawCount++;
+      if (runningTotal < 0) {
+        throw new Error('Draw dips below zero');
+      }
+    } else if (drawCount > 0 && operator !== '+') {
+      throw new Error('Invalid draw');
+    }
+  }
+
+  const goalUnit = unit.toLowerCase();
+  if (!isValidGoalUnit(goalUnit)) {
+    throw new Error('Invalid goal unit');
+  }
+
+  const goalCount = parseInt(text, 10);
+  if (isNaN(goalCount) || goalCount % 1 !== 0) {
+    throw new Error('Invalid total');
+  }
+
+  const targetTotal = runningTotal * getConversionFactor(goalUnit);
+
+  if (targetTotal % 1 !== 0) {
+    throw new Error('Total does not come out whole in the goal unit');
+  }
+
+  return targetTotal;
+}
+
+function isPlainCount(term: string): boolean {
+  return /^\d+$/.test(term);
+}
+
+function isValidOperator(operator: string): boolean {
+  return operator === '+' || operator === '-';
+}
+
+function isValidGoalUnit(goalUnit: string): boolean {
+  return ['g', 'kg', 't'].includes(goalUnit);
+}
+
+function getConversionFactor(unit: string): number {
+  switch (unit.toLowerCase()) {
+    case 'g':
+      return 1;
+    case 'kg':
+      return 1000;
+    case 't':
+      return 1000 * 1000;
+    default:
+      throw new Error('Invalid unit');
+  }
+}
+```

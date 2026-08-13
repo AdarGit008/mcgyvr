@@ -1,0 +1,9 @@
+```ts
+/** A label with one surrounding pair of brackets removed. */
+export function unwrapLabel(label: string): string {
+  if (label.startsWith("[")) {
+    return label.slice(1, -1);
+  }
+  return label;
+}
+```

@@ -1,0 +1,13 @@
+```ts
+/** The position of the last entry of each full batch. */
+export function batchEnds(count: number, size: number): number[] {
+  if (size <= 0) {
+    throw new Error("Batch size must be greater than zero.");
+  }
+  const ends: number[] = [];
+  for (let start = 0; start + size <= count; start += size) {
+    ends.push(start);
+  }
+  return ends;
+}
+```

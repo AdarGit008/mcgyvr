@@ -1,0 +1,47 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(person, str):
+        raise ValueError("Person argument must be a string.")
+    
+    def walk(node):
+        if node['name'] == person:
+            return [node['name']]
+        elif 'reports' in node and node['reports']:
+            return [node['name']] + sum([walk(report) for report in node['reports']], [])
+        else:
+            return []
+    
+    if root['name'] != person and not walk(root):
+        raise ValueError(f"Person {person} not found in the chart.")
+    
+    return walk(root)
+
+def headcount(root: dict) -> int:
+    def count(node):
+        if 'reports' in node and node['reports']:
+            return 1 + sum([count(report) for report in node['reports']], [])
+        else:
+            return 0
+    
+    return count(root)
+
+def widest_team(root: dict) -> int:
+    def max_depth(node):
+        if 'reports' in node and node['reports']:
+            return 1 + max(max_depth(report) for report in node['reports'])
+        else:
+            return 0
+    
+    def team_size(node):
+        if 'reports' in node and node['reports']:
+            return len(node['reports']) + sum([team_size(report) for report in node['reports']], [])
+        else:
+            return 1
+    
+    max_depths = [max_depth(root)]
+    for person, reports in root.items():
+        if reports:
+            max_depths.append(max_depth(reports))
+    
+    return max(max_depths)
+```

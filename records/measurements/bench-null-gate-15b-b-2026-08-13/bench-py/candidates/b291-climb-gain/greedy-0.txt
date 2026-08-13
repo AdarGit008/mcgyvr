@@ -1,0 +1,13 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """Return the height gained on one leg of a walk."""
+    if start > end:
+        return 0
+    return end - start
+
+def climb_gain(heights: list) -> int:
+    """Add the gains of every leg of a walk, given the heights in order."""
+    if not heights:
+        return 0
+    return sum(leg_gain(start, end) for start, end in zip(heights[:-1], heights[1:]))
+```

@@ -1,0 +1,44 @@
+```ts
+type CacheState = { limit: number; keys: string[]; store: Record<string, number> };
+
+export function newCache(limit: number): CacheState {
+  if (typeof limit !== 'number' || limit <= 0) {
+    throw Error('Limit must be a positive integer');
+  }
+  return { limit, keys: [], store: {} };
+}
+
+export function cacheWrite(cache: CacheState, key: string, value: number): string[] {
+  if (typeof key !== 'string' || key.length === 0) {
+    throw Error('Key must be a non-empty string');
+  }
+
+  const existingKey = cache.store[key];
+  if (existingKey !== undefined) {
+    delete cache.store[existingKey];
+  }
+  cache.keys.push(key);
+  cache.store[key] = value;
+
+  if (cache.keys.length > cache.limit) {
+    const leastRecentlyUsedKey = cache.keys.shift();
+    delete cache.store[leastRecentlyUsedKey];
+  }
+
+  return existingKey !== undefined ? [] : [key];
+}
+
+export function cacheRead(cache: CacheState, key: string): number {
+  if (typeof key !== 'string' || key.length === 0) {
+    throw Error('Key must be a non-empty string');
+  }
+
+  const value = cache.store[key];
+  if (value === undefined) {
+    throw Error(`Key ${key} not found`);
+  }
+  delete cache.keys[cache.keys.indexOf(key)];
+  cache.keys.push(key);
+  return value;
+}
+```

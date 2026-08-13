@@ -1,0 +1,44 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+    # Sort the passes by span in descending order to prioritize longer spans
+    sorted_passes = sorted(passes, key=lambda x: x["span"], reverse=True)
+    
+    total_cost = 0
+    purchases = []
+    
+    for trip_day in trip_days:
+        covered = False
+        for cover in sorted_passes:
+            if trip_day >= cover["start"] and trip_day <= cover["start"] + cover["span"] - 1:
+                total_cost += cover["cost"]
+                purchases.append([cover["start"], cover["span"]])
+                covered = True
+                break
+        
+        if not covered:
+            raise ValueError(f"Trip day {trip_day} is not covered by any pass.")
+    
+    return {"total": total_cost, "purchases": purchases}
+```
