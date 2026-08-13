@@ -1,0 +1,57 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every rule and path with split_strict, then keep each
+    # path the last matching rule allows; a path no rule matches survives.
+    surviving_paths = []
+    for path in listing:
+        if not isinstance(path, str):
+            raise ValueError("All paths must be strings")
+        if path == "":
+            continue
+        for rule in rules:
+            if not isinstance(rule, str):
+                raise ValueError("All rules must be strings")
+            segments = split_strict(path, "path")
+            rule_segments = split_strict(rule, "rule")
+            match_found = False
+            for i in range(min(len(segments), len(rule_segments))):
+                if not segment_fits(rule_segments[i], segments[i]):
+                    break
+            else:
+                surviving_paths.append(path)
+                break
+
+    return surviving_paths
+```

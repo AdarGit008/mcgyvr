@@ -1,0 +1,27 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    if items < 0 or crates <= 0:
+        raise ValueError("Invalid input: items must be non-negative and crates must be positive.")
+    
+    # Calculate the base size of each crate and the remainder
+    base_size = items // crates
+    remainder = items % crates
+    
+    # Create a list to hold the sizes of each crate
+    sizes = [base_size] * crates
+    
+    # Distribute the remainder among the leading crates
+    for i in range(remainder):
+        sizes[i] += 1
+    
+    return sizes
+
+def crate_total(sizes: list) -> int:
+    if not sizes:
+        raise ValueError("Invalid input: sizes must be a non-empty list.")
+    
+    # Calculate the total number of items by summing up all crate sizes
+    total = sum(sizes)
+    
+    return total
+```

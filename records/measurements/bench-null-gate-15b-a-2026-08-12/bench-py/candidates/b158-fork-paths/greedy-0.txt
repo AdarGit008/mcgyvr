@@ -1,0 +1,73 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a non-empty string")
+    
+    def is_valid_segment(segment):
+        return segment and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in segment)
+    
+    def is_valid_option(option):
+        return option and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in option)
+    
+    def is_valid_fork(fork):
+        return fork and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in fork)
+    
+    def is_valid_pattern(pattern):
+        if not pattern:
+            return False
+        
+        segments = pattern.split("/")
+        
+        if len(segments) == 0:
+            return False
+        
+        for segment in segments:
+            if not is_valid_segment(segment):
+                return False
+        
+        for i, segment in enumerate(segments):
+            if i < len(segments) - 1 and not is_valid_fork(segment):
+                return False
+        
+        return True
+    
+    if not is_valid_pattern(pattern):
+        raise ValueError("Pattern must be a non-empty string with valid segments and forks")
+    
+    def expand_segment(segment, options=None):
+        if options is None:
+            options = []
+        
+        if segment == "":
+            return [""]
+        
+        if segment[0] == "{":
+            result = []
+            for option in options:
+                result.extend(expand_segment(segment[1:-1], [option]))
+            return result
+        else:
+            return [segment + option for option in options]
+    
+    def expand_pattern(pattern):
+        segments = pattern.split("/")
+        
+        if len(segments) == 0:
+            return []
+        
+        result = []
+        for segment in segments:
+            if segment[0] == "{":
+                options = []
+                for i, option in enumerate(segment[1:-1].split(",")):
+                    options.append(option)
+                result.extend(expand_pattern(segment[1:-1], options))
+            else:
+                result.extend(expand_segment(segment))
+        
+        return result
+    
+    return expand_pattern(pattern)
+```

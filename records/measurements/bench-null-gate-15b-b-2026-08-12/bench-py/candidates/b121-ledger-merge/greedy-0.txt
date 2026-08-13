@@ -1,0 +1,44 @@
+```python
+from typing import List
+
+def merge_ledgers(base: List[List[str]], ours: List[List[str]], theirs: List[List[str]]) -> List[List[str]]:
+    if not isinstance(base, list) or not all(isinstance(item, list) and len(item) == 2 for item in base):
+        raise ValueError("base must be a list of [account, cents] pairs")
+    
+    if not isinstance(ours, list) or not all(isinstance(item, list) and len(item) == 2 for item in ours):
+        raise ValueError("ours must be a list of [account, cents] pairs")
+    
+    if not isinstance(theirs, list) or not all(isinstance(item, list) and len(item) == 2 for item in theirs):
+        raise ValueError("theirs must be a list of [account, cents] pairs")
+    
+    merged = []
+    base_accounts = set()
+    ours_accounts = set()
+    theirs_accounts = set()
+    
+    # Collect accounts from all ledgers
+    for ledger in [base, ours, theirs]:
+        for account, cents in ledger:
+            if not isinstance(account, str) or len(account) == 0:
+                raise ValueError("account must be a non-empty string")
+            if not isinstance(cents, int):
+                raise ValueError("cents must be an integer")
+            base_accounts.add(account)
+            ours_accounts.add(account)
+            theirs_accounts.add(account)
+    
+    # Merge accounts
+    for account in base_accounts.union(ours_accounts).union(theirs_accounts):
+        base_cents = 0 if account not in base else int(base[base.index([account, None])[1]])
+        ours_cents = 0 if account not in ours else int(ours[ours.index([account, None])[1]])
+        theirs_cents = 0 if account not in theirs else int(theirs[theirs.index([account, None])[1]])
+        
+        merged.append([account, base_cents + ours_cents + theirs_cents])
+    
+    # Remove accounts that were dropped by both copies
+    for account in base_accounts:
+        if account in ours_accounts and account in theirs_accounts:
+            merged.remove([account, 0])
+    
+    return sorted(merged, key=lambda x: x[0])
+```

@@ -1,0 +1,14 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings or target < 0:
+        raise ValueError("Invalid input")
+
+    count = 0
+    for i in range(len(readings) - 1, -1, -1):
+        if readings[i] >= target:
+            count += 1
+        else:
+            break
+
+    return count
+```

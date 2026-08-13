@@ -1,0 +1,70 @@
+```python
+from typing import List, Dict
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if path == "":
+        return []
+    segments = path.split("/")
+    for i in range(len(segments)):
+        if segments[i] == "" or segments[i][0] != "/":
+            raise ValueError(f"invalid segment {segments[i]} at index {i}")
+    return segments
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if not isinstance(patterns, list):
+        raise ValueError("patterns must be a list of strings")
+    
+    for i in range(len(patterns)):
+        pattern = patterns[i]
+        if not isinstance(pattern, str):
+            raise ValueError(f"pattern {i} must be a non-empty string")
+        
+        if pattern == "**":
+            return i
+        
+        if pattern[0] != "/":
+            continue
+        
+        segments = split_segments(path)
+        pattern_segments = split_segments(pattern)
+        
+        if len(segments) < len(pattern_segments):
+            continue
+        
+        for j in range(len(pattern_segments)):
+            if pattern_segments[j][0] == ":":
+                name = pattern_segments[j][1:]
+                if not name.isalnum() or any(not c.isalnum() and c != "_" for c in name):
+                    raise ValueError(f"invalid capture name {name} at index {j}")
+                
+                if j > 0 and segments[j-1] != pattern_segments[j-1]:
+                    continue
+                
+                if j < len(pattern_segments) - 1 and segments[j+1] != pattern_segments[j+1]:
+                    continue
+                
+                if j == len(pattern_segments) - 1:
+                    return i
+                
+            elif pattern_segments[j][0] == "*":
+                if j > 0 and segments[j-1] != pattern_segments[j-1]:
+                    continue
+                
+                if j < len(pattern_segments) - 1 and segments[j+1] != pattern_segments[j+1]:
+                    continue
+                
+                if j == len(pattern_segments) - 1:
+                    return i
+                
+            elif pattern_segments[j][0] == "/":
+                continue
+            
+            else:
+                raise ValueError(f"invalid segment {pattern_segments[j]} at index {j}")
+    
+    return -1
+```

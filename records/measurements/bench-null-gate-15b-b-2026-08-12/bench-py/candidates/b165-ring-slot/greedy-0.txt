@@ -1,0 +1,12 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or writes < 0 or k < 0 or k >= writes:
+        raise ValueError("Invalid input values")
+    
+    slots = [None] * capacity
+    for i in range(writes):
+        slots[i % capacity] = i
+    
+    survivors = sorted(slots, reverse=True)[:min(writes, capacity)]
+    return survivors[k]
+```
