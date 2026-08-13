@@ -82,14 +82,18 @@ import tempfile
 import time
 import types
 import urllib.request
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.gate.preflight import check_prompt_fits
+from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.runner import Request, RunnerError, runner_for
+from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -110,6 +114,36 @@ def _bundle_rig() -> types.ModuleType:
 
 
 bundle = _bundle_rig()
+
+
+def _bench_matrix() -> types.ModuleType:
+    """The condition matrix, imported by path for the same reason."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_matrix", HERE.parent / "bench" / "matrix.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+matrix = _bench_matrix()
+
+
+def _bench_score() -> types.ModuleType:
+    """The bench's scorer — Gate.run, not the acceptance command alone."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_score", HERE.parent / "bench" / "score.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+score = _bench_score()
 
 # The variables of this experiment, all held fixed within a run.
 #
@@ -187,12 +221,24 @@ BENCH_TIERS = ("bench-ts", "bench-py")
 # `bundle_sha256` would not notice because it hashes the *system* prompt while
 # the ablation lands in the *user* message. Names stay hyphen-free so they can
 # never collide with `pin.py`'s stem parsing if a capture path ever carries
-# one. #113 owns the general condition matrix; this is one named knob it will
-# subsume, not a framework.
+# one.
+#
+# #113 has now subsumed these into `tools/bench/matrix.json`, and the runner
+# reads the cells rather than knowing them. The three names below are kept as
+# constants because run identity is recorded under them and every existing run
+# directory on disk carries one; they are asserted against the matrix at import
+# so a rename in the data can never silently orphan a run.
 STOCK = "stock"
 PLAN_ONLY = "planonly"
 NO_SCAFFOLD = "noscaffold"
-CONDITIONS = (STOCK, PLAN_ONLY, NO_SCAFFOLD)
+
+MATRIX = matrix.load()
+CONDITIONS = tuple(MATRIX.cells)
+
+assert MATRIX.baseline.id == STOCK, "the matrix baseline must stay `stock`"
+assert {STOCK, PLAN_ONLY, NO_SCAFFOLD} <= set(CONDITIONS), (
+    "matrix.json dropped a cell that runs on disk are recorded under"
+)
 
 # Comment openers, by the two languages the bench arms speak.
 _COMMENT = ("//", "#")
@@ -364,14 +410,39 @@ def ablate(contract: Any, condition: str) -> Any:
     test and dilute it. ``bug_fix`` is ineligible for a stronger reason — its
     ``target_content`` is the buggy file the task exists to fix, so removing
     it does not lighten the task, it deletes it.
+
+    The cell's levers, their order and their conflicts are
+    ``tools/bench/matrix.json``'s (#113); what stays here is the runner's own
+    knowledge of the scaffold's comment syntax, which the matrix injects rather
+    than duplicates.
     """
-    if condition == STOCK:
-        return contract
-    if condition == NO_SCAFFOLD:
-        return replace(contract, target_content="")
-    if condition == PLAN_ONLY:
-        return replace(contract, target_content=plan_of(contract.target_content))
-    raise bundle.MeasureError(f"unknown condition {condition!r}")
+    try:
+        cell = MATRIX.cell(condition)
+    except matrix.MatrixError as exc:
+        raise bundle.MeasureError(str(exc)) from None
+    return matrix.apply_contract(cell, contract, plan_of=plan_of)
+
+
+def render_for(condition: str, contract: Any) -> Any:
+    """Assemble the dispatch, then apply the cell's message-stage levers.
+
+    Split from :func:`ablate` because the two stages answer different
+    questions: a contract lever changes the task the worker is given, a message
+    lever changes only how it is asked. A cell naming no message lever returns
+    exactly what ``build_prompt`` returned, so the baseline path is untouched.
+
+    The re-cost is not cosmetic. ``norule`` *removes* text, so carrying the
+    assembled token count forward would price the ablation as free on the cost
+    axis #113 asks the report to carry.
+    """
+    prompt = build_prompt(contract)
+    return matrix.apply_message(
+        MATRIX.cell(condition),
+        prompt,
+        contract=contract,
+        estimate=estimate_tokens,
+        check_fits=check_prompt_fits,
+    )
 
 
 def plan_of(target_content: str) -> str:
@@ -427,7 +498,50 @@ def measure_task(
     of the run identity rather than a local flag, because the ablated render
     is a different experiment on the same material — the cap's argument.
     """
-    prompt = build_prompt(ablate(task.contract, condition))
+    ablated = ablate(task.contract, condition)
+    prompt = render_for(condition, ablated)
+    rows: list[dict[str, object]] = []
+    with _task_sandbox(task, ablated, workdir) as sandbox:
+        rows = _draws(
+            task,
+            runner,
+            model,
+            candidates,
+            already,
+            plan,
+            max_output_tokens,
+            prompt,
+            sandbox,
+        )
+    return rows
+
+
+@contextmanager
+def _task_sandbox(task: Any, ablated: Any, workdir: Path) -> Iterator[Any]:
+    """One sandbox per task, holding the pre-worker tree the gate diffs against.
+
+    The base is staged from the *ablated* contract, so the state the changeset
+    is computed against is the state the worker was shown. Opened once per task
+    and reset per draw: the workspace, its git base commit and the reset are
+    E4's, and paying for them per draw would multiply the cost by the plan.
+    """
+    base = score.stage_dir(task, ablated.target_content, workdir / f"{task.id}-base")
+    with TempDirSandbox(base) as sandbox:
+        yield sandbox
+
+
+def _draws(
+    task: Any,
+    runner: Any,
+    model: str,
+    candidates: Path,
+    already: set[tuple[str, str, int]],
+    plan: list[tuple[str, int, float]] | None,
+    max_output_tokens: int,
+    prompt: Any,
+    sandbox: Any,
+) -> list[dict[str, object]]:
+    """The draw loop, with the sandbox already open."""
     rows: list[dict[str, object]] = []
     for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
@@ -484,16 +598,23 @@ def measure_task(
             continue
 
         started = time.monotonic()
-        acceptance = bundle.run_acceptance(
-            task, parsed.content, workdir / f"{task.id}-{arm}-{draw}"
-        )
+        verdict = score.score(task, parsed.content, sandbox)
         rows.append(
             row
             | {
-                "passed": acceptance.passed,
+                "passed": verdict.passed,
                 "parse_error": None,
                 "acceptance_s": round(time.monotonic() - started, 3),
-                "fail_output": None if acceptance.passed else acceptance.output,
+                # Which rung rejected, and whether the acceptance command ran
+                # at all. The gate short-circuits, so a candidate rejected at
+                # lint never reached acceptance and this row cannot say what it
+                # would have done — the acceptance-only rate every earlier
+                # figure was measured at is NOT recoverable from a gate run.
+                # That is why #231 re-runs rather than recomputes.
+                "rejected_by": verdict.rejected_by,
+                "rejected_before_acceptance": verdict.rejected_before_acceptance,
+                "fail_output": None if verdict.passed else "; ".join(verdict.findings),
+                "environment_issues": list(verdict.environment_issues) or None,
             }
         )
     return rows
@@ -749,6 +870,12 @@ def record_run(
         "sampled_temperature": sampled_temperature,
         "max_output_tokens": max_output_tokens,
         "condition": condition,
+        # The bar the rates in this directory were measured against. A run
+        # scored by a different set of rungs is a different instrument, and
+        # every figure on disk before 2026-08-12 was "acceptance" alone —
+        # so a reader can tell the two apart without knowing the date.
+        "gate_rungs": list(score.GATE_RUNGS),
+        "gate_semantic": False,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
@@ -798,6 +925,87 @@ def first_pass_indices(
     return indices
 
 
+# The facts a rate has to be quoted with (#113).
+#
+# `serving_build` is deliberately NOT among them. ADR-0024 makes the build part
+# of a run's identity, but `serving_build()` already decided what an unreachable
+# probe means: "an endpoint that does not answer /api/version is not one this
+# project refuses to measure — it is one whose build is unknown, and None says
+# exactly that rather than inventing a value." A recorded "unknown" is a
+# statement, so the header prints it and flags the limit. The risk ADR-0024
+# actually guards — two builds inside one contrast — is caught where it lives,
+# in `report.require_comparable`, which refuses a table mixing them.
+REQUIRED_PROVENANCE = ("model", "endpoint", "tier", "condition")
+
+
+def missing_provenance(recorded: Mapping[str, Any]) -> list[str]:
+    """Which of the facts a quotable rate needs are absent from a manifest."""
+    return [k for k in REQUIRED_PROVENANCE if not recorded.get(k)]
+
+
+def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
+    """The header every figure in a report is quoted under, or ``None``.
+
+    ``None`` means the run cannot be described, and a report that cannot
+    describe its subject must not state a rate for it.
+
+    The tier line is the **single-tier declaration** #113 asks for. This rig
+    dispatches to one model and never escalates, so every figure it produces
+    describes one tier; saying so in the report is what stops a floor rate
+    being read as the ladder's (a floor failure rescued by a higher rung makes
+    the floor invisible, which is the whole reason the mode is named).
+    """
+    if missing_provenance(recorded):
+        return None
+    rungs = recorded.get("gate_rungs")
+    bar = (
+        "acceptance command only (pre-#113 scorer)"
+        if not rungs
+        else "Gate.run [" + ", ".join(rungs) + "]"
+    )
+    build = recorded.get("serving_build")
+    lines = [
+        f"**{recorded['model']}** on {bundle.redact(recorded['endpoint'])} "
+        f"(build {build or 'unknown'}), tier `{recorded['tier']}`, "
+        f"condition `{recorded['condition']}`",
+        "",
+        f"- scored by: {bar}",
+        "- mode: **single-tier** — one model, no escalation, so every rate "
+        "below is that tier's own and not the ladder's",
+    ]
+    if not build:
+        lines.append(
+            "- **the serving build is unknown** — the endpoint did not answer "
+            "`/api/version`, so this run cannot be laid beside one from a "
+            "different build (ADR-0024)"
+        )
+    return lines
+
+
+def cost_axis(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Tokens spent per candidate — the outcome axis beside acceptance.
+
+    Reported over every row that reached a worker, passing or not: the price of
+    a condition is what it costs to *ask*, and a condition that fails cheaply is
+    a different proposition from one that fails expensively.
+    """
+    scored = [
+        r
+        for r in rows
+        if isinstance(r.get("prompt_tokens"), (int, float))
+        and isinstance(r.get("completion_tokens"), (int, float))
+    ]
+    if not scored:
+        return []
+    prompt = sum(r["prompt_tokens"] for r in scored) / len(scored)
+    completion = sum(r["completion_tokens"] for r in scored) / len(scored)
+    return [
+        "",
+        f"cost per candidate: {prompt:.0f} prompt + {completion:.0f} completion "
+        f"tokens (mean over {len(scored)} dispatched draws)",
+    ]
+
+
 def summarise(rows_path: Path) -> str:
     """The distribution, its arms and its price, from the rows on disk.
 
@@ -817,6 +1025,7 @@ def summarise(rows_path: Path) -> str:
         return "no rows"
     draws = DRAWS
     sampled_temperature = SAMPLED_TEMPERATURE
+    recorded: dict[str, Any] = {}
     manifest = rows_path.parent / "run.json"
     if manifest.is_file():
         recorded = json.loads(manifest.read_text(encoding="utf-8"))
@@ -841,6 +1050,25 @@ def summarise(rows_path: Path) -> str:
     elif missing is not None:
         lines.append("complete: an observation reached every cell.")
         lines.append("")
+
+    # Provenance sits between completeness and the first rate, and that order is
+    # two requirements meeting rather than a preference. #217 fixed completeness
+    # as the *first* line, because a holed run's warning is what gets scrolled
+    # past. #113 requires that no rate be stated without a model, a rig and a
+    # bar. Both hold: the hole leads, the subject precedes every figure.
+    provenance = describe_run(recorded)
+    if provenance is None:
+        lines.append(
+            "**NO RATE — this directory cannot say what produced it.** "
+            f"Missing from run.json: {', '.join(missing_provenance(recorded))}. "
+            "A pass rate names a model on a rig under a bar or it names "
+            "nothing, so none is stated below."
+        )
+        lines.append("")
+        lines.append(f"{len(rows)} rows on disk.")
+        return "\n".join(lines)
+    lines.extend(provenance)
+    lines.append("")
 
     greedy = [r for r in rows if r["arm"] == "greedy"]
     sampled = [r for r in rows if r["arm"] == "sampled"]
@@ -889,6 +1117,12 @@ def summarise(rows_path: Path) -> str:
             f"+ {acceptance:.1f}s acceptance (mean over {len(priced)} sampled "
             "draws)"
         )
+
+    # The second outcome axis (#113, ADR-0018): a pass rate alone cannot rank
+    # levers, because the levers differ far more in price than in effect. Tokens
+    # rather than wall clock, because tokens are what the north star's
+    # denominator counts and what transfers across rigs.
+    lines.extend(cost_axis(rows))
 
     dispatch_errors = sum(1 for r in rows if r.get("dispatch_error"))
     parse_errors = sum(1 for r in rows if r.get("parse_error"))
@@ -996,11 +1230,12 @@ def main() -> int:
         "--condition",
         choices=CONDITIONS,
         default=STOCK,
-        help=f"prompt condition (default {STOCK}, what production dispatches). "
-        f"{NO_SCAFFOLD} removes the target's current content from the user "
-        "message, so the model writes the whole file rather than completing a "
-        "partial one — #225's paired size manipulation. Part of the run "
-        "identity: a directory measured under one condition refuses the other.",
+        help=f"condition cell (default {STOCK}, the baseline — what production "
+        "dispatches). The cells and the levers they name are data in "
+        "tools/bench/matrix.json, not choices this runner knows (#113); a cell "
+        "may name more than one lever, and two levers writing the same slot are "
+        "refused when the matrix loads. Part of the run identity: a directory "
+        "measured under one cell refuses another.",
     )
     parser.add_argument(
         "--selftest",
@@ -1130,11 +1365,23 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    # Before a single draw is dispatched: can every rung this run declares
+    # actually execute on this material? A missing linter is an *environment
+    # issue* to the gate and not a finding, so the candidate passes and the run
+    # is scored by a quietly smaller bar. That is right for production and
+    # silently wrong for an instrument — see score.preflight.
+    try:
+        score.require_rungs(tasks)
+    except score.RungUnavailableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     print(
         f"measuring {worker.model} at {bundle.redact(worker.endpoint)} "
         f"({worker.protocol.value}), tier {args.tier}, {args.draws} sampled "
         f"draws per task at T={args.sampled_temperature}, "
-        f"cap {args.max_output_tokens}, no early exit",
+        f"cap {args.max_output_tokens}, no early exit, "
+        f"scored by Gate.run [{', '.join(score.GATE_RUNGS)}]",
         file=sys.stderr,
     )
     plan = draw_plan(args.draws, args.sampled_temperature)

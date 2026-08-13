@@ -1,0 +1,13 @@
+```python
+def digit_word(digit: int) -> str:
+    """Returns the English word for a single digit."""
+    if not 0 <= digit <= 9:
+        raise ValueError("digit must be between 0 and 9")
+    return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][digit]
+
+def digit_words(digits: str) -> str:
+    """Returns a string of the English words for each digit in the input string."""
+    if not digits.isdigit():
+        raise ValueError("digits must be a string of digits")
+    return ' '.join(digit_word(int(d)) for d in digits)
+```

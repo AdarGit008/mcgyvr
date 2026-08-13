@@ -1,0 +1,26 @@
+```python
+def crumb_split(trail: str) -> list:
+    """
+    Breaks a breadcrumb trail on forward slashes and discards every empty segment.
+
+    Args:
+        trail (str): The breadcrumb trail to split.
+
+    Returns:
+        list: A list of segments from the breadcrumb trail.
+    """
+    return [part for part in trail.split('/') if part.strip()]
+
+def crumb_join(parts: list) -> str:
+    """
+    Joins a list of segments with a single slash between them and no slash at either end,
+    discarding empty segments.
+
+    Args:
+        parts (list): The list of segments to join.
+
+    Returns:
+        str: A breadcrumb trail string.
+    """
+    return '/'.join(part for part in parts if part.strip())
+```

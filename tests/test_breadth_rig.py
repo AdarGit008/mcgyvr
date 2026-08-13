@@ -84,9 +84,17 @@ def _measure_one(
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     rows: list[dict[str, object]] = breadth.measure_task(
         task, runner, "test-model", tmp_path / "work", tmp_path / "cand", set()
@@ -162,9 +170,17 @@ def test_resume_skips_recorded_draws(tmp_path: Path, monkeypatch: Any) -> None:
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     rows = breadth.measure_task(
         task, runner, "test-model", tmp_path / "work", tmp_path / "cand", already
@@ -216,13 +232,49 @@ def test_summarise_reports_the_distribution(tmp_path: Path) -> None:
     rows_path.write_text(
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
+    # Since #113 a rate is not stated without a subject, and a real run
+    # directory always carries one — a manifest-less directory gets the refusal
+    # instead, which `test_a_rate_is_refused_without_a_subject` pins.
+    (tmp_path / "run.json").write_text(
+        json.dumps(
+            {
+                "model": "test-model",
+                "endpoint": "http://test:11434",
+                "serving_build": "0.0.0",
+                "tier": "d1",
+                "condition": "stock",
+                "draws": 5,
+            }
+        ),
+        encoding="utf-8",
+    )
     text = breadth.summarise(rows_path)
+    assert "test-model" in text and "single-tier" in text
     assert "greedy" in text and "1/1 pass" in text
     assert "3 tasks" in text and "2 with any pass" in text
     assert "| 0 | 1 | 1/3 |" in text
     assert "| 2 | 1 | 2/3 |" in text
     assert "| none | 1 | — |" in text
     assert "2.0s dispatch + 0.5s acceptance" in text
+
+
+def test_a_rate_is_refused_without_a_subject(tmp_path: Path) -> None:
+    """#113: a pass rate that names no model on no rig names nothing.
+
+    The refusal is the report — completeness and a row count, and no figure
+    that could be quoted out of the directory later.
+    """
+    rows_path = tmp_path / "results.jsonl"
+    rows_path.write_text(
+        json.dumps({"task": "t", "arm": "greedy", "draw": 0, "passed": True}) + "\n",
+        encoding="utf-8",
+    )
+    text = breadth.summarise(rows_path)
+    assert "NO RATE" in text
+    assert "model" in text and "endpoint" in text
+    assert "pass" not in text.split("NO RATE")[1].split("rows on disk")[0].replace(
+        "A pass rate names a model on a rig under a bar or it names nothing", ""
+    )
 
 
 def _worker(model: str = "test-model") -> Any:
@@ -411,9 +463,17 @@ def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
     breadth.measure_task(
         task,
@@ -502,34 +562,60 @@ def _sweep_argv(out: Path, tasks: str, draws: int = 1, tier: str = "d1") -> list
 
 
 def _scorable_arm(monkeypatch: Any) -> None:
-    """Say the JS/TS runtime is present, because this is not about the runtime.
+    """Say the JS/TS environment is present, because this is not about it.
 
-    ``main`` refuses to dispatch on a machine whose Node cannot import a
-    ``.ts`` file directly, which is right — twenty red rows from a missing
-    runtime look exactly like a model that cannot write the language. But CI's
-    baseline job pins Node 20 and type stripping is unflagged only from 23.6,
-    so a test that reaches the loop through ``main`` would pass here and fail
-    there for a reason it is not about. These tests are about which cells hold
-    an observation; nothing in them scores anything.
+    ``main`` refuses to dispatch twice over: on a machine whose Node cannot
+    import a ``.ts`` file directly, and on one where a declared rung cannot
+    reject. Both refusals are right — twenty red rows from a missing runtime
+    look exactly like a model that cannot write the language, and a rate scored
+    by fewer rungs than it declares is worse than no rate. Neither is what these
+    tests are about: they are about which cells hold an observation, and nothing
+    in them scores anything.
+
+    So both are neutralised here, and the second one has to be. **BUILD-05 runs
+    the whole suite against the documented bootstrap on a clean checkout**, which
+    installs Python tooling and nothing else — so a rig test that needs eslint on
+    PATH does not fail on its own subject, it fails the clean-checkout contract.
+    The preflight's own behaviour is tested in ``tests/test_bench_score.py``,
+    where the toolchain is a declared precondition rather than an accident of the
+    machine.
     """
     monkeypatch.setattr(
         breadth.bundle,
         "JSTS",
         dataclasses.replace(breadth.bundle.JSTS, capability=lambda: None),
     )
+    monkeypatch.setattr(breadth.score, "require_rungs", lambda tasks, gate=None: None)
 
 
 def _always_passes(monkeypatch: Any) -> None:
-    """Parse and acceptance stubbed out: this is about cells, not verdicts."""
+    """Parse and scoring stubbed out: this is about cells, not verdicts.
+
+    The preflight goes with them, and it has to. ``score.require_rungs`` proves
+    a rung can *reject* by scoring a deliberately malformed canary — through
+    the same ``score.score`` these tests hold at "passed". With the scorer
+    stubbed the canary passes by construction, the preflight correctly reports
+    an instrument that cannot fail, and ``main`` refuses before dispatching a
+    single draw. Stubbing one without the other tests neither.
+    """
+    monkeypatch.setattr(breadth.score, "require_rungs", lambda tasks, gate=None: None)
     monkeypatch.setattr(
         breadth,
         "parse_reply",
         lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
     )
     monkeypatch.setattr(
-        breadth.bundle,
-        "run_acceptance",
-        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+        breadth.score,
+        "score",
+        # Since #113 the rig scores through `Gate.run`, so the seam these rig
+        # tests stub is the scorer rather than the acceptance command. They
+        # exercise the draw plan, the resume and the dispatch-error path — none
+        # of which is about whether a candidate is any good — so the verdict is
+        # held at "passed" and the scoring itself is tested in
+        # tests/test_bench_score.py.
+        lambda task, content, sandbox, gate=None: breadth.score.Verdict(
+            passed=True, rejected_by=None, findings=(), environment_issues=()
+        ),
     )
 
 

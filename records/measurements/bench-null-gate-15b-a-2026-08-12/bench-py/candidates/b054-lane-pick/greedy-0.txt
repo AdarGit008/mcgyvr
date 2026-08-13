@@ -1,0 +1,16 @@
+```python
+def pick_lane(queues: list, closed: list) -> int:
+    if not queues or not all(isinstance(q, int) for q in queues):
+        raise ValueError("Invalid queues argument")
+    if any(not isinstance(c, int) or c < 0 for c in closed):
+        raise ValueError("Invalid closed index argument")
+    if len(queues) != len(closed):
+        raise ValueError("Queues and closed lists must have the same length")
+
+    best = 0
+    for lane in range(1, len(queues)):
+        if queues[lane] <= queues[best] and lane not in closed:
+            best = lane
+
+    return best
+```

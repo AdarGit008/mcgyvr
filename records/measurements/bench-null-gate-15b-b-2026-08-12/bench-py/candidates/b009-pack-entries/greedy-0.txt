@@ -1,0 +1,11 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    def escape_value(value):
+        return value.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    escaped_entries = [f"{escape_value(key)}={escape_value(value)}" for key, value in entries]
+    return ";".join(escaped_entries)
+```

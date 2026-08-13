@@ -1,0 +1,19 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """Returns the cost of a single line."""
+    return price * quantity
+
+def basket_cost(lines: list, discount: int) -> int:
+    """Calculates the total cost of all lines after applying a discount."""
+    if not lines:
+        return 0
+    
+    # Calculate the total cost before discount
+    total_cost = sum(line_cost(price, quantity) for price, quantity in lines)
+    
+    # Apply the discount
+    discounted_total = total_cost * (1 - discount / 100)
+    
+    # Round down to whole pence
+    return int(discounted_total)
+```

@@ -1,0 +1,57 @@
+```python
+from typing import List
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a non-empty string")
+    
+    def is_valid_segment(segment):
+        return segment and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in segment)
+    
+    def is_valid_option(option):
+        return option and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in option)
+    
+    def is_valid_fork(fork):
+        return fork and all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in fork)
+    
+    def is_valid_pattern(pattern):
+        if not pattern:
+            return False
+        
+        segments = pattern.split("/")
+        
+        if len(segments) == 0:
+            return False
+        
+        for segment in segments:
+            if not is_valid_segment(segment):
+                return False
+            
+            if segment.startswith("{") and segment.endswith("}"):
+                options = segment[1:-1].split(",")
+                if not all(is_valid_option(option) for option in options):
+                    return False
+            elif not is_valid_option(segment):
+                return False
+        
+        return True
+    
+    if not is_valid_pattern(pattern):
+        raise ValueError("Pattern must be a non-empty string, an empty segment, an empty option, and a curly brace or comma sitting inside a literal segment or an option")
+    
+    def expand_fork(fork, path):
+        options = fork[1:-1].split(",")
+        for option in options:
+            new_path = f"{path}/{option}"
+            yield new_path
+    
+    paths = []
+    for segment in pattern.split("/"):
+        if segment.startswith("{") and segment.endswith("}"):
+            for new_path in expand_fork(segment, ""):
+                paths.append(new_path)
+        else:
+            paths.append(segment)
+    
+    return paths
+```
