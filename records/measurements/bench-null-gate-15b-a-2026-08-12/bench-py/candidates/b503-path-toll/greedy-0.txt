@@ -1,0 +1,17 @@
+```python
+def step_cost(kind: str) -> int:
+    if kind == "fast":
+        return 10
+    elif kind == "slow":
+        return 20
+    else:
+        raise ValueError("Invalid step cost kind")
+
+def path_toll(steps: list[str]) -> int:
+    total = 0
+    for i, step in enumerate(steps):
+        if i % 3 == 2:
+            continue
+        total += step_cost(step)
+    return total
+```

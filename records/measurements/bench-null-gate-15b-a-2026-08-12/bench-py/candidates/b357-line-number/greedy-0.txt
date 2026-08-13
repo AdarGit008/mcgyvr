@@ -1,0 +1,9 @@
+```python
+def line_number(block: str) -> str:
+    if not block:
+        return ""
+    
+    lines = block.split("\n")
+    formatted_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
+    return "\n".join(formatted_lines)
+```

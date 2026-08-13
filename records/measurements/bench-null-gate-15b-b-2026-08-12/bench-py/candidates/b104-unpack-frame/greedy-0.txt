@@ -1,0 +1,35 @@
+```python
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+
+    readings = []
+    varint_length = 0
+
+    for byte in data:
+        if not isinstance(byte, int) or byte < 0 or byte > 255:
+            raise ValueError("Byte must be an integer from 0 to 255")
+
+        if varint_length == 0:
+            # Read the header varint
+            while byte & 0x80:
+                varint_length += 1
+                byte >>= 7
+            if varint_length > 4:
+                raise ValueError("Header varint is too long")
+            readings.append(byte)
+        else:
+            # Read a reading varint
+            while byte & 0x80:
+                varint_length -= 1
+                byte >>= 7
+            if varint_length < 0 or varint_length > 4:
+                raise ValueError("Reading varint is too long")
+            readings.append(byte)
+
+        # Check for the trailer
+        if varint_length == 5 and data[varint_length - 1] != sum(data[:varint_length]):
+            raise ValueError("Trailer does not match the byte sum")
+
+    return readings
+```

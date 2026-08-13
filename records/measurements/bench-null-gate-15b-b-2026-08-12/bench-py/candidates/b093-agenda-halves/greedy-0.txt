@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if not sessions or not isinstance(limit, int):
+        raise ValueError("Invalid input")
+
+    for session in sessions:
+        if len(session) != 2 or not all(isinstance(x, int) and x >= 0 for x in session):
+            raise ValueError("Invalid session bounds")
+        if session[0] >= session[1]:
+            raise ValueError("Session start must precede end")
+
+    blocks = []
+    current_block = []
+
+    for session in sessions:
+        start, end = session
+        while start < end and len(current_block) + 2 <= limit:
+            mid = (start + end) // 2
+            if mid == start:
+                current_block.append([start, end])
+                break
+            elif mid == end - 1:
+                current_block.append([start, mid + 1])
+                break
+            else:
+                current_block.append([start, mid])
+                current_block.append([mid + 1, end])
+                start = mid + 2
+
+    return blocks
+```

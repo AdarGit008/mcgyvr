@@ -16,3 +16,4 @@ build/
 *.egg-info/
 .baseline/cache/
 tools/breadth/worker.local.json
+node_modules/

@@ -210,10 +210,19 @@ def test_a_commentless_scaffold_degenerates_to_no_scaffold() -> None:
 
 
 def test_every_condition_is_a_distinct_render() -> None:
-    """Three conditions must produce three prompts, or a cell is a duplicate."""
+    """Every declared cell must produce its own prompt, or a cell is a duplicate.
+
+    Rendered through ``render_for``, which is the dispatch path: since #113 a
+    cell may carry a *message*-stage lever, and ``build_prompt(ablate(...))``
+    applies only the contract stage. Reaching around the message stage here
+    would collapse every message-lever cell onto its contract-stage twin and
+    call the duplicate a pass.
+    """
     contract = _contract()
     rendered = {
-        condition: build_prompt(breadth.ablate(contract, condition)).user
+        condition: breadth.render_for(
+            condition, breadth.ablate(contract, condition)
+        ).user
         for condition in breadth.CONDITIONS
     }
     assert len(set(rendered.values())) == len(breadth.CONDITIONS)

@@ -1,0 +1,29 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(key, str) for key in base.keys() | ours.keys() | theirs.keys()):
+        raise ValueError("All keys must be strings")
+
+    merged = {}
+    for key in base.keys():
+        if key in ours and key in theirs:
+            if ours[key] == theirs[key]:
+                merged[key] = ours[key]
+            else:
+                merged[key] = "conflict"
+        elif key in ours:
+            merged[key] = ours[key]
+        elif key in theirs:
+            merged[key] = theirs[key]
+        else:
+            merged[key] = None
+
+    for key in ours.keys():
+        if key not in base or ours[key] != base[key]:
+            merged[key] = "conflict"
+
+    for key in theirs.keys():
+        if key not in base or theirs[key] != base[key]:
+            merged[key] = "conflict"
+
+    return merged
+```

@@ -1,0 +1,42 @@
+```python
+from typing import List, Tuple
+
+class ReserveLotsResult:
+    def __init__(self, picks: List[Tuple[int, int, int]], draws: List[Tuple[int, int, int]], short: List[Tuple[int, int]]):
+        self.picks = picks
+        self.draws = draws
+        self.short = short
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> ReserveLotsResult:
+    if not lots or not orders:
+        return ReserveLotsResult([], [], [])
+
+    # Sort lots by use-by date and lot id
+    lots.sort(key=lambda x: (x[1], x[0]))
+
+    # Sort orders by units wanted in descending order
+    orders.sort(key=lambda x: -x[1])
+
+    picks = []
+    draws = []
+    short = []
+
+    for order_id, units_wanted in orders:
+        drawn_lots = []
+        remaining_units = units_wanted
+
+        while remaining_units > 0 and lots:
+            lot_id, use_by_date, units_on_hand = lots.pop(0)
+
+            if units_on_hand >= remaining_units:
+                picks.append((order_id, lot_id, remaining_units))
+                remaining_units -= units_on_hand
+            else:
+                drawn_lots.append((lot_id, units_on_hand))
+                short.append((order_id, remaining_units - units_on_hand))
+
+        if lots:
+            draws.extend(drawn_lots)
+
+    return ReserveLotsResult(picks, draws, short)
+```

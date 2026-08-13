@@ -1,0 +1,10 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """Return how many tiles of a given size cover a length, rounding up."""
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """Return the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again."""
+    total_tiles = (width * height + tile - 1) // tile
+    return total_tiles + spare
+```

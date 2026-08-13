@@ -1,0 +1,20 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Turn a row and a column into a spreadsheet name."""
+    if not (0 <= row < 1000) or not (0 <= column < 26):
+        raise ValueError("Row and column must be between 0 and 999, inclusive.")
+    
+    # Convert column to letter
+    col_name = chr(column + ord('A'))
+    
+    # Format the cell name as "column_row"
+    return f"{col_name}{row+1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Return the names of every cell in a grid of a given size."""
+    if not (0 <= rows < 1000) or not (0 <= columns < 26):
+        raise ValueError("Rows and columns must be between 0 and 999, inclusive.")
+    
+    # Generate all cell names
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

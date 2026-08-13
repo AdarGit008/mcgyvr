@@ -1,0 +1,58 @@
+{
+  "record": "bench-matrix/1",
+  "issue": 113,
+  "doctrine": "The condition matrix is data in the repository, not arguments a runner improvises (#113). A cell names a set of levers; the empty set is the baseline, which is what production dispatches. One-thing-per-axis is the baseline discipline and it is blind to interaction, so a cell may name more than one lever and the report carries the interaction term — combined effect minus the sum of singles (#233, ADR-0018 Q2).",
+  "rules": {
+    "slot": "Every lever declares the one thing it writes. Two levers writing the same slot may not share a cell: the result would depend on the order they were applied, and an order-dependent cell is not a condition, it is a bug with a name. Checked when the matrix loads.",
+    "stage": "'contract' levers transform the Contract before the prompt is assembled; 'message' levers transform the rendered user message and the prompt is re-costed afterwards, so the cost axis never reports the pre-ablation token count.",
+    "baseline": "Exactly one cell must declare no levers. Every effect in the report is measured against it, and the interaction term is undefined without it."
+  },
+  "levers": {
+    "noscaffold": {
+      "stage": "contract",
+      "slot": "target_content",
+      "what": "Removes the target's current content, so the model writes the whole file rather than completing a partial one.",
+      "why": "#225's paired size manipulation. On a contract carrying no target_content it is a no-op by construction, so the eligible set is selected by the caller — an ineligible task contributes a concordant pair and dilutes the test. bug_fix is ineligible for a stronger reason: its target_content is the buggy file the task exists to fix, so removing it deletes the task rather than lightening it."
+    },
+    "planonly": {
+      "stage": "contract",
+      "slot": "target_content",
+      "what": "Keeps the scaffold's comment lines and drops its code.",
+      "why": "noscaffold removes two things at once — the code the model would have typed, and the recipe telling it what to do. Splitting them gives two paired contrasts on the same problems: stock against planonly is the code the scaffold saved, planonly against noscaffold is the plan it stated."
+    },
+    "norule": {
+      "stage": "message",
+      "slot": "output_section",
+      "what": "Removes the OUTPUT section — the output-shape sentence render_user_message appends from _REPLY_INSTRUCTIONS.",
+      "why": "#231 check 2's positive control. CLM-0017 measured this one line moving first-pass acceptance 7/20 to 11/20 and collapsing mean completion tokens 427.4 to 121.5, on local-ai's unported Python contracts under local-ai's own harness. Across harnesses the effect nulls, because mcgyvr's render_user_message already contains the rule — so the control as commissioned is the ablation, not a replay. Recovery is directional with the mechanism's signature: the rule's presence should raise acceptance materially and collapse completion tokens.",
+      "note": "It removes the section from the rendered message and changes nothing about output_schema, so the reply is parsed exactly as it is under the baseline. Ablating the schema instead would move the parser too, and the contrast would no longer be about the sentence."
+    }
+  },
+  "cells": [
+    {
+      "id": "stock",
+      "levers": [],
+      "what": "The baseline — what production dispatches."
+    },
+    {
+      "id": "planonly",
+      "levers": ["planonly"],
+      "what": "The code the scaffold saved, holding its plan fixed."
+    },
+    {
+      "id": "noscaffold",
+      "levers": ["noscaffold"],
+      "what": "The scaffold entire — code and plan together."
+    },
+    {
+      "id": "norule",
+      "levers": ["norule"],
+      "what": "#231 check 2. The output-shape rule's own contribution."
+    },
+    {
+      "id": "planonly+norule",
+      "levers": ["planonly", "norule"],
+      "what": "The first multi-lever cell, and the interaction term's first subject: whether the output-shape rule is worth more or less when the scaffold's code is gone. Two levers writing different slots, so the cell is order-independent."
+    }
+  ]
+}

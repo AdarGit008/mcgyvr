@@ -1,0 +1,15 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if not grid or not (0 <= row < len(grid)) or not (0 <= column < len(grid[0])):
+        raise ValueError("Invalid input")
+    
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    for i in range(len(grid)):
+        for j in range(len(grid[i])):
+            if grid[i][j] == value:
+                return [i, j]
+    
+    raise ValueError("Value not found")
+```

@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def mean_window(readings: List[float], size: int) -> List[int]:
+    if size == 0:
+        return []
+    
+    result = []
+    for i in range(len(readings) - size + 1):
+        window = readings[i:i+size]
+        mean = sum(window) // len(window)
+        result.append(mean)
+    
+    return result
+```
