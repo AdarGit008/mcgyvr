@@ -55,6 +55,38 @@ def measure() -> types.ModuleType:
     return _by_path("breadth_measure_s", REPO / "tools" / "breadth" / "measure.py")
 
 
+def _js_toolchain_ready() -> bool:
+    """Whether the TypeScript arm can be scored at all on this machine.
+
+    Two capabilities, and neither is a presence check — the same reasoning
+    ``node_runs_typescript`` already carries. The lint rung needs the *pinned*
+    parser, which lives in the repository's own ``node_modules`` and not on
+    PATH; and acceptance for a ``.ts`` target imports the solution, so a Node
+    without type stripping fails the reference for a reason about the runner.
+
+    CI installs both in the ``test`` job (ADR-0025), so this skips on a
+    developer's machine without the toolchain and **not** on the runner, where
+    the property is actually guarded. A check that silently skips everywhere is
+    the same defect as a rung that silently passes.
+    """
+    if not (REPO / "node_modules" / "typescript-eslint").is_dir():
+        return False
+    spec = importlib.util.spec_from_file_location(
+        "bundle_measure_js", REPO / "tools" / "bundle" / "measure.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return bool(module.node_runs_typescript())
+
+
+requires_js_toolchain = pytest.mark.skipif(
+    not _js_toolchain_ready(),
+    reason="no pinned JS toolchain, or this Node does not run TypeScript",
+)
+
+
 def _score_reference(score: types.ModuleType, task: Any) -> Any:
     with tempfile.TemporaryDirectory() as tmp:
         base = score.stage_dir(task, task.contract.target_content, Path(tmp) / "base")
@@ -160,6 +192,41 @@ def test_the_canary_is_rejected_and_the_reference_is_not(
     assert report["python"]["reference_passes"]
     assert report["python"]["canary_rejected"]
     assert "lint" in report["python"]["canary_rejected_by"]
+
+
+@requires_js_toolchain
+def test_every_declared_rung_can_reject_on_both_arms(
+    score: Any, measure: types.ModuleType
+) -> None:
+    """The claim ADR-0025 rests on, measured rather than asserted.
+
+    Until 2026-08-13 the Python arm had the test above and the TypeScript arm
+    had nothing, because there was no eslint configuration in the repository to
+    run — which is precisely the arm where the rung was inert. The gap was
+    closed by hand at a terminal, once. This is that probe, kept.
+
+    Both halves matter and they fail differently. ``CANARY_EXPECTS`` is the
+    per-language declaration; a rung missing from ``canary_rejected_by`` runs
+    and cannot say no, and the *first* jsts canary was bad spacing alone, which
+    tripped prettier and left eslint looking healthy.
+    """
+    # One problem, both arms — the split rule keeps a problem's two languages
+    # together, so this is the smallest paired unit the bench actually uses.
+    tasks = measure.load_tier_tasks("bench-ts", ["b002-option-pairs"]) + (
+        measure.load_tier_tasks("bench-py", ["b002-option-pairs"])
+    )
+    report = score.rung_report(tasks)
+    assert set(report) == {"jsts", "python"}
+
+    for language, row in sorted(report.items()):
+        assert row["reference_passes"], (language, row)
+        assert not row["environment_issues"], (language, row)
+        inert = set(score.CANARY_EXPECTS[language]) - set(row["canary_rejected_by"])
+        assert not inert, f"{language}: declared but unable to reject: {sorted(inert)}"
+
+    # And therefore a paired sweep is not refused. This is the assertion that
+    # would have failed on every day before ADR-0025, for the true reason.
+    assert score.preflight(tasks) == ()
 
 
 def test_an_inert_rung_is_reported_even_though_its_tool_runs(

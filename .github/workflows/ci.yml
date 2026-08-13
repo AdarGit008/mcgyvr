@@ -31,6 +31,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The JS half of the gate's own bar (ADR-0025). Two reasons this job needs
+      # a toolchain the baseline job's Node 20 does not supply:
+      #
+      # * the JS lint rung is only a rung if it can reject, and the test that
+      #   proves it needs eslint plus the pinned typescript-eslint parser. A
+      #   check that silently skips is the same defect as a rung that silently
+      #   passes, one layer out.
+      # * Node stopped running TypeScript unflagged at 23.6, so acceptance for
+      #   a `.ts` target — and therefore the TypeScript arm's reference — needs
+      #   a Node that strips types. On Node 20 those tests skipped here and
+      #   passed only on a developer's machine.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      # `ci`, not `install`: the lockfile is the pin, and the parser version is
+      # part of the bar it applies.
+      - name: install the pinned JS toolchain
+        run: npm ci
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.28"

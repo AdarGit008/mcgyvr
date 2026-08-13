@@ -174,5 +174,55 @@ run.
   listed rather than fixed is that no CI job runs a sweep today. The first one
   that does needs the install step.
 
+## Amendment — 2026-08-13, same session: both flags closed rather than carried
+
+Owner direction was to fix both, so neither is a standing item. **Appended
+rather than edited in place** (REC-01), so two things above are now superseded
+and neither was rewritten:
+
+- the **flag section** — the bar is no longer an unrecorded decision;
+- the last **"Left open"** bullet, *"CI installs no JS toolchain"* — it does now.
+
+**The bar is now a decision of record: [ADR-0025](../../../../docs/decisions/0025-the-javascript-lint-bar-is-the-projects-and-it-mirrors-pythons.md).**
+An unremarked config file in a bench lane was the wrong home for a rule that
+binds `Gate.run` for every consumer. The record states the scope, the
+three-instances-in-a-week context, why the arms must be *matched* rather than
+each optimised (a harsher bar on one side reads as a language effect, not as a
+stricter bar), the pin discipline, and the asymmetry that makes it cheap to
+overrule now and expensive after the arms run. `eslint.config.mjs` cites it in
+its header, so the next person to widen the rule set reads the argument first.
+
+**CI installs the toolchain, and the able-to-reject property is now a test.**
+Two changes, and the second is the one that matters:
+
+- `ci.yml`'s `test` job gains `setup-node@24` and `npm ci`. Node 24 rather than
+  the baseline job's 20 because type stripping is unflagged only from 23.6, and
+  acceptance for a `.ts` target imports the solution.
+- `test_every_declared_rung_can_reject_on_both_arms` — the probe I had been
+  running by hand, kept. It asserts, per language, that no rung in
+  `CANARY_EXPECTS` is missing from `canary_rejected_by`, that both references
+  pass, and that `preflight` over a paired pair is empty. The Python arm has had
+  this since session/2; the TypeScript arm — the one where the rung was actually
+  inert — had nothing.
+
+**A skip that is invisible is the same defect one layer out**, so the guard names
+its two real requirements (the *pinned* parser in `node_modules`, and a Node that
+strips types) rather than checking `which("eslint")`. It skips on a machine
+without the toolchain and does **not** skip on CI, which is where the property is
+guarded.
+
+**One inconsistency found while verifying.** The ignore list omitted
+`tools/breadth/tasks/**`. `pyproject.toml` has no equivalent entry because that
+corpus is TypeScript and ruff never saw it — so the mirror was incomplete in the
+one direction only eslint can reach. Those sets are retired (#240) and released
+for training, but historical run manifests still pin their digests. Added.
+`npx eslint .` was clean before and after, so nothing was being hidden.
+
+**Not done, and deliberately.** `make lint` still runs ruff only; eslint is not
+applied to the repository's own JavaScript. The ADR scopes itself to what the
+*gate* rejects, and making `make lint` depend on `npm ci` changes every
+contributor's setup for a tree that already passes. Worth doing as its own
+decision, not as a side effect of this one.
+
 next: #231's commissioning checks under the gate scorer — null drift on a
 re-measured pair, and CLM-0017's known output-shape effect recovered.

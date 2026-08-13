@@ -1,5 +1,10 @@
 // The project's JavaScript/TypeScript lint standard.
 //
+// The decision of record is ADR-0025 — this file binds the *gate*, not just the
+// bench, and the rule set moves in step with `[tool.ruff.lint] select`. Read it
+// before widening or narrowing anything here: changing the bar re-bases every
+// JavaScript rate measured under it.
+//
 // This is the JS half of what `[tool.ruff.lint] select` is for Python, and it
 // exists because the gate had no such standard: `src/mcgyvr/gate/adapters/
 // javascript.py` shells to eslint, eslint 9 requires a flat config, and there
@@ -34,6 +39,12 @@ export default tseslint.config(
       "records/evidence/**",
       "tools/bundle/tasks/**",
       "tools/bundle/python/tasks/**",
+      // Retired by #240 and released for training, but historical run
+      // manifests still pin these digests — a formatter pass here does not
+      // tidy anything, it breaks the resume of every run that used them.
+      // ruff has no equivalent entry because the corpus is TypeScript: this
+      // is the exclusion eslint needs and ruff never did.
+      "tools/breadth/tasks/**",
       "tools/problems/tasks/**",
       "tools/bench/tasks/**",
       "tools/bench/reserve/**",
