@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def bill_split(total: int, diners: int) -> List[int]:
+    if diners == 0:
+        raise ValueError("No diners means no split.")
+    
+    # Calculate the total amount each diner pays except the first one.
+    per_diner = total // diners
+    
+    # Calculate the remainder of the division to determine how many pennies are left over.
+    remainder = total % diners
+    
+    # Create a list where each element is the amount each diner pays, including the first one.
+    payments = [per_diner] * (diners - 1) + [remainder]
+    
+    return payments
+```

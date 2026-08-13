@@ -1,0 +1,24 @@
+```ts
+/** Replay tile requests against a size-limited cache of fresh renders. */
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (!Number.isInteger(freshFor) || freshFor < 1 || !Number.isInteger(size) || size < 1) {
+    throw new Error("freshFor and size must be positive integers");
+  }
+  const held = new Map<string, number>();
+  const renders: [number, string][] = [];
+  for (const [tick, name] of requests) {
+    if (!held.has(name)) {
+      holds.set(name, tick);
+    } else if (tick < held.get(name)) {
+      holds.delete(name);
+      holds.set(name, tick);
+    }
+    if (renders.length === size && !holds.has(name)) {
+      const oldest = Array.from(held.entries()).sort((a, b) => a[1] - b[1])[0][0];
+      holds.delete(oldest);
+    }
+    renders.push([tick, name]);
+  }
+  return renders;
+}
+```

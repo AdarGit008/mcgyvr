@@ -1,0 +1,14 @@
+```ts
+function stallTurns(counts: number[], limit: number): number {
+  if (limit <= 0) {
+    throw new Error("Limit must be positive");
+  }
+
+  let totalTurns = 0;
+  for (const count of counts) {
+    const turnsNeeded = Math.ceil(count / limit);
+    totalTurns += turnsNeeded;
+  }
+  return totalTurns;
+}
+```

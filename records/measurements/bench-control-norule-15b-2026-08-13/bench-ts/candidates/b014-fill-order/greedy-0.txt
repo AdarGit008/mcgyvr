@@ -1,0 +1,31 @@
+```ts
+export function fillOrder(
+  sources: number[][],
+  needed: number,
+): { cost: number; taken: number[]; leftover: number[] } {
+  if (!Array.isArray(sources) || !sources.every(source => Array.isArray(source) && source.length === 2)) {
+    throw new Error("Invalid sources list");
+  }
+  if (typeof needed !== "number" || needed <= 0) {
+    throw new Error("Needed must be a positive integer");
+  }
+
+  const order = sources.map((_, index) => index);
+  order.sort((a, b) => sources[a][0] - sources[b][0]);
+  const taken = sources.map(() => 0);
+  let cost = 0;
+  let remaining = needed;
+  for (const index of order) {
+    if (remaining <= 0) {
+      break;
+    }
+    const unitCost = sources[index][0];
+    const stock = sources[index][1];
+    taken[index] = Math.min(stock, remaining);
+    cost += taken[index] * unitCost;
+    remaining -= taken[index];
+  }
+  const leftover = sources.map((source, index) => source[1] - taken[index]);
+  return { cost, taken, leftover };
+}
+```

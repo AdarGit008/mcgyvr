@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def head_of(entries: List, count: int) -> List:
+    """The first few entries of a list."""
+    if count < 0:
+        raise ValueError("Count cannot be negative")
+    return entries[:count]
+```

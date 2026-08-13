@@ -1,0 +1,20 @@
+```ts
+function moveStock(opening: number, moves: number[]): number {
+  let currentQuantity = opening;
+
+  for (const move of moves) {
+    if (move > 0) {
+      currentQuantity += move;
+    } else {
+      const removal = Math.abs(move);
+      if (currentQuantity >= removal) {
+        currentQuantity -= removal;
+      } else {
+        currentQuantity = 0;
+      }
+    }
+  }
+
+  return currentQuantity;
+}
+```

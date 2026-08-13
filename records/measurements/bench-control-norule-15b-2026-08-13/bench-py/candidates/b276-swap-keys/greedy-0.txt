@@ -1,0 +1,30 @@
+```python
+from typing import Dict, Any
+
+def swap_keys(names: Dict[str, str]) -> Dict[str, str]:
+    if not names:
+        return {}
+
+    # Create a dictionary to store the swapped key-value pairs
+    swapped_names = {}
+    
+    # Iterate over each name in the input dictionary
+    for name, code in names.items():
+        # Check if the code is empty text
+        if not code:
+            continue
+        
+        # Find all occurrences of the current code in the input dictionary
+        matching_codes = [k for k, v in names.items() if v == code]
+        
+        # Sort the matching codes based on their original order in the input dictionary
+        sorted_matching_codes = sorted(matching_codes)
+        
+        # Get the first name from the sorted list of matching codes
+        first_name = sorted_matching_codes[0]
+        
+        # Add the swapped key-value pair to the result dictionary
+        swapped_names[first_name] = name
+    
+    return swapped_names
+```

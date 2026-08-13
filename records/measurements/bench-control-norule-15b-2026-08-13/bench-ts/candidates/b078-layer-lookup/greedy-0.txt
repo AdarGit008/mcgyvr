@@ -1,0 +1,26 @@
+```ts
+function configValue(layers: string[], name: string): string | null {
+  if (!name || typeof name !== 'string') throw new Error('Invalid name');
+  if (typeof layers !== 'string[]') throw new Error('Invalid layers');
+
+  let effectiveValue = null;
+  for (const layer of layers) {
+    const lines = layer.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+    for (const line of lines) {
+      const [key, value] = line.split('=');
+      if (!key || key.trim() === '') continue;
+
+      key = key.trim();
+      value = value.trim();
+
+      if (value === '') {
+        effectiveValue = null;
+      } else if (effectiveValue !== null && !key.startsWith('!')) {
+        effectiveValue = value;
+      }
+    }
+  }
+
+  return effectiveValue;
+}
+```

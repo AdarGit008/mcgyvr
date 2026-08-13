@@ -1,0 +1,11 @@
+```python
+from typing import *
+from collections import *
+
+def slug_word(word: str) -> str:
+    return ''.join(c.lower() for c in word if c.isalnum())
+
+def slug_make(phrase: str) -> str:
+    slugged_words = [slug_word(word) for word in phrase.split()]
+    return '-'.join(word for word in slugged_words if word)
+```

@@ -1,0 +1,17 @@
+```ts
+function swipeDedupe(swipes: string[]): string[] {
+  if (!swipes || !swipes.length) return [];
+
+  const dedupedSwipes: string[] = [];
+  let lastSwipe: string | null = null;
+
+  for (const swipe of swipes) {
+    if (lastSwipe !== swipe) {
+      dedupedSwipes.push(swipe);
+      lastSwipe = swipe;
+    }
+  }
+
+  return dedupedSwipes;
+}
+```

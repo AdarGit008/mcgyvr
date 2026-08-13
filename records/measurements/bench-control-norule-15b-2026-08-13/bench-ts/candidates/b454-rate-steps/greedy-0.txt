@@ -1,0 +1,18 @@
+```ts
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (!Number.isFinite(amount) || !Number.isFinite(fixed) || !Number.isFinite(percent)) {
+    throw new Error('All arguments must be finite numbers');
+  }
+
+  const share = (amount * percent) / 100;
+  return Math.floor(fixed + share);
+}
+
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (!Array.isArray(amounts) || !amounts.every(Number.isFinite)) {
+    throw new Error('All elements in amounts must be finite numbers');
+  }
+
+  return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

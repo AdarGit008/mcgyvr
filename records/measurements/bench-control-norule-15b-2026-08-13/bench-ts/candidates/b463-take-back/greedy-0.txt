@@ -1,0 +1,12 @@
+```ts
+function takeBack(values: number[], target: number): number {
+  if (!values || !target) throw new Error("Input must be provided");
+
+  let sum = 0;
+  for (let i = values.length - 1; i >= 0; i--) {
+    sum += values[i];
+    if (sum >= target) return values.length - i - 1;
+  }
+  return -1;
+}
+```

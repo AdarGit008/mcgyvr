@@ -1,0 +1,14 @@
+```ts
+function swapKeys(names: Record<string, string>): Record<string, string> {
+  const sortedNames = Object.keys(names).sort((a, b) => a.localeCompare(b));
+  const swappedNames: Record<string, string> = {};
+
+  for (const name of sortedNames) {
+    if (names[name] !== '') {
+      swappedNames[names[name]] = name;
+    }
+  }
+
+  return swappedNames;
+}
+```

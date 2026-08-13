@@ -1,0 +1,25 @@
+```python
+from typing import List, Union
+
+def unpack_crates(crate: List[Union[str, List]]) -> List[str]:
+    def flatten(crate):
+        if isinstance(crate, list):
+            return [item for sublist in crate for item in flatten(sublist)]
+        else:
+            return [crate]
+
+    flattened = flatten(crate)
+    return flattened
+
+def crate_depth(crate: List[Union[str, List]]) -> int:
+    def depth_helper(crate, current_depth=1):
+        if isinstance(crate, list):
+            max_depth = 0
+            for item in crate:
+                max_depth = max(max_depth, depth_helper(item, current_depth + 1))
+            return max_depth
+        else:
+            return current_depth
+
+    return depth_helper(crate)
+```

@@ -1,0 +1,18 @@
+```ts
+function repeatText(phrase: string, times: number, between: string): string {
+  if (typeof phrase !== 'string' || typeof times !== 'number' || typeof between !== 'string') {
+    throw new Error('Invalid argument types');
+  }
+
+  if (times <= 0) {
+    return '';
+  }
+
+  let result = phrase;
+  for (let i = 1; i < times; i++) {
+    result += `${between} ${phrase}`;
+  }
+
+  return result;
+}
+```

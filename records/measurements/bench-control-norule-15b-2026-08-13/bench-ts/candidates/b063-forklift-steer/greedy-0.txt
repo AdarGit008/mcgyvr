@@ -1,0 +1,34 @@
+```ts
+function steerForklift(aisles: number, bays: number, moves: string[]): number[] {
+  if (!Number.isInteger(aisles) || !Number.isInteger(bays)) {
+    throw new Error('Aisle and bay counts must be positive integers.');
+  }
+
+  let [aisle, bay] = [0, 0];
+
+  for (const move of moves) {
+    switch (move) {
+      case 'north':
+        bay++;
+        break;
+      case 'south':
+        bay--;
+        break;
+      case 'east':
+        aisle++;
+        break;
+      case 'west':
+        aisle--;
+        break;
+      default:
+        throw new Error('Invalid move word.');
+    }
+
+    if (aisle < 0 || aisle >= aisles || bay < 0 || bay >= bays) {
+      throw new Error('Forklift will fall off the floor.');
+    }
+  }
+
+  return [aisle, bay];
+}
+```

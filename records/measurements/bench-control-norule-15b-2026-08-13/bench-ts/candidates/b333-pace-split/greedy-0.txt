@@ -1,0 +1,12 @@
+```ts
+export function paceOf(seconds: number, kilometres: number): number {
+  if (!seconds || !kilometres) throw new Error("Both seconds and kilometres must be provided");
+  return Math.floor(seconds / kilometres);
+}
+
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  if (legs.some(leg => leg.kilometres === 0)) throw new Error("Leg covering no ground is not allowed");
+
+  return legs.map(leg => paceOf(leg.seconds, leg.kilometres));
+}
+```

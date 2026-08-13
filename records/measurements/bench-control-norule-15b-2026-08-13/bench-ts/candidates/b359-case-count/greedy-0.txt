@@ -1,0 +1,16 @@
+```ts
+function caseCount(text: string): number[] {
+  let capitalCount = 0;
+  let lowercaseCount = 0;
+
+  for (const char of text) {
+    if (char >= 'A' && char <= 'Z') {
+      capitalCount++;
+    } else if (char >= 'a' && char <= 'z') {
+      lowercaseCount++;
+    }
+  }
+
+  return [capitalCount, lowercaseCount];
+}
+```

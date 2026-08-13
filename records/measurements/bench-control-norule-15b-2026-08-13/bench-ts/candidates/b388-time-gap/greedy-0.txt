@@ -1,0 +1,22 @@
+```ts
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  const hours = [fromHour, toHour];
+  const minutes = [fromMinute, toMinute];
+
+  // Ensure the first hour is always less than or equal to the second
+  if (hours[0] > hours[1]) {
+    [hours[0], hours[1]] = [hours[1], hours[0]];
+    [minutes[0], minutes[1]] = [minutes[1], minutes[0]];
+  }
+
+  // Calculate the total minutes from the first hour to the second
+  let totalMinutes = (hours[1] - hours[0]) * 60 + (minutes[1] - minutes[0]);
+
+  // If the second time is on the following day, add the remaining minutes of the day
+  if (toHour === 24) {
+    totalMinutes += 1440;
+  }
+
+  return totalMinutes;
+}
+```

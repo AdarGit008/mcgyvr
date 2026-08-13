@@ -1,0 +1,13 @@
+```ts
+/** A label with one surrounding pair of brackets removed. */
+export function unwrapLabel(label: string): string {
+  if (!label.startsWith("[")) {
+    return label;
+  }
+  const end = label.lastIndexOf("]");
+  if (end === -1) {
+    throw new Error("No matching closing bracket found");
+  }
+  return label.slice(0, end);
+}
+```

@@ -1,0 +1,6 @@
+```python
+from typing import List
+
+def set_minus(entries: List[str], remove: List[str]) -> List[str]:
+    return [entry for entry in entries if entry not in remove]
+```

@@ -1,0 +1,20 @@
+```ts
+function pluralOf(noun: string): string {
+  if (!noun) throw new Error("Input cannot be empty");
+  
+  const suffixes = { s: "es", x: "xes", ch: "ches", sh: "shes" };
+  const irregularNouns = ["ox", "is", "us", "feet", "sheep", "deer", "fish", "goose"];
+  
+  for (const suffix in suffixes) {
+    if (noun.endsWith(suffix)) return noun + suffixes[suffix];
+  }
+  
+  for (const noun of irregularNouns) {
+    if (noun === noun.toLowerCase()) continue;
+    const regex = new RegExp(`(${noun})${suffixes[suffix]}`, "i");
+    if (regex.test(noun)) return noun + suffixes[suffix];
+  }
+  
+  return noun + "s";
+}
+```

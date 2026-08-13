@@ -1,0 +1,16 @@
+```ts
+function siftMarks(entries: string[], mark: string): string[][] {
+  const markedRun: string[] = [];
+  const unmarkedRun: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.startsWith(mark)) {
+      markedRun.push(entry);
+    } else {
+      unmarkedRun.push(entry);
+    }
+  }
+
+  return [markedRun, unmarkedRun];
+}
+```

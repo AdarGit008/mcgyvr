@@ -1,0 +1,6 @@
+```ts
+function cloudCode(table: Record<string, string>, code: string): string {
+  const upperCaseCode = code.toUpperCase();
+  return table[upperCaseCode] || 'unknown';
+}
+```

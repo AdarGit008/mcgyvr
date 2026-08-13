@@ -1,0 +1,20 @@
+```ts
+function capAfter(passage: string): string {
+  if (!passage) throw Error("Passage cannot be empty");
+
+  const sentences = passage.split('. ');
+  let result = '';
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    const firstLetter = sentence.charAt(0).toUpperCase();
+    const restOfSentence = sentence.slice(1);
+    const capitalizedSentence = `${firstLetter}${restOfSentence}`;
+
+    if (i === 0 || !result.endsWith('.')) result += capitalizedSentence + '. ';
+    else result += capitalizedSentence;
+  }
+
+  return result.trim();
+}
+```

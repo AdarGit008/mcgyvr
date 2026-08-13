@@ -1,0 +1,55 @@
+```ts
+function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) throw new Error("outline argument must be a list");
+  const result = [];
+  let currentDepth = 0;
+  let currentNumber = 1;
+
+  function traverse(node: object, depth: number) {
+    if (depth > currentDepth) {
+      currentDepth = depth;
+      currentNumber = 1;
+    }
+    if (!Array.isArray(node.children)) throw new Error("children must be a list");
+    const heading = node.heading || "";
+    if (typeof heading !== "string" || !heading.trim()) throw new Error("heading must be a non-empty string");
+
+    result.push(`${currentNumber} ${heading}`);
+    currentNumber++;
+
+    for (const child of node.children) {
+      traverse(child, depth + 1);
+    }
+  }
+
+  sections.forEach(section => {
+    if (!Object.prototype.hasOwnProperty.call(section, "heading") || !section.heading.trim()) throw new Error("section must have a non-empty string heading");
+    if (!Array.isArray(section.children)) throw new Error("section children must be a list");
+    traverse(section, 0);
+  });
+
+  return result;
+}
+
+function sectionCount(sections: object[]): number {
+  if (!Array.isArray(sections)) throw new Error("outline argument must be a list");
+
+  const counts = [1];
+
+  function traverse(node: object) {
+    if (!Array.isArray(node.children)) throw new Error("children must be a list");
+    for (const child of node.children) {
+      traverse(child);
+      counts.push(counts[counts.length - 1] + 1);
+    }
+  }
+
+  sections.forEach(section => {
+    if (!Object.prototype.hasOwnProperty.call(section, "heading") || !section.heading.trim()) throw new Error("section must have a non-empty string heading");
+    if (!Array.isArray(section.children)) throw new Error("section children must be a list");
+    traverse(section);
+  });
+
+  return counts;
+}
+```

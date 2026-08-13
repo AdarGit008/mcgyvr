@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def warm_up(readings: List[int], floor: int) -> List[int]:
+    if not readings:
+        return []
+
+    i = 0
+    while i < len(readings) and readings[i] < floor:
+        i += 1
+
+    return readings[i:]
+```

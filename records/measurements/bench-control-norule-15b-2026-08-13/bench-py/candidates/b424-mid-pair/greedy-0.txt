@@ -1,0 +1,15 @@
+```python
+from typing import List, Tuple
+
+def mid_pair(values: List[int]) -> List[int]:
+    if not values:
+        return [None, None]
+    
+    sorted_values = sorted(values)
+    middle_index = len(sorted_values) // 2
+    
+    if len(sorted_values) % 2 == 1:
+        return [sorted_values[middle_index], sorted_values[middle_index]]
+    else:
+        return [sorted_values[middle_index - 1], sorted_values[middle_index]]
+```

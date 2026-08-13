@@ -1,0 +1,5 @@
+```ts
+function cellCount(grid: number[][], value: number): number {
+  return grid.reduce((count, row) => count + row.filter(cell => cell === value).length, 0);
+}
+```

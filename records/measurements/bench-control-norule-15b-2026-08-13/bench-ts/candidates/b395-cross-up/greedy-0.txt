@@ -1,0 +1,11 @@
+```ts
+function crossUp(readings: number[], level: number): number {
+  let crossings = 0;
+  for (let i = 1; i < readings.length; i++) {
+    if (readings[i] > level && readings[i - 1] <= level) {
+      crossings++;
+    }
+  }
+  return crossings;
+}
+```

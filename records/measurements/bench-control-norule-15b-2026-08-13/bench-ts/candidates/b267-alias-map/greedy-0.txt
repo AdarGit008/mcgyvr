@@ -1,0 +1,12 @@
+```ts
+function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (!aliases.hasOwnProperty(name)) return name;
+  return aliasResolve(aliases, aliases[name]);
+}
+
+function aliasNames(aliases: Record<string, string>): string[] {
+  const names = Object.keys(aliases);
+  names.sort();
+  return names;
+}
+```

@@ -1,0 +1,15 @@
+```ts
+/** The quickest completed lap of a session, where a lap recorded as zero means the lap was never completed and must not count. It counts those zeros and so calls every session zero. Return the complete fixed file. */
+export function lapBest(laps: number[]): number {
+  if (laps.length === 0) {
+    return 0;
+  }
+  let best = laps[0];
+  for (const lap of laps) {
+    if (lap > 0 && lap < best) {
+      best = lap;
+    }
+  }
+  return best;
+}
+```

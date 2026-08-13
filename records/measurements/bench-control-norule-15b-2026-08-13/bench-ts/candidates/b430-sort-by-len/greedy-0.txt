@@ -1,0 +1,5 @@
+```ts
+function sortByLen(words: string[]): string[] {
+  return words.sort((a, b) => a.length - b.length || a.localeCompare(b));
+}
+```

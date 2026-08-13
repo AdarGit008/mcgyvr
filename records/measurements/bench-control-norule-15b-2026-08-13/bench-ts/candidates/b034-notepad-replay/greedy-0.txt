@@ -1,0 +1,54 @@
+```ts
+/** Replay a notepad editing session: type, erase, replace, undo and redo. */
+export function replayNotepad(commands: (string | number)[][]): string {
+  let buffer = "";
+  const past: string[] = [];
+  const future: string[] = [];
+  for (const command of commands) {
+    const action = command[0];
+    if (!Array.isArray(command) || command.length !== 2) {
+      throw new Error("Invalid command format");
+    }
+    const [type, payload] = command;
+    switch (type) {
+      case "type":
+        past.push(buffer);
+        buffer += payload as string;
+        break;
+      case "erase":
+        if (typeof payload !== "number" || payload <= 0) {
+          throw new Error("Invalid erase count");
+        }
+        past.push(buffer);
+        buffer = buffer.slice(0, buffer.length - payload);
+        break;
+      case "replace":
+        if (typeof payload !== "string") {
+          throw new Error("Invalid replace text");
+        }
+        const index = buffer.lastIndexOf(payload as string);
+        if (index === -1) {
+          throw new Error("Replace text not found in buffer");
+        }
+        past.push(buffer);
+        buffer = buffer.slice(0, index) + payload as string + buffer.slice(index + payload.length);
+        break;
+      case "undo":
+        for (let i = 0; i < (payload as number); i++) {
+          future.push(buffer);
+          buffer = past.pop() as string;
+        }
+        break;
+      case "redo":
+        for (let i = 0; i < (payload as number); i++) {
+          past.push(buffer);
+          buffer = future.pop() as string;
+        }
+        break;
+      default:
+        throw new Error("Unknown action");
+    }
+  }
+  return buffer;
+}
+```

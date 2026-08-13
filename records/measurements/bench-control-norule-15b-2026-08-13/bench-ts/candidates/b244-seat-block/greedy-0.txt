@@ -1,0 +1,10 @@
+```ts
+function seatBlock(label: string): (number | string)[] {
+  const regex = /^[0-9]+[A-Z]$/;
+  if (!regex.test(label)) {
+    throw new Error('Invalid seat label');
+  }
+  const parts = label.split('');
+  return [parseInt(parts[0], 10), parts[1]];
+}
+```

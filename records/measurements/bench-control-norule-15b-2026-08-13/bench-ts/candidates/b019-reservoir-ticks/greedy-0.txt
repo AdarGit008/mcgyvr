@@ -1,0 +1,25 @@
+```ts
+function runReservoir(capacity: number, start: number, ticks: number[][]): { level: number; spilled: number; shortfall: number; served: number } {
+  if (capacity <= 0 || !Number.isInteger(start) || start < 0 || start > capacity || !Array.isArray(ticks) || ticks.length === 0 || ticks.some(tick => tick.length !== 2)) {
+    throw new Error('Invalid input');
+  }
+
+  let level = start;
+  let spilled = 0;
+  let shortfall = 0;
+  let served = 0;
+
+  for (const [inflow, demand] of ticks) {
+    if (!Number.isInteger(inflow) || !Number.isInteger(demand)) {
+      throw new Error('Invalid tick');
+    }
+
+    level += inflow;
+    spilled += Math.max(0, level - capacity);
+    served += Math.min(level, demand);
+    shortfall = Math.max(0, shortfall + demand - served);
+  }
+
+  return { level, spilled, shortfall, served };
+}
+```

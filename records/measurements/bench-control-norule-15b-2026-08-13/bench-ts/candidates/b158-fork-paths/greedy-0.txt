@@ -1,0 +1,37 @@
+```ts
+function forkPaths(pattern: string): string[] {
+  if (!pattern || pattern.includes('{') || pattern.includes(',')) {
+    throw new Error('Invalid pattern');
+  }
+
+  const segments = pattern.split('/');
+  const result: string[] = [];
+
+  function expand(segment: string, options?: string[]): void {
+    if (options) {
+      for (const option of options) {
+        result.push(`${segment}/${option}`);
+      }
+    } else {
+      result.push(segment);
+    }
+  }
+
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    let options: string[] | undefined;
+
+    if (segment.includes('{')) {
+      const match = segment.match(/\{([^}]+)\}/);
+      if (!match) {
+        throw new Error('Invalid pattern');
+      }
+      options = match[1].split(',');
+    }
+
+    expand(segment, options);
+  }
+
+  return result;
+}
+```

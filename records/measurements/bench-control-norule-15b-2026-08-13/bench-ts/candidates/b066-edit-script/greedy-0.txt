@@ -1,0 +1,34 @@
+```ts
+function applyEditScript(original: string, script: [string, any][]): string {
+  if (typeof original !== 'string') throw new Error('Invalid input: original must be a string');
+  
+  let result = '';
+  let index = 0;
+  
+  for (const op of script) {
+    const [name, value] = op;
+    
+    switch (name) {
+      case 'copy':
+        if (!Number.isInteger(value) || value <= 0) throw new Error('Invalid copy count: must be a positive integer');
+        result += original.slice(index, index + value);
+        index += value;
+        break;
+      case 'skip':
+        if (!Number.isInteger(value) || value <= 0) throw new Error('Invalid skip count: must be a positive integer');
+        index += value;
+        break;
+      case 'insert':
+        if (typeof value !== 'string' || value === '') throw new Error('Invalid insert text: must be a non-empty string');
+        result += value;
+        break;
+      default:
+        throw new Error(`Unknown op name: ${name}`);
+    }
+    
+    if (index > original.length) throw new Error('Script stops before the original is used up');
+  }
+  
+  return result;
+}
+```

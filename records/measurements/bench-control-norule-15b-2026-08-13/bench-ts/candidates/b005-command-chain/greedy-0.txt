@@ -1,0 +1,70 @@
+```ts
+function chainOfCommand(root: { name: string, reports?: { name: string }[] }, person: string): string[] {
+  if (!root || typeof root.name !== 'string') throw new Error('Invalid input');
+  if (typeof person !== 'string' || !person) throw new Error('Invalid input');
+
+  const visited = new Set<string>();
+  let chain: string[] = [];
+
+  function traverse(node: { name: string, reports?: { name: string }[] }) {
+    if (!node || typeof node.name !== 'string') return;
+    if (visited.has(node.name)) throw new Error('Circular reference detected');
+    visited.add(node.name);
+
+    chain.push(node.name);
+    if (node.reports) {
+      for (const report of node.reports) {
+        traverse(report);
+      }
+    }
+
+    chain.pop();
+  }
+
+  traverse(root);
+
+  return chain;
+}
+
+function headcount(root: { name: string, reports?: { name: string }[] }): number {
+  if (!root || typeof root.name !== 'string') throw new Error('Invalid input');
+
+  let count = 0;
+
+  function traverse(node: { name: string, reports?: { name: string }[] }) {
+    if (!node) return;
+    count++;
+
+    if (node.reports) {
+      for (const report of node.reports) {
+        traverse(report);
+      }
+    }
+  }
+
+  traverse(root);
+
+  return count;
+}
+
+function widestTeam(root: { name: string, reports?: { name: string }[] }): number {
+  if (!root || typeof root.name !== 'string') throw new Error('Invalid input');
+
+  let maxDepth = 0;
+
+  function traverse(node: { name: string, reports?: { name: string }[] }, depth = 0) {
+    if (!node) return;
+    maxDepth = Math.max(maxDepth, depth);
+
+    if (node.reports) {
+      for (const report of node.reports) {
+        traverse(report, depth + 1);
+      }
+    }
+  }
+
+  traverse(root);
+
+  return maxDepth;
+}
+```

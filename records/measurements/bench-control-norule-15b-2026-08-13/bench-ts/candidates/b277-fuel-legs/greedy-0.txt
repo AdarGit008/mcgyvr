@@ -1,0 +1,10 @@
+```ts
+function fuelLegs(litres: number, burn: number): number {
+  if (burn <= 0) {
+    throw new Error("Burn must be greater than zero");
+  }
+
+  const legs = Math.floor(litres / burn);
+  return legs;
+}
+```

@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def move_stock(opening: int, moves: List[int]) -> int:
+    closing = opening
+    for move in moves:
+        if move > 0:
+            closing += move
+        else:
+            closing -= abs(move)
+            if closing < 0:
+                closing = 0
+    return closing
+```

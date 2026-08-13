@@ -1,0 +1,42 @@
+```ts
+function lineClusters(stops: string[], links: [string, string][]): string[][] {
+  if (!stops || !links) throw new Error("Input cannot be null or undefined");
+
+  const stopsSet = new Set(stops);
+  const linkMap = new Map<string, string[]>();
+
+  for (const [from, to] of links) {
+    if (!stopsSet.has(from) || !stopsSet.has(to)) throw new Error("Invalid stop in link");
+    if (!linkMap.has(from)) linkMap.set(from, []);
+    if (!linkMap.has(to)) linkMap.set(to, []);
+
+    linkMap.get(from)?.push(to);
+    linkMap.get(to)?.push(from);
+  }
+
+  const clusters: string[][] = [];
+
+  for (const stop of stopsSet) {
+    if (!clusters.some(cluster => cluster.includes(stop))) {
+      const cluster = [stop];
+      let currentStop = stop;
+
+      while (true) {
+        const nextStops = linkMap.get(currentStop);
+
+        if (!nextStops || !nextStops.length) break;
+
+        for (const nextStop of nextStops) {
+          if (!clusters.some(cluster => cluster.includes(nextStop))) {
+            clusters.push([nextStop]);
+            currentStop = nextStop;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return clusters.sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

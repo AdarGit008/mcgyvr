@@ -1,0 +1,12 @@
+```python
+def plural_of(noun: str) -> str:
+    if len(noun) == 0 or noun is None:
+        raise ValueError("Input cannot be empty")
+    
+    if noun[-1] in 'sxchsh':
+        return noun + 'es'
+    elif noun[-1] == 'y' and noun[-2].isalpha():
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+```

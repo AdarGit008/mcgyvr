@@ -1,0 +1,33 @@
+```ts
+function lineUp(links: Record<string, string>, start: string): string[] {
+  if (!links || typeof links !== 'object' || !start) {
+    throw new Error('Invalid input');
+  }
+
+  const visited = new Set();
+  const result: string[] = [];
+
+  function traverse(name: string): void {
+    if (visited.has(name)) {
+      throw new Error(`Circular link detected starting from ${name}`);
+    }
+    visited.add(name);
+    result.push(name);
+
+    const nextName = links[name];
+    if (!nextName) {
+      return;
+    }
+
+    traverse(nextName);
+  }
+
+  try {
+    traverse(start);
+  } catch (error) {
+    throw error;
+  }
+
+  return result;
+}
+```

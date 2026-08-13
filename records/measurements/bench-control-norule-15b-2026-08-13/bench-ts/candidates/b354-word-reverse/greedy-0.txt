@@ -1,0 +1,9 @@
+```ts
+function wordReverse(line: string): string {
+  if (!line) return line;
+
+  const words = line.split(' ');
+  const reversedWords = words.map(word => word.split('').reverse().join(''));
+  return reversedWords.join(' ');
+}
+```

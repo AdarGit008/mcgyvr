@@ -1,0 +1,58 @@
+```ts
+function reserveLots(lots: [string, string, number][], orders: [string, number][]): { picks: [string, string, number][]; short: [string, number][] } {
+  if (!lots || !orders) throw new Error("Input cannot be null or undefined");
+
+  const lotMap = new Map<string, [string, string, number]>();
+  for (const lot of lots) {
+    lotMap.set(lot[0], lot);
+  }
+
+  const orderMap = new Map<string, number>();
+  for (const order of orders) {
+    if (!orderMap.has(order[0])) {
+      orderMap.set(order[0], order[1]);
+    } else {
+      throw new Error("Duplicate order id");
+    }
+  }
+
+  const picks: [string, string, number][] = [];
+  const short: [string, number][] = [];
+
+  let currentLotId = null;
+  let currentUseByDate = null;
+
+  for (const order of orders) {
+    if (!currentLotId || !currentUseByDate) {
+      const lot = lotMap.get(order[0]);
+      if (!lot) throw new Error("Order lot not found");
+      currentLotId = lot[0];
+      currentUseByDate = lot[1];
+    }
+
+    let unitsToTake = order[1];
+
+    while (unitsToTake > 0 && currentLotId !== null) {
+      const lot = lotMap.get(currentLotId);
+      if (!lot) throw new Error("Order lot not found");
+      const unitsAvailable = lot[2] - (currentUseByDate === lot[1] ? 0 : Math.min(unitsToTake, lot[2]));
+      if (unitsAvailable > 0) {
+        picks.push([order[0], currentLotId, unitsAvailable]);
+        unitsToTake -= unitsAvailable;
+      } else {
+        short.push([order[0], currentLotId, unitsToTake]);
+        break;
+      }
+    }
+
+    if (currentUseByDate !== lot[1]) {
+      const nextLot = lotMap.get(currentLotId);
+      if (!nextLot) throw new Error("Order lot not found");
+      currentLotId = nextLot[0];
+      currentUseByDate = nextLot[1];
+    }
+  }
+
+  return { picks, short };
+}
+```

@@ -1,0 +1,23 @@
+```ts
+function clauseOrder(a: string, b: string): number {
+  const parseMark = (mark: string): number[] => {
+    if (!/^\d+(\.\d+)?$/.test(mark)) {
+      throw new Error('Invalid mark');
+    }
+    return mark.split('.').map(Number);
+  };
+
+  const compareMarks = (a: number[], b: number[]): number => {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if (a[i] === b[i]) continue;
+      return a[i] > b[i] ? 1 : -1;
+    }
+    return 0;
+  };
+
+  const marksA = parseMark(a);
+  const marksB = parseMark(b);
+
+  return compareMarks(marksA, marksB);
+}
+```

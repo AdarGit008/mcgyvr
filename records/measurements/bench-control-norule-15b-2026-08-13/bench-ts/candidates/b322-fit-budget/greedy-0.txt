@@ -1,0 +1,18 @@
+```ts
+function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error("Amount must be non-negative");
+  }
+
+  let totalSpent = 0;
+  let itemCount = 0;
+
+  for (const price of prices) {
+    if (totalSpent + price > budget) break;
+    totalSpent += price;
+    itemCount++;
+  }
+
+  return itemCount;
+}
+```

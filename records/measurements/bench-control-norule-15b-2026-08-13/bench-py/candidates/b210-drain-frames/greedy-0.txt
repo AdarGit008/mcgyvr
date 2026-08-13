@@ -1,0 +1,29 @@
+```python
+from typing import List, Dict
+
+def drain_frames(chunks: List[str], marker: str) -> Dict[str, List[str]]:
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("marker must be a single character")
+    
+    buffer = "".join(chunks)
+    frames = []
+    pending = ""
+    
+    for i in range(len(buffer)):
+        if buffer[i] == marker:
+            if i > 0 and buffer[i-1] == marker:
+                # Duplicated marker found
+                pending += marker
+            else:
+                # Single marker found, end the current frame
+                frames.append(pending)
+                pending = ""
+        else:
+            pending += buffer[i]
+    
+    # Handle the last frame if it's not empty
+    if pending:
+        frames.append(pending)
+    
+    return {"frames": frames, "pending": pending}
+```

@@ -1,0 +1,17 @@
+```ts
+function swapPair(first: string, second: string): string {
+  return second + first;
+}
+
+function swapAll(text: string): string {
+  let result = '';
+  for (let i = 0; i < text.length; i += 2) {
+    if (i === text.length - 1 && text[i] !== '') {
+      result += text[i];
+      break;
+    }
+    result += swapPair(text[i], text[i + 1]);
+  }
+  return result;
+}
+```

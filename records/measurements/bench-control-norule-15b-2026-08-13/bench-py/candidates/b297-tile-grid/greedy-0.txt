@@ -1,0 +1,10 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    total_tiles = width * height
+    breakage_allowance = total_tiles * spare / 100
+    total_tiles += breakage_allowance
+    return (total_tiles + tile - 1) // tile
+```

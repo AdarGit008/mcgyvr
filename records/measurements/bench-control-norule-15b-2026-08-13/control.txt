@@ -1,0 +1,72 @@
+# Check 2 — the rule-ablation positive control
+
+comparator: bench-null-gate-15b-a-2026-08-13 (pre-registered)
+ablation:   bench-control-norule-15b-2026-08-13
+sensitivity: bench-null-gate-15b-b-2026-08-13
+
+## Rig health, before anything is read
+
+bench-py:
+  stock (comparator)            257 cells   parse-refused   0   truncated   0   dispatch-lost   0
+  norule                        257 cells   parse-refused   1   truncated   1   dispatch-lost   0
+bench-ts:
+  stock (comparator)            257 cells   parse-refused   1   truncated   1   dispatch-lost   0
+  norule                        257 cells   parse-refused   2   truncated   2   dispatch-lost   0
+
+## Direction — the paired contrast
+
+bench-py  n = 257
+  stock 23/257 vs norule 15/257   delta -3.1pp
+  m = 14 discordant (3 the ablation gained, 11 it lost)
+  exact two-sided p = 5.74e-02
+
+bench-ts  n = 257
+  stock 33/257 vs norule 11/257   delta -8.6pp
+  m = 26 discordant (2 the ablation gained, 24 it lost)
+  exact two-sided p = 1.05e-05
+
+both arms pooled
+  n = 514 paired cells
+  stock 56/514 vs norule 26/514   delta -5.8pp
+  m = 40 (5 gained, 35 lost)
+  exact two-sided p = 1.38e-06
+
+## Sensitivity — the same contrast against the other stock run
+
+  bench-py  stock 23 vs norule 15   m = 14   p = 5.74e-02
+  bench-ts  stock 33 vs norule 11   m = 26   p = 1.05e-05
+
+## The mechanism's signature — completion tokens
+
+  historic (CLM-0017, other material/harness/model): 121.5 with the rule -> 427.4 without  (3.5x)
+  bench-py  stock mean 161 / median 135   ->  norule mean 166 / median 120   (1.03x)
+  bench-ts  stock mean 188 / median 135   ->  norule mean 192 / median 135   (1.02x)
+
+## What actually rejected — every rung that fired, not the first
+
+bench-py:
+  rung                   stock  norule   change
+  acceptance                56      29      -27
+  format                   155     162       +7
+  lint                     154     197      +43
+  structure                  1      26      +25
+  syntax                     1       1       +0
+  any adapter finding      178     212      +34   <- always runs
+  reached acceptance        79      45      -34
+
+bench-ts:
+  rung                   stock  norule   change
+  acceptance                66      45      -21
+  format                   148     149       +1
+  lint                      32     156     +124
+  syntax                     1       1       +0
+  any adapter finding      157     199      +42   <- always runs
+  reached acceptance       100      58      -42
+
+## The pre-registered verdict, evaluated
+
+  direction (stock accepts more)      YES
+  decidable (m >= 6 and p < 0.05)     YES
+  mechanism signature (tokens)        NO
+
+  VERDICT  the effect is recovered and decidable, but NOT by the mechanism the pre-registration named. Per that document this is 'not recovery, and reported as such' — it goes to the owner with the rung profile above, which is where the mechanism actually shows.

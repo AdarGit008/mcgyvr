@@ -1,0 +1,14 @@
+```ts
+/** How many of each coin to hand back, largest coin first. */
+export function tillFloat(amount: number, coins: number[]): number[] {
+  const counts: number[] = [];
+  let left = amount;
+  for (const coin of coins.sort((a, b) => b - a)) { // Sort coins in descending order
+    if (left >= coin) {
+      counts.push(Math.floor(left / coin)); // Use Math.floor to avoid floating-point issues
+      left %= coin;
+    }
+  }
+  return counts;
+}
+```

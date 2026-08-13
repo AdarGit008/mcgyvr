@@ -1,0 +1,15 @@
+```ts
+function fieldMean(records: Record<string, number>[], field: string): number {
+  if (!field) throw new Error("Field name cannot be empty");
+
+  const validRecords = records.filter(record => record.hasOwnProperty(field));
+  const numericValues = validRecords.map(record => record[field]);
+
+  if (numericValues.length === 0) return 0;
+
+  const sum = numericValues.reduce((acc, val) => acc + val, 0);
+  const mean = Math.floor(sum / numericValues.length);
+
+  return mean;
+}
+```

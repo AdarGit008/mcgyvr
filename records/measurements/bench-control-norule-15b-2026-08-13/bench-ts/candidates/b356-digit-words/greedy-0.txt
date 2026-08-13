@@ -1,0 +1,26 @@
+```ts
+function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error("Input must be a single digit between 0 and 9.");
+  }
+  return "zero" + digit;
+}
+
+function digitWords(digits: string): string {
+  if (!digits || digits.length === 0) {
+    return "";
+  }
+
+  let result = "";
+  for (let i = 0; i < digits.length; i++) {
+    const digit = parseInt(digits[i], 10);
+    if (digit >= 0 && digit <= 9) {
+      result += digitWord(digit);
+    } else {
+      throw new Error("Input must contain only digits.");
+    }
+  }
+
+  return result;
+}
+```

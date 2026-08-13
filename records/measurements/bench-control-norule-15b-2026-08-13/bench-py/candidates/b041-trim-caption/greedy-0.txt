@@ -1,0 +1,26 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str) or not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Invalid input")
+
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+
+    # Find the last space before the limit-1 character
+    for i in range(limit - 2, -1, -1):
+        if text[i] == ' ':
+            break
+
+    # If no space is found, cut off at the limit-1 character
+    if i == -1:
+        return text[:limit]
+
+    # Cut off at the last space before the limit-1 character
+    trimmed_text = text[:i + 1]
+    # Remove any hanging spaces before the ellipsis
+    while trimmed_text and trimmed_text[-1] == ' ':
+        trimmed_text = trimmed_text[:-1]
+
+    return trimmed_text + "…"
+```

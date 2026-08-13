@@ -1,0 +1,23 @@
+```ts
+function wireText(text: string): string {
+  if (typeof text !== 'string') throw new Error('Argument must be a string');
+  if (text.includes('\n')) throw new Error('Text cannot contain newline characters');
+
+  return `s${text.length}:${text}`;
+}
+
+function wireValue(value: unknown): string {
+  if (value === null || value === undefined) throw new Error('Argument must not be null or undefined');
+  if (typeof value !== 'string' && typeof value !== 'number' && !Array.isArray(value)) throw new Error('Argument must be a string, number, or array');
+
+  if (typeof value === 'string') {
+    return wireText(value);
+  } else if (typeof value === 'number') {
+    const isNegative = value < 0;
+    const digits = Math.abs(value).toString();
+    return `n${isNegative ? '-' : ''}${digits};`;
+  } else {
+    return `[${value.map(wireValue).join(';')}]`;
+  }
+}
+```

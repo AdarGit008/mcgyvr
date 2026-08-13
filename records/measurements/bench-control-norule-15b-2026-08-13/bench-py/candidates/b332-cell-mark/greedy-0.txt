@@ -1,0 +1,8 @@
+```python
+def live_count(neighbours: list) -> int:
+    return sum(1 for neighbour in neighbours if neighbour)
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    alive_neighbours = live_count(neighbours)
+    return alive and (alive_neighbours == 2 or alive_neighbours == 3) or not alive and alive_neighbours == 3
+```

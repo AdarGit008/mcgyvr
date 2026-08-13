@@ -1,0 +1,20 @@
+```ts
+function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (!Number.isFinite(mark) || !Number.isFinite(wasOutOf) || !Number.isFinite(nowOutOf)) {
+    throw new Error('All arguments must be finite numbers');
+  }
+
+  if (mark < 0) {
+    return mark;
+  }
+
+  const scale = nowOutOf / wasOutOf;
+  const scaledMark = Math.floor(mark * scale);
+
+  if (scaledMark > nowOutOf) {
+    return nowOutOf;
+  }
+
+  return scaledMark;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+function teamHeadcount(chart: Record<string, string[]>, name: string): number {
+  if (!chart || typeof name !== 'string') throw new Error('Invalid input');
+  
+  let count = 1;
+  const visited = new Set([name]);
+  
+  for (const report of chart[name]) {
+    if (!visited.has(report)) {
+      count += teamHeadcount(chart, report);
+      visited.add(report);
+    }
+  }
+  
+  return count;
+}
+```

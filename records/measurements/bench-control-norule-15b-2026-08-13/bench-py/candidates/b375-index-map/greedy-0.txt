@@ -1,0 +1,16 @@
+```python
+from typing import List, Dict
+
+def index_map(labels: List[str]) -> Dict[str, List[int]]:
+    if not labels:
+        return {}
+    
+    result = {}
+    for i, label in enumerate(labels):
+        if label not in result:
+            result[label] = [i]
+        else:
+            result[label].append(i)
+    
+    return result
+```

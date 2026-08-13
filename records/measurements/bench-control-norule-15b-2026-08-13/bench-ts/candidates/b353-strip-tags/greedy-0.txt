@@ -1,0 +1,20 @@
+```ts
+function stripTags(line: string): string {
+  let result = '';
+  let inTag = false;
+  for (let i = 0; i < line.length; i++) {
+    if (!inTag && line[i] === '<') {
+      inTag = true;
+      continue;
+    }
+    if (inTag && line[i] === '>') {
+      inTag = false;
+      break;
+    }
+    if (!inTag) {
+      result += line[i];
+    }
+  }
+  return result;
+}
+```

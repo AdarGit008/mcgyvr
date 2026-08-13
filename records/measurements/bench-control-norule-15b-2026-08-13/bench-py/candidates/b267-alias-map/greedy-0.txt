@@ -1,0 +1,12 @@
+```python
+from typing import Dict, List
+
+def alias_resolve(aliases: Dict[str, str], name: str) -> str:
+    if name in aliases:
+        return aliases[name]
+    else:
+        raise ValueError(f"Name '{name}' does not exist.")
+
+def alias_names(aliases: Dict[str, str]) -> List[str]:
+    return sorted([k for k, v in aliases.items() if v == k])
+```

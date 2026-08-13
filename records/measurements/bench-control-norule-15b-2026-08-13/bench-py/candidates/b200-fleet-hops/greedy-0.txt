@@ -1,0 +1,31 @@
+```python
+from typing import List
+
+def fleet_hops(count: int, lts: List[int], builds: List[int], hop: int) -> int:
+    if not all(0 <= release <= count - 1 for release in builds):
+        raise ValueError("builds must be whole numbers from 0 to count-1")
+    
+    if not all(0 <= lt <= count - 1 for lt in lts):
+        raise ValueError("lts must be whole numbers from 0 to count-1")
+    
+    if hop < 0:
+        raise ValueError("hop must be non-negative")
+    
+    hops = 0
+    current_release = builds[0]
+    
+    while current_release < count - 1:
+        next_lts = [lt for lt in lts if lt > current_release and lt <= current_release + hop]
+        
+        if not next_lts:
+            break
+        
+        next_lts.sort()
+        target_lts = next_lts[-1] + 1
+        hops += 1
+        
+        while builds[current_release] < target_lts:
+            current_release += 1
+    
+    return hops
+```

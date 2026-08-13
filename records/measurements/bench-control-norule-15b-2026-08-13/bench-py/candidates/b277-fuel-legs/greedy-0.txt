@@ -1,0 +1,10 @@
+```python
+from typing import *
+from collections import *
+
+def fuel_legs(litres: int, burn: int) -> int:
+    if burn <= 0:
+        raise ValueError("Burn must be a positive number")
+    
+    return litres // burn
+```

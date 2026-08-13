@@ -1,0 +1,9 @@
+```python
+def last_four(number: str) -> str:
+    return number[-4:]
+
+def mask_card(number: str) -> str:
+    if len(number) < 4:
+        return number
+    return '*' * (len(number) - 4) + number[-4:]
+```

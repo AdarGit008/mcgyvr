@@ -1,0 +1,39 @@
+```ts
+function decodeEscapedNote(text: string): string {
+  if (!text) throw new Error("Input text cannot be empty");
+
+  // Step 1: Fold the lines
+  let foldedText = "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === "\n") {
+      foldedText += "\n";
+    } else {
+      foldedText += char;
+    }
+  }
+
+  // Step 2: Walk the lines and decode escapes
+  let decodedText = "";
+  let inEscapeSequence = false;
+  for (let i = 0; i < foldedText.length; i++) {
+    const char = foldedText[i];
+    if (char === "=") {
+      if (!inEscapeSequence && i + 2 < foldedText.length && /^[A-Fa-f]{2}$/.test(foldedText.slice(i + 1, i + 3))) {
+        decodedText += String.fromCharCode(parseInt(foldedText.slice(i + 1, i + 3), 16));
+        i += 2; // Skip the next two characters
+      } else {
+        throw new Error("Invalid escape sequence");
+      }
+    } else if (char === "\n") {
+      if (!inEscapeSequence) decodedText += "\n";
+      inEscapeSequence = false;
+    } else {
+      decodedText += char;
+      inEscapeSequence = false;
+    }
+  }
+
+  return decodedText;
+}
+```

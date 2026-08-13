@@ -1,0 +1,29 @@
+```ts
+function orderReleaseTags(tags: string[]): string[] {
+  return tags.sort((a, b) => {
+    const parseTag = (tag: string): [number, number, number | undefined] => {
+      const parts = tag.split('.');
+      if (parts.length < 3) return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
+      if (parts.length === 4) return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10), parts[3]];
+      throw new Error('Invalid tag format');
+    };
+
+    const [majorA, minorA, patchA, previewALabelA] = parseTag(a);
+    const [majorB, minorB, patchB, previewBLabelB] = parseTag(b);
+
+    if (majorA !== majorB) return majorA - majorB;
+    if (minorA !== minorB) return minorA - minorB;
+    if (patchA !== patchB) return patchA - patchB;
+
+    if (previewALabelA && previewBLabelB) {
+      const labelA = previewALabelA.toLowerCase();
+      const labelB = previewBLabelB.toLowerCase();
+      if (labelA < labelB) return -1;
+      if (labelA > labelB) return 1;
+      return parseInt(labelA, 10) - parseInt(labelB, 10);
+    }
+
+    return 0;
+  });
+}
+```

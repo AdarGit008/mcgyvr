@@ -1,0 +1,23 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit not in defs or base not in defs:
+        raise ValueError("unit and base must be defined in the defs dictionary")
+    if not isinstance(defs[unit][0], int) or defs[unit][0] <= 0:
+        raise ValueError("factor for unit must be a positive whole number")
+    if not isinstance(defs[base][0], int) or defs[base][0] <= 0:
+        raise ValueError("factor for base must be a positive whole number")
+
+    def unwind(unit):
+        if unit == base:
+            return amount
+        factor, finer = defs[unit]
+        return unwind(finer) * factor
+
+    try:
+        result = unwind(unit)
+    except RecursionError:
+        raise ValueError("chain loops so it can never reach the base")
+    return result
+```

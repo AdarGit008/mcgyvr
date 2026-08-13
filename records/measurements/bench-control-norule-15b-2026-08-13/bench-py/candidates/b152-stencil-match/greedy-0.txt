@@ -1,0 +1,25 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    if not isinstance(stencil, str) or not stencil:
+        raise ValueError("Stencil must be a non-empty string")
+    if not isinstance(code, str) or not code:
+        raise ValueError("Code must be a non-empty string")
+
+    if len(stencil) != len(code):
+        return False
+
+    for i in range(len(stencil)):
+        if stencil[i] == "#":
+            if code[i] < "0" or code[i] > "9":
+                return False
+        elif stencil[i] == "@":
+            if not (code[i].isalpha() or code[i].islower()):
+                return False
+        elif stencil[i] == "?":
+            pass  # No action needed for "?"
+        else:
+            if stencil[i] != code[i]:
+                return False
+
+    return True
+```

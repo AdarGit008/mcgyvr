@@ -1,0 +1,22 @@
+```python
+from typing import *
+from collections import *
+
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if not all(isinstance(i, int) for i in [volume_a, strength_a, volume_b]):
+        raise ValueError("All inputs must be integers.")
+    
+    if not all(0 <= i <= 100 for i in [strength_a, strength_b]):
+        raise ValueError("Strengths must be between 0 and 100 inclusive.")
+    
+    if volume_a == 0 and strength_a != 0:
+        return 0
+    
+    if volume_b == 0 and strength_b != 0:
+        return 0
+    
+    total_volume = volume_a + volume_b
+    total_strength = (strength_a * volume_a + strength_b * volume_b) // total_volume
+    
+    return total_strength
+```

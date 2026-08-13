@@ -1,0 +1,22 @@
+```ts
+function trimCaption(text: string, limit: number): string {
+  if (typeof text !== 'string' || !Number.isInteger(limit) || limit <= 0) {
+    throw new Error('Invalid input');
+  }
+
+  const trimmedText = text.slice(0, limit - 1);
+  let lastSpaceIndex = trimmedText.lastIndexOf(' ');
+
+  if (!lastSpaceIndex) {
+    return trimmedText;
+  }
+
+  // Check if the character just past the cut is not a space and the kept part holds a space
+  if (trimmedText.charAt(lastSpaceIndex + 1) !== ' ') {
+    lastSpaceIndex--;
+  }
+
+  // Cut off any hanging spaces before the ellipsis
+  return trimmedText.slice(0, lastSpaceIndex + 1);
+}
+```

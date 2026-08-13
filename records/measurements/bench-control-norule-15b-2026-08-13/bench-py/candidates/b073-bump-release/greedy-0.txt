@@ -1,0 +1,25 @@
+```python
+from typing import *
+from collections import *
+
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    
+    parts = version.split('.')
+    if len(parts) != 3:
+        raise ValueError("version must have exactly three components")
+    
+    for i in range(3):
+        if not parts[i].isdigit():
+            raise ValueError(f"component {i+1} must be a decimal integer")
+        if parts[i] == '0' and i > 0:
+            raise ValueError(f"component {i+1} cannot start with zero unless it is the first component")
+    
+    part_index = {'major': 0, 'minor': 1, 'patch': 2}[part]
+    new_part = str(int(parts[part_index]) + 1)
+    if new_part == '':
+        new_part = '0'
+    
+    return '.'.join([parts[i] for i in range(3) if i != part_index] + [new_part])
+```

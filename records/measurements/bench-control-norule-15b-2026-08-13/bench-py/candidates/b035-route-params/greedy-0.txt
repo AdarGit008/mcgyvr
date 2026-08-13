@@ -1,0 +1,55 @@
+```python
+from typing import List, Dict, Optional
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str) or path == "":
+        raise ValueError("Path must be a non-empty string")
+    return [segment for segment in path.split("/") if segment]
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(patterns, list) or not all(isinstance(pattern, str) for pattern in patterns):
+        raise ValueError("Patterns must be a list of strings")
+    if not isinstance(path, str) or path == "":
+        raise ValueError("Path must be a non-empty string")
+
+    def match_route_recursive(index: int, current_pattern: str, current_path: List[str]) -> Optional[Dict[str, List[str]]]:
+        if index >= len(patterns):
+            return None
+        pattern = patterns[index]
+        if pattern == "**":
+            result = {}
+            for i in range(len(current_path) + 1):
+                result.update(match_route_recursive(index + 1, current_pattern, current_path[:i] + [current_path[i]]))
+            return result
+        elif pattern.startswith(":"):
+            name = pattern[1:]
+            if not (name.isalpha() or name[0].isupper() and all(c.isalnum() or c in "_-" for c in name)):
+                raise ValueError(f"Invalid capture name: {name}")
+            if name in current_path:
+                raise ValueError(f"Capture name repeated within the pattern: {name}")
+            result = match_route_recursive(index + 1, current_pattern, current_path + [current_path[-1]])
+            if result is not None:
+                result[name] = current_path[-1]
+            return result
+        elif pattern == "*":
+            result = {}
+            for i in range(len(current_path) + 1):
+                result.update(match_route_recursive(index + 1, current_pattern, current_path[:i]))
+            return result
+        else:
+            if not path.startswith(pattern):
+                return None
+            segment = path[len(pattern):]
+            if segment == "":
+                return {name: [] for name in current_path}
+            result = match_route_recursive(index + 1, current_pattern, current_path + [segment])
+            if result is not None:
+                result[name] = segment
+            return result
+
+    for i, pattern in enumerate(patterns):
+        result = match_route_recursive(0, pattern, [])
+        if result is not None:
+            return i
+    return -1
+```

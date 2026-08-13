@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def fit_budget(prices: List[int], budget: int) -> int:
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    prices.sort()
+    total_purchased = 0
+    
+    for price in prices:
+        if budget >= price:
+            total_purchased += 1
+            budget -= price
+        else:
+            break
+    
+    return total_purchased
+```

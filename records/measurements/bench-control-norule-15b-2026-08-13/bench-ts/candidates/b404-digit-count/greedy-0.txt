@@ -1,0 +1,21 @@
+```ts
+function digitCount(value: number): number {
+  if (!Number.isInteger(value)) {
+    throw new Error('Input must be an integer');
+  }
+
+  if (value === 0) {
+    return 1;
+  }
+
+  let count = 0;
+  value = Math.abs(value);
+
+  while (value > 0) {
+    value /= 10;
+    count++;
+  }
+
+  return count;
+}
+```

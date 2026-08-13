@@ -1,0 +1,37 @@
+```python
+from typing import List, Union
+
+class State:
+    CREATED = "created"
+    PACKED = "packed"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    RETURNED = "returned"
+
+def trace_parcel(events: List[Union[str, int]]) -> List[State]:
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list")
+    
+    current_state = State.CREATED
+    states_passed = [current_state]
+    
+    for event in events:
+        if event == State.CREATED:
+            continue
+        
+        if event == State.PACKED and current_state != State.CREATED:
+            raise ValueError(f"Event {event} cannot be fired before {State.CREATED}")
+        
+        if event == State.SHIPPED and current_state not in [State.PACKED, State.DELIVERED]:
+            raise ValueError(f"Event {event} cannot be fired before {State.PACKED} or {State.DELIVERED}")
+        
+        if event == State.DELIVERED and current_state != State.SHIPPED:
+            raise ValueError(f"Event {event} cannot be fired before {State.SHIPPED}")
+        
+        if event == State.RETURNED and current_state not in [State.PACKED, State.DELIVERED]:
+            raise ValueError(f"Event {event} cannot be fired before {State.PACKED} or {State.DELIVERED}")
+        
+        states_passed.append(event)
+    
+    return states_passed
+```

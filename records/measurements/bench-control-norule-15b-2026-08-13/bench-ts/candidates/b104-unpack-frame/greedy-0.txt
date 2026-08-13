@@ -1,0 +1,49 @@
+```ts
+function unpackFrame(bytes: number[]): number[] {
+  if (!Array.isArray(bytes) || bytes.some(b => typeof b !== 'number' || b < 0 || b > 255)) {
+    throw new Error('Input must be a list of byte values from 0 to 255');
+  }
+
+  let readingCount = 0;
+  let varintBytes = [];
+  let trailerSum = 0;
+
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0) {
+      break;
+    }
+    varintBytes.push(bytes[i]);
+    trailerSum += bytes[i];
+
+    if (varintBytes.length >= 5 || bytes[i + 1] !== 0) {
+      const varint = parseInt(varintBytes.join(''), 2);
+      readingCount += varint;
+      varintBytes = [];
+    }
+  }
+
+  if (readingCount === 0) {
+    return [];
+  }
+
+  if (varintBytes.length > 0 || trailerSum !== bytes[bytes.length - 1]) {
+    throw new Error('Invalid frame');
+  }
+
+  const readings: number[] = [];
+  for (let i = 0; i < readingCount; i++) {
+    let varintBytes = [];
+    while (varintBytes.length < 5) {
+      if (i + varintBytes.length >= bytes.length || bytes[i + varintBytes.length] === 0) {
+        throw new Error('Invalid frame');
+      }
+      varintBytes.push(bytes[i + varintBytes.length]);
+    }
+
+    const varint = parseInt(varintBytes.join(''), 2);
+    readings.push(varint);
+  }
+
+  return readings;
+}
+```

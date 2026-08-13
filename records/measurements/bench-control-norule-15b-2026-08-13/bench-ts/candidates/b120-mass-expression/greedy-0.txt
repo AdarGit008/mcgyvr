@@ -1,0 +1,49 @@
+```ts
+function massExpression(text: string, unit: string): number {
+  if (!text || typeof text !== 'string' || !unit || typeof unit !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const units = ['g', 'kg', 't'];
+  const operators = ['+', '-'];
+
+  let runningTotal = 0;
+  let currentUnit = '';
+  let currentCount = '';
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === ' ') continue;
+
+    if (units.includes(char)) {
+      if (currentUnit) throw new Error('Invalid input');
+      currentUnit = char;
+      currentCount = '';
+    } else if (operators.includes(char)) {
+      if (!currentCount || !currentUnit) throw new Error('Invalid input');
+      runningTotal += parseInt(currentCount, 10) * units.indexOf(currentUnit);
+      currentCount = '';
+      currentUnit = '';
+    } else if (char === '0') {
+      if (currentCount) throw new Error('Invalid input');
+      currentCount = '0';
+    } else if (!isNaN(parseInt(char, 10))) {
+      currentCount += char;
+    } else {
+      throw new Error('Invalid input');
+    }
+  }
+
+  if (currentCount || currentUnit) throw new Error('Invalid input');
+
+  runningTotal += parseInt(currentCount, 10) * units.indexOf(currentUnit);
+
+  if (runningTotal < 0) throw new Error('Invalid input');
+
+  const goalIndex = units.indexOf(unit);
+  if (goalIndex === -1) throw new Error('Invalid input');
+
+  return Math.round(runningTotal / units[goalIndex]);
+}
+```

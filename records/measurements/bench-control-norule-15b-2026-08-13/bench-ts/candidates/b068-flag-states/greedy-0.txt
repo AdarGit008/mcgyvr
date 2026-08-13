@@ -1,0 +1,24 @@
+```ts
+function flagStates(mask: number, catalog: string[]): Record<string, boolean> {
+  if (!Number.isInteger(mask) || mask < 0) {
+    throw new Error("Invalid mask");
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error("Invalid catalog");
+  }
+
+  const flagMap = {};
+  for (let i = 0; i < catalog.length; i++) {
+    if (typeof catalog[i] !== "string" || catalog[i].length === 0) {
+      throw new Error("Invalid flag name");
+    }
+    if (flagMap[catalog[i]]) {
+      throw new Error("Repeated flag name");
+    }
+    const bit = mask & (1 << i);
+    flagMap[catalog[i]] = Boolean(bit);
+  }
+
+  return flagMap;
+}
+```

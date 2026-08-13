@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def key_path(store: dict, head: str) -> List[str]:
+    if not store or not head:
+        raise ValueError("Store and head must be non-empty")
+
+    return [name for name in store.keys() if name.startswith(head)]
+```

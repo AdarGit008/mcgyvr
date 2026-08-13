@@ -1,0 +1,12 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not isinstance(chart, dict) or name not in chart:
+        raise ValueError("Invalid input: chart must be a mapping and name must be a key.")
+    
+    def count_workers(node):
+        if node is None:
+            return 0
+        return 1 + sum(count_workers(child) for child in chart[node])
+    
+    return count_workers(chart[name])
+```

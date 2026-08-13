@@ -1,0 +1,18 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    if row < 0 or column < 0:
+        raise ValueError("Row and column indices must be non-negative")
+    
+    # Convert column index to letter
+    col_letter = chr(ord('A') + column)
+    
+    # Format the cell name as "column_letter_row"
+    return f"{col_letter}{row+1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    if rows < 0 or columns < 0:
+        raise ValueError("Rows and columns must be non-negative")
+    
+    # Generate all cell names
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

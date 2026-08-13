@@ -1,0 +1,24 @@
+```ts
+function stepCost(kind: string): number {
+  switch (kind) {
+    case 'road':
+      return 1;
+    case 'water':
+      return 2;
+    default:
+      throw new Error('Invalid step kind');
+  }
+}
+
+function pathToll(steps: string[]): number {
+  let total = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const cost = stepCost(steps[i]);
+    if (i % 3 === 2) {
+      continue; // Skip every third step
+    }
+    total += cost;
+  }
+  return total;
+}
+```

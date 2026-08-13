@@ -1,0 +1,38 @@
+```ts
+export function mergeSettings(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): Record<string, string> {
+  if (typeof base !== 'object' || !base) throw new Error('Base must be a non-empty object');
+  if (typeof ours !== 'object' || !ours) throw new Error('Ours must be a non-empty object');
+  if (typeof theirs !== 'object' || !theirs) throw new Error('Theirs must be a non-empty object');
+
+  const merged: Record<string, string> = { ...base };
+
+  for (const key in ours) {
+    if (!ours.hasOwnProperty(key)) continue;
+    if (typeof ours[key] !== 'string') throw new Error(`Ours[${key}] must be a string`);
+    if (merged.hasOwnProperty(key)) {
+      const baseValue = merged[key];
+      const ourValue = ours[key];
+      const theirsValue = theirs[key];
+
+      if (baseValue === ourValue && baseValue === theirsValue) continue;
+      if (baseValue !== ourValue && baseValue !== theirsValue) throw new Error(`Conflict: ${key} changed from ${baseValue} to ${ourValue} and then back to ${theirsValue}`);
+    }
+    merged[key] = ours[key];
+  }
+
+  for (const key in theirs) {
+    if (!theirs.hasOwnProperty(key)) continue;
+    if (typeof theirs[key] !== 'string') throw new Error(`Theirs[${key}] must be a string`);
+    if (!merged.hasOwnProperty(key)) {
+      const ourValue = ours[key];
+      const theirsValue = theirs[key];
+
+      if (ourValue === theirsValue) continue;
+      if (ourValue !== theirsValue) throw new Error(`Conflict: ${key} changed from ${ourValue} to ${theirsValue}`);
+    }
+    merged[key] = theirs[key];
+  }
+
+  return merged;
+}
+```

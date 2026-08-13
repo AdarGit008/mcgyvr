@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def line_up(links: dict[str, str], start: str) -> List[str]:
+    if start not in links:
+        raise ValueError("Unknown name")
+    
+    current = start
+    line = [current]
+    
+    while True:
+        next_name = links.get(current)
+        if next_name is None:
+            break
+        
+        if next_name == current:
+            raise ValueError("Circular link detected")
+        
+        current = next_name
+        line.append(current)
+    
+    return line
+```

@@ -1,0 +1,41 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be at least one")
+    
+    for cell in blocked:
+        if not isinstance(cell, list) or len(cell) != 2:
+            raise ValueError("blocked entries must be two-item lists")
+        
+        row, col = cell
+        if not (0 <= row < rows) or not (0 <= col < cols):
+            raise ValueError("blocked cells must be within the grid bounds")
+    
+    if [0, 0] in blocked or [rows - 1, cols - 1] in blocked:
+        return 0
+    
+    def is_valid(x, y):
+        return 0 <= x < rows and 0 <= y < cols and (x, y) not in blocked
+    
+    def dfs(x, y, visited):
+        if (x, y) == (rows - 1, cols - 1):
+            return 1
+        
+        if (x, y) in visited:
+            return 0
+        
+        visited.add((x, y))
+        
+        count = 0
+        for dx, dy in [(0, 1), (1, 0)]:
+            nx, ny = x + dx, y + dy
+            if is_valid(nx, ny):
+                count += dfs(nx, ny, visited)
+        
+        visited.remove((x, y))
+        return count
+    
+    return dfs(0, 0, set())
+```

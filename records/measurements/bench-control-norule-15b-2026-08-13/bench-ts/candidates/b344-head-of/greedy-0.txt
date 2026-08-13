@@ -1,0 +1,9 @@
+```ts
+/** The first few entries of a list. */
+export function headOf(entries: string[], count: number): string[] {
+  if (count < 0) {
+    throw new Error("Count cannot be negative");
+  }
+  return count > entries.length ? entries : entries.slice(-count);
+}
+```

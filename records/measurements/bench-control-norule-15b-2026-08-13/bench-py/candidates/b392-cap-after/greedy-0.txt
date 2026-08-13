@@ -1,0 +1,27 @@
+```python
+def cap_after(passage: str) -> str:
+    if not passage:
+        return ""
+
+    words = passage.split()
+    capitalized_words = [word.capitalize() for word in words]
+    result = " ".join(capitalized_words)
+
+    # Find the first sentence and add a new one after it
+    start_index = 0
+    while start_index < len(result) and not result[start_index].isupper():
+        start_index += 1
+
+    if start_index < len(result):
+        result = result[:start_index] + " " + result[start_index:]
+
+    # Find the last sentence and add a new one after it
+    end_index = len(result)
+    while end_index > 0 and not result[end_index - 1].isupper():
+        end_index -= 1
+
+    if end_index > 0:
+        result = result[:end_index] + " " + result[end_index:]
+
+    return result
+```

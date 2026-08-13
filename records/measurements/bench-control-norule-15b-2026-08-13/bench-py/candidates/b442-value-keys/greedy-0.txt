@@ -1,0 +1,9 @@
+```python
+from typing import Dict, Any
+
+def value_keys(store: Dict[Any, int]) -> Dict[Any, int]:
+    if store is None:
+        raise ValueError("Store cannot be None")
+    
+    return {value: count for value, count in store.items()}
+```

@@ -1,0 +1,14 @@
+```python
+from typing import Dict, Union
+
+def over_count(store: Dict[str, Union[int, float]], floor: Union[int, float]) -> int:
+    """How many of a store's values reach a floor."""
+    if not isinstance(floor, (int, float)):
+        raise ValueError("floor must be an integer or float")
+    
+    found = 0
+    for value in store.values():
+        if isinstance(value, (int, float)) and value < floor:
+            found += 1
+    return found
+```

@@ -1,0 +1,22 @@
+```ts
+function tagCount(line: string): number {
+  if (!line) return 0;
+
+  let count = 0;
+  let inMarker = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '<') {
+      inMarker = true;
+    } else if (char === '>') {
+      if (!inMarker) throw new Error('Unmatched closing bracket');
+      count++;
+      inMarker = false;
+    }
+  }
+
+  return count;
+}
+```

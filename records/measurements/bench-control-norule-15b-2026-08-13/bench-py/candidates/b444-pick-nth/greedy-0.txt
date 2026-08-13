@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def pick_nth(entries: List[str], place: int) -> str:
+    """The entry at a place, counting places from zero."""
+    if place < 0 or place >= len(entries):
+        return ""
+    return entries[place]
+```

@@ -1,0 +1,24 @@
+```python
+from typing import List, Union
+
+def climb_budget(tolls: List[str]) -> int:
+    if not tolls:
+        return 0
+    
+    total_cost = 0
+    current_position = 0
+    
+    for i, toll in enumerate(tolls):
+        try:
+            cost = sum(int(digit) for digit in toll)
+        except ValueError:
+            raise ValueError(f"Invalid toll at position {i+1}: '{toll}'")
+        
+        if cost == 0:
+            continue
+        
+        total_cost += cost
+        current_position += 1
+    
+    return total_cost
+```

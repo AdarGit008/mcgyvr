@@ -1,0 +1,25 @@
+```ts
+function commonHead(words: string[]): string {
+  if (!words || !words.length) return '';
+
+  const firstWord = words[0];
+  let longestRun = '';
+
+  for (let i = 1; i < words.length; i++) {
+    const currentWord = words[i];
+    let currentRun = '';
+
+    for (let j = 0; j < Math.min(firstWord.length, currentWord.length); j++) {
+      if (firstWord[j] === currentWord[j]) {
+        currentRun += firstWord[j];
+      } else break;
+    }
+
+    if (currentRun.length > longestRun.length) {
+      longestRun = currentRun;
+    }
+  }
+
+  return longestRun;
+}
+```

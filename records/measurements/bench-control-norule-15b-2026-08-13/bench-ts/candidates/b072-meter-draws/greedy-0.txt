@@ -1,0 +1,40 @@
+```ts
+function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] } {
+  if (!Number.isInteger(allowance) || allowance <= 0) {
+    throw new Error("Allowance must be a positive integer");
+  }
+
+  const ledger: Record<string, number> = {};
+  const denied: number[] = [];
+
+  for (const [key, units] of draws) {
+    if (!String(key).length || !Number.isInteger(units) || units <= 0) {
+      throw new Error("Key and units must be non-empty strings and positive integers");
+    }
+
+    if (ledger[key]) {
+      ledger[key] += units;
+    } else {
+      ledger[key] = units;
+    }
+
+    if (ledger[key] > allowance) {
+      denied.push(draws.indexOf([key, units]));
+    }
+  }
+
+  return { used: ledger, denied };
+}
+
+function remainingFor(used: Record<string, number>, key: string, allowance: number): number {
+  if (!Number.isInteger(allowance) || allowance <= 0) {
+    throw new Error("Allowance must be a positive integer");
+  }
+
+  if (!String(key).length) {
+    throw new Error("Key must be a non-empty string");
+  }
+
+  return allowance - (used[key] ?? 0);
+}
+```
