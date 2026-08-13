@@ -62,7 +62,24 @@ matrix = _by_path("bench_matrix_report", HERE / "matrix.py")
 
 # The facts every cell in one table must agree on. A difference in any of them
 # is a second variable inside a contrast that claims to vary one thing.
-COMPARABLE = ("model", "endpoint", "serving_build", "tier", "gate_rungs")
+#
+# The first five were the whole list, and that was demonstrably too few: a
+# manifest mutated to a 4x smaller output cap, a different temperature, a
+# different wire protocol and an emptied task manifest produced a byte-identical
+# report — the -3.1pp headline published unchanged across a different corpus.
+# A guard that names five fields does not refuse the sixth; it permits it
+# silently, which reads as having checked.
+COMPARABLE = (
+    "model",
+    "endpoint",
+    "serving_build",
+    "tier",
+    "gate_rungs",
+    "max_output_tokens",
+    "greedy_temperature",
+    "protocol",
+    "tasks_sha256",
+)
 
 REPRO_FILE = HERE / "reproducibility.json"
 

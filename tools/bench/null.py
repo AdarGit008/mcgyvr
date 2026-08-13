@@ -118,11 +118,38 @@ def main() -> int:
                 print(f"missing: {run}/{arm}/results.jsonl", file=sys.stderr)
                 return 2
 
-    bars = {
-        tuple(sorted((run_a, run_b))): "Gate.run (#113's scorer)",
-        tuple(sorted(SUPERSEDED)): "the acceptance command alone — SUPERSEDED",
-    }
-    bar = bars.get(tuple(sorted((run_a, run_b))), "unrecorded")
+    # The bar is read from the runs, never inferred from their names. The first
+    # version of this keyed a dict on the *arguments*, so the first entry always
+    # matched and every pair — including the superseded acceptance-only one —
+    # was labelled "Gate.run". A tool whose whole claim is that a rate is never
+    # quoted against an unstated bar stated the bar from the filename.
+    bars = {}
+    for run in (run_a, run_b):
+        rungs = tuple(
+            json.loads((M / run / arm / "run.json").read_text()).get("gate_rungs") or ()
+            for arm in ARMS
+        )
+        bars[run] = rungs
+
+    def named(rungs: tuple[Any, ...]) -> str:
+        first = rungs[0] if rungs else ()
+        return (
+            "the acceptance command alone"
+            if not first
+            else "Gate.run [" + ", ".join(first) + "]"
+        )
+
+    if bars[run_a] != bars[run_b]:
+        print(
+            f"error: these two runs were scored by different bars — "
+            f"{run_a} by {named(bars[run_a])}, {run_b} by {named(bars[run_b])}. "
+            "Their disagreement is the scorer, not the model's drift, and a "
+            "null read across that boundary reports the grader as instrument "
+            "noise.",
+            file=sys.stderr,
+        )
+        return 2
+    bar = named(bars[run_a])
     print(f"# Null calibration — {run_a} vs {run_b}\n")
     print(f"scored by: {bar}\n")
 
