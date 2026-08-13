@@ -68,7 +68,57 @@ ACCEPTANCE_TIMEOUT_S = 120.0
 # is the .gitignore any real repository would carry. It lands in the base
 # commit, so it is never part of the worker's diff and the scope rung never
 # sees it.
-IGNORED = "__pycache__/\n*.pyc\nnode_modules/\n"
+# `node_modules` carries no trailing slash on purpose. The toolchain is linked
+# in as a *symlink*, which git treats as a file, and a `node_modules/` pattern
+# matches only directories — so the slash version leaves the link visible to the
+# changeset, where it reads as the worker writing outside `scope.allow`.
+IGNORED = "__pycache__/\n*.pyc\nnode_modules\n"
+
+
+ESLINT_CONFIG = REPO / "eslint.config.mjs"
+NODE_MODULES = REPO / "node_modules"
+
+
+def stage_js_toolchain(into: Path) -> None:
+    """Give the workspace the project's JS lint standard and a resolvable parser.
+
+    Two things, and both are needed or the rung is inert rather than absent —
+    which is worse, because an inert rung passes everything while looking
+    healthy.
+
+    * ``eslint.config.mjs``. eslint 9 requires a flat config and finds none in a
+      one-file workspace; without it the run aborts, writes no JSON, and the
+      adapter scores that as "inconclusive", which is a pass.
+    * ``node_modules``. The config imports ``typescript-eslint`` as an ES
+      module, and Node resolves that by walking up from the config's own
+      directory — a temp workspace has nothing to find. The symlink points at
+      the repository's installed tree, so the parser version is the one
+      ``package-lock.json`` pins rather than whatever happens to be global.
+
+    ``node_modules`` is in the workspace ``.gitignore``, so it never enters the
+    changeset and ``_worktree_tree`` does not see it as a mutation.
+    """
+    if ESLINT_CONFIG.is_file():
+        (into / ESLINT_CONFIG.name).write_text(
+            ESLINT_CONFIG.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    link_node_modules(into)
+
+
+def link_node_modules(into: Path) -> None:
+    """(Re)point the workspace at the repository's installed JS toolchain.
+
+    Called after every :meth:`~mcgyvr.sandbox.base.Sandbox.reset` as well as at
+    staging: ``reset`` runs ``git clean -fdx``, and the ``-x`` removes ignored
+    paths — which is exactly what ``node_modules`` is. Without this the lint
+    rung would work on a task's first draw and silently stop on its second.
+    """
+    if not NODE_MODULES.is_dir():
+        return
+    link = into / "node_modules"
+    if link.is_symlink() or link.exists():
+        return
+    link.symlink_to(NODE_MODULES, target_is_directory=True)
 
 
 def lint_config() -> str:
@@ -161,6 +211,7 @@ def stage_dir(task: Any, target_content: str, into: Path) -> Path:
     )
     (into / ".gitignore").write_text(IGNORED, encoding="utf-8")
     (into / "pyproject.toml").write_text(lint_config(), encoding="utf-8")
+    stage_js_toolchain(into)
     return into
 
 
@@ -194,6 +245,10 @@ def score(
     """
     sandbox.reset()
     workspace = Path(sandbox.workspace)
+    # `reset` runs `git clean -fdx`, which removes ignored paths — node_modules
+    # among them. Restore it before anything is scored, or the lint rung works
+    # on a task's first draw and quietly stops on its second.
+    link_node_modules(workspace)
     (workspace / task.contract.target).write_text(content, encoding="utf-8")
 
     changeset = ChangeSet.detect(workspace, sandbox.base_changeset_ref())
@@ -225,6 +280,16 @@ class RungUnavailableError(Exception):
 # a parser: it emits severity-1 warnings, the adapter counts severity-2, and the
 # rung passes everything while looking healthy. Installed is not the property
 # that matters. Able to reject is.
+# What each canary is built to trip. Checking only "did anything reject" is not
+# enough and the gap is not hypothetical: the jsts canary trips `format`
+# (prettier works) and not `lint` (eslint is inert without a TypeScript parser),
+# so a jsts-only sweep passed a check that a paired sweep failed. The arm was
+# scored by three rungs while declaring five, and nothing said so.
+CANARY_EXPECTS: dict[str, tuple[str, ...]] = {
+    "python": ("lint", "format"),
+    "jsts": ("lint", "format"),
+}
+
 CANARIES: dict[str, str] = {
     "python": (
         "import sys\nimport os\n\n\n"
@@ -232,7 +297,18 @@ CANARIES: dict[str, str] = {
         "    y = " + '"' + "x" * 100 + '"' + "\n"
         "    return y\n"
     ),
-    "jsts": "export function f(  a:number ){\n  return    a\n}\n",
+    # Trips `no-var`, `prefer-const` and `@typescript-eslint/no-unused-vars`
+    # from the recommended sets, and prettier on the spacing. Bad *spacing*
+    # alone was the first version and it was not enough: it tripped format and
+    # left lint looking healthy, which is the exact failure the canary exists
+    # to detect.
+    "jsts": (
+        "export function f(a: number) {\n"
+        "  var x = a\n"
+        "  let unused = 5\n"
+        "  return    x\n"
+        "}\n"
+    ),
 }
 
 
@@ -289,6 +365,18 @@ def preflight(tasks: Any, *, gate: Gate | None = None) -> tuple[str, ...]:
                 "adapter rungs are running but cannot reject, so this arm would "
                 "be scored by a smaller bar than it declares"
             )
+        else:
+            inert = [
+                rung
+                for rung in CANARY_EXPECTS.get(language, ())
+                if rung not in row["canary_rejected_by"]
+            ]
+            if inert:
+                issues.append(
+                    f"{language}: the {', '.join(inert)} rung(s) did not reject a "
+                    "candidate built to trip them — they run, they never say no, "
+                    "and this arm would be scored by fewer rungs than it declares"
+                )
         if not row["reference_passes"]:
             issues.append(
                 f"{language}: the corpus's own reference solution is rejected by "
@@ -299,13 +387,25 @@ def preflight(tasks: Any, *, gate: Gate | None = None) -> tuple[str, ...]:
     # The confound that matters most: two arms scored differently. Even when
     # every arm is individually explicable, a *difference* between them lands
     # inside every paired contrast, which is ADR-0021's whole denominator.
-    rejecting = {lang: tuple(row["canary_rejected_by"]) for lang, row in report.items()}
-    if len(report) > 1 and len(set(rejecting.values())) > 1:
+    # Compared over the rungs each arm was *expected* to exercise, not over the
+    # raw set the canary happened to trip. Two canaries are different code in
+    # different languages and will naturally fire different extra checks — the
+    # jsts one trips `structure` and the python one does not, which is a fact
+    # about the two snippets and not a difference in the bar. What would be a
+    # difference in the bar is a declared rung that is live on one arm and inert
+    # on the other, and that is what this compares.
+    live = {
+        lang: tuple(
+            sorted(set(CANARY_EXPECTS.get(lang, ())) & set(row["canary_rejected_by"]))
+        )
+        for lang, row in report.items()
+    }
+    if len(report) > 1 and len(set(live.values())) > 1:
         issues.append(
             "the arms of this sweep are scored by different rungs — "
             + "; ".join(
-                f"{k} rejects by {'+'.join(v) or 'nothing'}"
-                for k, v in sorted(rejecting.items())
+                f"{k} applies {'+'.join(v) or 'nothing'}"
+                for k, v in sorted(live.items())
             )
             + ". A paired ts/py contrast would carry that difference inside it."
         )
