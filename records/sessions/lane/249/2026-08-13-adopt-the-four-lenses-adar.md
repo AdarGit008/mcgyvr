@@ -30,6 +30,24 @@ Also carried the two amendment blocks its acceptance requires:
   one level down — the bar reverses which arm leads (py 8.9/ts 12.8 under it, py
   27.3/ts 23.9 on correctness alone).
 
+### Lens 3 gained its strong form (owner, same day)
+
+*"A bar, test, check or measurement that does not explicitly state what it
+contains is worse than dead weight."* Dead weight is neutral; an unstated bar is
+**negative**, because it reports health while applying something unknown and a
+reader cannot tell "this passed" from "nothing ran".
+
+Five live instances are now tabled in the ADR — the JS lint rung scoring absent
+tooling as a pass, ruff running an unstaged rule set where `TRY004` alone
+rejected 75 of 257 references, `gate_rungs` identical across 328-vs-66 rule sets,
+`tsc --noEmit` named in the bar with no `tsconfig.json` ever staged, and
+`structured` matching no file either arm produces.
+
+The rule it adds: a check declares its content **and** something proves the
+declaration is live. A digest with no positive control records exactly which
+inert bar was applied; a control with no digest proves something rejected without
+saying what.
+
 `make check`: 1356 passed.
 
 ## Left open

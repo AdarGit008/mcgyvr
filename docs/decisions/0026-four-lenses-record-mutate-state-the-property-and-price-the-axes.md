@@ -70,6 +70,33 @@ states a property carries the property — a digest, a resolved value, a
 fingerprint — and where the real property is unobtainable, the record says
 `unknown` rather than substituting a name.
 
+**And the strong form, which applies to every bar, test, check and measurement:
+it states what it contains, or it is worse than dead weight.**
+
+Dead weight is neutral — it costs and does nothing. A check that cannot say what
+it applied is *negative*, because it reports health while applying an unknown
+bar, and a reader cannot tell the difference between "this passed" and "nothing
+ran". Every instance below was live in this repository, and each looked healthy
+from the outside:
+
+| what it reported | what it applied |
+|---|---|
+| the JavaScript lint rung, in `Gate.run`'s rung list and in every manifest | eslint absent → "inconclusive" → a pass; then present and parserless → severity-1 warnings the adapter did not count |
+| `ruff`, installed and running | no config staged, so a rule set far wider than the project selects — `TRY004` alone rejected 75 of 257 reference solutions |
+| `gate_rungs`, identical on both arms | 328 rules against 66 |
+| `tsc --noEmit`, named in the bar | `tsconfig.json` never staged, so it never ran |
+| `structured`, named in the bar | vacuous on both bench arms — its extensions match no file either arm produces |
+
+The rule that follows: **a check declares its content, and something proves the
+declaration is live.** The declaration is the digest of what it actually applied;
+the proof is a positive control — a reference that must pass and a canary that
+must fail, per declared rung, per language. Neither half is sufficient. A digest
+with no control records precisely which inert bar was applied; a control with no
+digest proves something rejected without saying what.
+
+The cost of getting this wrong is not a missed defect. It is a published number
+that nobody can re-derive and everybody believes.
+
 ### 4. Do not plan experiments. Plan which axes are cheap to vary.
 
 Adding a language costs ~17 files of code across three separately hardcoded
