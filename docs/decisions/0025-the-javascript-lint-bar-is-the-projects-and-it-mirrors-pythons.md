@@ -106,3 +106,31 @@ JavaScript is the analogous tier, not the strictest available one.
   a separate decision, because it makes every contributor's setup depend on
   `npm ci` — and it is a smaller question than this one, which is about what the
   gate rejects in a *worker's* output.
+
+## Amendment — 2026-08-13 (ADR-0026): the premise is withdrawn, the decision stands
+
+**The decision clauses of this ADR are unchanged.** JavaScript has a bar, it is
+the project's rather than the bench's, and the preflight positive control that
+proves a rung can reject stays exactly as adopted.
+
+**The premise is withdrawn.** This ADR chose eslint `recommended` to mirror
+ruff's moderate select, and argued the two "move together" because a bar
+materially harsher on one side reads as a language effect inside every paired
+contrast. That was asserted from rule *intent* and never measured. Measured the
+next day:
+
+| | eslint, in the scored workspace | ruff, as this project selects |
+|---|---|---|
+| rules | **66**, all `error` | **328** |
+| whitespace / line-length / import-order / naming | **none** | **133 (41%)** in `E W I N UP` |
+| rejections, same 257 problems | 32 | 154 |
+
+The consequence is the one this ADR was written to prevent, one level below where
+it looked: **the bar reverses which arm leads.** Under the full bar the arms read
+py 8.9% / ts 12.8%; scored on correctness alone they read py 27.3% / ts 23.9%.
+
+Two arms cannot be laid beside each other under these bars, and ADR-0026 records
+the rule that follows — no pooled figure across a stratum where the effect is
+heterogeneous, and no lever result transfers across languages without
+measurement. Matching two rule sets by intent is not matching them; the bar is
+now a property to be recorded and compared, not a claim to be made in prose.
