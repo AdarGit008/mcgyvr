@@ -8,7 +8,10 @@ started: 2026-08-13
 ## Did
 
 **ADR-0026 — four lenses.** Owner's formulation, adopted verbatim as the review
-standard: record what cannot be reconstructed; mutants as a principle and not a
+standard. **The ADR itself moved to `lane/249` (#249, PR #250)** — it is doctrine
+rather than commissioning, it amends two ADRs unrelated to this lane's checks,
+and inside a 103k-line measurement PR nobody would read it. What stays here is
+what the lenses re-rank for *this* lane: record what cannot be reconstructed; mutants as a principle and not a
 roadmap; a record states the property rather than a claim about it; plan which
 axes are cheap to vary rather than planning experiments.
 
