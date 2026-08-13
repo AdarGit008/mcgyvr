@@ -76,3 +76,21 @@ srv2 cannot serve; what it contributes is parallel capacity at the small end.
 - **This does not withdraw the "worker is configuration" rule.** Where a model
   is served stays out of the repository — the endpoint is still redacted. What
   joins the experiment is the *build*, because two builds are two instruments.
+
+## Amendment — 2026-08-13 (ADR-0026): identity is content, not a name
+
+This ADR pinned the **serving build** because two builds are two instruments, and
+that clause stands unchanged. What it did not say is that the same argument
+applies to every other field a manifest records — and where it was applied, it
+was applied to a *name*.
+
+Measured on 2026-08-13, across 133 manifests: the model is recorded as an Ollama
+tag with no weight digest, no vocabulary, no template and no quantization
+content; the scorer is recorded as five rung *names* that are byte-identical on
+two arms whose rule sets are 328 rules against 66; and a condition is recorded as
+a bare string, because `bundle_sha256` hashes the *system* prompt while an
+ablation edits the *user* message.
+
+ADR-0026 lens 3 generalises this ADR's own rule: **a record states the property,
+not a claim about it.** Pinning a build and naming everything else leaves the
+confound this ADR closes open in every other field.
