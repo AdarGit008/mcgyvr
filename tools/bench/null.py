@@ -38,6 +38,10 @@ M = ROOT / "records" / "measurements"
 sys.path.insert(0, str(ROOT / "tools" / "power"))
 sys.path.insert(0, str(ROOT / "tools" / "bench"))
 
+# #231 checks 3 and 6: every figure says which tier it describes and which
+# product revision produced it, read off the manifests rather than asserted.
+import mode  # noqa: E402
+import product  # noqa: E402
 from mde import exact_p  # noqa: E402
 
 # One Wilson implementation for the campaign, not a second copy of the formula.
@@ -150,8 +154,12 @@ def main() -> int:
         )
         return 2
     bar = named(bars[run_a])
+    read = mode.read(*[f"{run}/{arm}" for run in (run_a, run_b) for arm in ARMS])
     print(f"# Null calibration — {run_a} vs {run_b}\n")
-    print(f"scored by: {bar}\n")
+    print(f"- scored by: {bar}")
+    print(mode.banner(read))
+    print(product.banner(read))
+    print()
 
     print("## Rig health — both runs, before any drift is read\n")
     for arm in ARMS:
@@ -195,6 +203,18 @@ def main() -> int:
                 f" {len(set(r['flips']) & set(r['diff_bytes']))} flipped"
                 f" ({rate * 100:.1f}%)"
             )
+        # The number check 4 declares, printed where it is measured. The bound
+        # is per arm (ADR-0019 D2 keys it to one tier), and this tool used to
+        # print only the pooled interval — so the two entries actually written
+        # into `reproducibility.json` were computed by hand off-screen. The
+        # upper limit, never `d/n`: a bound of 0.00pp would claim the instrument
+        # is exact, which 257 cells cannot establish.
+        low, high = wilson(len(r["flips"]), n)
+        print(
+            f"  declarable bound {high * 100:.2f}pp"
+            f"   (95% Wilson upper on {len(r['flips'])}/{n}, interval"
+            f" [{low * 100:.2f}, {high * 100:.2f}] pp)"
+        )
         print(
             f"  acceptance drift {len(r['acceptance_flips'])}"
             "  (identical bytes, different verdict)"

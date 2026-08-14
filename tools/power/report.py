@@ -27,6 +27,9 @@ from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+# #231 check 6: whether a figure describes one tier or the whole ladder.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "bench"))
+import mode
 from mde import (
     MIN_DISCORDANT,
     Contrast,
@@ -83,22 +86,54 @@ REPLICATES = [
 # they are listed as explicit pairs rather than discovered. Both replicates ran
 # back to back against one loaded model, which is what "one backend session"
 # in #231's check 1 means: no unload, no build change, no host change.
+#
+# **These are the gate-scored pairs.** This table served the 2026-08-12 pair
+# until 2026-08-14, which was measured under the acceptance command alone —
+# `Gate.run` short-circuits, so a lint-rejected candidate never ran its test and
+# that figure cannot be recomputed into this bar. It read `d = 1` at a pass rate
+# of 70/257, against `d = 0` at 23/257 here: a superseded null, served as the
+# answer, in the tool ADR-0019's D2 numbers are read from. It is kept named
+# below rather than deleted, because a superseded measurement that vanishes
+# reads as one that was never taken.
+#
+# The 7B rows are #231 check 5 — the same battery at a second tier, no design
+# change. ADR-0019 D2 says the null is measured per target tier and does not
+# transfer, so both tiers are listed and neither stands in for the other.
 BENCH_REPLICATES = [
     (
         "bench-py @ qwen2.5-coder:1.5b",
         (
-            "bench-null-15b-a-2026-08-12/bench-py/results.jsonl",
-            "bench-null-15b-b-2026-08-12/bench-py/results.jsonl",
+            "bench-null-gate-15b-a-2026-08-13/bench-py/results.jsonl",
+            "bench-null-gate-15b-b-2026-08-13/bench-py/results.jsonl",
         ),
     ),
     (
         "bench-ts @ qwen2.5-coder:1.5b",
         (
-            "bench-null-15b-a-2026-08-12/bench-ts/results.jsonl",
-            "bench-null-15b-b-2026-08-12/bench-ts/results.jsonl",
+            "bench-null-gate-15b-a-2026-08-13/bench-ts/results.jsonl",
+            "bench-null-gate-15b-b-2026-08-13/bench-ts/results.jsonl",
+        ),
+    ),
+    (
+        "bench-py @ qwen2.5-coder:7b",
+        (
+            "bench-null-gate-7b-a-2026-08-14/bench-py/results.jsonl",
+            "bench-null-gate-7b-b-2026-08-14/bench-py/results.jsonl",
+        ),
+    ),
+    (
+        "bench-ts @ qwen2.5-coder:7b",
+        (
+            "bench-null-gate-7b-a-2026-08-14/bench-ts/results.jsonl",
+            "bench-null-gate-7b-b-2026-08-14/bench-ts/results.jsonl",
         ),
     ),
 ]
+
+# Measured under the acceptance command alone and superseded by the pairs above.
+# Named so the record shows a null was taken on this date and replaced, not that
+# none existed.
+BENCH_SUPERSEDED = ("bench-null-15b-a-2026-08-12", "bench-null-15b-b-2026-08-12")
 
 
 def _rows(rel: str) -> list[dict[str, Any]]:
@@ -304,19 +339,23 @@ def null_drift() -> None:
 
 
 def bench_null() -> None:
-    """The #231 null on the bench, per arm and over both arms pooled.
+    """The #231 null on the bench, per arm and over both arms of **one tier**.
 
-    ADR-0019's D2 asks for ``d`` **per target tier**, and ``bench-py`` and
-    ``bench-ts`` are two tiers; the pooled row is the same number over the
-    denominator ADR-0021's fourth amendment fixes — paired cells actually
-    swept, both arms. It is reported because that is the denominator the
-    sizing table uses, not because it replaces the per-tier rows.
+    ADR-0019's D2 asks for ``d`` **per target tier**. ``bench-py`` and
+    ``bench-ts`` are the two arms of a tier, and the pooled row is the same
+    number over the denominator ADR-0021's fourth amendment fixes — paired cells
+    actually swept, both arms. It is reported because that is the denominator
+    the sizing table uses, not because it replaces the per-arm rows.
+
+    **One pooled row per model, never one across models.** The pooled maps were
+    keyed on the arm alone (``bench-py/b002``), so when #231 check 5 added the
+    7B's pair the second tier's cells overwrote the first's and the row silently
+    became the 7B's, printed under a label claiming it was everything. Pooling a
+    null across tiers is what D2 forbids in the first place; the key carries the
+    model so the two can neither collide nor be added together.
     """
-    pooled_a: dict[str, bool] = {}
-    pooled_b: dict[str, bool] = {}
-    pooled_sha_a: dict[str, str] = {}
-    pooled_sha_b: dict[str, str] = {}
     rows: list[tuple[str, int, int, list[int], int, float]] = []
+    per_model: dict[str, dict[str, tuple[bool, bool, bool]]] = {}
 
     for label, (rel_a, rel_b) in BENCH_REPLICATES:
         path_a, path_b = M / rel_a, M / rel_b
@@ -337,12 +376,10 @@ def bench_null() -> None:
                 same / len(shared) if shared else 0.0,
             )
         )
-        arm = label.split(" @ ")[0]
+        arm, _, model = label.partition(" @ ")
+        cells = per_model.setdefault(model, {})
         for t in shared:
-            pooled_a[f"{arm}/{t}"] = va[t]
-            pooled_b[f"{arm}/{t}"] = vb[t]
-            pooled_sha_a[f"{arm}/{t}"] = sa[t]
-            pooled_sha_b[f"{arm}/{t}"] = sb[t]
+            cells[f"{arm}/{t}"] = (va[t], vb[t], sa[t] == sb.get(t))
 
     if not rows:
         return
@@ -353,15 +390,17 @@ def bench_null() -> None:
     )
     for row in rows:
         _drift_row(*row)
-    if len(rows) > 1:
-        keys = list(pooled_a)
+    for model, cells in per_model.items():
+        if len(cells) <= 257:
+            continue  # a single arm; its own row already said this
+        values = list(cells.values())
         _drift_row(
-            "both arms pooled",
+            f"  both arms @ {model}",
             2,
-            len(keys),
-            sorted({sum(pooled_a.values()), sum(pooled_b.values())}),
-            sum(1 for k in keys if pooled_a[k] != pooled_b[k]),
-            sum(1 for k in keys if pooled_sha_a[k] == pooled_sha_b[k]) / len(keys),
+            len(values),
+            sorted({sum(a for a, _, _ in values), sum(b for _, b, _ in values)}),
+            sum(1 for a, b, _ in values if a != b),
+            sum(1 for _, _, same in values if same) / len(values),
         )
     print(
         "\n  d is the 'worst pair' column — a count of flipped verdicts, which\n"
@@ -412,6 +451,19 @@ def main() -> None:
     )
     args = parser.parse_args()
     section = args.section
+    # #231 check 6. This report pools several instruments, so the declaration
+    # is made once over all of them and refuses a mixture rather than printing
+    # whichever mode came first. Check 3's round is stated per figure by the
+    # tools that draw a single contrast; here it is deliberately absent —
+    # nothing on this page is a contrast between two arms.
+    replicate_cells = [
+        d
+        for _, rel in REPLICATES
+        for d in sorted((M / rel).glob("sweep-*"))
+        if d.is_dir()
+    ]
+    bench_cells = [(M / rel).parent for _, pair in BENCH_REPLICATES for rel in pair]
+    print(mode.banner(mode.read(*replicate_cells, *bench_cells)) + "\n")
     if section in ("all", "responsive"):
         responsiveness()
     if section in ("all", "contrasts"):

@@ -119,3 +119,32 @@ def test_gains_and_losses_are_directional(null: types.ModuleType) -> None:
     r = null.compare("bench-py")
     assert r["gains"] == []
     assert sorted(r["losses"]) == ["acceptance", "sampler"]
+
+
+def test_the_declared_bound_is_re_derivable_from_the_runs_it_names() -> None:
+    """#231 check 4: the declaration is a measurement, or it is an assertion.
+
+    ``reproducibility.json`` carries a bound per (model, tier, bar, build) and
+    names the two run directories it came from. This walks back from the
+    declaration to those directories and recomputes the number. Until ``null.py``
+    printed the per-arm interval, the two entries on disk were computed by hand
+    off-screen and nothing tied them to the rows.
+    """
+    real = _by_path("bench_null_real", REPO / "tools" / "bench" / "null.py")
+    declared = json.loads(
+        (REPO / "tools" / "bench" / "reproducibility.json").read_text(encoding="utf-8")
+    )["bounds"]
+    measurements = REPO / "records" / "measurements"
+    for entry in declared:
+        run_a, run_b = (Path(r) for r in entry["runs"])
+        assert run_a.name == run_b.name, "a bound's two runs must be the same arm"
+        if not (measurements / run_a / "results.jsonl").is_file():
+            continue
+        compared = real.compare(run_a.name, run_a.parent.name, run_b.parent.name)
+        n = len(compared["shared"])
+        assert n == entry["cells"], (
+            f"{entry['tier']}: {n} cells, {entry['cells']} declared"
+        )
+        assert len(compared["flips"]) == entry["flips"]
+        _, high = real.wilson(len(compared["flips"]), n)
+        assert round(high * 100, 2) == entry["bound_pp"]

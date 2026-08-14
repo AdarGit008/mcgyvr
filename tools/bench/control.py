@@ -21,11 +21,13 @@ real profile.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import pathlib
 import re
 import statistics
 import sys
+import types
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -35,16 +37,40 @@ sys.path.insert(0, str(ROOT / "tools" / "power"))
 
 from mde import MIN_DISCORDANT, exact_p  # noqa: E402
 
-# Fixed by the pre-registration, not by this file.
-STOCK = "bench-null-gate-15b-a-2026-08-13"
-STOCK_SENSITIVITY = "bench-null-gate-15b-b-2026-08-13"
-NORULE = "bench-control-norule-15b-2026-08-13"
-ARMS = ("bench-py", "bench-ts")
+# #231 checks 3 and 6: the tier the figure describes, and the revision it ran
+# against, read off the manifests rather than stated in prose beside them.
+sys.path.insert(0, str(ROOT / "tools" / "bench"))
+import mode  # noqa: E402
+import product  # noqa: E402
 
-# The declared reproducibility bound for this model/tier/bar/build
-# (tools/bench/reproducibility.json, #231 check 1). A contrast inside it is the
-# instrument rather than the lever.
-BOUND_PP = 1.47
+
+def _by_path(name: str, path: pathlib.Path) -> types.ModuleType:
+    """`tools/` is not a package, and two files here are called `report.py`."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+report = _by_path("bench_report_control", ROOT / "tools" / "bench" / "report.py")
+
+# The pre-registration's runs, which are the 1.5B's. They are **defaults**
+# rather than constants: #231 check 5 re-runs this same battery against a second
+# tier with no design change, and a tool that can only be pointed at one model
+# would have forced a copy — at which point "no design change" stops being
+# checkable. What the pre-registration fixes is the *design* (comparator is run
+# A, run B is a sensitivity check, recovery is direction plus an identified
+# mechanism, m >= 6 or no p-value), and none of that moves with --stock.
+# Named `*_RUN` because `STOCK` is already a *condition* name in
+# `tools/breadth/measure.py` — one word for the render the matrix dispatches and
+# for the directory a render was measured into. ADR-0026 lens 3: two meanings
+# under one name is a collision a reader resolves by guessing.
+STOCK_RUN = "bench-null-gate-15b-a-2026-08-13"
+SENSITIVITY_RUN = "bench-null-gate-15b-b-2026-08-13"
+NORULE_RUN = "bench-control-norule-15b-2026-08-13"
+ARMS = ("bench-py", "bench-ts")
 
 # CLM-0017, quoted as context and explicitly not as a target: different
 # material, a different harness and a different model.
@@ -149,32 +175,73 @@ def health(label: str, run_rows: dict[str, Any]) -> None:
     )
 
 
+def declared_bound(run: str, arm: str) -> tuple[float | None, str]:
+    """The reproducibility bound for the run being read, or why there is none.
+
+    Looked up per (model, tier, gate_rungs, serving_build) from
+    ``tools/bench/reproducibility.json`` rather than carried as a constant. This
+    file held ``BOUND_PP = 1.47`` — the 1.5B's number — and reading a second
+    tier's contrast against it is exactly the borrowing ADR-0019 D2 forbids: a
+    higher-pass-rate model has more cells near the boundary and therefore its
+    own null. A tier with no null declared gets no "INSIDE the bound" annotation
+    at all, which is the honest output; a delta smaller than an undeclared drift
+    is an unknown effect, not a small one.
+    """
+    manifest = json.loads((M / run / arm / "run.json").read_text(encoding="utf-8"))
+    entry, because = report.declared_bound(manifest, report.load_bounds())
+    return (entry["bound_pp"] if entry else None), because
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.parse_args()
+    parser.add_argument("--stock", default=STOCK_RUN, help="the comparator run (run A)")
+    parser.add_argument(
+        "--norule",
+        default=NORULE_RUN,
+        help="the rule-ablation run to compare against it",
+    )
+    parser.add_argument(
+        "--sensitivity",
+        default=SENSITIVITY_RUN,
+        help="the second stock run, read as a sensitivity check and never as an "
+        "alternative comparator",
+    )
+    args = parser.parse_args()
+    stock_run, norule_run = args.stock, args.norule
+    sensitivity_run = args.sensitivity
 
-    for run in (STOCK, STOCK_SENSITIVITY, NORULE):
+    for run in (stock_run, sensitivity_run, norule_run):
         for arm in ARMS:
             if not (M / run / arm / "results.jsonl").exists():
                 print(f"missing: {run}/{arm}/results.jsonl", file=sys.stderr)
                 return 2
 
+    read = mode.read(
+        *[
+            f"{run}/{arm}"
+            for run in (stock_run, sensitivity_run, norule_run)
+            for arm in ARMS
+        ]
+    )
     print("# Check 2 — the rule-ablation positive control\n")
-    print(f"comparator: {STOCK} (pre-registered)")
-    print(f"ablation:   {NORULE}")
-    print(f"sensitivity: {STOCK_SENSITIVITY}\n")
+    print(f"comparator: {stock_run} (pre-registered as run A)")
+    print(f"ablation:   {norule_run}")
+    print(f"sensitivity: {sensitivity_run}")
+    print(mode.banner(read))
+    print(product.banner(read))
+    print()
 
     print("## Rig health, before anything is read\n")
     for arm in ARMS:
         print(f"{arm}:")
-        health("stock (comparator)", rows(STOCK, arm))
-        health("norule", rows(NORULE, arm))
+        health("stock (comparator)", rows(stock_run, arm))
+        health("norule", rows(norule_run, arm))
     print()
 
     print("## Direction — the paired contrast\n")
     pooled = {"gains": 0, "losses": 0, "n": 0, "stock": 0, "norule": 0}
     for arm in ARMS:
-        s, nr = rows(STOCK, arm), rows(NORULE, arm)
+        s, nr = rows(stock_run, arm), rows(norule_run, arm)
         r = paired(s, nr)
         n = len(r["shared"])
         delta = (r["norule_pass"] - r["stock_pass"]) / n * 100
@@ -183,13 +250,16 @@ def main() -> int:
         pooled["n"] += n
         pooled["stock"] += r["stock_pass"]
         pooled["norule"] += r["norule_pass"]
-        inside = abs(delta) <= BOUND_PP
+        bound_pp, no_bound_because = declared_bound(stock_run, arm)
+        inside = bound_pp is not None and abs(delta) <= bound_pp
         print(f"{arm}  n = {n}")
         print(
             f"  stock {r['stock_pass']}/{n} vs norule {r['norule_pass']}/{n}"
             f"   delta {delta:+.1f}pp"
-            + ("  INSIDE the declared bound" if inside else "")
+            + (f"  INSIDE the declared bound ({bound_pp:.2f}pp)" if inside else "")
         )
+        if bound_pp is None:
+            print(f"  bound NOT DECLARED — {no_bound_because}")
         print(
             f"  m = {r['m']} discordant ({len(r['gains'])} the ablation gained,"
             f" {len(r['losses'])} it lost)"
@@ -219,7 +289,7 @@ def main() -> int:
 
     print("\n## Sensitivity — the same contrast against the other stock run\n")
     for arm in ARMS:
-        r = paired(rows(STOCK_SENSITIVITY, arm), rows(NORULE, arm))
+        r = paired(rows(sensitivity_run, arm), rows(norule_run, arm))
         print(
             f"  {arm}  stock {r['stock_pass']} vs norule {r['norule_pass']}"
             f"   m = {r['m']}   p = {r['p']:.2e}"
@@ -234,7 +304,7 @@ def main() -> int:
     )
     signature = True
     for arm in ARMS:
-        s, nr = rows(STOCK, arm), rows(NORULE, arm)
+        s, nr = rows(stock_run, arm), rows(norule_run, arm)
         ts_, tn = tokens(s), tokens(nr)
         ratio = tn["mean"] / ts_["mean"] if ts_["mean"] else 0.0
         print(
@@ -247,7 +317,7 @@ def main() -> int:
 
     print("\n## What actually rejected — every rung that fired, not the first\n")
     for arm in ARMS:
-        s, nr = rows(STOCK, arm), rows(NORULE, arm)
+        s, nr = rows(stock_run, arm), rows(norule_run, arm)
         mismatches = check_vocabulary(s, nr)
         if mismatches:
             print(
