@@ -812,6 +812,12 @@ def test_the_condition_the_run_records_is_the_condition_it_dispatched(
     _scorable_arm(monkeypatch)
     _always_passes(monkeypatch)
     monkeypatch.setattr(breadth, "runner_for", lambda endpoint: runner)
+    # A bench tier, so `record_run` would otherwise refuse a tree that has
+    # drifted off the open round (#231 check 3). That refusal has its own
+    # tests; this one is about `--condition` reaching the manifest.
+    monkeypatch.setattr(
+        breadth.product, "require_pinned", lambda *a, **k: ("r-test", "0" * 64)
+    )
     monkeypatch.setattr(
         sys,
         "argv",

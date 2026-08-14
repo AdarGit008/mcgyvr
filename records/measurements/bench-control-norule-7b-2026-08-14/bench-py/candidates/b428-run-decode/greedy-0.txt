@@ -1,0 +1,21 @@
+```python
+def run_decode(coded: str) -> str:
+    if not coded:
+        return ""
+    
+    decoded = []
+    i = 0
+    while i < len(coded):
+        char = coded[i]
+        i += 1
+        count_str = ""
+        while i < len(coded) and coded[i].isdigit():
+            count_str += coded[i]
+            i += 1
+        if not count_str:
+            raise ValueError("Invalid run code format")
+        count = int(count_str)
+        decoded.extend([char] * count)
+    
+    return "".join(decoded)
+```

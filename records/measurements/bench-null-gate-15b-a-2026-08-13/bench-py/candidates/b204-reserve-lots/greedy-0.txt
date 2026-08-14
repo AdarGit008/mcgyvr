@@ -1,0 +1,46 @@
+```python
+from typing import List, Tuple
+
+class Draw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall: int):
+        self.order_id = order_id
+        self.shortfall = shortfall
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> dict:
+    if not lots or not orders:
+        return {'picks': [], 'draws': [], 'short': []}
+
+    # Sort lots by use-by date and then by lot id
+    lots.sort(key=lambda x: (x[1], x[0]))
+
+    draws = []
+    short = []
+
+    for order_id, units_wanted in orders:
+        drawn_lots = []
+        shortfall = units_wanted
+
+        while shortfall > 0:
+            # Find the earliest lot that still has units
+            for lot_id, use_by_date, units_on_hand in lots:
+                if units_on_hand > 0 and (use_by_date == '' or use_by_date <= use_by_date):
+                    drawn_lots.append((lot_id, units_on_hand))
+                    shortfall -= units_on_hand
+                    break
+
+        # Record the draws
+        for lot_id, units_taken in drawn_lots:
+            draws.append(Draw(order_id, lot_id, units_taken))
+
+        # Record the shortfalls
+        if shortfall > 0:
+            short.append(Shortfall(order_id, shortfall))
+
+    return {'picks': [], 'draws': draws, 'short': short}
+```

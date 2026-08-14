@@ -1,0 +1,27 @@
+```ts
+/**
+ * Spreads items across crates as evenly as possible.
+ * @param items - The number of items to distribute.
+ * @param crates - The number of crates to fill.
+ * @returns An array of crate sizes, largest first.
+ */
+export function crateFill(items: number, crates: number): number[] {
+  if (crates <= 0) return [];
+  const baseSize = Math.floor(items / crates);
+  const remainder = items % crates;
+  const result = new Array(crates).fill(baseSize);
+  for (let i = 0; i < remainder; i++) {
+    result[i]++;
+  }
+  return result.reverse();
+}
+
+/**
+ * Sums up the sizes of a list of crates.
+ * @param sizes - An array of crate sizes.
+ * @returns The total number of items in all crates.
+ */
+export function crateTotal(sizes: number[]): number {
+  return sizes.reduce((total, size) => total + size, 0);
+}
+```

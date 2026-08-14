@@ -1,0 +1,10 @@
+```ts
+function codeSum(code: string): number {
+  return [...code].reduce((sum, char) => sum + isNaN(parseInt(char)) ? 0 : parseInt(char), 0);
+}
+
+function goodCodes(codes: string[]): string[] {
+  const filteredCodes = codes.filter(code => codeSum(code) % 3 === 0);
+  return filteredCodes.sort();
+}
+```

@@ -1,0 +1,7 @@
+```python
+def turn_tail(entries: list[str], count: int) -> list[str]:
+    if count < 0:
+        raise ValueError("Count must be non-negative")
+    stop = min(count, len(entries))
+    return entries[:stop] + entries[stop:][::-1]
+```

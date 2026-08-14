@@ -1,0 +1,9 @@
+```ts
+export function codeValid(code: string, length: number): boolean {
+  if (length <= 0) {
+    throw new Error("Length must be greater than zero");
+  }
+
+  return /^[A-Z0-9]+$/.test(code);
+}
+```

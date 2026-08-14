@@ -1,0 +1,29 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """Return every piece of a line standing between an opening and a closing marker."""
+    if len(opens) != 1 or len(closes) != 1:
+        raise ValueError("Opening and closing markers must be single characters.")
+    
+    result = []
+    stack = []
+    current = ""
+    
+    for char in line:
+        if char == opens:
+            if stack:
+                current += char
+            stack.append(char)
+        elif char == closes:
+            if not stack:
+                continue
+            stack.pop()
+            current += char
+            if not stack:
+                result.append(current[1:-1])
+                current = ""
+        else:
+            if stack:
+                current += char
+    
+    return result
+```

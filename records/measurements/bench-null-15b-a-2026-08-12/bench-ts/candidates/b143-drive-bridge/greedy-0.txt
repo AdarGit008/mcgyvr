@@ -1,0 +1,50 @@
+```ts
+export function driveBridge(commands: string[]): string {
+  if (!Array.isArray(commands)) {
+    throw new Error("Invalid input: commands must be an array");
+  }
+
+  let spanState = "lowered";
+
+  for (const command of commands) {
+    switch (command.toLowerCase()) {
+      case "raise":
+        if (spanState === "lowered") {
+          spanState = "raised";
+        } else {
+          throw new Error("Invalid command: cannot raise a raised span");
+        }
+        break;
+      case "lower":
+        if (spanState === "raised") {
+          spanState = "lowered";
+        } else {
+          throw new Error("Invalid command: cannot lower a lowered span");
+        }
+        break;
+      case "lock":
+        if (spanState === "lowered") {
+          throw new Error("Invalid command: cannot lock a lowered span");
+        } else if (spanState === "raised") {
+          spanState = "locked";
+        } else {
+          throw new Error("Invalid command: cannot lock an already locked span");
+        }
+        break;
+      case "unlock":
+        if (spanState === "lowered") {
+          throw new Error("Invalid command: cannot unlock a lowered span");
+        } else if (spanState === "locked") {
+          spanState = "raised";
+        } else {
+          throw new Error("Invalid command: cannot unlock an already unlocked span");
+        }
+        break;
+      default:
+        throw new Error(`Invalid command: ${command}`);
+    }
+  }
+
+  return spanState;
+}
+```

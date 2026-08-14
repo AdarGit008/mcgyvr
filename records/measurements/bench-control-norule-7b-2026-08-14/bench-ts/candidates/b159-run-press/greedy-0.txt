@@ -1,0 +1,27 @@
+```ts
+export function runPress(jobs: [string, number][], budget: number): { printed: string[]; waiting: string[]; pages: number } {
+  if (!Array.isArray(jobs) || !Number.isInteger(budget) || budget < 0) {
+    throw new Error('Invalid input');
+  }
+
+  const result = { printed: [] as string[], waiting: [] as string[], pages: 0 };
+  let remainingBudget = budget;
+
+  for (const [name, pages] of jobs) {
+    if (typeof name !== 'string' || name === '' || !Number.isInteger(pages) || pages <= 0) {
+      throw new Error('Invalid job');
+    }
+
+    if (pages <= remainingBudget) {
+      result.printed.push(name);
+      remainingBudget -= pages;
+      result.pages += pages;
+    } else {
+      result.waiting.push(name);
+      break;
+    }
+  }
+
+  return result;
+}
+```

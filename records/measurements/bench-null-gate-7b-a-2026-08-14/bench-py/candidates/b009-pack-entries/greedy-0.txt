@@ -1,0 +1,21 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in entries):
+        raise ValueError("All entries must be two-element lists.")
+    
+    if not all(isinstance(key, str) and isinstance(value, str) for key, value in entries):
+        raise ValueError("All keys and values must be strings.")
+    
+    if any(len(key) == 0 for key, _ in entries):
+        raise ValueError("Keys cannot be empty.")
+    
+    if len(entries) != len(set(entry[0] for entry in entries)):
+        raise ValueError("Keys must be unique.")
+    
+    escaped_entries = [
+        f"{key.replace('\\', '\\\\').replace('=', '\\=')}{value.replace('\\', '\\\\').replace(';', '\\;')};" 
+        for key, value in entries
+    ]
+    
+    return ''.join(escaped_entries).rstrip(';')
+```

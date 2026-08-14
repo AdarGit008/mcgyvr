@@ -1,0 +1,19 @@
+```python
+def split_agenda(sessions: list, limit: int) -> list:
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("Limit must be a whole number of at least one.")
+    
+    result = []
+    for start, end in sessions:
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("Session bounds must be whole numbers.")
+        if start >= end:
+            raise ValueError("Session start must precede its end.")
+        
+        while end - start > limit:
+            mid = (start + end) // 2
+            result.append([start, mid])
+            start = mid
+    
+    return result + sessions
+```

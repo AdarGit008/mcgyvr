@@ -1,0 +1,13 @@
+```python
+from typing import List, Tuple
+
+def pack_entries(entries: List[Tuple[str, str]]) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    def escape_value(value: str) -> str:
+        return value.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    escaped_entries = [f"{escape_key(key)}={escape_value(value)}" for key, value in entries]
+    return ";".join(escaped_entries)
+```

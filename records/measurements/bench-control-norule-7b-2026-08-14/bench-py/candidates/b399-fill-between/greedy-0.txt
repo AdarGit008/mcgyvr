@@ -1,0 +1,6 @@
+```python
+def fill_between(entries: list, filler: str) -> list:
+    if len(entries) <= 1:
+        return entries
+    return [item for entry in entries for item in (entry, filler)][:-1]
+```

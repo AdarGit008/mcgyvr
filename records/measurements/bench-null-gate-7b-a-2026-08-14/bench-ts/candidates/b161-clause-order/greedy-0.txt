@@ -1,0 +1,22 @@
+```ts
+export function clauseOrder(a: string, b: string): number {
+  const validateMark = (mark: string): void => {
+    if (typeof mark !== 'string' || mark === '') throw new Error('Invalid mark');
+    if (/^\./.test(mark) || /\.$/.test(mark)) throw new Error('Invalid mark');
+    if (/0\d/.test(mark)) throw new Error('Invalid mark');
+    if (/[^0-9.]/.test(mark)) throw new Error('Invalid mark');
+  };
+
+  validateMark(a);
+  validateMark(b);
+
+  const aParts = a.split('.').map(Number);
+  const bParts = b.split('.').map(Number);
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    if (aParts[i] !== bParts[i]) return aParts[i] > bParts[i] ? 1 : -1;
+  }
+
+  return aParts.length === bParts.length ? 0 : aParts.length > bParts.length ? 1 : -1;
+}
+```

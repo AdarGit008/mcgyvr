@@ -1,0 +1,17 @@
+```ts
+export function seatRun(row: string, party: number): number {
+  if (party === 0) return -1;
+
+  let freeSeats = 0;
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      freeSeats++;
+      if (freeSeats >= party) return i;
+    } else {
+      freeSeats = 0;
+    }
+  }
+
+  return -1;
+}
+```

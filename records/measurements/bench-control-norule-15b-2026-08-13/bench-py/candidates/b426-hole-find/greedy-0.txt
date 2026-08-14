@@ -1,0 +1,10 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    return [first + i for i in range(count)]
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    if len(seen) < count:
+        return first - 1
+    else:
+        return None
+```

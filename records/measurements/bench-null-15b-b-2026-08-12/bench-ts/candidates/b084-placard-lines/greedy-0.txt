@@ -1,0 +1,35 @@
+```ts
+/** Lay a notice's text into placard lines. */
+
+export function placardLines(text: string, width: number): string[] {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new Error("Text must be a non-empty string.");
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive integer.");
+  }
+
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line.length === 0) {
+      line = word;
+    } else if (line.length + word.length <= width) {
+      line = line + " " + word;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  lines.push(line);
+
+  // Validate that no word is wider than the placard
+  for (const word of text.split(" ")) {
+    if (word.length > width) {
+      throw new Error(`Word "${word}" is wider than the placard.`);
+    }
+  }
+
+  return lines;
+}
+```

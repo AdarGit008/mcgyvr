@@ -1,0 +1,19 @@
+```ts
+/** Lay a straight eastward conveyor run across a factory floor plan. */
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("the run starts off the plan");
+  }
+  const cells = floor[row].split("");
+  if (col + length > cells.length) {
+    throw new Error("the run would pass the last column");
+  }
+  for (let i = 0; i < length; i++) {
+    if (cells[col + i] !== ".") {
+      throw new Error("any cell the run covers is not open");
+    }
+  }
+  const newRow = floor[row].slice(0, col) + "=".repeat(length) + floor[row].slice(col + length);
+  return [newRow];
+}
+```

@@ -1,0 +1,202 @@
+```python
+from typing import List, Dict
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if path == "":
+        return []
+    segments = path.split("/")
+    for i in range(len(segments)):
+        if segments[i] == "" or segments[i][0] != "/":
+            raise ValueError(f"invalid segment {segments[i]} at index {i}")
+    return segments
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(path, str):
+        raise ValueError("path must be a non-empty string")
+    if not isinstance(patterns, list):
+        raise ValueError("patterns must be a list of strings")
+    for pattern in patterns:
+        if not isinstance(pattern, str):
+            raise ValueError("pattern must be a string")
+    if path == "":
+        return -1
+    segments = split_segments(path)
+    for i, segment in enumerate(segments):
+        if ":" in segment or "*" in segment:
+            match_name = segment[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+    for i, pattern in enumerate(patterns):
+        if "**" in pattern:
+            if pattern.count("**") > 1:
+                raise ValueError("pattern holding '**' more than once")
+            if not pattern.startswith("*"):
+                raise ValueError("invalid pattern with '**'")
+    for i, pattern in enumerate(patterns):
+        if ":" in pattern or "*" in pattern:
+            match_name = pattern[1:]
+            if not match_name.isalnum() and not match_name.startswith("_"):
+                raise ValueError(f"invalid capture name {match_name}")
+            if match_name in segments[i+1:]:
+                raise ValueError(f"capture name {match_name} repeated within the pattern")
+   

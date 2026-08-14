@@ -1,0 +1,14 @@
+```python
+def swap_pair(first: str, second: str) -> str:
+    if len(first) != 1 or len(second) != 1:
+        raise ValueError("Both inputs must be single characters.")
+    return second + first
+
+def swap_all(text: str) -> str:
+    if not text:
+        return ""
+    result = [swap_pair(text[i], text[i+1]) for i in range(0, len(text)-1, 2)]
+    if len(text) % 2 != 0:
+        result.append(text[-1])
+    return ''.join(result)
+```

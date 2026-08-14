@@ -1,0 +1,14 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None, None]
+    
+    sorted_values = sorted(values)
+    length = len(sorted_values)
+    middle_index = length // 2
+    
+    if length % 2 == 0:
+        return [sorted_values[middle_index - 1], sorted_values[middle_index]]
+    else:
+        return [sorted_values[middle_index], sorted_values[middle_index]]
+```

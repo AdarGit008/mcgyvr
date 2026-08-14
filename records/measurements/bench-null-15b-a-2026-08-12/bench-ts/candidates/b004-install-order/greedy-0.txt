@@ -1,0 +1,31 @@
+```ts
+/** An installation order for packages under prerequisite pairs. */
+export function installOrder(
+  packages: string[],
+  requires: string[][],
+): string[] {
+  const needs: Record<string, number> = {};
+  const enables: Record<string, string[]> = {};
+  for (const name of packages) {
+    needs[name] = 0;
+    enables[name] = [];
+  }
+  for (const [pkg, needed] of requires) {
+    needs[pkg] += 1;
+    enables[needed].push(pkg);
+  }
+  const ready: string[] = packages.filter((name) => needs[name] === 0);
+  const order: string[] = [];
+  while (ready.length > 0) {
+    const next = ready.pop() as string;
+    order.push(next);
+    for (const follower of enables[next]) {
+      needs[follower] -= 1;
+      if (needs[follower] === 0) {
+        ready.push(follower);
+      }
+    }
+  }
+  return order;
+}
+```

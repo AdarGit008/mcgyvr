@@ -1,0 +1,12 @@
+```python
+from typing import List, Optional
+
+def score_drop(scores: List[int]) -> int:
+    if len(scores) <= 1:
+        return 0
+    
+    lowest = min(scores)
+    scores.remove(lowest)
+    
+    return sum(scores)
+```

@@ -1,0 +1,41 @@
+```python
+from typing import *
+from collections import *
+
+def decode_escaped_note(text: str) -> str:
+    if not text:
+        raise ValueError("Input cannot be empty")
+
+    # Step 1: Fold the lines
+    folded_text = ""
+    current_line = ""
+    for char in text:
+        if char == "\n":
+            if current_line:
+                folded_text += current_line.rstrip() + "\n"
+                current_line = ""
+        else:
+            current_line += char
+
+    if current_line:
+        folded_text += current_line.rstrip() + "\n"
+
+    # Step 2: Decode escapes
+    decoded_text = ""
+    in_escape = False
+    for char in folded_text:
+        if char == "=" and not in_escape:
+            in_escape = True
+            continue
+        elif char == "=" and in_escape:
+            in_escape = False
+            continue
+        elif in_escape:
+            hex_code = char + next(folded_text)
+            decoded_text += chr(int(hex_code, 16))
+            in_escape = False
+        else:
+            decoded_text += char
+
+    return decoded_text
+```

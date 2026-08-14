@@ -1,0 +1,22 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    def scan_rules(rule):
+        for key, value in rule.items():
+            if key == name:
+                return value
+            elif key.endswith("*"):
+                if len(key) > 1 and key[:-1] == name:
+                    return value
+            elif "*" not in key and key.startswith(name):
+                return value
+    
+    for rule in rules.values():
+        result = scan_rules(rule)
+        if result is not None:
+            return result
+    
+    return None
+```

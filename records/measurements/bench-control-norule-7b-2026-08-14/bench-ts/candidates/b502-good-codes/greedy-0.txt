@@ -1,0 +1,22 @@
+```ts
+/**
+ * Sums the figures in a given code, ignoring non-figure characters.
+ * @param code - The string containing the code with figures and possibly other characters.
+ * @returns The sum of all figures found in the code.
+ */
+export function codeSum(code: string): number {
+  return code.split('').reduce((sum, char) => {
+    const num = parseInt(char);
+    return isNaN(num) ? sum : sum + num;
+  }, 0);
+}
+
+/**
+ * Filters codes whose total figure sum divides evenly by three.
+ * @param codes - An array of strings, each representing a code with figures and possibly other characters.
+ * @returns An array of codes whose figure sums are divisible by three, in the order they arrived.
+ */
+export function goodCodes(codes: string[]): string[] {
+  return codes.filter(code => codeSum(code) % 3 === 0);
+}
+```

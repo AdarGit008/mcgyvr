@@ -1,0 +1,26 @@
+```ts
+export function auditTicket(ticket: string): string {
+  if (typeof ticket !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+
+  const regex = /^[A-Z]{2}-\d{4}-\d{1}$/;
+  if (!regex.test(ticket)) {
+    return 'shape';
+  }
+
+  let total = 0;
+  for (let i = 0; i < ticket.length - 1; i++) {
+    const char = ticket[i];
+    const digit = parseInt(char, 10);
+    total += (i + 1) * digit;
+  }
+
+  const checkDigit = parseInt(ticket[ticket.length - 1], 10);
+  if (total % 10 !== checkDigit) {
+    return 'check';
+  }
+
+  return 'ok';
+}
+```

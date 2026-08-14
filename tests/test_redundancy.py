@@ -169,7 +169,7 @@ def test_more_swept_cells_resolve_more() -> None:
 
 
 def test_the_two_figures_the_record_quotes() -> None:
-    """ADR-0021's third amendment quotes these; a drift here silently rewrites it.
+    """ADR-0021's fourth amendment quotes these; a drift here silently rewrites it.
 
     426 swept cells is 400 authored at the realized 53.2% bench share. The
     second assertion is the coincidence the record names — the withdrawn 8.2pp

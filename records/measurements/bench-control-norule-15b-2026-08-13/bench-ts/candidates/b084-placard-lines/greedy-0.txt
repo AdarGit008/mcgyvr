@@ -1,0 +1,24 @@
+```ts
+/** Lay a notice's text into placard lines. */
+
+export function placardLines(text: string, width: number): string[] {
+  if (!text || typeof text !== "string" || !width || typeof width !== "number") {
+    throw new Error("Invalid input");
+  }
+
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line.length === 0) {
+      line = word;
+    } else if (line.length + word.length <= width) {
+      line = line + " " + word;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+```

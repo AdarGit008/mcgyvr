@@ -1,0 +1,42 @@
+```ts
+export function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) throw new Error("Invalid outline");
+
+  const labels: string[] = [];
+
+  function traverse(section: any, parentLabel: string = "") {
+    if (typeof section !== "object" || section === null) throw new Error("Invalid section");
+    if (typeof section.heading !== "string" || !section.heading.trim()) throw new Error("Invalid heading");
+
+    const label = parentLabel ? `${parentLabel}.${labels.length + 1}` : String(labels.length + 1);
+    labels.push(`${label} ${section.heading}`);
+
+    if (!Array.isArray(section.children)) throw new Error("Invalid children");
+    section.children.forEach(child => traverse(child, label));
+  }
+
+  sections.forEach(section => traverse(section));
+  return labels;
+}
+
+export function sectionCount(sections: object[]): number {
+  if (!Array.isArray(sections)) throw new Error("Invalid outline");
+
+  const counts: number[] = [0];
+
+  function count(section: any) {
+    if (typeof section !== "object" || section === null) throw new Error("Invalid section");
+    if (typeof section.heading !== "string" || !section.heading.trim()) throw new Error("Invalid heading");
+
+    counts[counts.length - 1]++;
+
+    if (!Array.isArray(section.children)) throw new Error("Invalid children");
+    counts.push(0);
+    section.children.forEach(child => count(child));
+    counts.pop();
+  }
+
+  sections.forEach(section => count(section));
+  return counts[0];
+}
+```

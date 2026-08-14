@@ -1,0 +1,11 @@
+```ts
+function routeStops(route: string): string[] {
+  return route.split('>').map(stop => stop.trim());
+}
+
+function routeHops(route: string): number {
+  if (route === '') return 0;
+  const stops = routeStops(route);
+  return stops.length - 1;
+}
+```

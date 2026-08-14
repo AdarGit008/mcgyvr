@@ -1,0 +1,20 @@
+```python
+from typing import *
+from collections import *
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    # Ensure both times are within valid range (0-23)
+    if not (0 <= from_hour < 24 and 0 <= from_minute < 60 and 0 <= to_hour < 24 and 0 <= to_minute < 60):
+        raise ValueError("Hour and minute values must be between 0 and 23")
+
+    # Convert times to minutes since midnight
+    from_minutes = from_hour * 60 + from_minute
+    to_minutes = to_hour * 60 + to_minute
+
+    # If the second time is earlier than the first, add 1440 minutes (a day) to it
+    if to_minutes < from_minutes:
+        to_minutes += 1440
+
+    # Calculate the difference in minutes
+    return to_minutes - from_minutes
+```

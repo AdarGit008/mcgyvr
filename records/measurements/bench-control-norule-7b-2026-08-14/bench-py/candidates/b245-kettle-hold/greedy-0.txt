@@ -1,0 +1,14 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    """Report how many readings at the very end of the run sat at or above that target without interruption."""
+    if not readings:
+        return 0
+
+    count = 0
+    for reading in reversed(readings):
+        if reading < target:
+            break
+        count += 1
+
+    return count
+```

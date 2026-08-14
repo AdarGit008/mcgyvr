@@ -1,0 +1,8 @@
+```ts
+export function clipText(text: string, from: number, to: number): string {
+  if (from < 0 || to > text.length) {
+    throw new Error("Invalid place(s)");
+  }
+  return text.slice(from, to);
+}
+```

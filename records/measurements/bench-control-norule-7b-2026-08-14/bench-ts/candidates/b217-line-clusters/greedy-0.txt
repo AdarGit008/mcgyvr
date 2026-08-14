@@ -1,0 +1,39 @@
+```ts
+/**
+ * Groups tram stops into clusters based on connected segments.
+ * @param stops - Array of unique stop names.
+ * @param links - Array of [from, to] pairs representing track segments.
+ * @returns An array of clusters, each a sorted array of stop names.
+ */
+export function lineClusters(stops: string[], links: [string, string][]): string[][] {
+    if (stops.length === 0) return [];
+
+    const graph: { [key: string]: Set<string> } = {};
+    stops.forEach(stop => graph[stop] = new Set());
+
+    links.forEach(([from, to]) => {
+        graph[from].add(to);
+        graph[to].add(from);
+    });
+
+    const visited = new Set<string>();
+    const clusters: string[][] = [];
+
+    for (const stop of stops) {
+        if (!visited.has(stop)) {
+            const cluster: string[] = [];
+            dfs(graph, stop, visited, cluster);
+            clusters.push(cluster.sort());
+        }
+    }
+
+    return clusters.sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function dfs(graph: { [key: string]: Set<string> }, node: string, visited: Set<string>, cluster: string[]): void {
+    if (visited.has(node)) return;
+    visited.add(node);
+    cluster.push(node);
+    graph[node].forEach(neighbor => dfs(graph, neighbor, visited, cluster));
+}
+```

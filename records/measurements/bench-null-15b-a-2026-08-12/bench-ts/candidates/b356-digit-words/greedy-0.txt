@@ -1,0 +1,44 @@
+```ts
+export function digitWord(digit: number): string {
+  if (digit < 0 || digit > 9) {
+    throw new Error('Invalid digit');
+  }
+  return ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][digit];
+}
+
+export function digitWords(digits: string): string {
+  if (!digits || digits.length === 0) {
+    return '';
+  }
+
+  let result = '';
+  let currentDigit = '';
+  let currentCount = 1;
+
+  for (let i = 0; i < digits.length; i++) {
+    const char = digits[i];
+    const nextChar = i + 1 < digits.length ? digits[i + 1] : '';
+
+    if (!isNaN(parseInt(char))) {
+      currentDigit += char;
+      currentCount++;
+    } else {
+      if (currentDigit !== '') {
+        result += `${digitWord(parseInt(currentDigit))} `;
+      }
+      currentDigit = '';
+      currentCount = 1;
+    }
+
+    if (nextChar && !isNaN(parseInt(nextChar))) {
+      continue;
+    }
+
+    if (currentDigit !== '') {
+      result += `${digitWord(parseInt(currentDigit))} `;
+    }
+  }
+
+  return result.trim();
+}
+```

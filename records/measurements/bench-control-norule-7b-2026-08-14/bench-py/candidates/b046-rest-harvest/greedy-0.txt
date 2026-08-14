@@ -1,0 +1,15 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    
+    n = len(yields)
+    if n == 0:
+        return 0
+    
+    dp = [0] * (n + 1)
+    for i in range(n):
+        dp[i + 1] = max(dp[i], dp[i - 1] + yields[i])
+    
+    return dp[n]
+```

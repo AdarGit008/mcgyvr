@@ -1,0 +1,43 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  const validateTag = (tag: string): void => {
+    if (typeof tag !== 'string' || !/^\d+\.\d+$/.test(tag)) {
+      throw new Error(`invalid tag format: ${tag}`);
+    }
+    const [line, point] = tag.split('.');
+    if (parseInt(line) === 0 && line !== '0') {
+      throw new Error(`leading zero in line part of tag: ${tag}`);
+    }
+    if (parseInt(point) === 0 && point !== '0') {
+      throw new Error(`leading zero in point part of tag: ${tag}`);
+    }
+  };
+
+  const compareTags = (a: string, b: string): number => {
+    const [aLine, aPoint] = a.split('.').map(Number);
+    const [bLine, bPoint] = b.split('.').map(Number);
+    if (aLine !== bLine) return aLine - bLine;
+    return aPoint - bPoint;
+  };
+
+  validateTag(installed);
+
+  let carried = installed;
+  for (const step of steps) {
+    validateTag(step.tag);
+    validateTag(step.requires);
+
+    if (compareTags(carried, step.requires) < 0) {
+      throw new Error(`step ${step.tag} requires at least ${step.requires}`);
+    }
+    if (compareTags(carried, step.tag) >= 0) {
+      throw new Error(`step ${step.tag} is not an upgrade from ${carried}`);
+    }
+    carried = step.tag;
+  }
+
+  return carried;
+}
+```

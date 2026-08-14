@@ -1,0 +1,7 @@
+```ts
+function crustSlice(name: string): string {
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex === -1) return name;
+  return name.slice(0, lastDotIndex);
+}
+```

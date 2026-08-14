@@ -1,0 +1,10 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    """Return the names of dishes costing no more than the budget, cheapest first."""
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+    
+    filtered_dishes = [dish for dish in dishes if dish['price'] <= budget]
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x['price'], x['name']))
+    return [dish['name'] for dish in sorted_dishes]
+```

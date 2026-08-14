@@ -1,0 +1,23 @@
+```ts
+/**
+ * Removes segments of two dots and the segment before them from the path.
+ * @param path - The input path to clean.
+ * @returns The cleaned path.
+ */
+export function pathClean(path: string): string {
+    const segments = path.split('/');
+    let result: string[] = [];
+
+    for (let i = 0; i < segments.length; i++) {
+        if (segments[i] === '..') {
+            if (result.length > 0) {
+                result.pop();
+            }
+        } else if (segments[i] !== '.') {
+            result.push(segments[i]);
+        }
+    }
+
+    return result.join('/');
+}
+```

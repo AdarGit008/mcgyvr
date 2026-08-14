@@ -1,0 +1,14 @@
+```ts
+export function cellCount(grid: number[][], value: number): number {
+  if (!grid || !grid.length) return 0;
+
+  let count = 0;
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell === value) count++;
+    }
+  }
+
+  return count;
+}
+```

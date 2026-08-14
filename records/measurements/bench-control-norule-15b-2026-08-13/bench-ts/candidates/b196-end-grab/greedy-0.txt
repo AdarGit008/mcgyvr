@@ -1,0 +1,22 @@
+```ts
+function endGrab(cards: number[]): Tally {
+  if (!Array.isArray(cards) || cards.length === 0) {
+    throw new Error("Input must be an array with at least one element.");
+  }
+
+  let first = cards[0];
+  let second = cards[cards.length - 1];
+  const taken = [first, second];
+
+  while (cards.length > 1) {
+    if (first === second) {
+      first = cards.pop();
+    } else {
+      second = cards.shift()!;
+    }
+    taken.push(first);
+  }
+
+  return { first: first!, second: second!, taken };
+}
+```

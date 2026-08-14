@@ -1,0 +1,10 @@
+```python
+def long_word(sentence: str) -> str:
+    """Return the longest word in a sentence."""
+    if not sentence:
+        return ""
+    
+    words = sentence.split()
+    longest_word = max(words, key=len, default="")
+    return longest_word
+```

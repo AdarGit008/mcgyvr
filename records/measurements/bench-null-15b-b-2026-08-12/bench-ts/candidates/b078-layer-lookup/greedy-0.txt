@@ -1,0 +1,36 @@
+```ts
+export function configValue(layers: string[], name: string): string | null {
+  if (typeof layers !== 'string[]' || !layers.every(layer => typeof layer === 'string')) {
+    throw new Error('Invalid input: layers must be an array of strings');
+  }
+
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new Error('Invalid input: name must be a non-empty string');
+  }
+
+  let config = {};
+
+  for (const layer of layers) {
+    const lines = layer.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+
+    for (const line of lines) {
+      const [key, value] = line.split('=');
+
+      if (!key || key.trim() === '') {
+        throw new Error('Invalid input: name must be a non-empty string');
+      }
+
+      key = key.trim();
+      value = value?.trim();
+
+      if (value === undefined) {
+        delete config[key];
+      } else {
+        config[key] = value;
+      }
+    }
+  }
+
+  return config[name] ?? null;
+}
+```

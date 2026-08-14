@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if mark < 0 or now_out_of <= 0:
+        raise ValueError("Mark and new total must be non-negative.")
+    
+    if mark > now_out_of:
+        return now_out_of
+    
+    scale_factor = now_out_of / was_out_of
+    scaled_mark = round(mark * scale_factor)
+    
+    return max(scaled_mark, 0)
+```

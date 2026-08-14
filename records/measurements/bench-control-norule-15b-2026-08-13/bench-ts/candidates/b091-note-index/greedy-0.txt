@@ -1,0 +1,29 @@
+```ts
+/** A word-to-line index for a plain-text note. */
+
+export function wordsOfLine(line: string): string[] {
+  const runs = line.toLowerCase().match(/[a-z0-9]+/g);
+  if (runs === null) {
+    return [];
+  }
+  return runs;
+}
+
+export function buildWordIndex(text: string): Record<string, number[]> {
+  if (typeof text !== "string") {
+    throw new Error("Invalid input: expected a string");
+  }
+
+  const index: Record<string, number[]> = {};
+  const rows = text.split("\n");
+  for (let row = 1; row <= rows.length; row++) {
+    for (const word of wordsOfLine(rows[row - 1])) {
+      if (index[word] === undefined) {
+        index[word] = [];
+      }
+      index[word].push(row);
+    }
+  }
+  return index;
+}
+```

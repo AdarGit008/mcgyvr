@@ -1,0 +1,53 @@
+```ts
+function countTrails(rows: number, cols: number, blocked: number[][]): number {
+  if (!Number.isInteger(rows) || !Number.isInteger(cols)) {
+    throw new Error("rows and cols must be whole numbers");
+  }
+
+  const grid = Array.from({ length: rows }, () => Array(cols).fill(false));
+
+  for (const [row, col] of blocked) {
+    if (!Array.isArray(row) || row.length !== 2 || !Number.isInteger(row[0]) || !Number.isInteger(row[1])) {
+      throw new Error("blocked must be a two-item list");
+    }
+    const [r, c] = row;
+    if (r < 0 || r >= rows || c < 0 || c >= cols) {
+      throw new Error("blocked cell outside the grid");
+    }
+    grid[r][c] = true;
+  }
+
+  if (grid[0][0] || grid[rows - 1][cols - 1]) {
+    throw new Error("rope across the entrance or exit cell");
+  }
+
+  const directions = [[0, 1], [1, 0]];
+  let count = 0;
+
+  function dfs(row: number, col: number): void {
+    if (row === rows - 1 && col === cols - 1) {
+      count++;
+      return;
+    }
+    for (const [dr, dc] of directions) {
+      const newRow = row + dr;
+      const newCol = col + dc;
+      if (
+        newRow >= 0 &&
+        newRow < rows &&
+        newCol >= 0 &&
+        newCol < cols &&
+        !grid[newRow][newCol]
+      ) {
+        grid[newRow][newCol] = true;
+        dfs(newRow, newCol);
+        grid[newRow][newCol] = false;
+      }
+    }
+  }
+
+  dfs(0, 0);
+
+  return count;
+}
+```

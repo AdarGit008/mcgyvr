@@ -1,0 +1,31 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    if not isinstance(layers, list):
+        raise ValueError("layers must be a list")
+    
+    if not isinstance(name, str):
+        raise ValueError("name must be a string")
+    
+    for layer in layers:
+        lines = layer.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            parts = line.split('=')
+            if len(parts) != 2:
+                raise ValueError("invalid line format: {}".format(line))
+            
+            key, value = parts
+            key = key.strip()
+            value = value.strip()
+            
+            if not key:
+                raise ValueError("empty name in line: {}".format(line))
+            
+            if key == name:
+                return value
+    
+    return None
+```

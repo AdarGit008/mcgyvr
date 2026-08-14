@@ -1,0 +1,36 @@
+```ts
+/**
+ * Returns a mapping of flag names to their states based on the given mask and catalog.
+ * @param mask - A non-negative integer representing the feature flags.
+ * @param catalog - An array of strings representing the flag names in bit order.
+ * @returns A record with flag names as keys and boolean values indicating their state.
+ */
+export function flagStates(mask: number, catalog: string[]): Record<string, boolean> {
+  if (typeof mask !== 'number' || mask < 0 || !Number.isInteger(mask)) {
+    throw new Error('Invalid mask. Must be a non-negative integer.');
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Invalid catalog. Must be a non-empty array of strings.');
+  }
+
+  const flagMap: Record<string, boolean> = {};
+  for (const name of catalog) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid flag name. Must be a non-empty string.');
+    }
+    if (flagMap[name]) {
+      throw new Error(`Duplicate flag name: ${name}`);
+    }
+  }
+
+  for (let i = 0; i < catalog.length; i++) {
+    const bit = mask & (1 << i);
+    if (bit !== 0 && i >= catalog.length) {
+      throw new Error('Mask has a set bit beyond the catalog length.');
+    }
+    flagMap[catalog[i]] = bit !== 0;
+  }
+
+  return flagMap;
+}
+```

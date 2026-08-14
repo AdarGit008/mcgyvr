@@ -1,0 +1,70 @@
+```ts
+export function chainOfCommand(root: object, person: string): string[] {
+  if (!root || typeof root !== 'object') throw new Error('Invalid root');
+  if (typeof person !== 'string' || !person) throw new Error('Invalid person');
+
+  const visited = new Set<string>();
+  let path: string[] = [];
+
+  function traverse(node: object, target: string): void {
+    if (!node || typeof node !== 'object') return;
+    if (visited.has(node.name)) return;
+
+    visited.add(node.name);
+    path.push(node.name);
+
+    if (node.name === target) {
+      return;
+    }
+
+    for (const report of node.reports) {
+      traverse(report, target);
+    }
+  }
+
+  traverse(root, person);
+
+  if (!path.length) throw new Error('Person not found in the chart');
+  if (new Set(path).size !== path.length) throw new Error('Duplicate person found');
+
+  return path;
+}
+
+export function headcount(root: object): number {
+  if (!root || typeof root !== 'object') throw new Error('Invalid root');
+
+  let count = 0;
+
+  function traverse(node: object): void {
+    if (!node || typeof node !== 'object') return;
+    count++;
+
+    for (const report of node.reports) {
+      traverse(report);
+    }
+  }
+
+  traverse(root);
+
+  return count;
+}
+
+export function widestTeam(root: object): number {
+  if (!root || typeof root !== 'object') throw new Error('Invalid root');
+
+  let maxDepth = 0;
+
+  function traverse(node: object, depth = 0): void {
+    if (!node || typeof node !== 'object') return;
+    maxDepth = Math.max(maxDepth, depth);
+
+    for (const report of node.reports) {
+      traverse(report, depth + 1);
+    }
+  }
+
+  traverse(root);
+
+  return maxDepth;
+}
+```

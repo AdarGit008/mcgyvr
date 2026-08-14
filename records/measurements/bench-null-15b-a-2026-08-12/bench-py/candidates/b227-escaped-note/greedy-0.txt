@@ -1,0 +1,39 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    if not text:
+        return ""
+
+    # Step 1: Fold the lines
+    folded_text = ""
+    current_line = ""
+    for char in text:
+        if char == "\n":
+            if current_line:
+                folded_text += current_line.rstrip() + "\n"
+                current_line = ""
+        else:
+            current_line += char
+
+    if current_line:
+        folded_text += current_line.rstrip() + "\n"
+
+    # Step 2: Decode escapes
+    decoded_text = ""
+    in_escape = False
+    for char in folded_text:
+        if char == "=" and not in_escape:
+            in_escape = True
+            continue
+        elif char == "=" and in_escape:
+            in_escape = False
+            if len(folded_text) > 2 and folded_text[2].isupper() and folded_text[3].isupper():
+                decoded_text += chr(int(folded_text[2:4], 16))
+            else:
+                raise ValueError("Invalid escape sequence")
+        elif in_escape:
+            continue
+        else:
+            decoded_text += char
+
+    return decoded_text
+```

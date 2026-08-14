@@ -1,0 +1,15 @@
+```ts
+function oxfordJoin(names: string[]): string {
+  if (!names || names.length === 0) return '';
+
+  const first = names[0];
+  const rest = names.slice(1);
+
+  if (rest.length === 0) return first;
+
+  const last = rest.pop();
+  const joinedRest = rest.join(', ');
+
+  return `${first} and ${joinedRest}`;
+}
+```

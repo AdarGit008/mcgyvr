@@ -1,0 +1,17 @@
+```ts
+export function hexGroups(values: number[], width: number): string {
+  if (!Array.isArray(values) || !values.every(v => typeof v === 'number' && v >= 0 && v <= 255)) {
+    throw new Error('Invalid byte values');
+  }
+  if (typeof width !== 'number' || width <= 0 || !Number.isInteger(width)) {
+    throw new Error('Invalid group width');
+  }
+
+  const hexValues = values.map(v => v.toString(16).padStart(2, '0')).join('');
+  const groups = [];
+  for (let i = 0; i < hexValues.length; i += width * 2) {
+    groups.push(hexValues.slice(i, i + width * 2));
+  }
+  return groups.join(' ');
+}
+```

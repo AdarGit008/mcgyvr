@@ -1,0 +1,6 @@
+```python
+def grid_flip(grid: list) -> list:
+    if not grid or not all(len(row) == len(grid[0]) for row in grid):
+        raise ValueError("All rows must have the same length")
+    return [list(col) for col in zip(*grid)]
+```

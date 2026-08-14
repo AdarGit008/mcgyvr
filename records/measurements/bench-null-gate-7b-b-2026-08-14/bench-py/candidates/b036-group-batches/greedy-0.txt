@@ -1,0 +1,40 @@
+```python
+def group_batches(jobs: list, capacity: int) -> list:
+    if not isinstance(jobs, list):
+        raise ValueError("Jobs must be a list")
+    if not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("Each job must be a four-item list")
+    if not all(isinstance(name, str) and name for job in jobs for name in job[:2]):
+        raise ValueError("Name and group must be non-empty strings")
+    if not all(isinstance(priority, int) for job in jobs):
+        raise ValueError("Priority must be an integer")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for job in jobs):
+        raise ValueError("Weight must be an integer from 1 to the capacity")
+    if len(set(job[0] for job in jobs)) != len(jobs):
+        raise ValueError("Duplicate job names are not allowed")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+
+    batches = []
+    groups = {group: [] for name, group, _, _ in jobs}
+    for name, group, priority, weight in jobs:
+        groups[group].append((name, priority, weight))
+
+    while any(groups.values()):
+        eligible_jobs = sorted(
+            (job for group, jobs in groups.items() if jobs for job in jobs),
+            key=lambda x: (-x[1], jobs.index(x)),
+        )
+        batch = []
+        current_capacity = capacity
+        for name, _, weight in eligible_jobs:
+            if weight <= current_capacity:
+                batch.append(name)
+                current_capacity -= weight
+                groups[jobs[jobs.index((name, None, None, None))][1]].remove((name, None, None))
+            else:
+                break
+        batches.append(batch)
+
+    return batches
+```

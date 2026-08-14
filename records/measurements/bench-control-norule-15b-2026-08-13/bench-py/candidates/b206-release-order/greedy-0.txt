@@ -1,0 +1,31 @@
+```python
+from typing import List, Tuple
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    def parse_tag(tag: str) -> Tuple[int, int, int, str]:
+        parts = tag.split('.')
+        major, minor, patch = map(int, parts[:3])
+        preview_label = None
+        if len(parts) > 3:
+            preview_label = parts[3].lower()
+        return major, minor, patch, preview_label
+
+    def compare_tags(tag1: str, tag2: str) -> int:
+        parsed_tag1 = parse_tag(tag1)
+        parsed_tag2 = parse_tag(tag2)
+
+        for i in range(4):
+            if parsed_tag1[i] != parsed_tag2[i]:
+                return parsed_tag1[i] - parsed_tag2[i]
+
+        # If all parts are equal, compare the preview labels
+        if parsed_tag1[3] is None and parsed_tag2[3] is not None:
+            return 1
+        elif parsed_tag1[3] is not None and parsed_tag2[3] is None:
+            return -1
+        else:
+            return parsed_tag1[3].lower().index(parsed_tag2[3].lower()) if parsed_tag1[3] is not None else 0
+
+    sorted_tags = sorted(tags, key=lambda tag: compare_tags(tag, tag))
+    return sorted_tags
+```

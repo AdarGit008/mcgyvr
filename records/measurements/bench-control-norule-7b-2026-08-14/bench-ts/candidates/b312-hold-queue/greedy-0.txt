@@ -1,0 +1,15 @@
+```ts
+/**
+ * Holds at most 'limit' callers, dropping the oldest one if adding another.
+ * @param callers - Array of caller identifiers in order they arrived.
+ * @param limit - Maximum number of callers to hold.
+ * @returns The current state of the hold list after processing all arrivals.
+ */
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error('Limit must be greater than zero');
+  }
+
+  return callers.slice(-limit);
+}
+```

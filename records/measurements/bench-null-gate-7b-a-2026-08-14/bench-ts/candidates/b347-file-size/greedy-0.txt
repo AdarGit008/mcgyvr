@@ -1,0 +1,32 @@
+```ts
+export function sizeUnit(bytesCount: number): string {
+  if (bytesCount < 1024) {
+    return "B";
+  }
+  if (bytesCount < 1024 * 1024) {
+    return "KB";
+  }
+  if (bytesCount < 1024 * 1024 * 1024) {
+    return "MB";
+  }
+  return "GB";
+}
+
+/** A byte count written in whole units. */
+export function sizeText(bytesCount: number): string {
+  if (bytesCount < 0) {
+    throw new Error("a byte count cannot be negative");
+  }
+  const unit = sizeUnit(bytesCount);
+  if (unit === "B") {
+    return String(bytesCount) + " B";
+  }
+  if (unit === "KB") {
+    return String(Math.floor(bytesCount / 1024)) + " KB";
+  }
+  if (unit === "MB") {
+    return String(Math.floor(bytesCount / (1024 * 1024))) + " MB";
+  }
+  return String(Math.floor(bytesCount / (1024 * 1024 * 1024))) + " GB";
+}
+```

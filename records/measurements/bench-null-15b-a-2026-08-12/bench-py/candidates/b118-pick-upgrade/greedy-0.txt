@@ -1,0 +1,32 @@
+```python
+"""Firmware build selection within an installed release line."""
+
+
+def compare_builds(a: str, b: str) -> int:
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0
+        y = right[i] if i < len(right) else 0
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def pick_upgrade(installed: str, offers: list) -> str | None:
+    best = None
+    for offer in offers:
+        if not isinstance(offer, str):
+            raise ValueError("Offers must be a list of strings.")
+        parts = offer.split(".")
+        if len(parts) != 3 or any(part.isdigit() for part in parts[1:]):
+            raise ValueError("Invalid firmware build format.")
+        installed_parts = installed.split(".")
+        if installed_parts[0] != parts[0]:
+            continue
+        if compare_builds(offer, installed) >= 0:
+            best = offer
+    return best
+```

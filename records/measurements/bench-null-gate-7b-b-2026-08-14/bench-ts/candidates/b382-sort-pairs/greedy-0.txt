@@ -1,0 +1,35 @@
+```ts
+/**
+ * Returns the value for a named field from a record, rejecting records that lack it with an error.
+ * @param record - The record to extract the field value from.
+ * @param field - The name of the field to extract.
+ * @returns The value of the specified field.
+ */
+export function fieldOf(record: Record<string, number>, field: string): number {
+  if (field in record) {
+    return record[field];
+  } else {
+    throw new Error(`Field "${field}" not found in record.`);
+  }
+}
+
+/**
+ * Sorts records by a named field, breaking ties by leaving the earlier record earlier.
+ * @param records - The array of records to sort.
+ * @param field - The name of the field to sort by.
+ * @returns A new array of records sorted by the specified field.
+ */
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[] {
+  return records.slice().sort((a, b) => {
+    const valueA = fieldOf(a, field);
+    const valueB = fieldOf(b, field);
+    if (valueA < valueB) {
+      return -1;
+    } else if (valueA > valueB) {
+      return 1;
+    } else {
+      return records.indexOf(a) - records.indexOf(b);
+    }
+  });
+}
+```

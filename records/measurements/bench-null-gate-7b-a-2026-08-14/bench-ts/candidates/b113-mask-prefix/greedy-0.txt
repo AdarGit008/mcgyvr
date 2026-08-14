@@ -1,0 +1,38 @@
+```ts
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("prefix must be an integer from 0 to 32");
+  }
+  const octets: number[] = [];
+  for (let slot = 0; slot < 4; slot += 1) {
+    const ones = Math.min(8, Math.max(0, prefix - slot * 8));
+    octets.push(256 - 2 ** (8 - ones));
+  }
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("mask must be a string");
+  }
+
+  const fields = mask.split(".");
+  if (fields.length !== 4) {
+    throw new Error("mask must have exactly four dot-separated fields");
+  }
+
+  let prefix = 0;
+  for (const field of fields) {
+    const num = parseInt(field, 10);
+    if (!Number.isInteger(num) || num < 0 || num > 255 || (num.toString(8).length !== 3 && num !== 0)) {
+      throw new Error("mask must have decimal digits and no leading zero except for 0 itself");
+    }
+    prefix += field === "0" ? 0 : 8 - Math.floor(Math.log2(num + 1));
+    if (field !== "0" && fields.some((f, i) => i > fields.indexOf(field) && f !== "0")) {
+      throw new Error("mask must have a run of leading one bits broken only by zeros");
+    }
+  }
+
+  return prefix;
+}
+```

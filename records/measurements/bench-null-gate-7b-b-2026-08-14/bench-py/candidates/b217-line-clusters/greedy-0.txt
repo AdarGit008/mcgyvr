@@ -1,0 +1,39 @@
+```python
+def line_clusters(stops: list[str], links: list[tuple[str, str]]) -> list[list[str]]:
+    if not stops:
+        return []
+
+    from collections import defaultdict
+
+    # Build adjacency list for the graph
+    adj_list = defaultdict(list)
+    for u, v in links:
+        adj_list[u].append(v)
+        adj_list[v].append(u)
+
+    visited = set()
+    clusters = []
+
+    def dfs(node):
+        if node not in visited:
+            cluster = []
+            stack = [node]
+            while stack:
+                current = stack.pop()
+                if current not in visited:
+                    visited.add(current)
+                    cluster.append(current)
+                    stack.extend(adj_list[current])
+            return sorted(cluster)
+        return None
+
+    for stop in stops:
+        cluster = dfs(stop)
+        if cluster:
+            clusters.append(cluster)
+
+    # Sort clusters by the first stop alphabetically
+    clusters.sort(key=lambda x: x[0])
+
+    return clusters
+```

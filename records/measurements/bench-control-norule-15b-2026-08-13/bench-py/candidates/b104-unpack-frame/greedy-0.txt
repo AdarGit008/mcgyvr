@@ -1,0 +1,40 @@
+```python
+from typing import List, Union
+
+def unpack_frame(data: List[Union[int, bytes]]) -> List[int]:
+    if not isinstance(data, list) or not all(isinstance(item, (int, bytes)) for item in data):
+        raise ValueError("Input must be a list of integers and/or bytes.")
+    
+    readings = []
+    varint_length = 0
+    byte_sum = 0
+    
+    for i, item in enumerate(data):
+        if isinstance(item, int):
+            if not 0 <= item <= 255:
+                raise ValueError(f"Invalid integer value at index {i}: {item}")
+            byte_sum += item
+            varint_length += 1
+            if varint_length == 5:
+                trailer = data[i + 1]
+                if trailer != (byte_sum % 256):
+                    raise ValueError("Trailer does not match the sum of bytes before it.")
+                break
+        elif isinstance(item, bytes):
+            if len(item) > 4:
+                raise ValueError(f"Varint longer than five bytes at index {i}: {item}")
+            byte_sum += sum(item)
+            varint_length += len(item)
+            if varint_length == 5:
+                trailer = data[i + len(item)]
+                if trailer != (byte_sum % 256):
+                    raise ValueError("Trailer does not match the sum of bytes before it.")
+                break
+        else:
+            raise ValueError(f"Invalid item at index {i}: {item}")
+    
+    if varint_length < 5 or i + varint_length > len(data) - 1:
+        raise ValueError("Frame ends inside a varint or before its trailer.")
+    
+    return readings
+```

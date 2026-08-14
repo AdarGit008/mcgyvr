@@ -1,0 +1,48 @@
+```ts
+/** Fixed-point money helpers: parse, format, and allocate integer cents. */
+
+export function parseAmount(text: string): number {
+  if (typeof text !== "string") {
+    throw new Error("amount must be a string");
+  }
+  const match = /^(\d+)(?:\.(\d{2}))?$/.exec(text);
+  if (match === null) {
+    throw new Error(`malformed amount: ${text}`);
+  }
+  const whole = Number(match[1]);
+  const cents = match[2] === undefined ? 0 : Number(match[2]);
+  return whole * 100 + cents;
+}
+
+export function formatAmount(cents: number): string {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new Error("cents must be a non-negative integer");
+  }
+  const whole = Math.floor(cents / 100);
+  const rest = String(cents % 100).padStart(2, "0");
+  return `${whole}.${rest}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("weight list must not be empty");
+  }
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight < 0) {
+      throw new Error("all weights must be non-negative integers");
+    }
+  }
+  const sum = weights.reduce((acc, weight) => acc + weight, 0);
+  if (sum === 0) {
+    return Array(totalCents).fill(0);
+  }
+  const shares: number[] = [];
+  let remainingCents = totalCents;
+  for (const weight of weights) {
+    const share = Math.floor((remainingCents * weight) / sum);
+    shares.push(share);
+    remainingCents -= share;
+  }
+  return shares;
+}
+```

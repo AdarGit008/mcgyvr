@@ -1,0 +1,22 @@
+```ts
+/**
+ * Sorts entries into two runs based on whether they open with a given mark.
+ * @param entries - The array of strings to be sorted.
+ * @param mark - The mark used to determine which entries belong to the marked run.
+ * @returns An array containing two arrays: the first with entries opening with the mark, and the second with the rest.
+ */
+export function siftMarks(entries: string[], mark: string): string[][] {
+    const markedRun: string[] = [];
+    const otherRun: string[] = [];
+
+    for (const entry of entries) {
+        if (entry.startsWith(mark)) {
+            markedRun.push(entry);
+        } else {
+            otherRun.push(entry);
+        }
+    }
+
+    return [markedRun, otherRun];
+}
+```

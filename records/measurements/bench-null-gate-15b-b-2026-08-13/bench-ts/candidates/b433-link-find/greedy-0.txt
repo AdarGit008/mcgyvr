@@ -1,0 +1,28 @@
+```ts
+export function linkFind(line: string, opens: string, closes: string): string[] {
+  if (opens.length !== closes.length) {
+    throw new Error('The number of opening and closing markers must be equal.');
+  }
+
+  const result: string[] = [];
+  let balance = 0;
+  let start = -1;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === opens) {
+      if (balance === 0 && start === -1) {
+        start = i;
+      }
+      balance++;
+    } else if (line[i] === closes) {
+      balance--;
+      if (balance === 0) {
+        result.push(line.slice(start + 1, i));
+        start = -1;
+      }
+    }
+  }
+
+  return result;
+}
+```

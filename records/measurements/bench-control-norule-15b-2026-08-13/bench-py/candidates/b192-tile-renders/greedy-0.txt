@@ -1,0 +1,22 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if isinstance(fresh_for, bool) or not isinstance(fresh_for, int) or fresh_for < 1:
+        raise ValueError("fresh_for must be a positive integer")
+    if isinstance(size, bool) or not isinstance(size, int) or size < 1:
+        raise ValueError("size must be a positive integer")
+
+    held = {}
+    renders = []
+    for tick, name in requests:
+        if tick < renders[-1][0] if renders else None:
+            continue
+        if name in held and tick >= held[name]:
+            del held[name]
+        elif len(held) == size:
+            oldest_name = min(held, key=held.get)
+            del held[oldest_name]
+        held[name] = tick
+        renders.append([tick, name])
+
+    return renders
+```

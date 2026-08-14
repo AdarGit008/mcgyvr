@@ -1,0 +1,20 @@
+```python
+def hop_chain(hops: list) -> bool:
+    if not hops:
+        return True
+    start = hops[0][0]
+    end = hops[-1][1]
+    visited = set()
+    current = start
+    while current in [start, end]:
+        if current in visited:
+            return False
+        visited.add(current)
+        for hop in hops:
+            if hop[0] == current:
+                current = hop[1]
+                break
+        else:
+            return False
+    return current == end
+```

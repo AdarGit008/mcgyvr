@@ -1,0 +1,61 @@
+```ts
+/**
+ * Splits a path into segments.
+ * @param path - The path to split.
+ * @returns An array of segments.
+ */
+export function splitSegments(path: string): string[] {
+  if (typeof path !== 'string' || !path.startsWith('/') || path.endsWith('/')) {
+    throw new Error('Invalid path');
+  }
+  return path === '/' ? [] : path.slice(1).split('/').filter(segment => segment);
+}
+
+/**
+ * Matches a route pattern against a path.
+ * @param pattern - The route pattern to match.
+ * @param path - The path to match against.
+ * @returns A mapping of capture names to captured segments, or null if no match.
+ */
+export function matchRoute(pattern: string, path: string): Record<string, string> | null {
+  const segments = splitSegments(path);
+  const captures: Record<string, string> = {};
+  const patternSegments = splitSegments(pattern);
+
+  if (patternSegments.length !== segments.length) return null;
+
+  for (let i = 0; i < patternSegments.length; i++) {
+    const segment = segments[i];
+    const patternSegment = patternSegments[i];
+
+    if (patternSegment.startsWith(':')) {
+      const name = patternSegment.slice(1);
+      if (!/^[a-zA-Z_][a-zA-Z\d_]*$/.test(name)) {
+        throw new Error('Invalid capture name');
+      }
+      captures[name] = segment;
+    } else if (patternSegment === '*') {
+      if (i !== patternSegments.length - 1) {
+        throw new Error('Wildcard must be at the end of the pattern');
+      }
+    } else if (patternSegment !== '**' && patternSegment !== segment) {
+      return null;
+    }
+  }
+
+  return captures;
+}
+
+/**
+ * Finds the index of the first matching route pattern.
+ * @param patterns - The list of route patterns to match against.
+ * @param path - The path to match against.
+ * @returns The index of the first matching pattern, or -1 if none do.
+ */
+export function firstRoute(patterns: string[], path: string): number {
+  for (let i = 0; i < patterns.length; i++) {
+    if (matchRoute(patterns[i], path)) return i;
+  }
+  return -1;
+}
+```

@@ -1,0 +1,18 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+    if not all(isinstance(record, dict) for record in records):
+        raise ValueError("all records must be dictionaries")
+    if not isinstance(fields, list) or len(fields) == 0:
+        raise ValueError("fields must be a non-empty list of strings")
+
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        row = [record.get(field, None) for field in fields]
+        result.append(row)
+
+    return result
+```

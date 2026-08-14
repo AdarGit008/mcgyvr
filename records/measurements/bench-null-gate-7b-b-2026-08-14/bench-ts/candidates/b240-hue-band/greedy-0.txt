@@ -1,0 +1,13 @@
+```ts
+/**
+ * Determines the color band for a given hue in degrees.
+ * @param degrees - The hue in degrees (0-359).
+ * @returns The color band ('red', 'green', or 'blue').
+ */
+export function hueBand(degrees: number): string {
+    const normalizedDegrees = ((degrees % 360) + 360) % 360;
+    if (normalizedDegrees < 60 || normalizedDegrees >= 300) return 'red';
+    if (normalizedDegrees < 180) return 'green';
+    return 'blue';
+}
+```

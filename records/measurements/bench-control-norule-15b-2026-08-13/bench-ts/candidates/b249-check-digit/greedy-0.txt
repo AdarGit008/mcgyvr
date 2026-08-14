@@ -1,0 +1,10 @@
+```ts
+function checkDigit(code: string): number {
+  if (!code || !/^\d+$/.test(code)) {
+    throw new Error('Invalid code');
+  }
+
+  const sum = Array.from(code).reduce((acc, digit) => acc + parseInt(digit), 0);
+  return (sum % 10 === 0 ? 0 : 10 - sum % 10);
+}
+```

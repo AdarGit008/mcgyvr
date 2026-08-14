@@ -1,0 +1,14 @@
+```ts
+/**
+ * Removes the specified piece from the end of the text repeatedly until it no longer matches.
+ * @param text - The input text to process.
+ * @param piece - The piece to remove from the end of the text.
+ * @returns The modified text after removing the piece from the end.
+ */
+export function shedTail(text: string, piece: string): string {
+  while (text.endsWith(piece)) {
+    text = text.slice(0, -piece.length);
+  }
+  return text;
+}
+```

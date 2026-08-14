@@ -1,0 +1,17 @@
+```python
+def common_head(words: list) -> str:
+    if not words:
+        return ""
+    
+    min_length = min(len(word) for word in words)
+    common_chars = []
+    
+    for i in range(min_length):
+        char = words[0][i]
+        if all(word[i] == char for word in words):
+            common_chars.append(char)
+        else:
+            break
+    
+    return "".join(common_chars)
+```

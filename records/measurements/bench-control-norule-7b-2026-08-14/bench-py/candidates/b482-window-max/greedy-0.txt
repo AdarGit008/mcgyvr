@@ -1,0 +1,7 @@
+```python
+def window_max(readings: list[int], width: int) -> list[int]:
+    if width < 1:
+        raise ValueError("Width must be at least 1")
+    
+    return [max(readings[i:i+width]) for i in range(len(readings) - width + 1)]
+```

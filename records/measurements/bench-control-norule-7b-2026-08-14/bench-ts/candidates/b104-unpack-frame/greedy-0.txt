@@ -1,0 +1,70 @@
+```ts
+/**
+ * Decodes a sensor record frame and returns its readings.
+ * @param bytes - The list of byte values representing the frame.
+ * @returns An array of sensor readings.
+ */
+export function unpackFrame(bytes: number[]): number[] {
+  if (!Array.isArray(bytes)) throw new Error("Input must be an array.");
+  if (bytes.some(byte => typeof byte !== 'number' || byte < 0 || byte > 255)) {
+    throw new Error("All bytes must be integers from 0 to 255.");
+  }
+
+  let index = 0;
+  const headerLength = readVarint(bytes, index);
+  index += headerLength;
+
+  if (index >= bytes.length) throw new Error("Frame ends before trailer.");
+
+  const readings: number[] = [];
+  for (let i = 0; i < headerLength; i++) {
+    const readingLength = readVarint(bytes, index);
+    index += readingLength;
+    if (index >= bytes.length) throw new Error("Frame ends before trailer.");
+    readings.push(readVarint(bytes, index));
+    index += readVarintLength(readings[readings.length - 1]);
+  }
+
+  if (index !== bytes.length - 1) throw new Error("Bytes left over after trailer.");
+
+  const expectedTrailer = bytes.slice(0, -1).reduce((sum, byte) => sum + byte, 0) % 256;
+  if (bytes[bytes.length - 1] !== expectedTrailer) {
+    throw new Error("Trailer does not equal the byte sum.");
+  }
+
+  return readings;
+}
+
+/**
+ * Reads a varint from the bytes starting at the given index.
+ * @param bytes - The list of byte values.
+ * @param index - The starting index to read from.
+ * @returns The length of the varint in bytes.
+ */
+function readVarint(bytes: number[], index: number): number {
+  let value = 0;
+  for (let shift = 0; shift < 35; shift += 7) {
+    const byte = bytes[index++];
+    if ((byte & 0x80) === 0) {
+      value |= (byte << shift);
+      return index - start;
+    }
+    value |= ((byte & 0x7F) << shift);
+  }
+  throw new Error("Varint longer than five bytes.");
+}
+
+/**
+ * Calculates the length of a varint based on its first byte.
+ * @param firstByte - The first byte of the varint.
+ * @returns The length of the varint in bytes.
+ */
+function readVarintLength(firstByte: number): number {
+  let length = 1;
+  while ((firstByte & 0x80) !== 0) {
+    firstByte >>= 7;
+    length++;
+  }
+  return length;
+}
+```

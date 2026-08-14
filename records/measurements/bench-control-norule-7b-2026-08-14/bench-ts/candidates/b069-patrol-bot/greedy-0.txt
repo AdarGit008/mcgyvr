@@ -1,0 +1,19 @@
+```ts
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Array.isArray(moves)) {
+    throw new Error("moves must be a list");
+  }
+
+  let position = start;
+  let bumps = 0;
+  const visited = new Set<number>();
+
+  for (const move of moves) {
+    [position, bump] = clampMove(position, move, width);
+    bumps += bump ? 1 : 0;
+    visited.add(position);
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+```

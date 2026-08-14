@@ -1,0 +1,16 @@
+```ts
+function tintMix(volumeA: number, strengthA: number, volumeB: number, strengthB: number): number {
+  if (!Number.isInteger(volumeA) || !Number.isInteger(strengthA) || !Number.isInteger(volumeB) || !Number.isInteger(strengthB)) {
+    throw new Error('All inputs must be integers.');
+  }
+
+  if (volumeA < 0 || volumeB < 0 || strengthA < 0 || strengthB < 0) {
+    throw new Error('All volumes and strengths must be non-negative.');
+  }
+
+  const totalVolume = volumeA + volumeB;
+  const totalStrength = (strengthA * volumeA + strengthB * volumeB) / totalVolume;
+
+  return Math.floor(totalStrength);
+}
+```

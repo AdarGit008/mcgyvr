@@ -1,0 +1,21 @@
+```ts
+/**
+ * Calculates the cost of units based on a tiered pricing model.
+ * @param units - The number of units to calculate the cost for.
+ * @param allowance - The number of units included in the first rate.
+ * @param firstRate - The cost per unit up to the allowance, in pence.
+ * @param laterRate - The cost per unit beyond the allowance, in pence.
+ * @returns The total cost in whole pence.
+ */
+export function tierCost(units: number, allowance: number, firstRate: number, laterRate: number): number {
+    if (units < 0) {
+        throw new Error("Number of units cannot be below zero.");
+    }
+    if (allowance < 0) {
+        allowance = 0;
+    }
+    const usageWithinAllowance = Math.min(units, allowance);
+    const usageBeyondAllowance = Math.max(units - allowance, 0);
+    return (usageWithinAllowance * firstRate) + (usageBeyondAllowance * laterRate);
+}
+```

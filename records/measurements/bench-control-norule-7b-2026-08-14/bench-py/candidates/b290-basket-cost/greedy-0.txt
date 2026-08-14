@@ -1,0 +1,14 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """Calculate the cost of one line based on unit price and quantity."""
+    return price * quantity
+
+def basket_cost(lines: list, discount: int) -> int:
+    """Calculate the total cost of a basket after applying a whole-percent discount."""
+    if discount < 0 or discount > 100:
+        raise ValueError("Discount must be between 0 and 100 percent.")
+    
+    total = sum(line_cost(price, quantity) for price, quantity in lines)
+    discounted_total = total * (1 - discount / 100)
+    return int(discounted_total)
+```

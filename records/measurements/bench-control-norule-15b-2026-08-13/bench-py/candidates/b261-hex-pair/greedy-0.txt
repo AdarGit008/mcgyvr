@@ -1,0 +1,13 @@
+```python
+from typing import List, Optional
+
+def hex_split(colour: str) -> List[str]:
+    if len(colour) != 7 or not all(c in '0123456789abcdefABCDEF' for c in colour):
+        raise ValueError("Invalid colour format")
+    return [colour[i:i+2].lower() for i in range(0, 7, 2)]
+
+def hex_join(parts: List[str]) -> str:
+    if len(parts) != 3 or not all(len(part) == 2 for part in parts):
+        raise ValueError("Invalid parts format")
+    return ''.join(part.lower() for part in parts)
+```

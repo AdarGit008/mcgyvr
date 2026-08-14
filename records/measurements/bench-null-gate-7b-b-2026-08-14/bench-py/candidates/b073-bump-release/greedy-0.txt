@@ -1,0 +1,26 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("Version must be a string")
+    
+    components = version.split('.')
+    if len(components) != 3:
+        raise ValueError("Version must have exactly three components")
+    
+    for component in components:
+        if not component.isdigit() or (component[0] == '0' and len(component) > 1):
+            raise ValueError("Components must be numeric with no leading zero")
+    
+    if part not in {'major', 'minor', 'patch'}:
+        raise ValueError("Part must be one of 'major', 'minor', or 'patch'")
+    
+    major, minor, patch = map(int, components)
+    
+    if part == 'major':
+        minor = 0
+        patch = 0
+    elif part == 'minor':
+        patch = 0
+    
+    return f"{major}.{minor}.{patch}"
+```

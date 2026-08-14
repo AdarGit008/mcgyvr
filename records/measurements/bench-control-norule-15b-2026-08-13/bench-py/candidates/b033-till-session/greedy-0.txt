@@ -1,0 +1,63 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices):
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+
+    for event in events:
+        action, item = event[0], event[1]
+
+        if not isinstance(action, str) or action not in ["scan", "void", "close", "pay", "cancel"]:
+            raise ValueError("event must be a list of its action and exactly its payload: " + str(event))
+
+        if action == "scan":
+            if item not in prices:
+                raise ValueError(f"item '{item}' is not in the price list")
+            if item in cart:
+                cart[item] += 1
+            else:
+                cart[item] = 1
+            total += prices[item]
+
+        elif action == "void":
+            if item not in cart:
+                raise ValueError(f"item '{item}' is not in the cart")
+            if cart[item] <= 0:
+                raise ValueError("cannot void an item with zero quantity")
+            cart[item] -= 1
+            total -= prices[item]
+
+        elif action == "close":
+            if len(cart) == 0:
+                raise ValueError("session cannot be closed with an empty cart")
+            paid = total
+            change = paid - total
+
+        elif action == "pay":
+            if paid >= total:
+                raise ValueError("cannot pay more than the total amount")
+            paid += event[1]
+            change = paid - total
+
+        elif action == "cancel":
+            if paid > 0:
+                raise ValueError("cannot cancel a session with paid amount")
+            if paid < total:
+                raise ValueError("cannot cancel a session with less than the total amount")
+
+    return {
+        "items": sorted(cart.items(), key=lambda x: x[0]),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

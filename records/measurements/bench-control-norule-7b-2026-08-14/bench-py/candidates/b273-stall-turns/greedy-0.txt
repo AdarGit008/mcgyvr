@@ -1,0 +1,7 @@
+```python
+def stall_turns(counts: list, limit: int) -> int:
+    if limit <= 0:
+        raise ValueError("Per-turn limit must be greater than zero.")
+    
+    return sum((c + limit - 1) // limit for c in counts)
+```

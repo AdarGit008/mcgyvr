@@ -1,0 +1,18 @@
+```ts
+function hexGroups(values: number[], width: number): string {
+  if (!Array.isArray(values) || !values.every(value => typeof value === 'number' && value >= 0 && value <= 255)) {
+    throw new Error('Invalid input: values must be an array of integers from 0 to 255');
+  }
+  if (typeof width !== 'number' || width <= 0) {
+    throw new Error('Invalid input: width must be a positive integer');
+  }
+
+  const hexValues = values.map(value => value.toString(16).padStart(2, '0'));
+  const groups = [];
+  for (let i = 0; i < hexValues.length; i += width) {
+    groups.push(hexValues.slice(i, i + width).join(' '));
+  }
+
+  return groups.join(' ');
+}
+```

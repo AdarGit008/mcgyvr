@@ -1,0 +1,41 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    # First pass: fold the lines
+    folded_text = []
+    i = 0
+    while i < len(text):
+        if text[i] in " \t":
+            i += 1
+        else:
+            start = i
+            while i < len(text) and text[i] not in "\n\r":
+                i += 1
+            folded_text.append(text[start:i])
+            if i < len(text) and (text[i] == "\r" or text[i] == "\n"):
+                i += 1
+
+    # Second pass: decode escapes
+    decoded_text = []
+    i = 0
+    while i < len(folded_text):
+        line = folded_text[i]
+        if line.endswith("=") and i + 1 < len(folded_text):
+            decoded_text.append(line[:-1] + folded_text[i + 1])
+            i += 2
+        else:
+            decoded_text.append(line)
+            i += 1
+
+    # Decode hexadecimal escapes
+    result = []
+    i = 0
+    while i < len(decoded_text):
+        if decoded_text[i] == "=" and i + 2 < len(decoded_text) and all(c in "0123456789ABCDEF" for c in decoded_text[i + 1:i + 3]):
+            result.append(chr(int(decoded_text[i + 1:i + 3], 16)))
+            i += 3
+        else:
+            result.append(decoded_text[i])
+            i += 1
+
+    return "".join(result)
+```

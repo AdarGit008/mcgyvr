@@ -1,0 +1,13 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or not isinstance(capacity, int):
+        raise ValueError("Capacity must be a positive whole number")
+    if writes < 0 or not isinstance(writes, int):
+        raise ValueError("Writes must be a non-negative whole number")
+    if k < 0 or not isinstance(k, int):
+        raise ValueError("K must be a non-negative whole number")
+    if k >= min(writes, capacity):
+        raise ValueError("K is at or past the survivor count")
+
+    return (writes - k - 1) % capacity
+```

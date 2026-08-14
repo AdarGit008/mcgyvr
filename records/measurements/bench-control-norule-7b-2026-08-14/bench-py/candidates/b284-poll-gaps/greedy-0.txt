@@ -1,0 +1,8 @@
+```python
+def poll_gaps(minutes: list) -> list:
+    if len(minutes) < 2:
+        return []
+    
+    gaps = [b - a for a, b in zip(minutes, minutes[1:]) if b - a > 1]
+    return gaps
+```

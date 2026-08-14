@@ -2,7 +2,8 @@
   "record": "reproducibility/1",
   "issue": 113,
   "doctrine": "The report states the deviation two identical runs may differ by, or states that none is declared. It never omits the property. A pass-rate table without it invites the reader to treat every delta as an effect, and the whole point of a condition matrix is that some of them are the instrument.",
-  "supplied_by": "#231. This issue built the declaration; the number that fills it is the null calibration's, and until #231 re-runs its null under the gate scorer (tools/bench/score.py — the acceptance-only figures it measured are not recoverable from a gate run, because Gate.run short-circuits) this list is correctly empty. An empty list is a state, not a gap: the report says 'not declared' and refuses to qualify anything.",
+  "supplied_by": "#231. This issue built the declaration; the number that fills it is the null calibration's. #231 re-ran its null under the gate scorer on 2026-08-13 and the two entries below are that run — the 2026-08-12 pair it supersedes was measured under the acceptance command alone and is not recoverable into this bar, because Gate.run short-circuits.",
+  "why_the_interval_and_not_the_point": "Both entries measured d = 0: no cell changed verdict across two identical runs. A declared bound of 0.0pp would say the instrument is exact, which 257 cells cannot establish. The bound is therefore the upper limit of the 95% Wilson interval on d/n — the drift the pair is consistent with, not the drift it happened to show. Pooled over both arms the interval is tighter (0.74pp at 514 cells), and it is deliberately NOT used: the report keys a bound to one tier, and ADR-0019 D2 says the null is measured per target tier rather than borrowed across.",
   "matching": "A bound describes a run only when model, tier, gate_rungs and serving_build all match it. ADR-0019 D2 says the null is measured per target tier and does not transfer up the ladder; ADR-0024 says a serving build that nothing recorded has already moved results twice; and a bar that scores differently produces a different null, which is why gate_rungs is in the key rather than in the prose. Brittle on purpose — a null costs about 40 minutes to re-measure and a borrowed one costs a wrong published effect.",
   "fields": {
     "bound_pp": "The deviation the report declares, in percentage points. A contrast at or inside it is the instrument.",
@@ -11,5 +12,70 @@
     "runs": "The two run directories under records/measurements/. A bound that cannot name them cannot be re-derived.",
     "measured": "The date the pair was run, not the date it was entered here."
   },
-  "bounds": []
+  "bounds": [
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "tier": "bench-py",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-15b-a-2026-08-13/bench-py",
+        "bench-null-gate-15b-b-2026-08-13/bench-py"
+      ],
+      "issue": 231,
+      "measured": "2026-08-13",
+      "note": "23/257 passed on both runs. 25 of 257 candidates differed in bytes and none of them crossed the boundary; acceptance drift — identical bytes scoring differently — was zero. Greedy, cap 2048, condition stock, one backend session on srv2."
+    },
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "tier": "bench-ts",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-15b-a-2026-08-13/bench-ts",
+        "bench-null-gate-15b-b-2026-08-13/bench-ts"
+      ],
+      "issue": 231,
+      "measured": "2026-08-13",
+      "note": "33/257 passed on both runs. 32 of 257 candidates differed in bytes and none of them crossed the boundary; acceptance drift was zero. Same session as the bench-py pair — the four passes ran back to back with nothing else dispatched to the rig."
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-py",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-py",
+        "bench-null-gate-7b-b-2026-08-14/bench-py"
+      ],
+      "issue": 231,
+      "measured": "2026-08-14",
+      "note": "#231 check 5 — the same battery at a second tier, no design change. 67/257 passed on both runs. Only 3 of 257 candidates differed in bytes and none crossed the boundary; acceptance drift zero. Greedy, cap 2048, condition stock, one backend session on srv2. The number equals the 1.5B's because both measured d = 0 over 257 cells and the bound is the Wilson upper, not the point — it is measured here, not transferred (ADR-0019 D2), and the two entries would have parted the moment either pair flipped a cell."
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-ts",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-ts",
+        "bench-null-gate-7b-b-2026-08-14/bench-ts"
+      ],
+      "issue": 231,
+      "measured": "2026-08-14",
+      "note": "51/257 passed on both runs. 8 of 257 candidates differed in bytes, none crossed the boundary, acceptance drift zero. Same session as the 7B bench-py pair. Note against the expectation this pair was run under: the 7B is byte-identical on 97.9% of cells against the 1.5B's 88.9%, so a bigger model drifted LESS in text here rather than more — the prediction that a higher pass rate puts more cells near the boundary and therefore raises d is not what governed at this tier."
+    }
+  ]
 }

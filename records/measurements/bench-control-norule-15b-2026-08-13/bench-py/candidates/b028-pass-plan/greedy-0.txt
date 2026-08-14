@@ -1,0 +1,47 @@
+```python
+from typing import List, Dict
+
+
+def _validate_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> None:
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict[str, int]:
+    _validate_plan(trip_days, passes)
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+    
+    total_cost = 0
+    purchases = []
+    current_day = 0
+    
+    for day in sorted(set(trip_days)):
+        can_buy = True
+        for cover in passes:
+            span = cover["span"]
+            cost = cover["cost"]
+            if (day >= current_day and day <= current_day + span - 1) or (day == trip_days[-1] and day <= current_day + span - 1):
+                total_cost += cost
+                purchases.append([current_day, span])
+                can_buy = False
+                break
+        
+        if can_buy:
+            current_day = day
+    
+    return {"total": total_cost, "purchases": purchases}
+```

@@ -1,0 +1,20 @@
+```ts
+/**
+ * Returns the next value moving from current toward target by at most step,
+ * never overshooting target.
+ */
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) throw new Error("Step cannot be zero");
+  return Math.sign(target - current) * Math.min(Math.abs(target - current), Math.abs(step)) + current;
+}
+
+/**
+ * Returns every value visited going from start to target, both ends included.
+ */
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0) throw new Error("Step cannot be zero");
+  const direction = Math.sign(target - start);
+  const steps = Math.ceil(Math.abs(target - start) / Math.abs(step));
+  return Array.from({ length: steps }, (_, i) => start + i * direction * step);
+}
+```

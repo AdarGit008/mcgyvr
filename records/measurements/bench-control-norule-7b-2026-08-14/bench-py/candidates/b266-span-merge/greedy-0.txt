@@ -1,0 +1,27 @@
+```python
+from typing import List, Tuple
+
+def span_merge(spans: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    if not spans:
+        return []
+
+    # Sort spans by their start time
+    spans.sort()
+
+    merged = []
+    current_span = spans[0]
+
+    for start, end in spans[1:]:
+        if start <= current_span[1]:
+            # Merge overlapping or touching spans
+            current_span = (current_span[0], max(current_span[1], end))
+        else:
+            # Add the previous span to the result and start a new one
+            merged.append(current_span)
+            current_span = (start, end)
+
+    # Append the last span
+    merged.append(current_span)
+
+    return merged
+```

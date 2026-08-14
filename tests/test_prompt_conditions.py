@@ -155,6 +155,21 @@ def test_a_directory_refuses_a_resume_under_another_condition(
         _write_run(tmp_path, breadth.NO_SCAFFOLD)
 
 
+@pytest.fixture(autouse=True)
+def _pinned_round(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests are about the condition field, not #231's round.
+
+    ``record_run`` refuses a bench dispatch from a tree that has drifted off
+    the open round, which is check 3's teeth and is exercised in
+    ``tests/test_bench_rounds.py``. Here it would only couple every assertion
+    about ``condition`` to whether someone has opened a round since the last
+    edit to ``src/``.
+    """
+    monkeypatch.setattr(
+        breadth.product, "require_pinned", lambda *a, **k: ("r-test", "0" * 64)
+    )
+
+
 @dataclass(frozen=True)
 class _Protocol:
     """Stands in for the runner enum, which `record_run` reads `.value` off."""

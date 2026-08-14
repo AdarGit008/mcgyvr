@@ -1,0 +1,27 @@
+```ts
+function groupBatches(jobs: [string, string, number, number][][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || jobs.length === 0) throw new Error("jobs must be a non-empty array");
+  if (typeof capacity !== "number" || capacity <= 0) throw new Error("capacity must be a positive integer");
+
+  const sortedJobs = jobs.sort((a, b) => {
+    if (a[1] === b[1]) return a[2] - b[2];
+    return a[1].localeCompare(b[1]);
+  });
+
+  let batches: string[][] = [];
+  let currentBatch: [string, number][] = [];
+
+  for (const job of sortedJobs) {
+    if (!currentBatch.length || currentBatch[currentBatch.length - 1][1] + job[3] <= capacity) {
+      currentBatch.push(job);
+    } else {
+      batches.push(currentBatch.map(([name]) => name));
+      currentBatch = [job];
+    }
+  }
+
+  if (currentBatch.length > 0) batches.push(currentBatch.map(([name]) => name));
+
+  return batches;
+}
+```

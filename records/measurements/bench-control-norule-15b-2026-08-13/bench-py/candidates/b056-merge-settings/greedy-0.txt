@@ -1,0 +1,27 @@
+```python
+from typing import Dict, Any
+
+def merge_settings(base: Dict[str, Any], ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
+    if not all(isinstance(key, str) for key in base.keys()) or \
+       not all(isinstance(key, str) for key in ours.keys()) or \
+       not all(isinstance(key, str) for key in theirs.keys()):
+        raise ValueError("All keys must be strings")
+
+    merged = {}
+    for key in set(base.keys()).union(ours.keys(), theirs.keys()):
+        if key in base and key in ours:
+            if ours[key] == theirs[key]:
+                merged[key] = ours[key]
+            elif ours[key] is None or theirs[key] is None:
+                merged[key] = ours[key] if ours[key] is not None else theirs[key]
+            else:
+                raise ValueError("Conflict: both sides changed in different ways")
+        elif key in base:
+            merged[key] = base[key]
+        elif key in ours:
+            merged[key] = ours[key]
+        else:
+            merged[key] = theirs[key]
+
+    return merged
+```

@@ -1,0 +1,23 @@
+```python
+def tags_of(line: str) -> list:
+    """Break a comma-separated line into its tags, trimming spaces and removing empty ones."""
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string")
+    
+    return [tag.strip() for tag in line.split(',') if tag.strip()]
+
+def tag_index(lines: list) -> dict:
+    """Return a mapping from each tag to the lines carrying it, preserving order."""
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All inputs must be strings")
+    
+    tag_map = {}
+    for line in lines:
+        tags = tags_of(line)
+        for tag in tags:
+            if tag not in tag_map:
+                tag_map[tag] = []
+            tag_map[tag].append(line)
+    
+    return tag_map
+```

@@ -1,0 +1,6 @@
+```python
+def crust_slice(name: str) -> str:
+    if '.' in name and name[0] != '.':
+        return name[:name.rfind('.')]
+    return name
+```

@@ -1,0 +1,38 @@
+```ts
+export function matchesStencil(stencil: string, code: string): boolean {
+  if (typeof stencil !== 'string' || typeof code !== 'string') {
+    throw new Error('Both stencil and code must be strings.');
+  }
+
+  if (stencil.length !== code.length) {
+    return false;
+  }
+
+  for (let i = 0; i < stencil.length; i++) {
+    const stencilChar = stencil[i];
+    const codeChar = code[i];
+
+    switch (stencilChar) {
+      case '#':
+        if (!codeChar || !Number.isInteger(Number(codeChar))) {
+          return false;
+        }
+        break;
+      case '@':
+        if (!codeChar || !/^[A-Za-z]$/.test(codeChar)) {
+          return false;
+        }
+        break;
+      case '?':
+        // No need to check for invalid characters, as '?' matches any single character.
+        break;
+      default:
+        if (stencilChar !== codeChar) {
+          return false;
+        }
+    }
+  }
+
+  return true;
+}
+```

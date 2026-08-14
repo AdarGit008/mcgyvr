@@ -1,0 +1,35 @@
+```ts
+function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][] {
+  if (!Array.isArray(base) || !Array.isArray(ours) || !Array.isArray(theirs)) {
+    throw new Error("base, ours, and theirs must be arrays");
+  }
+
+  const merged = [...base];
+
+  for (const entry of ours) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error("each entry in ours must be a two-item array [account, cents]");
+    }
+    const [account, cents] = entry;
+    if (merged.some(([a, c]) => a === account)) {
+      merged.push([account, cents + base[merged.findIndex(([a, _]) => a === account)][1]]);
+    } else {
+      merged.push(entry);
+    }
+  }
+
+  for (const entry of theirs) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error("each entry in theirs must be a two-item array [account, cents]");
+    }
+    const [account, cents] = entry;
+    if (merged.some(([a, c]) => a === account)) {
+      merged.push([account, cents + base[merged.findIndex(([a, _]) => a === account)][1]]);
+    } else {
+      merged.push(entry);
+    }
+  }
+
+  return merged.sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

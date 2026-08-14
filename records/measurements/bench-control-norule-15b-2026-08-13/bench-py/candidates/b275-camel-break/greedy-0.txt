@@ -1,0 +1,22 @@
+```python
+from typing import List
+
+def camel_break(name: str) -> List[str]:
+    if not name:
+        return []
+
+    words = []
+    current_word = ''
+    for char in name:
+        if char.isupper():
+            if current_word:
+                words.append(current_word.lower())
+                current_word = ''
+            words.append(char.lower())
+        else:
+            current_word += char
+    if current_word:
+        words.append(current_word.lower())
+
+    return words
+```

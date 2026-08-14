@@ -1,0 +1,6 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """Return the entries of one list that do not appear in another."""
+    remove_set = set(remove)
+    return [entry for entry in entries if entry not in remove_set]
+```

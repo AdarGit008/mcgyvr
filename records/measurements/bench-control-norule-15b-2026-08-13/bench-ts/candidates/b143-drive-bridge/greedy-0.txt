@@ -1,0 +1,31 @@
+```ts
+function driveBridge(commands: string[]): string {
+  if (!Array.isArray(commands)) throw new Error("Invalid input: commands must be an array");
+  const state = "lowered";
+
+  for (const command of commands) {
+    switch (command.toLowerCase()) {
+      case "raise":
+        if (state === "lowered") state = "raised";
+        else throw new Error(`Cannot ${command} when span is ${state}`);
+        break;
+      case "lower":
+        if (state === "raised") state = "lowered";
+        else throw new Error(`Cannot ${command} when span is ${state}`);
+        break;
+      case "lock":
+        if (state === "lowered" || state === "locked") throw new Error(`Cannot ${command} when span is ${state}`);
+        state = "locked";
+        break;
+      case "unlock":
+        if (state === "raised" || state === "locked") throw new Error(`Cannot ${command} when span is ${state}`);
+        state = "lowered";
+        break;
+      default:
+        throw new Error(`Invalid command: ${command}`);
+    }
+  }
+
+  return state;
+}
+```

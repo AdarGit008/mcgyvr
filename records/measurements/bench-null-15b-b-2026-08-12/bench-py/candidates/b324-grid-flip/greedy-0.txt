@@ -1,0 +1,20 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Given a grid written as a list of rows, return it turned so that its columns become its rows.
+
+    :param grid: List of lists representing the grid.
+    :return: A new grid with columns as rows.
+    """
+    if not grid:
+        return []
+
+    # Calculate the number of rows and columns
+    num_rows = len(grid)
+    num_cols = len(grid[0])
+
+    # Create a new grid with columns as rows
+    flipped_grid = [[grid[j][i] for j in range(num_rows)] for i in range(num_cols)]
+
+    return flipped_grid
+```

@@ -1,0 +1,26 @@
+```ts
+export function auditTicket(ticket: string): string {
+  if (typeof ticket !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const regex = /^[A-Z]{2}-\d{4}-\d$/;
+  if (!regex.test(ticket)) {
+    return 'shape';
+  }
+
+  const [letters, digits] = ticket.split('-').slice(0, -1);
+  const [letter1, letter2] = letters.split('');
+  const [digit1, digit2, digit3, digit4] = digits.split('').map(Number);
+
+  const letterSum = (letter1.charCodeAt(0) - 'A'.charCodeAt(0)) + (letter2.charCodeAt(0) - 'A'.charCodeAt(0));
+  const digitSum = (digit1 * 1) + (digit2 * 2) + (digit3 * 3) + (digit4 * 4);
+  const total = letterSum + digitSum;
+
+  if (ticket.slice(-1) !== String(total % 10)) {
+    return 'check';
+  }
+
+  return 'ok';
+}
+```

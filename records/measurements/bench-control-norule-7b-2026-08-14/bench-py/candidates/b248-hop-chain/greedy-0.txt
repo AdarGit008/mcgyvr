@@ -1,0 +1,11 @@
+```python
+def hop_chain(hops: list) -> bool:
+    if not hops:
+        return True
+    start, end = hops[0]
+    for hop in hops[1:]:
+        if hop[0] != end:
+            return False
+        start, end = hop
+    return start == end
+```

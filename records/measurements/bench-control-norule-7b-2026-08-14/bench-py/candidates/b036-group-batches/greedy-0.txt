@@ -1,0 +1,43 @@
+```python
+from typing import List
+
+def group_batches(jobs: List[List], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("Jobs must be a list.")
+    if not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("Each job must be a four-item list.")
+    if not all(isinstance(name, str) and name for job in jobs for name in (job[0], job[1])):
+        raise ValueError("Job name and group must be non-empty strings.")
+    if not all(isinstance(priority, int) for job in jobs):
+        raise ValueError("Priority must be an integer.")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for job in jobs):
+        raise ValueError("Weight must be an integer from 1 to the capacity.")
+    if len(jobs) != len(set(job[0] for job in jobs)):
+        raise ValueError("Job names must be unique.")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+
+    batches = []
+    groups = {group: [] for name, group, _, _ in jobs}
+    job_dict = {name: (group, priority, weight) for name, group, priority, weight in jobs}
+
+    while job_dict:
+        eligible_jobs = [(job_dict[name], name) for name, group in job_dict.items() if not groups[group]]
+        if not eligible_jobs:
+            break
+
+        eligible_jobs.sort(key=lambda x: (-x[0][1], -jobs.index((x[1], *x[0]))))
+        batch = []
+        current_capacity = capacity
+
+        while eligible_jobs and current_capacity >= eligible_jobs[0][0][2]:
+            job_info, name = eligible_jobs.pop(0)
+            group, _, weight = job_info
+            groups[group].append(name)
+            batch.append(name)
+            current_capacity -= weight
+
+        batches.append(batch)
+
+    return batches
+```

@@ -1,0 +1,30 @@
+```python
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Pattern and path must be strings")
+    if not pattern or not path:
+        raise ValueError("Pattern and path cannot be empty")
+
+    def match_segment(patt, seg):
+        return all(
+            p == s for p, s in zip(patt, seg) if p != '?' and p != '*'
+        ) and len(seg) >= len(patt)
+
+    segments = path.split('/')
+    pattern_segments = pattern.split('/')
+
+    if len(pattern_segments) != len(segments):
+        return False
+
+    for patt, seg in zip(pattern_segments, segments):
+        if patt == '*':
+            continue
+        elif '?' in patt:
+            if not match_segment(patt, seg):
+                return False
+        else:
+            if patt != seg:
+                return False
+
+    return True
+```

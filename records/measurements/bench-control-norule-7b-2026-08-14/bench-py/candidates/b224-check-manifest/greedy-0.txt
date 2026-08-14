@@ -1,0 +1,19 @@
+```python
+def check_manifest(line: dict) -> dict:
+    if not all(k in line for k in ('sku', 'count', 'note')):
+        raise ValueError("Manifest must contain sku, count, and note keys.")
+    
+    sku = line.get('sku', '').strip()
+    if not isinstance(sku, str) or not sku:
+        raise ValueError("SKU must be a non-empty string.")
+    
+    count = line.get('count')
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("Count must be a positive whole number.")
+    
+    note = line.get('note', '')
+    if not isinstance(note, str):
+        raise ValueError("Note must be a string.")
+    
+    return {'sku': sku.upper(), 'count': count, 'note': note}
+```

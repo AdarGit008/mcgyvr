@@ -1,0 +1,38 @@
+```ts
+function pathHops(start: string, goal: string): number {
+  const normalizePath = (path: string): string[] => {
+    return path.split('/').filter(segment => segment !== '' && segment !== '.');
+  };
+
+  const startSegments = normalizePath(start);
+  const goalSegments = normalizePath(goal);
+
+  let sharedStartLength = 0;
+  while (
+    sharedStartLength < Math.min(startSegments.length, goalSegments.length) &&
+    startSegments[sharedStartLength] === goalSegments[sharedStartLength]
+  ) {
+    sharedStartLength++;
+  }
+
+  let hops = sharedStartLength;
+
+  if (startSegments.length > sharedStartLength && startSegments[sharedStartLength] === '..') {
+    throw new Error('Invalid path: two dots have no segment left to drop');
+  }
+
+  for (let i = sharedStartLength; i < startSegments.length; i++) {
+    hops++;
+  }
+
+  if (goalSegments.length > sharedStartLength && goalSegments[sharedStartLength] === '..') {
+    throw new Error('Invalid path: two dots have no segment left to drop');
+  }
+
+  for (let i = sharedStartLength; i < goalSegments.length; i++) {
+    hops++;
+  }
+
+  return hops;
+}
+```

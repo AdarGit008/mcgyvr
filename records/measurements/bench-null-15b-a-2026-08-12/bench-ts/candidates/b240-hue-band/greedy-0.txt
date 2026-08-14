@@ -1,0 +1,24 @@
+```ts
+export function hueBand(degrees: number): string {
+  if (degrees === undefined || degrees === null) {
+    throw new Error("Input cannot be undefined or null");
+  }
+
+  const normalizedDegrees = degrees % 360;
+  if (normalizedDegrees < 0) {
+    normalizedDegrees += 360;
+  }
+
+  if (normalizedDegrees >= 0 && normalizedDegrees < 60) {
+    return "red";
+  } else if (normalizedDegrees >= 60 && normalizedDegrees < 180) {
+    return "green";
+  } else if (normalizedDegrees >= 180 && normalizedDegrees < 240) {
+    return "blue";
+  } else if (normalizedDegrees >= 240 && normalizedDegrees < 300) {
+    return "red";
+  } else {
+    throw new Error("Input is out of valid range");
+  }
+}
+```

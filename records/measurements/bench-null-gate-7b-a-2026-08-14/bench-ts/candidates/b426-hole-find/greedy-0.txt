@@ -1,0 +1,34 @@
+```ts
+/**
+ * Returns an array of numbers starting from `first` for the given `count`.
+ * @param first - The first number in the sequence.
+ * @param count - The number of elements in the sequence.
+ * @returns An array of numbers.
+ */
+export function stepsOn(first: number, count: number): number[] {
+  if (isNaN(first) || isNaN(count)) {
+    throw new Error('Invalid arguments');
+  }
+  return Array.from({ length: count }, (_, i) => first + i);
+}
+
+/**
+ * Finds the first missing number in a sequence starting from `first` for the given `count`.
+ * @param seen - The array of numbers that have been seen.
+ * @param first - The first number in the sequence.
+ * @param count - The number of elements in the sequence.
+ * @returns The first missing number, or undefined if none is missing.
+ */
+export function holeFind(seen: number[], first: number, count: number): number {
+  if (isNaN(first) || isNaN(count)) {
+    throw new Error('Invalid arguments');
+  }
+  const expected = stepsOn(first, count);
+  for (const num of expected) {
+    if (!seen.includes(num)) {
+      return num;
+    }
+  }
+  return undefined;
+}
+```

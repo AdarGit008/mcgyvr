@@ -1,0 +1,12 @@
+```python
+def root_digit(value: int) -> int:
+    if value < 10:
+        return value
+
+    total = 0
+    while value > 0:
+        total += value % 10
+        value //= 10
+
+    return root_digit(total)
+```

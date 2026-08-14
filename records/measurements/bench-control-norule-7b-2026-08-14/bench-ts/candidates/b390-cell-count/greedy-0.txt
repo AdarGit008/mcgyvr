@@ -1,0 +1,12 @@
+```ts
+/**
+ * Counts the number of cells in a grid that hold a specific value.
+ *
+ * @param grid - The grid to search, represented as an array of arrays of numbers.
+ * @param value - The value to count within the grid.
+ * @returns The count of cells holding the specified value.
+ */
+export function cellCount(grid: number[][], value: number): number {
+  return grid.flat().filter(cell => cell === value).length;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+/**
+ * Calculates the total turns needed to serve all customers at a market stall.
+ * @param counts - An array of numbers representing the number of items each customer wants.
+ * @param limit - The maximum number of items that can be served in one turn.
+ * @returns The total turns required to serve all customers.
+ */
+export function stallTurns(counts: number[], limit: number): number {
+  if (limit <= 0) {
+    throw new Error("Per-turn limit must be greater than zero.");
+  }
+
+  return counts.reduce((totalTurns, itemCount) => {
+    if (itemCount > 0) {
+      totalTurns += Math.ceil(itemCount / limit);
+    }
+    return totalTurns;
+  }, 0);
+}
+```

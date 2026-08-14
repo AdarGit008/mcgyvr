@@ -145,6 +145,36 @@ def _bench_score() -> types.ModuleType:
 
 score = _bench_score()
 
+
+def _bench_product() -> types.ModuleType:
+    """The pinned product revision and the round it belongs to (#231 check 3)."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_product", HERE.parent / "bench" / "product.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+product = _bench_product()
+
+
+def _bench_mode() -> types.ModuleType:
+    """Single-tier or full-ladder, recorded rather than asserted (#231 check 6)."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_mode", HERE.parent / "bench" / "mode.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+mode = _bench_mode()
+
 # The variables of this experiment, all held fixed within a run.
 #
 # DRAWS is DEC-6's own N: the proposal ADR-0008 stripped to "a rung may take
@@ -876,15 +906,55 @@ def record_run(
         # so a reader can tell the two apart without knowing the date.
         "gate_rungs": list(score.GATE_RUNGS),
         "gate_semantic": False,
+        # Whether the rates here are one tier's or the ladder's (#231 check 6).
+        # This rig dispatches to a single worker and never escalates, so it can
+        # only ever write `single-tier`; the field exists so a *report* reads
+        # the fact off the run instead of printing a string literal that would
+        # survive unchanged into the first run that does escalate.
+        "mode": mode.SINGLE_TIER,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
+    # The round, and the product revision it pins (#231 check 3, ADR-0018).
+    #
+    # `bundle_sha256` hashes the system prompt and `tasks_sha256` the task set;
+    # between them sat the user-message render, the reply parser and the whole
+    # of `Gate.run` — everything that decides what a worker is sent and whether
+    # its answer passes. Two arms could be scored by two different bars and laid
+    # in one table with nothing on disk to say so.
+    #
+    # Bench tiers only. A round is ADR-0018's unit for *the bench*, where arms
+    # are compared against each other; `d1`-`d3` and `pool-*` are other
+    # instruments with their own questions, and stamping a revision they do not
+    # compare across would refuse their resumes for a boundary that does not
+    # apply to them. The refusal below is what stops a change landing mid-round.
+    if tier in BENCH_TIERS:
+        try:
+            round_id, revision = product.require_pinned()
+        except product.ProductError as error:
+            raise bundle.MeasureError(str(error)) from error
+        identity["round"] = round_id
+        identity["product_sha256"] = revision
     path = out / "run.json"
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
         previous.setdefault("serving_build", identity["serving_build"])
+        # `mode` is adopted forward where `product_sha256` below is not, and the
+        # difference is whether the missing value is knowable. No rig in this
+        # tree has ever escalated, so a manifest without the field was
+        # single-tier and saying so adds a true fact; a manifest without a
+        # product revision was measured against a revision nobody recorded, and
+        # stamping today's onto it would invent one.
+        previous.setdefault("mode", identity["mode"])
         drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
         if drift:
+            # A bench directory written before rounds existed carries no
+            # revision, so `round` and `product_sha256` show as drift here. That
+            # is the right answer and not a migration gap: those rows were
+            # measured against a revision nobody recorded, and appending rows
+            # measured against `r1` would put two revisions in one distribution
+            # — the exact confound check 3 exists to prevent. Unlike
+            # `serving_build`, this one is not adopted forward.
             raise bundle.MeasureError(
                 f"{path} records a different run: {', '.join(drift)} changed. "
                 "Rows already here were measured on another worker, another "
@@ -949,11 +1019,12 @@ def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
     ``None`` means the run cannot be described, and a report that cannot
     describe its subject must not state a rate for it.
 
-    The tier line is the **single-tier declaration** #113 asks for. This rig
-    dispatches to one model and never escalates, so every figure it produces
-    describes one tier; saying so in the report is what stops a floor rate
-    being read as the ladder's (a floor failure rescued by a higher rung makes
-    the floor invisible, which is the whole reason the mode is named).
+    Two of the lines are declarations the manifest is read for rather than
+    sentences this function knows: the **mode** (#231 check 6 — a floor failure
+    rescued by a higher rung makes the floor invisible, so a rate must say which
+    of the two it is), and the **round** (#231 check 3 — which product revision
+    produced it). Both were string literals here until the fields existed to
+    read, which is a claim the code could not check.
     """
     if missing_provenance(recorded):
         return None
@@ -970,8 +1041,8 @@ def describe_run(recorded: Mapping[str, Any]) -> list[str] | None:
         f"condition `{recorded['condition']}`",
         "",
         f"- scored by: {bar}",
-        "- mode: **single-tier** — one model, no escalation, so every rate "
-        "below is that tier's own and not the ladder's",
+        mode.declare(recorded),
+        product.declare(recorded),
     ]
     if not build:
         lines.append(

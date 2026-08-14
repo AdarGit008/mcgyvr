@@ -1,0 +1,7 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if was_out_of <= 0 or now_out_of <= 0:
+        raise ValueError("Total marks must be greater than zero")
+    scaled_mark = (mark * now_out_of) // was_out_of
+    return max(0, min(scaled_mark, now_out_of))
+```

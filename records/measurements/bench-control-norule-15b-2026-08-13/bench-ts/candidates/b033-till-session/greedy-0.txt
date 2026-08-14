@@ -1,0 +1,295 @@
+```ts
+import { strict as assert } from 'assert';
+
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  const cart: { [item: string]: number } = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("event must be a list");
+    }
+    const action = event[0];
+    const payload = event.slice(1);
+
+    switch (action) {
+      case "scan":
+        if (!prices.hasOwnProperty(payload[0])) {
+          throw new Error(`item ${payload[0]} not in price list`);
+        }
+        cart[payload[0]] = (cart[payload[0]] || 0) + 1;
+        total += prices[payload[0]];
+        break;
+      case "void":
+        if (!cart.hasOwnProperty(payload[0])) {
+          throw new Error(`item ${payload[0]} not in cart`);
+        }
+        const quantity = cart[payload[0]];
+        if (quantity === 0) {
+          throw new Error("cannot void an item with zero quantity");
+        }
+        cart[payload[0]] -= 1;
+        total -= prices[payload[0]];
+        break;
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("session must have items to close");
+        }
+        paid = total;
+        change = 0;
+        cart = {};
+        total = 0;
+        state = PAID;
+        break;
+      case "pay":
+        if (!Number.isInteger(payload[0]) || payload[0] <= 0) {
+          throw new Error("pay amount must be a positive integer");
+        }
+        if (paid >= total) {
+          throw new Error("cannot pay more than the total");
+        }
+        paid += payload[0];
+        change = Math.max(0, paid - total);
+        state = PAID;
+        break;
+      case "cancel":
+        if (state === CANCELLED || state === PAID) {
+          throw new Error("session is already cancelled or paid");
+        }
+        paid = 0;
+        change = 0;
+        cart = {};
+        total = 0;
+        state = CANCELLED;
+        break;
+      default:
+        throw new Error(`unknown action: ${action}`);
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+
+// Test cases
+assert.deepStrictEqual(runTillSession([], {}), { state: OPEN, items: [], total: 0, paid: 0, change: 0 });
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["pay", 10],
+    ["close"],
+  ], {
+    apple: 5,
+  }),
+  { state: PAID, items: [["apple", 1]], total: 5, paid: 10, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "banana"],
+    ["void", "apple"],
+    ["pay", 2],
+    ["close"],
+  ], {
+    apple: 3,
+    banana: 2,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 2, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deepStrictEqual(
+  runTillSession([
+    ["scan", "apple"],
+    ["void", "apple"],
+    ["pay", 1],
+    ["close"],
+  ], {
+    apple: 3,
+  }),
+  { state: PAID, items: [["banana", 2]], total: 5, paid: 1, change: 0 },
+);
+assert.deep

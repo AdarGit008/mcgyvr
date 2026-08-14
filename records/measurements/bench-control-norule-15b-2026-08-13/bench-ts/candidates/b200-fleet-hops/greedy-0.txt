@@ -1,0 +1,24 @@
+```ts
+function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (!Number.isInteger(hop) || hop < 0) {
+    throw new Error("hop must be a non-negative integer");
+  }
+
+  let totalHops = 0;
+  for (let i = 0; i < count; i++) {
+    const build = builds[i];
+    if (build === undefined || !Number.isInteger(build) || build < 0 || build > count - 1) {
+      throw new Error("build must be a non-negative integer between 0 and count-1");
+    }
+
+    let targetRelease = lts.find(lt => lt > build && lt <= build + hop);
+    if (targetRelease === undefined) {
+      continue;
+    }
+
+    totalHops += Math.abs(targetRelease - build);
+  }
+
+  return totalHops;
+}
+```

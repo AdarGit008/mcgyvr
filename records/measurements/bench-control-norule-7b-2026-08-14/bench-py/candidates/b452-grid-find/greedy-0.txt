@@ -1,0 +1,15 @@
+```python
+def match_at(grid: list, row: int, column: int, value: int) -> bool:
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[0]):
+        raise ValueError("Invalid row or column index")
+    return grid[row][column] == value
+
+def grid_find(grid: list, value: int) -> list:
+    for i, row in enumerate(grid):
+        try:
+            j = row.index(value)
+            return [i, j]
+        except ValueError:
+            continue
+    raise ValueError("Value not found in the grid")
+```

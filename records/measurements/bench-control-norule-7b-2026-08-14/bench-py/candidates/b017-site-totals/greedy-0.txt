@@ -1,0 +1,45 @@
+```python
+"""A shipment ledger: parse lines, total by site, find the busiest site."""
+
+
+def load_ledger(lines):
+    rows = []
+    for line in lines:
+        parts = line.split(",")
+        if len(parts) != 3:
+            raise ValueError("each ledger line is site,item,qty")
+        site, item, raw = parts
+        if not site or not item:
+            raise ValueError("site and item must be non-empty")
+        if not raw.isdigit():
+            raise ValueError("qty must be a run of decimal digits")
+        qty = int(raw)
+        if qty <= 0:
+            raise ValueError("qty must be a positive integer")
+        rows.append({"site": site, "item": item, "qty": qty})
+    return rows
+
+
+def site_totals(rows):
+    totals = {}
+    for row in rows:
+        site = row["site"]
+        qty = row["qty"]
+        if site not in totals:
+            totals[site] = 0
+        totals[site] += qty
+    return [[site, total] for site, total in sorted(totals.items())]
+
+
+def busiest_site(rows):
+    pairs = site_totals(rows)
+    if not pairs:
+        return None
+    best = pairs[0]
+    for pair in pairs:
+        if pair[1] > best[1]:
+            best = pair
+        elif pair[1] == best[1] and pair[0] < best[0]:
+            best = pair
+    return best[0]
+```

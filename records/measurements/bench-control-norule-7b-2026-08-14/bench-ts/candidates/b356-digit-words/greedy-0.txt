@@ -1,0 +1,30 @@
+```ts
+/**
+ * Converts a single digit to its English word representation.
+ * @param {number} digit - The digit to convert, must be between 0 and 9.
+ * @returns {string} - The English word for the digit.
+ */
+export function digitWord(digit: number): string {
+    if (digit < 0 || digit > 9) {
+        throw new Error('Invalid digit');
+    }
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    return words[digit];
+}
+
+/**
+ * Converts a string of digits to their English word representations, separated by spaces.
+ * @param {string} digits - The string containing digits to convert.
+ * @returns {string} - A string with the English words for each digit, separated by spaces.
+ */
+export function digitWords(digits: string): string {
+    const result = [];
+    for (const char of digits) {
+        if (!/\d/.test(char)) {
+            throw new Error('Invalid character in input');
+        }
+        result.push(digitWord(parseInt(char, 10)));
+    }
+    return result.join(' ');
+}
+```

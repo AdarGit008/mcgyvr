@@ -1,0 +1,8 @@
+```ts
+function tagTrim(tag: string): string {
+  if (!tag) return tag;
+
+  const trimmed = tag.replace(/^#/, '').replace(/:/g, '');
+  return trimmed;
+}
+```

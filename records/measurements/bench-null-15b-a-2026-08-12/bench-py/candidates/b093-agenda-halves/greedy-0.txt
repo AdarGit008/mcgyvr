@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if not sessions or not isinstance(limit, int):
+        raise ValueError("Invalid input")
+
+    for session in sessions:
+        if len(session) != 2 or not all(isinstance(x, int) and x >= 0 for x in session):
+            raise ValueError("Invalid session bounds")
+
+    if limit < 1:
+        raise ValueError("Limit must be a whole number of at least one")
+
+    blocks = []
+    current_block = []
+
+    for start, end in sessions:
+        if not current_block or start > current_block[-1][1]:
+            current_block.append([start, end])
+        else:
+            mid = (start + end) // 2
+            if len(current_block) % 2 == 0:
+                current_block.append([mid, end])
+            else:
+                current_block.append([start, mid + 1])
+
+    for block in blocks:
+        if sum(block) > limit:
+            mid = (block[0] + block[-1]) // 2
+            if len(block) % 2 == 0:
+                block[0], block[-1] = mid, mid
+            else:
+                block[0], block[-1] = start, mid + 1
+
+    return blocks
+```

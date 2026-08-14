@@ -1,0 +1,29 @@
+```ts
+export function planBatches(units: number, capacity: number): { loads: number[]; splits: number; rounds: number } {
+  if (!Number.isInteger(units) || units <= 0) throw new Error('Units must be a positive integer');
+  if (!Number.isInteger(capacity) || capacity <= 0) throw new Error('Capacity must be a positive integer');
+
+  const loads: number[] = [];
+  let splits = 0;
+  let rounds = 0;
+
+  function plan(units: number, currentRound: number): void {
+    if (units <= capacity) {
+      loads.push(units);
+      return;
+    }
+
+    splits++;
+    rounds = Math.max(rounds, currentRound);
+
+    const halfUp = Math.ceil(units / 2);
+    const halfDown = units - halfUp;
+
+    plan(halfUp, currentRound + 1);
+    plan(halfDown, currentRound + 1);
+  }
+
+  plan(units, 0);
+  return { loads, splits, rounds };
+}
+```

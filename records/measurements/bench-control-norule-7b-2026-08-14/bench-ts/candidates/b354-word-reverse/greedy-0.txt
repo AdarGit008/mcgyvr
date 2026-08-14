@@ -1,0 +1,15 @@
+```ts
+/**
+ * Reverses the letters in each word of a line, keeping words in their original order.
+ * Words are defined as sequences of characters separated by spaces.
+ *
+ * @param line - The line with words to reverse.
+ * @returns A new line with each word's letters reversed.
+ */
+export function wordReverse(line: string): string {
+  return line
+    .split(' ')
+    .map(word => word.split('').reverse().join(''))
+    .join(' ');
+}
+```

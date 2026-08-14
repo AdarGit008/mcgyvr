@@ -1,0 +1,26 @@
+```ts
+type Digest = { count: number; min: number; max: number; mean: number; median: number };
+
+export function columnDigest(rows: number[][], column: number): Digest {
+  if (column < 0 || column >= rows[0].length) {
+    throw new Error("Column index out of bounds");
+  }
+
+  let count = 0;
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const row of rows) {
+    if (row[column] !== undefined && row[column] !== null) {
+      count++;
+      min = Math.min(min, row[column]);
+      max = Math.max(max, row[column]);
+    }
+  }
+
+  const mean = count > 0 ? parseFloat((min + max) / count).toFixed(2) : 0;
+  const median = count % 2 === 1 ? Math.round(mean) : (mean - Math.floor(mean)) * 2;
+
+  return { count, min, max, mean, median };
+}
+```

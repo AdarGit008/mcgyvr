@@ -1,0 +1,12 @@
+```python
+from typing import List
+
+def menu_pick(dishes: List[tuple[str, int]], budget: int) -> List[str]:
+    if not dishes or budget < 0:
+        raise ValueError("Invalid input")
+
+    affordable_dishes = [dish for dish in dishes if dish[1] <= budget]
+    affordable_dishes.sort(key=lambda x: (x[1], x[0]))
+
+    return affordable_dishes
+```

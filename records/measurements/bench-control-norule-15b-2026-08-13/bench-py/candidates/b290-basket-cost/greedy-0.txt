@@ -1,0 +1,10 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    return price * quantity
+
+
+def basket_cost(lines: list, discount: int) -> int:
+    total = sum(line_cost(price, quantity) for price, quantity in lines)
+    discounted_total = total - (total / 100) * discount
+    return round(discounted_total)
+```

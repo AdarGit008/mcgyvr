@@ -1,0 +1,20 @@
+```ts
+/**
+ * Takes entries from the end of a list toward its start, returning how many must be taken before their total reaches a target.
+ * Returns minus one when the whole list never reaches it.
+ *
+ * @param values - The array of numbers to take entries from.
+ * @param target - The target sum to reach or exceed.
+ * @returns The number of entries to take, or -1 if the target is never reached.
+ */
+export function takeBack(values: number[], target: number): number {
+  let total = 0;
+  for (let i = values.length - 1; i >= 0; i--) {
+    total += values[i];
+    if (total >= target) {
+      return values.length - i;
+    }
+  }
+  return -1;
+}
+```

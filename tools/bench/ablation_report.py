@@ -77,6 +77,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import defaultdict
 from itertools import product
 from math import comb
@@ -85,6 +86,14 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
+
+sys.path.insert(0, str(HERE))
+
+# #231 checks 3 and 6. `product` here would shadow `itertools.product`, which
+# this module uses to walk the condition x arm grid, so the pin is imported
+# under the name of what it records.
+import mode  # noqa: E402
+import product as revision  # noqa: E402
 
 CONDITIONS = ("stock", "planonly", "noscaffold")
 ARMS = ("bench-ts", "bench-py")
@@ -361,7 +370,12 @@ def main(argv: list[str] | None = None) -> int:
         keep -= set(dropped)
         print(f"# retired, dropped from this set: {', '.join(dropped)}")
 
+    read = mode.read(
+        *[args.run / condition / arm for condition, arm in product(CONDITIONS, ARMS)]
+    )
     print(f"# scaffold ablation — {args.run.name}")
+    print("# " + mode.banner(read).removeprefix("- "))
+    print("# " + revision.banner(read).removeprefix("- "))
     print(f"# verdicts: {args.rows} ({ROW_SOURCES[args.rows]})")
     print(f"# analysis set: {len(keep)} problems ({source})")
     print("# cells present:")

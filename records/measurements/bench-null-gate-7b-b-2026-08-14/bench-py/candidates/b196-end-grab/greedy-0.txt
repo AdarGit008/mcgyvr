@@ -1,0 +1,23 @@
+```python
+def end_grab(cards: list) -> dict:
+    if not cards:
+        raise ValueError("The row of cards cannot be empty.")
+    
+    first_total = 0
+    second_total = 0
+    taken = []
+    
+    while len(cards) > 1:
+        if cards[0] >= cards[-1]:
+            taken.append(cards.pop(0))
+            first_total += taken[-1]
+        else:
+            taken.append(cards.pop())
+            second_total += taken[-1]
+    
+    return {
+        "first": first_total,
+        "second": second_total,
+        "taken": taken
+    }
+```

@@ -1,0 +1,21 @@
+```python
+def stamp_cover(label: str, dies: list) -> int:
+    if not isinstance(label, str) or not label:
+        raise ValueError("label must be a non-empty string")
+    
+    table = stamp_table(dies)
+    
+    n = len(label)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    
+    for i in range(1, n + 1):
+        for fragment, price in table.items():
+            if i >= len(fragment) and label[i - len(fragment):i] == fragment:
+                dp[i] = min(dp[i], dp[i - len(fragment)] + price)
+    
+    if dp[n] == float('inf'):
+        raise ValueError("label cannot be spelled with the given dies")
+    
+    return dp[n]
+```

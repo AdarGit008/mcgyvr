@@ -1,0 +1,61 @@
+```ts
+export function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) {
+    throw new Error("outline argument must be a list");
+  }
+
+  const result: string[] = [];
+  let currentDepth = 0;
+  let currentNumber = 1;
+
+  for (const section of sections) {
+    if (typeof section !== "object" || !section.heading || typeof section.heading !== "string") {
+      throw new Error("heading must be a non-empty string");
+    }
+
+    const heading = section.heading;
+    const children = section.children;
+
+    if (!Array.isArray(children)) {
+      throw new Error("children must be a list");
+    }
+
+    for (const child of children) {
+      if (typeof child !== "object" || !child.heading || typeof child.heading !== "string") {
+        throw new Error("heading must be a non-empty string");
+      }
+    }
+
+    result.push(`${currentNumber} ${heading}`);
+    currentDepth++;
+    currentNumber += children.length + 1;
+  }
+
+  return result;
+}
+
+export function sectionCount(sections: object[]): number[] {
+  if (!Array.isArray(sections)) {
+    throw new Error("outline argument must be a list");
+  }
+
+  const counts: number[] = [];
+
+  for (const section of sections) {
+    if (typeof section !== "object" || !section.heading || typeof section.heading !== "string") {
+      throw new Error("heading must be a non-empty string");
+    }
+
+    const heading = section.heading;
+    const children = section.children;
+
+    if (!Array.isArray(children)) {
+      throw new Error("children must be a list");
+    }
+
+    counts.push(children.length + 1);
+  }
+
+  return counts;
+}
+```

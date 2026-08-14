@@ -1,0 +1,15 @@
+```python
+def step_rate(amount: int, fixed: int, percent: int) -> int:
+    """Return the charge for one step."""
+    if amount < 0 or fixed < 0 or percent < 0:
+        raise ValueError("Amount and fixed values must be non-negative. Percent must be non-negative.")
+    
+    return fixed + (amount * percent // 100)
+
+def rate_steps(amounts: list, fixed: int, percent: int) -> list:
+    """Return the charge for each of several amounts."""
+    if not all(isinstance(x, int) and x >= 0 for x in amounts):
+        raise ValueError("All amounts must be non-negative integers.")
+    
+    return [step_rate(amount, fixed, percent) for amount in amounts]
+```

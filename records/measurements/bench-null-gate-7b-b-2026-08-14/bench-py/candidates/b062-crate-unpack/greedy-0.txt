@@ -1,0 +1,13 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """Return every item name in one flat list."""
+    if not all(isinstance(x, (str, list)) for x in crate):
+        raise ValueError("Invalid entry in crate")
+    return [item for sublist in crate for item in unpack_crates(sublist)] if isinstance(crate, list) else [crate]
+
+def crate_depth(crate: list) -> int:
+    """Return the deepest nesting level of the crate."""
+    if not all(isinstance(x, (str, list)) for x in crate):
+        raise ValueError("Invalid entry in crate")
+    return 1 + max((crate_depth(sublist) for sublist in crate), default=0) if isinstance(crate, list) else 0
+```

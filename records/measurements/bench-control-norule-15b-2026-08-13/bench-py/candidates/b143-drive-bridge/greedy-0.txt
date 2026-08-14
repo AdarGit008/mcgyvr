@@ -1,0 +1,25 @@
+```python
+from typing import List, Union
+
+def drive_bridge(commands: List[str]) -> str:
+    if not isinstance(commands, list):
+        raise ValueError("commands must be a list")
+    
+    state = "lowered"
+    
+    for command in commands:
+        if command not in ["raise", "lower", "lock", "unlock"]:
+            raise ValueError(f"invalid command: {command}")
+        
+        if state == "lowered":
+            if command != "raise":
+                raise ValueError("cannot lower a lowered span")
+        elif state == "raised":
+            if command not in ["lower", "lock"]:
+                raise ValueError("cannot raise a raised span")
+        elif state == "locked":
+            if command != "unlock":
+                raise ValueError("cannot lock a locked span")
+    
+    return state
+```

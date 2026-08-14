@@ -1,0 +1,17 @@
+```ts
+/**
+ * Returns a mapping from each unique value to the count of keys that hold it.
+ * @param store - The store to analyze.
+ * @returns A record where keys are values and values are counts.
+ */
+export function valueKeys(store: Record<string, string>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const key in store) {
+    if (store.hasOwnProperty(key)) {
+      const value = store[key];
+      result[value] = (result[value] || 0) + 1;
+    }
+  }
+  return result;
+}
+```

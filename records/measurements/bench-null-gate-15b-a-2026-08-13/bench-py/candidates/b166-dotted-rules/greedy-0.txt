@@ -1,0 +1,25 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    def scan_rules(rule):
+        for key, value in rule.items():
+            if isinstance(value, str):
+                yield key, value
+            elif isinstance(value, dict):
+                yield from scan_rules(value)
+    
+    exact_match = next((key, value) for key, value in rules.items() if key == name), None)
+    longest_covering_wildcard = max(
+        (key, value) for key, value in rules.items()
+        if isinstance(value, str) and key.startswith(name + ".")
+    )
+    
+    if exact_match:
+        return exact_match[1]
+    elif longest_covering_wildcard:
+        return longest_covering_wildcard[1]
+    else:
+        return None
+```

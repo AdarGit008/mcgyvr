@@ -1,0 +1,40 @@
+```ts
+export function drawTreeLines(root: object): string[] {
+  if (!root || typeof root !== 'object') {
+    throw new Error('Root must be an object');
+  }
+
+  const lines: string[] = [];
+  const stack: { node: object; level: number }[] = [{ node: root, level: 0 }];
+
+  while (stack.length > 0) {
+    const { node, level } = stack.pop()!;
+    if (!node || typeof node !== 'object') {
+      throw new Error('Node must be an object');
+    }
+
+    const name = node.name;
+    if (typeof name !== 'string' || name === '' || name.includes('\n')) {
+      throw new Error('Name must be a non-empty string without newline characters');
+    }
+
+    const children = node.children;
+    if (!Array.isArray(children) || !children.every(child => typeof child === 'object')) {
+      throw new Error('Children must be an array of objects');
+    }
+
+    let connector = '|-- ';
+    for (let i = 0; i < level - 1; i++) {
+      connector += '|   ';
+    }
+
+    lines.push(connector + name);
+
+    if (children.length > 0) {
+      stack.push(...children.map(child => ({ node: child, level: level + 1 })));
+    }
+  }
+
+  return lines;
+}
+```

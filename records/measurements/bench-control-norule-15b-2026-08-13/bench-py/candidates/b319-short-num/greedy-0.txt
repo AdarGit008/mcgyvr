@@ -1,0 +1,14 @@
+```python
+def short_num(value: int) -> str:
+    if value < 1000:
+        return f"{value:.1f}"
+    
+    units = ["", "k", "m"]
+    unit_index = 0
+    
+    while value >= 1000 and unit_index < len(units):
+        value /= 1000
+        unit_index += 1
+    
+    return f"{value:.1f}{units[unit_index]}"
+```

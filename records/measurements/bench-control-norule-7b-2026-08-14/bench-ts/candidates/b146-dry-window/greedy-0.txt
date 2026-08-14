@@ -1,0 +1,27 @@
+```ts
+/**
+ * Finds the starting index of the width-day stretch with the smallest sum of rainfall readings.
+ * @param rain - Array of daily rainfall readings, one non-negative integer per day.
+ * @param width - Number of consecutive days for the inspection visit.
+ * @returns The starting index of the driest window.
+ */
+export function driestWindow(rain: number[], width: number): number {
+  if (!Array.isArray(rain) || rain.some(isNaN)) throw new Error('Invalid rain data');
+  if (rain.some((r) => r < 0)) throw new Error('Negative rainfall reading found');
+  if (!Number.isInteger(width) || width <= 0) throw new Error('Invalid width');
+  if (width > rain.length) throw new Error('Width larger than the number of days');
+
+  let minSum = Infinity;
+  let startIndex = -1;
+
+  for (let i = 0; i <= rain.length - width; i++) {
+    const sum = rain.slice(i, i + width).reduce((acc, r) => acc + r, 0);
+    if (sum < minSum) {
+      minSum = sum;
+      startIndex = i;
+    }
+  }
+
+  return startIndex;
+}
+```

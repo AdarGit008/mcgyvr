@@ -1,0 +1,24 @@
+```ts
+/**
+ * Returns the cost of one step of a given kind.
+ * @param kind - The kind of step.
+ * @returns The cost of the step.
+ */
+export function stepCost(kind: string): number {
+  return 1; // Assuming each step costs 1 unit for simplicity
+}
+
+/**
+ * Totals the toll for a path, with every third step being free.
+ * @param steps - An array of step kinds.
+ * @returns The total toll for the path.
+ */
+export function pathToll(steps: string[]): number {
+  return steps.reduce((total, _, index) => {
+    if ((index + 1) % 3 !== 0) {
+      total += stepCost(steps[index]);
+    }
+    return total;
+  }, 0);
+}
+```

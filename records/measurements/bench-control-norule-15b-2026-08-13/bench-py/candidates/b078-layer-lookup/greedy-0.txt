@@ -1,0 +1,33 @@
+```python
+from typing import List, Optional
+
+def config_value(layers: List[str], name: str) -> Optional[str]:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    
+    for layer in layers[::-1]:  # Start from the last layer to avoid modifying it while iterating
+        lines = layer.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith('#'):
+                continue
+            
+            parts = line.split('=', maxsplit=1)
+            if len(parts) != 2:
+                raise ValueError("Invalid line format")
+            
+            key, value = parts
+            key = key.strip()
+            value = value.strip()
+            
+            if not key:
+                raise ValueError("Empty name in the configuration layer")
+            
+            if key == name:
+                return value
+    
+    return None
+```

@@ -1,0 +1,27 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+
+    terms = selector.split(',')
+    ranges = []
+    single_values = set()
+
+    for term in terms:
+        if '-' in term:
+            low, high = term.split('-')
+            if not low.isdigit() or not high.isdigit():
+                raise ValueError("range terms must be digits")
+            low, high = int(low), int(high)
+            if low > high:
+                raise ValueError("range low end cannot exceed high end")
+            ranges.append((low, high))
+        else:
+            if not term.isdigit():
+                raise ValueError("single value terms must be digits")
+            single_values.add(int(term))
+
+    return sum(1 for value in values if value in single_values or any(low <= value <= high for low, high in ranges))
+```

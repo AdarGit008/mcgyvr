@@ -1,0 +1,25 @@
+```ts
+/**
+ * Splits a colour hash into its three two-digit hexadecimal parts.
+ * @param colour - A string representing a colour in hex format (e.g., "#1A2B3C").
+ * @returns An array of three strings, each representing a two-digit hexadecimal part.
+ */
+export function hexSplit(colour: string): string[] {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(colour)) {
+    throw new Error("Invalid colour format");
+  }
+  return [colour.slice(1, 3), colour.slice(3, 5), colour.slice(5, 7)];
+}
+
+/**
+ * Joins three two-digit hexadecimal parts into a colour hash.
+ * @param parts - An array of three strings, each representing a two-digit hexadecimal part.
+ * @returns A string representing the colour in hex format (e.g., "#1A2B3C").
+ */
+export function hexJoin(parts: string[]): string {
+  if (parts.length !== 3 || !parts.every(part => /^([0-9A-Fa-f]{2})$/.test(part))) {
+    throw new Error("Invalid parts for colour");
+  }
+  return `#${parts.join('')}`;
+}
+```

@@ -1,0 +1,34 @@
+```python
+from typing import List, Dict, Any
+
+def number_sections(sections: List[Dict[str, Any]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def traverse(node, level=1):
+        if not isinstance(node, dict) or 'heading' not in node:
+            raise ValueError("section must be a mapping with 'heading'")
+        
+        label = f"{level} {node['heading']}"
+        children = node.get('children', [])
+        
+        for child in children:
+            yield from traverse(child, level + 1)
+        
+        yield label
+    
+    return list(traverse(sections))
+
+def section_count(sections: List[Dict[str, Any]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def count(node):
+        if not isinstance(node, dict) or 'heading' not in node:
+            raise ValueError("section must be a mapping with 'heading'")
+        
+        children = node.get('children', [])
+        return 1 + sum(count(child) for child in children)
+    
+    return sum(count(section) for section in sections)
+```

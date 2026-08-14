@@ -1,0 +1,26 @@
+```ts
+export function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string' || !version.match(/^\d+\.\d+\.\d+$/)) {
+    throw new Error('Invalid version format');
+  }
+
+  const [major, minor, patch] = version.split('.').map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error('Version components must be digits');
+  }
+
+  if (part !== 'major' && part !== 'minor' && part !== 'patch') {
+    throw new Error('Invalid part name');
+  }
+
+  switch (part) {
+    case 'major':
+      return `${major + 1}.0.0`;
+    case 'minor':
+      return `${major}.${minor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${patch + 1}`;
+  }
+}
+```

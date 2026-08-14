@@ -1,0 +1,13 @@
+```ts
+/**
+ * Removes every marker from a line of text, where a marker is defined as an opening angle bracket,
+ * everything up to the next closing bracket, and that bracket. An unclosed opening bracket removes
+ * everything from there to the end of the line.
+ *
+ * @param line - The input string containing potential markers.
+ * @returns The input string with all markers removed.
+ */
+export function stripTags(line: string): string {
+    return line.replace(/<[^>]*>/g, '');
+}
+```

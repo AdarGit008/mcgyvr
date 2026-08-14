@@ -1,0 +1,7 @@
+```python
+def score_drop(scores: list) -> int:
+    if not scores:
+        return 0
+    lowest_score = min(scores)
+    return sum(scores) - lowest_score
+```

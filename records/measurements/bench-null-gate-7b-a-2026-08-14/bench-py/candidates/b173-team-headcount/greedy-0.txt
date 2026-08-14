@@ -1,0 +1,16 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not isinstance(chart, dict):
+        raise ValueError("Chart must be a dictionary.")
+    if name not in chart:
+        raise ValueError(f"Name '{name}' is not a key in the chart.")
+    if not isinstance(chart[name], list):
+        raise ValueError(f"Reports for '{name}' must be a list.")
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("All reports must be strings.")
+
+    def count_team(member: str) -> int:
+        return 1 + sum(count_team(report) for report in chart.get(member, []))
+
+    return count_team(name)
+```

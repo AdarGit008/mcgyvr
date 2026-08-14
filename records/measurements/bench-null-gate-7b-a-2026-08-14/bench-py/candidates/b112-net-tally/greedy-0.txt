@@ -1,0 +1,54 @@
+```python
+def net_tally(sheets: list) -> str:
+    if not isinstance(sheets, list):
+        raise ValueError("Input must be a list of tally sheets.")
+    
+    item_counts = {}
+    max_item_length = 0
+    
+    for sheet in sheets:
+        if not isinstance(sheet, str):
+            raise ValueError("Each sheet must be a string.")
+        
+        for row in sheet.splitlines():
+            row = row.strip()
+            if not row:
+                continue
+            
+            parts = row.split('|')
+            if len(parts) != 3:
+                raise ValueError("Each row must contain exactly three fields.")
+            
+            item, sold, returned = map(str.strip, parts)
+            if not item or not sold.isdigit() or not returned.isdigit():
+                raise ValueError("Invalid item name or digit in row.")
+            
+            sold_count = int(sold)
+            returned_count = int(returned)
+            if returned_count > sold_count:
+                raise ValueError(f"Returned count exceeds sold count for item '{item}'.")
+            
+            if item not in item_counts:
+                item_counts[item] = [0, 0]
+                max_item_length = max(max_item_length, len(item))
+            
+            item_counts[item][0] += sold_count
+            item_counts[item][1] += returned_count
+    
+    report_lines = []
+    total_sold = 0
+    total_returned = 0
+    
+    for item in sorted(item_counts):
+        net_count = item_counts[item][0] - item_counts[item][1]
+        report_line = f"{item:<{max_item_length}}  {net_count}"
+        report_lines.append(report_line)
+        total_sold += item_counts[item][0]
+        total_returned += item_counts[item][1]
+    
+    if report_lines:
+        trailer = f"{'total':<{max_item_length}}  {total_sold - total_returned}"
+        report_lines.append(trailer)
+    
+    return '\n'.join(report_lines)
+```

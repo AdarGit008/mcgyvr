@@ -1,0 +1,17 @@
+```ts
+/**
+ * Write a whole number in short form:
+ * - below a thousand it is written as it stands,
+ * - a thousand or more takes a k,
+ * - a million or more takes an m.
+ * A shortened number keeps one decimal place, rounded down.
+ *
+ * @param value - The number to be shortened.
+ * @returns The shortened number as a string.
+ */
+export function shortNum(value: number): string {
+  if (value < 1000) return value.toString();
+  if (value < 1000000) return `${Math.floor(value / 1000)}k`;
+  return `${Math.floor(value / 1000000)}m`;
+}
+```

@@ -1,0 +1,24 @@
+```ts
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+    if (hop === 0) throw new Error("A hop of zero may not be given.");
+
+    const ltsSet = new Set(lts);
+    let totalHops = 0;
+
+    for (const build of builds) {
+        if (build < 0 || build >= count || !Number.isInteger(build)) {
+            throw new Error(`Invalid device build: ${build}`);
+        }
+
+        if (build === count - 1) continue; // Already on the newest release
+
+        let current = build;
+        while (current + hop < count && !ltsSet.has(current + hop)) {
+            current++;
+        }
+        totalHops += current - build;
+    }
+
+    return totalHops;
+}
+```

@@ -1,0 +1,9 @@
+```python
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres == 0:
+        raise ValueError("Leg covering no ground is not allowed.")
+    return seconds // kilometres
+
+def pace_list(legs: list) -> list:
+    return [pace_of(seconds, kilometres) for seconds, kilometres in legs]
+```

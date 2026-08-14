@@ -1,0 +1,26 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in base.items()):
+        raise ValueError("Base must be a flat mapping of string keys to string values")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in ours.items()):
+        raise ValueError("Ours must be a flat mapping of string keys to string values")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in theirs.items()):
+        raise ValueError("Theirs must be a flat mapping of string keys to string values")
+
+    merged = {}
+    for key in set(base).union(ours, theirs):
+        base_value = base.get(key)
+        ours_value = ours.get(key)
+        theirs_value = theirs.get(key)
+
+        if base_value == ours_value == theirs_value:
+            merged[key] = base_value
+        elif (base_value is None and ours_value is not None) or (base_value is not None and ours_value is None):
+            merged[key] = ours_value
+        elif (base_value is None and theirs_value is not None) or (base_value is not None and theirs_value is None):
+            merged[key] = theirs_value
+        else:
+            raise ValueError("Conflict: both sides changed the value of key '{}' in different ways".format(key))
+
+    return merged
+```

@@ -1,0 +1,27 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  if (typeof installed !== 'string') {
+    throw new Error('installed must be a string');
+  }
+  if (!Array.isArray(steps)) {
+    throw new Error('steps must be an array');
+  }
+
+  let carried = installed;
+  for (const step of steps) {
+    if (typeof step.tag !== 'string' || typeof step.requires !== 'string') {
+      throw new Error(`step ${JSON.stringify(step)} is not a {tag, requires} record`);
+    }
+    const [line1, point1] = step.tag.split('.');
+    const [line2, point2] = step.requires.split('.');
+    if (line1 !== line2 || parseInt(point1) >= parseInt(point2)) {
+      throw new Error(`step ${JSON.stringify(step)} is not an upgrade from ${carried}`);
+    }
+    carried = step.tag;
+  }
+
+  return carried;
+}
+```

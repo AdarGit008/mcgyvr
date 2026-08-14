@@ -1,0 +1,18 @@
+```ts
+/**
+ * Sorts an array of words by their length, shortest first.
+ * Words of the same length are sorted alphabetically.
+ * The original array is not modified.
+ *
+ * @param {string[]} words - The array of words to sort.
+ * @returns {string[]} A new array with the words sorted by length and alphabetically.
+ */
+export function sortByLen(words: string[]): string[] {
+  return [...words].sort((a, b) => {
+    if (a.length === b.length) {
+      return a.localeCompare(b);
+    }
+    return a.length - b.length;
+  });
+}
+```

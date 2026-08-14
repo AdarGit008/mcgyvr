@@ -1,0 +1,16 @@
+```ts
+function packEntries(entries: [string, string][]): string {
+  if (!Array.isArray(entries)) throw new Error("Input must be a list");
+  const result = entries.map(([key, value]) => {
+    if (!Array.isArray(key) || key.length !== 1 || !Array.isArray(value) || value.length !== 1)
+      throw new Error("Each entry must be a two-element list");
+    if (typeof key[0] !== "string" || typeof value[0] !== "string")
+      throw new Error("Keys and values must be strings");
+    if (key[0].length === 0) throw new Error("Key cannot be empty");
+    if (entries.some(([k, _]) => k === key[0])) throw new Error("Duplicate keys are not allowed");
+
+    return `${key[0]}=${value[0]}`;
+  }).join("; ");
+  return result;
+}
+```

@@ -1,0 +1,19 @@
+```python
+def wire_text(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    if '\n' in text:
+        raise ValueError("Text cannot contain newline characters")
+    return f"s{text.__len__()}:{text}"
+
+
+def wire_value(value) -> str:
+    if isinstance(value, str):
+        return wire_text(value)
+    elif isinstance(value, int) and value == int(value):
+        return f"n{value};"
+    elif isinstance(value, list):
+        return '[' + ';'.join(wire_value(item) for item in value) + ']'
+    else:
+        raise ValueError("Unsupported value type")
+```

@@ -1,0 +1,7 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """Take a closing piece off the end of a text again and again."""
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+    return text
+```

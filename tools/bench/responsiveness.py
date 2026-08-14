@@ -47,6 +47,11 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from power.mde import detectable_delta  # noqa: E402
 
+# #231 checks 3 and 6.
+sys.path.insert(0, str(REPO / "tools" / "bench"))
+import mode  # noqa: E402
+import product  # noqa: E402
+
 # Problems withdrawn after they were measured. Their rows stay in the run
 # records, which are evidence of what ran on the day; they are dropped here,
 # where a figure is derived. Same rule and same file as ablation_report.py.
@@ -238,8 +243,11 @@ def main() -> int:
         print("no complete cells", file=sys.stderr)
         return 2
 
+    read = mode.read(*[args.run / f"bench-{arm}" for arm in ARMS])
     print(f"# f1 responsiveness — {args.run.name}")
     print(f"# cells complete at {args.draws} sampled draws + greedy: {len(built)}")
+    print("# " + mode.banner(read).removeprefix("- "))
+    print("# " + product.banner(read).removeprefix("- "))
 
     report: dict[str, Any] = {"run": args.run.name, "cells": len(built)}
 

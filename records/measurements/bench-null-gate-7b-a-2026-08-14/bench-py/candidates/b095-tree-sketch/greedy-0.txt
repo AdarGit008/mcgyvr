@@ -1,0 +1,24 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary")
+    
+    def validate_node(node):
+        if 'name' not in node or not isinstance(node['name'], str) or '\n' in node['name']:
+            raise ValueError("Node name must be a non-empty string without newlines")
+        if 'children' not in node or not isinstance(node['children'], list):
+            raise ValueError("Node children must be a list")
+
+    def draw_node(node, depth=0, is_last=False):
+        validate_node(node)
+        prefix = "    " * depth
+        connector = "'-- " if is_last else "|-- "
+        line = prefix + connector + node['name']
+        yield line
+        
+        has_siblings = len(node['children']) > 1
+        for i, child in enumerate(node['children']):
+            yield from draw_node(child, depth + 1, i == len(node['children']) - 1)
+        
+    return list(draw_node(root))
+```

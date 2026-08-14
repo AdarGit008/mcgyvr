@@ -1,0 +1,13 @@
+```ts
+function fillBetween(entries: string[], filler: string): string[] {
+  if (!entries || !filler) throw new Error("Entries and filler cannot be null or undefined");
+
+  const result = [];
+  for (let i = 0; i < entries.length - 1; i++) {
+    result.push(entries[i], filler);
+  }
+  result.push(entries[entries.length - 1]);
+
+  return result;
+}
+```

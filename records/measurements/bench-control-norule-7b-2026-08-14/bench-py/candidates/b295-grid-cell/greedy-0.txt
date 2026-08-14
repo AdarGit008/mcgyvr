@@ -1,0 +1,19 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    if row < 0 or column < 0:
+        raise ValueError("Row and column must be non-negative integers.")
+    
+    col_letter = ""
+    while column >= 26:
+        column -= 26
+        col_letter = chr(65 + (column % 26)) + col_letter
+    col_letter = chr(65 + column) + col_letter
+    
+    return f"{col_letter}{row + 1}"
+
+def grid_cells(rows: int, columns: int) -> list:
+    if rows < 0 or columns < 0:
+        raise ValueError("Rows and columns must be non-negative integers.")
+    
+    return [cell_name(row, column) for row in range(rows) for column in range(columns)]
+```

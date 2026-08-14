@@ -1,0 +1,21 @@
+```ts
+export function stepCost(kind: string): number {
+  if (kind !== 'road' && kind !== 'railway') {
+    throw new Error('Invalid step cost kind');
+  }
+  return kind === 'road' ? 1 : 0;
+}
+
+export function pathToll(steps: string[]): number {
+  let total = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const cost = stepCost(steps[i]);
+    if (i % 3 === 2) {
+      total += cost;
+    } else {
+      total += cost * 2;
+    }
+  }
+  return total;
+}
+```

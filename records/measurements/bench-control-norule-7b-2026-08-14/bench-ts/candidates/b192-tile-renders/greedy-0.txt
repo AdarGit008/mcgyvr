@@ -1,0 +1,34 @@
+```ts
+/** Replay tile requests against a size-limited cache of fresh renders. */
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (!Number.isInteger(freshFor) || freshFor < 1 || !Number.isInteger(size) || size < 1) {
+    throw new Error("freshFor and size must be positive integers");
+  }
+  const held = new Map<string, number>();
+  const renders: [number, string][] = [];
+  for (const [tick, name] of requests) {
+    if (held.has(name)) {
+      const lastTick = held.get(name)!;
+      if (tick >= lastTick && tick < lastTick + freshFor) {
+        continue; // Serve a still-fresh render
+      }
+    }
+    if (held.size === size) {
+      let oldestKey: string | undefined = undefined;
+      let oldestTick = Infinity;
+      for (const [key, value] of held.entries()) {
+        if (value < oldestTick || (value === oldestTick && key < oldestKey!)) {
+          oldestKey = key;
+          oldestTick = value;
+        }
+      }
+      if (oldestKey !== undefined) {
+        held.delete(oldestKey);
+      }
+    }
+    held.set(name, tick);
+    renders.push([tick, name]);
+  }
+  return renders;
+}
+```

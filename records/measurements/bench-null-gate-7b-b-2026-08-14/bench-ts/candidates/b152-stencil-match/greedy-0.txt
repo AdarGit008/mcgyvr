@@ -1,0 +1,19 @@
+```ts
+export function matchesStencil(stencil: string, code: string): boolean {
+  if (typeof stencil !== 'string' || typeof code !== 'string') {
+    throw new Error('Both stencil and code must be strings');
+  }
+  if (stencil.length === 0) {
+    throw new Error('Stencil cannot be empty');
+  }
+
+  return stencil.length === code.length && 
+         Array.from(stencil).every((char, index) => {
+           const codeChar = code[index];
+           if (char === '#') return '0' <= codeChar && codeChar <= '9';
+           if (char === '@') return /^[A-Za-z]$/.test(codeChar);
+           if (char === '?') return true;
+           return char === codeChar;
+         });
+}
+```

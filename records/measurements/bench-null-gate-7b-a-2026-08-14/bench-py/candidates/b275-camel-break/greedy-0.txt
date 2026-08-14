@@ -1,0 +1,27 @@
+```python
+def camel_break(name: str) -> list:
+    if not name:
+        return []
+    
+    words = []
+    current_word = []
+    capitalize_next = False
+    
+    for char in name:
+        if char.isupper():
+            if current_word:
+                words.append(''.join(current_word).lower())
+                current_word = []
+            capitalize_next = True
+        else:
+            if capitalize_next:
+                current_word.append(char.upper())
+                capitalize_next = False
+            else:
+                current_word.append(char)
+    
+    if current_word:
+        words.append(''.join(current_word).lower())
+    
+    return words
+```

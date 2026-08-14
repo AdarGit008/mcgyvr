@@ -1,0 +1,24 @@
+```ts
+function keyPath(store: Record<string, string>, head: string): string[] {
+  if (!store || typeof store !== 'object' || !head) {
+    throw new Error('Invalid input');
+  }
+
+  const result: string[] = [];
+  let currentLevel = [head];
+
+  while (currentLevel.length > 0) {
+    const nextLevel: string[] = [];
+
+    for (const name of currentLevel) {
+      if (store[name]) {
+        result.push(store[name]);
+      }
+    }
+
+    currentLevel = nextLevel;
+  }
+
+  return result;
+}
+```

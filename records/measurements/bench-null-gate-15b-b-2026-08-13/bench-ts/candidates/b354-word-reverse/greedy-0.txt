@@ -1,0 +1,9 @@
+```ts
+export function wordReverse(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return line.split(' ').map(word => word.split('').reverse().join('')).join(' ');
+}
+```

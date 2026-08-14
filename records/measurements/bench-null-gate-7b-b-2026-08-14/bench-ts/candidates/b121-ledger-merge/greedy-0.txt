@@ -1,0 +1,62 @@
+```ts
+export function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][] {
+    const baseMap = new Map<string, number>();
+    for (const [account, cents] of base) {
+        if (typeof account !== 'string' || account.trim() === '' || !Number.isInteger(cents)) {
+            throw new Error('Invalid ledger entry');
+        }
+        baseMap.set(account, cents);
+    }
+
+    const oursMap = new Map<string, number>();
+    for (const [account, cents] of ours) {
+        if (!oursMap.has(account)) {
+            if (typeof account !== 'string' || account.trim() === '' || !Number.isInteger(cents)) {
+                throw new Error('Invalid ledger entry');
+            }
+            oursMap.set(account, 0);
+        }
+        const baseCents = baseMap.get(account) ?? 0;
+        if (cents !== baseCents) {
+            oursMap.set(account, cents - baseCents);
+        }
+    }
+
+    const theirsMap = new Map<string, number>();
+    for (const [account, cents] of theirs) {
+        if (!theirsMap.has(account)) {
+            if (typeof account !== 'string' || account.trim() === '' || !Number.isInteger(cents)) {
+                throw new Error('Invalid ledger entry');
+            }
+            theirsMap.set(account, 0);
+        }
+        const baseCents = baseMap.get(account) ?? 0;
+        if (cents !== baseCents) {
+            theirsMap.set(account, cents - baseCents);
+        }
+    }
+
+    const mergedMap = new Map<string, number>();
+    for (const [account, cents] of baseMap) {
+        const oursDelta = oursMap.get(account) ?? 0;
+        const theirsDelta = theirsMap.get(account) ?? 0;
+        if (oursDelta !== 0 || theirsDelta !== 0) {
+            mergedMap.set(account, cents + oursDelta + theirsDelta);
+        }
+    }
+
+    for (const [account, delta] of oursMap) {
+        if (!mergedMap.has(account)) {
+            mergedMap.set(account, delta);
+        }
+    }
+
+    for (const [account, delta] of theirsMap) {
+        if (!mergedMap.has(account)) {
+            mergedMap.set(account, delta);
+        }
+    }
+
+    return Array.from(mergedMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

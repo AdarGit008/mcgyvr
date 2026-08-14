@@ -1,0 +1,15 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str) or not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Invalid arguments")
+
+    if len(text) <= limit:
+        return text
+
+    trimmed = text[:limit - 1]
+    if trimmed[-1] != ' ' and ' ' in trimmed:
+        last_space = trimmed.rfind(' ')
+        trimmed = trimmed[:last_space]
+
+    return trimmed.rstrip() + '…'
+```

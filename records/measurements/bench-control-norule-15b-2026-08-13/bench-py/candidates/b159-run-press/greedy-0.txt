@@ -1,0 +1,33 @@
+```python
+from typing import List, Dict
+
+def run_press(jobs: List[List[str]], budget: int) -> Dict[str, str]:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 2 for job in jobs):
+        raise ValueError("jobs must be a non-empty list of two-item lists")
+    
+    if not isinstance(budget, int) or budget < 0:
+        raise ValueError("budget must be a non-negative whole number")
+    
+    printed = []
+    waiting = []
+    pages_spent = 0
+    
+    for name, pages in jobs:
+        if not isinstance(name, str) or len(name) == 0:
+            raise ValueError(f"job {name} has an empty name")
+        
+        if not isinstance(pages, int) or pages <= 0:
+            raise ValueError(f"job {name} has a non-positive page count")
+        
+        if pages > budget:
+            waiting.append((name, pages))
+        else:
+            printed.append(name)
+            pages_spent += pages
+    
+    return {
+        "printed": ", ".join(printed),
+        "waiting": ", ".join([f"{name} ({pages})" for name, pages in waiting]),
+        "pages": pages_spent
+    }
+```

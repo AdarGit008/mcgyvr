@@ -1,0 +1,7 @@
+```ts
+export function turnTail(entries: string[], count: number): string[] {
+  if (count < 0) throw new Error("Count cannot be negative");
+  const stop = Math.min(count, entries.length);
+  return [...entries.slice(0, -stop), ...entries.slice(-stop).reverse()];
+}
+```

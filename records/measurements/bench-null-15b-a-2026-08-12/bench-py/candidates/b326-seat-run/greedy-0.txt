@@ -1,0 +1,30 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    free_seats = []
+    current_free_seat = False
+
+    for i, char in enumerate(row):
+        if char == '.':
+            if not current_free_seat:
+                free_seats.append(i)
+                current_free_seat = True
+        elif char == 'x':
+            if current_free_seat:
+                current_free_seat = False
+            else:
+                # If we encounter an x without a preceding '.', it's the end of a run.
+                break
+
+    if not free_seats or len(free_seats) < party:
+        return -1
+
+    # Find the earliest run that can hold the party.
+    for i in range(len(free_seats)):
+        if free_seats[i] + party <= len(row):
+            return free_seats[i]
+
+    return -1
+```

@@ -1,0 +1,42 @@
+```ts
+export function cellName(row: number, column: number): string {
+  if (!Number.isInteger(row) || !Number.isInteger(column)) {
+    throw new Error("Both row and column must be integers.");
+  }
+  if (row < 0 || column < 0) {
+    throw new Error("Row and column cannot be negative.");
+  }
+
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let cellName = "";
+
+  while (column >= 26) {
+    const remainder = column % 26;
+    cellName = letters[remainder] + cellName;
+    column = Math.floor(column / 26) - 1;
+  }
+
+  cellName = letters[column] + cellName;
+
+  return `${row + 1}${cellName}`;
+}
+
+export function gridCells(rows: number, columns: number): string[] {
+  if (!Number.isInteger(rows) || !Number.isInteger(columns)) {
+    throw new Error("Both rows and columns must be integers.");
+  }
+  if (rows <= 0 || columns <= 0) {
+    throw new Error("Rows and columns cannot be zero or negative.");
+  }
+
+  const gridCells: string[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      gridCells.push(cellName(row, col));
+    }
+  }
+
+  return gridCells;
+}
+```

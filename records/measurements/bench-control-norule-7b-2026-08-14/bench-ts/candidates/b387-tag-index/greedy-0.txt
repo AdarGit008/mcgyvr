@@ -1,0 +1,35 @@
+```ts
+/**
+ * Breaks a comma-separated line into its tags, trimming spaces and removing empty ones.
+ * @param line - The line to break into tags.
+ * @returns An array of non-empty tags.
+ */
+export function tagsOf(line: unknown): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+  return line.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+}
+
+/**
+ * Returns a mapping from each tag to the lines carrying it, in the order they came.
+ * @param lines - The array of lines to process.
+ * @returns A record where keys are tags and values are arrays of lines containing those tags.
+ */
+export function tagIndex(lines: string[]): Record<string, string[]> {
+  const tagMap: Record<string, string[]> = {};
+  for (const line of lines) {
+    if (typeof line !== 'string') {
+      throw new Error('Invalid input: expected a string');
+    }
+    const tags = tagsOf(line);
+    for (const tag of tags) {
+      if (!tagMap[tag]) {
+        tagMap[tag] = [];
+      }
+      tagMap[tag].push(line);
+    }
+  }
+  return tagMap;
+}
+```

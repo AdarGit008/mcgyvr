@@ -1,0 +1,27 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    
+    for layer in layers:
+        if not isinstance(layer, str):
+            raise ValueError("Layer must be a string")
+        
+        lines = layer.splitlines()
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if line.startswith('!'):
+                if line[1:].strip() == name:
+                    return None
+            else:
+                parts = line.split('=', 1)
+                if len(parts) != 2:
+                    raise ValueError("Non-ignored line must have an equals sign or be an unset line")
+                key, value = parts
+                if key.strip() == name:
+                    return value.strip()
+    
+    return None
+```

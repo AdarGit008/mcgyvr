@@ -1,0 +1,21 @@
+```python
+def run_decode(coded: str) -> str:
+    """Decode a run-length encoded string."""
+    if not coded:
+        return ""
+    
+    decoded = []
+    i = 0
+    while i < len(coded):
+        letter = coded[i]
+        i += 1
+        count = ""
+        while i < len(coded) and coded[i].isdigit():
+            count += coded[i]
+            i += 1
+        if not count:
+            raise ValueError("Invalid run-length encoding")
+        decoded.append(letter * int(count))
+    
+    return "".join(decoded)
+```

@@ -1,0 +1,18 @@
+```ts
+/**
+ * Determines if all readings fall within the specified inclusive range.
+ * An empty array always falls within any range.
+ * Throws an error if the low bound is above the high bound.
+ *
+ * @param readings - Array of numbers representing readings.
+ * @param low - The lower bound of the range (inclusive).
+ * @param high - The upper bound of the range (inclusive).
+ * @returns true if all readings are within the range, false otherwise.
+ */
+export function rangeCheck(readings: number[], low: number, high: number): boolean {
+  if (low > high) {
+    throw new Error("Low bound cannot be greater than high bound.");
+  }
+  return readings.every(reading => reading >= low && reading <= high);
+}
+```

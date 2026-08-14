@@ -1,0 +1,35 @@
+```python
+from typing import *
+from collections import *
+
+def apply_edit_script(original: str, script: List[List[str]]) -> str:
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    
+    result = []
+    i = 0
+    
+    for op in script:
+        if len(op) != 2:
+            raise ValueError(f"Invalid op {op}")
+        
+        op_name, count = op
+        
+        if op_name == "copy":
+            if not isinstance(count, int) or count <= 0:
+                raise ValueError("Copy count must be a positive integer")
+            result.extend(original[i:i+count])
+            i += count
+        elif op_name == "skip":
+            if not isinstance(count, int) or count < 0:
+                raise ValueError("Skip count must be a non-negative integer")
+            i += count
+        elif op_name == "insert":
+            if not isinstance(count, str) or not count:
+                raise ValueError("Insert text must be a non-empty string")
+            result.append(count)
+        else:
+            raise ValueError(f"Unknown op {op}")
+    
+    return ''.join(result)
+```

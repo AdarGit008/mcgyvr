@@ -1,0 +1,15 @@
+```ts
+/**
+ * Adds up the digits of a code and returns whatever single digit would have to follow them to bring that total up to a multiple of ten.
+ * A code with no digits at all needs a zero. Rejects a code carrying any character that is not a digit with an error.
+ *
+ * @param {string} code - The code to calculate the check digit for.
+ * @returns {number} - The calculated check digit.
+ */
+export function checkDigit(code: string): number {
+  const digits = code.split('').filter(char => /^\d$/.test(char)).map(Number);
+  if (digits.length === 0) return 0;
+  const sum = digits.reduce((acc, digit) => acc + digit, 0);
+  return (10 - (sum % 10)) % 10;
+}
+```

@@ -1,0 +1,20 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    def parse_mark(mark: str) -> list[int]:
+        if not isinstance(mark, str) or not mark:
+            raise ValueError("Invalid mark format")
+        parts = mark.split('.')
+        for part in parts:
+            if not part.isdigit() or (part[0] == '0' and len(part) > 1):
+                raise ValueError("Invalid mark format")
+        return [int(part) for part in parts]
+
+    a_parts, b_parts = parse_mark(a), parse_mark(b)
+    min_len = min(len(a_parts), len(b_parts))
+    for i in range(min_len):
+        if a_parts[i] < b_parts[i]:
+            return -1
+        elif a_parts[i] > b_parts[i]:
+            return 1
+    return len(a_parts) - len(b_parts)
+```

@@ -1,0 +1,83 @@
+```ts
+function parseSheet(opening: string): Map<string, number> {
+  const held = new Map<string, number>();
+  if (opening === "") {
+    return held;
+  }
+  for (const part of opening.split(";")) {
+    const colon = part.indexOf(":");
+    if (colon < 0) {
+      throw new Error(`sheet entry has no colon: ${part}`);
+    }
+    const name = part.slice(0, colon).trim();
+    const count = part.slice(colon + 1).trim();
+    if (!/^[a-z]+$/.test(name)) {
+      throw new Error(`bad item name: ${part}`);
+    }
+    if (!/^(?:0|[1-9]\d*)$/.test(count)) {
+      throw new Error(`bad count: ${part}`);
+    }
+    if (held.has(name)) {
+      throw new Error(`duplicate sheet entry: ${name}`);
+    }
+    held.set(name, Number(count));
+  }
+  return held;
+}
+
+function applyMoves(held: Map<string, number>, moves: string): void {
+  for (const part of moves.split(";")) {
+    const plus = part.indexOf("+");
+    const minus = part.indexOf("-");
+    if (plus < 0 && minus < 0) {
+      throw new Error(`move has no + or -: ${part}`);
+    }
+    let name: string;
+    let qty: number;
+    if (plus >= 0) {
+      name = part.slice(0, plus).trim();
+      const count = part.slice(plus + 1).trim();
+      if (!/^[a-z]+$/.test(name)) {
+        throw new Error(`bad item name in move: ${part}`);
+      }
+      if (!/^(?:[1-9]\d*)$/.test(count)) {
+        throw new Error(`bad count in move: ${part}`);
+      }
+      qty = Number(count);
+    } else {
+      name = part.slice(0, minus).trim();
+      const count = part.slice(minus + 1).trim();
+      if (!/^[a-z]+$/.test(name)) {
+        throw new Error(`bad item name in move: ${part}`);
+      }
+      if (!/^(?:[1-9]\d*)$/.test(count)) {
+        throw new Error(`bad count in move: ${part}`);
+      }
+      qty = -Number(count);
+    }
+    if (!held.has(name)) {
+      throw new Error(`move issues an item not on the sheet: ${name}`);
+    }
+    const currentCount = held.get(name)!;
+    if (qty > 0 && currentCount + qty < 0) {
+      throw new Error(`move issues more units than available: ${name}`);
+    }
+    held.set(name, currentCount + qty);
+  }
+}
+
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== "string" || typeof moves !== "string") {
+    throw new Error("closingSheet expects two strings");
+  }
+  const held = parseSheet(opening);
+  applyMoves(held, moves);
+  const entries: string[] = [];
+  for (const name of [...held.keys()].sort()) {
+    if (held.get(name)! > 0) {
+      entries.push(`${name}:${held.get(name)}`);
+    }
+  }
+  return entries.join(";");
+}
+```

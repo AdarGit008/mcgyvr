@@ -1,0 +1,24 @@
+```ts
+function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(bits) || bits <= 0) {
+    throw new Error("capacity must be a positive integer");
+  }
+  const wordCount = Math.ceil(bits / WORD_BITS);
+  if (wordCount !== words.length) {
+    throw new Error("word count does not match the capacity");
+  }
+
+  let start = 0;
+  while (start < wordCount * WORD_BITS && bitOf(words, start)) {
+    start++;
+  }
+
+  for (let i = start; i < wordCount * WORD_BITS; i++) {
+    if (!bitOf(words, i) && length <= i - start + 1) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+```

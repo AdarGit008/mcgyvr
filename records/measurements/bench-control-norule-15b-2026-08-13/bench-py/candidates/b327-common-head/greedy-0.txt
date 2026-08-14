@@ -1,0 +1,25 @@
+```python
+from typing import List, Optional
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+    
+    # Find the longest run of characters that every word starts with
+    longest_run = ""
+    current_run = ""
+    
+    for word in words:
+        if not current_run or word[0] == current_run[-1]:
+            current_run += word[0]
+        else:
+            if len(current_run) > len(longest_run):
+                longest_run = current_run
+            current_run = word[0]
+    
+    # Check the last run if it's longer than the previous one
+    if len(current_run) > len(longest_run):
+        longest_run = current_run
+    
+    return longest_run
+```

@@ -1,0 +1,19 @@
+```ts
+export function crateFill(items: number, crates: number): number[] {
+  if (crates <= 0) return [];
+
+  const perCrate = Math.floor(items / crates);
+  const remainder = items % crates;
+
+  let result: number[] = [];
+  for (let i = 0; i < crates; i++) {
+    result.push(perCrate + (i < remainder ? 1 : 0));
+  }
+
+  return result;
+}
+
+export function crateTotal(sizes: number[]): number {
+  return sizes.reduce((acc, size) => acc + size, 0);
+}
+```

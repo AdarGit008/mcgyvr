@@ -1,0 +1,17 @@
+```python
+from typing import Dict
+
+
+def row_keys(row: Dict[str, str]) -> list:
+    return list(row.keys())
+
+
+def merge_rows(under: Dict[str, str], over: Dict[str, str]) -> Dict[str, str]:
+    """One row laid over another, the row above winning."""
+    merged = dict(over)
+    for key in row_keys(under):
+        if key in merged:
+            continue
+        merged[key] = under[key]
+    return merged
+```

@@ -1,0 +1,7 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if '.' in head:
+        raise ValueError("Head cannot contain a full stop")
+    
+    return [key.split('.')[1] for key in store.keys() if key.startswith(f"{head}.")]
+```

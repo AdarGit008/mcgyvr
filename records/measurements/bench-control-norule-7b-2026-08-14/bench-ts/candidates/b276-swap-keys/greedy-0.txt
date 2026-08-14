@@ -1,0 +1,16 @@
+```ts
+/**
+ * Swaps keys and values in a mapping from names to codes, keeping the first name for duplicate codes.
+ * @param names - A record mapping names to codes.
+ * @returns A new record mapping codes to names, excluding empty codes.
+ */
+export function swapKeys(names: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [name, code] of Object.entries(names)) {
+    if (code) {
+      result[code] = name;
+    }
+  }
+  return result;
+}
+```

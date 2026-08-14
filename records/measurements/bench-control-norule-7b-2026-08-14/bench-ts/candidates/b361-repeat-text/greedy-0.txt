@@ -1,0 +1,13 @@
+```ts
+/**
+ * Repeats a phrase a given number of times, joined by a specified separator.
+ * @param phrase - The phrase to repeat.
+ * @param times - The number of times to repeat the phrase.
+ * @param between - The separator to use between repetitions.
+ * @returns The repeated phrases joined by the separator.
+ */
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (times <= 0) return '';
+  return Array(times).fill(phrase).join(between);
+}
+```

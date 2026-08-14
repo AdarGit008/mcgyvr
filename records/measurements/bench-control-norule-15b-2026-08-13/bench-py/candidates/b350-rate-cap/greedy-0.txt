@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def rate_cap(price: int, rate: int, most: int) -> int:
+    if rate < 0 or most < 0:
+        raise ValueError("Rate and most must be non-negative")
+    
+    increase = price * (rate / 100)
+    if increase > most:
+        increase = most
+    
+    return round(price + increase)
+```

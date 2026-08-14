@@ -1,0 +1,14 @@
+```ts
+/**
+ * Returns the entries of `entries` that do not appear in `remove`, keeping the order they came in and keeping any repeats among them.
+ * Removing from an empty list gives an empty list.
+ *
+ * @param entries - The list of strings to filter.
+ * @param remove - The list of strings to remove from `entries`.
+ * @returns A new array containing only the entries that are not in `remove`.
+ */
+export function setMinus(entries: string[], remove: string[]): string[] {
+  const removeSet = new Set(remove);
+  return entries.filter(entry => !removeSet.has(entry));
+}
+```

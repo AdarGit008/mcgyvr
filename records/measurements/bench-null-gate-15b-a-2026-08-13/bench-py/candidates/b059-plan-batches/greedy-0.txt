@@ -1,0 +1,42 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers.")
+
+    def split_consignment(units, capacity):
+        if units <= capacity:
+            return {units: units}
+        else:
+            half = (units + capacity - 1) // 2
+            left = split_consignment(half, capacity)
+            right = split_consignment(units - half, capacity)
+            return {**left, **right}
+
+    def plan_loads(units, capacity):
+        if units <= capacity:
+            return {units: units}
+        else:
+            left = plan_loads((units + capacity - 1) // 2, capacity)
+            right = plan_loads(units - (units + capacity - 1) // 2, capacity)
+            return {**left, **right}
+
+    loads = plan_loads(units, capacity)
+    splits = len(loads) - 1
+    rounds = 0
+
+    while splits > 0:
+        left = loads.popitem()
+        right = loads.popitem()
+        new_left = split_consignment(left[0], left[1])
+        new_right = split_consignment(right[0], right[1])
+        loads.update(new_left)
+        loads.update(new_right)
+        splits += len(new_left) + len(new_right)
+        rounds += 1
+
+    return {
+        "loads": loads,
+        "splits": splits,
+        "rounds": rounds
+    }
+```

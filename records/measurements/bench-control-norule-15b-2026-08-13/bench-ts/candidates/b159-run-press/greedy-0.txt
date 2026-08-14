@@ -1,0 +1,30 @@
+```ts
+function runPress(jobs: [string, number][], budget: number): { printed: string[]; waiting: string[]; pages: number } {
+  if (!Array.isArray(jobs) || !jobs.length) {
+    throw new Error("Invalid input: jobs must be a non-empty array");
+  }
+
+  const printed: string[] = [];
+  let waiting: string[] = [];
+  let pages: number = 0;
+
+  for (const [name, pages] of jobs) {
+    if (!typeof name === "string" || !name.trim()) {
+      throw new Error("Invalid input: job names must be non-empty strings");
+    }
+    if (!Number.isInteger(pages) || pages <= 0) {
+      throw new Error("Invalid input: job pages must be positive whole numbers");
+    }
+
+    if (pages > budget) {
+      waiting.push(name);
+    } else {
+      printed.push(name);
+      budget -= pages;
+      pages = 0; // Reset for the next job
+    }
+  }
+
+  return { printed, waiting, pages };
+}
+```

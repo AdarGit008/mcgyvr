@@ -1,0 +1,50 @@
+```ts
+/**
+ * Unpacks items from nested crates into a flat list.
+ * @param crate - The nested crate to unpack.
+ * @returns A flat list of item names in the order they appear.
+ */
+export function unpackCrates(crate: unknown[]): string[] {
+  if (!Array.isArray(crate)) {
+    throw new Error('Invalid input: expected an array');
+  }
+
+  const items: string[] = [];
+
+  for (const entry of crate) {
+    if (typeof entry === 'string' && entry !== '') {
+      items.push(entry);
+    } else if (Array.isArray(entry)) {
+      items.push(...unpackCrates(entry));
+    } else {
+      throw new Error('Invalid input: expected a non-empty string or an array');
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Calculates the depth of nested crates.
+ * @param crate - The nested crate to measure.
+ * @returns The deepest nesting level of the crate.
+ */
+export function crateDepth(crate: unknown[]): number {
+  if (!Array.isArray(crate)) {
+    throw new Error('Invalid input: expected an array');
+  }
+
+  let maxDepth = 1;
+
+  for (const entry of crate) {
+    if (Array.isArray(entry)) {
+      const depth = crateDepth(entry);
+      if (depth > maxDepth) {
+        maxDepth = depth;
+      }
+    }
+  }
+
+  return maxDepth + 1;
+}
+```

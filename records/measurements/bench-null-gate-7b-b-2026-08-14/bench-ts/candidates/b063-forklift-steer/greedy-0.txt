@@ -1,0 +1,29 @@
+```ts
+export function steerForklift(aisles: number, bays: number, moves: string[]): number[] {
+  if (!Number.isInteger(aisles) || aisles <= 0) throw new Error('Invalid aisle count');
+  if (!Number.isInteger(bays) || bays <= 0) throw new Error('Invalid bay count');
+
+  let [currentAisle, currentBay] = [0, 0];
+
+  for (const move of moves) {
+    switch (move.toLowerCase()) {
+      case 'north':
+        if (currentBay > 0) currentBay--;
+        break;
+      case 'south':
+        if (currentBay < bays - 1) currentBay++;
+        break;
+      case 'east':
+        if (currentAisle < aisles - 1) currentAisle++;
+        break;
+      case 'west':
+        if (currentAisle > 0) currentAisle--;
+        break;
+      default:
+        throw new Error('Invalid move');
+    }
+  }
+
+  return [currentAisle, currentBay];
+}
+```

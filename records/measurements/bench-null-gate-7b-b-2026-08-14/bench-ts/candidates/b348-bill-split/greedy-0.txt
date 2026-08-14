@@ -1,0 +1,23 @@
+```ts
+/**
+ * Divide a bill between a number of diners so that each pays a whole number of pence.
+ * Everyone pays the same except the first, who also takes whatever pennies are left over.
+ * @param total - The total amount of the bill in pence.
+ * @param diners - The number of diners.
+ * @returns An array where each element represents how much each diner should pay.
+ */
+export function billSplit(total: number, diners: number): number[] {
+  if (diners <= 0) {
+    throw new Error("There must be at least one diner.");
+  }
+
+  const basePayment = Math.floor(total / diners);
+  const remainder = total % diners;
+  const payments = Array(diners).fill(basePayment);
+
+  // The first diner pays the remainder
+  payments[0] += remainder;
+
+  return payments;
+}
+```

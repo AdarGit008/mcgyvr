@@ -1,0 +1,55 @@
+```python
+from typing import List, Tuple
+
+class Draw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall: int):
+        self.order_id = order_id
+        self.shortfall = shortfall
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> dict:
+    picks = []
+    draws = []
+    short = []
+
+    # Sort lots by use-by date and lot id
+    lots.sort(key=lambda x: (x[1], x[0]))
+
+    for order_id, units_wanted in orders:
+        remaining_units = units_wanted
+
+        while remaining_units > 0:
+            earliest_lot = None
+            earliest_date = None
+
+            # Find the lot with the earliest use-by date that still holds units
+            for lot_id, _, units_on_hand in lots:
+                if units_on_hand > 0 and (earliest_lot is None or lot_id < earliest_lot):
+                    earliest_lot = lot_id
+                    earliest_date = lot[1]
+
+            if earliest_lot is None:
+                # If no lot can be found, record the shortfall
+                short.append(Shortfall(order_id, remaining_units))
+                break
+
+            # Draw from the lot with the earliest use-by date
+            units_to_draw = min(units_on_hand, remaining_units)
+            picks.append(Draw(order_id, earliest_lot, units_to_draw))
+            draws.append((order_id, earliest_lot, units_to_draw))
+
+            # Update the stock and remaining units
+            lots[lot_id] = (lot_id, lot[1], units_on_hand - units_to_draw)
+            remaining_units -= units_to_draw
+
+    return {
+        'picks': picks,
+        'draws': draws,
+        'short': short
+    }
+```

@@ -1,0 +1,20 @@
+```python
+from typing import List, Union
+
+def step_cost(kind: str) -> int:
+    if kind == "walk":
+        return 1
+    elif kind == "bike":
+        return 2
+    else:
+        raise ValueError("Invalid step kind")
+
+def path_toll(steps: List[str]) -> int:
+    total = 0
+    for i, step in enumerate(steps):
+        cost = step_cost(step)
+        if (i + 1) % 3 == 0:
+            cost = 0
+        total += cost
+    return total
+```

@@ -1,0 +1,19 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners == 0:
+        raise ValueError("No diners means no split.")
+    
+    # Calculate the total amount each diner pays except the first one
+    per_diner = total // diners
+    
+    # Calculate the remainder of the division
+    remainder = total % diners
+    
+    # Create a list to store the payment for each diner
+    payments = [per_diner] * (diners - 1)
+    
+    # Add the remainder to the first diner's payment
+    payments[0] += remainder
+    
+    return payments
+```

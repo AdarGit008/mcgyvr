@@ -1,0 +1,36 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+def install_order(packages: list, requires: list) -> list:
+    if len(set(packages)) != len(packages):
+        raise ValueError("Duplicate package names are not allowed.")
+    
+    all_packages = set(packages)
+    for pkg, needed in requires:
+        if pkg not in all_packages or needed not in all_packages:
+            raise ValueError("Requirement pair contains a package name that is absent from the list.")
+    
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        if (pkg, needed) in requires:
+            continue
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+    
+    ready = [name for name in packages if needs[name] == 0]
+    order = []
+    while ready:
+        next_name = min(ready)  # Sort alphabetically first
+        order.append(next_name)
+        ready.remove(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+    
+    if len(order) != len(packages):
+        raise ValueError("A cycle was detected in the requirements.")
+    
+    return order
+```

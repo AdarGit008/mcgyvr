@@ -1,0 +1,42 @@
+```ts
+export function reserveLots(lots: [string, string, number][], orders: [string, number][]): { picks: [string, string, number][]; short: [string, number][] } {
+    if (lots.length === 0 || orders.length === 0) return { picks: [], short: [] };
+
+    lots.sort((a, b) => new Date(a[1]).getTime() - new Date(b[1]).getTime());
+    orders.sort((a, b) => a[1] - b[1]);
+
+    const picks: [string, string, number][] = [];
+    const short: [string, number][] = [];
+
+    let lotIndex = 0;
+    let orderIndex = 0;
+
+    while (orderIndex < orders.length && lotIndex < lots.length) {
+        const order = orders[orderIndex];
+        const lot = lots[lotIndex];
+
+        if (new Date(lot[1]).getTime() <= new Date(order[1]).getTime()) {
+            picks.push([order[0], lot[0], Math.min(order[1] - lot[2], lot[2])]);
+            lot[2] -= Math.min(order[1] - lot[2], lot[2]);
+            if (lot[2] === 0) {
+                lotIndex++;
+            }
+        } else {
+            short.push([order[0], order[1]]);
+            orderIndex++;
+        }
+    }
+
+    while (orderIndex < orders.length) {
+        short.push([orders[orderIndex][0], orders[orderIndex][1]]);
+        orderIndex++;
+    }
+
+    while (lotIndex < lots.length) {
+        picks.push([null, lots[lotIndex][0], lots[lotIndex][2]]);
+        lotIndex++;
+    }
+
+    return { picks, short };
+}
+```

@@ -1,0 +1,12 @@
+```ts
+/**
+ * Calculates the original price before tax was added.
+ * @param gross - The gross price including tax.
+ * @param rate - The tax rate as a whole number percentage.
+ * @returns The original price before tax, rounded down.
+ */
+export function vatBack(gross: number, rate: number): number {
+  if (rate < 0) throw new Error("Tax rate cannot be negative.");
+  return Math.floor(gross / (1 + rate / 100));
+}
+```

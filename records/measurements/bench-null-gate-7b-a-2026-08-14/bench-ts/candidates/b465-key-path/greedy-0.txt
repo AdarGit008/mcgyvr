@@ -1,0 +1,16 @@
+```ts
+/**
+ * Returns the names standing directly under a stated head in the store,
+ * without the head and its stop. Names under a deeper head are left out.
+ *
+ * @param store - An object where keys are names joined by full stops.
+ * @param head - The head name to filter under.
+ * @returns An array of names directly under the head.
+ */
+export function keyPath(store: Record<string, string>, head: string): string[] {
+  const headLength = head.length + 1; // Include the dot
+  return Object.keys(store).filter(key => 
+    key.startsWith(head) && key[headLength] === '.'
+  ).map(key => key.slice(headLength + 1));
+}
+```

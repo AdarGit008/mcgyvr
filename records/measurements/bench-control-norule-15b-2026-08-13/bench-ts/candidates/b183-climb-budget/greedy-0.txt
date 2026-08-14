@@ -1,0 +1,22 @@
+```ts
+function climbBudget(tolls: string[]): number {
+  if (!tolls || !Array.isArray(tolls)) {
+    throw new Error('Input must be an array of strings');
+  }
+
+  let totalCost = 0;
+  let currentTollIndex = 0;
+
+  while (currentTollIndex < tolls.length) {
+    const toll = tolls[currentTollIndex];
+    if (!/^\d+$/.test(toll)) {
+      throw new Error(`Invalid toll at position ${currentTollIndex + 1}: "${toll}"`);
+    }
+
+    totalCost += parseInt(toll, 10);
+    currentTollIndex++;
+  }
+
+  return totalCost;
+}
+```

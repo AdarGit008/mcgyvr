@@ -1,0 +1,29 @@
+```ts
+/**
+ * Compares two clause marks and returns -1 if the first comes earlier,
+ * 1 if it comes later, and 0 if they are identical.
+ * @param a - The first clause mark to compare.
+ * @param b - The second clause mark to compare.
+ * @returns -1, 0, or 1 based on the comparison.
+ */
+export function clauseOrder(a: string, b: string): number {
+    const validateMark = (mark: string): void => {
+        if (typeof mark !== 'string' || mark === '') throw new Error('Invalid mark');
+        if (/^\d+\.\d+$/.test(mark)) throw new Error('Empty number left by a stray dot');
+        if (/^0\d/.test(mark)) throw new Error('Number with a leading zero');
+        if (!/^\d+(\.\d+)?$/.test(mark)) throw new Error('Invalid character in mark');
+    };
+
+    validateMark(a);
+    validateMark(b);
+
+    const partsA = a.split('.').map(Number);
+    const partsB = b.split('.').map(Number);
+
+    for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+        if (partsA[i] !== partsB[i]) return partsA[i] > partsB[i] ? 1 : -1;
+    }
+
+    return partsA.length === partsB.length ? 0 : partsA.length > partsB.length ? 1 : -1;
+}
+```

@@ -1,0 +1,27 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("Fields must be a non-empty list of strings.")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        
+        row = []
+        for field in fields:
+            stem, optional = field[:-1], field.endswith('?')
+            if not stem or (stem + '?' in fields and stem in fields):
+                raise ValueError("Invalid field name.")
+            
+            value = record.get(stem)
+            if value is None and not optional:
+                continue
+            
+            row.append(value)
+        
+        if len(row) == len(fields):
+            result.append(row)
+    
+    return result
+```

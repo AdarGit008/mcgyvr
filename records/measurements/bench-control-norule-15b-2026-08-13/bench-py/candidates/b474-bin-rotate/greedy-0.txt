@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def bin_rotate(entries: List[str], places: int) -> List[str]:
+    if len(entries) == 0:
+        return []
+    
+    shift = places % len(entries)
+    out = []
+    
+    for i in range(len(entries)):
+        # Calculate the new index after shifting
+        new_index = (i + shift) % len(entries)
+        
+        # If the new index is the same as the current index, it means no rotation occurred
+        if new_index == i:
+            continue
+        
+        # Append the element at the new index to the output list
+        out.append(entries[new_index])
+    
+    return out
+```

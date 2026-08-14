@@ -1,0 +1,8 @@
+```ts
+export function shedTail(text: string, piece: string): string {
+  while (text.endsWith(piece)) {
+    text = text.slice(0, -piece.length);
+  }
+  return text;
+}
+```

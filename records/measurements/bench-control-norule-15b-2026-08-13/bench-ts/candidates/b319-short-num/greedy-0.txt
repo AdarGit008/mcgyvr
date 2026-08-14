@@ -1,0 +1,25 @@
+```ts
+function shortNum(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error('Value must be an integer');
+  }
+
+  const units = ['', 'k', 'm'];
+  let result = '';
+
+  for (let i = 0; value >= 1000 && i < units.length; i++) {
+    const unit = units[i];
+    const remainder = value % 1000;
+    if (remainder === 0) {
+      result += `${value / 1000}${unit}`;
+      break;
+    } else {
+      const roundedValue = Math.floor(remainder / 10);
+      result += `${roundedValue}${unit}`;
+      value -= remainder;
+    }
+  }
+
+  return result;
+}
+```

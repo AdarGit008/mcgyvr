@@ -1,0 +1,39 @@
+```ts
+export function lineClusters(stops: string[], links: [string, string][]): string[][] {
+  if (!stops || !links) throw new Error("Input cannot be null or undefined");
+
+  const stopMap = stops.reduce((acc, stop) => {
+    acc[stop] = true;
+    return acc;
+  }, {});
+
+  const clusterMap = new Map<string, string[]>();
+
+  for (const [from, to] of links) {
+    if (!stopMap[from]) continue;
+    if (!stopMap[to]) continue;
+
+    let currentCluster = clusterMap.get(from);
+    if (!currentCluster) {
+      currentCluster = [];
+      clusterMap.set(from, currentCluster);
+    }
+
+    currentCluster.push(to);
+
+    const reverseCurrentCluster = [...currentCluster].reverse();
+    for (const stop of reverseCurrentCluster) {
+      if (!clusterMap.has(stop)) {
+        clusterMap.set(stop, currentCluster);
+      } else {
+        const existingCluster = clusterMap.get(stop)!;
+        if (existingCluster.length < currentCluster.length) {
+          clusterMap.set(stop, currentCluster);
+        }
+      }
+    }
+  }
+
+  return Array.from(clusterMap.values()).map(cluster => cluster.sort());
+}
+```

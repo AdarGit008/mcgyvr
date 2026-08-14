@@ -1,0 +1,16 @@
+```ts
+function windowMax(readings: number[], width: number): number[] {
+  if (width < 1) throw new Error("Width must be at least 1");
+
+  const result: number[] = [];
+  for (let i = 0; i <= readings.length - width; i++) {
+    let maxReading = readings[i];
+    for (let j = i + 1; j < i + width; j++) {
+      if (readings[j] > maxReading) maxReading = readings[j];
+    }
+    result.push(maxReading);
+  }
+
+  return result;
+}
+```

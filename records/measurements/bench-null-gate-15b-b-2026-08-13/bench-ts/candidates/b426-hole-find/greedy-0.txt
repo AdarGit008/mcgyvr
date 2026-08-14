@@ -1,0 +1,14 @@
+```ts
+export function stepsOn(first: number, count: number): number[] {
+  if (count <= 0) throw new Error("Count must be positive");
+  return Array.from({ length: count }, (_, i) => first + i);
+}
+
+export function holeFind(seen: number[], first: number, count: number): number | undefined {
+  const sequence = stepsOn(first, count);
+  for (let i = 0; i < sequence.length; i++) {
+    if (!seen.includes(sequence[i])) return sequence[i];
+  }
+  return undefined;
+}
+```

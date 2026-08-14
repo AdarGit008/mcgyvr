@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def selector_hits(values: List[int], selector: str) -> int:
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("Selector must be a non-empty string")
+    
+    def parse_term(term):
+        parts = term.split('-')
+        if len(parts) == 1:
+            return int(parts[0])
+        elif len(parts) == 2:
+            low, high = map(int, parts)
+            if low > high:
+                raise ValueError("Range low must be less than or equal to high")
+            return range(low, high + 1)
+        else:
+            raise ValueError("Invalid term format")
+    
+    def matches_term(value, term):
+        if isinstance(term, int):
+            return value == term
+        elif isinstance(term, range):
+            return value in term
+    
+    hits = 0
+    for value in values:
+        for term in selector.split(','):
+            if matches_term(value, parse_term(term)):
+                hits += 1
+                break
+    return hits
+```

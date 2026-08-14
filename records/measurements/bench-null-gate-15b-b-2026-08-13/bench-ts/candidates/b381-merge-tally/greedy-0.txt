@@ -1,0 +1,33 @@
+```ts
+export function addOne(tally: Record<string, number>, name: string, amount: number): Record<string, number> {
+  if (typeof tally !== 'object' || tally === null) {
+    throw new Error('Invalid input: tally must be an object');
+  }
+  if (typeof name !== 'string') {
+    throw new Error('Invalid input: name must be a string');
+  }
+  if (typeof amount !== 'number') {
+    throw new Error('Invalid input: amount must be a number');
+  }
+
+  tally[name] = (tally[name] || 0) + amount;
+  return tally;
+}
+
+export function mergeTally(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  if (typeof left !== 'object' || left === null) {
+    throw new Error('Invalid input: left must be an object');
+  }
+  if (typeof right !== 'object' || right === null) {
+    throw new Error('Invalid input: right must be an object');
+  }
+
+  for (const name in right) {
+    if (right.hasOwnProperty(name)) {
+      left[name] = (left[name] || 0) + right[name];
+    }
+  }
+
+  return left;
+}
+```

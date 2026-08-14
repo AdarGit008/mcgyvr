@@ -1,0 +1,24 @@
+```ts
+/**
+ * Returns the longest run of characters that every word in a list begins with.
+ * @param words - The list of words to analyze.
+ * @returns The common prefix or an empty string if none exists.
+ */
+export function commonHead(words: string[]): string {
+  if (words.length === 0) return "";
+
+  const shortestWord = Math.min(...words.map(word => word.length));
+  let commonPrefix = "";
+
+  for (let i = 0; i < shortestWord; i++) {
+    const char = words[0][i];
+    if (words.every(word => word[i] === char)) {
+      commonPrefix += char;
+    } else {
+      break;
+    }
+  }
+
+  return commonPrefix;
+}
+```

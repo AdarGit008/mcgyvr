@@ -1,0 +1,45 @@
+```ts
+/**
+ * Finds the smallest start of a run of length free blocks lying entirely below the capacity.
+ * @param words - The block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied.
+ * @param bits - The total number of bits in the bitmap.
+ * @param length - The length of the run to find.
+ * @returns The smallest start of a free run of the given length below the capacity, or -1 if none exists.
+ */
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  checkWords(words);
+  if (!Number.isInteger(bits) || bits <= 0) {
+    throw new Error("capacity must be a positive integer");
+  }
+  const wordCount = Math.ceil(bits / WORD_BITS);
+  if (words.length !== wordCount) {
+    throw new Error("word count disagrees with the capacity");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("run length must be a positive integer");
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    if (!Number.isInteger(word) || word < 0 || word > WORD_MAX) {
+      throw new Error("bitmap words must be integers from 0 to 4294967295");
+    }
+  }
+
+  for (let start = 0; start <= bits - length; start++) {
+    let freeBlocks = 0;
+    for (let i = start; i < start + length; i++) {
+      if (bitOf(words, i) === 0) {
+        freeBlocks++;
+      } else {
+        break;
+      }
+    }
+    if (freeBlocks === length) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+```

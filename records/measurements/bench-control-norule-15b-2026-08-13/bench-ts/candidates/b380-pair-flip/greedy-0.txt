@@ -1,0 +1,12 @@
+```ts
+function flipOne(pair: string[]): string[] {
+  if (pair.length !== 2) {
+    throw new Error("flipOne expects exactly two elements");
+  }
+  return [pair[1], pair[0]];
+}
+
+function flipAll(pairs: string[][]): string[][] {
+  return pairs.map(flipOne);
+}
+```

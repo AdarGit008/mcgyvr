@@ -1,0 +1,11 @@
+```ts
+function lastFour(number: string): string {
+  return number.slice(-4);
+}
+
+function maskCard(number: string): string {
+  if (!number) throw new Error("Input cannot be empty");
+  const stars = "*".repeat(number.length - 4);
+  return `${stars}${number.slice(-4)}`;
+}
+```

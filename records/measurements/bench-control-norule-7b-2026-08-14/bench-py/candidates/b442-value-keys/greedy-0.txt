@@ -1,0 +1,4 @@
+```python
+def value_keys(store: dict) -> dict:
+    return {value: sum(1 for key, val in store.items() if val == value) for value in set(store.values())}
+```

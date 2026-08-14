@@ -1,0 +1,51 @@
+```ts
+/**
+ * Drives a canal drawbridge based on a list of commands.
+ * @param commands - An array of strings representing the commands to apply.
+ * @returns The final state of the bridge as one of 'lowered', 'raised', or 'locked'.
+ */
+export function driveBridge(commands: string[]): string {
+  if (!Array.isArray(commands)) {
+    throw new Error('Invalid input: commands must be an array');
+  }
+
+  let state: 'lowered' | 'raised' | 'locked' = 'lowered';
+
+  for (const command of commands) {
+    switch (command.toLowerCase()) {
+      case 'raise':
+        if (state === 'lowered') {
+          state = 'raised';
+        } else {
+          throw new Error(`Invalid command: ${command} not allowed in state ${state}`);
+        }
+        break;
+      case 'lower':
+        if (state === 'raised' || state === 'locked') {
+          state = 'lowered';
+        } else {
+          throw new Error(`Invalid command: ${command} not allowed in state ${state}`);
+        }
+        break;
+      case 'lock':
+        if (state === 'raised') {
+          state = 'locked';
+        } else {
+          throw new Error(`Invalid command: ${command} not allowed in state ${state}`);
+        }
+        break;
+      case 'unlock':
+        if (state === 'locked') {
+          state = 'raised';
+        } else {
+          throw new Error(`Invalid command: ${command} not allowed in state ${state}`);
+        }
+        break;
+      default:
+        throw new Error(`Invalid command: ${command}`);
+    }
+  }
+
+  return state;
+}
+```

@@ -1,0 +1,12 @@
+```ts
+export function tagOpen(marker: string): string {
+  if (!/^\s*<\s*(\/)?(\w+)\s*>$/i.test(marker)) {
+    throw new Error('Invalid marker format');
+  }
+  return RegExp.$3;
+}
+
+export function tagPair(opening: string, closing: string): boolean {
+  return opening === closing;
+}
+```

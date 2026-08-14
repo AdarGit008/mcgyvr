@@ -1,0 +1,29 @@
+```ts
+export function planBatches(units: number, capacity: number): { loads: number[]; splits: number; rounds: number } {
+  if (!Number.isInteger(units) || !Number.isInteger(capacity)) {
+    throw new Error('Both units and capacity must be positive integers.');
+  }
+
+  const loads: number[] = [];
+  let splits = 0;
+  let rounds = 0;
+
+  function planConsignment(units: number, capacity: number): void {
+    if (units <= capacity) {
+      loads.push(units);
+    } else {
+      const halfUnits = Math.ceil(units / 2);
+      const secondHalfUnits = units - halfUnits;
+      splits++;
+      rounds++;
+
+      planConsignment(halfUnits, capacity);
+      planConsignment(secondHalfUnits, capacity);
+    }
+  }
+
+  planConsignment(units, capacity);
+
+  return { loads, splits, rounds };
+}
+```

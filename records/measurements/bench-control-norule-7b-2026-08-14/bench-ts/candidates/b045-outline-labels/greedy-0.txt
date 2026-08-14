@@ -1,0 +1,49 @@
+```ts
+/**
+ * Returns labels for each section in the document outline.
+ * @param sections - The list of sections to label.
+ * @returns A list of labels in document order.
+ */
+export function numberSections(sections: object[]): string[] {
+  if (!Array.isArray(sections)) throw new Error("Invalid outline format");
+
+  const labels: string[] = [];
+
+  function traverse(section: any, parentLabel: string = "") {
+    if (typeof section !== "object" || section === null) throw new Error("Invalid section format");
+    if (typeof section.heading !== "string" || !section.heading.trim()) throw new Error("Invalid heading");
+
+    const label = parentLabel ? `${parentLabel}.${labels.length + 1}` : String(labels.length + 1);
+    labels.push(`${label} ${section.heading}`);
+
+    if (!Array.isArray(section.children)) throw new Error("Invalid children format");
+    section.children.forEach(child => traverse(child, label));
+  }
+
+  sections.forEach(section => traverse(section));
+  return labels;
+}
+
+/**
+ * Returns the count of sections at each depth in the document outline.
+ * @param sections - The list of sections to count.
+ * @returns An array where each element is the count of sections at that depth.
+ */
+export function sectionCount(sections: object[]): number[] {
+  if (!Array.isArray(sections)) throw new Error("Invalid outline format");
+
+  const counts: number[] = [];
+
+  function traverse(section: any, depth: number = 0) {
+    if (typeof section !== "object" || section === null) throw new Error("Invalid section format");
+    if (depth >= counts.length) counts.push(1);
+    else counts[depth]++;
+
+    if (!Array.isArray(section.children)) throw new Error("Invalid children format");
+    section.children.forEach(child => traverse(child, depth + 1));
+  }
+
+  sections.forEach(section => traverse(section));
+  return counts;
+}
+```

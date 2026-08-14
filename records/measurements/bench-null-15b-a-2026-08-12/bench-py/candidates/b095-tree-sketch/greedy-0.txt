@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+def draw_tree_lines(root: dict) -> List[str]:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary")
+    
+    def _draw_node(node, indent=0):
+        lines = []
+        name = node.get('name')
+        children = node.get('children', [])
+        
+        if not isinstance(name, str) or len(name.strip()) == 0:
+            raise ValueError("Node name must be a non-empty string")
+        
+        if not isinstance(children, list):
+            raise ValueError("Children must be a list")
+        
+        lines.append(f"|{'   ' * indent}|{name}")
+        
+        for i, child in enumerate(children):
+            if i < len(children) - 1:
+                lines.extend(_draw_node(child, indent + 4))
+            else:
+                lines.extend(_draw_node(child, indent + 4, last=True))
+    
+    return _draw_node(root)
+```

@@ -1,0 +1,29 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    if not isinstance(base, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in base):
+        raise ValueError("base must be a list of [account, cents] pairs")
+    
+    if not isinstance(ours, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in ours):
+        raise ValueError("ours must be a list of [account, cents] pairs")
+    
+    if not isinstance(theirs, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in theirs):
+        raise ValueError("theirs must be a list of [account, cents] pairs")
+    
+    merged = base.copy()
+    
+    for account, ours_cents in ours:
+        if account in merged:
+            merged[account][1] += ours_cents
+        else:
+            merged[account] = [ours_cents, ours_cents]
+    
+    for account, theirs_cents in theirs:
+        if account in merged:
+            merged[account][1] += theirs_cents
+        else:
+            merged[account] = [theirs_cents, theirs_cents]
+    
+    return sorted(merged.items(), key=lambda item: item[0])
+```

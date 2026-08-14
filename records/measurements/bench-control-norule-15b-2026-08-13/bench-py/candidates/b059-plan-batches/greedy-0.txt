@@ -1,0 +1,23 @@
+```python
+from typing import List, Dict
+
+def plan_batches(units: int, capacity: int) -> Dict[str, int]:
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers.")
+    
+    def split_consignment(units: int, capacity: int) -> Dict[str, int]:
+        if units <= capacity:
+            return {"load": units, "splits": 0, "rounds": 0}
+        
+        half = (units + capacity - 1) // 2
+        left_load = split_consignment(half, capacity)
+        right_load = split_consignment(units - half, capacity)
+        
+        return {
+            "load": left_load["load"] + right_load["load"],
+            "splits": left_load["splits"] + right_load["splits"] + 1,
+            "rounds": max(left_load["rounds"], right_load["rounds"]) + 1
+        }
+    
+    return split_consignment(units, capacity)
+```

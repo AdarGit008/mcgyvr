@@ -1,0 +1,20 @@
+```ts
+/**
+ * Returns how many tiles of a given size cover a length, rounding up so that a part tile still counts as one.
+ */
+export function tilesAcross(length: number, tile: number): number {
+  if (tile <= 0) throw new Error("Tile size must be greater than zero");
+  return Math.ceil(length / tile);
+}
+
+/**
+ * Returns the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again.
+ */
+export function tilesNeeded(width: number, height: number, tile: number, spare: number): number {
+  if (tile <= 0) throw new Error("Tile size must be greater than zero");
+  if (spare < 0 || spare >= 1) throw new Error("Spare percentage must be between 0 and 1");
+
+  const tiles = tilesAcross(width, tile) * tilesAcross(height, tile);
+  return Math.ceil(tiles * (1 + spare));
+}
+```

@@ -1,0 +1,16 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """Return how many tiles cover a length, rounding up."""
+    if length < 0 or tile <= 0:
+        raise ValueError("Length and tile size must be positive integers.")
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """Return the total number of tiles needed for a wall with allowance."""
+    if width < 0 or height < 0 or tile <= 0 or spare < 0:
+        raise ValueError("Width, height, tile size, and spare must be non-negative integers.")
+    area = width * height
+    base_tiles = (area + tile - 1) // tile
+    total_tiles = base_tiles * (1 + spare // 100)
+    return total_tiles
+```

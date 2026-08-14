@@ -1,0 +1,26 @@
+```ts
+export function countTrails(rows: number, cols: number, blocked: number[][]): number {
+  if (!Number.isInteger(rows) || rows < 1) throw new Error('Rows must be a whole number of at least one');
+  if (!Number.isInteger(cols) || cols < 1) throw new Error('Columns must be a whole number of at least one');
+
+  const blockedSet = new Set(blocked.map(([r, c]) => `${r},${c}`));
+
+  if (blockedSet.has('0,0') || blockedSet.has(`${rows - 1},${cols - 1}`)) {
+    throw new Error('Rope across the entrance or exit cell');
+  }
+
+  const dp: number[][] = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (blockedSet.has(`${r},${c}`)) continue;
+      if (r === 0 && c === 0) dp[r][c] = 1;
+      else {
+        dp[r][c] += (r > 0 ? dp[r - 1][c] : 0) + (c > 0 ? dp[r][c - 1] : 0);
+      }
+    }
+  }
+
+  return dp[rows - 1][cols - 1];
+}
+```

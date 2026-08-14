@@ -1,0 +1,38 @@
+```python
+from typing import List, Dict, Any
+
+def number_sections(sections: List[Dict[str, Any]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    labels = []
+    
+    def assign_labels(section_list: List[Dict[str, Any]], parent_label: str = ""):
+        for i, section in enumerate(section_list, start=1):
+            if not isinstance(section, dict) or 'heading' not in section or not isinstance(section['children'], list):
+                raise ValueError("Invalid section format")
+            if not isinstance(section['heading'], str) or not section['heading']:
+                raise ValueError("Heading must be a non-empty string")
+            
+            label = f"{parent_label}{i}" if parent_label else str(i)
+            labels.append(f"{label} {section['heading']}")
+            assign_labels(section['children'], f"{label}.")
+    
+    assign_labels(sections)
+    return labels
+
+def section_count(sections: List[Dict[str, Any]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    
+    count = 0
+    
+    def count_sections(section_list: List[Dict[str, Any]]):
+        nonlocal count
+        for _ in section_list:
+            count += 1
+            count_sections(_['children'])
+    
+    count_sections(sections)
+    return count
+```

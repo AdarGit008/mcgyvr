@@ -1,0 +1,24 @@
+```ts
+export function isGap(reading: number): boolean {
+  return reading === -1;
+}
+
+/** Missing readings replaced by the last real one seen. */
+export function fillGaps(readings: number[]): number[] {
+  const filled = [...readings];
+  for (let i = 0; i < filled.length; i += 1) {
+    if (isGap(filled[i])) {
+      let j = i + 1;
+      while (j < filled.length && isGap(filled[j])) {
+        j++;
+      }
+      if (j < filled.length) {
+        filled[i] = filled[j];
+      } else {
+        throw new Error("No real reading before the missing one.");
+      }
+    }
+  }
+  return filled;
+}
+```

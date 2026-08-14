@@ -1,0 +1,10 @@
+```ts
+/**
+ * Removes consecutive duplicate swipes from the list, keeping only the first occurrence of each run.
+ * @param swipes - The array of card swipe strings to deduplicate.
+ * @returns A new array with consecutive duplicates removed.
+ */
+export function swipeDedupe(swipes: string[]): string[] {
+  return swipes.filter((swipe, index) => index === 0 || swipe !== swipes[index - 1]);
+}
+```

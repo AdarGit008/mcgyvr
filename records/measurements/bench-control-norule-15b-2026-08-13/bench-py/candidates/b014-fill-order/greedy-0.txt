@@ -1,0 +1,42 @@
+```python
+from typing import List, Dict
+
+def fill_order(sources: List[List[int]], needed: int) -> Dict[str, int]:
+    if not isinstance(needed, int) or needed <= 0:
+        raise ValueError("Needed must be a positive integer")
+    
+    if not all(isinstance(source, list) and len(source) == 2 for source in sources):
+        raise ValueError("Sources must be pairs of (cost, stock)")
+    
+    if any(stock < 0 for cost, stock in sources):
+        raise ValueError("Stocks must be non-negative integers")
+    
+    if sum(stock for _, stock in sources) < needed:
+        raise ValueError("Total stock cannot cover the order")
+    
+    order = sorted(range(len(sources)), key=lambda index: sources[index][0])
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    
+    for index in order:
+        if remaining <= 0:
+            break
+        
+        unit_cost, stock = sources[index]
+        
+        if stock < remaining:
+            taken[index] = stock
+            cost += stock * unit_cost
+            remaining -= stock
+        else:
+            taken[index] = remaining
+            cost += remaining * unit_cost
+            remaining = 0
+    
+    leftover = []
+    for index in range(len(sources)):
+        leftover.append(sources[index][1] - taken[index])
+    
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

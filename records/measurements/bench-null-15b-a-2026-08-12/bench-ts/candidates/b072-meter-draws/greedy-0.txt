@@ -1,0 +1,29 @@
+```ts
+export function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] } {
+    if (allowance <= 0) throw new Error("Allowance must be a positive integer");
+    const ledger: Record<string, number> = {};
+    let denied: number[] = [];
+
+    for (const [key, units] of draws) {
+        if (!key || typeof key !== 'string' || !units || typeof units !== 'number') throw new Error("Invalid draw format");
+        if (units <= 0) continue;
+
+        const remaining = allowance - ledger[key] ?? allowance;
+        if (remaining >= units) {
+            ledger[key] += units;
+        } else {
+            denied.push(draws.indexOf([key, units]));
+        }
+    }
+
+    return { used: ledger, denied };
+}
+
+export function remainingFor(used: Record<string, number>, key: string, allowance: number): number {
+    if (allowance <= 0) throw new Error("Allowance must be a positive integer");
+    if (!key || typeof key !== 'string') throw new Error("Invalid key format");
+
+    const remaining = allowance - used[key] ?? allowance;
+    return remaining;
+}
+```

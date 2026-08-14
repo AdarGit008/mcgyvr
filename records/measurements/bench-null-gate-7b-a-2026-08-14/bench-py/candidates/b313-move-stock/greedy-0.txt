@@ -1,0 +1,6 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """Apply each stock movement in order to the opening quantity."""
+    closing = max(0, opening + sum(moves))
+    return closing
+```

@@ -1,0 +1,17 @@
+```ts
+/**
+ * Determines if a list of hops forms an unbroken chain.
+ * @param hops - A list of pairs, each representing a hop from one place to another.
+ * @returns true if the hops form an unbroken chain, false otherwise.
+ */
+export function hopChain(hops: string[][]): boolean {
+  if (hops.length === 0) return true;
+  const start = hops[0][0];
+  const end = hops[hops.length - 1][1];
+  if (start !== end) return false;
+  for (let i = 1; i < hops.length; i++) {
+    if (hops[i - 1][1] !== hops[i][0]) return false;
+  }
+  return true;
+}
+```

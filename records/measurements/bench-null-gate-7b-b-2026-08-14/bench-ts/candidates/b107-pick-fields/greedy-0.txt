@@ -1,0 +1,31 @@
+```ts
+export function pickFields(records: unknown[], fields: string[]): unknown[][] {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error("fields must be a non-empty list of strings");
+  }
+
+  const requiredFields = fields.filter(field => !field.endsWith('?')).map(field => field.replace(/\?$/, ''));
+  const optionalFields = fields.filter(field => field.endsWith('?')).map(field => field.slice(0, -1));
+
+  return records.map(record => {
+    if (typeof record !== 'object' || record === null) {
+      throw new Error("record must be a mapping");
+    }
+
+    const result: unknown[] = [];
+
+    for (const field of requiredFields) {
+      if (!(field in record)) {
+        throw new Error(`record is missing required field ${field}`);
+      }
+      result.push(record[field]);
+    }
+
+    for (const field of optionalFields) {
+      result.push(field in record ? record[field] : null);
+    }
+
+    return result;
+  });
+}
+```

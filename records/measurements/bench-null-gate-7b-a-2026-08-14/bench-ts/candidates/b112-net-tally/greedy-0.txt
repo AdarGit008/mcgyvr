@@ -1,0 +1,46 @@
+```ts
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) throw new Error("Input must be an array of strings");
+  
+  const itemCounts = new Map<string, { sold: number; returned: number }>();
+  
+  for (const sheet of sheets) {
+    if (typeof sheet !== "string") throw new Error("Each sheet must be a string");
+    
+    for (const row of sheet.split('\n').filter(row => row.trim())) {
+      const parts = row.split('|').map(part => part.trim());
+      if (parts.length !== 3) throw new Error("Each row must have exactly three fields");
+      
+      const [item, soldStr, returnedStr] = parts;
+      if (!item || !/^\d+$/.test(soldStr) || !/^\d+$/.test(returnedStr)) {
+        throw new Error("Invalid item name or numeric values");
+      }
+      
+      const sold = parseInt(soldStr);
+      const returned = parseInt(returnedStr);
+      if (returned > sold) throw new Error("Returned units cannot exceed sold units");
+      
+      if (!itemCounts.has(item)) {
+        itemCounts.set(item, { sold: 0, returned: 0 });
+      }
+      
+      itemCounts.get(item)!.sold += sold;
+      itemCounts.get(item)!.returned += returned;
+    }
+  }
+  
+  const items = Array.from(itemCounts.keys()).sort();
+  const maxWidth = Math.max(...items.map(item => item.length), "total".length);
+  
+  let report = items.map(item => {
+    const { sold, returned } = itemCounts.get(item)!;
+    const net = sold - returned;
+    return `${item.padEnd(maxWidth)}  ${net}`;
+  }).join('\n');
+  
+  const totalNet = Array.from(itemCounts.values()).reduce((sum, { sold, returned }) => sum + (sold - returned), 0);
+  report += `\n${"total".padEnd(maxWidth)}  ${totalNet}`;
+  
+  return report;
+}
+```

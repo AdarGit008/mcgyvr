@@ -1,0 +1,35 @@
+```ts
+export function splitAgenda(sessions: number[][], limit: number): number[][] {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    throw new Error("Sessions must be an array with at least one element.");
+  }
+
+  if (typeof limit !== 'number' || limit <= 0) {
+    throw new Error("Limit must be a whole number greater than zero.");
+  }
+
+  const sortedSessions = sessions.sort((a, b) => a[0] - b[0]);
+
+  let currentBlockStart = sortedSessions[0][0];
+  let currentBlockEnd = sortedSessions[0][1];
+
+  const result: number[][] = [];
+
+  for (let i = 1; i < sortedSessions.length; i++) {
+    const session = sortedSessions[i];
+    if (session[0] > currentBlockEnd) {
+      // Start a new block
+      result.push([currentBlockStart, currentBlockEnd]);
+      currentBlockStart = session[0];
+      currentBlockEnd = session[1];
+    } else {
+      // Extend the current block
+      currentBlockEnd = Math.min(currentBlockEnd + limit - 1, session[1]);
+    }
+  }
+
+  result.push([currentBlockStart, currentBlockEnd]);
+
+  return result;
+}
+```

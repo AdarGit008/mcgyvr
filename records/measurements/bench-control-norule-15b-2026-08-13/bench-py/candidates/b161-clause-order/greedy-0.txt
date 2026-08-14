@@ -1,0 +1,38 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    def parse_mark(mark):
+        if not isinstance(mark, str) or not mark:
+            raise ValueError("Mark must be a non-empty string")
+        parts = mark.split('.')
+        for part in parts:
+            if not part.isdigit() or (part.startswith('0') and len(part) > 1):
+                raise ValueError("Invalid character in mark")
+        return int(mark)
+
+    def compare_marks(m1, m2):
+        while m1 and m2:
+            if parse_mark(m1) < parse_mark(m2):
+                return -1
+            elif parse_mark(m1) > parse_mark(m2):
+                return 1
+            m1 = m1[1:] if m1 else None
+            m2 = m2[1:] if m2 else None
+        return 0
+
+    a_parts = a.split('.')
+    b_parts = b.split('.')
+    while a_parts and b_parts:
+        if parse_mark(a_parts[0]) < parse_mark(b_parts[0]):
+            return -1
+        elif parse_mark(a_parts[0]) > parse_mark(b_parts[0]):
+            return 1
+        a_parts.pop(0)
+        b_parts.pop(0)
+
+    if a_parts and not b_parts:
+        return -1
+    elif b_parts and not a_parts:
+        return 1
+
+    return 0
+```

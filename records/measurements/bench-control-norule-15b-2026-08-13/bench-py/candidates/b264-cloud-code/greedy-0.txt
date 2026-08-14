@@ -1,0 +1,12 @@
+```python
+def cloud_code(table: dict, code: str) -> str:
+    if not isinstance(table, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in table.items()):
+        raise ValueError("Table must be a dictionary with string keys and values.")
+    
+    if not isinstance(code, str):
+        raise ValueError("Code must be a string.")
+    
+    code = code.upper()
+    
+    return table.get(code, "unknown")
+```

@@ -1,0 +1,14 @@
+```ts
+/**
+ * Applies a series of stock movements to an opening quantity.
+ * @param opening - The initial stock quantity.
+ * @param moves - An array of stock movements, where positive values add and negative values remove.
+ * @returns The final stock quantity after applying all movements.
+ */
+export function moveStock(opening: number, moves: number[]): number {
+  return moves.reduce((quantity, move) => {
+    const newQuantity = quantity + move;
+    return newQuantity < 0 ? 0 : newQuantity;
+  }, opening);
+}
+```

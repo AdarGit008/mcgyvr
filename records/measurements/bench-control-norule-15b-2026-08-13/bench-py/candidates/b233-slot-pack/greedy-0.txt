@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def slot_pack(items: List[int], capacity: int) -> List[List[int]]:
+    """Group items into slots of a fixed capacity, in order."""
+    if capacity == 0:
+        raise ValueError("Capacity cannot be zero.")
+    
+    slots = []
+    for i in range(0, len(items), capacity):
+        slots.append(items[i : i + capacity])
+    return slots
+```

@@ -1,0 +1,39 @@
+```ts
+/**
+ * Returns the effective value of the requested name from the given configuration layers.
+ * @param layers - An array of strings representing configuration layers, each layer is a string of newline-separated lines.
+ * @param name - The name of the configuration value to retrieve.
+ * @returns The effective value of the requested name, or null when it was never assigned or its last mention unsets it.
+ */
+export function configValue(layers: string[], name: string): string | null {
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new Error('Invalid name');
+  }
+
+  const effectiveValues = new Map<string, string | null>();
+
+  for (const layer of layers) {
+    if (typeof layer !== 'string') {
+      throw new Error('Invalid layer');
+    }
+
+    const lines = layer.split('\n').map(line => line.trim());
+    for (const line of lines) {
+      if (line === '' || line.startsWith('#')) {
+        continue;
+      }
+      if (line.startsWith('!')) {
+        effectiveValues.delete(line.slice(1));
+      } else {
+        const [key, value] = line.split('=');
+        if (key.trim() !== name) {
+          continue;
+        }
+        effectiveValues.set(name, value.trim());
+      }
+    }
+  }
+
+  return effectiveValues.get(name) ?? null;
+}
+```

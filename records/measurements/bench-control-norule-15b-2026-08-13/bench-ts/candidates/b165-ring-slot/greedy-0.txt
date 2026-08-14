@@ -1,0 +1,26 @@
+```ts
+function ringSlot(capacity: number, writes: number, k: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive whole number");
+  }
+  if (!Number.isInteger(writes) || writes < 0) {
+    throw new Error("Writes must be a non-negative whole number");
+  }
+  if (!Number.isInteger(k) || k < 0 || k >= writes) {
+    throw new Error("K must be a non-negative whole number less than or equal to the number of writes");
+  }
+
+  const slots: number[] = Array(capacity).fill(null);
+  let oldestIndex = -1;
+
+  for (let i = 0; i < writes; i++) {
+    const slot = i % capacity;
+    if (slots[slot] === null) {
+      oldestIndex = slot;
+    }
+    slots[slot] = i;
+  }
+
+  return oldestIndex + k;
+}
+```

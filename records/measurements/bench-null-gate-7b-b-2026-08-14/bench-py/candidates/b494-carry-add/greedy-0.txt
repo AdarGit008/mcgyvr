@@ -1,0 +1,17 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    result = []
+    carry = 0
+    i, j = len(left) - 1, len(right) - 1
+
+    while i >= 0 or j >= 0 or carry:
+        x = left[i] if i >= 0 else 0
+        y = right[j] if j >= 0 else 0
+        total = x + y + carry
+        result.append(total % 10)
+        carry = total // 10
+        i -= 1
+        j -= 1
+
+    return result[::-1]
+```

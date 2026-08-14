@@ -1,0 +1,36 @@
+```ts
+interface Cut { takings: number; pieces: number[] }
+/** Cut a fabric roll for the greatest takings the price board allows. */
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("length must be a non-negative whole number");
+  }
+  const order = [...board].sort((a, b) => b[0] - a[0]);
+  const best: number[] = new Array(length + 1).fill(0);
+  const taken: number[] = new Array(length + 1).fill(0);
+  for (let metres = 1; metres <= length; metres++) {
+    best[metres] = -1;
+    for (const [piece, price] of order) {
+      if (piece <= metres && price + best[metres - piece] > best[metres]) {
+        best[metres] = price + best[metres - piece];
+        taken[metres] = piece;
+      }
+    }
+    if (best[metres - 1] > best[metres]) {
+      best[metres] = best[metres - 1];
+      taken[metres] = 0;
+    }
+  }
+  const pieces: number[] = [];
+  let currentLength = length;
+  while (currentLength > 0) {
+    if (taken[currentLength] === 0) {
+      currentLength--;
+    } else {
+      pieces.push(taken[currentLength]);
+      currentLength -= taken[currentLength];
+    }
+  }
+  return { takings: best[length], pieces };
+}
+```

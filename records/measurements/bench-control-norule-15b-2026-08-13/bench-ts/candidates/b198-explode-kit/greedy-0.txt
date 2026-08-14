@@ -1,0 +1,25 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!Object.prototype.hasOwnProperty.call(catalog, kit)) {
+    throw new Error(`the catalog does not define ${kit}`);
+  }
+  const totals: Record<string, number> = {};
+  let currentKit = kit;
+  let remainingUnits = want;
+
+  while (remainingUnits > 0) {
+    const recipe = catalog[currentKit];
+    const runsNeeded = Math.ceil(remainingUnits / recipe.makes);
+    for (const [component, count] of recipe.parts) {
+      if (!Object.prototype.hasOwnProperty.call(totals, component)) {
+        totals[component] = 0;
+      }
+      totals[component] += count * runsNeeded;
+    }
+    remainingUnits -= recipe.makes * runsNeeded;
+    currentKit = recipe.parts.find(([_, _]) => !totals[currentKit]).join('');
+  }
+
+  return totals;
+}
+```

@@ -1,0 +1,29 @@
+```ts
+/**
+ * Expands a deployment path pattern with forks into all possible paths.
+ * @param pattern - The deployment path pattern to expand.
+ * @returns An array of expanded paths.
+ */
+export function forkPaths(pattern: string): string[] {
+  if (typeof pattern !== 'string' || pattern === '') {
+    throw new Error('Pattern must be a non-empty string');
+  }
+
+  const segments = pattern.split('/');
+  let result: string[] = [''];
+
+  for (const segment of segments) {
+    if (segment.includes('{')) {
+      const options = segment.slice(1, -1).split(',');
+      if (options.some(opt => opt === '' || opt.includes(',') || opt.includes('{') || opt.includes('}'))) {
+        throw new Error('Invalid fork syntax');
+      }
+      result = result.flatMap(prefix => options.map(option => prefix + '/' + option));
+    } else {
+      result = result.map(prefix => prefix + '/' + segment);
+    }
+  }
+
+  return result.slice(1); // Remove the initial empty string
+}
+```

@@ -1,0 +1,15 @@
+```python
+from typing import *
+from collections import *
+
+def gross_price(net: int, rate: int) -> int:
+    """A net price with a whole-percent tax added, in whole pence."""
+    if rate == 0:
+        return net
+    elif rate < 0 or rate > 100:
+        raise ValueError("Rate must be between 0 and 100")
+    
+    tax = (rate / 100) * net
+    rounded_tax = math.floor(tax)
+    return net + rounded_tax
+```

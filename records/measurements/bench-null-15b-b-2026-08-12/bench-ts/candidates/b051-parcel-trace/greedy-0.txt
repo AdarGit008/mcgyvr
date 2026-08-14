@@ -1,0 +1,41 @@
+```ts
+export function traceParcel(events: string[]): string[] {
+  if (!Array.isArray(events)) {
+    throw new Error('Input must be a list');
+  }
+
+  const states = ['created'];
+  for (const event of events) {
+    switch (event) {
+      case 'packed':
+        if (states[states.length - 1] !== 'created') {
+          throw new Error('Event "packed" cannot occur before "created"');
+        }
+        states.push('packed');
+        break;
+      case 'shipped':
+        if (states[states.length - 1] !== 'packed') {
+          throw new Error('Event "shipped" cannot occur before "packed"');
+        }
+        states.push('shipped');
+        break;
+      case 'delivered':
+        if (states[states.length - 1] !== 'shipped' && states[states.length - 1] !== 'created') {
+          throw new Error('Event "delivered" cannot occur before "shipped" or "created"');
+        }
+        states.push('delivered');
+        break;
+      case 'returned':
+        if (states[states.length - 1] !== 'delivered' && states[states.length - 1] !== 'packed') {
+          throw new Error('Event "returned" cannot occur before "delivered" or "packed"');
+        }
+        states.push('returned');
+        break;
+      default:
+        throw new Error(`Invalid event: ${event}`);
+    }
+  }
+
+  return states;
+}
+```

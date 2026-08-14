@@ -1,0 +1,41 @@
+```ts
+function columnDigest(rows: number[][], column: number): Digest {
+  if (!Array.isArray(rows) || !rows.every(row => Array.isArray(row))) {
+    throw new Error("Invalid input: rows must be an array of arrays");
+  }
+  if (column < 0 || column >= rows[0].length) {
+    throw new Error("Column index out of bounds");
+  }
+
+  let count = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  let sum = 0;
+
+  for (const row of rows) {
+    if (column < row.length) {
+      const cell = row[column];
+      count++;
+      min = Math.min(min, cell);
+      max = Math.max(max, cell);
+      sum += cell;
+    }
+  }
+
+  if (count === 0) {
+    return { count: 0, min: 0, max: 0, mean: 0, median: 0 };
+  }
+
+  const mean = parseFloat((sum / count).toFixed(2));
+  const sortedCells = rows.map(row => row[column]).sort((a, b) => a - b);
+  const medianIndex = Math.floor(sortedCells.length / 2);
+
+  if (sortedCells.length % 2 === 1) {
+    return { count, min, max, mean, median: sortedCells[medianIndex] };
+  } else {
+    const mid1 = sortedCells[medianIndex - 1];
+    const mid2 = sortedCells[medianIndex];
+    return { count, min, max, mean, median: (mid1 + mid2) / 2.0 };
+  }
+}
+```

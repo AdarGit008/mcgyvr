@@ -1,0 +1,25 @@
+```ts
+function planBatches(units: number, capacity: number): { loads: number[]; splits: number; rounds: number } {
+  if (!Number.isInteger(units) || !Number.isInteger(capacity)) {
+    throw new Error('Both units and capacity must be positive integers.');
+  }
+
+  function splitConsignment(units: number, capacity: number): { loads: number[]; splits: number; rounds: number } {
+    const half = Math.ceil(units / 2);
+    if (half * capacity >= units) {
+      return { loads: [units], splits: 0, rounds: 1 };
+    } else {
+      const leftLoad = splitConsignment(half, capacity);
+      const rightLoad = splitConsignment(units - half, capacity);
+      return {
+        loads: [...leftLoad.loads, ...rightLoad.loads],
+        splits: leftLoad.splits + rightLoad.splits + 1,
+        rounds: Math.max(leftLoad.rounds, rightLoad.rounds) + 1
+      };
+    }
+  }
+
+  const result = splitConsignment(units, capacity);
+  return { loads: result.loads, splits: result.splits, rounds: result.rounds };
+}
+```

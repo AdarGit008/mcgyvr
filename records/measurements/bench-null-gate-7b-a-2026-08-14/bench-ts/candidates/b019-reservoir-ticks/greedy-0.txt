@@ -1,0 +1,26 @@
+```ts
+export function runReservoir(capacity: number, start: number, ticks: number[][]): { level: number; spilled: number; shortfall: number; served: number } {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error('Invalid capacity');
+    if (!Number.isInteger(start) || start < 0 || start > capacity) throw new Error('Invalid starting level');
+    if (!ticks.every(tick => tick.length === 2 && Number.isInteger(tick[0]) && Number.isInteger(tick[1]) && tick[0] >= 0 && tick[1] >= 0)) throw new Error('Invalid ticks');
+
+    let level = start;
+    let spilled = 0;
+    let shortfall = 0;
+    let served = 0;
+
+    for (const [inflow, demand] of ticks) {
+        level += inflow;
+        if (level > capacity) {
+            spilled += level - capacity;
+            level = capacity;
+        }
+        const servedThisTick = Math.min(level, demand);
+        served += servedThisTick;
+        level -= servedThisTick;
+        shortfall += demand - servedThisTick;
+    }
+
+    return { level, spilled, shortfall, served };
+}
+```

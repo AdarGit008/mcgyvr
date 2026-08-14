@@ -1,0 +1,14 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid:
+        return 0
+    
+    count = 0
+    for row in grid:
+        if isinstance(row, list):
+            count += sum(cell == value for cell in row)
+        else:
+            raise ValueError("Grid rows must be lists.")
+    
+    return count
+```

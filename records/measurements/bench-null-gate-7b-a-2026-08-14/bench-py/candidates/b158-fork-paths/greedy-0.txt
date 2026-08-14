@@ -1,0 +1,21 @@
+```python
+def fork_paths(pattern: str) -> list:
+    if not pattern or '/' not in pattern:
+        raise ValueError("Invalid pattern")
+
+    def expand_segment(segment):
+        if '{' not in segment:
+            return [segment]
+        options = segment.split('{')[1].split('}')[0].split(',')
+        return [option.strip() for option in options]
+
+    segments = pattern.split('/')
+    paths = ['']
+    for segment in segments:
+        new_paths = []
+        for path in paths:
+            new_paths.extend([f"{path}/{option}" for option in expand_segment(segment)])
+        paths = new_paths
+
+    return [path[1:] if path.startswith('/') else path for path in paths]
+```

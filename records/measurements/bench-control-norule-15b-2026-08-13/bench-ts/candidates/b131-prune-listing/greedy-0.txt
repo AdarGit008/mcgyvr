@@ -1,0 +1,61 @@
+```ts
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const validRules = rules.filter((rule) => typeof rule === "string" && rule !== "");
+  const validListings = listing.filter((listing) => typeof listing === "string" && listing !== "");
+
+  if (validRules.length === 0 || validListings.length === 0) {
+    throw new Error("Both rules and listings must be provided");
+  }
+
+  return validListings.reduce((acc, listing) => {
+    let keep = true;
+    for (const rule of validRules) {
+      const segments = splitStrict(listing, "/");
+      const patternSegments = splitStrict(rule, "/");
+      if (!patternSegments.every((segment, index) => segmentFits(segment, segments[index]))) {
+        keep = false;
+        break;
+      }
+    }
+    return keep ? acc.concat(listing) : acc;
+  }, []);
+}
+```

@@ -1,0 +1,10 @@
+```ts
+/**
+ * Adds line numbers to each line of the input text, starting from 1.
+ * @param block - The input text block to number.
+ * @returns A new string with each line prefixed by its line number followed by a colon and a space.
+ */
+export function lineNumber(block: string): string {
+    return block.split('\n').map((line, index) => `${index + 1}: ${line}`).join('\n');
+}
+```

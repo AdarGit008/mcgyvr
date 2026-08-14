@@ -1,0 +1,13 @@
+```ts
+export function lastFour(number: string): string {
+  return number.slice(-4);
+}
+
+export function maskCard(number: string): string {
+  if (number.length < 4) {
+    throw new Error("Number must be at least four characters long");
+  }
+  const stars = '*'.repeat(number.length - 4);
+  return `${stars}${number.slice(-4)}`;
+}
+```

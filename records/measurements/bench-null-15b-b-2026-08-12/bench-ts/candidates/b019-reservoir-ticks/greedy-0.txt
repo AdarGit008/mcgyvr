@@ -1,0 +1,24 @@
+```ts
+export function runReservoir(capacity: number, start: number, ticks: number[][]): { level: number; spilled: number; shortfall: number; served: number } {
+  if (capacity <= 0) throw new Error("Capacity must be a positive integer");
+  if (!Number.isInteger(start)) throw new Error("Starting level must be an integer from 0 to the capacity");
+  if (!Array.isArray(ticks) || ticks.some(tick => !Array.isArray(tick) || tick.length !== 2)) throw new Error("Ticks must be an array of two-item pairs");
+
+  let level = start;
+  let spilled = 0;
+  let shortfall = 0;
+  let served = 0;
+
+  for (const [inflow, demand] of ticks) {
+    if (!Number.isInteger(inflow) || !Number.isInteger(demand)) throw new Error("Inflow and demand must be non-negative integers");
+    if (inflow > capacity) throw new Error("Inflow cannot exceed the capacity");
+
+    level += inflow;
+    spilled = Math.max(0, level - capacity);
+    served += Math.min(level, demand);
+    shortfall = Math.max(0, demand - served);
+  }
+
+  return { level, spilled, shortfall, served };
+}
+```

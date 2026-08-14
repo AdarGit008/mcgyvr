@@ -1,0 +1,19 @@
+```python
+def crate_fill(items: int, crates: int) -> list:
+    if items < 0:
+        raise ValueError("Item count cannot be negative")
+    if crates <= 0:
+        return []
+    
+    base_size = items // crates
+    remainder = items % crates
+    
+    result = [base_size + 1] * remainder + [base_size] * (crates - remainder)
+    return result
+
+def crate_total(sizes: list) -> int:
+    if not all(isinstance(x, int) and x >= 0 for x in sizes):
+        raise ValueError("All crate sizes must be non-negative integers")
+    
+    return sum(sizes)
+```

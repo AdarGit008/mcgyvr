@@ -1,0 +1,18 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (links === null || typeof links !== "object" || Array.isArray(links)) throw new Error("links must be a mapping");
+  if (!(start in links)) throw new Error("start is not a post");
+  const route: string[] = [];
+  let post = start;
+  try {
+    while (post !== "") {
+      route.push(post);
+      post = links[post];
+      if (!post) break; // Break if we reach the empty name
+    }
+  } catch (e) {
+    throw new Error("Invalid handoff or cycle detected");
+  }
+  return route;
+}
+```

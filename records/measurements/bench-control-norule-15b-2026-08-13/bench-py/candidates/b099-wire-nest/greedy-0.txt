@@ -1,0 +1,23 @@
+```python
+from typing import *
+from collections import *
+
+def wire_value(value: Any) -> str:
+    if isinstance(value, str):
+        return wire_text(value)
+    elif isinstance(value, int):
+        if value < 0:
+            raise ValueError("Negative numbers are not supported.")
+        return f"n{value};"
+    elif isinstance(value, list):
+        return f"[{wire_value(item) for item in value]}]"
+    else:
+        raise ValueError(f"{type(value)} is not a supported type.")
+
+def wire_text(text: str) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Non-string argument.")
+    if '\n' in text:
+        raise ValueError("Text holding a newline is not supported.")
+    return f"s{len(text)}:{text}"
+```

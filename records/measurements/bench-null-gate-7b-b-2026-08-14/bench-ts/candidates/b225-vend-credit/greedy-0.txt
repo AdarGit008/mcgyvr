@@ -1,0 +1,21 @@
+```ts
+export function vendCredit(coins: number[], price: number): number {
+  if (!Number.isInteger(price) || price <= 0 || price % 5 !== 0) {
+    throw new Error("Invalid price");
+  }
+
+  let credit = 0;
+  for (const coin of coins) {
+    if ([5, 10, 25, 100].includes(coin)) {
+      credit += coin;
+      while (credit >= price) {
+        credit -= price;
+      }
+    } else {
+      throw new Error("Invalid coin");
+    }
+  }
+
+  return credit;
+}
+```

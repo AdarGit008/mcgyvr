@@ -1,0 +1,23 @@
+```ts
+export function climbBudget(tolls: string[]): number {
+  if (tolls.length === 0) return 0;
+  if (tolls.length === 1) return 0;
+
+  const isValidToll = (toll: string, index: number): boolean => {
+    if (!/^\d+$/.test(toll)) throw new Error(`Invalid toll at position ${index}`);
+    if (toll.startsWith('0')) throw new Error(`Leading zero toll at position ${index}`);
+    return true;
+  };
+
+  const minCost = (i: number, skip: boolean): number => {
+    if (i >= tolls.length) return 0;
+
+    isValidToll(tolls[i], i);
+
+    if (skip) return minCost(i + 1, false);
+    return parseInt(tolls[i]) + Math.min(minCost(i + 1, true), minCost(i + 2, false));
+  };
+
+  return Math.min(minCost(0, true), minCost(0, false));
+}
+```

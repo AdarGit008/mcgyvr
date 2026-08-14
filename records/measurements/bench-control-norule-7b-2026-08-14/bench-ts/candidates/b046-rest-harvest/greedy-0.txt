@@ -1,0 +1,24 @@
+```ts
+/**
+ * Calculate the maximum harvest from an orchard's daily yields.
+ * @param yields - An array of non-negative integers representing daily yields in kilos.
+ * @returns The largest total the picker can take, ensuring no two consecutive days are worked.
+ */
+export function bestHarvest(yields: number[]): number {
+  if (!Array.isArray(yields)) {
+    throw new Error('Input must be an array');
+  }
+
+  const n = yields.length;
+  if (n === 0) return 0;
+
+  const dp = new Array(n).fill(0);
+  dp[0] = yields[0];
+
+  for (let i = 1; i < n; i++) {
+    dp[i] = Math.max(dp[i - 1], (i > 1 ? dp[i - 2] : 0) + yields[i]);
+  }
+
+  return dp[n - 1];
+}
+```

@@ -1,0 +1,43 @@
+```ts
+function inQuote(ch: string): boolean {
+  return ch === '"' || ch === "'";
+}
+
+function quoteSplit(line: string): string[] {
+  const result: string[] = [];
+  let currentQuotationMark = null;
+  let currentString = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (currentQuotationMark !== null) {
+        // Close the previous quotation mark
+        result.push(currentString);
+        currentString = '';
+      }
+      currentQuotationMark = char;
+    } else if (char === "'") {
+      if (currentQuotationMark !== null) {
+        // Close the previous quotation mark
+        result.push(currentString);
+        currentString = '';
+      }
+      currentQuotationMark = char;
+    } else if (char === ',' && currentQuotationMark === null) {
+      // Split on comma outside of quotation marks
+      result.push(currentString);
+      currentString = '';
+    } else {
+      currentString += char;
+    }
+  }
+
+  // Add the last string if it's not empty
+  if (currentString !== '') {
+    result.push(currentString);
+  }
+
+  return result;
+}
+```

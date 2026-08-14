@@ -1,0 +1,21 @@
+```ts
+function seatRun(row: string, party: number): number {
+  if (party === 0) return -1;
+
+  let freeSeats = 0;
+  let firstFreeSeatIndex = -1;
+
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      freeSeats++;
+      if (freeSeats >= party && (firstFreeSeatIndex === -1 || i < firstFreeSeatIndex)) {
+        firstFreeSeatIndex = i;
+      }
+    } else {
+      freeSeats = 0;
+    }
+  }
+
+  return firstFreeSeatIndex;
+}
+```

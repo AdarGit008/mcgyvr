@@ -1,0 +1,11 @@
+```python
+from typing import List
+
+def pair_off(marks: List[str]) -> List[str]:
+    left = []
+    for i in range(len(marks)):
+        if len(left) > 0 and left[-1] == marks[i]:
+            continue
+        left.append(marks[i])
+    return left
+```

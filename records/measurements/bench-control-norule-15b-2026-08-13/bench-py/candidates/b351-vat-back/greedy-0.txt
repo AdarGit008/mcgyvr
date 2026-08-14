@@ -1,0 +1,17 @@
+```python
+from typing import *
+from collections import *
+
+def vat_back(gross: int, rate: int) -> int:
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    
+    # Calculate the tax amount
+    tax_amount = gross * (rate / 100)
+    
+    # Subtract the tax from the gross price to get the original price
+    original_price = gross - tax_amount
+    
+    # Return the original price rounded down
+    return int(original_price)
+```

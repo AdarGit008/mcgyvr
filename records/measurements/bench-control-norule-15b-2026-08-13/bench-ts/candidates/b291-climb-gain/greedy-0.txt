@@ -1,0 +1,21 @@
+```ts
+export function legGain(start: number, end: number): number {
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    throw new Error("Both start and end must be finite numbers.");
+  }
+  return Math.abs(end - start);
+}
+
+export function climbGain(heights: number[]): number {
+  if (heights.length < 2) {
+    return 0;
+  }
+
+  let totalGain = 0;
+  for (let i = 1; i < heights.length; i++) {
+    const gain = legGain(heights[i - 1], heights[i]);
+    totalGain += gain;
+  }
+  return totalGain;
+}
+```

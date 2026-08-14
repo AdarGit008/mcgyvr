@@ -1,0 +1,17 @@
+```ts
+/**
+ * Scales a mark from one total to another, rounding down.
+ * A mark standing above the original total still cannot pass the new total.
+ * A total of nothing to scale from gives a mark of nothing.
+ *
+ * @param mark - The mark to scale.
+ * @param wasOutOf - The original total the mark was out of.
+ * @param nowOutOf - The new total to scale the mark to.
+ * @returns The scaled mark, rounded down.
+ */
+export function scoreScale(mark: number, wasOutOf: number, nowOutOf: number): number {
+  if (wasOutOf === 0) return 0;
+  const scaled = (mark / wasOutOf) * nowOutOf;
+  return Math.floor(scaled);
+}
+```

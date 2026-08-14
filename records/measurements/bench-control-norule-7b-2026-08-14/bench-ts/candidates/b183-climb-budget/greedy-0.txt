@@ -1,0 +1,28 @@
+```ts
+/**
+ * Calculates the cheapest total cost to climb a scaffold given the tolls on each rung.
+ * @param {string[]} tolls - An array of strings representing the tolls on each rung.
+ * @returns {number} The cheapest total cost to climb the scaffold.
+ */
+export function climbBudget(tolls: string[]): number {
+  if (tolls.length === 0) return 0;
+
+  const isValidToll = (toll: string): boolean => {
+    return /^\d+$/.test(toll) && !toll.startsWith('0');
+  };
+
+  for (let i = 0; i < tolls.length; i++) {
+    if (!isValidToll(tolls[i])) {
+      throw new Error(`Invalid toll at position ${i}: ${tolls[i]}`);
+    }
+  }
+
+  const dp: number[] = new Array(tolls.length + 1).fill(0);
+
+  for (let i = 1; i <= tolls.length; i++) {
+    dp[i] = Math.min(dp[i - 1], dp[i - 2]) + parseInt(tolls[i - 1]);
+  }
+
+  return dp[tolls.length];
+}
+```

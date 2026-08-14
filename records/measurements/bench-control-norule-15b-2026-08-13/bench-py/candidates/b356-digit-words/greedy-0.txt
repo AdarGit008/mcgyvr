@@ -1,0 +1,16 @@
+```python
+def digit_word(digit: int) -> str:
+    if not 0 <= digit <= 9:
+        raise ValueError("digit must be between 0 and 9")
+    return "zero" if digit == 0 else f"{digit}"
+
+def digit_words(digits: str) -> str:
+    if not digits.isdigit():
+        raise ValueError("digits must be a string of digits")
+    words = []
+    for i in range(len(digits)):
+        word = digit_word(int(digits[i]))
+        if word:
+            words.append(word)
+    return " ".join(words)
+```

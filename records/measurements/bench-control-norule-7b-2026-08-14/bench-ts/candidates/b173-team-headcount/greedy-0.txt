@@ -1,0 +1,49 @@
+```ts
+/**
+ * Returns the total number of workers under a given manager, including the manager themselves.
+ * @param chart - A mapping from each worker's name to an array of names that report directly to them.
+ * @param name - The name of the manager whose team size is to be calculated.
+ * @returns The total number of workers in the manager's team.
+ */
+export function teamHeadcount(chart: Record<string, string[]>, name: string): number {
+  if (typeof chart !== 'object' || chart === null) {
+    throw new Error('Invalid chart');
+  }
+  if (!chart.hasOwnProperty(name)) {
+    throw new Error('Name not found in chart');
+  }
+
+  const reportees = chart[name];
+  if (!Array.isArray(reportees)) {
+    throw new Error('Reportees must be an array');
+  }
+  for (const reportee of reportees) {
+    if (typeof reportee !== 'string') {
+      throw new Error('All reportees must be strings');
+    }
+  }
+
+  let count = 1; // Include the manager themselves
+  const visited = new Set<string>();
+  visited.add(name);
+
+  function traverse(reporter: string): void {
+    const subordinates = chart[reporter];
+    if (subordinates && !visited.has(reporter)) {
+      for (const subordinate of subordinates) {
+        if (!visited.has(subordinate)) {
+          count++;
+          visited.add(subordinate);
+          traverse(subordinate);
+        }
+      }
+    }
+  }
+
+  for (const reportee of reportees) {
+    traverse(reportee);
+  }
+
+  return count;
+}
+```

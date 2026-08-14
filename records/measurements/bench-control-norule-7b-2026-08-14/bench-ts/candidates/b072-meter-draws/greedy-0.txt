@@ -1,0 +1,53 @@
+```ts
+/**
+ * Returns the remaining units a key can spend based on the ledger.
+ * @param used - The metering ledger.
+ * @param key - The key to check.
+ * @param allowance - The per-key allowance.
+ * @returns The remaining units for the key.
+ */
+export function remainingFor(used: Record<string, number>, key: string, allowance: number): number {
+  if (typeof allowance !== 'number' || !Number.isInteger(allowance) || allowance <= 0) {
+    throw new Error('Invalid allowance');
+  }
+  if (typeof key !== 'string' || key.length === 0) {
+    throw new Error('Invalid key');
+  }
+
+  return Math.max(0, allowance - (used[key] ?? 0));
+}
+
+/**
+ * Replays draws against a fresh ledger and returns the final ledger and denied positions.
+ * @param draws - The list of draw requests.
+ * @param allowance - The per-key allowance.
+ * @returns An object containing the used ledger and the denied positions.
+ */
+export function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] } {
+  if (typeof allowance !== 'number' || !Number.isInteger(allowance) || allowance <= 0) {
+    throw new Error('Invalid allowance');
+  }
+
+  const used: Record<string, number> = {};
+  const denied: number[] = [];
+
+  for (let i = 0; i < draws.length; i++) {
+    const [key, units] = draws[i];
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('Invalid key');
+    }
+    if (typeof units !== 'number' || !Number.isInteger(units) || units <= 0) {
+      throw new Error('Invalid units');
+    }
+
+    const remaining = remainingFor(used, key, allowance);
+    if (remaining >= units) {
+      used[key] = (used[key] ?? 0) + units;
+    } else {
+      denied.push(i);
+    }
+  }
+
+  return { used, denied };
+}
+```

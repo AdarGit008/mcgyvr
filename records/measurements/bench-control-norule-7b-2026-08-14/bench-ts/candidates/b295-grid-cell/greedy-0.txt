@@ -1,0 +1,26 @@
+```ts
+/**
+ * Converts a row and column index to a spreadsheet cell name.
+ * @param row - The zero-based row index.
+ * @param column - The zero-based column index.
+ * @returns The cell name in the format 'A1', 'B2', etc.
+ */
+export function cellName(row: number, column: number): string {
+  if (row < 0 || column < 0) throw new Error('Row and column must be non-negative');
+  const colLetter = String.fromCharCode(65 + column);
+  return `${colLetter}${row + 1}`;
+}
+
+/**
+ * Generates an array of cell names for a grid of the given size.
+ * @param rows - The number of rows in the grid.
+ * @param columns - The number of columns in the grid.
+ * @returns An array of cell names, row by row.
+ */
+export function gridCells(rows: number, columns: number): string[] {
+  if (rows < 0 || columns < 0) throw new Error('Rows and columns must be non-negative');
+  return Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: columns }, (_, c) => cellName(r, c))
+  ).flat();
+}
+```

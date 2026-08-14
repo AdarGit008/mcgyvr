@@ -1,0 +1,34 @@
+```ts
+export function unpackCrates(crate: unknown[]): string[] {
+  if (!Array.isArray(crate)) {
+    throw new Error('Invalid crate entry');
+  }
+  const items: string[] = [];
+  for (const item of crate) {
+    if (typeof item === 'string' && item !== '') {
+      items.push(item);
+    } else if (Array.isArray(item)) {
+      items.push(...unpackCrates(item));
+    } else {
+      throw new Error('Invalid crate entry');
+    }
+  }
+  return items;
+}
+
+export function crateDepth(crate: unknown[]): number {
+  if (!Array.isArray(crate)) {
+    throw new Error('Invalid crate entry');
+  }
+  let maxDepth = 1;
+  for (const item of crate) {
+    if (Array.isArray(item)) {
+      const depth = crateDepth(item);
+      if (depth > maxDepth) {
+        maxDepth = depth;
+      }
+    }
+  }
+  return maxDepth + 1;
+}
+```

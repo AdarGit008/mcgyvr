@@ -1,0 +1,39 @@
+```python
+from typing import List, Dict, Any
+
+def draw_tree_lines(root: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+    if not isinstance(root, dict) or not all(isinstance(child, dict) for child in root.values()):
+        raise ValueError("Root must be a dictionary with string keys and lists of dictionaries as values.")
+    
+    def get_indentation(node):
+        return "   " * (len(node['parent']) - 1)
+    
+    def draw_node(node, indent=0):
+        if not isinstance(node, dict) or 'name' not in node or 'children' not in node:
+            raise ValueError("Node must be a dictionary with 'name' and 'children' keys.")
+        
+        name = node['name']
+        children = node['children']
+        
+        if not isinstance(name, str):
+            raise ValueError("'name' must be a string.")
+        
+        if '\n' in name:
+            raise ValueError("'name' cannot contain newline characters.")
+        
+        if not isinstance(children, list) or not all(isinstance(child, dict) for child in children):
+            raise ValueError("Children must be a list of dictionaries.")
+        
+        lines = [f"|{indentation}{name}"]
+        
+        for i, child in enumerate(children):
+            child_indent = indent + 4
+            if i < len(children) - 1:
+                lines.append(f"|{child_indent}|-- {draw_node(child, child_indent)}")
+            else:
+                lines.append(f"|{child_indent}'-- {draw_node(child, child_indent)}")
+        
+        return lines
+    
+    return draw_node(root)
+```

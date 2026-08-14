@@ -1,0 +1,22 @@
+```ts
+/**
+ * Returns the longest word in a sentence.
+ * If two words are equally long, the first one wins.
+ * An empty sentence returns an empty string.
+ *
+ * @param sentence - The sentence to analyze.
+ * @returns The longest word or an empty string if no words are present.
+ */
+export function longWord(sentence: string): string {
+  const words = sentence.split(/\s+/);
+  let longestWord = '';
+
+  for (const word of words) {
+    if (word.length > longestWord.length) {
+      longestWord = word;
+    }
+  }
+
+  return longestWord;
+}
+```

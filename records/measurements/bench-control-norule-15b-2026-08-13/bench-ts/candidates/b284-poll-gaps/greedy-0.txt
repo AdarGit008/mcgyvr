@@ -1,0 +1,8 @@
+```ts
+function pollGaps(minutes: number[]): number[] {
+  if (minutes.length < 2) return [];
+
+  const gaps = minutes.slice(1).map((current, index) => current - minutes[index - 1]);
+  return gaps.filter(gap => gap > 0);
+}
+```

@@ -1,0 +1,10 @@
+```python
+def strip_note(title: str) -> str:
+    opened = title.find("(")
+    if opened == -1:
+        return title
+    closed = title.rfind(")")
+    if closed == -1 or closed < opened:
+        raise ValueError("Invalid note format")
+    return title[:opened].rstrip()
+```

@@ -1,0 +1,14 @@
+```ts
+function runDecode(coded: string): string {
+  if (!coded) return '';
+
+  const decoded = coded.split('').reduce((acc, char) => {
+    const count = parseInt(char);
+    if (isNaN(count)) throw new Error('Invalid character in the input');
+    acc += Array(count).fill(char).join('');
+    return acc;
+  }, '');
+
+  return decoded;
+}
+```

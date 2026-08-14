@@ -1,0 +1,17 @@
+```ts
+/**
+ * Raises a base to a whole power by multiplying it by itself that many times.
+ * A power of nothing gives one, whatever the base.
+ * Rejects a power below nothing with an error.
+ *
+ * @param base - The number to raise.
+ * @param power - The whole number exponent.
+ * @returns The result of raising the base to the given power.
+ */
+export function powerOf(base: number, power: number): number {
+  if (power < 0) {
+    throw new Error('Power below nothing is not allowed');
+  }
+  return Math.pow(base, power);
+}
+```

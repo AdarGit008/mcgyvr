@@ -1,0 +1,25 @@
+```ts
+/**
+ * Vets a code against a stencil.
+ * @param stencil - The stencil pattern with "#" for digits, "@" for letters, "?" for any character, and other characters matching case-sensitively.
+ * @param code - The code to be vetted.
+ * @returns true if the code matches the stencil exactly, false otherwise.
+ */
+export function matchesStencil(stencil: string, code: string): boolean {
+  if (typeof stencil !== 'string' || typeof code !== 'string') {
+    throw new Error('Both stencil and code must be strings.');
+  }
+  if (stencil.length === 0) {
+    throw new Error('Stencil cannot be empty.');
+  }
+
+  return stencil.length === code.length && 
+         Array.from(stencil).every((char, index) => {
+           const codeChar = code[index];
+           if (char === '#') return /^\d$/.test(codeChar);
+           if (char === '@') return /^[a-zA-Z]$/.test(codeChar);
+           if (char === '?') return true;
+           return char === codeChar;
+         });
+}
+```

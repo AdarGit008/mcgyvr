@@ -1,0 +1,19 @@
+```python
+from typing import List, Union
+
+def best_harvest(yields: List[Union[int, float]]) -> int:
+    if not isinstance(yields, list) or any(not isinstance(day, (int, float)) for day in yields):
+        raise ValueError("Input must be a non-empty list of integers.")
+    
+    total = 0
+    current_yield = 0
+    
+    for yield_ in yields:
+        if yield_ < 0:
+            raise ValueError("Yields cannot be negative.")
+        
+        current_yield += yield_
+        total = max(total, current_yield)
+    
+    return total
+```

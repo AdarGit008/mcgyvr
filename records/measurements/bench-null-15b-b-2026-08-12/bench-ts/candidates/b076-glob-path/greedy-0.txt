@@ -1,0 +1,23 @@
+```ts
+export function globPath(pattern: string, path: string): boolean {
+  if (typeof pattern !== 'string' || typeof path !== 'string') {
+    throw new Error('Both pattern and path must be strings');
+  }
+  if (!pattern) return false;
+  if (!path) return false;
+
+  let i = 0;
+  for (let j = 0; j < path.length && i < pattern.length; j++) {
+    const char = path[j];
+    const starChar = pattern[i];
+
+    if (char === starChar || char === '?') {
+      i++;
+    } else if (starChar !== '?' && starChar !== '*') {
+      return false;
+    }
+  }
+
+  return i === pattern.length;
+}
+```

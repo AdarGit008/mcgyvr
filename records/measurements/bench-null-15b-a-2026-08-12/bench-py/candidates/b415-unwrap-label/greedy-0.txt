@@ -1,0 +1,7 @@
+```python
+def unwrap_label(label: str) -> str:
+    """A label with one surrounding pair of brackets removed."""
+    if len(label) < 2 or label[0] != '[' or label[-1] != ']':
+        return label
+    return label[1:-1]
+```

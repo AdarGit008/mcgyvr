@@ -1,0 +1,34 @@
+```ts
+export function parseOption(segment: string): string[] {
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [key, raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== "string") {
+    throw new Error("input must be a string");
+  }
+
+  const segments = input.split(/(?<!\\)"(?=\\")|;/g).filter(segment => segment.trim() !== "");
+  const pairs: string[][] = [];
+
+  for (const segment of segments) {
+    try {
+      const [key, value] = parseOption(segment);
+      pairs.push([key, value]);
+    } catch (error) {
+      throw new Error(`invalid option segment: ${segment}`);
+    }
+  }
+
+  return pairs;
+}
+```

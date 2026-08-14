@@ -1,0 +1,32 @@
+```python
+def new_cache(limit: int) -> dict:
+    if limit <= 0 or not isinstance(limit, int):
+        raise ValueError("Limit must be a positive integer")
+    return {"limit": limit, "keys": [], "store": {}}
+
+def cache_write(cache: dict, key: str, value: int) -> list:
+    if not key or not isinstance(key, str):
+        raise ValueError("Key must be a non-empty string")
+    
+    if key in cache["store"]:
+        cache["keys"].remove(key)
+    else:
+        if len(cache["keys"]) == cache["limit"]:
+            oldest_key = cache["keys"].pop(0)
+            del cache["store"][oldest_key]
+    
+    cache["keys"].append(key)
+    cache["store"][key] = value
+    return [cache["keys"].pop(0)] if len(cache["keys"]) > cache["limit"] else []
+
+def cache_read(cache: dict, key: str) -> int:
+    if not key or not isinstance(key, str):
+        raise ValueError("Key must be a non-empty string")
+    
+    if key in cache["store"]:
+        cache["keys"].remove(key)
+        cache["keys"].append(key)
+        return cache["store"][key]
+    else:
+        raise KeyError(f"Key '{key}' not found in cache")
+```

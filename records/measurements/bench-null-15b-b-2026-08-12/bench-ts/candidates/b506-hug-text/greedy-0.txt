@@ -1,0 +1,11 @@
+```ts
+export function hugText(text: string, mark: string): string {
+  if (text.startsWith(mark)) {
+    return text;
+  }
+  if (text.endsWith(mark)) {
+    return text;
+  }
+  return mark + text + mark;
+}
+```

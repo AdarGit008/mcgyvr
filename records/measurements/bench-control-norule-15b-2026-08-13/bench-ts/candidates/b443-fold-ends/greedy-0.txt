@@ -1,0 +1,18 @@
+```ts
+function foldEnds(values: number[]): number[] {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new Error('Input must be an array with at least one element.');
+  }
+
+  const result = [];
+  for (let i = 0; i < Math.floor(values.length / 2); i++) {
+    result.push(values[i] + values[values.length - 1 - i]);
+  }
+
+  if (values.length % 2 !== 0) {
+    result.push(values[Math.floor(values.length / 2)]);
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,40 @@
+```python
+"""Firmware build selection within an installed release line."""
+
+
+def compare_builds(a: str, b: str) -> int:
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0
+        y = right[i] if i < len(right) else 0
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def pick_upgrade(installed: str, offers: list) -> str | None:
+    if not isinstance(installed, str) or not installed.isdigit():
+        raise ValueError("Installed build must be a string of digits")
+    if not isinstance(offers, list):
+        raise ValueError("Offers must be a list")
+
+    for offer in offers:
+        if not isinstance(offer, str) or not offer.isdigit():
+            raise ValueError("All offers must be strings of digits")
+
+    best = None
+    installed_parts = [int(part) for part in installed.split(".")]
+    for offer in offers:
+        offer_parts = [int(part) for part in offer.split(".")]
+        if len(offer_parts) < len(installed_parts):
+            continue
+        if compare_builds(offer, installed) > 0 and all(
+            offer_parts[i] >= installed_parts[i] for i in range(len(installed_parts))
+        ):
+            best = offer
+
+    return best
+```

@@ -1,0 +1,14 @@
+```ts
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+  return allowed.some(move => move[0] === from && move[1] === to);
+}
+
+export function stepPlan(states: string[], allowed: string[][]): number {
+  for (let i = 0; i < states.length - 1; i++) {
+    if (!stepAllowed(states[i], states[i + 1], allowed)) {
+      return i;
+    }
+  }
+  throw new Error("No valid moves found");
+}
+```

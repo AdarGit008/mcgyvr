@@ -1,0 +1,16 @@
+```python
+from typing import List
+
+
+def lay_conveyor(floor: List[str], row: int, col: int, length: int) -> List[str]:
+    if row < 0 or row >= len(floor):
+        raise ValueError("the run starts off the plan")
+    cells = list(floor[row])
+    if col + length > len(cells):
+        raise ValueError("the run would pass the last column")
+    for i in range(length):
+        if cells[col + i] != ".":
+            raise ValueError("cell covered by the run is not open")
+    floor[row] = "".join(["="] * length) + cells[col + length:]
+    return floor
+```

@@ -1,0 +1,40 @@
+```python
+from typing import *
+from collections import *
+
+def chain_of_command(root: dict, person: str) -> List[str]:
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person argument must be a non-empty string.")
+    
+    def traverse(node):
+        if node['name'] == person:
+            return [node['name']]
+        elif 'reports' in node and node['reports']:
+            return [node['name']] + [traverse(report) for report in node['reports']]
+        else:
+            return []
+    
+    if root['name'] != person and not traverse(root):
+        raise ValueError(f"Person {person} not found in the chart.")
+    
+    return traverse(root)
+
+def headcount(root: dict) -> int:
+    def count(node):
+        if 'reports' in node and node['reports']:
+            return 1 + sum(count(report) for report in node['reports'])
+        else:
+            return 0
+    
+    return count(root)
+
+def widest_team(root: dict) -> int:
+    def traverse(node, depth=0):
+        if 'reports' in node and node['reports']:
+            return max(traverse(report, depth+1) for report in node['reports']), depth
+        else:
+            return depth, 0
+    
+    _, max_depth = traverse(root)
+    return max_depth + 1
+```

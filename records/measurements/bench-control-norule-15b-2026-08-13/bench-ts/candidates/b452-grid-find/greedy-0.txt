@@ -1,0 +1,25 @@
+```ts
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+  if (!grid || !Array.isArray(grid) || grid.length === 0 || !Array.isArray(row) || row.length !== 1 || !Array.isArray(column) || column.length !== 1 || !Number.isInteger(row[0]) || !Number.isInteger(column[0])) {
+    throw new Error('Invalid input');
+  }
+
+  return grid[row[0]][column[0]] === value;
+}
+
+export function gridFind(grid: number[][], value: number): number[] {
+  if (!grid || !Array.isArray(grid) || grid.length === 0 || !Array.isArray(value)) {
+    throw new Error('Invalid input');
+  }
+
+  for (let i = 0; i < grid.length; i++) {
+    for (let j = 0; j < grid[i].length; j++) {
+      if (grid[i][j] === value) {
+        return [i, j];
+      }
+    }
+  }
+
+  throw new Error('Value not found');
+}
+```

@@ -1,0 +1,20 @@
+```ts
+function bumpRelease(version: string, part: string): string {
+  if (typeof version !== 'string') throw new Error('version must be a string');
+  const parts = version.split('.');
+  if (parts.length !== 3) throw new Error('version must have exactly three components');
+
+  const [major, minor, patch] = parts.map(Number);
+
+  switch (part) {
+    case 'major':
+      return `${major + 1}.0.0`;
+    case 'minor':
+      return `${major}.${minor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${patch + 1}`;
+    default:
+      throw new Error(`part must be one of 'major', 'minor', or 'patch'`);
+  }
+}
+```

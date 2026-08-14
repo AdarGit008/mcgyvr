@@ -1,0 +1,11 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    if start > end:
+        raise ValueError("Start height must be less than or equal to end height")
+    return end - start
+
+def climb_gain(heights: list) -> int:
+    if not heights:
+        return 0
+    return sum(leg_gain(start, end) for start, end in zip(heights[:-1], heights[1:]))
+```

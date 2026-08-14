@@ -1,0 +1,33 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person must be a non-empty string")
+
+    def find_chain(node):
+        if node['name'] == person:
+            return [person]
+        for report in node.get('reports', []):
+            chain = find_chain(report)
+            if chain:
+                return [node['name']] + chain
+        return []
+
+    chain = find_chain(root)
+    if not chain:
+        raise ValueError(f"Person '{person}' not found in the chart")
+    return chain
+
+
+def headcount(root: dict) -> int:
+    def count_nodes(node):
+        return 1 + sum(count_nodes(report) for report in node.get('reports', []))
+
+    return count_nodes(root)
+
+
+def widest_team(root: dict) -> int:
+    def max_reports(node):
+        return max(len(node.get('reports', [])), *(max_reports(report) for report in node.get('reports', [])) or [0])
+
+    return max_reports(root)
+```

@@ -1,0 +1,6 @@
+```ts
+function setMinus(entries: string[], remove: string[]): string[] {
+  const removeSet = new Set(remove);
+  return entries.filter(entry => !removeSet.has(entry));
+}
+```

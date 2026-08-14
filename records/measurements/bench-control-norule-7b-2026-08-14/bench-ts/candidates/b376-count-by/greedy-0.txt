@@ -1,0 +1,24 @@
+```ts
+/**
+ * Counts the occurrences of each value for a specified field in an array of records.
+ * Records lacking the specified field are ignored.
+ * Throws an error if the field name is empty text.
+ *
+ * @param records - Array of records to count values from.
+ * @param field - The field name to count values for.
+ * @returns An object mapping each unique value to its count.
+ */
+export function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+  if (field.trim() === '') {
+    throw new Error('Field name cannot be empty');
+  }
+
+  return records
+    .filter(record => record.hasOwnProperty(field))
+    .reduce((acc, record) => {
+      const value = record[field];
+      acc[value] = (acc[value] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+}
+```

@@ -1,0 +1,8 @@
+```python
+def digit_count(value: int) -> int:
+    if value == 0:
+        return 1
+    elif value < 0:
+        value = -value
+    return len(str(value))
+```

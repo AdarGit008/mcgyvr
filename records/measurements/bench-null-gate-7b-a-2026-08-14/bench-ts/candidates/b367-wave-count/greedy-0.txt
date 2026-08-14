@@ -1,0 +1,26 @@
+```ts
+/**
+ * Counts how many times a run of readings changes direction.
+ * A change is defined as a rise following a fall or a fall following a rise.
+ * Readings that hold level neither rise nor fall and change nothing are ignored.
+ *
+ * @param {number[]} readings - The array of readings to analyze.
+ * @returns {number} The number of direction changes in the readings.
+ */
+export function waveCount(readings: number[]): number {
+  if (readings.length < 3) return 0;
+
+  let count = 0;
+  for (let i = 1; i < readings.length - 1; i++) {
+    const prev = readings[i - 1];
+    const current = readings[i];
+    const next = readings[i + 1];
+
+    if ((prev < current && current > next) || (prev > current && current < next)) {
+      count++;
+    }
+  }
+
+  return count;
+}
+```

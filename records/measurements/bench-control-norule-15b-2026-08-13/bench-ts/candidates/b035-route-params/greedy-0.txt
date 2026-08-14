@@ -1,0 +1,48 @@
+```ts
+function splitSegments(path: string): string[] {
+  if (!path || path[0] !== '/') throw new Error('Invalid path');
+  return path.split('/');
+}
+
+function matchRoute(pattern: string, path: string): Record<string, string> | null {
+  const segments = splitSegments(path);
+  const patternSegments = splitSegments(pattern);
+
+  if (segments.length !== patternSegments.length) return null;
+
+  const captureNames: { [key: string]: number } = {};
+  let matchIndex = 0;
+
+  for (let i = 0; i < patternSegments.length; i++) {
+    const segment = patternSegments[i];
+    const currentSegment = segments[matchIndex];
+
+    if (segment === ':') {
+      if (!currentSegment) throw new Error('Invalid capture name');
+      const name = currentSegment.slice(1);
+      if (!name.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) throw new Error('Invalid capture name');
+      if (captureNames[name]) throw new Error('Duplicate capture name');
+      captureNames[name] = i;
+    } else if (segment === '*') {
+      matchIndex++;
+    } else if (segment === '**') {
+      if (i !== patternSegments.length - 1) throw new Error('Invalid "**" in pattern');
+      while (matchIndex < segments.length && segments[matchIndex] === '') matchIndex++;
+    } else if (currentSegment !== segment) return null;
+    matchIndex++;
+  }
+
+  const result: Record<string, string> = {};
+  for (const name of Object.keys(captureNames)) {
+    result[name] = segments[captureNames[name]];
+  }
+  return result;
+}
+
+function firstRoute(patterns: string[], path: string): number {
+  for (let i = 0; i < patterns.length; i++) {
+    if (matchRoute(patterns[i], path) !== null) return i;
+  }
+  return -1;
+}
+```

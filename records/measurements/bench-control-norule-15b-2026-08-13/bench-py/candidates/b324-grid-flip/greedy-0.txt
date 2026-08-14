@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def grid_flip(grid: List[List[int]]) -> List[List[int]]:
+    if not grid:
+        return []
+    
+    # Calculate the number of columns in the grid
+    num_cols = len(grid[0])
+    
+    # Create a new grid with the same number of rows as the original but reversed columns
+    flipped_grid = [[grid[j][i] for j in range(len(grid))] for i in range(num_cols)]
+    
+    return flipped_grid
+```

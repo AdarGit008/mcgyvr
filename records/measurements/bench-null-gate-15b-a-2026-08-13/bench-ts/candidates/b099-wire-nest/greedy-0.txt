@@ -1,0 +1,56 @@
+```ts
+export function wireValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+  if (value.includes('\n')) {
+    throw new Error('Invalid argument: text holding a newline is not allowed');
+  }
+
+  const wireText = (text: string): string => {
+    return `s${text.length}:${text}`;
+  };
+
+  let result = '';
+  switch (typeof value) {
+    case 'string':
+      result += wireText(value);
+      break;
+    case 'number':
+      if (!Number.isInteger(value)) {
+        throw new Error('Invalid argument: expected a whole number');
+      }
+      result += `n${value < 0 ? '-' : ''}${Math.abs(value).toString()}`;
+      break;
+    case 'object':
+      if (Array.isArray(value)) {
+        result += `[`;
+        for (let i = 0; i < value.length; i++) {
+          if (i > 0) {
+            result += `, `;
+          }
+          result += wireValue(value[i]);
+        }
+        result += `]`;
+      } else {
+        throw new Error('Invalid argument: expected a text, whole number or list');
+      }
+      break;
+    default:
+      throw new Error('Invalid argument: expected a string, whole number or list');
+  }
+
+  return result;
+}
+
+export function wireText(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+  if (text.includes('\n')) {
+    throw new Error('Invalid argument: text holding a newline is not allowed');
+  }
+
+  return `s${text.length}:${text}`;
+}
+```

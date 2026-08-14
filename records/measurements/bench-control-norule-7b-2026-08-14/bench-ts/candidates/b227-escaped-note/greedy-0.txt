@@ -1,0 +1,20 @@
+```ts
+/**
+ * Decodes an escaped note by first folding the lines and then decoding escapes.
+ * @param text - The escaped note to decode.
+ * @returns The decoded text.
+ */
+export function decodeEscapedNote(text: string): string {
+    // Fold the lines
+    let foldedText = text.replace(/\s+$/gm, '').replace(/=\n/gm, '');
+
+    // Decode escapes
+    while (foldedText.includes('==')) {
+        const match = foldedText.match(/=([0-9A-Fa-f]{2})/);
+        if (!match) throw new Error('Invalid escape sequence');
+        foldedText = foldedText.replace(match[0], String.fromCharCode(parseInt(match[1], 16)));
+    }
+
+    return foldedText;
+}
+```

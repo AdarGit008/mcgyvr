@@ -1,0 +1,22 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    if not isinstance(base, list):
+        raise ValueError("base must be a list")
+    
+    merged = []
+    for account, cents in base:
+        if not isinstance(account, str):
+            raise ValueError("account must be a non-empty string")
+        
+        if not isinstance(cents, int):
+            raise ValueError("cents must be an integer")
+        
+        if account in ours and account in theirs:
+            merged.append((account, ours[account] + theirs[account]))
+        elif account in ours:
+            merged.append((account, ours[account]))
+        elif account in theirs:
+            merged.append((account, theirs[account]))
+    
+    return sorted(merged)
+```

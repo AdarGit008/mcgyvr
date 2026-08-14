@@ -1,0 +1,25 @@
+```ts
+type Tally = { first: number; second: number; taken: number[] };
+
+export function endGrab(cards: number[]): Tally {
+  if (cards.length === 0) return { first: 0, second: 0, taken: [] };
+  
+  const tally: Tally = { first: 0, second: 0, taken: [] };
+  let turn = 0;
+  
+  while (cards.length > 0) {
+    const maxCardIndex = cards[0] >= cards[cards.length - 1] ? 0 : cards.length - 1;
+    tally.taken.push(cards.splice(maxCardIndex, 1)[0]);
+    
+    if (turn % 2 === 0) {
+      tally.first += tally.taken[tally.taken.length - 1];
+    } else {
+      tally.second += tally.taken[tally.taken.length - 1];
+    }
+    
+    turn++;
+  }
+  
+  return tally;
+}
+```

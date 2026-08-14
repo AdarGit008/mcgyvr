@@ -1,0 +1,173 @@
+```python
+from typing import Dict, Optional
+
+class CacheEntry:
+    def __init__(self, value: str, stored: int, ttl: int):
+        self.value = value
+        self.stored = stored
+        self.ttl = ttl
+
+def fresh_value(entry: Dict[str, any], now: int) -> str:
+    if not isinstance(entry, dict):
+        raise ValueError("entry must be a dictionary")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry must have a string value")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not in entry or not isinstance(entry['stored'], int) or entry['stored'] < 0:
+        raise ValueError("entry stored must be a non-negative integer")
+    
+    if 'ttl' not in entry or not isinstance(entry['ttl'], int) or entry['ttl'] <= 0:
+        raise ValueError("entry ttl must be a positive integer")
+    
+    if 'now' not in entry or not isinstance(entry['now'], int) or entry['now'] < entry['stored']:
+        raise ValueError("entry now must be at least stored")
+    
+    if 'value' not in entry or not isinstance(entry['value'], str):
+        raise ValueError("entry value must be a string")
+    
+    if 'stored' not

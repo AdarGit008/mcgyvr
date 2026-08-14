@@ -1,0 +1,47 @@
+```ts
+function unpackCrates(crate: unknown[]): string[] {
+  if (!Array.isArray(crate)) {
+    throw new Error("Input must be an array");
+  }
+
+  const result: string[] = [];
+
+  function traverse(crate: unknown[], depth: number): void {
+    if (Array.isArray(crate)) {
+      for (const item of crate) {
+        traverse(item, depth + 1);
+      }
+    } else if (typeof crate === "string" && crate.trim() !== "") {
+      result.push(crate);
+    } else {
+      throw new Error("Invalid entry: expected a non-empty string or an array");
+    }
+  }
+
+  traverse(crate, 1);
+
+  return result;
+}
+
+function crateDepth(crate: unknown[]): number {
+  if (!Array.isArray(crate)) {
+    throw new Error("Input must be an array");
+  }
+
+  let maxDepth = 0;
+
+  function traverse(crate: unknown[], depth: number): void {
+    if (Array.isArray(crate)) {
+      for (const item of crate) {
+        traverse(item, depth + 1);
+      }
+    } else if (typeof crate === "string" && crate.trim() !== "") {
+      maxDepth = Math.max(maxDepth, depth);
+    }
+  }
+
+  traverse(crate, 1);
+
+  return maxDepth;
+}
+```

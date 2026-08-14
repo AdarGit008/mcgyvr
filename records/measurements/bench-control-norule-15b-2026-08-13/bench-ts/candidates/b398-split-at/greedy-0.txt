@@ -1,0 +1,9 @@
+```ts
+function splitAt(entries: string[], marker: string): string[][] {
+  const index = entries.findIndex(entry => entry === marker);
+  if (index === -1) {
+    return [entries, []];
+  }
+  return [entries.slice(0, index), entries.slice(index + 1)];
+}
+```

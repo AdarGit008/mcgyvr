@@ -1,0 +1,29 @@
+```ts
+export function carryAdd(left: number[], right: number[]): number[] {
+  const maxLength = Math.max(left.length, right.length);
+  let result: number[] = [];
+  let carry = 0;
+
+  for (let i = 0; i < maxLength; i++) {
+    const leftDigit = left[i] || 0;
+    const rightDigit = right[i] || 0;
+    const sum = leftDigit + rightDigit + carry;
+
+    if (sum >= 10) {
+      result.push(sum - 10);
+      carry = 1;
+    } else {
+      result.push(sum);
+      carry = 0;
+    }
+  }
+
+  // If there's a remaining carry, add it to the result
+  if (carry > 0) {
+    result.push(carry);
+  }
+
+  // Reverse the array since we built it from the least significant digit
+  return result.reverse();
+}
+```

@@ -1,0 +1,34 @@
+```ts
+export function mergeSettings(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const key of new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)])) {
+    if (!(typeof key === 'string')) {
+      throw new Error('Non-string keys are not allowed');
+    }
+
+    const baseValue = base[key];
+    const ourValue = ours[key];
+    const theirValue = theirs[key];
+
+    if (baseValue !== undefined && ourValue !== undefined && theirValue !== undefined) {
+      if (ourValue === theirValue) {
+        result[key] = ourValue;
+      } else {
+        throw new Error('Conflict: different edits for the same key');
+      }
+    } else if (baseValue !== undefined) {
+      if (ourValue !== undefined || theirValue !== undefined) {
+        throw new Error('Conflict: edit against deletion');
+      }
+      result[key] = baseValue;
+    } else if (ourValue !== undefined) {
+      result[key] = ourValue;
+    } else if (theirValue !== undefined) {
+      result[key] = theirValue;
+    }
+  }
+
+  return result;
+}
+```

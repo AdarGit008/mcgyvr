@@ -1,0 +1,11 @@
+```python
+def leg_gain(start: int, end: int) -> int:
+    """Return the height gained on one leg of a walk."""
+    return max(0, end - start)
+
+def climb_gain(heights: list) -> int:
+    """Add the gains of every leg of a walk given the heights in order."""
+    if len(heights) < 2:
+        return 0
+    return sum(leg_gain(heights[i], heights[i + 1]) for i in range(len(heights) - 1))
+```

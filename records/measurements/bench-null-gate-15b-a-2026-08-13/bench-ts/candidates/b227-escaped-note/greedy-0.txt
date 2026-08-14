@@ -1,0 +1,44 @@
+```ts
+export function decodeEscapedNote(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let foldedText = '';
+  let currentLine = '';
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === '\n') {
+      // Trim trailing whitespace
+      currentLine = currentLine.trimEnd();
+      foldedText += currentLine + '\n';
+      currentLine = '';
+    } else if (char === '=') {
+      if (i + 2 < text.length && isHexadecimal(text.substring(i + 1, i + 3))) {
+        // Decode escape sequence
+        const decodedChar = String.fromCharCode(parseInt(text.substring(i + 1, i + 3), 16));
+        currentLine += decodedChar;
+        i += 2; // Skip the next two characters
+      } else {
+        throw new Error('Invalid escape sequence');
+      }
+    } else {
+      currentLine += char;
+    }
+  }
+
+  // Trim trailing whitespace and add any remaining lines
+  foldedText = foldedText.trimEnd();
+  if (currentLine) {
+    foldedText += '\n' + currentLine;
+  }
+
+  return foldedText;
+}
+
+function isHexadecimal(hex: string): boolean {
+  return /^[0-9A-Fa-f]{2}$/i.test(hex);
+}
+```

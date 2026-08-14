@@ -1,0 +1,4 @@
+```python
+def fold_ends(values: list) -> list:
+    return [values[i] + values[-i - 1] for i in range((len(values) + 1) // 2)]
+```

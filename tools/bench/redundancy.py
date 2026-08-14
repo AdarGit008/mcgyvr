@@ -60,6 +60,10 @@ sys.path.insert(0, str(REPO / "tools"))
 sys.path.insert(0, str(HERE))
 
 import emit as screen  # noqa: E402
+
+# #231 checks 3 and 6.
+import mode  # noqa: E402
+import product as revision  # noqa: E402
 from power.mde import detectable_delta  # noqa: E402
 
 ADMISSIONS = HERE / "admissions.jsonl"
@@ -345,6 +349,10 @@ def main(argv: list[str] | None = None) -> int:
         default="all",
     )
     args = parser.parse_args(argv)
+
+    read = mode.read(*[args.run / f"bench-{arm}" for arm in ARMS])
+    print("# " + mode.banner(read).removeprefix("- "))
+    print("# " + revision.banner(read).removeprefix("- ") + "\n")
 
     if args.section in ("saturation", "all"):
         saturation(args.band)

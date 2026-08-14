@@ -1,0 +1,18 @@
+```ts
+/**
+ * Adds up the digits of a code and returns whatever single digit would have to follow them
+ * to bring that total up to a multiple of ten. A code with no digits at all needs a zero.
+ * Rejects a code carrying any character that is not a digit with an error.
+ *
+ * @param {string} code - The code to check the digit for.
+ * @returns {number} - The required check digit.
+ */
+export function checkDigit(code: string): number {
+  if (/[^0-9]/.test(code)) {
+    throw new Error('Code must contain only digits.');
+  }
+
+  const sum = code.split('').reduce((acc, digit) => acc + parseInt(digit, 10), 0);
+  return (10 - (sum % 10)) % 10;
+}
+```

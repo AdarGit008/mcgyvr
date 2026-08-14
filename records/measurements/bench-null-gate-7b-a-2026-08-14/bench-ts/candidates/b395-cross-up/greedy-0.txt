@@ -1,0 +1,22 @@
+```ts
+/**
+ * Returns how many times a run of readings crosses a level going upward.
+ * A crossing is defined as a reading that reaches the level when the reading immediately before it stood below.
+ *
+ * @param readings - An array of number readings.
+ * @param level - The level to cross.
+ * @returns The number of upward crossings.
+ */
+export function crossUp(readings: number[], level: number): number {
+  if (readings.length < 2) return 0;
+
+  let count = 0;
+  for (let i = 1; i < readings.length; i++) {
+    if (readings[i - 1] < level && readings[i] >= level) {
+      count++;
+    }
+  }
+
+  return count;
+}
+```

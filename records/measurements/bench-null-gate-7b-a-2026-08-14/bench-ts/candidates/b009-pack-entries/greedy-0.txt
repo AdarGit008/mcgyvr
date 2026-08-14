@@ -1,0 +1,34 @@
+```ts
+export function packEntries(entries: [string, string][]): string {
+  if (!Array.isArray(entries)) {
+    throw new Error("Input must be an array");
+  }
+
+  const seenKeys = new Set<string>();
+
+  for (const entry of entries) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error("Each entry must be a two-element array");
+    }
+    const [key, value] = entry;
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Key and value must be strings");
+    }
+    if (key === "") {
+      throw new Error("Key cannot be empty");
+    }
+    if (seenKeys.has(key)) {
+      throw new Error("Duplicate key found");
+    }
+    seenKeys.add(key);
+  }
+
+  return entries
+    .map(([key, value]) => {
+      const escapedKey = key.replace(/[\\=;]/g, '\\$&');
+      const escapedValue = value.replace(/[\\=;]/g, '\\$&');
+      return `${escapedKey}=${escapedValue}`;
+    })
+    .join(';');
+}
+```

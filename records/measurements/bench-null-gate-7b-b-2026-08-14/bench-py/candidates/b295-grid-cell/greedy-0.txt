@@ -1,0 +1,19 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Turns a row and a column into a spreadsheet name."""
+    if column < 0 or row < 0:
+        raise ValueError("Row and column must be non-negative integers.")
+    
+    letters = []
+    while column >= 0:
+        column, remainder = divmod(column, 26)
+        letters.append(chr(65 + remainder))
+    return ''.join(reversed(letters)) + str(row + 1)
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Returns the names of every cell in a grid of a given size."""
+    if rows < 0 or columns < 0:
+        raise ValueError("Rows and columns must be non-negative integers.")
+    
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

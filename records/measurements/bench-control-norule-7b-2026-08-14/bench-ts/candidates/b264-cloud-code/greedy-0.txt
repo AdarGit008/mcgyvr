@@ -1,0 +1,12 @@
+```ts
+/**
+ * Converts a short weather code into words using the provided table.
+ * @param table - A mapping of weather codes to descriptions.
+ * @param code - The weather code to convert, case-insensitive.
+ * @returns The description for the given weather code or "unknown" if not found.
+ */
+export function cloudCode(table: Record<string, string>, code: string): string {
+  const upperCaseCode = code.toUpperCase();
+  return table[upperCaseCode] || 'unknown';
+}
+```

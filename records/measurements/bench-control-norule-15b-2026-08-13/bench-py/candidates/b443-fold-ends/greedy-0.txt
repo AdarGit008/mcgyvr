@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def fold_ends(values: List[int]) -> List[int]:
+    if not values:
+        return []
+    
+    total = sum(values)
+    result = [total]
+    
+    for i in range(len(values) // 2):
+        result.append(total - values[i])
+    
+    return result[::-1] if len(values) % 2 else result
+```

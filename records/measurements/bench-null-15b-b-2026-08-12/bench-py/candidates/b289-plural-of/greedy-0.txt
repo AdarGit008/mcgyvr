@@ -1,0 +1,21 @@
+```python
+def plural_of(noun: str) -> str:
+    """
+    Return the plural of an English noun.
+
+    Args:
+        noun (str): The noun to be pluralized.
+
+    Returns:
+        str: The plural form of the noun.
+    """
+    if not noun:
+        raise ValueError("Input cannot be empty")
+
+    if noun[-1] in 'sxchsh':
+        return noun + 'es'
+    elif noun[-1] == 'y' and noun[-2].isalpha():
+        return noun[:-1] + 'ies'
+    else:
+        return noun + 's'
+```

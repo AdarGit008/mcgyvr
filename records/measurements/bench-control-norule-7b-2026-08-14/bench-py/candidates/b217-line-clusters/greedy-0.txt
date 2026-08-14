@@ -1,0 +1,29 @@
+```python
+from collections import defaultdict
+
+def line_clusters(stops: list[str], links: list[tuple[str, str]]) -> list[list[str]]:
+    if not stops:
+        return []
+
+    graph = defaultdict(list)
+    for u, v in links:
+        graph[u].append(v)
+        graph[v].append(u)
+
+    visited = set()
+    clusters = []
+
+    for stop in sorted(stops):
+        if stop not in visited:
+            cluster = []
+            stack = [stop]
+            while stack:
+                current = stack.pop()
+                if current not in visited:
+                    visited.add(current)
+                    cluster.append(current)
+                    stack.extend(graph[current])
+            clusters.append(sorted(cluster))
+
+    return clusters
+```

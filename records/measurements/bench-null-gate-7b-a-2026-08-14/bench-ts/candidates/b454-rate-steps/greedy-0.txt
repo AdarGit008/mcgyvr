@@ -1,0 +1,27 @@
+```ts
+/**
+ * Returns the charge for one step.
+ * @param amount - The amount to calculate the charge for.
+ * @param fixed - The fixed sum part of the charge.
+ * @param percent - The percentage share of the amount to add to the fixed sum, rounded down.
+ */
+export function stepRate(amount: number, fixed: number, percent: number): number {
+  if (amount < 0 || percent < 0) {
+    throw new Error('Amount and percent must be non-negative');
+  }
+  return Math.floor(fixed + amount * (percent / 100));
+}
+
+/**
+ * Returns the charge for each of several amounts.
+ * @param amounts - The array of amounts to calculate charges for.
+ * @param fixed - The fixed sum part of the charge.
+ * @param percent - The percentage share of the amount to add to the fixed sum, rounded down.
+ */
+export function rateSteps(amounts: number[], fixed: number, percent: number): number[] {
+  if (amounts.some(amount => amount < 0) || percent < 0) {
+    throw new Error('Amounts and percent must be non-negative');
+  }
+  return amounts.map(amount => stepRate(amount, fixed, percent));
+}
+```

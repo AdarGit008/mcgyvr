@@ -1,0 +1,48 @@
+```ts
+type Canvas = { rows: number; cols: number; cells: number[][] };
+
+export function newCanvas(rows: number, cols: number): Canvas {
+  if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
+    throw new Error("canvas dimensions must be positive integers");
+  }
+  const cells: number[][] = [];
+  for (let r = 0; r < rows; r += 1) {
+    cells.push(new Array(cols).fill(0));
+  }
+  return { rows, cols, cells };
+}
+
+export function stampRect(canvas: Canvas, rect: number[]): number {
+  if (!Array.isArray(rect) || rect.length !== 4 || !rect.every(Number.isInteger)) {
+    throw new Error("rect must be an array of exactly four integers");
+  }
+
+  const [top, left, bottom, right] = rect;
+  let inked = 0;
+
+  // Ensure the rect is within the canvas bounds
+  if (top < 0 || top >= canvas.rows || left < 0 || left >= canvas.cols ||
+      bottom < 0 || bottom >= canvas.rows || right < 0 || right >= canvas.cols) {
+    throw new Error("rect must be within the canvas bounds");
+  }
+
+  for (let r = Math.max(top, 0); r < Math.min(bottom, canvas.rows - 1); r += 1) {
+    for (let c = Math.max(left, 0); c < Math.min(right, canvas.cols - 1); c += 1) {
+      canvas.cells[r][c] = 1;
+      inked += 1;
+    }
+  }
+
+  return inked;
+}
+
+export function inkTotal(canvas: Canvas): number {
+  let total = 0;
+  for (const row of canvas.cells) {
+    for (const cell of row) {
+      total += cell;
+    }
+  }
+  return total;
+}
+```

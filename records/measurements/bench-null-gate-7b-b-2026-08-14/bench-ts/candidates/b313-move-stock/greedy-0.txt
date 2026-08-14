@@ -1,0 +1,13 @@
+```ts
+/**
+ * Applies each stock movement to the opening quantity in order,
+ * ensuring stock never falls below zero.
+ *
+ * @param opening - The starting quantity of stock.
+ * @param moves - An array of numbers representing stock movements.
+ * @returns The closing quantity of stock after applying all movements.
+ */
+export function moveStock(opening: number, moves: number[]): number {
+  return moves.reduce((quantity, move) => Math.max(0, quantity + move), opening);
+}
+```

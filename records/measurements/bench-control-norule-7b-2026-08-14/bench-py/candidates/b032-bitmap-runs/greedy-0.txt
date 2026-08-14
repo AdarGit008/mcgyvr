@@ -1,0 +1,20 @@
+```python
+def find_free_run(words: list, bits: int, length: int) -> int:
+    if not _whole(bits) or bits <= 0:
+        raise ValueError("capacity must be a positive integer")
+    if len(words) != (bits + WORD_BITS - 1) // WORD_BITS:
+        raise ValueError("word count disagrees with capacity")
+    if not _whole(length) or length <= 0:
+        raise ValueError("run length must be a positive integer")
+
+    for start in range(0, bits, length):
+        free = True
+        for i in range(start, start + length):
+            if _bit_of(words, i) == 1:
+                free = False
+                break
+        if free:
+            return start
+
+    return -1
+```

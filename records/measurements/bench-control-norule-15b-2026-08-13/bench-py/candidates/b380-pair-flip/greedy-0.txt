@@ -1,0 +1,11 @@
+```python
+from typing import List, Tuple
+
+def flip_one(pair: List[int]) -> List[int]:
+    if len(pair) != 2:
+        raise ValueError("A pair must contain exactly two elements.")
+    return [pair[1], pair[0]]
+
+def flip_all(pairs: List[Tuple[int]]) -> List[Tuple[int]]:
+    return [flip_one(pair) for pair in pairs]
+```

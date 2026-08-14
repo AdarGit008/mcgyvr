@@ -1,0 +1,21 @@
+```ts
+export function drawStock(shelf: Record<string, number>, order: [string, number][]): Record<string, number> {
+  if (typeof shelf !== 'object' || !shelf) throw new Error('Invalid shelf');
+  if (!Array.isArray(order)) throw new Error('Invalid order');
+
+  const remainingShelf: Record<string, number> = { ...shelf };
+
+  for (const [item, count] of order) {
+    if (typeof item !== 'string') throw new Error('Item must be a string');
+    if (typeof count !== 'number' || count < 0 || !Number.isInteger(count)) throw new Error('Count must be a non-negative whole number');
+
+    if (!remainingShelf[item]) throw new Error(`Item ${item} not found on the shelf`);
+
+    remainingShelf[item] -= count;
+
+    if (remainingShelf[item] === 0) delete remainingShelf[item];
+  }
+
+  return remainingShelf;
+}
+```

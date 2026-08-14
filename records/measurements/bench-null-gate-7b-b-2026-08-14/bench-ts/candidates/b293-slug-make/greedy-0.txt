@@ -1,0 +1,22 @@
+```ts
+/**
+ * Lowercases a word and removes all non-alphanumeric characters.
+ * @param word - The word to slugify.
+ * @returns A slugified version of the word.
+ */
+export function slugWord(word: string): string {
+  return word.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Joins the slugged words of a phrase with single hyphens, excluding empty slugs.
+ * @param phrase - The phrase to slugify.
+ * @returns A hyphen-separated string of slugified words.
+ */
+export function slugMake(phrase: string): string {
+  return phrase.split(' ')
+    .map(slugWord)
+    .filter(Boolean)
+    .join('-');
+}
+```

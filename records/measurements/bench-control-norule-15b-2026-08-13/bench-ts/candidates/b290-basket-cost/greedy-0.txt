@@ -1,0 +1,21 @@
+```ts
+export function lineCost(price: number, quantity: number): number {
+  if (!Number.isFinite(price) || !Number.isFinite(quantity)) {
+    throw new Error("Both price and quantity must be finite numbers.");
+  }
+  return Math.round(price * quantity);
+}
+
+export function basketCost(lines: { price: number; quantity: number }[], discount: number): number {
+  if (!Array.isArray(lines) || lines.some(line => typeof line !== 'object' || !('price' in line && 'quantity' in line))) {
+    throw new Error("lines must be an array of objects with 'price' and 'quantity' properties.");
+  }
+  if (typeof discount !== 'number' || discount < 0) {
+    throw new Error("discount must be a non-negative number.");
+  }
+
+  const totalCost = lines.reduce((acc, line) => acc + lineCost(line.price, line.quantity), 0);
+  const discountedTotal = Math.floor(totalCost * (1 - discount / 100));
+  return discountedTotal;
+}
+```

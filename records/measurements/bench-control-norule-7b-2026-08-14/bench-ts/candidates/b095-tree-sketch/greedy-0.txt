@@ -1,0 +1,35 @@
+```ts
+/**
+ * Draws a tree of nodes as lines, with each node's line showing its connector and name.
+ * @param root - The root node of the tree, which must be an object with 'name' and 'children'.
+ * @returns An array of strings representing the lines of the tree drawing.
+ */
+export function drawTreeLines(root: { name: string; children: any[] }): string[] {
+  if (typeof root.name !== 'string' || root.name === '' || root.name.includes('\n')) {
+    throw new Error('Invalid node name');
+  }
+  if (!Array.isArray(root.children)) {
+    throw new Error('Invalid children value');
+  }
+
+  const lines: string[] = [];
+
+  function drawNode(node: { name: string; children: any[] }, depth: number, isLast: boolean) {
+    const indent = ' '.repeat(depth * 4);
+    const connector = isLast ? "'-- " : "|-- ";
+    const line = `${indent}${connector}${node.name}`;
+    lines.push(line);
+
+    if (node.children.length > 0) {
+      const nextDepth = depth + 1;
+      for (let i = 0; i < node.children.length; i++) {
+        const isLastChild = i === node.children.length - 1;
+        drawNode(node.children[i], nextDepth, isLastChild);
+      }
+    }
+  }
+
+  drawNode(root, 0, true);
+  return lines;
+}
+```

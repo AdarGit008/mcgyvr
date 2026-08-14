@@ -1,0 +1,26 @@
+```ts
+/**
+ * Extracts the tag name from an opening marker.
+ * @param marker - The marker string to extract the tag name from.
+ * @returns The tag name without a leading slash.
+ */
+export function tagOpen(marker: string): string {
+  if (!marker.startsWith('<') || !marker.endsWith('>')) {
+    throw new Error('Marker must be wrapped in angle brackets');
+  }
+  const tagName = marker.slice(1, -1);
+  return tagName.startsWith('/') ? tagName.slice(1) : tagName;
+}
+
+/**
+ * Checks if the opening and closing markers name the same thing.
+ * @param opening - The opening marker string.
+ * @param closing - The closing marker string.
+ * @returns true if they name the same thing, false otherwise.
+ */
+export function tagPair(opening: string, closing: string): boolean {
+  const openTagName = tagOpen(opening);
+  const closeTagName = tagOpen(closing);
+  return openTagName === closeTagName;
+}
+```

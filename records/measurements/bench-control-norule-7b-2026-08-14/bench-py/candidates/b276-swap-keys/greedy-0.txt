@@ -1,0 +1,23 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping the other way round,
+    from each code to a name. When two names share one code, the name that sorts first
+    is the one kept. A name whose code is empty text is left out altogether.
+    """
+    if not isinstance(names, dict):
+        raise ValueError("Input must be a dictionary")
+
+    swapped = {}
+    for name, code in names.items():
+        if not isinstance(name, str) or not isinstance(code, str):
+            raise ValueError("Both keys and values must be strings")
+        if code:
+            if code in swapped:
+                if name < swapped[code]:
+                    swapped[code] = name
+            else:
+                swapped[code] = name
+
+    return swapped
+```

@@ -1,0 +1,80 @@
+```ts
+/** Replay a notepad editing session: type, erase, replace, undo and redo. */
+export function replayNotepad(commands: (string | number)[][]): string {
+  let buffer = "";
+  const past: string[] = [];
+  const future: string[] = [];
+
+  for (const command of commands) {
+    const action = command[0];
+    if (!Array.isArray(command) || command.length < 2) {
+      throw new Error("Invalid command format");
+    }
+
+    switch (action) {
+      case "type": {
+        const text = command[1] as string;
+        if (typeof text !== "string" || text === "") {
+          throw new Error("Type command requires a non-empty string");
+        }
+        past.push(buffer);
+        buffer += text;
+        break;
+      }
+      case "erase": {
+        const n = command[1] as number;
+        if (typeof n !== "number" || n <= 0 || n > buffer.length) {
+          throw new Error("Erase command requires a positive integer not exceeding the buffer length");
+        }
+        past.push(buffer);
+        buffer = buffer.slice(0, buffer.length - n);
+        break;
+      }
+      case "replace": {
+        const oldText = command[1] as string;
+        const newText = command[2] as string;
+        if (typeof oldText !== "string" || oldText === "" || !buffer.includes(oldText)) {
+          throw new Error("Replace command requires a non-empty string that occurs in the buffer");
+        }
+        past.push(buffer);
+        buffer = buffer.replaceLastOccurrence(oldText, newText);
+        break;
+      }
+      case "undo": {
+        const k = command[1] as number;
+        if (typeof k !== "number" || k <= 0 || k > past.length) {
+          throw new Error("Undo command requires a positive integer not exceeding the number of past edits");
+        }
+        for (let i = 0; i < k; i++) {
+          future.push(buffer);
+          buffer = past.pop() as string;
+        }
+        break;
+      }
+      case "redo": {
+        const k = command[1] as number;
+        if (typeof k !== "number" || k <= 0 || k > future.length) {
+          throw new Error("Redo command requires a positive integer not exceeding the number of future edits");
+        }
+        for (let i = 0; i < k; i++) {
+          past.push(buffer);
+          buffer = future.pop() as string;
+        }
+        break;
+      }
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+  }
+
+  return buffer;
+}
+
+String.prototype.replaceLastOccurrence = function (searchValue: string, replaceValue: string): string {
+  const lastIndex = this.lastIndexOf(searchValue);
+  if (lastIndex === -1) {
+    return this.toString();
+  }
+  return this.substring(0, lastIndex) + replaceValue + this.substring(lastIndex + searchValue.length);
+};
+```

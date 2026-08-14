@@ -1,0 +1,30 @@
+```ts
+/**
+ * Shorten a caption to a character budget.
+ * @param text - The original caption text.
+ * @param limit - The maximum number of characters allowed.
+ * @returns The shortened caption or the original if within limit.
+ */
+export function trimCaption(text: string, limit: number): string {
+  if (typeof text !== 'string' || typeof limit !== 'number' || limit <= 0) {
+    throw new Error('Invalid arguments');
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  let truncated = text.slice(0, limit - 1);
+  const lastSpaceIndex = truncated.lastIndexOf(' ');
+
+  if (lastSpaceIndex !== -1 && !/\s/.test(text[limit])) {
+    truncated = truncated.slice(0, lastSpaceIndex);
+  }
+
+  while (truncated.length > 0 && /\s$/.test(truncated)) {
+    truncated = truncated.slice(0, -1);
+  }
+
+  return `${truncated}…`;
+}
+```

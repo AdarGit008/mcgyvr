@@ -1,0 +1,55 @@
+```ts
+function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) throw new Error("sheets must be a list");
+  if (!sheets.every(sheet => typeof sheet === "string")) throw new Error("each sheet must be a string");
+
+  const itemTotals = new Map<string, { sold: number; returned: number }>();
+
+  sheets.forEach(sheet => {
+    const rows = sheet.split("\n").filter(row => row.trim());
+    rows.forEach(row => {
+      const fields = row.split("|");
+      if (fields.length !== 3) throw new Error("each row must have exactly three fields");
+
+      const itemName = fields[0].trim();
+      const sold = parseFloat(fields[1]);
+      const returned = parseFloat(fields[2]);
+
+      if (!itemName || isNaN(sold) || isNaN(returned)) {
+        throw new Error("item name or sold/returned field is not a string of decimal digits");
+      }
+
+      if (sold > returned) {
+        throw new Error(`item "${itemName}" has returned total exceeding its sold total`);
+      }
+
+      const existing = itemTotals.get(itemName);
+      if (existing) {
+        existing.sold += sold;
+        existing.returned += returned;
+      } else {
+        itemTotals.set(itemName, { sold, returned });
+      }
+    });
+  });
+
+  const items = Array.from(itemTotals.keys()).sort();
+  let report = "";
+
+  for (const itemName of items) {
+    const { sold, returned } = itemTotals.get(itemName)!;
+    const netCount = sold - returned;
+
+    report += `${itemName.padEnd(Math.max(...items.map(item => item.length)), " ")} ${netCount}\n`;
+  }
+
+  if (!report) return "";
+
+  const totalSold = items.reduce((sum, itemName) => sum + itemTotals.get(itemName)?.sold ?? 0, 0);
+  const totalReturned = items.reduce((sum, itemName) => sum + itemTotals.get(itemName)?.returned ?? 0, 0);
+
+  report += `${items.map(item => item.length).reduce((max, length) => Math.max(max, length), 0)} ${totalSold - totalReturned}\n`;
+
+  return report;
+}
+```
