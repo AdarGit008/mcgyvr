@@ -59,6 +59,8 @@ def _by_path(name: str, path: Path) -> types.ModuleType:
 
 
 matrix = _by_path("bench_matrix_report", HERE / "matrix.py")
+mode = _by_path("bench_mode_report", HERE / "mode.py")
+product = _by_path("bench_product_report", HERE / "product.py")
 
 # The facts every cell in one table must agree on. A difference in any of them
 # is a second variable inside a contrast that claims to vary one thing.
@@ -79,6 +81,15 @@ COMPARABLE = (
     "greedy_temperature",
     "protocol",
     "tasks_sha256",
+    # The round and the revision it pins (#231 check 3). Without these a cell
+    # measured before an adopted change and a cell measured after it sit in one
+    # table, and the change re-baselines its own siblings — ADR-0018's stated
+    # reason for making the round the unit. A directory written before rounds
+    # existed carries neither, so pre-round cells agree with each other and
+    # refuse to be mixed with round cells, which is the honest answer: nothing
+    # recorded what revision produced them.
+    "round",
+    "product_sha256",
 )
 
 REPRO_FILE = HERE / "reproducibility.json"
@@ -262,8 +273,8 @@ def render(cells: list[dict[str, Any]]) -> str:
         f"tier `{first['tier']}`",
         "",
         f"- scored by: {bar}",
-        "- mode: **single-tier** — one model, no escalation, so every figure "
-        "below is that tier's own and not the ladder's",
+        mode.declare(first),
+        product.declare(first),
         f"- cells: {len(cells)} of {len(loaded.cells)} declared in "
         "`tools/bench/matrix.json`",
         _reproducibility_line(bound, no_bound_because),
