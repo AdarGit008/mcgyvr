@@ -1,0 +1,21 @@
+```ts
+/**
+ * Maps each label to every position it holds in the input list.
+ * Positions are zero-based and sorted in increasing order.
+ *
+ * @param labels - The list of labels to map.
+ * @returns A mapping from each label to its positions.
+ */
+export function indexMap(labels: string[]): Record<string, number[]> {
+  const result: Record<string, number[]> = {};
+
+  labels.forEach((label, index) => {
+    if (!result[label]) {
+      result[label] = [];
+    }
+    result[label].push(index);
+  });
+
+  return result;
+}
+```

@@ -1,0 +1,23 @@
+```ts
+/**
+ * Finds and returns the positions of local peaks in a list of water levels.
+ * A local peak is defined as a position whose level is strictly greater than
+ * the level immediately before it and the level immediately after it.
+ * The first and last positions are never considered peaks.
+ *
+ * @param {number[]} levels - List of integer water levels read in order.
+ * @returns {number[]} Positions of every local peak, sorted in increasing order.
+ */
+export function tideMarks(levels: number[]): number[] {
+  if (levels.length < 3) return [];
+
+  const peaks: number[] = [];
+  for (let i = 1; i < levels.length - 1; i++) {
+    if (levels[i] > levels[i - 1] && levels[i] > levels[i + 1]) {
+      peaks.push(i);
+    }
+  }
+
+  return peaks;
+}
+```

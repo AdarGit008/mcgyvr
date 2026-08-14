@@ -1,0 +1,25 @@
+```ts
+/**
+ * Returns the slot number holding the k-th oldest survivor reading.
+ * @param capacity - The total number of slots in the ring buffer.
+ * @param writes - The total number of readings recorded.
+ * @param k - The position of the survivor to find, counting from 0.
+ * @returns The slot number of the k-th oldest survivor.
+ */
+export function ringSlot(capacity: number, writes: number, k: number): number {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+        throw new Error('Capacity must be a positive whole number.');
+    }
+    if (!Number.isInteger(writes) || writes < 0) {
+        throw new Error('Writes must be a non-negative whole number.');
+    }
+    if (!Number.isInteger(k) || k < 0) {
+        throw new Error('K must be a non-negative whole number.');
+    }
+    const survivorCount = Math.min(writes, capacity);
+    if (k >= survivorCount) {
+        throw new Error('K is at or past the survivor count.');
+    }
+    return (writes - survivorCount + k) % capacity;
+}
+```

@@ -1,0 +1,44 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    def is_valid_field_name(name: str) -> bool:
+        if not isinstance(name, str):
+            return False
+        stem = name.rstrip('?')
+        if not stem:
+            return False
+        return len(set(name)) == len(stem)
+
+    def is_valid_record(record: dict) -> bool:
+        for field in fields:
+            stem = field.rstrip('?')
+            if field.endswith('?') and stem not in record:
+                continue
+            if stem not in record:
+                return False
+        return True
+
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+    if not records and fields:
+        raise ValueError("fields cannot be non-empty when records is empty")
+    if not all(isinstance(record, dict) for record in records):
+        raise ValueError("all records must be mappings")
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("fields must be a non-empty list")
+    if not all(is_valid_field_name(field) for field in fields):
+        raise ValueError("all fields must be valid field names")
+
+    result = []
+    for record in records:
+        row = []
+        for field in fields:
+            stem = field.rstrip('?')
+            if field.endswith('?'):
+                value = record.get(stem, None)
+            else:
+                value = record[stem]
+            row.append(value)
+        result.append(row)
+
+    return result
+```

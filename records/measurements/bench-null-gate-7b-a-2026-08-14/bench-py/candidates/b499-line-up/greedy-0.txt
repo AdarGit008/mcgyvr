@@ -1,0 +1,18 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    if start not in links:
+        raise ValueError("Start name not found in links")
+    
+    line = []
+    current = start
+    
+    while current in links:
+        if current in line:
+            raise ValueError("Circular link detected")
+        
+        line.append(current)
+        current = links[current]
+    
+    line.append(current)
+    return line
+```

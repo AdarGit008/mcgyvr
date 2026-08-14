@@ -1,0 +1,12 @@
+```python
+def tint_mix(volume_a: int, strength_a: int, volume_b: int, strength_b: int) -> int:
+    if strength_a > 100 or strength_b > 100:
+        raise ValueError("Strength cannot exceed one hundred percent.")
+    
+    total_volume = volume_a + volume_b
+    if total_volume == 0:
+        return 0
+    
+    total_strength = (volume_a * strength_a + volume_b * strength_b) // total_volume
+    return total_strength
+```

@@ -1,0 +1,16 @@
+```ts
+/**
+ * Converts a firmware release version into its numerical stamp.
+ * @param major - The major version component, must be a whole number.
+ * @param minor - The minor version component, must be a whole number and less than 1000.
+ * @param patch - The patch version component, must be a whole number and less than 1000.
+ * @returns The numerical stamp of the firmware release.
+ */
+export function stampBuild(major: number, minor: number, patch: number): number {
+    if (!Number.isInteger(major) || major < 0) throw new Error('Invalid major version');
+    if (!Number.isInteger(minor) || minor < 0 || minor >= 1000) throw new Error('Invalid minor version');
+    if (!Number.isInteger(patch) || patch < 0 || patch >= 1000) throw new Error('Invalid patch version');
+
+    return major * 1_000_000 + minor * 1_000 + patch;
+}
+```

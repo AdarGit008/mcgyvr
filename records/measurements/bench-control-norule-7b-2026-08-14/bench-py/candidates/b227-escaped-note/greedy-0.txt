@@ -1,0 +1,34 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    # First pass: fold the lines
+    folded_text = []
+    current_line = ""
+    for char in text:
+        if char == '\n':
+            folded_text.append(current_line.strip())
+            current_line = ""
+        else:
+            current_line += char
+    folded_text.append(current_line.strip())
+
+    # Second pass: decode escapes
+    decoded_text = []
+    i = 0
+    while i < len(folded_text):
+        line = folded_text[i]
+        if line.endswith('='):
+            raise ValueError("Trailing '=' found")
+        decoded_line = ""
+        j = 0
+        while j < len(line):
+            if line[j] == '=' and j + 2 < len(line) and line[j+1].isupper() and line[j+2].isupper():
+                decoded_line += chr(int(line[j+1:j+3], 16))
+                j += 3
+            else:
+                decoded_line += line[j]
+                j += 1
+        decoded_text.append(decoded_line)
+        i += 1
+
+    return '\n'.join(decoded_text)
+```

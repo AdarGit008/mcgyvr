@@ -1,0 +1,27 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list")
+    
+    remaining_shelf = shelf.copy()
+    
+    for line in order:
+        if len(line) != 2:
+            raise ValueError("Each order line must contain exactly an item and a count")
+        
+        item, count = line
+        if not isinstance(item, str) or not isinstance(count, int):
+            raise ValueError("Item must be a string and count must be an integer")
+        if count <= 0:
+            raise ValueError("Count must be a positive whole number")
+        
+        if item not in remaining_shelf:
+            raise ValueError(f"Item '{item}' is not on the shelf")
+        
+        if remaining_shelf[item] < count:
+            raise ValueError(f"Not enough {item} on hand to fulfill order")
+        
+        remaining_shelf[item] -= count
+    
+    return remaining_shelf
+```

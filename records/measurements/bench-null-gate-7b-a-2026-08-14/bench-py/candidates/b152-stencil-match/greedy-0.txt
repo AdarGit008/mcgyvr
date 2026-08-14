@@ -1,0 +1,25 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    if not isinstance(stencil, str) or not isinstance(code, str):
+        raise ValueError("Both stencil and code must be strings.")
+    if not stencil:
+        raise ValueError("Stencil cannot be empty.")
+
+    if len(stencil) != len(code):
+        return False
+
+    for s_char, c_char in zip(stencil, code):
+        if s_char == '#':
+            if not c_char.isdigit():
+                return False
+        elif s_char == '@':
+            if not c_char.isalpha():
+                return False
+        elif s_char == '?':
+            continue
+        else:
+            if s_char != c_char:
+                return False
+
+    return True
+```

@@ -1,0 +1,54 @@
+```ts
+type Canvas = { rows: number; cols: number; cells: number[][] };
+
+export function newCanvas(rows: number, cols: number): Canvas {
+  if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
+    throw new Error("canvas dimensions must be positive integers");
+  }
+  const cells: number[][] = [];
+  for (let r = 0; r < rows; r += 1) {
+    cells.push(new Array(cols).fill(0));
+  }
+  return { rows, cols, cells };
+}
+
+export function stampRect(canvas: Canvas, rect: number[]): number {
+  if (!Array.isArray(rect) || rect.length !== 4) {
+    throw new Error("rect must be a list of exactly four integers");
+  }
+  const [top, left, bottom, right] = rect;
+  if (typeof top !== 'number' || typeof left !== 'number' || typeof bottom !== 'number' || typeof right !== 'number') {
+    throw new Error("rect elements must be numbers");
+  }
+  if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) {
+    throw new Error("rect elements must be integers");
+  }
+  if (top >= bottom || left >= right) {
+    throw new Error("rect must cover at least one cell");
+  }
+  if (top < 0 || left < 0 || bottom > canvas.rows || right > canvas.cols) {
+    throw new Error("rect must not reach off the canvas");
+  }
+
+  let inked = 0;
+  for (let r = top; r < bottom; r += 1) {
+    for (let c = left; c < right; c += 1) {
+      if (canvas.cells[r][c] === 0) {
+        canvas.cells[r][c] = 1;
+        inked += 1;
+      }
+    }
+  }
+  return inked;
+}
+
+export function inkTotal(canvas: Canvas): number {
+  let total = 0;
+  for (const row of canvas.cells) {
+    for (const cell of row) {
+      total += cell;
+    }
+  }
+  return total;
+}
+```

@@ -1,0 +1,25 @@
+```ts
+/**
+ * Cut a line down to at most a given number of characters. A line that had to be cut ends in three dots, and those dots count toward the limit. A line already short enough is left alone. Reject a limit under four with an error.
+ *
+ * @param line - The input string to trim.
+ * @param limit - The maximum length of the trimmed string.
+ * @returns The trimmed string.
+ */
+export function trimTo(line: string, limit: number): string {
+  if (limit < 4) {
+    throw new Error('Limit must be at least 4 characters.');
+  }
+
+  if (line.length <= limit) {
+    return line;
+  }
+
+  const lastSpaceIndex = line.slice(0, limit - 3).lastIndexOf(' ');
+  if (lastSpaceIndex !== -1) {
+    return line.slice(0, lastSpaceIndex) + '...';
+  } else {
+    return line.slice(0, limit - 3) + '...';
+  }
+}
+```

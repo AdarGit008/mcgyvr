@@ -1,0 +1,13 @@
+```ts
+/**
+ * Capitalizes the first letter of every sentence in a passage.
+ * @param passage - The input string to process.
+ * @returns A new string with the first letter of each sentence capitalized.
+ */
+export function capAfter(passage: string): string {
+  return passage
+    .split('.')
+    .map(sentence => sentence.trim().charAt(0).toUpperCase() + sentence.slice(1))
+    .join('. ');
+}
+```

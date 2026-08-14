@@ -1,0 +1,10 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        raise ValueError("Party size cannot be zero.")
+    
+    for i in range(len(row) - party + 1):
+        if row[i:i+party].count('x') == 0:
+            return i
+    return -1
+```

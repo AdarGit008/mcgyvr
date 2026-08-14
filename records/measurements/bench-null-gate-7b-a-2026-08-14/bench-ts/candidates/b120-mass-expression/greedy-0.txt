@@ -1,0 +1,65 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || !text) throw new Error('Invalid tally');
+  if (!['g', 'kg', 't'].includes(unit)) throw new Error('Invalid goal unit');
+
+  const terms = text.split(/[\s+]/);
+  let total = 0;
+
+  for (let i = 0; i < terms.length; i += 2) {
+    const count = parseInt(terms[i], 10);
+    if (isNaN(count)) throw new Error('Invalid term');
+
+    const nextTerm = terms[i + 1];
+    if (!nextTerm || !['g', 'kg', 't'].includes(nextTerm)) throw new Error('Invalid term');
+
+    let value: number;
+    switch (nextTerm) {
+      case 'g':
+        value = count;
+        break;
+      case 'kg':
+        value = count * 1000;
+        break;
+      case 't':
+        value = count * 1000000;
+        break;
+      default:
+        throw new Error('Invalid term');
+    }
+
+    if (i === 0) {
+      total += value;
+    } else {
+      const operator = terms[i - 1];
+      if (operator === '+') {
+        total += value;
+      } else if (operator === '-') {
+        total -= value;
+        if (total < 0) throw new Error('Draw dips below zero');
+      } else {
+        throw new Error('Invalid operator');
+      }
+    }
+  }
+
+  let result: number;
+  switch (unit) {
+    case 'g':
+      result = total;
+      break;
+    case 'kg':
+      result = Math.floor(total / 1000);
+      if (total % 1000 !== 0) throw new Error('Total does not come out whole in kg');
+      break;
+    case 't':
+      result = Math.floor(total / 1000000);
+      if (total % 1000000 !== 0) throw new Error('Total does not come out whole in t');
+      break;
+    default:
+      throw new Error('Invalid goal unit');
+  }
+
+  return result;
+}
+```

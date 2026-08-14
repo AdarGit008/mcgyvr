@@ -1,0 +1,52 @@
+```python
+"""Replay a notepad editing session: type, erase, replace, undo and redo."""
+
+
+def replay_notepad(commands: list) -> str:
+    buffer = ""
+    past = []
+    future = []
+
+    for command in commands:
+        action = command[0]
+        if not isinstance(command, list) or len(command) != 2:
+            raise ValueError("Invalid command format")
+        if action == "type":
+            text = command[1]
+            if not isinstance(text, str) or not text:
+                raise ValueError("Type command requires a non-empty string")
+            past.append(buffer)
+            buffer += text
+        elif action == "erase":
+            n = command[1]
+            if not isinstance(n, int) or n <= 0 or n > len(buffer):
+                raise ValueError("Erase command requires a positive integer not exceeding the buffer length")
+            past.append(buffer)
+            buffer = buffer[:len(buffer) - n]
+        elif action == "replace":
+            old, new = command[1], command[2]
+            if not isinstance(old, str) or not isinstance(new, str) or not old:
+                raise ValueError("Replace command requires non-empty strings for old and new")
+            if old not in buffer:
+                raise ValueError(f"Text '{old}' to replace not found in buffer")
+            past.append(buffer)
+            buffer = buffer.replace(old, new, 1)
+        elif action == "undo":
+            k = command[1]
+            if not isinstance(k, int) or k <= 0 or k > len(past):
+                raise ValueError("Undo command requires a positive integer not exceeding the number of past edits")
+            for _ in range(k):
+                future.append(buffer)
+                buffer = past.pop()
+        elif action == "redo":
+            k = command[1]
+            if not isinstance(k, int) or k <= 0 or k > len(future):
+                raise ValueError("Redo command requires a positive integer not exceeding the number of future edits")
+            for _ in range(k):
+                past.append(buffer)
+                buffer = future.pop()
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return buffer
+```

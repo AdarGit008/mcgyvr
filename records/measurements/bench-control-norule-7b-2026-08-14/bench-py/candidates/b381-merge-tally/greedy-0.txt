@@ -1,0 +1,9 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    """Return a new tally with the specified amount added to the given name's count."""
+    return {n: (tally[n] if n != name else tally[n] + amount) for n in tally}
+
+def merge_tally(left: dict, right: dict) -> dict:
+    """Return a new tally with counts from both tallies combined."""
+    return {n: (left.get(n, 0) + right.get(n, 0)) for n in set(left) | set(right)}
+```

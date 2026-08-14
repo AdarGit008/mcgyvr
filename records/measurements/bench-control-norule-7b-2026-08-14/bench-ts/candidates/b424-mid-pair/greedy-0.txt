@@ -1,0 +1,15 @@
+```ts
+/**
+ * Returns the two values standing closest to the middle of a list once it is put in order, the lower one first.
+ * A list of an odd length gives its middle value twice, and a list holding nothing gives two nothings.
+ *
+ * @param {number[]} values - The list of numbers to process.
+ * @returns {number[]} An array containing the two middle values.
+ */
+export function midPair(values: number[]): number[] {
+  if (values.length === 0) return [undefined, undefined];
+  const sortedValues = [...values].sort((a, b) => a - b);
+  const midIndex = Math.floor(sortedValues.length / 2);
+  return [sortedValues[midIndex - 1], sortedValues[midIndex]];
+}
+```

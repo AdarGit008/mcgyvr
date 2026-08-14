@@ -1,0 +1,10 @@
+```python
+def live_count(neighbours: list) -> int:
+    """Return how many of a cell's given neighbours are alive."""
+    return sum(1 for n in neighbours if n)
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    """Say whether the cell is alive in the next round."""
+    count = live_count(neighbours)
+    return (alive and 2 <= count <= 3) or (not alive and count == 3)
+```

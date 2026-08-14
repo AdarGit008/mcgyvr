@@ -1,0 +1,15 @@
+```ts
+/**
+ * Returns a phrase written out a given number of times, the copies joined by a stated separator.
+ * Asking for one copy gives the phrase alone with no separator, and asking for none or fewer gives empty text.
+ *
+ * @param phrase - The phrase to repeat.
+ * @param times - The number of times to repeat the phrase.
+ * @param between - The separator to join the repeated phrases.
+ * @returns The repeated phrases joined by the separator.
+ */
+export function repeatText(phrase: string, times: number, between: string): string {
+  if (times <= 0) return '';
+  return Array(times).fill(phrase).join(between);
+}
+```

@@ -1,0 +1,15 @@
+```ts
+export function stampBuild(major: number, minor: number, patch: number): number {
+  if (!Number.isInteger(major) || major < 0 || major >= 1_000) {
+    throw new Error('Invalid major component');
+  }
+  if (!Number.isInteger(minor) || minor < 0 || minor >= 1_000) {
+    throw new Error('Invalid minor component');
+  }
+  if (!Number.isInteger(patch) || patch < 0 || patch >= 1_000) {
+    throw new Error('Invalid patch component');
+  }
+
+  return major * 1_000_000 + minor * 1_000 + patch;
+}
+```

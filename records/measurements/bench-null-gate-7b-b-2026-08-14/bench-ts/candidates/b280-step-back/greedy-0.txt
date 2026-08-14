@@ -1,0 +1,22 @@
+```ts
+/**
+ * Returns the furthest forward position reached during a walk following a series of moves.
+ * @param moves - A string containing 'F' for forward and 'B' for backward steps.
+ * @returns The furthest forward position reached.
+ */
+export function stepBack(moves: string): number {
+    let position = 0;
+    let maxPosition = 0;
+
+    for (const move of moves) {
+        if (move === 'F') {
+            position++;
+            maxPosition = Math.max(maxPosition, position);
+        } else if (move === 'B') {
+            position--;
+        }
+    }
+
+    return maxPosition;
+}
+```

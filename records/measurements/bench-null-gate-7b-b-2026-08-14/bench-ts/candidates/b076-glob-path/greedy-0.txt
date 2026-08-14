@@ -1,0 +1,40 @@
+```ts
+/**
+ * Checks if a glob pattern matches a given path.
+ * @param pattern - The glob pattern to match against.
+ * @param path - The path to be matched.
+ * @returns true if the pattern matches the path, false otherwise.
+ */
+export function globPath(pattern: string, path: string): boolean {
+  if (typeof pattern !== 'string' || typeof path !== 'string') {
+    throw new Error('Pattern and path must be strings.');
+  }
+  if (pattern === '' || path === '') {
+    throw new Error('Pattern and path cannot be empty.');
+  }
+
+  const patternSegments = pattern.split('/');
+  const pathSegments = path.split('/');
+
+  if (patternSegments.length !== pathSegments.length) {
+    return false;
+  }
+
+  for (let i = 0; i < patternSegments.length; i++) {
+    const patternSegment = patternSegments[i];
+    const pathSegment = pathSegments[i];
+
+    if (patternSegment === '*') {
+      continue;
+    } else if (patternSegment === '?') {
+      if (pathSegment === '') {
+        return false;
+      }
+    } else if (patternSegment !== pathSegment) {
+      return false;
+    }
+  }
+
+  return true;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function splitAgenda(sessions: number[][], limit: number): number[][] {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error('Limit must be a whole number of at least one.');
+  }
+
+  const result: number[][] = [];
+
+  for (const [start, end] of sessions) {
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error('Session bounds must be whole numbers.');
+    }
+    if (start >= end) {
+      throw new Error('Session start must precede its end.');
+    }
+
+    let currentStart = start;
+    while (currentStart < end) {
+      const nextEnd = Math.min(currentStart + limit, end);
+      result.push([currentStart, nextEnd]);
+      currentStart = nextEnd;
+    }
+  }
+
+  return result;
+}
+```

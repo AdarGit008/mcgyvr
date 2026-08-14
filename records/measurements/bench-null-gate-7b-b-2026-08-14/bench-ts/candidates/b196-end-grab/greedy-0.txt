@@ -1,0 +1,30 @@
+```ts
+type Tally = { first: number; second: number; taken: number[] };
+
+export function endGrab(cards: number[]): Tally {
+  if (cards.length === 0) {
+    throw new Error("Input array cannot be empty");
+  }
+
+  let firstPlayerTotal = 0;
+  let secondPlayerTotal = 0;
+  const takenCards: number[] = [];
+
+  while (cards.length > 0) {
+    const leftCard = cards[0];
+    const rightCard = cards[cards.length - 1];
+
+    if (leftCard >= rightCard) {
+      firstPlayerTotal += leftCard;
+      takenCards.push(leftCard);
+      cards.shift();
+    } else {
+      secondPlayerTotal += rightCard;
+      takenCards.push(rightCard);
+      cards.pop();
+    }
+  }
+
+  return { first: firstPlayerTotal, second: secondPlayerTotal, taken: takenCards };
+}
+```

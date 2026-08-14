@@ -1,0 +1,39 @@
+```ts
+export function traceParcel(events: string[]): string[] {
+  if (!Array.isArray(events)) {
+    throw new Error('Input must be an array of events');
+  }
+
+  const validEvents = ['pack', 'ship', 'deliver', 'bounce'];
+  const states = ['created', 'packed', 'shipped', 'delivered', 'returned'];
+
+  let currentState: string | null = 'created';
+  const result: string[] = [];
+
+  for (const event of events) {
+    if (!validEvents.includes(event)) {
+      throw new Error(`Invalid event: ${event}`);
+    }
+
+    if (currentState === null) {
+      throw new Error('Event fired after final state');
+    }
+
+    const index = states.indexOf(currentState);
+    const nextIndex = states.indexOf(event);
+
+    if (index >= nextIndex || index + 1 !== nextIndex) {
+      throw new Error(`Invalid event sequence: ${event} from ${currentState}`);
+    }
+
+    result.push(currentState);
+    currentState = event;
+  }
+
+  if (currentState !== null) {
+    result.push(currentState);
+  }
+
+  return result;
+}
+```

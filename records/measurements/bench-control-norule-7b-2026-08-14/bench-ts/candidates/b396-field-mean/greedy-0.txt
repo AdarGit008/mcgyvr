@@ -1,0 +1,17 @@
+```ts
+/**
+ * Calculates the mean of a numeric field across records, rounding down.
+ * Records lacking the field are ignored. If no records carry the field, returns 0.
+ *
+ * @param records - Array of records with potential numeric fields.
+ * @param field - Name of the numeric field to calculate the mean for.
+ * @returns The mean of the field values, rounded down, or 0 if no valid records exist.
+ */
+export function fieldMean(records: Record<string, number>[], field: string): number {
+    const validRecords = records.filter(record => typeof record[field] === 'number');
+    if (validRecords.length === 0) return 0;
+
+    const sum = validRecords.reduce((acc, record) => acc + record[field], 0);
+    return Math.floor(sum / validRecords.length);
+}
+```

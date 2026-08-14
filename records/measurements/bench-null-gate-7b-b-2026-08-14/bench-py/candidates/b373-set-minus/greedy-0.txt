@@ -1,0 +1,6 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """Return entries that are in 'entries' but not in 'remove', preserving order and repeats."""
+    remove_set = set(remove)
+    return [entry for entry in entries if entry not in remove_set]
+```

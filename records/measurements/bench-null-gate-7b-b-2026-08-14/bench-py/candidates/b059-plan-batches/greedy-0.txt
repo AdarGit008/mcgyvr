@@ -1,0 +1,26 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if units <= 0 or not isinstance(units, int):
+        raise ValueError("Units must be a positive integer")
+    if capacity <= 0 or not isinstance(capacity, int):
+        raise ValueError("Capacity must be a positive integer")
+
+    loads = []
+    splits = 0
+    rounds = 0
+
+    def plan(unit_count: int, current_rounds: int) -> None:
+        nonlocal splits, rounds
+        if unit_count <= capacity:
+            loads.append(unit_count)
+            rounds = max(rounds, current_rounds)
+        else:
+            splits += 1
+            half_up = (unit_count + 1) // 2
+            half_down = unit_count - half_up
+            plan(half_up, current_rounds + 1)
+            plan(half_down, current_rounds + 1)
+
+    plan(units, rounds)
+    return {"loads": loads, "splits": splits, "rounds": rounds}
+```

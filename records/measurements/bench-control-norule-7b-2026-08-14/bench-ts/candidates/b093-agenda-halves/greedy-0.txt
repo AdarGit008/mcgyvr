@@ -1,0 +1,36 @@
+```ts
+/**
+ * Splits coaching sessions into blocks no longer than the given limit.
+ * @param sessions - Array of [start, end] pairs for coaching sessions in chronological order.
+ * @param limit - The longest block one coach will take, in minutes.
+ * @returns An array of [start, end] pairs representing the blocks of every session.
+ */
+export function splitAgenda(sessions: number[][], limit: number): number[][] {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error('Limit must be a whole number of at least one.');
+  }
+
+  return sessions.flatMap(([start, end]) => {
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error('Session bounds must be whole numbers.');
+    }
+    if (start >= end) {
+      throw new Error('Session start must precede its end.');
+    }
+    if (sessions.length > 1 && start < sessions[sessions.length - 2][1]) {
+      throw new Error('Sessions must not overlap.');
+    }
+
+    const blocks: number[][] = [];
+    let currentStart = start;
+
+    while (currentStart < end) {
+      const blockEnd = Math.min(currentStart + limit, end);
+      blocks.push([currentStart, blockEnd]);
+      currentStart = blockEnd;
+    }
+
+    return blocks;
+  });
+}
+```

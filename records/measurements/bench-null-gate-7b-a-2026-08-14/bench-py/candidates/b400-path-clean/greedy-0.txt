@@ -1,0 +1,12 @@
+```python
+def path_clean(path: str) -> str:
+    segments = path.split('/')
+    cleaned_segments = []
+    for segment in segments:
+        if segment == '..':
+            if cleaned_segments and cleaned_segments[-1] != '..':
+                cleaned_segments.pop()
+        elif segment != '.':
+            cleaned_segments.append(segment)
+    return '/'.join(cleaned_segments)
+```

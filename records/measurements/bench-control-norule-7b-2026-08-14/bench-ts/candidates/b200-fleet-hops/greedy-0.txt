@@ -1,0 +1,46 @@
+```typescript
+/**
+ * Calculates the total number of hops required to bring each device in the fleet to the newest release.
+ * @param count - The total number of releases, numbered from 0 to count-1.
+ * @param lts - An array of release numbers that carry long-term support.
+ * @param builds - An array where each element represents the current release a device is running.
+ * @param hop - The maximum number of hops a device can take in one move.
+ * @returns The total number of hops required for all devices to reach the newest release.
+ */
+export function fleetHops(count: number, lts: number[], builds: number[], hop: number): number {
+  if (hop === 0) throw new Error("A hop of zero is not allowed.");
+
+  const ltsSet = new Set(lts);
+  let totalHops = 0;
+
+  for (const build of builds) {
+    if (!Number.isInteger(build) || build < 0 || build >= count) {
+      throw new Error(`Invalid device build: ${build}`);
+    }
+
+    if (build === count - 1) continue; // Device is already on the newest release
+
+    let current = build;
+    while (current < count - 1) {
+      const maxReach = Math.min(current + hop, count - 1);
+      let nextLTS = ltsSet.has(maxReach) ? maxReach : null;
+
+      if (!nextLTS) {
+        for (let i = maxReach; i > current; i--) {
+          if (ltsSet.has(i)) {
+            nextLTS = i;
+            break;
+          }
+        }
+      }
+
+      if (nextLTS === null) break; // No LTS release found within the hop range
+
+      totalHops++;
+      current = nextLTS;
+    }
+  }
+
+  return totalHops;
+}
+```

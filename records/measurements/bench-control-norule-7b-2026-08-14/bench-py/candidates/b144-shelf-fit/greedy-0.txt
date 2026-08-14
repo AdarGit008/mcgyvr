@@ -1,0 +1,19 @@
+```python
+def shelf_fit(widths: list, shelf: int) -> int:
+    if not isinstance(widths, list) or not all(isinstance(w, int) and w > 0 for w in widths):
+        raise ValueError("Widths must be a list of positive integers.")
+    if not isinstance(shelf, int) or shelf < 0:
+        raise ValueError("Shelf width must be a non-negative integer.")
+
+    books_on_shelf = 0
+    current_width = 0
+
+    for width in widths:
+        if current_width + width <= shelf:
+            books_on_shelf += 1
+            current_width += width
+        else:
+            break
+
+    return books_on_shelf
+```

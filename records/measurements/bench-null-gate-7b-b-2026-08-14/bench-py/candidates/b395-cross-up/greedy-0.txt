@@ -1,0 +1,16 @@
+```python
+def cross_up(readings: list, level: int) -> int:
+    """Return how many times readings cross the given level upward."""
+    if not readings:
+        return 0
+
+    crossings = 0
+    below_level = readings[0] < level
+
+    for reading in readings[1:]:
+        if below_level and reading >= level:
+            crossings += 1
+        below_level = reading < level
+
+    return crossings
+```

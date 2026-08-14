@@ -1,0 +1,31 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """Return every item name in one flat list, preserving order."""
+    def _unpack(sub_crate):
+        for item in sub_crate:
+            if isinstance(item, str):
+                yield item
+            elif isinstance(item, list):
+                yield from _unpack(item)
+            else:
+                raise ValueError("Invalid entry in crate")
+
+    return list(_unpack(crate))
+
+def crate_depth(crate: list) -> int:
+    """Return the deepest nesting level of the crate."""
+    def _depth(sub_crate, current_depth):
+        if not sub_crate:
+            return current_depth
+        max_nested = 0
+        for item in sub_crate:
+            if isinstance(item, str):
+                continue
+            elif isinstance(item, list):
+                nested_depth = _depth(item, current_depth + 1)
+                if nested_depth > max_nested:
+                    max_nested = nested_depth
+        return max_nested
+
+    return _depth(crate, 1)
+```

@@ -1,0 +1,25 @@
+```ts
+export function decodeEscapedNote(text: string): string {
+    // First pass: fold the lines
+    let foldedText = text.replace(/\s+$/, ''); // Drop trailing spaces/tabs
+    foldedText = foldedText.split('\n').map(line => line.trimEnd()).join('');
+
+    // Second pass: decode escapes
+    let decodedText = '';
+    for (let i = 0; i < foldedText.length; i++) {
+        if (foldedText[i] === '=' && i + 2 < foldedText.length) {
+            const hexCode = foldedText.slice(i + 1, i + 3);
+            if (/^[A-Fa-f0-9]{2}$/.test(hexCode)) {
+                decodedText += String.fromCharCode(parseInt(hexCode, 16));
+                i += 2;
+            } else {
+                throw new Error('Invalid escape sequence');
+            }
+        } else {
+            decodedText += foldedText[i];
+        }
+    }
+
+    return decodedText;
+}
+```

@@ -1,0 +1,28 @@
+```ts
+export function flagStates(mask: number, catalog: string[]): Record<string, boolean> {
+  if (typeof mask !== 'number' || mask < 0 || !Number.isInteger(mask)) {
+    throw new Error('Invalid mask');
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Invalid catalog');
+  }
+  const flagSet = new Set<string>();
+  for (const name of catalog) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid flag name');
+    }
+    if (flagSet.has(name)) {
+      throw new Error('Duplicate flag name');
+    }
+    flagSet.add(name);
+  }
+  const result: Record<string, boolean> = {};
+  for (const [i, name] of catalog.entries()) {
+    if (i >= 32) {
+      throw new Error('Mask has a set bit beyond the catalog length');
+    }
+    result[name] = (mask & (1 << i)) !== 0;
+  }
+  return result;
+}
+```

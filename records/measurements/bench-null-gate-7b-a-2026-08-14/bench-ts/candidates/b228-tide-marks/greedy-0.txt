@@ -1,0 +1,19 @@
+```ts
+/**
+ * Finds the positions of every local peak in a list of water levels.
+ * @param levels - An array of integer water levels read in order.
+ * @returns An array of positions of local peaks, sorted in increasing order.
+ */
+export function tideMarks(levels: number[]): number[] {
+  if (levels.length < 3) return [];
+
+  const peaks: number[] = [];
+  for (let i = 1; i < levels.length - 1; i++) {
+    if (levels[i] > levels[i - 1] && levels[i] > levels[i + 1]) {
+      peaks.push(i);
+    }
+  }
+
+  return peaks;
+}
+```

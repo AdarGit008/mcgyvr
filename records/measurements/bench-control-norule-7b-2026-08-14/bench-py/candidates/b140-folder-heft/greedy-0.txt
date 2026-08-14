@@ -1,0 +1,54 @@
+```python
+def file_paths(root: dict) -> list:
+    paths = []
+    stack = [(root, "")]
+    while stack:
+        node, prefix = stack.pop()
+        check_node(node)
+        path = prefix + node["name"]
+        if "bytes" in node:
+            paths.append(path)
+        else:
+            for child in reversed(node["children"]):
+                stack.append((child, path + "/"))
+    return paths
+
+
+def tree_bytes(root: dict) -> int:
+    total = 0
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        check_node(node)
+        if "bytes" in node:
+            total += node["bytes"]
+        else:
+            stack.extend(node["children"])
+    return total
+
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number")
+
+    paths = file_paths(root)
+    result = []
+    current_path = ""
+    current_total = 0
+
+    for path in paths:
+        if "/" in path:
+            folder_name = path.rsplit("/", 1)[-2]
+            if folder_name != current_path:
+                if current_total >= min_bytes:
+                    result.append([current_path, current_total])
+                current_path = folder_name
+                current_total = tree_bytes(next(node for node in file_paths(root) if node == path))
+        else:
+            current_total += root["bytes"]
+
+    if current_total >= min_bytes:
+        result.append([current_path, current_total])
+
+    return result
+```

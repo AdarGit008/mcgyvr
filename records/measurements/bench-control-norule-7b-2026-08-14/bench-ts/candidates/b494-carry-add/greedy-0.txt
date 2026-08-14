@@ -1,0 +1,35 @@
+```ts
+/**
+ * Adds two counts held as runs of single figures, the weightiest figure first,
+ * and gives the answer in the same form.
+ *
+ * @param left - The first count as an array of single figures.
+ * @param right - The second count as an array of single figures.
+ * @returns The sum of the two counts as an array of single figures.
+ */
+export function carryAdd(left: number[], right: number[]): number[] {
+  const maxLength = Math.max(left.length, right.length);
+  let carry = 0;
+  const result: number[] = [];
+
+  for (let i = 0; i < maxLength; i++) {
+    const digitLeft = left[left.length - 1 - i] || 0;
+    const digitRight = right[right.length - 1 - i] || 0;
+    const sum = digitLeft + digitRight + carry;
+
+    if (sum >= 10) {
+      result.unshift(sum % 10);
+      carry = Math.floor(sum / 10);
+    } else {
+      result.unshift(sum);
+      carry = 0;
+    }
+  }
+
+  if (carry > 0) {
+    result.unshift(carry);
+  }
+
+  return result;
+}
+```

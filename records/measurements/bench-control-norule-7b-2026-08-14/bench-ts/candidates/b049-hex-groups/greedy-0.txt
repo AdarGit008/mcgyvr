@@ -1,0 +1,23 @@
+```ts
+/**
+ * Converts a list of byte values into a space-separated string of hexadecimal groups.
+ * @param values - An array of integers representing byte values, each from 0 to 255.
+ * @param width - The number of bytes per group.
+ * @returns A string with hexadecimal representations of the bytes grouped and separated by spaces.
+ */
+export function hexGroups(values: number[], width: number): string {
+    if (!Array.isArray(values) || !values.every(v => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 255)) {
+        throw new Error('Invalid byte values');
+    }
+    if (typeof width !== 'number' || !Number.isInteger(width) || width <= 0) {
+        throw new Error('Invalid group width');
+    }
+
+    const hexValues = values.map(v => v.toString(16).padStart(2, '0'));
+    const groups = [];
+    for (let i = 0; i < hexValues.length; i += width) {
+        groups.push(hexValues.slice(i, i + width).join(''));
+    }
+    return groups.join(' ');
+}
+```

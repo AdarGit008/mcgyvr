@@ -1,0 +1,31 @@
+```ts
+/**
+ * Counts the number of markers in a line, where a marker is an opening angle bracket followed by text up to the next closing bracket.
+ * Throws an error if there is an unmatched closing bracket.
+ *
+ * @param line - The line to count markers in.
+ * @returns The number of markers in the line.
+ */
+export function tagCount(line: string): number {
+  let count = 0;
+  let stack: string[] = [];
+
+  for (const char of line) {
+    if (char === '<') {
+      stack.push(char);
+    } else if (char === '>') {
+      if (stack.length === 0) {
+        throw new Error('Unmatched closing bracket');
+      }
+      stack.pop();
+      count++;
+    }
+  }
+
+  if (stack.length > 0) {
+    throw new Error('Unmatched opening brackets');
+  }
+
+  return count;
+}
+```

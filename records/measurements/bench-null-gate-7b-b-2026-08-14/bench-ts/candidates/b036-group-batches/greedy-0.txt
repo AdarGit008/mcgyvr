@@ -1,0 +1,70 @@
+```ts
+export function groupBatches(jobs: [string, string, number, number][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || !Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error('Invalid input');
+  }
+
+  const jobMap = new Map<string, { group: string; priority: number; weight: number }[]>();
+  for (const [name, group, priority, weight] of jobs) {
+    if (
+      typeof name !== 'string' ||
+      name === '' ||
+      typeof group !== 'string' ||
+      group === '' ||
+      !Number.isInteger(priority) ||
+      !Number.isInteger(weight) ||
+      weight <= 0 ||
+      weight > capacity
+    ) {
+      throw new Error('Invalid input');
+    }
+    if (jobMap.has(name)) {
+      throw new Error('Duplicate job name');
+    }
+    if (!jobMap.has(group)) {
+      jobMap.set(group, []);
+    }
+    jobMap.get(group)!.push({ group, priority, weight });
+  }
+
+  const batches: string[][] = [];
+  while (jobMap.size > 0) {
+    const eligibleJobs: { [group: string]: { name: string; priority: number; weight: number }[] } = {};
+    for (const [group, jobs] of jobMap.entries()) {
+      if (jobs.length > 0) {
+        eligibleJobs[group] = [jobs[0]];
+        for (let i = 1; i < jobs.length; i++) {
+          if (
+            jobs[i].priority > eligibleJobs[group][0].priority ||
+            (jobs[i].priority === eligibleJobs[group][0].priority && jobs[i].weight <= capacity)
+          ) {
+            eligibleJobs[group] = [jobs[i]];
+          } else if (jobs[i].weight <= capacity) {
+            eligibleJobs[group].push(jobs[i]);
+          }
+        }
+      }
+    }
+
+    const batch: string[] = [];
+    for (const group in eligibleJobs) {
+      while (eligibleJobs[group].length > 0 && eligibleJobs[group][0].weight <= capacity) {
+        const job = eligibleJobs[group].shift()!;
+        batch.push(job.name);
+        capacity -= job.weight;
+      }
+    }
+
+    batches.push(batch);
+    for (const group in eligibleJobs) {
+      if (eligibleJobs[group].length > 0) {
+        jobMap.get(eligibleJobs[group][0].group)!.shift();
+      } else {
+        jobMap.delete(group);
+      }
+    }
+  }
+
+  return batches;
+}
+```

@@ -1,0 +1,26 @@
+```ts
+/**
+ * Returns the resolved name based on the given aliases.
+ * If the name stands for nothing, it returns the name itself.
+ */
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (aliases[name] === undefined) {
+    return name;
+  }
+  return aliases[name];
+}
+
+/**
+ * Returns an array of all names that stand for something, sorted alphabetically.
+ */
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const resolvedNames = new Set<string>();
+  for (const [key, value] of Object.entries(aliases)) {
+    if (value !== undefined) {
+      resolvedNames.add(key);
+      resolvedNames.add(value);
+    }
+  }
+  return Array.from(resolvedNames).sort();
+}
+```

@@ -1,0 +1,19 @@
+```ts
+export function wireValue(value: unknown): string {
+    if (typeof value === 'string') {
+        return wireText(value);
+    } else if (Number.isInteger(value)) {
+        return `n${value < 0 ? '-' : ''}${Math.abs(value)};`;
+    } else if (Array.isArray(value)) {
+        return `[${value.map(wireValue).join('')}]`;
+    }
+    throw new Error('Unsupported value type');
+}
+
+export function wireText(text: string): string {
+    if (typeof text !== 'string' || text.includes('\n')) {
+        throw new Error('Invalid text for wire notation');
+    }
+    return `s${text.length}:${text}`;
+}
+```

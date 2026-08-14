@@ -1,0 +1,14 @@
+```python
+def steps_on(first: int, count: int) -> list:
+    """Return a list of numbers starting from 'first' for 'count' elements."""
+    return list(range(first, first + count))
+
+def hole_find(seen: list, first: int, count: int) -> int:
+    """Find the first missing number in the sequence or return None if none is missing."""
+    expected = steps_on(first, count)
+    seen_set = set(seen)
+    for num in expected:
+        if num not in seen_set:
+            return num
+    return None
+```

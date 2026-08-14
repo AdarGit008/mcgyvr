@@ -1,0 +1,32 @@
+```ts
+/**
+ * Calculate the number of hops between two paths.
+ * @param start - The starting path.
+ * @param goal - The goal path.
+ * @returns The number of hops required to reach the goal from the start.
+ */
+export function pathHops(start: string, goal: string): number {
+  const reducePath = (path: string) => {
+    return path.split('/').reduce((acc, segment) => {
+      if (segment === '' || segment === '.') return acc;
+      if (segment === '..') {
+        acc.pop();
+      } else {
+        acc.push(segment);
+      }
+      return acc;
+    }, [] as string[]);
+  };
+
+  const startSegments = reducePath(start);
+  const goalSegments = reducePath(goal);
+
+  let commonLength = 0;
+  while (commonLength < startSegments.length && commonLength < goalSegments.length) {
+    if (startSegments[commonLength] !== goalSegments[commonLength]) break;
+    commonLength++;
+  }
+
+  return (startSegments.length - commonLength) + (goalSegments.length - commonLength);
+}
+```

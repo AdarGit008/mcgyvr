@@ -1,0 +1,18 @@
+```ts
+export function orderReleaseTags(tags: string[]): string[] {
+  return tags.slice().sort((a, b) => {
+    const [av, bv] = [a.split('-'), b.split('-')];
+    const [am, an, ap] = av[0].split('.');
+    const [bm, bn, bp] = bv[0].split('.');
+    const cmp = (x: string, y: string) => parseInt(x, 10) - parseInt(y, 10);
+    if (cmp(am, bm)) return cmp(am, bm);
+    if (cmp(an, bn)) return cmp(an, bn);
+    if (ap && !bp) return -1;
+    if (!ap && bp) return 1;
+    const [alp, anum] = ap.split(/(\d+)/).filter(Boolean);
+    const [blp, bnum] = bp.split(/(\d+)/).filter(Boolean);
+    if (alp !== blp) return alp.localeCompare(blp);
+    return cmp(anum, bnum);
+  });
+}
+```

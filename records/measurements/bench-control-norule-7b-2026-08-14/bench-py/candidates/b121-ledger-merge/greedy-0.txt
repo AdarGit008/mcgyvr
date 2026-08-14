@@ -1,0 +1,36 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    def validate_ledger(ledger):
+        if not isinstance(ledger, list):
+            raise ValueError("Ledger must be a list")
+        seen_accounts = set()
+        for account, cents in ledger:
+            if not isinstance(account, str) or not account:
+                raise ValueError("Account name must be a non-empty string")
+            if not isinstance(cents, int):
+                raise ValueError("Cents value must be an integer")
+            if account in seen_accounts:
+                raise ValueError("Account repeated inside one ledger")
+            seen_accounts.add(account)
+
+    validate_ledger(base)
+    validate_ledger(ours)
+    validate_ledger(theirs)
+
+    base_dict = {account: cents for account, cents in base}
+    ours_dict = {account: cents for account, cents in ours}
+    theirs_dict = {account: cents for account, cents in theirs}
+
+    merged_dict = {}
+    for account in set(base_dict) | set(ours_dict) | set(theirs_dict):
+        if account in base_dict and (account not in ours_dict or base_dict[account] == theirs_dict.get(account)):
+            merged_dict[account] = base_dict[account]
+        elif account in ours_dict:
+            merged_dict[account] = base_dict.get(account, 0) + ours_dict[account]
+        if account in theirs_dict:
+            merged_dict[account] += theirs_dict[account]
+
+    return sorted(merged_dict.items())
+```

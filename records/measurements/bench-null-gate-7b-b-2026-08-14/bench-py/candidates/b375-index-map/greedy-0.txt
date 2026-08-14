@@ -1,0 +1,4 @@
+```python
+def index_map(labels: list) -> dict:
+    return {label: [i for i, x in enumerate(labels) if x == label] for label in set(labels)}
+```

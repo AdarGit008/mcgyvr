@@ -1,0 +1,55 @@
+```ts
+type CacheState = { limit: number; keys: string[]; store: Record<string, number> };
+
+export function newCache(limit: number): CacheState {
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("Limit must be a positive integer");
+  }
+  return { limit, keys: [], store: {} };
+}
+
+export function cacheWrite(cache: CacheState, key: string, value: number): string[] {
+  if (typeof key !== "string" || key === "") {
+    throw new Error("Key must be a non-empty string");
+  }
+
+  const { limit, keys, store } = cache;
+  let spilledKeys: string[] = [];
+
+  if (store.hasOwnProperty(key)) {
+    // Key already exists, move to most recently touched
+    keys.splice(keys.indexOf(key), 1);
+  } else if (keys.length === limit) {
+    // Cache is full, drop the least recently touched key
+    const lruKey = keys.shift()!;
+    delete store[lruKey];
+    spilledKeys.push(lruKey);
+  }
+
+  // Add or update the key-value pair
+  store[key] = value;
+  keys.push(key);
+
+  return spilledKeys;
+}
+
+export function cacheRead(cache: CacheState, key: string): number {
+  if (typeof key !== "string" || key === "") {
+    throw new Error("Key must be a non-empty string");
+  }
+
+  const { store } = cache;
+
+  if (!store.hasOwnProperty(key)) {
+    throw new Error(`Key "${key}" not found in cache`);
+  }
+
+  // Move the key to most recently touched
+  const value = store[key];
+  const keysIndex = cache.keys.indexOf(key);
+  cache.keys.splice(keysIndex, 1);
+  cache.keys.push(key);
+
+  return value;
+}
+```

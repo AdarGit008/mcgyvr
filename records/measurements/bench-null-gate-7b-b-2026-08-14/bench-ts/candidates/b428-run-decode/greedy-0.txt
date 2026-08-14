@@ -1,0 +1,30 @@
+```ts
+/**
+ * Decodes a run-length encoded string.
+ * @param coded - The run-length encoded string to decode.
+ * @returns The decoded string.
+ */
+export function runDecode(coded: string): string {
+    if (coded === "") return "";
+
+    let result = "";
+    let i = 0;
+
+    while (i < coded.length) {
+        const letter = coded[i];
+        i++;
+
+        let count = "";
+        while (i < coded.length && !isNaN(Number(coded[i]))) {
+            count += coded[i];
+            i++;
+        }
+
+        if (count === "") throw new Error("Invalid run-length encoding");
+
+        result += letter.repeat(parseInt(count, 10));
+    }
+
+    return result;
+}
+```

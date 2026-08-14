@@ -1,0 +1,32 @@
+```ts
+/**
+ * Returns the next value moving from one value toward a target by at most a given step, never overshooting the target.
+ * @param current - The current value.
+ * @param target - The target value.
+ * @param step - The maximum step size.
+ * @returns The next value on the ramp.
+ */
+export function rampStep(current: number, target: number, step: number): number {
+  if (step === 0) throw new Error("Step cannot be zero");
+  return current < target ? Math.min(current + step, target) : Math.max(current - step, target);
+}
+
+/**
+ * Returns every value visited going from a start to a target, both ends included.
+ * @param start - The starting value.
+ * @param target - The target value.
+ * @param step - The maximum step size.
+ * @returns An array of values on the ramp.
+ */
+export function rampPlan(start: number, target: number, step: number): number[] {
+  if (step === 0) throw new Error("Step cannot be zero");
+  const plan = [];
+  let current = start;
+  while (current !== target) {
+    plan.push(current);
+    current += current < target ? step : -step;
+  }
+  plan.push(target);
+  return plan;
+}
+```

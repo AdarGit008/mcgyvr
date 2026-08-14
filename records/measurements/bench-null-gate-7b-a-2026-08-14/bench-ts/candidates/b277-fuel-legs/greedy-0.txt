@@ -1,0 +1,14 @@
+```ts
+/**
+ * Calculates how many complete legs can be run before refuelling.
+ * @param litres - The total number of litres in the tank.
+ * @param burn - The number of litres burned per leg.
+ * @returns The number of complete legs that can be run.
+ */
+export function fuelLegs(litres: number, burn: number): number {
+  if (burn <= 0) {
+    throw new Error('Burn rate must be greater than zero');
+  }
+  return Math.floor(litres / burn);
+}
+```

@@ -1,0 +1,23 @@
+```ts
+/**
+ * Returns the value at the specified row and column in the grid, or undefined if out of bounds.
+ * @param grid - The 2D array representing the grid.
+ * @param row - The zero-based index of the row.
+ * @param column - The zero-based index of the column.
+ */
+export function cellAt(grid: number[][], row: number, column: number): number | undefined {
+    if (row < 0 || row >= grid.length || column < 0 || column >= grid[row].length) {
+        return undefined;
+    }
+    return grid[row][column];
+}
+
+/**
+ * Returns an array containing the values of the main diagonal of the grid.
+ * @param grid - The 2D array representing the grid.
+ */
+export function diagOf(grid: number[][]): number[] {
+    const length = Math.min(grid.length, grid[0].length);
+    return Array.from({ length }, (_, i) => grid[i][i]);
+}
+```

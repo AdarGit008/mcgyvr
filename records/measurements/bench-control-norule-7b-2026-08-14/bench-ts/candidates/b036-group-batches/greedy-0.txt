@@ -1,0 +1,71 @@
+```ts
+/**
+ * Groups jobs into batches based on their priority and weight.
+ * @param jobs - List of jobs, each a [name, group, priority, weight] quadruple.
+ * @param capacity - Weight capacity of one batch.
+ * @returns Batches as lists of job names in the order taken.
+ */
+export function groupBatches(jobs: [string, string, number, number][], capacity: number): string[][] {
+  if (!Array.isArray(jobs) || !Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error('Invalid jobs or capacity');
+  }
+
+  const jobMap = new Map<string, { group: string; priority: number; weight: number }>();
+  for (const [name, group, priority, weight] of jobs) {
+    if (
+      typeof name !== 'string' ||
+      name === '' ||
+      typeof group !== 'string' ||
+      group === '' ||
+      !Number.isInteger(priority) ||
+      !Number.isInteger(weight) ||
+      weight <= 0 || weight > capacity
+    ) {
+      throw new Error('Invalid job');
+    }
+    if (jobMap.has(name)) {
+      throw new Error('Duplicate job name');
+    }
+    jobMap.set(name, { group, priority, weight });
+  }
+
+  const batches: string[][] = [];
+  const groups = Array.from(jobMap.values()).reduce((acc, job) => {
+    acc.add(job.group);
+    return acc;
+  }, new Set<string>());
+
+  while (groups.size > 0) {
+    const eligibleJobs = Array.from(groups).flatMap(group =>
+      jobs.filter(([name]) => jobMap.get(name)?.group === group)
+    );
+
+    eligibleJobs.sort((a, b) => {
+      if (jobMap.get(a[0])!.priority !== jobMap.get(b[0])!.priority) {
+        return jobMap.get(b[0])!.priority - jobMap.get(a[0])!.priority;
+      }
+      const indexA = jobs.findIndex(([name]) => name === a[0]);
+      const indexB = jobs.findIndex(([name]) => name === b[0]);
+      return indexA - indexB;
+    });
+
+    const batch: string[] = [];
+    let remainingCapacity = capacity;
+
+    for (const [name] of eligibleJobs) {
+      if (jobMap.get(name)!.weight <= remainingCapacity) {
+        batch.push(name);
+        remainingCapacity -= jobMap.get(name)!.weight;
+      } else {
+        break;
+      }
+    }
+
+    batches.push(batch);
+
+    groups.delete(eligibleJobs[0][1]);
+  }
+
+  return batches;
+}
+```

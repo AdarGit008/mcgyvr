@@ -1,0 +1,41 @@
+```ts
+/**
+ * Reduces a path to its list of segments, ignoring empty, single-dot, and double-dot segments.
+ * @param path - The slash-separated path to reduce.
+ * @returns An array of segments.
+ */
+function reducePath(path: string): string[] {
+    return path.split('/').filter(segment => segment !== '' && segment !== '.' && segment !== '..');
+}
+
+/**
+ * Counts the hops between two reduced paths.
+ * @param start - The reduced start path.
+ * @param goal - The reduced goal path.
+ * @returns The number of hops required to reach the goal from the start.
+ */
+function countHops(start: string[], goal: string[]): number {
+    let sharedIndex = 0;
+    while (sharedIndex < start.length && sharedIndex < goal.length && start[sharedIndex] === goal[sharedIndex]) {
+        sharedIndex++;
+    }
+    return (start.length - sharedIndex) + (goal.length - sharedIndex);
+}
+
+/**
+ * Calculates the number of hops between two slash-separated paths.
+ * @param start - The starting path.
+ * @param goal - The goal path.
+ * @returns The number of hops required to reach the goal from the start.
+ */
+export function pathHops(start: string, goal: string): number {
+    const reducedStart = reducePath(start);
+    const reducedGoal = reducePath(goal);
+
+    if (reducedStart.some(segment => segment === '..')) {
+        throw new Error('Path climbs above the shared root');
+    }
+
+    return countHops(reducedStart, reducedGoal);
+}
+```

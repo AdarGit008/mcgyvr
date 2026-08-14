@@ -1,0 +1,16 @@
+```ts
+/**
+ * Checks for drift in sensor readings based on an allowed step.
+ * @param readings - Array of sensor readings in chronological order.
+ * @param step - Maximum allowed difference between consecutive readings.
+ * @returns The index of the first reading that differs from its predecessor by more than the step, or -1 if all readings are within the step.
+ */
+export function driftCheck(readings: number[], step: number): number {
+  for (let i = 1; i < readings.length; i++) {
+    if (Math.abs(readings[i] - readings[i - 1]) > step) {
+      return i;
+    }
+  }
+  return -1;
+}
+```

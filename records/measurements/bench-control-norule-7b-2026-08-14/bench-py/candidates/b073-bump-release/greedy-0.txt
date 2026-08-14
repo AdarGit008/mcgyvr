@@ -1,0 +1,22 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str) or len(version.split('.')) != 3:
+        raise ValueError("Invalid version format")
+    
+    major, minor, patch = version.split('.')
+    if any(not component.isdigit() for component in (major, minor, patch)):
+        raise ValueError("Version components must be digits")
+    
+    if not all(component[0] == '0' or int(component) > 0 for component in (major, minor, patch)):
+        raise ValueError("Version components cannot have leading zeros or be zero")
+    
+    if part not in ('major', 'minor', 'patch'):
+        raise ValueError("Invalid part name. Must be 'major', 'minor', or 'patch'")
+    
+    if part == 'major':
+        return f"{int(major) + 1}.0.0"
+    elif part == 'minor':
+        return f"{major}.{int(minor) + 1}.0"
+    else:
+        return f"{major}.{minor}.{int(patch) + 1}"
+```

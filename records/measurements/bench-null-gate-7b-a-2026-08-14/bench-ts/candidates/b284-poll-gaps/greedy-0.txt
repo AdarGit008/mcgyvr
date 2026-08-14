@@ -1,0 +1,19 @@
+```ts
+/**
+ * Returns the minutes between the first and last on which the monitor did not run.
+ * @param minutes - An array of minutes in increasing order when the monitor actually ran.
+ * @returns An array of minutes between the first and last non-run times, in increasing order.
+ */
+export function pollGaps(minutes: number[]): number[] {
+  if (minutes.length < 2) return [];
+
+  const gaps: number[] = [];
+  for (let i = 1; i < minutes.length; i++) {
+    if (minutes[i] - minutes[i - 1] > 1) {
+      gaps.push(...Array.from({ length: minutes[i] - minutes[i - 1] - 1 }, (_, j) => minutes[i - 1] + j + 1));
+    }
+  }
+
+  return gaps;
+}
+```

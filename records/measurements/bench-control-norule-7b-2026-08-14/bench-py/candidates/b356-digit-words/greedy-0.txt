@@ -1,0 +1,13 @@
+```python
+def digit_word(digit: int) -> str:
+    """Names a single digit in English."""
+    if 0 <= digit <= 9:
+        return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][digit]
+    else:
+        raise ValueError("Invalid digit")
+
+def digit_words(digits: str) -> str:
+    """Names every digit of a run of digits in order, joined by single spaces."""
+    words = [digit_word(int(digit)) for digit in digits if digit.isdigit()]
+    return ' '.join(words)
+```

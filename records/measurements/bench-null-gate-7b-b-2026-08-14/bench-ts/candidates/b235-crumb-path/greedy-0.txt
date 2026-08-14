@@ -1,0 +1,19 @@
+```ts
+/**
+ * Splits a breadcrumb trail on forward slashes and discards every empty segment.
+ * @param trail - The breadcrumb trail to split.
+ * @returns An array of non-empty segments.
+ */
+export function crumbSplit(trail: string): string[] {
+  return trail.split('/').filter(segment => segment.trim() !== '');
+}
+
+/**
+ * Joins segments back with a single slash between them and no slash at either end, discarding empty segments.
+ * @param parts - The segments to join.
+ * @returns A joined breadcrumb trail.
+ */
+export function crumbJoin(parts: string[]): string {
+  return parts.filter(part => part.trim() !== '').join('/');
+}
+```

@@ -1,0 +1,22 @@
+```ts
+/**
+ * Counts how many values match at least one term in the selector.
+ * @param values - List of integers to check against the selector.
+ * @param selector - Comma-separated run of terms, where each term is either a single integer or a range.
+ * @returns The count of values that match at least one term.
+ */
+export function selectorHits(values: number[], selector: string): number {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) throw new Error('Invalid values argument');
+  if (typeof selector !== 'string' || selector.trim() === '') throw new Error('Invalid selector argument');
+
+  const terms = selector.split(',').map(term => term.trim());
+  if (terms.some(term => term === '')) throw new Error('Empty term in selector');
+
+  return values.filter(value => terms.some(term => {
+    if (/^\d+$/.test(term)) return value === parseInt(term, 10);
+    const [low, high] = term.split('-').map(Number);
+    if (isNaN(low) || isNaN(high) || low > high) throw new Error('Invalid range in selector');
+    return value >= low && value <= high;
+  })).length;
+}
+```

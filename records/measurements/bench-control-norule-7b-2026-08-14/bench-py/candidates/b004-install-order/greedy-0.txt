@@ -1,0 +1,34 @@
+```python
+"""An installation order for packages under prerequisite pairs."""
+
+from collections import deque
+
+def install_order(packages: list, requires: list) -> list:
+    if len(set(packages)) != len(packages):
+        raise ValueError("Duplicate package names are not allowed.")
+    
+    for pkg, needed in requires:
+        if pkg not in packages or needed not in packages:
+            raise ValueError("Package name in requirement pair is absent from the list.")
+    
+    needs = {name: 0 for name in packages}
+    enables = {name: [] for name in packages}
+    for pkg, needed in requires:
+        needs[pkg] += 1
+        enables[needed].append(pkg)
+    
+    ready = deque(sorted(name for name in packages if needs[name] == 0))
+    order = []
+    while ready:
+        next_name = ready.popleft()
+        order.append(next_name)
+        for follower in enables[next_name]:
+            needs[follower] -= 1
+            if needs[follower] == 0:
+                ready.append(follower)
+    
+    if len(order) != len(packages):
+        raise ValueError("Cycle detected in requirements.")
+    
+    return order
+```

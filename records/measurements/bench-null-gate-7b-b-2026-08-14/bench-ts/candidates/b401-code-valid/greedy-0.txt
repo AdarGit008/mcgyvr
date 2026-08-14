@@ -1,0 +1,17 @@
+```ts
+/**
+ * Determines if a code is valid based on its length and content.
+ * A code is valid if it runs to exactly the stated length and holds nothing but capital letters and digits.
+ * Throws an error if the stated length is zero or less.
+ *
+ * @param code - The code to validate.
+ * @param length - The exact length the code must have.
+ * @returns true if the code is valid, false otherwise.
+ */
+export function codeValid(code: string, length: number): boolean {
+  if (length <= 0) {
+    throw new Error('Length must be greater than zero');
+  }
+  return code.length === length && /^[A-Z\d]+$/.test(code);
+}
+```

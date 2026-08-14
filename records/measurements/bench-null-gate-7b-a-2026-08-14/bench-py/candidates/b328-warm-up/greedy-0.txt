@@ -1,0 +1,5 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """Drop readings from the start for as long as they sit below a floor."""
+    return next((readings[i:] for i, x in enumerate(readings) if x >= floor), [])
+```

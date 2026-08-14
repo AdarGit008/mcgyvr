@@ -1,0 +1,26 @@
+```ts
+type CacheEntry = { value: string; stored: number; ttl: number };
+
+export function freshValue(entry: CacheEntry, now: number): string {
+  if (typeof entry !== 'object' || entry === null) {
+    throw new Error('Invalid record');
+  }
+  if (typeof entry.value !== 'string') {
+    throw new Error('Invalid value');
+  }
+  if (typeof entry.stored !== 'number' || !Number.isInteger(entry.stored) || entry.stored < 0) {
+    throw new Error('Invalid stored tick');
+  }
+  if (typeof entry.ttl !== 'number' || !Number.isInteger(entry.ttl) || entry.ttl <= 0) {
+    throw new Error('Invalid TTL');
+  }
+  if (typeof now !== 'number' || !Number.isInteger(now) || now < entry.stored) {
+    throw new Error('Invalid current tick');
+  }
+  if (now >= entry.stored + entry.ttl) {
+    throw new Error('Record expired');
+  }
+
+  return entry.value;
+}
+```

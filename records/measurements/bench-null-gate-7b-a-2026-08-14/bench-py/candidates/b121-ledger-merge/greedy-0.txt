@@ -1,0 +1,41 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    def validate_ledger(ledger):
+        if not isinstance(ledger, list):
+            raise ValueError("Ledger must be a list")
+        seen_accounts = set()
+        for entry in ledger:
+            if not isinstance(entry, list) or len(entry) != 2:
+                raise ValueError("Each ledger entry must be a two-item list")
+            account, cents = entry
+            if not isinstance(account, str) or not account:
+                raise ValueError("Account name must be a non-empty string")
+            if not isinstance(cents, int):
+                raise ValueError("Cents value must be an integer")
+            if account in seen_accounts:
+                raise ValueError("Account names must be unique within each ledger")
+            seen_accounts.add(account)
+
+    validate_ledger(base)
+    validate_ledger(ours)
+    validate_ledger(theirs)
+
+    base_dict = {account: cents for account, cents in base}
+    ours_dict = {account: cents for account, cents in ours}
+    theirs_dict = {account: cents for account, cents in theirs}
+
+    merged_dict = {}
+    for account in set(base_dict) | set(ours_dict) | set(theirs_dict):
+        if account in base_dict and account in ours_dict and account in theirs_dict:
+            merged_dict[account] = base_dict[account] + ours_dict[account] + theirs_dict[account]
+        elif account in base_dict and (account not in ours_dict or base_dict[account] == theirs_dict.get(account, 0)):
+            merged_dict[account] = theirs_dict.get(account, 0)
+        elif account in base_dict and (account not in theirs_dict or base_dict[account] == ours_dict.get(account, 0)):
+            merged_dict[account] = ours_dict.get(account, 0)
+        elif account in ours_dict:
+            merged_dict[account] = ours_dict[account]
+        elif account in theirs_dict:
+            merged_dict[account] = theirs_dict[account]
+
+    return sorted([[account, cents] for account, cents in merged_dict.items()])
+```

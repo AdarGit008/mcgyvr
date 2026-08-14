@@ -1,0 +1,16 @@
+```ts
+/**
+ * Finds the index of the first reading that differs from its predecessor by more than the given step.
+ * @param readings - Array of sensor readings.
+ * @param step - Allowed step between consecutive readings.
+ * @returns The index of the first drifting reading, or -1 if all readings are within the allowed step.
+ */
+export function driftCheck(readings: number[], step: number): number {
+  for (let i = 1; i < readings.length; i++) {
+    if (Math.abs(readings[i] - readings[i - 1]) > step) {
+      return i;
+    }
+  }
+  return -1;
+}
+```

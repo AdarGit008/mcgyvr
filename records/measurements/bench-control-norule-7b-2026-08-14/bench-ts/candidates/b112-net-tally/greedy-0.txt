@@ -1,0 +1,43 @@
+```ts
+/**
+ * Computes the net tally for a list of tally sheets.
+ * @param {string[]} sheets - List of tally sheets, each sheet as a string with newline-separated rows.
+ * @returns {string} - Report line per distinct item, sorted by item name, followed by a trailer.
+ */
+export function netTally(sheets: string[]): string {
+  if (!Array.isArray(sheets)) throw new Error('Input must be an array of strings.');
+
+  const itemCounts = new Map<string, number>();
+
+  for (const sheet of sheets) {
+    if (typeof sheet !== 'string') throw new Error('Each sheet must be a string.');
+
+    for (const row of sheet.split('\n').filter(row => row.trim())) {
+      const parts = row.split('|').map(part => part.trim());
+      if (parts.length !== 3) throw new Error('Each row must have exactly three fields.');
+
+      const [item, soldStr, returnedStr] = parts;
+      if (!item || !/^\d+$/.test(soldStr) || !/^\d+$/.test(returnedStr)) {
+        throw new Error('Invalid item name or numeric field.');
+      }
+
+      const sold = parseInt(soldStr);
+      const returned = parseInt(returnedStr);
+
+      if (returned > sold) throw new Error('Returned count cannot exceed sold count.');
+
+      itemCounts.set(item, (itemCounts.get(item) || 0) + (sold - returned));
+    }
+  }
+
+  const longestItemNameLength = Math.max(...[...itemCounts.keys()].map(name => name.length), 'total'.length);
+  const reportLines = [...itemCounts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([item, net]) => `${item.padEnd(longestItemNameLength)}  ${net}`);
+
+  const totalNet = [...itemCounts.values()].reduce((acc, net) => acc + net, 0);
+  reportLines.push(`${'total'.padEnd(longestItemNameLength)}  ${totalNet}`);
+
+  return reportLines.join('\n');
+}
+```

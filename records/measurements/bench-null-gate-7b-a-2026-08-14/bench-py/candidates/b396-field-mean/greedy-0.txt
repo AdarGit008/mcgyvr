@@ -1,0 +1,11 @@
+```python
+def field_mean(records: list, field: str) -> int:
+    """Return the mean of the specified numeric field across records, rounded down."""
+    total = 0
+    count = 0
+    for record in records:
+        if field in record and isinstance(record[field], (int, float)):
+            total += record[field]
+            count += 1
+    return total // count if count > 0 else 0
+```

@@ -1,0 +1,19 @@
+```ts
+/**
+ * Returns a list with a filler placed between every two neighbouring entries.
+ * A list of one entry, or none at all, takes no filler.
+ *
+ * @param entries - The array of strings to be filled.
+ * @param filler - The string to use as a filler.
+ * @returns A new array with fillers inserted.
+ */
+export function fillBetween(entries: string[], filler: string): string[] {
+  if (entries.length <= 1) {
+    return entries;
+  }
+
+  return entries.flatMap((entry, index) => 
+    index === entries.length - 1 ? entry : [entry, filler]
+  ).flat();
+}
+```

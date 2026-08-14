@@ -1,0 +1,26 @@
+```ts
+/**
+ * Returns the last four characters of a card number, or the whole of it when it is shorter.
+ * @param number - The card number to process.
+ * @returns The last four characters of the card number.
+ */
+export function lastFour(number: string): string {
+  if (typeof number !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+  return number.slice(-4);
+}
+
+/**
+ * Returns the card number with everything but its last four replaced by stars.
+ * @param number - The card number to process.
+ * @returns The masked card number.
+ */
+export function maskCard(number: string): string {
+  if (typeof number !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+  const lastFourDigits = lastFour(number);
+  return '*'.repeat(number.length - 4) + lastFourDigits;
+}
+```

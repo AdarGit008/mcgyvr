@@ -1,0 +1,24 @@
+```ts
+/**
+ * Decodes a run-length encoded string.
+ * @param coded - The run-length encoded string to decode.
+ * @returns The decoded string.
+ */
+export function runDecode(coded: string): string {
+  if (coded.length % 2 !== 0) {
+    throw new Error("Invalid input: Coded string must have an even length.");
+  }
+
+  let decoded = "";
+  for (let i = 0; i < coded.length; i += 2) {
+    const letter = coded[i];
+    const count = parseInt(coded[i + 1], 10);
+    if (isNaN(count) || count <= 0) {
+      throw new Error("Invalid input: Count must be a positive integer.");
+    }
+    decoded += letter.repeat(count);
+  }
+
+  return decoded;
+}
+```

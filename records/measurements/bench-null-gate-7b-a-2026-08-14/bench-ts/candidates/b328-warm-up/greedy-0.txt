@@ -1,0 +1,13 @@
+```ts
+/**
+ * Drops readings from the start for as long as they sit below a floor,
+ * returning everything from the first reading that reaches it.
+ * @param readings - Array of temperature readings.
+ * @param floor - The minimum acceptable temperature.
+ * @returns An array of temperature readings starting from the first one that meets or exceeds the floor.
+ */
+export function warmUp(readings: number[], floor: number): number[] {
+  const index = readings.findIndex(reading => reading >= floor);
+  return index === -1 ? [] : readings.slice(index);
+}
+```

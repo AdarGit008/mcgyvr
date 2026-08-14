@@ -1,0 +1,28 @@
+```ts
+/**
+ * Bumps the specified part of a release tag and returns the new tag.
+ * @param version - The current release tag in major.minor.patch format.
+ * @param part - The part to bump: 'major', 'minor', or 'patch'.
+ * @returns The next release tag after bumping the specified part.
+ */
+export function bumpRelease(version: string, part: string): string {
+  const parts = version.split('.');
+  if (parts.length !== 3) throw new Error('Invalid version format');
+  if (!['major', 'minor', 'patch'].includes(part)) throw new Error('Invalid part name');
+
+  for (const p of parts) {
+    if (!/^\d+$/.test(p)) throw new Error('Non-numeric component in version');
+    if (p.length > 1 && p.startsWith('0')) throw new Error('Leading zero in numeric component');
+  }
+
+  const [major, minor, patch] = parts.map(Number);
+  switch (part) {
+    case 'major':
+      return `${major + 1}.0.0`;
+    case 'minor':
+      return `${major}.${minor + 1}.0`;
+    case 'patch':
+      return `${major}.${minor}.${patch + 1}`;
+  }
+}
+```

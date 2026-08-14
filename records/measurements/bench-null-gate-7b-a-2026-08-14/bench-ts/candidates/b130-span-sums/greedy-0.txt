@@ -1,0 +1,65 @@
+```ts
+/** Tape-measure spans: parse to inches, format canonically, and add. */
+
+const INCHES: Record<string, number> = { yd: 36, ft: 12, in: 1 };
+const ORDER = ["yd", "ft", "in"];
+
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error("Invalid span text");
+  }
+
+  const parts = text.split(/\s+/);
+  let total = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s*(yd|ft|in)?$/);
+    if (!match) {
+      throw new Error("Invalid span text");
+    }
+    const value = parseInt(match[1], 10);
+    if (isNaN(value) || value < 0 || (value === 0 && match[2])) {
+      throw new Error("Invalid span text");
+    }
+    const unit = match[2];
+    if (unit) {
+      if (!INCHES[unit]) {
+        throw new Error("Unknown unit");
+      }
+      total += value * INCHES[unit];
+    } else {
+      total += value;
+    }
+  }
+
+  return total;
+}
+
+export function formatSpan(inches: number): string {
+  if (!Number.isInteger(inches) || inches < 0) {
+    throw new Error("inches must be a non-negative integer");
+  }
+  if (inches === 0) {
+    return "0in";
+  }
+  const parts: string[] = [];
+  const yards = Math.floor(inches / 36);
+  const feet = Math.floor((inches % 36) / 12);
+  const rest = inches % 12;
+  if (yards > 0) {
+    parts.push(`${yards}yd`);
+  }
+  if (feet > 0) {
+    parts.push(`${feet}ft`);
+  }
+  if (rest > 0) {
+    parts.push(`${rest}in`);
+  }
+  return parts.join(" ");
+}
+
+export function addSpans(first: string, second: string): string {
+  const total = parseSpan(first) + parseSpan(second);
+  return formatSpan(total);
+}
+```

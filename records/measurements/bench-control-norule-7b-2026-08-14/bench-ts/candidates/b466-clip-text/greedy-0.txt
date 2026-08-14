@@ -1,0 +1,20 @@
+```ts
+/**
+ * Returns the part of a text standing between two places, the first included and the second not.
+ * A place past the end is brought back to the end. Rejects if the first place stands above the second.
+ *
+ * @param text - The input text.
+ * @param from - The starting index (inclusive).
+ * @param to - The ending index (exclusive).
+ * @returns The clipped part of the text.
+ */
+export function clipText(text: string, from: number, to: number): string {
+  if (from > to) {
+    throw new Error("First place cannot be above the second.");
+  }
+  const len = text.length;
+  const adjustedFrom = from < 0 ? len + from : from;
+  const adjustedTo = to < 0 ? len + to : to;
+  return text.slice(adjustedFrom, Math.min(adjustedTo, len));
+}
+```

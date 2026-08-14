@@ -1,0 +1,12 @@
+```ts
+/**
+ * Strips leading hash and trailing colon from a tag if present.
+ * @param tag - The tag to trim.
+ * @returns The trimmed tag or the original tag if no markers are found.
+ */
+export function tagTrim(tag: string): string {
+  return tag.startsWith('#') && tag.endsWith(':')
+    ? tag.slice(1, -1)
+    : tag;
+}
+```

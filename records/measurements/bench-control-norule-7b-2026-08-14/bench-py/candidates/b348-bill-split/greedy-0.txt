@@ -1,0 +1,10 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners <= 0:
+        raise ValueError("Number of diners must be greater than zero")
+    
+    base_payment = total // diners
+    remainder = total % diners
+    
+    return [base_payment + (1 if i == 0 else 0) for i in range(diners)]
+```

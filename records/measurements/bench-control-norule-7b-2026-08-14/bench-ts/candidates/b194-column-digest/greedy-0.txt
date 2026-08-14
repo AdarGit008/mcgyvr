@@ -1,0 +1,37 @@
+```ts
+type Digest = { count: number; min: number; max: number; mean: number; median: number };
+
+export function columnDigest(rows: number[][], column: number): Digest {
+    if (column < 0) throw new Error("Negative column index is not allowed");
+
+    const cells: number[] = [];
+    for (const row of rows) {
+        if (row.length > column) {
+            cells.push(row[column]);
+        }
+    }
+
+    const count = cells.length;
+    if (count === 0) return { count, min: 0, max: 0, mean: 0, median: 0 };
+
+    const sortedCells = [...cells].sort((a, b) => a - b);
+    const min = sortedCells[0];
+    const max = sortedCells[count - 1];
+
+    let sum = 0;
+    for (const cell of cells) {
+        sum += cell;
+    }
+    const mean = Math.round((sum / count) * 100) / 100;
+
+    let median: number;
+    if (count % 2 === 0) {
+        median = (sortedCells[count / 2 - 1] + sortedCells[count / 2]) / 2;
+    } else {
+        median = sortedCells[Math.floor(count / 2)];
+    }
+    median = Math.round(median * 100) / 100;
+
+    return { count, min, max, mean, median };
+}
+```

@@ -1,0 +1,16 @@
+```ts
+/**
+ * Returns how many digits a whole number is written with.
+ * Nothing is written with one digit, and a minus sign in front of a number is not a digit and is not counted.
+ *
+ * @param value - The number to count the digits of.
+ * @returns The number of digits in the number.
+ */
+export function digitCount(value: number): number {
+  if (!Number.isInteger(value)) {
+    throw new Error('Input must be an integer.');
+  }
+  const absValue = Math.abs(value);
+  return absValue >= 10 ? absValue.toString().length : 0;
+}
+```

@@ -1,0 +1,28 @@
+```ts
+/**
+ * Returns the pace in seconds per kilometer for a given leg.
+ * @param seconds - The time taken to cover the leg in seconds.
+ * @param kilometres - The distance covered in kilometers.
+ * @returns The pace rounded down to the nearest second per kilometer.
+ */
+export function paceOf(seconds: number, kilometres: number): number {
+  if (kilometres === 0) {
+    throw new Error("Distance cannot be zero.");
+  }
+  return Math.floor(seconds / kilometres);
+}
+
+/**
+ * Returns an array of paces for each leg of a run.
+ * @param legs - An array of objects containing the time taken and distance covered for each leg.
+ * @returns An array of paces in seconds per kilometer, rounded down.
+ */
+export function paceList(legs: { seconds: number; kilometres: number }[]): number[] {
+  return legs.map(({ seconds, kilometres }) => {
+    if (kilometres === 0) {
+      throw new Error("Distance cannot be zero.");
+    }
+    return Math.floor(seconds / kilometres);
+  });
+}
+```

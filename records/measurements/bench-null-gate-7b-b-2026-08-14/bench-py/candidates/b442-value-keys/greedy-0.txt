@@ -1,0 +1,5 @@
+```python
+def value_keys(store: dict) -> dict:
+    """Return a mapping from value to count of keys holding each value."""
+    return {value: sum(1 for key in store if store[key] == value) for value in set(store.values())}
+```

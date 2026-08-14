@@ -1,0 +1,7 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    """Apply a series of stock movements to an opening quantity and return the closing quantity."""
+    for move in moves:
+        opening = max(0, opening + move)
+    return opening
+```

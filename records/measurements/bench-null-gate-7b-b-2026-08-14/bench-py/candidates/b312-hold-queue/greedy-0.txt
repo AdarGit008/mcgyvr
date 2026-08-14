@@ -1,0 +1,7 @@
+```python
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    return callers[:limit]
+```

@@ -1,0 +1,63 @@
+```ts
+export function chainOfCommand(root: object, person: string): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  if (typeof person !== 'string' || person.trim() === '') throw new Error('Invalid person');
+
+  const result: string[] = [];
+
+  function traverse(node: object, currentPath: string[]): boolean {
+    if (typeof node.name !== 'string' || node.name.trim() === '') throw new Error('Invalid node name');
+    if (currentPath.includes(node.name)) throw new Error('Duplicate person found');
+
+    if (node.name === person) {
+      result.push(...currentPath, person);
+      return true;
+    }
+
+    for (const report of node.reports || []) {
+      if (traverse(report, [...currentPath, node.name])) return true;
+    }
+
+    return false;
+  }
+
+  traverse(root, []);
+  if (result.length === 0) throw new Error('Person not found in the chart');
+
+  return result;
+}
+
+export function headcount(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+
+  let count = 1;
+
+  function traverse(node: object): void {
+    for (const report of node.reports || []) {
+      count++;
+      traverse(report);
+    }
+  }
+
+  traverse(root);
+  return count;
+}
+
+export function widestTeam(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+
+  let maxReports = 0;
+
+  function traverse(node: object): void {
+    const reportsCount = node.reports ? node.reports.length : 0;
+    if (reportsCount > maxReports) maxReports = reportsCount;
+
+    for (const report of node.reports || []) {
+      traverse(report);
+    }
+  }
+
+  traverse(root);
+  return maxReports;
+}
+```

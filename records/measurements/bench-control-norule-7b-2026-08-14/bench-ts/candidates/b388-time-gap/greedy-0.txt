@@ -1,0 +1,29 @@
+```ts
+/**
+ * Calculates the minutes between two times on a 24-hour clock.
+ * If the second time is earlier than the first, it is considered to be on the following day.
+ *
+ * @param fromHour - The hour of the starting time (0-23).
+ * @param fromMinute - The minute of the starting time (0-59).
+ * @param toHour - The hour of the ending time (0-23).
+ * @param toMinute - The minute of the ending time (0-59).
+ * @returns The minutes between the two times.
+ */
+export function timeGap(fromHour: number, fromMinute: number, toHour: number, toMinute: number): number {
+  if (fromHour < 0 || fromHour > 23 || toHour < 0 || toHour > 23) {
+    throw new Error('Invalid hour');
+  }
+  if (fromMinute < 0 || fromMinute > 59 || toMinute < 0 || toMinute > 59) {
+    throw new Error('Invalid minute');
+  }
+
+  const fromTotalMinutes = fromHour * 60 + fromMinute;
+  const toTotalMinutes = toHour * 60 + toMinute;
+
+  if (toTotalMinutes >= fromTotalMinutes) {
+    return toTotalMinutes - fromTotalMinutes;
+  } else {
+    return (24 * 60 - fromTotalMinutes) + toTotalMinutes;
+  }
+}
+```

@@ -1,0 +1,51 @@
+```ts
+/**
+ * Extracts specified fields from each record, handling optional fields and errors.
+ *
+ * @param records - Array of records to process.
+ * @param fields - List of field names to extract.
+ * @returns A new array with rows containing the extracted values in the given order.
+ */
+export function pickFields(records: unknown[], fields: string[]): unknown[][] {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error('Field list must be a non-empty array of strings.');
+  }
+
+  const result: unknown[][] = [];
+
+  for (const record of records) {
+    if (typeof record !== 'object' || record === null) {
+      throw new Error('Each record must be an object.');
+    }
+
+    const row: unknown[] = [];
+    let hasMissingRequiredField = false;
+
+    for (const field of fields) {
+      const stem = field.endsWith('?') ? field.slice(0, -1) : field;
+      if (!stem || typeof stem !== 'string') {
+        throw new Error('Invalid field name.');
+      }
+
+      if (fields.includes(stem + '?') && fields.includes(stem)) {
+        throw new Error('Duplicate field names with and without the marker.');
+      }
+
+      const value = record.hasOwnProperty(stem) ? record[stem] : null;
+      row.push(value);
+
+      if (!field.endsWith('?') && value === null) {
+        hasMissingRequiredField = true;
+      }
+    }
+
+    if (hasMissingRequiredField) {
+      continue; // Skip records missing required fields
+    }
+
+    result.push(row);
+  }
+
+  return result;
+}
+```

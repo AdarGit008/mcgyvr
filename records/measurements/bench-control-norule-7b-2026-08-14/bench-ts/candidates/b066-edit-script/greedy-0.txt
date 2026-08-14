@@ -1,0 +1,54 @@
+```ts
+/**
+ * Applies an edit script to a original string and returns the edited result.
+ * @param original - The original string to be edited.
+ * @param script - A list of operations to apply in order.
+ * @returns The edited string.
+ */
+export function applyEditScript(original: string, script: [string, any][]): string {
+  if (typeof original !== 'string') {
+    throw new Error('Original must be a string');
+  }
+
+  let result = '';
+  let index = 0;
+
+  for (const [op, arg] of script) {
+    switch (op) {
+      case 'copy':
+        if (typeof arg !== 'number' || arg <= 0 || !Number.isInteger(arg)) {
+          throw new Error('Copy count must be a positive integer');
+        }
+        if (index + arg > original.length) {
+          throw new Error('Copy operation reads past the end of the original');
+        }
+        result += original.slice(index, index + arg);
+        index += arg;
+        break;
+      case 'skip':
+        if (typeof arg !== 'number' || arg <= 0 || !Number.isInteger(arg)) {
+          throw new Error('Skip count must be a positive integer');
+        }
+        if (index + arg > original.length) {
+          throw new Error('Skip operation reads past the end of the original');
+        }
+        index += arg;
+        break;
+      case 'insert':
+        if (typeof arg !== 'string' || arg === '') {
+          throw new Error('Insert text must be a non-empty string');
+        }
+        result += arg;
+        break;
+      default:
+        throw new Error(`Unknown op: ${op}`);
+    }
+  }
+
+  if (index < original.length) {
+    throw new Error('Script stops before the original is used up');
+  }
+
+  return result;
+}
+```

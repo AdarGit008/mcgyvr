@@ -1,0 +1,19 @@
+```ts
+/**
+ * Returns the largest reading in every stretch of a given width.
+ * @param readings - Array of numerical readings.
+ * @param width - Width of each stretch.
+ * @returns Array of maximum readings for each valid stretch.
+ */
+export function windowMax(readings: number[], width: number): number[] {
+  if (width < 1) throw new Error("Width must be at least 1");
+  if (readings.length < width) return [];
+
+  const result: number[] = [];
+  for (let i = 0; i <= readings.length - width; i++) {
+    const stretch = readings.slice(i, i + width);
+    result.push(Math.max(...stretch));
+  }
+  return result;
+}
+```

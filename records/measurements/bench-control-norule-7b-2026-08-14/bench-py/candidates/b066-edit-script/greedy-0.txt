@@ -1,0 +1,33 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    
+    result = []
+    index = 0
+    
+    for op in script:
+        if op[0] == "copy":
+            n = op[1]
+            if not isinstance(n, int) or n <= 0 or index + n > len(original):
+                raise ValueError("Invalid copy operation")
+            result.append(original[index:index + n])
+            index += n
+        elif op[0] == "skip":
+            n = op[1]
+            if not isinstance(n, int) or n <= 0 or index + n > len(original):
+                raise ValueError("Invalid skip operation")
+            index += n
+        elif op[0] == "insert":
+            text = op[1]
+            if not isinstance(text, str) or not text:
+                raise ValueError("Invalid insert operation")
+            result.append(text)
+        else:
+            raise ValueError(f"Unknown operation: {op[0]}")
+    
+    if index != len(original):
+        raise ValueError("Script does not use up the entire original string")
+    
+    return ''.join(result)
+```

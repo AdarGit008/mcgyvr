@@ -1,0 +1,10 @@
+```python
+def route_stops(route: str) -> list:
+    """Breaks a route into stops, trimming spaces."""
+    return [stop.strip() for stop in route.split('>')] if route else []
+
+def route_hops(route: str) -> int:
+    """Counts the journeys between stops."""
+    stops = route_stops(route)
+    return len(stops) - 1 if stops else 0
+```

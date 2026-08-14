@@ -1,0 +1,15 @@
+```ts
+/**
+ * Returns the plural form of an English noun.
+ * @param noun - The noun to pluralize.
+ * @returns The plural form of the noun.
+ */
+export function pluralOf(noun: string): string {
+  if (noun.endsWith('s') || noun.endsWith('x') || noun.endsWith('ch') || noun.endsWith('sh')) {
+    return noun + 'es';
+  } else if (noun.length > 1 && noun.endsWith('y') && /[bcdfghjklmnpqrstvwxyz]/.test(noun[noun.length - 2])) {
+    return noun.slice(0, -1) + 'ies';
+  }
+  return noun + 's';
+}
+```

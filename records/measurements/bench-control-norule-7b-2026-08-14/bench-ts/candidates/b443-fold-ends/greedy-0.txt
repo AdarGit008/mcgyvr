@@ -1,0 +1,14 @@
+```ts
+/**
+ * Fold a list onto itself by adding the first entry to the last, the second to the second-last, and so on.
+ * A list of an odd length leaves its middle entry as its own total.
+ *
+ * @param values - The array of numbers to fold.
+ * @returns An array containing the folded totals.
+ */
+export function foldEnds(values: number[]): number[] {
+  if (values.length === 0) return [];
+  const mid = Math.floor(values.length / 2);
+  return values.slice(0, mid).map((_, i) => values[i] + values[values.length - 1 - i]).concat(mid % 2 ? [values[mid]] : []);
+}
+```

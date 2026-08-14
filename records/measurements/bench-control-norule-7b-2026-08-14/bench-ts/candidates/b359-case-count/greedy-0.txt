@@ -1,0 +1,24 @@
+```ts
+/**
+ * Counts the number of capital and small letters in a given text.
+ * Non-letter characters are not counted.
+ * 
+ * @param text - The input string to analyze.
+ * @returns An array where the first element is the count of capital letters,
+ *          and the second element is the count of small letters.
+ */
+export function caseCount(text: string): number[] {
+    let capitals = 0;
+    let smalls = 0;
+
+    for (const char of text) {
+        if (char >= 'A' && char <= 'Z') {
+            capitals++;
+        } else if (char >= 'a' && char <= 'z') {
+            smalls++;
+        }
+    }
+
+    return [capitals, smalls];
+}
+```

@@ -1,0 +1,19 @@
+```ts
+/**
+ * Draws a count as that many hashes, but never more than a stated width,
+ * and marks a bar that had to be cut short by ending it in a greater-than sign.
+ * A count of nothing draws an empty bar.
+ *
+ * @param count - The number of hashes to draw.
+ * @param width - The maximum width of the bar.
+ * @returns A string representing the tally bar.
+ */
+export function tallyBar(count: number, width: number): string {
+  if (width <= 0) {
+    throw new Error("Width must be greater than zero");
+  }
+
+  const hashes = Math.min(count, width);
+  return hashes === count ? hashes.toString() : `${hashes}>`;
+}
+```

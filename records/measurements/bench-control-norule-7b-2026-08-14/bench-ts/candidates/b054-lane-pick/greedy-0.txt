@@ -1,0 +1,32 @@
+```ts
+export function pickLane(queues: number[], closed: number[]): number {
+  if (!Array.isArray(queues) || queues.length === 0) {
+    throw new Error("Queues must be a non-empty array.");
+  }
+  if (closed.some(index => typeof index !== "number" || !Number.isInteger(index))) {
+    throw new Error("Closed lanes must be an array of integers.");
+  }
+  if (queues.some(length => typeof length !== "number" || length < 0)) {
+    throw new Error("Queue lengths must be non-negative numbers.");
+  }
+  if (closed.some(index => index < 0 || index >= queues.length)) {
+    throw new Error("Closed lanes must be valid indices.");
+  }
+  if (closed.length === queues.length) {
+    throw new Error("At least one lane must be open.");
+  }
+
+  let best = -1;
+  for (let lane = 0; lane < queues.length; lane++) {
+    if (!closed.includes(lane)) {
+      if (best === -1 || queues[lane] < queues[best]) {
+        best = lane;
+      } else if (queues[lane] === queues[best]) {
+        best = Math.min(best, lane);
+      }
+    }
+  }
+
+  return best;
+}
+```

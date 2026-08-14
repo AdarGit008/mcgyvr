@@ -1,0 +1,15 @@
+```ts
+/**
+ * Selects dish names from the menu that do not exceed the given budget, sorted by price and then name.
+ * @param dishes - Array of objects with dish names and prices in whole pence.
+ * @param budget - Maximum total cost allowed for selected dishes.
+ * @returns An array of dish names that fit within the budget, sorted by price and name.
+ */
+export function menuPick(dishes: { name: string; price: number }[], budget: number): string[] {
+    if (budget < 0) throw new Error("Budget cannot be negative");
+
+    return dishes
+        .filter(dish => dish.price <= budget)
+        .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
+}
+```

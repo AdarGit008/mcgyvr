@@ -1,0 +1,24 @@
+```ts
+/**
+ * Follows a name up through a book of links to give back the whole line from the given name to the one with nobody above it.
+ * Rejects links running in a circle with an error.
+ *
+ * @param links - A record where each key is a person's name and the value is the name of the person standing above them.
+ * @param start - The starting name to begin following up from.
+ * @returns An array representing the line from the given name to the one with nobody above it.
+ */
+export function lineUp(links: Record<string, string>, start: string): string[] {
+  const seen = new Set<string>();
+  let current = start;
+
+  while (current) {
+    if (seen.has(current)) {
+      throw new Error('Circular link detected');
+    }
+    seen.add(current);
+    current = links[current];
+  }
+
+  return Array.from(seen).reverse();
+}
+```

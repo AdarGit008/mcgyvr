@@ -1,0 +1,23 @@
+```ts
+/**
+ * Finds the position of the first seat of the earliest run of free seats long enough to hold the party.
+ * @param row - A string representing a row of seats, where 'x' is taken and '.' is free.
+ * @param party - The number of consecutive free seats needed for the party.
+ * @returns The position of the first seat of the earliest run of free seats that can accommodate the party, or -1 if none exists.
+ */
+export function seatRun(row: string, party: number): number {
+  if (party === 0) throw new Error("Party size cannot be zero.");
+  
+  let count = 0;
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === '.') {
+      count++;
+      if (count >= party) return i - party + 1;
+    } else {
+      count = 0;
+    }
+  }
+  
+  return -1;
+}
+```

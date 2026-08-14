@@ -1,0 +1,19 @@
+```ts
+/**
+ * Returns the longest run of characters that every word in a list begins with.
+ * @param words - List of words to find the common head for.
+ * @returns The common head or an empty string if none exists.
+ */
+export function commonHead(words: string[]): string {
+  if (words.length === 0) return "";
+
+  let common = words[0];
+  for (let i = 1; i < words.length; i++) {
+    while (words[i].indexOf(common) !== 0) {
+      common = common.slice(0, -1);
+      if (common === "") return "";
+    }
+  }
+  return common;
+}
+```

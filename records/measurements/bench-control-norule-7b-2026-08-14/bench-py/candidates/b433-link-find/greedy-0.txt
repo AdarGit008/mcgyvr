@@ -1,0 +1,23 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    if len(opens) != 1 or len(closes) != 1:
+        raise ValueError("Markers must be single characters")
+    
+    result = []
+    stack = []
+    for char in line:
+        if char == opens:
+            stack.append(char)
+        elif char == closes:
+            if stack and stack[-1] == opens:
+                stack.pop()
+                if not stack:
+                    result.append("")
+            else:
+                raise ValueError("Unmatched closing marker")
+    
+    if stack:
+        raise ValueError("Unmatched opening markers")
+    
+    return result
+```

@@ -1,0 +1,30 @@
+```ts
+export function runPress(jobs: [string, number][], budget: number): { printed: string[]; waiting: string[]; pages: number } {
+    if (!Array.isArray(jobs) || jobs.some(job => !Array.isArray(job) || job.length !== 2)) {
+        throw new Error("Invalid jobs argument");
+    }
+    if (jobs.some(([name, pages]) => typeof name !== "string" || name === "" || typeof pages !== "number" || pages <= 0)) {
+        throw new Error("Invalid job in the list");
+    }
+    if (typeof budget !== "number" || budget < 0) {
+        throw new Error("Invalid budget argument");
+    }
+
+    const printed: string[] = [];
+    const waiting: string[] = [];
+    let pagesSpent = 0;
+
+    for (const [name, pages] of jobs) {
+        if (pages <= budget) {
+            printed.push(name);
+            budget -= pages;
+            pagesSpent += pages;
+        } else {
+            waiting.push(name);
+            break;
+        }
+    }
+
+    return { printed, waiting, pages: pagesSpent };
+}
+```

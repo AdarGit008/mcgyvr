@@ -1,0 +1,23 @@
+```python
+def fresh_value(entry: dict, now: int) -> str:
+    if not isinstance(entry, dict):
+        raise ValueError("Entry must be a dictionary")
+    
+    value = entry.get('value')
+    stored = entry.get('stored')
+    ttl = entry.get('ttl')
+    
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string")
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("Stored must be a non-negative integer")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("TTL must be a positive integer")
+    if not isinstance(now, int) or now < stored:
+        raise ValueError("Now must be an integer at least stored")
+    
+    if stored + ttl <= now:
+        raise ValueError("Record is no longer usable")
+    
+    return value
+```

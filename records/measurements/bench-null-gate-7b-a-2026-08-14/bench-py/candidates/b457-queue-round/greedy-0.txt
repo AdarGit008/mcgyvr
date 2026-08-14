@@ -1,0 +1,13 @@
+```python
+def served_by(queue: list, turn: int) -> str:
+    if not queue:
+        raise ValueError("a queue needs somebody in it")
+    return queue[turn % len(queue)]
+
+
+def queue_round(queue: list, turns: int) -> list:
+    """Who is served on each turn, the queue stopping at the end instead of coming round."""
+    if not queue:
+        raise ValueError("queue cannot be empty")
+    return [served_by(queue, turn) for turn in range(turns)]
+```

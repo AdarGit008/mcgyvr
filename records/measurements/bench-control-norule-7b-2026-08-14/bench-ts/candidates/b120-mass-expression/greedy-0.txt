@@ -1,0 +1,72 @@
+```ts
+/**
+ * Evaluates a goods tally expression and returns the final amount in the specified unit.
+ * @param text - The tally expression as a string, e.g., "2kg + 300g".
+ * @param unit - The target unit for the result, one of 'g', 'kg', or 't'.
+ * @returns The final amount in the target unit.
+ */
+export function massExpression(text: string, unit: string): number {
+    if (typeof text !== 'string' || !text) throw new Error('Invalid tally expression');
+    if (!['g', 'kg', 't'].includes(unit)) throw new Error('Invalid target unit');
+
+    const terms = text.split(/[\s+]/).filter(Boolean);
+    if (terms.length % 2 === 0) throw new Error('Tally must alternate between terms and operators');
+
+    let totalGrams = 0;
+
+    for (let i = 0; i < terms.length; i += 2) {
+        const countStr = terms[i];
+        const operator = terms[i + 1];
+
+        if (!/^\d+$/.test(countStr)) throw new Error('Invalid term count');
+        const count = parseInt(countStr, 10);
+
+        if (i === 0) {
+            totalGrams = convertToGrams(count, terms[i + 2]);
+        } else {
+            switch (operator) {
+                case '+':
+                    totalGrams += convertToGrams(count, terms[i + 2]);
+                    break;
+                case '-':
+                    totalGrams -= convertToGrams(count, terms[i + 2]);
+                    if (totalGrams < 0) throw new Error('Draw dips below zero');
+                    break;
+                default:
+                    throw new Error('Invalid operator');
+            }
+        }
+    }
+
+    const result = convertFromGrams(totalGrams, unit);
+    if (!Number.isInteger(result)) throw new Error('Total does not come out whole in the target unit');
+
+    return result;
+}
+
+function convertToGrams(count: number, unit: string): number {
+    switch (unit) {
+        case 'g':
+            return count;
+        case 'kg':
+            return count * 1000;
+        case 't':
+            return count * 1000000;
+        default:
+            throw new Error('Invalid unit');
+    }
+}
+
+function convertFromGrams(grams: number, unit: string): number {
+    switch (unit) {
+        case 'g':
+            return grams;
+        case 'kg':
+            return grams / 1000;
+        case 't':
+            return grams / 1000000;
+        default:
+            throw new Error('Invalid unit');
+    }
+}
+```

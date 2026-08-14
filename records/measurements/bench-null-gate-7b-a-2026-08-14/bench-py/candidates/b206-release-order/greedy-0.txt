@@ -1,0 +1,20 @@
+```python
+def order_release_tags(tags: list) -> list:
+    def parse_tag(tag):
+        parts = tag[1:].split('-')
+        version_parts = parts[0].split('.')
+        major, minor, patch = map(int, version_parts)
+        preview_label = None
+        if len(parts) > 1:
+            preview_label = parts[1].split(' ')[0]
+        return (major, minor, patch, preview_label)
+
+    def compare_tags(tag1, tag2):
+        v1, v2 = parse_tag(tag1), parse_tag(tag2)
+        for a, b in zip(v1, v2):
+            if a != b:
+                return -1 if a < b else 1
+        return 0
+
+    return sorted(tags, key=parse_tag, cmp=compare_tags)
+```

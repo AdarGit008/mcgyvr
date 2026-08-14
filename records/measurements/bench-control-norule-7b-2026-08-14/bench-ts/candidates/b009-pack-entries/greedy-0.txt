@@ -1,0 +1,32 @@
+```ts
+/**
+ * Serialize a list of [key, value] pairs of strings into one line.
+ * @param entries - List of key-value pairs to serialize.
+ * @returns A string representing the serialized entries.
+ */
+export function packEntries(entries: [string, string][]): string {
+  if (!Array.isArray(entries)) {
+    throw new Error('Input must be an array');
+  }
+
+  const seenKeys = new Set<string>();
+
+  for (const [key] of entries) {
+    if (typeof key !== 'string' || key === '') {
+      throw new Error('Key must be a non-empty string');
+    }
+    if (seenKeys.has(key)) {
+      throw new Error('Duplicate key found');
+    }
+    seenKeys.add(key);
+  }
+
+  return entries
+    .map(([key, value]) => {
+      const escapedKey = key.replace(/[\\=;]/g, '\\$&');
+      const escapedValue = value.replace(/[\\=;]/g, '\\$&');
+      return `${escapedKey}=${escapedValue}`;
+    })
+    .join(';');
+}
+```

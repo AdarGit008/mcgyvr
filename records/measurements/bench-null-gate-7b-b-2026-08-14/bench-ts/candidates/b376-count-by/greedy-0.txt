@@ -1,0 +1,15 @@
+```ts
+export function countBy(records: Record<string, string>[], field: string): Record<string, number> {
+  if (field.trim() === '') {
+    throw new Error('Field name cannot be empty');
+  }
+
+  return records.reduce((acc, record) => {
+    const value = record[field];
+    if (value !== undefined) {
+      acc[value] = (acc[value] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+}
+```

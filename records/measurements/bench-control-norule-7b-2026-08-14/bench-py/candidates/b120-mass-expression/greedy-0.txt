@@ -1,0 +1,34 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not text or unit not in {'g', 'kg', 't'}:
+        raise ValueError("Invalid input")
+
+    units = {'g': 1, 'kg': 1000, 't': 1000000}
+    goal_unit_value = units[unit]
+
+    terms = text.split(' + ')
+    running_total = 0
+
+    for term in terms:
+        if '-' in term:
+            sub_terms = term.split(' - ')
+            for sub_term in sub_terms:
+                count, sub_unit = sub_term.split()
+                if not count.isdigit() or sub_unit not in units:
+                    raise ValueError("Invalid term")
+                count = int(count)
+                running_total -= count * units[sub_unit]
+                if running_total < 0:
+                    raise ValueError("Draw dips below zero")
+        else:
+            count, sub_unit = term.split()
+            if not count.isdigit() or sub_unit not in units:
+                raise ValueError("Invalid term")
+            count = int(count)
+            running_total += count * units[sub_unit]
+
+    if running_total % goal_unit_value != 0:
+        raise ValueError("Total does not come out whole")
+
+    return running_total // goal_unit_value
+```

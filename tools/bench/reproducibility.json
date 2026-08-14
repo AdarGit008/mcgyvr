@@ -44,6 +44,38 @@
       "issue": 231,
       "measured": "2026-08-13",
       "note": "33/257 passed on both runs. 32 of 257 candidates differed in bytes and none of them crossed the boundary; acceptance drift was zero. Same session as the bench-py pair — the four passes ran back to back with nothing else dispatched to the rig."
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-py",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-py",
+        "bench-null-gate-7b-b-2026-08-14/bench-py"
+      ],
+      "issue": 231,
+      "measured": "2026-08-14",
+      "note": "#231 check 5 — the same battery at a second tier, no design change. 67/257 passed on both runs. Only 3 of 257 candidates differed in bytes and none crossed the boundary; acceptance drift zero. Greedy, cap 2048, condition stock, one backend session on srv2. The number equals the 1.5B's because both measured d = 0 over 257 cells and the bound is the Wilson upper, not the point — it is measured here, not transferred (ADR-0019 D2), and the two entries would have parted the moment either pair flipped a cell."
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-ts",
+      "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+      "serving_build": "0.32.5",
+      "bound_pp": 1.47,
+      "flips": 0,
+      "cells": 257,
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-ts",
+        "bench-null-gate-7b-b-2026-08-14/bench-ts"
+      ],
+      "issue": 231,
+      "measured": "2026-08-14",
+      "note": "51/257 passed on both runs. 8 of 257 candidates differed in bytes, none crossed the boundary, acceptance drift zero. Same session as the 7B bench-py pair. Note against the expectation this pair was run under: the 7B is byte-identical on 97.9% of cells against the 1.5B's 88.9%, so a bigger model drifted LESS in text here rather than more — the prediction that a higher pass rate puts more cells near the boundary and therefore raises d is not what governed at this tier."
     }
   ]
 }

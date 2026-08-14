@@ -1,0 +1,29 @@
+```ts
+/**
+ * Determines how many items can be bought with a given budget, always choosing the cheapest affordable item.
+ * @param prices - Array of item prices.
+ * @param budget - Total amount of money available to spend.
+ * @returns The number of items that can be bought.
+ */
+export function fitBudget(prices: number[], budget: number): number {
+  if (budget < 0) {
+    throw new Error("Budget cannot be negative");
+  }
+
+  let count = 0;
+  let remainingBudget = budget;
+
+  while (remainingBudget > 0 && prices.length > 0) {
+    const minPriceIndex = prices.indexOf(Math.min(...prices));
+    if (minPrice <= remainingBudget) {
+      remainingBudget -= minPrice;
+      count++;
+    } else {
+      break;
+    }
+    prices.splice(minPriceIndex, 1);
+  }
+
+  return count;
+}
+```

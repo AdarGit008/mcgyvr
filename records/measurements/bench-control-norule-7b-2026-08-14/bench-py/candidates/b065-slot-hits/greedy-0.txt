@@ -1,0 +1,20 @@
+```python
+def slot_hits(keys: list, slots: int) -> int:
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer")
+    
+    held = [None] * slots
+    hits = 0
+    
+    for key in keys:
+        if not isinstance(key, int):
+            raise ValueError("All keys must be integers")
+        
+        slot_index = abs(key) % slots
+        if held[slot_index] == key:
+            hits += 1
+        else:
+            held[slot_index] = key
+    
+    return hits
+```

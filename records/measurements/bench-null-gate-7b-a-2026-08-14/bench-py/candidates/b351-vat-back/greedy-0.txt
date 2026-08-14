@@ -1,0 +1,6 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    return gross // (1 + rate / 100)
+```

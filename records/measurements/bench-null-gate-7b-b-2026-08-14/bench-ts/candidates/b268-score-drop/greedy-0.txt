@@ -1,0 +1,20 @@
+```ts
+/**
+ * Returns the total of scores with the single lowest score left out.
+ * If there are multiple lowest scores, only one is dropped.
+ * A list holding one score or none at all totals zero.
+ *
+ * @param {number[]} scores - The list of scores to process.
+ * @returns {number} - The total of the remaining scores.
+ */
+export function scoreDrop(scores: number[]): number {
+  if (scores.length <= 1) return 0;
+
+  const minScore = Math.min(...scores);
+  const indexToRemove = scores.indexOf(minScore);
+
+  if (indexToRemove === -1) throw new Error("No valid scores found");
+
+  return scores.filter((_, i) => i !== indexToRemove).reduce((acc, score) => acc + score, 0);
+}
+```

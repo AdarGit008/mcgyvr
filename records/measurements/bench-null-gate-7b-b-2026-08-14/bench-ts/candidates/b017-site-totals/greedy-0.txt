@@ -1,0 +1,59 @@
+```ts
+/** A shipment ledger: parse lines, total by site, find the busiest site. */
+
+export function loadLedger(
+  lines: string[],
+): { site: string; item: string; qty: number }[] {
+  const rows: { site: string; item: string; qty: number }[] = [];
+  for (const line of lines) {
+    const parts = line.split(",");
+    if (parts.length !== 3) {
+      throw new Error("each ledger line is site,item,qty");
+    }
+    const [site, item, raw] = parts;
+    if (site === "" || item === "") {
+      throw new Error("site and item must be non-empty");
+    }
+    if (!/^\d+$/.test(raw)) {
+      throw new Error("qty must be a run of decimal digits");
+    }
+    const qty = Number(raw);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      throw new Error("qty must be a positive integer");
+    }
+    rows.push({ site, item, qty });
+  }
+  return rows;
+}
+
+export function siteTotals(
+  rows: { site: string; item: string; qty: number }[],
+): [string, number][] {
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    if (!totals.has(row.site)) {
+      totals.set(row.site, 0);
+    }
+    totals.set(row.site, totals.get(row.site)! + row.qty);
+  }
+  return [...totals.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+export function busiestSite(
+  rows: { site: string; item: string; qty: number }[],
+): string | null {
+  const totals = siteTotals(rows);
+  if (totals.length === 0) {
+    return null;
+  }
+  let best = totals[0];
+  for (const pair of totals) {
+    if (pair[1] > best[1]) {
+      best = pair;
+    } else if (pair[1] === best[1] && pair[0] < best[0]) {
+      best = pair;
+    }
+  }
+  return best[0];
+}
+```

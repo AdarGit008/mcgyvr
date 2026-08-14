@@ -1,0 +1,70 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function validateRule(rule: string): void {
+  if (rule === "!") {
+    throw new Error("A rule cannot be a bare exclamation mark");
+  }
+  splitStrict(rule, "rule");
+}
+
+function validatePath(path: string): void {
+  splitStrict(path, "path");
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  listing.forEach(validatePath);
+  rules.forEach(validateRule);
+
+  return listing.filter((path) => {
+    let keep = false;
+    for (const rule of rules) {
+      const isKeepRule = rule.startsWith("!");
+      const pattern = isKeepRule ? rule.slice(1) : rule;
+      if (segmentFits(pattern, path)) {
+        keep = isKeepRule;
+        break;
+      }
+    }
+    return keep;
+  });
+}
+```

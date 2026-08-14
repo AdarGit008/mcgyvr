@@ -1,0 +1,14 @@
+```ts
+export function checkManifest(line: Record<string, unknown>): Record<string, unknown> {
+  const validKeys = ['sku', 'count', 'note'];
+  for (const key in line) {
+    if (!validKeys.includes(key)) throw new Error(`Invalid key: ${key}`);
+  }
+  const sku = typeof line.sku === 'string' ? line.sku.trim() : '';
+  if (sku === '') throw new Error('SKU must be a non-empty string');
+  const count = Number(line.count);
+  if (!Number.isInteger(count) || count <= 0) throw new Error('Count must be a positive whole number');
+  const note = typeof line.note === 'string' ? line.note : '';
+  return { sku, count, note };
+}
+```

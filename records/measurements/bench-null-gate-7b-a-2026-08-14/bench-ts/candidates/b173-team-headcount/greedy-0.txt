@@ -1,0 +1,36 @@
+```ts
+export function teamHeadcount(chart: Record<string, string[]>, name: string): number {
+  if (typeof chart !== 'object' || chart === null) {
+    throw new Error('Chart must be an object');
+  }
+  if (typeof name !== 'string') {
+    throw new Error('Name must be a string');
+  }
+
+  const reports = chart[name];
+  if (!Array.isArray(reports)) {
+    throw new Error('Reports must be an array');
+  }
+
+  for (const report of reports) {
+    if (typeof report !== 'string') {
+      throw new Error('Report must be a string');
+    }
+  }
+
+  let count = 1;
+  const visited = new Set<string>();
+  const stack: string[] = [...reports];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (!visited.has(current)) {
+      visited.add(current);
+      count += chart[current]?.length || 0;
+      stack.push(...chart[current]!);
+    }
+  }
+
+  return count;
+}
+```

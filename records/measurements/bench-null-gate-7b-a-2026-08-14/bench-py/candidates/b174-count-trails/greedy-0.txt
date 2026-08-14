@@ -1,0 +1,28 @@
+```python
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    if rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be at least 1")
+    for block in blocked:
+        if len(block) != 2:
+            raise ValueError("blocked entries must be two-item lists")
+        if not (0 <= block[0] < rows and 0 <= block[1] < cols):
+            raise ValueError("blocked cells must be within the grid")
+
+    blocked_set = {(r, c) for r, c in blocked}
+    if (0, 0) in blocked_set or (rows - 1, cols - 1) in blocked_set:
+        return 0
+
+    dp = [[0] * cols for _ in range(rows)]
+    dp[0][0] = 1
+
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) in blocked_set:
+                continue
+            if r > 0:
+                dp[r][c] += dp[r - 1][c]
+            if c > 0:
+                dp[r][c] += dp[r][c - 1]
+
+    return dp[rows - 1][cols - 1]
+```

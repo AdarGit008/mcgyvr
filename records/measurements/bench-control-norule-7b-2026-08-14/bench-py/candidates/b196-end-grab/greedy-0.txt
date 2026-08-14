@@ -1,0 +1,15 @@
+```python
+def end_grab(cards: list) -> dict:
+    first, second = 0, 0
+    taken = []
+    
+    while cards:
+        if cards[0] >= cards[-1]:
+            taken.append(cards.pop(0))
+            first += cards[0]
+        else:
+            taken.append(cards.pop())
+            second += cards[-1]
+    
+    return {'first': first, 'second': second, 'taken': taken}
+```

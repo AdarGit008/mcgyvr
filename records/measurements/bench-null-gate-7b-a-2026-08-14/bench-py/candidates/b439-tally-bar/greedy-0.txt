@@ -1,0 +1,9 @@
+```python
+def tally_bar(count: int, width: int) -> str:
+    if count == 0:
+        return '|'
+    hashes = min(count, width)
+    if hashes < count:
+        return '#' * hashes + '>'
+    return '#' * hashes
+```

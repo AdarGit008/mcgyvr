@@ -1,0 +1,24 @@
+```python
+def strip_tags(line: str) -> str:
+    result = []
+    in_tag = False
+    quote_char = None
+
+    for char in line:
+        if char == '<':
+            if quote_char is None:
+                in_tag = True
+        elif char == '>':
+            if quote_char is None:
+                in_tag = False
+        elif char in ('"', "'"):
+            if quote_char is None:
+                quote_char = char
+            elif quote_char == char:
+                quote_char = None
+
+        if not in_tag or quote_char is not None:
+            result.append(char)
+
+    return ''.join(result)
+```

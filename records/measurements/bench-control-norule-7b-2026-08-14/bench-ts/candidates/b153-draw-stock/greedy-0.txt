@@ -1,0 +1,24 @@
+```ts
+export function drawStock(shelf: Record<string, number>, order: [string, number][]): Record<string, number> {
+  const remainingStock: Record<string, number> = { ...shelf };
+
+  for (const [item, count] of order) {
+    if (typeof item !== 'string' || typeof count !== 'number') {
+      throw new Error('Invalid order line format');
+    }
+    if (!Number.isInteger(count) || count <= 0) {
+      throw new Error('Order count must be a positive whole number');
+    }
+    if (!(item in remainingStock)) {
+      throw new Error(`Item ${item} not found on shelf`);
+    }
+    if (count > remainingStock[item]) {
+      throw new Error(`Not enough stock for item ${item}`);
+    }
+
+    remainingStock[item] -= count;
+  }
+
+  return remainingStock;
+}
+```

@@ -1,0 +1,13 @@
+```ts
+/**
+ * Sifts entries into two runs based on whether they open with a given mark.
+ * @param entries - Array of strings to be sifted.
+ * @param mark - The mark used to determine the split.
+ * @returns A tuple containing two arrays: [markedEntries, unmarkedEntries].
+ */
+export function siftMarks(entries: string[], mark: string): string[][] {
+  const markedEntries = entries.filter(entry => entry.startsWith(mark));
+  const unmarkedEntries = entries.filter(entry => !entry.startsWith(mark));
+  return [markedEntries, unmarkedEntries];
+}
+```

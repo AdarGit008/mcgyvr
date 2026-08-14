@@ -1,0 +1,13 @@
+```python
+def hex_split(colour: str) -> list:
+    if colour.startswith('#') and len(colour) == 7 and all(c in '0123456789abcdef' for c in colour[1:]):
+        return [colour[i:i+2] for i in range(1, 7, 2)]
+    else:
+        raise ValueError("Invalid colour format")
+
+def hex_join(parts: list) -> str:
+    if len(parts) == 3 and all(len(part) == 2 and part.isdigit() for part in parts):
+        return '#' + ''.join(parts).lower()
+    else:
+        raise ValueError("Invalid parts format")
+```

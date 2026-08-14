@@ -1,0 +1,34 @@
+```ts
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+
+  const n = tripDays.length;
+  const dp: number[] = new Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (const pass of passes) {
+      if (i - pass.span >= 0) {
+        dp[i] = Math.min(dp[i], dp[i - pass.span] + pass.cost);
+      }
+    }
+  }
+
+  const purchases: number[][] = [];
+  let i = n;
+  while (i > 0) {
+    for (const pass of passes) {
+      if (i - pass.span >= 0 && dp[i] === dp[i - pass.span] + pass.cost) {
+        purchases.unshift([tripDays[i - pass.span], pass.span]);
+        i -= pass.span;
+        break;
+      }
+    }
+  }
+
+  return { total: dp[n], purchases };
+}
+```

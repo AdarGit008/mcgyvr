@@ -1,0 +1,31 @@
+```ts
+/**
+ * Merges overlapping or touching booking spans into single spans.
+ * @param spans - Array of [start, end] pairs representing booking spans.
+ * @returns Sorted array of merged [start, end] pairs.
+ */
+export function spanMerge(spans: number[][]): number[][] {
+  if (spans.length === 0) return [];
+
+  const sortedSpans = spans.sort((a, b) => a[0] - b[0]);
+  const mergedSpans: number[][] = [sortedSpans[0]];
+
+  for (let i = 1; i < sortedSpans.length; i++) {
+    const currentSpan = sortedSpans[i];
+    const lastMergedSpan = mergedSpans[mergedSpans.length - 1];
+
+    if (currentSpan[0] <= lastMergedSpan[1]) {
+      // Merge overlapping or touching spans
+      mergedSpans[mergedSpans.length - 1] = [
+        lastMergedSpan[0],
+        Math.max(lastMergedSpan[1], currentSpan[1]),
+      ];
+    } else {
+      // No overlap, add new span
+      mergedSpans.push(currentSpan);
+    }
+  }
+
+  return mergedSpans;
+}
+```

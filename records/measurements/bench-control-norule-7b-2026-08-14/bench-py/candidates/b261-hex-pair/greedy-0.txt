@@ -1,0 +1,11 @@
+```python
+def hex_split(colour: str) -> list:
+    if len(colour) != 7 or colour[0] != '#' or not all(c in '0123456789abcdefABCDEF' for c in colour[1:]):
+        raise ValueError("Invalid colour format")
+    return [colour[i:i+2] for i in range(1, 7, 2)]
+
+def hex_join(parts: list) -> str:
+    if len(parts) != 3 or not all(len(part) == 2 and part.isdigit() for part in parts):
+        raise ValueError("Invalid parts format")
+    return '#' + ''.join(parts).lower()
+```

@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def net_tally(sheets: List[str]) -> str:
+    if not isinstance(sheets, list) or not all(isinstance(sheet, str) for sheet in sheets):
+        raise ValueError("Invalid input: sheets must be a list of strings")
+
+    item_counts = {}
+    max_item_length = 0
+    total_net = 0
+
+    for sheet in sheets:
+        rows = [row.strip() for row in sheet.split('\n') if row.strip()]
+        for row in rows:
+            parts = row.split('|')
+            if len(parts) != 3:
+                raise ValueError("Invalid row format")
+            item, sold, returned = map(str.strip, parts)
+            if not item or not sold.isdigit() or not returned.isdigit():
+                raise ValueError("Invalid field values")
+            sold_count = int(sold)
+            returned_count = int(returned)
+            if returned_count > sold_count:
+                raise ValueError(f"Returned count exceeds sold count for item: {item}")
+            net_count = sold_count - returned_count
+            total_net += net_count
+            if item in item_counts:
+                item_counts[item] += net_count
+            else:
+                item_counts[item] = net_count
+            max_item_length = max(max_item_length, len(item))
+
+    report_lines = [f"{item:<{max_item_length}}  {net_count}" for item, net_count in sorted(item_counts.items())]
+    trailer = f"{'total':<{max_item_length}}  {total_net}"
+    return '\n'.join(report_lines + [trailer])
+```

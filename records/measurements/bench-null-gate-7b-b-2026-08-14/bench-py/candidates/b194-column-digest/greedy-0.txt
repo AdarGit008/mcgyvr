@@ -1,0 +1,36 @@
+```python
+def column_digest(rows: list, column: int) -> dict:
+    if column < 0:
+        raise ValueError("Column index must be non-negative")
+    
+    cells = [row[column] for row in rows if len(row) > column]
+    
+    count = len(cells)
+    if count == 0:
+        return {
+            "count": 0,
+            "min": 0,
+            "max": 0,
+            "mean": 0,
+            "median": 0
+        }
+    
+    min_val = min(cells)
+    max_val = max(cells)
+    mean = round(sum(cells) / count, 2)
+    
+    sorted_cells = sorted(cells)
+    mid = count // 2
+    if count % 2 == 1:
+        median = sorted_cells[mid]
+    else:
+        median = round((sorted_cells[mid - 1] + sorted_cells[mid]) / 2, 2)
+    
+    return {
+        "count": count,
+        "min": min_val,
+        "max": max_val,
+        "mean": mean,
+        "median": median
+    }
+```

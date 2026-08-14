@@ -1,0 +1,26 @@
+```ts
+export function trimCaption(text: string, limit: number): string {
+  if (typeof text !== 'string' || typeof limit !== 'number' || limit <= 0) {
+    throw new Error('Invalid arguments');
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  let trimmed = text.slice(0, limit - 1);
+  while (trimmed.endsWith(' ') && !text.startsWith(' ', limit)) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  if (!trimmed.endsWith(' ')) {
+    const lastSpaceIndex = trimmed.lastIndexOf(' ');
+    if (lastSpaceIndex !== -1) {
+      trimmed = trimmed.slice(0, lastSpaceIndex);
+    } else {
+      trimmed = text.slice(0, limit - 2);
+    }
+  }
+
+  return `${trimmed}…`;
+}
+```

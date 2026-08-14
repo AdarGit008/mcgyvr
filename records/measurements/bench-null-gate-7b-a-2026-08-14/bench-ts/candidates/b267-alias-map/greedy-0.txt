@@ -1,0 +1,20 @@
+```ts
+/**
+ * Returns the name that `name` stands for, following one hop and no further.
+ * If `name` stands for nothing, returns `name` itself.
+ */
+export function aliasResolve(aliases: Record<string, string>, name: string): string {
+  if (aliases.hasOwnProperty(name)) {
+    return aliases[name];
+  }
+  return name;
+}
+
+/**
+ * Lists every name that stands for something, in alphabetical order.
+ */
+export function aliasNames(aliases: Record<string, string>): string[] {
+  const names = Object.keys(aliases).filter(n => n !== aliases[n]);
+  return names.sort();
+}
+```

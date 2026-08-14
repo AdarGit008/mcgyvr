@@ -1,0 +1,20 @@
+```ts
+/**
+ * Calculates the mean of every run of consecutive readings within a given window size.
+ * @param readings - Array of numerical readings.
+ * @param size - The size of the window to calculate the mean for.
+ * @returns An array of means, rounded down, for each window. Returns an empty array if the window size is greater than the number of readings.
+ */
+export function meanWindow(readings: number[], size: number): number[] {
+  if (size <= 0) throw new Error("Window size must be greater than zero.");
+  if (readings.length < size) return [];
+
+  const means: number[] = [];
+  for (let i = 0; i <= readings.length - size; i++) {
+    const windowSum = readings.slice(i, i + size).reduce((acc, val) => acc + val, 0);
+    means.push(Math.floor(windowSum / size));
+  }
+
+  return means;
+}
+```

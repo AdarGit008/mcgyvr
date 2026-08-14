@@ -1,0 +1,23 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not (0 <= count <= 1000 and all(0 <= b < count for b in builds)):
+        raise ValueError("Invalid release numbers")
+    
+    lts_set = set(lts)
+    hops = 0
+    
+    for build in builds:
+        if build == count - 1:
+            continue
+        target = min(count - 1, build + hop)
+        
+        while target not in lts_set and target > build:
+            target -= 1
+        
+        if target <= build:
+            raise ValueError("Invalid LTS release sequence")
+        
+        hops += target - build
+    
+    return hops
+```

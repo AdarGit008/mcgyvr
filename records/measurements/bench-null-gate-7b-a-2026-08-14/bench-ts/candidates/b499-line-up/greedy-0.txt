@@ -1,0 +1,25 @@
+```ts
+export function lineUp(links: Record<string, string>, start: string): string[] {
+  if (!links.hasOwnProperty(start)) {
+    throw new Error("Unknown name");
+  }
+
+  const seen = new Set<string>();
+  let current = start;
+
+  while (true) {
+    if (seen.has(current)) {
+      throw new Error("Circular link detected");
+    }
+    seen.add(current);
+
+    if (!links.hasOwnProperty(current)) {
+      break;
+    }
+
+    current = links[current];
+  }
+
+  return Array.from(seen).reverse();
+}
+```

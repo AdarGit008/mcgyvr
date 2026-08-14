@@ -1,0 +1,23 @@
+```ts
+export function meterDraws(draws: [string, number][], allowance: number): { used: Record<string, number>; denied: number[] } {
+    if (!Number.isInteger(allowance) || allowance <= 0) throw new Error('Invalid allowance');
+    const used: Record<string, number> = {};
+    const denied: number[] = [];
+    for (let i = 0; i < draws.length; i++) {
+        const [key, units] = draws[i];
+        if (typeof key !== 'string' || key === '') throw new Error('Invalid key');
+        if (!Number.isInteger(units) || units <= 0) throw new Error('Invalid units');
+        const remaining = remainingFor(used, key, allowance);
+        if (remaining >= units) {
+            used[key] = (used[key] || 0) + units;
+        } else {
+            denied.push(i);
+        }
+    }
+    return { used, denied };
+}
+
+export function remainingFor(used: Record<string, number>, key: string, allowance: number): number {
+    return Math.max(allowance - (used[key] || 0), 0);
+}
+```

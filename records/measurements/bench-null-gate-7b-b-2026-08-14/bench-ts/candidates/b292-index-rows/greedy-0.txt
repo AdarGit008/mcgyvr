@@ -1,0 +1,30 @@
+```ts
+/**
+ * Returns the first letter of a name in upper case.
+ * @param name - The name to process.
+ * @returns The first letter of the name in upper case.
+ */
+export function rowKey(name: string): string {
+  if (name.length === 0) {
+    throw new Error("Name cannot be empty");
+  }
+  return name[0].toUpperCase();
+}
+
+/**
+ * Files names under their rowKey, each group holding its names in the order they arrived.
+ * @param names - The list of names to index.
+ * @returns An object where keys are rowKeys and values are arrays of names.
+ */
+export function indexRows(names: string[]): Record<string, string[]> {
+  const index: Record<string, string[]> = {};
+  for (const name of names) {
+    const key = rowKey(name);
+    if (!index[key]) {
+      index[key] = [];
+    }
+    index[key].push(name);
+  }
+  return index;
+}
+```

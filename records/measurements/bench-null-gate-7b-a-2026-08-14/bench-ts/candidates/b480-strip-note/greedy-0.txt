@@ -1,0 +1,13 @@
+```ts
+export function stripNote(title: string): string {
+  const opened = title.indexOf("(");
+  if (opened === -1) {
+    return title;
+  }
+  const closed = title.lastIndexOf(")");
+  if (closed === -1 || closed <= opened) {
+    return title;
+  }
+  return title.slice(0, opened).trimEnd();
+}
+```

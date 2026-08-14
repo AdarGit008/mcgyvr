@@ -1,0 +1,35 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || text === '' || !['g', 'kg', 't'].includes(unit)) {
+    throw new Error('Invalid input');
+  }
+
+  const terms = text.split(/[\s+]/);
+  let result = 0;
+
+  for (let i = 0; i < terms.length; i += 2) {
+    const count = parseInt(terms[i], 10);
+    if (isNaN(count) || count < 0) {
+      throw new Error('Invalid term');
+    }
+
+    const nextTerm = terms[i + 1];
+    if (!nextTerm || !['g', 'kg', 't'].includes(nextTerm)) {
+      throw new Error('Invalid unit');
+    }
+
+    result += (nextTerm === 'g' ? count : nextTerm === 'kg' ? count * 1000 : count * 1000000);
+  }
+
+  if (result < 0) {
+    throw new Error('Negative total');
+  }
+
+  const goalUnit = unit === 'g' ? result : unit === 'kg' ? Math.floor(result / 1000) : Math.floor(result / 1000000);
+  if (goalUnit * (unit === 'g' ? 1 : unit === 'kg' ? 1000 : 1000000) !== result) {
+    throw new Error('Non-whole total in goal unit');
+  }
+
+  return goalUnit;
+}
+```

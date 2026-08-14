@@ -1,0 +1,23 @@
+```ts
+/**
+ * Determines how many books fit on a shelf given their widths and the shelf's capacity.
+ * @param widths - An array of positive integers representing the widths of book spines in millimetres.
+ * @param shelf - A non-negative integer representing the total width of the shelf in millimetres.
+ * @returns The number of books that fit on the shelf before the first one that does not fit.
+ */
+export function shelfFit(widths: number[], shelf: number): number {
+  if (!Array.isArray(widths) || !widths.every(Number.isInteger) || widths.some(w => w <= 0)) {
+    throw new Error('Invalid widths array');
+  }
+  if (typeof shelf !== 'number' || shelf < 0 || !Number.isInteger(shelf)) {
+    throw new Error('Invalid shelf width');
+  }
+
+  let totalWidth = 0;
+  for (const width of widths) {
+    if (totalWidth + width > shelf) break;
+    totalWidth += width;
+  }
+  return widths.length - (widths.length - widths.findIndex(w => w > shelf));
+}
+```

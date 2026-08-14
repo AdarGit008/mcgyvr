@@ -1,0 +1,12 @@
+```ts
+/**
+ * Converts a whole number to its short form representation.
+ * @param value - The number to convert.
+ * @returns A string representing the short form of the number.
+ */
+export function shortNum(value: number): string {
+  if (value < 1000) return value.toString();
+  if (value < 1000000) return `${Math.floor(value / 1000)}k`;
+  return `${Math.floor(value / 1000000)}m`;
+}
+```

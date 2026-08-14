@@ -1,0 +1,25 @@
+```ts
+/**
+ * Returns the payout for a winning bet.
+ * @param stake - The amount staked on the bet.
+ * @param odds - The odds offered for the bet.
+ * @returns The payout amount if the bet wins, otherwise 0.
+ */
+export function payout(stake: number, odds: number): number {
+    if (stake < 0) {
+        throw new Error("Stake cannot be below zero");
+    }
+    return stake * odds;
+}
+
+/**
+ * Calculates the total payout for all winning bets in a list of bets.
+ * @param bets - An array of bets with their outcomes.
+ * @returns The total payout for all winning bets.
+ */
+export function settleAll(bets: { stake: number; odds: number; won: boolean }[]): number {
+    return bets
+        .filter(bet => bet.won)
+        .reduce((total, bet) => total + payout(bet.stake, bet.odds), 0);
+}
+```

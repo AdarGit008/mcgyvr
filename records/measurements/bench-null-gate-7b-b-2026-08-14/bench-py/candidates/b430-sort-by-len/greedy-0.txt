@@ -1,0 +1,4 @@
+```python
+def sort_by_len(words: list) -> list:
+    return sorted(words, key=lambda x: (len(x), x))
+```

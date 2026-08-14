@@ -1,0 +1,27 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    def is_valid_tag(tag):
+        parts = tag.split('.')
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            return False
+        line, point = map(int, parts)
+        return line >= 0 and point >= 0
+
+    carried = installed
+    for step in steps:
+        if not isinstance(step, dict) or 'tag' not in step or 'requires' not in step:
+            raise ValueError("Each step must be a {tag, requires} record")
+        if not is_valid_tag(step['tag']) or not is_valid_tag(step['requires']):
+            raise ValueError("Invalid tag format")
+        line_step, point_step = map(int, step['tag'].split('.'))
+        line_requires, point_requires = map(int, step['requires'].split('.'))
+        if line_step < line_requires or (line_step == line_requires and point_step <= point_requires):
+            raise ValueError(f"step {step['tag']} requires at least {step['requires']}")
+        if step["tag"] <= carried:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+        carried = step["tag"]
+    return carried
+```

@@ -1,0 +1,30 @@
+```ts
+/**
+ * Swaps two characters in the other order.
+ * @param first - The first character to swap.
+ * @param second - The second character to swap.
+ * @returns A string with the two characters swapped.
+ */
+export function swapPair(first: string, second: string): string {
+  if (first.length !== 1 || second.length !== 1) {
+    throw new Error('Both arguments must be single characters.');
+  }
+  return second + first;
+}
+
+/**
+ * Walks a text in twos and swaps each pair it finds, leaving a final odd character exactly where it is.
+ * @param text - The input string to process.
+ * @returns A new string with each pair of characters swapped.
+ */
+export function swapAll(text: string): string {
+  let result = '';
+  for (let i = 0; i < text.length - 1; i += 2) {
+    result += swapPair(text[i], text[i + 1]);
+  }
+  if (text.length % 2 !== 0) {
+    result += text[text.length - 1];
+  }
+  return result;
+}
+```

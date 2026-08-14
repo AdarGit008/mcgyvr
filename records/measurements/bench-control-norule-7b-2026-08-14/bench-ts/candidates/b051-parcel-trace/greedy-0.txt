@@ -1,0 +1,33 @@
+```ts
+/**
+ * Traces the state changes of a parcel based on a list of events.
+ * @param events - List of event names in the order they happened.
+ * @returns List of states the parcel passes through, starting with 'created'.
+ */
+export function traceParcel(events: string[]): string[] {
+  if (!Array.isArray(events)) {
+    throw new Error('Input must be an array');
+  }
+
+  const stateMap = {
+    created: ['packed'],
+    packed: ['shipped'],
+    shipped: ['delivered', 'returned'],
+    delivered: [],
+    returned: []
+  };
+
+  let currentState: string = 'created';
+  const states: string[] = [currentState];
+
+  for (const event of events) {
+    if (!stateMap[currentState].includes(event)) {
+      throw new Error(`Invalid event '${event}' in state '${currentState}'`);
+    }
+    currentState = event;
+    states.push(currentState);
+  }
+
+  return states;
+}
+```

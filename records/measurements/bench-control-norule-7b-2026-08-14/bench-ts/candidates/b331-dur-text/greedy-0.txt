@@ -1,0 +1,36 @@
+```ts
+/**
+ * Returns the whole hours in a count of minutes, discarding what is left over.
+ * @param minutes - The total number of minutes to convert to hours.
+ * @returns The whole number of hours.
+ */
+export function durHours(minutes: number): number {
+  if (minutes < 0) {
+    throw new Error("Minutes cannot be negative");
+  }
+  return Math.floor(minutes / 60);
+}
+
+/**
+ * Writes the count as hours and minutes joined, like 1h30m; a whole number of
+ * hours drops the minutes, a count under an hour drops the hours, and zero is 0m.
+ * @param minutes - The total number of minutes to format.
+ * @returns A string representing the duration in hours and minutes.
+ */
+export function durText(minutes: number): string {
+  if (minutes < 0) {
+    throw new Error("Minutes cannot be negative");
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours > 0 && mins > 0) {
+    return `${hours}h${mins}m`;
+  } else if (hours > 0) {
+    return `${hours}h`;
+  } else if (mins > 0) {
+    return `${mins}m`;
+  } else {
+    return "0m";
+  }
+}
+```

@@ -1,0 +1,31 @@
+```ts
+export function configValue(layers: string[], name: string): string | null {
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new Error('Invalid name');
+  }
+
+  const effectiveValues = new Map<string, string | null>();
+
+  for (const layer of layers) {
+    if (typeof layer !== 'string') {
+      throw new Error('Invalid layer');
+    }
+
+    const lines = layer.split('\n').map(line => line.trim());
+    for (const line of lines) {
+      if (line === '' || line.startsWith('#')) continue;
+
+      if (line.startsWith('!')) {
+        effectiveValues.delete(line.slice(1));
+      } else {
+        const [key, value] = line.split('=');
+        if (key.trim() !== '') {
+          effectiveValues.set(key.trim(), value ? value.trim() : null);
+        }
+      }
+    }
+  }
+
+  return effectiveValues.get(name) ?? null;
+}
+```

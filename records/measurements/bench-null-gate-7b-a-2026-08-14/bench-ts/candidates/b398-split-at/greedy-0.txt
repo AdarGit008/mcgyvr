@@ -1,0 +1,18 @@
+```ts
+/**
+ * Splits a list into two parts at the first entry equal to a marker,
+ * returning what stood before it and what stood after, with the marker itself in neither.
+ * A list not holding the marker gives everything as the first part and nothing as the second.
+ *
+ * @param entries - The list to split.
+ * @param marker - The marker to split at.
+ * @returns An array containing two parts of the list.
+ */
+export function splitAt(entries: string[], marker: string): string[][] {
+  const index = entries.findIndex(entry => entry === marker);
+  if (index === -1) {
+    return [entries, []];
+  }
+  return [entries.slice(0, index), entries.slice(index + 1)];
+}
+```

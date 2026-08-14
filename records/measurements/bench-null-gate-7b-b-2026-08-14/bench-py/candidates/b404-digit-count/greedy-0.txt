@@ -1,0 +1,7 @@
+```python
+def digit_count(value: int) -> int:
+    """Return how many digits a whole number is written with."""
+    if value == 0:
+        return 1
+    return len(str(abs(value)))
+```

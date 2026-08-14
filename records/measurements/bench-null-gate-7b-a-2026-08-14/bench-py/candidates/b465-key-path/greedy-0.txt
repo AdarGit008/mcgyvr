@@ -1,0 +1,10 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    if '.' in head:
+        raise ValueError("Head cannot contain a full stop")
+    
+    if head not in store:
+        return []
+    
+    return [key for key in store[head] if '.' not in key]
+```

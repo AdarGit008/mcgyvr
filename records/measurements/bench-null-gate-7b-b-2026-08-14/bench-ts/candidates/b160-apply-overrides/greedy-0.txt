@@ -1,0 +1,26 @@
+```ts
+export function applyOverrides(
+  base: Record<string, string>,
+  overrides: string[],
+): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be an array");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    const parts = override.split(/=(.+)/);
+    if (parts.length !== 2) {
+      throw new Error(`invalid override: ${override}`);
+    }
+    const [name, value] = parts;
+    if (!name || !base.hasOwnProperty(name)) {
+      throw new Error(`invalid override name: ${name}`);
+    }
+    merged[name] = value;
+  }
+
+  return merged;
+}
+```

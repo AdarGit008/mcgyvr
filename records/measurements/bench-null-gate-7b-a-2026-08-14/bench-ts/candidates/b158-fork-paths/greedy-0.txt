@@ -1,0 +1,24 @@
+```ts
+export function forkPaths(pattern: string): string[] {
+  if (typeof pattern !== 'string' || pattern === '') {
+    throw new Error('Invalid input: pattern must be a non-empty string');
+  }
+
+  const segments = pattern.split('/');
+  let paths: string[] = [''];
+
+  for (const segment of segments) {
+    if (segment.startsWith('{') && segment.endsWith('}')) {
+      const options = segment.slice(1, -1).split(',');
+      if (options.some(opt => opt === '' || opt.includes(',') || opt.includes('{') || opt.includes('}'))) {
+        throw new Error('Invalid input: fork must contain non-empty options without commas or braces');
+      }
+      paths = paths.flatMap(path => options.map(option => path + '/' + option));
+    } else if (segment !== '') {
+      paths = paths.map(path => path + '/' + segment);
+    }
+  }
+
+  return paths.slice(1); // Remove the initial empty string
+}
+```

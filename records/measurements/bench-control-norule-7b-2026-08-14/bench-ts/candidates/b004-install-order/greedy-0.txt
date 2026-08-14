@@ -1,0 +1,46 @@
+```ts
+/** An installation order for packages under prerequisite pairs. */
+export function installOrder(
+  packages: string[],
+  requires: string[][],
+): string[] {
+  if (new Set(packages).size !== packages.length) {
+    throw new Error("Duplicate package names are not allowed.");
+  }
+
+  const needs: Record<string, number> = {};
+  const enables: Record<string, string[]> = {};
+
+  for (const name of packages) {
+    needs[name] = 0;
+    enables[name] = [];
+  }
+
+  for (const [pkg, needed] of requires) {
+    if (!packages.includes(pkg)) {
+      throw new Error(`Package '${pkg}' is not in the list.`);
+    }
+    if (!packages.includes(needed)) {
+      throw new Error(`Package '${needed}' is not in the list.`);
+    }
+    needs[pkg] += 1;
+    enables[needed].push(pkg);
+  }
+
+  const ready = packages.filter((name) => needs[name] === 0);
+  const order: string[] = [];
+
+  while (ready.length > 0) {
+    const next = ready.sort()[0];
+    order.push(next);
+    for (const follower of enables[next]) {
+      needs[follower] -= 1;
+      if (needs[follower] === 0) {
+        ready.push(follower);
+      }
+    }
+  }
+
+  return order;
+}
+```

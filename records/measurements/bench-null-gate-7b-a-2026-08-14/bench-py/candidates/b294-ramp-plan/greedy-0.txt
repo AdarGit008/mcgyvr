@@ -1,0 +1,14 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    if step == 0:
+        raise ValueError("Step cannot be zero")
+    return current + (target - current) // abs(step) * step
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    if step == 0:
+        raise ValueError("Step cannot be zero")
+    if start == target:
+        return [start]
+    direction = 1 if start < target else -1
+    return list(range(start, target + direction * step, direction * step))
+```

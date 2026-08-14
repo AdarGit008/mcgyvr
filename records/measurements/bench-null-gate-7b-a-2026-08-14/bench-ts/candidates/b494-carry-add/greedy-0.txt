@@ -1,0 +1,27 @@
+```ts
+/**
+ * Adds two counts held as runs of single figures, carrying into the next place where a pair reaches ten.
+ * @param left - The first run of figures.
+ * @param right - The second run of figures.
+ * @returns The sum as a run of figures.
+ */
+export function carryAdd(left: number[], right: number[]): number[] {
+    const maxLength = Math.max(left.length, right.length);
+    let result: number[] = [];
+    let carry = 0;
+
+    for (let i = 0; i < maxLength; i++) {
+        const digitLeft = i < left.length ? left[i] : 0;
+        const digitRight = i < right.length ? right[i] : 0;
+        const sum = digitLeft + digitRight + carry;
+        result.push(sum % 10);
+        carry = Math.floor(sum / 10);
+    }
+
+    if (carry > 0) {
+        result.push(carry);
+    }
+
+    return result.reverse();
+}
+```

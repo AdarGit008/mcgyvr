@@ -1,0 +1,17 @@
+```ts
+/**
+ * Holds at most 'limit' callers in order of arrival. If adding another caller
+ * would exceed the limit, drops whoever has waited longest.
+ *
+ * @param {string[]} callers - The list of callers in order of arrival.
+ * @param {number} limit - The maximum number of callers to hold.
+ * @returns {string[]} The current state of the hold list.
+ */
+export function holdQueue(callers: string[], limit: number): string[] {
+  if (limit <= 0) {
+    throw new Error('Limit must be greater than zero');
+  }
+
+  return callers.slice(-limit);
+}
+```

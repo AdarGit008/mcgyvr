@@ -1,0 +1,17 @@
+```ts
+/**
+ * Splits a camelCase identifier into words and returns them in lower case.
+ * @param name - The camelCase string to split.
+ * @returns An array of words.
+ */
+export function camelBreak(name: string): string[] {
+  if (typeof name !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return name
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/\s+/);
+}
+```

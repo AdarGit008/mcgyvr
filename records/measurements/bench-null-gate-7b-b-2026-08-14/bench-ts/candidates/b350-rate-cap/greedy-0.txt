@@ -1,0 +1,16 @@
+```ts
+/**
+ * Raises a price by a whole-percent rate, but never by more than a stated largest increase.
+ * Returns the new price with the increase rounded down. A price raised by nothing comes back as it was.
+ *
+ * @param price - The original price to be raised.
+ * @param rate - The percentage rate by which to raise the price.
+ * @param most - The maximum amount by which the price can be increased, rounded down.
+ * @returns The new price after applying the rate cap.
+ */
+export function rateCap(price: number, rate: number, most: number): number {
+  if (rate < 0) throw new Error("Rate cannot be below zero.");
+  const increase = Math.floor((price * rate) / 100);
+  return price + Math.min(increase, most);
+}
+```

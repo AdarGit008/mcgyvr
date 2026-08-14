@@ -1,0 +1,27 @@
+```ts
+/**
+ * Handles coins inserted into a vending machine and calculates remaining credit.
+ * @param coins Array of coin values in cents.
+ * @param price Price of an item in cents, must be a multiple of 5 and greater than zero.
+ * @returns Remaining credit after processing all coins.
+ */
+export function vendCredit(coins: number[], price: number): number {
+    if (!Number.isInteger(price) || price <= 0 || price % 5 !== 0) {
+        throw new Error('Invalid price');
+    }
+
+    let credit = 0;
+    for (const coin of coins) {
+        if ([5, 10, 25, 100].includes(coin)) {
+            credit += coin;
+            while (credit >= price) {
+                credit -= price;
+            }
+        } else {
+            throw new Error('Invalid coin');
+        }
+    }
+
+    return credit;
+}
+```

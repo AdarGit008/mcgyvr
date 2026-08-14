@@ -1,0 +1,38 @@
+```python
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    def read_varint():
+        result = 0
+        shift = 0
+        while True:
+            byte = data.pop(0)
+            if not (0 <= byte <= 255):
+                raise ValueError("Byte out of range")
+            if byte & 0x80 == 0:
+                return result | (byte << shift)
+            result |= (byte & 0x7F) << shift
+            shift += 7
+            if shift > 35:  # Maximum varint length is 5 bytes, each up to 7 bits
+                raise ValueError("Varint too long")
+    
+    if not data:
+        raise ValueError("Empty frame")
+    
+    num_readings = read_varint()
+    readings = []
+    for _ in range(num_readings):
+        reading = read_varint()
+        readings.append(reading)
+    
+    trailer = data.pop(0)
+    if not data:  # Ensure no bytes left over
+        expected_trailer = sum(readings) % 256
+        if trailer != expected_trailer:
+            raise ValueError("Trailer does not match byte sum")
+    else:
+        raise ValueError("Bytes left over after trailer")
+    
+    return readings
+```

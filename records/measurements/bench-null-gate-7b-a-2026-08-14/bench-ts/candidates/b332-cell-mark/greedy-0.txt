@@ -1,0 +1,21 @@
+```ts
+/**
+ * Returns how many of a cell's given neighbours are alive.
+ * @param {boolean[]} neighbours - Array representing the cell's neighbours.
+ * @returns {number} - Number of alive neighbours.
+ */
+export function liveCount(neighbours: boolean[]): number {
+  return neighbours.filter(neighbor => neighbor).length;
+}
+
+/**
+ * Determines whether the cell is alive in the next round.
+ * @param {boolean} alive - Current state of the cell (true if alive, false otherwise).
+ * @param {boolean[]} neighbours - Array representing the cell's neighbours.
+ * @returns {boolean} - Whether the cell will be alive in the next round.
+ */
+export function liveNext(alive: boolean, neighbours: boolean[]): boolean {
+  const count = liveCount(neighbours);
+  return (alive && (count === 2 || count === 3)) || (!alive && count === 3);
+}
+```

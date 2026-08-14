@@ -1,0 +1,12 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    if 0 <= row < len(grid) and 0 <= column < len(grid[row]):
+        return grid[row][column]
+    else:
+        raise ValueError("Row or column out of bounds")
+
+def diag_of(grid: list) -> list:
+    if not all(len(row) == len(grid[0]) for row in grid):
+        raise ValueError("Grid must be square")
+    return [grid[i][i] for i in range(len(grid))]
+```

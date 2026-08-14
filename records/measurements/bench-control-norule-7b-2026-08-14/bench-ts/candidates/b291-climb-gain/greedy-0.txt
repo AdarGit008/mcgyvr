@@ -1,0 +1,21 @@
+```ts
+/**
+ * Returns the height gained on one leg of a walk.
+ * @param start - The starting height.
+ * @param end - The ending height.
+ * @returns The height gained, or zero if the ground goes down or stays level.
+ */
+export function legGain(start: number, end: number): number {
+  return Math.max(0, end - start);
+}
+
+/**
+ * Adds the gains of every leg of a walk given the heights in order.
+ * @param heights - An array of heights representing the walk.
+ * @returns The total height gained during the walk.
+ */
+export function climbGain(heights: number[]): number {
+  if (heights.length < 2) return 0;
+  return heights.slice(1).reduce((acc, curr, index) => acc + legGain(heights[index], curr), 0);
+}
+```

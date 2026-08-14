@@ -1,0 +1,9 @@
+```python
+def tag_open(marker: str) -> str:
+    if marker.startswith('<') and marker.endswith('>'):
+        return marker[1:-1].lstrip('/')
+    raise ValueError("Marker must be wrapped in angle brackets")
+
+def tag_pair(opening: str, closing: str) -> bool:
+    return tag_open(opening).lower() == tag_open(closing).lower()
+```

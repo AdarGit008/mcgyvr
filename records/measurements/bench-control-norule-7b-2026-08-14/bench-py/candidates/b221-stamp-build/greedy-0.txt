@@ -1,0 +1,6 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    if not all(isinstance(x, int) and 0 <= x < 1000 for x in (major, minor, patch)):
+        raise ValueError("Invalid component values")
+    return major * 1_000_000 + minor * 1_000 + patch
+```

@@ -1,0 +1,32 @@
+```ts
+export function unpackFrame(bytes: number[]): number[] {
+  if (!Array.isArray(bytes)) throw new Error("Input must be a list of bytes");
+  if (bytes.some(b => typeof b !== 'number' || b < 0 || b > 255)) throw new Error("All bytes must be integers from 0 to 255");
+
+  let pos = 0;
+  const readVarint = () => {
+    let value = 0;
+    for (let i = 0; i < 5; ++i) {
+      if (pos >= bytes.length) throw new Error("Frame ends inside a varint");
+      const byte = bytes[pos++];
+      value |= (byte & 0x7F) << (i * 7);
+      if (!(byte & 0x80)) return value;
+    }
+    throw new Error("Varint longer than five bytes");
+  };
+
+  const count = readVarint();
+  const readings: number[] = [];
+  for (let i = 0; i < count; ++i) {
+    if (pos >= bytes.length) throw new Error("Frame ends before its trailer");
+    readings.push(readVarint());
+  }
+
+  if (pos + 1 !== bytes.length) throw new Error("Bytes left over after the trailer");
+
+  const expectedTrailer = bytes.slice(0, pos).reduce((sum, b) => sum + b, 0) % 256;
+  if (bytes[pos] !== expectedTrailer) throw new Error("Trailer does not equal the byte sum");
+
+  return readings;
+}
+```

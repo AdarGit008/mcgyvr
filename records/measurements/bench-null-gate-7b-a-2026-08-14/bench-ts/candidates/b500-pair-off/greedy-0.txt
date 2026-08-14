@@ -1,0 +1,12 @@
+```ts
+export function pairOff(marks: string[]): string[] {
+  let left: string[] = [];
+  for (let i = 0; i < marks.length; i++) {
+    if (i > 0 && marks[i] === marks[i - 1]) {
+      continue;
+    }
+    left.push(marks[i]);
+  }
+  return left;
+}
+```

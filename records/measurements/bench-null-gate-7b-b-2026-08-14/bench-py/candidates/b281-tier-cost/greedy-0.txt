@@ -1,0 +1,16 @@
+```python
+def tier_cost(units: int, allowance: int, first_rate: int, later_rate: int) -> int:
+    if units < 0:
+        raise ValueError("Number of units cannot be negative")
+    if allowance < 0:
+        raise ValueError("Allowance cannot be negative")
+    
+    usage_within_allowance = min(units, allowance)
+    usage_exceeding_allowance = max(0, units - allowance)
+    
+    cost_within_allowance = usage_within_allowance * first_rate
+    cost_exceeding_allowance = usage_exceeding_allowance * later_rate
+    
+    total_cost = cost_within_allowance + cost_exceeding_allowance
+    return total_cost
+```

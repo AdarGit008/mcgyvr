@@ -1,0 +1,26 @@
+```ts
+/**
+ * Sorts release tags in ascending order.
+ * @param tags - The list of release tags to sort.
+ * @returns A new list with the tags sorted.
+ */
+export function orderReleaseTags(tags: string[]): string[] {
+  return [...tags].sort((a, b) => {
+    const [av, bv] = [a, b].map(tag => tag.split(/-(\w+)?/));
+    const [am, an, ap] = av.map(part => part === 'v' ? '' : parseInt(part, 10));
+    const [bm, bn, bp] = bv.map(part => part === 'v' ? '' : parseInt(part, 10));
+
+    if (am !== bm) return am - bm;
+    if (an !== bn) return an - bn;
+    if (ap !== bp) {
+      if (!ap && bp) return -1;
+      if (ap && !bp) return 1;
+      const [al, anum] = ap.split(/(\d+)/);
+      const [bl, bnum] = bp.split(/(\d+)/);
+      if (al !== bl) return al.localeCompare(bl);
+      return parseInt(anum, 10) - parseInt(bnum, 10);
+    }
+    return 0;
+  });
+}
+```

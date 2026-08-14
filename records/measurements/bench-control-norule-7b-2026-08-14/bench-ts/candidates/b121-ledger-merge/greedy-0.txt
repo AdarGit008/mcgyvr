@@ -1,0 +1,49 @@
+```ts
+export function mergeLedgers(base: [string, number][], ours: [string, number][], theirs: [string, number][]): [string, number][] {
+    const baseMap = new Map(base);
+    const ourMap = new Map(ours);
+    const theirMap = new Map(theirs);
+
+    const mergedMap = new Map<string, number>();
+
+    for (const [account, cents] of baseMap) {
+        if (!ourMap.has(account) && !theirMap.has(account)) {
+            mergedMap.set(account, cents);
+        } else {
+            let ourCents = 0;
+            if (ourMap.has(account)) {
+                const value = ourMap.get(account);
+                if (typeof value !== 'number' || !Number.isInteger(value)) {
+                    throw new Error('Invalid cents value in ours');
+                }
+                ourCents += value;
+            }
+
+            let theirCents = 0;
+            if (theirMap.has(account)) {
+                const value = theirMap.get(account);
+                if (typeof value !== 'number' || !Number.isInteger(value)) {
+                    throw new Error('Invalid cents value in theirs');
+                }
+                theirCents += value;
+            }
+
+            mergedMap.set(account, cents + ourCents + theirCents);
+        }
+    }
+
+    for (const [account, cents] of ourMap) {
+        if (!baseMap.has(account)) {
+            mergedMap.set(account, cents);
+        }
+    }
+
+    for (const [account, cents] of theirMap) {
+        if (!baseMap.has(account)) {
+            mergedMap.set(account, cents);
+        }
+    }
+
+    return Array.from(mergedMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

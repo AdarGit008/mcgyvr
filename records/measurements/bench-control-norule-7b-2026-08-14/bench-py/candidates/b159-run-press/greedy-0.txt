@@ -1,0 +1,29 @@
+```python
+def run_press(jobs: list, budget: int) -> dict:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 2 for job in jobs):
+        raise ValueError("Invalid jobs argument")
+    if not all(isinstance(name, str) and name for name in (job[0] for job in jobs)):
+        raise ValueError("Invalid job names")
+    if not all(isinstance(pages, int) and pages > 0 for pages in (job[1] for job in jobs)):
+        raise ValueError("Invalid job page counts")
+    if not isinstance(budget, int) and budget >= 0:
+        raise ValueError("Invalid budget")
+
+    printed = []
+    waiting = [job[0] for job in jobs]
+    pages_spent = 0
+
+    for name, pages in jobs:
+        if pages <= budget:
+            printed.append(name)
+            budget -= pages
+            pages_spent += pages
+        else:
+            break
+
+    return {
+        "printed": printed,
+        "waiting": waiting[len(printed):],
+        "pages": pages_spent
+    }
+```

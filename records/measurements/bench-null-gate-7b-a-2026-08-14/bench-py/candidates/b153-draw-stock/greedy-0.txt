@@ -1,0 +1,15 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list")
+    
+    remaining_shelf = shelf.copy()
+    
+    for item, count in order:
+        if item not in remaining_shelf or remaining_shelf[item] < count:
+            raise ValueError(f"Invalid order: {item} not available or insufficient stock")
+        
+        remaining_shelf[item] -= count
+    
+    return remaining_shelf
+```

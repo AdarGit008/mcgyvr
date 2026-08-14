@@ -1,0 +1,35 @@
+```ts
+/**
+ * Determines if the cell at a specified row and column in a grid holds a given value.
+ *
+ * @param grid - The 2D array representing the grid.
+ * @param row - The row index of the cell to check.
+ * @param column - The column index of the cell to check.
+ * @param value - The value to look for in the cell.
+ * @returns true if the cell holds the value, false otherwise.
+ */
+export function matchAt(grid: number[][], row: number, column: number, value: number): boolean {
+  if (row < 0 || row >= grid.length || column < 0 || column >= grid[row].length) {
+    throw new Error("Invalid row or column index");
+  }
+  return grid[row][column] === value;
+}
+
+/**
+ * Finds the first occurrence of a given value in a grid, reading row by row.
+ *
+ * @param grid - The 2D array representing the grid.
+ * @param value - The value to search for in the grid.
+ * @returns An array containing the row and column indices of the first occurrence of the value, or an error if not found.
+ */
+export function gridFind(grid: number[][], value: number): number[] {
+  for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+    for (let columnIndex = 0; columnIndex < grid[rowIndex].length; columnIndex++) {
+      if (grid[rowIndex][columnIndex] === value) {
+        return [rowIndex, columnIndex];
+      }
+    }
+  }
+  throw new Error("Value not found in the grid");
+}
+```

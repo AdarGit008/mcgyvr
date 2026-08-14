@@ -1,0 +1,32 @@
+```ts
+/**
+ * Determines if moving from one state to another is allowed.
+ * @param from - The starting state.
+ * @param to - The target state.
+ * @param allowed - An array of allowed moves, each represented as a pair of states.
+ * @returns true if the move is allowed, false otherwise.
+ */
+export function stepAllowed(from: string, to: string, allowed: string[][]): boolean {
+  return allowed.some(([a, b]) => a === from && b === to);
+}
+
+/**
+ * Finds the index of the first state transition that is not allowed in a sequence of states.
+ * @param states - An array of states representing a sequence.
+ * @param allowed - An array of allowed moves, each represented as a pair of states.
+ * @returns The index of the first disallowed move, or -1 if all moves are allowed.
+ */
+export function stepPlan(states: string[], allowed: string[][]): number {
+  if (states.length < 2) {
+    throw new Error("The run must contain at least two states.");
+  }
+
+  for (let i = 0; i < states.length - 1; i++) {
+    if (!stepAllowed(states[i], states[i + 1], allowed)) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+```
