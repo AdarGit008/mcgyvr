@@ -245,6 +245,7 @@ NOT_A_FIGURE = {
     "tools/bench/product.py": "the pin the declaration reads",
     "tools/bench/regrade.py": "re-scores rows in place; it reports verdicts moved",
     "tools/power/mde.py": "the arithmetic; it has no run directories to describe",
+    "tools/bench/prose.py": "reads contracts only; it states no rate, describes no run",
 }
 
 # Keyed by repo-relative path, not basename: `tools/bench/report.py` and
