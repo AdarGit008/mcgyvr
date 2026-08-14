@@ -307,6 +307,17 @@ None of the three was in the inventory. All three took one run.
 | **#262** | The two bench arms declare one bar and apply four different ones, none recorded. |
 | **#263** | Three statistics defects at three confidence levels: one confirmed pooling, two carried forward. |
 | **#264** | Three exported symbols with no production caller, one of them the sandbox fallback. |
+| **#265** | Run identity: one contract for the bar, model and condition digests, decided once. |
+
+**Correction, 2026-08-14, after the audit was written.** This document leads with
+the pooled reserve as a *language* finding, and #256 was filed on that framing.
+Recomputing the same units across both axes shows language was the smaller cut:
+the spread across **models** is 15.0pp against **7–9pp** across languages, so
+`0.32` — deepseek-coder-v2's pooled figure — charges a `qwen2.5-coder` worker 32%
+where it needs 23% on JS and 15% on Python. The defect and its table stand; the
+stratum to fix it by was wrong, and #256 is re-scoped behind #265 accordingly.
+The general lesson is this audit's own lens 3 turned on itself: *pooled* was the
+right diagnosis and *language* was a label standing in for the property.
 
 Added to existing issues by comment, where one already owned the ground:
 **#231** (the missing `norule` runs; absent sampler state), **#118** (an adopted
