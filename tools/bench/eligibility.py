@@ -32,9 +32,19 @@ from typing import Any
 
 import yaml
 
-REPO = Path(__file__).resolve().parents[2]
-TASKS = Path(__file__).resolve().parent / "tasks"
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
+TASKS = HERE / "tasks"
 MEASUREMENTS = REPO / "records" / "measurements"
+
+sys.path.insert(0, str(HERE))
+
+# #231 checks 3 and 6. This module states pass counts per stratum, which a
+# reader quotes as a rate, so it declares the mode and the pinned revision its
+# figures were produced under. `product` is imported under the name of what it
+# records, matching `ablation_report.py`.
+import mode  # noqa: E402
+import product as revision  # noqa: E402
 
 ARMS = ("py", "ts")
 
@@ -118,7 +128,13 @@ def headroom(
 
 
 def _report(stock_dir: Path, ablated_dir: Path, label: str) -> list[str]:
+    found = mode.read(
+        *[d / f"bench-{arm}" for d in (stock_dir, ablated_dir) for arm in ARMS]
+    )
     lines = [f"## {label}", ""]
+    lines.append(mode.banner(found))
+    lines.append(revision.banner(found))
+    lines.append("")
     lines.append("| arm | stratum | n | stock | ablated | ceiling | m |")
     lines.append("|---|---|---:|---:|---:|---:|---:|")
     for arm in ARMS:

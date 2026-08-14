@@ -251,6 +251,7 @@ NOT_A_FIGURE = {
 # `tools/power/report.py` are different tools with the same file name, and a
 # basename key would let one of them inherit the other's classification.
 CHECKED = {
+    "tools/bench/eligibility.py",
     "tools/bench/null.py",
     "tools/bench/control.py",
     "tools/bench/lintless.py",
