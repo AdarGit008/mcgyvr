@@ -303,6 +303,16 @@ None of the three was in the inventory. All three took one run.
 | **#257** | `rejected_by` names the first rung, not the ones that fired — Python `format` understated 6.7×. |
 | **#258** | The bench's positive control covers none of the five rungs it declares, under a docstring promising all of them. |
 | **#259** | The tier-to-language map is written twice and defaults silently to TypeScript. |
+| **#261** | A crashed linter scores as a clean pass, in both adapters, and records nothing. |
+| **#262** | The two bench arms declare one bar and apply four different ones, none recorded. |
+| **#263** | Three statistics defects at three confidence levels: one confirmed pooling, two carried forward. |
+| **#264** | Three exported symbols with no production caller, one of them the sandbox fallback. |
+
+Added to existing issues by comment, where one already owned the ground:
+**#231** (the missing `norule` runs; absent sampler state), **#118** (an adopted
+ADR whose evidence was never vendored), **#225** (`shape` as an unused stratum),
+**#66** (eight claims that name no language), **#16** (`risk` carried on 2,059
+contracts and read by nothing), **#207** (its mechanism now checked).
 
 Not filed, and deliberately: the two disagreeing constant pairs
 (`ACCEPTANCE_TIMEOUT_S`, `PROBE_TIMEOUT_S`) are **declared in the twin-constant check with their
