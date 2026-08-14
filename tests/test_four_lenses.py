@@ -13,14 +13,16 @@ how a fix is proved.
 
 Four classes, one check each:
 
-* **C1** — the same constant defined twice, so a comment has to hold them
-  together. ``test_duplicated_constants_are_declared``.
-* **C2** — a declared bar naming rungs the gate cannot emit, so a manifest
-  records a bar nothing applied. ``test_declared_rungs_name_emitted_checks``.
-* **C3** — a field recorded on every task and read by no analysis, so the
-  capture was never the gap. ``test_recorded_task_fields_have_a_reader``.
-* **C4** — a shipped constant citing a measurement no test re-derives, so the
-  figure and its evidence can drift apart. ``test_estimate_reserve_is_derived``.
+* **the twin constant** — one value, two definitions, and only a comment
+  holding them equal. ``test_duplicated_constants_are_declared``.
+* **the unmapped rung** — a declared bar naming rungs the gate cannot emit, so a
+  manifest records a bar nothing applied.
+  ``test_declared_rungs_name_emitted_checks``.
+* **the unjoined field** — recorded on every task and read by no analysis, so
+  the capture was never the gap. ``test_recorded_task_fields_have_a_reader``.
+* **the underived constant** — a shipped number citing a measurement no test
+  recomputes, so the figure and its evidence drift apart.
+  ``test_estimate_reserve_is_derived``.
 
 Read ADR-0026 before adding to any allowlist here. The cost of getting this
 wrong is not a missed defect; it is a published number nobody can re-derive.
@@ -65,7 +67,7 @@ def _where(path: Path, lineno: int) -> str:
 
 
 # --------------------------------------------------------------------------
-# C1 — one constant, two definitions
+# The twin constant — one value, two definitions
 # --------------------------------------------------------------------------
 
 # Module-level literal constants that are defined in more than one place.
@@ -225,7 +227,7 @@ def test_declared_duplicates_that_must_agree_do_agree() -> None:
 
 
 # --------------------------------------------------------------------------
-# C2 — a declared bar naming rungs the gate cannot emit
+# The unmapped rung — a declared bar naming checks the gate cannot emit
 # --------------------------------------------------------------------------
 
 # `GATE_RUNGS` is written verbatim into every bench manifest as the bar a rate
@@ -338,7 +340,7 @@ def _load_bench_score() -> Any:
 
 
 # --------------------------------------------------------------------------
-# C3 — a field recorded on every task and read by no analysis
+# The unjoined field — recorded on every task, read by no analysis
 # --------------------------------------------------------------------------
 
 # The tools that turn rows into a published figure. A field recorded on a task
@@ -416,7 +418,7 @@ def test_recorded_task_fields_have_a_reader() -> None:
 
 
 # --------------------------------------------------------------------------
-# C4 — a shipped constant citing a measurement no test re-derives
+# The underived constant — a shipped number no test recomputes
 # --------------------------------------------------------------------------
 
 TOKEN_UNITS = REPO / "records" / "measurements" / "tokens-2026-08-03" / "units.jsonl"
@@ -518,7 +520,7 @@ def test_pooled_reserve_is_recorded_against_its_strata() -> None:
 # applying nothing, which is the state this whole file exists to detect.
 
 
-def test_c1_control_a_new_duplicate_is_caught(tmp_path: Path) -> None:
+def test_control_an_undeclared_twin_is_rejected(tmp_path: Path) -> None:
     """The duplicate sweep rejects a constant it has never seen."""
     (tmp_path / "one.py").write_text("NEW_SHARED_CEILING_S = 5.0\n", encoding="utf-8")
     (tmp_path / "two.py").write_text("NEW_SHARED_CEILING_S = 9.0\n", encoding="utf-8")
@@ -530,7 +532,7 @@ def test_c1_control_a_new_duplicate_is_caught(tmp_path: Path) -> None:
     assert "NEW_SHARED_CEILING_S" not in DECLARED_DUPLICATES
 
 
-def test_c1_control_a_declared_pair_that_drifts_is_caught(tmp_path: Path) -> None:
+def test_control_a_must_agree_twin_that_drifts_is_rejected(tmp_path: Path) -> None:
     """The must-agree half rejects two copies that stopped being equal."""
     (tmp_path / "a.py").write_text("_EMPTY_TREE = 'aaa'\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("_EMPTY_TREE = 'bbb'\n", encoding="utf-8")
@@ -542,7 +544,7 @@ def test_c1_control_a_declared_pair_that_drifts_is_caught(tmp_path: Path) -> Non
     )
 
 
-def test_c2_control_a_rung_naming_nothing_is_caught(tmp_path: Path) -> None:
+def test_control_a_rung_that_maps_to_no_check_is_rejected(tmp_path: Path) -> None:
     """The rung check rejects a declared name that maps to no emitted check."""
     gate = tmp_path / "gate"
     gate.mkdir()
@@ -563,7 +565,7 @@ def test_c2_control_a_rung_naming_nothing_is_caught(tmp_path: Path) -> None:
     assert "adapters" not in emitted
 
 
-def test_c3_control_an_unread_field_is_caught() -> None:
+def test_control_a_field_no_analysis_reads_is_rejected() -> None:
     """The readership check rejects a field named in no analysis tool."""
     sources = "\n".join(
         (REPO / tool).read_text(encoding="utf-8")
@@ -582,7 +584,7 @@ def test_c3_control_an_unread_field_is_caught() -> None:
         )
 
 
-def test_c4_control_the_derivation_moves_with_its_data() -> None:
+def test_control_the_reserve_moves_with_its_evidence() -> None:
     """The reserve check rejects a constant that stopped matching its units."""
     if not TOKEN_UNITS.is_file():  # pragma: no cover
         pytest.skip("CLM-0011's units are not vendored")

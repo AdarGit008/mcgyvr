@@ -80,7 +80,7 @@ the decision of record is unrecoverable, and the decision is already adopted.
 | 3.3 | `ACCEPTANCE_TIMEOUT_S` "matches `tools/bundle/measure.py`'s" — 120.0 against 30.0 | **✓ CONFIRMED** | `tools/bench/score.py:57` = 120.0; `tools/bundle/measure.py:179` = 30.0. `tools/problems/admit.py:62` claims "the same ceiling as **the rigs'**" and uses 30.0 — true for one rig, false for the other. |
 | 3.4 | `condition` is a bare string; `bundle_sha256` hashes the *system* prompt while an ablation edits the *user* message | **✓ CONFIRMED in code** | `tools/breadth/measure.py:879`: `hashlib.sha256(prompt.system.encode(...))`. A user-message ablation cannot move the digest. The `norule` half is unverifiable here (above). |
 | 3.5 | No manifest records a product revision, linter version, config digest, model digest, vocabulary or template | **✓ CONFIRMED, wider than stated** | Over all **123** committed `run.json` (the inventory said 133): `rig_revision` is not a key in *any*; 0 carry a linter version, config digest, model digest, vocabulary, template, rendered-prompt digest, seed, `top_p` or `num_ctx`. |
-| 3.6 | `_EMPTY_TREE` duplicated with a comment asserting sameness; true today, enforced by nothing | **✓ CONFIRMED** | `gate/changeset.py:36` and `orchestrator/repo.py:47`, both `4b825dc…4904`; `repo.py:46` asserts it. Now enforced — see C1. |
+| 3.6 | `_EMPTY_TREE` duplicated with a comment asserting sameness; true today, enforced by nothing | **✓ CONFIRMED** | `gate/changeset.py:36` and `orchestrator/repo.py:47`, both `4b825dc…4904`; `repo.py:46` asserts it. Now enforced — see **the twin constant** below. |
 | 3.7 | `tsconfig.json` never staged, so `tsc --noEmit` never runs while both arms declare identical `gate_rungs` | **~ NARROWED** | The staging fact is confirmed: `stage_dir` writes `.gitignore`, `pyproject.toml`, `eslint.config.mjs` and `node_modules` and no `tsconfig.json`; the repository has no `tsconfig.json` at all. But `tsc` is **not in the declared bar** — no rung names a type check — and ADR-0006 makes "a repository declaring no type checker is not type-checked" the designed outcome. The real finding is adjacent and stands: **the bench's TypeScript arm is scored with no type checking whatsoever, and nothing in the manifest says so.** |
 | 3.8 | prettier runs unconfigured on defaults declared nowhere | **✓ CONFIRMED** | No `.prettierrc*` or `prettier.config.*` anywhere in the repository. Ruff's config *is* staged and derived from `pyproject.toml` at call time (`lint_config`); prettier's is not. The two arms' format bars are asymmetric: one declared, one inherited from a tool default. |
 | 3.9 | `structured` is vacuous on both bench arms | **✓ CONFIRMED, by construction** | `structured.py` fires only on `.json/.yaml/.yml`. All **514** bench contracts target `solution.py` or `solution.ts` and allow only that path. The rung cannot fire in any cell. Over 514 committed rows, `scope` and `secret` also never fired. Of the five declared rungs, exactly one — `acceptance` — is both declared and observed. |
@@ -139,7 +139,7 @@ was wrong; they are joined, just never by the tool that publishes the attributio
 
 | # | item | verdict | evidence |
 |---|---|---|---|
-| 4.1 | A new language costs ~17 files, including three separately hardcoded adapter tuples with no registry | **~ NARROWED on the citation, confirmed on the fact** | **13** files carry a hardcoded language identity (excluding tests and corpora), plus the new adapter module itself. The three tuples are real but one citation is wrong: they are `gate/runner.py` (`Gate.__init__`), `orchestrator/decompose.py:346` and `worker/bundle.py:167` — **not** the top-level `runner.py:91`, which is a timeout. `decompose.py:341` carries its own sameness claim: *"The same pair `Gate` builds, so … rather than two lists that have to be kept in step"* — enforced by nothing, and now in C1's scope by name. |
+| 4.1 | A new language costs ~17 files, including three separately hardcoded adapter tuples with no registry | **~ NARROWED on the citation, confirmed on the fact** | **13** files carry a hardcoded language identity (excluding tests and corpora), plus the new adapter module itself. The three tuples are real but one citation is wrong: they are `gate/runner.py` (`Gate.__init__`), `orchestrator/decompose.py:346` and `worker/bundle.py:167` — **not** the top-level `runner.py:91`, which is a timeout. `decompose.py:341` carries its own sameness claim: *"The same pair `Gate` builds, so … rather than two lists that have to be kept in step"* — enforced by nothing, and now in the twin-constant check by name. |
 | 4.2 | `language = PYTHON if tier == "bench-py" else JSTS` — a `bench-go` tier is silently scored as TypeScript | **~ NARROWED** | The silent default is real: `tools/breadth/measure.py:354` falls to `language = bundle.JSTS` with no error and no warning. But `bench-go` is currently **refused**, by a directory check two lines later. It would be silently scored as TypeScript the moment `tools/breadth/tasks/bench-go/` existed. The sharper finding is a **second** copy of the map at line 1284 (`args.tier in ("pool-py","bench-py")`), written in a different form, with nothing linking the two. |
 | 4.3 | `risk` has three members and zero branches; 2,059 contracts carry a value nothing reads | **✓ CONFIRMED** | Exactly **2,059** `contract.yaml`, all carrying `risk`. It is serialized, printed by `cli.py:278`, and threaded through `decompose` — and no routing or escalation branch reads its value. |
 | 4.4 | `Config.require`/`secret` have no callers; `open_sandbox` has zero non-test callers | **✓ CONFIRMED** | `open_sandbox` is imported only by `sandbox/__init__.py` and two tests. `Config.require` has one internal caller inside `config.py`; the `catalog().require(...)` hits are a different method. |
@@ -149,7 +149,7 @@ was wrong; they are joined, just never by the tool that publishes the attributio
 | # | item | verdict | evidence |
 |---|---|---|---|
 | 2.1 | `ESTIMATE_RESERVE = 0.32` is a pooled percentile shipped in the product; the JS/TS figure is −35.2% | **✓ CONFIRMED — reproduces to −35.1%** | See the headline finding. The pooled derivation also reproduces exactly: worst-vocabulary p05 = −31.1% → 0.32. |
-| 2.2 | `MAX_OUTPUT_TOKENS = 768` inherited three hops and derived at none | **✓ CONFIRMED as a duplication** | Defined twice — `tools/breadth/measure.py:168` and `tools/bundle/measure.py:174` — equal today, derived in neither. Now declared in C1. |
+| 2.2 | `MAX_OUTPUT_TOKENS = 768` inherited three hops and derived at none | **✓ CONFIRMED as a duplication** | Defined twice — `tools/breadth/measure.py:168` and `tools/bundle/measure.py:174` — equal today, derived in neither. Now declared in the twin-constant check. |
 | 2.3 | 453 of 514 cells never pass under any condition | **⧗ NOT RE-DERIVED** | Requires the full-corpus sweep this audit is barred from re-running. Recorded as carried forward from #231, unverified here. |
 | 2.4 | `attempts: 1` on "2 of 35"; `max_parallel: 1` against a measured 8.5× | **✗ NOT REACHED** | Already filed as #152. Not re-derived; no new evidence. |
 
@@ -168,7 +168,7 @@ This is what #251 was actually for. The inventory listed instances; these are th
 classes, each with a measured population and a check that fails on the *next*
 one.
 
-### C1 — one constant, two definitions
+### The twin constant — one value, two definitions
 
 The enforceable form of "a comment asserts two things are equal". The comment is
 a claim; the property underneath is that the two literals *are* equal, and that
@@ -220,7 +220,7 @@ and `::test_declared_duplicates_that_must_agree_do_agree`. The two disagreeing
 pairs are declared with their values rather than fixed here — correcting a
 timeout that four other things read is its own change.
 
-### C2 — a declared bar naming rungs the gate cannot emit
+### The unmapped rung — a declared bar naming checks the gate cannot emit
 
 Population: 5 declared rung names, 9 emitted check values, **2** literal matches.
 The check requires every declared name to map explicitly to the emitted checks it
@@ -231,7 +231,7 @@ excepted — absent from the bar by decision, ADR-0011).
 sixth rung named `typecheck` added to the real `GATE_RUNGS`. The control's own
 coverage gap is **filed as #258**.
 
-### C3 — a field recorded on every task and read by no analysis
+### The unjoined field — recorded on every task, read by no analysis
 
 Population: 2 of the fields on a bench task's `meta.json` (`shape`, `file_shape`)
 are read by none of the six tools that publish a figure.
@@ -244,7 +244,7 @@ keep on the first run.
 
 **Check:** `::test_recorded_task_fields_have_a_reader`.
 
-### C4 — a shipped constant citing a measurement no test re-derives
+### The underived constant — a shipped number no test recomputes
 
 Population: 1 confirmed (`ESTIMATE_RESERVE`), and it is the headline finding.
 The pre-existing test asserted a *band* — `0.30 <= x <= 0.35` — which is a claim
@@ -305,7 +305,7 @@ None of the three was in the inventory. All three took one run.
 | **#259** | The tier-to-language map is written twice and defaults silently to TypeScript. |
 
 Not filed, and deliberately: the two disagreeing constant pairs
-(`ACCEPTANCE_TIMEOUT_S`, `PROBE_TIMEOUT_S`) are **declared in C1 with their
+(`ACCEPTANCE_TIMEOUT_S`, `PROBE_TIMEOUT_S`) are **declared in the twin-constant check with their
 values**, which is smaller than an issue and makes the next drift a build
 failure. #207 is commented rather than closed — its mechanism is now checked;
 its pooling half is #256.
