@@ -9,8 +9,13 @@ in two compressed lines and nowhere else. This file gives that half of the
 vocabulary a home, and corrects it: **two of the figures the session record
 carries are not supported by the sources they were attributed to.**
 
-The correction matters because #267's design decision turns on them. Read the
-"What this changes for #267" section if you read nothing else.
+The correction matters because #267's design decision turns on them.
+
+**If you read one section, read §3a.** It records an objection raised after this
+file's first draft — that every source here evaluates code *comprehension* while
+this bench evaluates *generation from a specification* — and that objection
+governs how much of §1–§3 transfers at all. The answer is: the taxonomy
+transfers, the effect sizes do not.
 
 ---
 
@@ -130,6 +135,74 @@ CodeCrash remains a real and relevant result — it is the strongest evidence th
 *misleading NL* is a large lever. It is simply not evidence about *misleading
 identifiers* relative to *neutral identifiers*, which is the choice #267 faces.
 
+## 3a. The task-type gap — the objection that governs all of the above
+
+*Raised by the owner, 2026-08-15, after the first draft of this file. It is
+prior to the regime gap in §4 and it changes more.*
+
+**Every source in §1–§3 evaluates code *comprehension*, not code *generation*.**
+Verified against each paper's own task setup rather than inferred:
+
+| source | task | model is shown | model produces |
+|---|---|---|---|
+| ClassEval-Obf (2510.03178) | summarization + execution prediction | complete working code | a summary, or the predicted output |
+| Orvalho & Kwiatkowska (2505.10443) | output prediction | a function and a test input | the assertion's output value |
+| CodeCrash (2504.14119) | output prediction | code with misleading NL cues | the predicted output |
+
+2505.10443 states it directly: *"Each prompt asks the model to complete a Python
+assertion, given the function signature and a test input."* ClassEval-Obf's own
+framing is understanding existing code; **no experiment in it generates code from
+a specification.**
+
+**This bench does the opposite.** The worker is shown a prose specification and an
+`interface` — a signature with no body — and writes the implementation. The
+identifier is not one redundant cue attached to code the model can read; there is
+no code to read.
+
+That difference plausibly explains the whole shape of §2's result. In
+comprehension the body is present, so a stripped name is recoverable from the
+code itself, and a near-zero, sign-unstable effect is exactly what one would
+predict. **None of that reasoning survives the move to generation**, and the
+near-zero measurements therefore cannot be imported as a low estimate for this
+bench — in either direction.
+
+### The cell no source was found to cover
+
+Splitting the two axes:
+
+|  | manipulation strips *meaning* | manipulation preserves meaning |
+|---|---|---|
+| **task = generation from spec** | **← where #267 sits. Not found.** | ReCode (2212.10264) |
+| **task = comprehension** | ClassEval-Obf, 2505.10443, CodeCrash | — |
+
+**ReCode** — *ReCode: Robustness Evaluation of Code Generation Models*, Wang et
+al., ACL 2023, arXiv:2212.10264, <https://arxiv.org/abs/2212.10264> — is the
+right *task*: over 30 perturbations on HumanEval and MBPP **code generation**,
+scored by Robust Pass `RP_s@k`, with function names as one of its four
+perturbation classes. It is the wrong *manipulation*: its function-name
+perturbations are **style-preserving refactorings** — snake_case to camelCase,
+character swaps — which leave the semantic content of the name intact. Its
+headline ordering (*"models are most sensitive to syntax perturbations"*) is
+therefore not a statement about semantic naming cues at all.
+
+**We did not find a source measuring meaning-stripping identifier renaming in a
+generate-from-specification setting.** Search provenance: `WebSearch` and
+`WebFetch` on 2026-08-15 over the terms *misleading/adversarial identifier names,
+alpha-renaming, obfuscation, code generation, pass@1, HumanEval/MBPP
+perturbation*, following citation trails from ClassEval-Obf, CodeCrash and
+ReCode. This is a statement about what this scan found, not a claim that no such
+work exists.
+
+### What remains open, and is measurable here
+
+Under a consistent four-site anonymisation the prose name is replaced too — this
+project's own `tools/bench/prose.py` measured the task prose naming the function
+on **99.2%** of contracts on both arms, so the name is not a separate channel
+that survives the transform. What is left in the prompt is the prose
+*description* of the behaviour. **How much the identifier adds over that
+description is an open empirical question about this corpus, and it is the
+question #267 actually measures.** No source above answers it.
+
 ## 4. The regime gap, stated so it is not forgotten
 
 Every number in §3 comes from frontier models sitting at **76.6%–99.3%** baseline
@@ -158,30 +231,41 @@ need to move:
    ambiguous, cross-domain and misleading are separate levers with separate
    effects and no established ordering. Collapsing them into one loses the only
    axis the prior art actually resolves.
-3. **It is a weak candidate for a *positive control*, and the reason is now
-   specific.** A positive control needs an effect of known, reliable sign. On
-   Qwen2.5-Coder — our family — renaming measured 0.0pp and +1.2pp. Against
-   #266's per-stratum resolution (0 of 6 strata resolve anything at the 7B under
-   `norule`; the best 1.5B stratum resolves 8.5pp), an effect plausibly inside
-   ±3pp is **not detectable on this bench at any n we can author.**
+3. **Its effect size on this bench is unknown, and must not be imported in
+   either direction.** A positive control needs an effect of known sign and known
+   magnitude. Per §3a, the published measurements are all comprehension-task
+   measurements, and *"renaming barely moves Qwen2.5-Coder"* is a fact about
+   predicting the output of code the model can read. It licenses nothing about
+   writing a body that does not yet exist.
 
-   That is a stronger objection than "the sign is unstable". It says the
-   commissioning control cannot be this, and #231's known-groups contrast
-   (1.5B vs 7B) stays the only candidate covering all four cells.
+   So the correct verdict is **unqualified, not disqualified**: #267 cannot be
+   *assumed* into #231's fallback-control role on imported evidence, and it
+   cannot be ruled out of it either. What decides it is one measurement, and this
+   issue's own body already shows the corpus can carry it — eligible on **all 257
+   cells per arm**, headroom ceiling **73 (py) / 58 (ts)** at the 7B, twelve times
+   ADR-0019's `m >= 6` wall.
 
-As an **arm** under ADR-0018 Q1 — a thing worth measuring for its own sake —
-#267 is unaffected by all of this and the four-condition ladder makes it a better
-arm than it was. As #231's **fallback control**, it should be withdrawn.
+   The standing constraint from #266 is unchanged and is about the *bench*, not
+   this lever: 0 of 6 strata resolve anything at the 7B under `norule`, and the
+   best 1.5B stratum resolves 8.5pp. A lever must clear that to be readable at
+   all. Whether `anonymise` clears it is exactly what has not been measured.
+
+As an **arm** under ADR-0018 Q1 — a thing worth measuring for its own sake — #267
+is strengthened by all of this: the four-condition ladder gives it an axis, and
+§3a says it occupies a cell this scan found no published measurement for.
 
 ## Sources
 
 - Le, Pham, Van, Phan, Phan & Nguyen. *When Names Disappear: Revealing What LLMs Actually Understand About Code.* arXiv:2510.03178. <https://arxiv.org/abs/2510.03178>
 - Orvalho & Kwiatkowska. *Are Large Language Models Robust in Understanding Code Against Semantics-Preserving Mutations?* arXiv:2505.10443. <https://arxiv.org/abs/2505.10443>
 - CUHK-ARISE. *CodeCrash: Exposing LLM Fragility to Misleading Natural Language in Code Reasoning.* arXiv:2504.14119, NeurIPS 2025. <https://arxiv.org/abs/2504.14119>
+- Wang, Li, Qian, Yang, Wang, Shang, Kumar, Tan, Ray, Bhatia, Nallapati, Ramanathan, Roth & Xiang. *ReCode: Robustness Evaluation of Code Generation Models.* ACL 2023, arXiv:2212.10264. <https://arxiv.org/abs/2212.10264>
 
 Retrieval method: `WebFetch` against the arXiv abstract and HTML renderings on
 2026-08-15; the CodeCrash figures are from its abstract and project page, not
 from its tables. Numbers quoted from HTML renderings rather than the PDFs of
-record. Nothing here is vendored under #118, because nothing here is registered
+record. **ReCode is cited for its task type and its perturbation taxonomy only**
+— its per-class figures were not obtained, because the ACL PDF did not extract
+and no HTML rendering was found, so no ReCode number is quoted here. Nothing here is vendored under #118, because nothing here is registered
 in `records/claims/` — if any figure above is ever quoted in a claim record, it
 must be vendored or pinned first.
