@@ -120,17 +120,33 @@ def read_rows(path: Path) -> list[dict[str, Any]]:
     return out
 
 
-def cells(run: Path, draws: int) -> dict[tuple[str, str], dict[str, Any]]:
+#: The rows a run was scored into. ``results.jsonl`` is the acceptance-only
+#: verdict this rig was built against; ``gate-rescore.jsonl`` is the same
+#: candidates put through ``Gate.run`` offline by ``tools/bench/gate_rescore.py``
+#: (#224 A2). Naming the file is how a caller chooses a **bar** — the two carry
+#: the same cells and disagree by an order of magnitude, so a figure that did
+#: not say which it read would be unreadable.
+ACCEPTANCE_ROWS = "results.jsonl"
+GATE_ROWS = "gate-rescore.jsonl"
+
+
+def cells(
+    run: Path, draws: int, rows_name: str = ACCEPTANCE_ROWS
+) -> dict[tuple[str, str], dict[str, Any]]:
     """Per (arm, task): the greedy verdict and the sampled verdict list.
 
     A cell missing any of its draws is dropped and named by the caller rather
     than silently completed. "No pass in N" has to mean N draws were looked at,
     or the pinned-fail count is an artefact of a short run.
+
+    ``rows_name`` selects the bar. It defaults to the acceptance-only rows so
+    every figure already derived from this module keeps its meaning; passing
+    :data:`GATE_ROWS` reads the same draws under the scorer the product ships.
     """
     withdrawn = retired_ids()
     built: dict[tuple[str, str], dict[str, Any]] = {}
     for arm in ARMS:
-        rows = read_rows(run / f"bench-{arm}" / "results.jsonl")
+        rows = read_rows(run / f"bench-{arm}" / rows_name)
         greedy: dict[str, bool] = {}
         sampled: dict[str, dict[int, bool]] = defaultdict(dict)
         for row in rows:

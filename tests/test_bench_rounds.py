@@ -245,18 +245,29 @@ NOT_A_FIGURE = {
     "tools/bench/product.py": "the pin the declaration reads",
     "tools/bench/regrade.py": "re-scores rows in place; it reports verdicts moved",
     "tools/power/mde.py": "the arithmetic; it has no run directories to describe",
+    "tools/bench/prose.py": "reads contracts only; it states no rate, describes no run",
+    "tools/bench/families.py": "cross-executes references; it reads no run and no rate",
 }
 
 # Keyed by repo-relative path, not basename: `tools/bench/report.py` and
 # `tools/power/report.py` are different tools with the same file name, and a
 # basename key would let one of them inherit the other's classification.
 CHECKED = {
+    "tools/bench/eligibility.py",
     "tools/bench/null.py",
+    "tools/bench/resolution.py",
+    "tools/bench/responsive.py",
     "tools/bench/control.py",
     "tools/bench/lintless.py",
     "tools/bench/ablation_report.py",
     "tools/bench/responsiveness.py",
     "tools/bench/redundancy.py",
+    # Checked rather than exempt, unlike its neighbour `regrade.py`. That one
+    # re-runs acceptance and reports only how many verdicts moved; this one
+    # restates a whole run's pass rate under a *different scorer*, which is a
+    # figure a reader will quote against the gate-scored sweeps. So it declares
+    # the mode and the round pin its rows were produced under (#224 A2).
+    "tools/bench/gate_rescore.py",
     "tools/bench/report.py",
     "tools/power/report.py",
 }

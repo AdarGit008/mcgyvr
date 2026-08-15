@@ -1,0 +1,92 @@
+{
+  "record": "corpus-family-scan/1",
+  "issue": 268,
+  "measured": "2026-08-14",
+  "tool": "tools/bench/families.py",
+  "method": "cross-execution: A's reference aliased to B's expected names, run against B's acceptance, both directions",
+  "blind_to": [
+    "parameterised duplicates - same algorithm, different constant (b080/b090/b168, the trio already retired in c0686889)",
+    "pairs of differing arity - arity is a prune, never compared",
+    "same-shape helpers in multi-function tasks may be aliased in the wrong order",
+    "references raising different exception types for one error read as distinct",
+    "a timeout counts as a failure"
+  ],
+  "arms": [
+    {
+      "arm": "bench-py",
+      "tasks": 257,
+      "pairs": 9806,
+      "duplicates": [],
+      "families": [
+        [
+          "b172-trace-relay",
+          "b094-relay-chain"
+        ],
+        [
+          "b277-fuel-legs",
+          "b333-pace-split"
+        ],
+        [
+          "b302-stock-take",
+          "b277-fuel-legs"
+        ],
+        [
+          "b302-stock-take",
+          "b333-pace-split"
+        ],
+        [
+          "b322-fit-budget",
+          "b144-shelf-fit"
+        ],
+        [
+          "b373-set-minus",
+          "b131-prune-listing"
+        ]
+      ]
+    },
+    {
+      "arm": "bench-ts",
+      "tasks": 255,
+      "pairs": 8019,
+      "duplicates": [],
+      "families": [
+        [
+          "b172-trace-relay",
+          "b094-relay-chain"
+        ],
+        [
+          "b277-fuel-legs",
+          "b333-pace-split"
+        ],
+        [
+          "b302-stock-take",
+          "b277-fuel-legs"
+        ],
+        [
+          "b302-stock-take",
+          "b333-pace-split"
+        ],
+        [
+          "b322-fit-budget",
+          "b144-shelf-fit"
+        ],
+        [
+          "b373-set-minus",
+          "b131-prune-listing"
+        ]
+      ]
+    },
+    {
+      "arm": "pool-py",
+      "tasks": 499,
+      "pairs": 40090,
+      "duplicates": [],
+      "families": [
+        [
+          "p180-print-expr-tree",
+          "p181-print-mixed-ops"
+        ]
+      ]
+    }
+  ]
+}
