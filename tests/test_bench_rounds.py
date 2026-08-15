@@ -262,6 +262,12 @@ CHECKED = {
     "tools/bench/ablation_report.py",
     "tools/bench/responsiveness.py",
     "tools/bench/redundancy.py",
+    # Checked rather than exempt, unlike its neighbour `regrade.py`. That one
+    # re-runs acceptance and reports only how many verdicts moved; this one
+    # restates a whole run's pass rate under a *different scorer*, which is a
+    # figure a reader will quote against the gate-scored sweeps. So it declares
+    # the mode and the round pin its rows were produced under (#224 A2).
+    "tools/bench/gate_rescore.py",
     "tools/bench/report.py",
     "tools/power/report.py",
 }

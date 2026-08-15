@@ -47,15 +47,22 @@ one it is.
                 pinned across draws could still be unpinned by a lever that
                 supplies information the model lacks.
 
-**The two holes in the answer, named rather than smoothed over.** Every
-``psi_draw`` figure below comes from a run that predates ``Gate.run`` scoring —
-its rows carry no ``rejected_by`` — so it is measured against the *acceptance
-proxy*, not the bench's bar. On the same 135 cells at the same tier that is the
-difference between 55 greedy passes and 18. And no committed multi-draw run
+**The two holes in the answer, and which of them is now closed.** A2 named two.
+
+*Hole 1 — the bar — is closed, offline.* Every multi-draw run predates
+``Gate.run`` scoring and its rows carry no ``rejected_by``, so every ``psi_draw``
+this project has quoted was measured against the *acceptance proxy* rather than
+the bench's bar, while ``headroom`` and ``psi`` beside it were gate-scored. The
+candidate texts were on disk and a bar is a pure function of them, so
+``tools/bench/gate_rescore.py`` re-scored all of them under ``Gate.run`` at zero
+token cost. Both readings are reported below, per (tier, bar, stratum), and the
+"How much of the gap was the scorer" table is the separation #224 asked for.
+
+*Hole 2 — coverage — is not, and it needs the rigs.* No committed multi-draw run
 covers the full corpus at any tier: the 1.5B's covers 135 of 257 tasks and two
-of three strata, and the 7B's covers 34 of 257 and one stratum. Those are
-holes A2 must close on the rigs and by re-scoring; they are not reasons to
-withhold the table.
+of three strata, and the 7B's covers 34 of 257 and one stratum. Re-scoring
+cannot manufacture a draw that was never dispatched, so this one stays open and
+``coverage_gaps`` keeps printing it.
 
 **What this module cannot key on yet.** The honest unit is a *signature* — the
 model, bar and condition as content rather than as names (#265, ADR-0026's
@@ -159,8 +166,28 @@ class DrawRun:
     tier: str
     run: str
     draws: int
-    bar: str
     caveat: str
+
+
+# The two scorers the same draws can be read under. `psi_draw` was only ever
+# available at the first until #224 A2 re-scored the saved candidates offline;
+# both are reported, because the *difference* between them is the finding and a
+# table showing only the second would hide it.
+ACCEPTANCE_BAR = "acceptance only"
+GATE_BAR = "Gate.run"
+
+BARS: tuple[tuple[str, str, str], ...] = (
+    (
+        ACCEPTANCE_BAR,
+        responsiveness.ACCEPTANCE_ROWS,
+        "the scorer of the day; NOT the bench's bar",
+    ),
+    (
+        GATE_BAR,
+        responsiveness.GATE_ROWS,
+        "same draws, re-scored offline by tools/bench/gate_rescore.py (#224 A2)",
+    ),
+)
 
 
 # The committed material, declared here rather than passed in. Which run
@@ -187,27 +214,20 @@ DRAW_RUNS = (
         tier="1.5B",
         run="f1-responsiveness-15b-2026-08-11",
         draws=8,
-        bar="acceptance only",
-        caveat=(
-            "f1 tranches (b228+) only, so no scaffolded cell is covered; "
-            "predates Gate.run"
-        ),
+        caveat="f1 tranches (b228+) only, so no scaffolded cell is covered",
     ),
     DrawRun(
         tier="7B",
         run="bench-scaffold-ablation-7b-2026-08-11/stock",
         draws=7,
-        bar="acceptance only",
-        caveat="the 34 scaffold-eligible cells only; predates Gate.run",
+        caveat="the 34 scaffold-eligible cells only",
     ),
     DrawRun(
         tier="3B",
         run="bench-scaffold-ablation-3b-2026-08-11/stock",
         draws=7,
-        bar="acceptance only",
         caveat=(
-            "the 34 scaffold-eligible cells only; predates Gate.run; a third "
-            "tier, not one of #224's two"
+            "the 34 scaffold-eligible cells only; a third tier, not one of #224's two"
         ),
     ),
 )
@@ -227,6 +247,9 @@ class Row:
     source: str
     bar: str
     caveat: str
+    #: For a ``psi_draw`` row: how many of the cell's draws passed anywhere in
+    #: this stratum. Zero is the case that matters — see :meth:`readable`.
+    passing_draws: int | None = None
 
     @property
     def fraction(self) -> float:
@@ -236,6 +259,36 @@ class Row:
     def pooled(self) -> bool:
         """Whether this row is the arm-level aggregate rather than a stratum."""
         return self.stratum.startswith("ALL")
+
+    @property
+    def readable(self) -> bool:
+        """Whether this row's fraction carries information at all.
+
+        A ``psi_draw`` of 0.0 has two completely different causes and the number
+        cannot tell them apart. Either the cells were drawn repeatedly and never
+        changed their verdict — a real finding about the material — or **not one
+        draw in the stratum passed**, in which case every cell is pinned-fail by
+        arithmetic and the zero is a restatement of the pass rate rather than a
+        measurement of responsiveness.
+
+        Under a strict enough bar the second is what happens, and it happened
+        here: five of the six re-scored ablation *condition* directories fall to
+        zero or near-zero passes under ``Gate.run``. A table that printed
+        "psi_draw 0.0%" for those would report the instrument's silence as the
+        material's deadness, so this says so instead.
+        """
+        return self.observable != PSI_DRAW or bool(self.passing_draws)
+
+    @property
+    def thin(self) -> bool:
+        """Whether the numerator is below ADR-0019's wall of six.
+
+        Not a validity threshold for ``psi_draw`` itself — it is a descriptive
+        rate and is what it is. It is the threshold below which the *decision*
+        the rate is quoted toward cannot be reached at any effect size, so a row
+        under it must not be read as sizing evidence.
+        """
+        return self.observable == PSI_DRAW and self.k < WALL
 
 
 ARM_ROW = "ALL — not the bench's resolution"
@@ -300,43 +353,78 @@ def headroom_and_psi(contrast: Contrast) -> list[Row]:
     return rows
 
 
+def bars_available(run: DrawRun) -> tuple[tuple[str, str, str], ...]:
+    """The bars this run's rows exist for, on disk, right now.
+
+    A bar is offered only when **both** arms carry its rows file. A `psi_draw`
+    read from one gate-scored arm and one acceptance-scored arm would be a
+    figure whose two halves were produced by different scorers, and the arm is
+    the bar — that is this module's own first objection to pooling.
+    """
+    return tuple(
+        (label, rows_name, note)
+        for label, rows_name, note in BARS
+        if all(
+            (MEASUREMENTS / run.run / f"bench-{arm}" / rows_name).is_file()
+            for arm in ARMS
+        )
+    )
+
+
 @cache
 def draw_rows(run: DrawRun) -> list[Row]:
-    """``psi_draw`` per stratum, from one committed multi-draw run.
+    """``psi_draw`` per stratum, from one committed multi-draw run, per bar.
 
     ``responsiveness.cells`` and ``responsiveness.classify`` do the work; this
     only re-keys their output onto the strata ``resolution`` defines, so the
     three observables land on the same rows.
+
+    Both bars are emitted where both exist. The gate-scored rows are the ones
+    comparable with ``headroom`` and ``psi``; the acceptance-only rows are kept
+    beside them because every ``psi_draw`` this project has quoted is one of
+    them, and a table that silently replaced them would leave those quotes
+    looking merely stale rather than measured against a different bar.
     """
-    built = responsiveness.cells(MEASUREMENTS / run.run, run.draws)
     rows: list[Row] = []
-    for arm in ARMS:
-        by_task = _task_strata(arm)
-        sizes = {name: len(ids) for name, ids in strata_of(arm).items()}
-        seen: dict[str, list[str]] = defaultdict(list)
-        for (cell_arm, task), cell in built.items():
-            if cell_arm != arm or task not in by_task:
-                continue
-            kind, scaffolded = by_task[task]
-            name = f"{kind}{'+scaffold' if scaffolded else ''}"
-            seen[name].append(responsiveness.classify(cell))
-            seen[ARM_ROW].append(responsiveness.classify(cell))
-        for stratum in sorted(seen):
-            kinds = seen[stratum]
-            rows.append(
-                Row(
-                    tier=run.tier,
-                    arm=arm,
-                    stratum=stratum,
-                    observable=PSI_DRAW,
-                    k=sum(1 for k in kinds if k == "responsive"),
-                    n=len(kinds),
-                    stratum_size=sizes.get(stratum, sum(sizes.values())),
-                    source=run.run,
-                    bar=run.bar,
-                    caveat=f"{run.draws} sampled draws + greedy; {run.caveat}",
+    for bar, rows_name, note in bars_available(run):
+        built = responsiveness.cells(MEASUREMENTS / run.run, run.draws, rows_name)
+        for arm in ARMS:
+            by_task = _task_strata(arm)
+            sizes = {name: len(ids) for name, ids in strata_of(arm).items()}
+            seen: dict[str, list[str]] = defaultdict(list)
+            # Passing draws per stratum, counted alongside the classification.
+            # A `psi_draw` of zero means one of two opposite things and only
+            # this number separates them — see `Row.readable`.
+            passing: dict[str, int] = defaultdict(int)
+            for (cell_arm, task), cell in built.items():
+                if cell_arm != arm or task not in by_task:
+                    continue
+                kind, scaffolded = by_task[task]
+                name = f"{kind}{'+scaffold' if scaffolded else ''}"
+                seen[name].append(responsiveness.classify(cell))
+                seen[ARM_ROW].append(responsiveness.classify(cell))
+                drew = int(cell["greedy"]) + sum(cell["sampled"])
+                passing[name] += drew
+                passing[ARM_ROW] += drew
+            for stratum in sorted(seen):
+                kinds = seen[stratum]
+                rows.append(
+                    Row(
+                        tier=run.tier,
+                        arm=arm,
+                        stratum=stratum,
+                        observable=PSI_DRAW,
+                        k=sum(1 for k in kinds if k == "responsive"),
+                        n=len(kinds),
+                        stratum_size=sizes.get(stratum, sum(sizes.values())),
+                        source=run.run,
+                        bar=bar,
+                        passing_draws=passing[stratum],
+                        caveat=(
+                            f"{run.draws} sampled draws + greedy; {run.caveat}; {note}"
+                        ),
+                    )
                 )
-            )
     return rows
 
 
@@ -372,6 +460,106 @@ def never_reached_acceptance(contrast: Contrast) -> dict[tuple[str, str], int]:
 
 
 @cache
+def scorer_effect() -> tuple[dict[str, Any], ...]:
+    """How much of the ``psi_draw`` / ``headroom`` gap was the scorer, per stratum.
+
+    This is #224 A2 hole 1's answer and the reason the re-score was worth doing.
+    Until it existed the project compared a ``psi_draw`` measured by the
+    acceptance command alone against a ``headroom`` measured by ``Gate.run``,
+    and could not say what share of the distance between them was the
+    observable and what share was the bar. Now the same draws are read under
+    both scorers, so the two effects separate.
+
+    Reported per (tier, bar, stratum) and never pooled — ADR-0019 D2 and
+    ADR-0026, and both of ``resolution.py``'s objections apply here unchanged.
+    The ``headroom`` column is drawn from the contrast at the **same** tier and
+    arm, and is left absent rather than substituted when there is none: a
+    ratio against another tier's ceiling would be arithmetic, not evidence.
+    """
+    ceilings = {
+        (r.tier, r.arm, r.stratum): r
+        for contrast in CONTRASTS
+        for r in headroom_and_psi(contrast)
+        if r.observable == HEADROOM
+    }
+    out: list[dict[str, Any]] = []
+    for run in DRAW_RUNS:
+        by_key = {
+            (r.arm, r.stratum, r.bar): r
+            for r in draw_rows(run)
+            if r.observable == PSI_DRAW
+        }
+        for arm, stratum, bar in sorted(by_key):
+            if bar != ACCEPTANCE_BAR:
+                continue
+            before = by_key[(arm, stratum, ACCEPTANCE_BAR)]
+            after = by_key.get((arm, stratum, GATE_BAR))
+            if after is None:
+                continue
+            ceiling = ceilings.get((run.tier, arm, stratum))
+            # The arm-level row is never given a ratio against `headroom`, and
+            # not only because it is pooled. Its two sides are measured over
+            # *different material*: `headroom` spans all 257 tasks while this
+            # run's draws cover 34 or 135 of them, so the quotient divides a
+            # rate on one set by a rate on another. Left blank rather than
+            # printed with a warning — a printed number gets quoted.
+            if before.pooled:
+                ceiling = None
+            out.append(
+                {
+                    "tier": run.tier,
+                    "arm": arm,
+                    "stratum": stratum,
+                    "n": before.n,
+                    "before_k": before.k,
+                    "before": before.fraction,
+                    "after_k": after.k,
+                    "after": after.fraction,
+                    # Percentage points of `psi_draw` that were the scorer
+                    # rather than the draw. Signed: a re-score can only remove
+                    # passes, but removing passes can *create* a responsive cell
+                    # (a cell pinned-pass under acceptance becomes mixed once
+                    # some draws are rejected), so the sign is not decidable in
+                    # advance and is read rather than assumed.
+                    "scorer_pp": 100 * (after.fraction - before.fraction),
+                    # The direct answer to "how much of the gap was the
+                    # scorer": the share of the distance between `psi_draw` and
+                    # `headroom` that closed when the two were put on one bar.
+                    # Measured in percentage points of that distance, not as a
+                    # ratio of ratios — a ratio of two ratios is not a share of
+                    # anything, and this number is quoted as a share.
+                    "scorer_share": (
+                        (before.fraction - after.fraction)
+                        / (before.fraction - ceiling.fraction)
+                        if ceiling and before.fraction > ceiling.fraction
+                        else None
+                    ),
+                    # Whether the re-scored figure carries information at all,
+                    # and whether its numerator clears ADR-0019's wall. Under a
+                    # strict bar a stratum can be driven to zero passing draws,
+                    # and a `psi_draw` of 0.0 read off that is the instrument's
+                    # silence rather than the material's deadness.
+                    "after_readable": after.readable,
+                    "after_thin": after.thin,
+                    "after_passing_draws": after.passing_draws,
+                    "headroom": ceiling.fraction if ceiling else None,
+                    "gap_before": (
+                        before.fraction / ceiling.fraction
+                        if ceiling and ceiling.fraction
+                        else None
+                    ),
+                    "gap_after": (
+                        after.fraction / ceiling.fraction
+                        if ceiling and ceiling.fraction
+                        else None
+                    ),
+                    "pooled": before.pooled,
+                }
+            )
+    return tuple(out)
+
+
+@cache
 def derive() -> tuple[Row, ...]:
     """Every responsive fraction the committed runs support, no pooling."""
     rows: list[Row] = []
@@ -387,9 +575,21 @@ def coverage_gaps(rows: tuple[Row, ...]) -> list[tuple[str, str, str, str]]:
 
     Printed because an absent row is the finding A2 is scoped from, and an
     absent row is invisible in a table of present ones.
+
+    **Only gate-scored rows count as coverage**, and that is the correction #224
+    A2 forced. An acceptance-only ``psi_draw`` is a real measurement of a real
+    thing, but it is not the quantity the table's other two columns are: laying
+    it in the same cell would report a hole as filled by a figure measured
+    against a different bar, which is the exact error the re-score exists to
+    remove. A stratum whose only ``psi_draw`` is acceptance-scored is still a
+    gap.
     """
     strata = sorted({r.stratum for r in rows if not r.pooled})
-    have = {(r.tier, r.arm, r.stratum, r.observable) for r in rows}
+    have = {
+        (r.tier, r.arm, r.stratum, r.observable)
+        for r in rows
+        if r.bar != ACCEPTANCE_BAR and r.readable
+    }
     return [
         (tier, arm, stratum, observable)
         for tier in BAND_TIERS
@@ -409,9 +609,18 @@ def _row(row: Row) -> str:
     covered = (
         f"{row.n}" if row.n == row.stratum_size else f"{row.n} of {row.stratum_size}"
     )
+    # A fraction is printed only where it means something. An unreadable row
+    # shows the reason in the fraction's own column rather than a number with a
+    # footnote, because the number is what gets quoted.
+    if not row.readable:
+        fraction = "unreadable — no draw passed"
+    elif row.thin:
+        fraction = f"{100 * row.fraction:.1f}% (k<{WALL})"
+    else:
+        fraction = f"{100 * row.fraction:.1f}%"
     return (
         f"| {row.tier} | bench-{row.arm} | {row.stratum} | {row.observable} "
-        f"| {covered} | {row.k} | {100 * row.fraction:.1f}% | {row.bar} "
+        f"| {covered} | {row.k} | {fraction} | {row.bar} "
         f"| {row.caveat} |"
     )
 
@@ -475,6 +684,72 @@ def report() -> list[str]:
             "|---|---|---|---|---:|---:|---:|---|---|",
         ]
         lines += [_row(r) for r in draw_rows(run)]
+
+    effect = scorer_effect()
+    if effect:
+        lines += [
+            "",
+            "## How much of the gap was the scorer — #224 A2, hole 1",
+            "",
+            "The same saved draws, read twice: once under the acceptance "
+            "command alone (the scorer of the day) and once under `Gate.run` "
+            "(the bench's bar), by `tools/bench/gate_rescore.py`. No model was "
+            "called and no rig was touched — the candidates were already on "
+            "disk, and a bar is a pure function of them.",
+            "",
+            "`gap` is `psi_draw / headroom` at the **same** tier and bar. It is "
+            "the quantity #224 could not previously interpret, because its "
+            "numerator and denominator were measured by different scorers. "
+            "Where no contrast covers a cell the ratio is left blank rather "
+            "than taken against another tier's ceiling.",
+            "`share` is the answer in one number: the fraction of the distance "
+            "between `psi_draw` and `headroom` that closed when the two were "
+            "put on one bar. It is **not** one figure for the bench — it ranges "
+            "from a fifteenth to two thirds across the strata below, which is "
+            "why ADR-0019 D2 and ADR-0026 forbid a pooled answer here.",
+            "",
+            "| tier | bar | stratum | n | `psi_draw` acceptance | `psi_draw` "
+            "`Gate.run` | scorer | share of gap | `headroom` | gap before "
+            "| gap after |",
+            "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+        for row in effect:
+            ceiling = (
+                f"{100 * row['headroom']:.1f}%" if row["headroom"] is not None else "—"
+            )
+            before = (
+                f"{row['gap_before']:.1f}x" if row["gap_before"] is not None else "—"
+            )
+            after = f"{row['gap_after']:.1f}x" if row["gap_after"] is not None else "—"
+            share = (
+                f"{100 * row['scorer_share']:.0f}%"
+                if row["scorer_share"] is not None
+                else "—"
+            )
+            if not row["after_readable"]:
+                shown = "unreadable — no draw passed"
+            elif row["after_thin"]:
+                shown = f"{100 * row['after']:.1f}% ({row['after_k']}, k<{WALL})"
+            else:
+                shown = f"{100 * row['after']:.1f}% ({row['after_k']})"
+            lines.append(
+                f"| {row['tier']} | bench-{row['arm']} | {row['stratum']} "
+                f"| {row['n']} | {100 * row['before']:.1f}% ({row['before_k']}) "
+                f"| {shown} "
+                f"| {row['scorer_pp']:+.1f}pp | {share} | {ceiling} | {before} "
+                f"| {after} |"
+            )
+        lines += [
+            "",
+            "**Two things the re-scored column says that the acceptance column "
+            "could not.** First, `pinned-pass` falls to **zero in every stratum "
+            "here**: under the bench's own bar not one cell passes on every "
+            "draw, so gate-scored `psi_draw` is no longer distinguishable from "
+            "*cells that ever pass at all*. Second, the gap **never closes** — "
+            "after both are put on one bar `psi_draw` still runs 2.2x to 6.0x "
+            "`headroom`, so the two remain different quantities and neither "
+            "substitutes for the other.",
+        ]
 
     lines += [
         "",
@@ -544,10 +819,22 @@ def main(argv: list[str] | None = None) -> int:
                 "source": r.source,
                 "bar": r.bar,
                 "caveat": r.caveat,
+                # Carried into the machine-readable form too. A consumer that
+                # read `fraction` alone could quote a 0.0 that means "nothing
+                # passed, so responsiveness is unobservable" as though it meant
+                # "nothing responded" — the exact confusion the printed table
+                # refuses to allow.
+                "passing_draws": r.passing_draws,
+                "readable": r.readable,
+                "below_wall": r.thin,
             }
             for r in derive()
         ]
         args.json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        effects = args.json.with_name(args.json.stem + "-scorer-effect.json")
+        effects.write_text(
+            json.dumps(list(scorer_effect()), indent=2) + "\n", encoding="utf-8"
+        )
     return 0
 
 
