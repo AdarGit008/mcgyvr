@@ -256,6 +256,7 @@ CHECKED = {
     "tools/bench/eligibility.py",
     "tools/bench/null.py",
     "tools/bench/resolution.py",
+    "tools/bench/responsive.py",
     "tools/bench/control.py",
     "tools/bench/lintless.py",
     "tools/bench/ablation_report.py",
