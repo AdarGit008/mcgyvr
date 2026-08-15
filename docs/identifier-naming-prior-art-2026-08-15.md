@@ -250,9 +250,34 @@ need to move:
    best 1.5B stratum resolves 8.5pp. A lever must clear that to be readable at
    all. Whether `anonymise` clears it is exactly what has not been measured.
 
+4. **ReCode supplies a fifth condition, and it is the negative control the
+   design lacks.** `style` — rename by convention only, `scan_pairs` to
+   `scanPairs` — rewrites all four sites, changes every identifier token and the
+   prompt digest, and removes **no meaning**. Expected effect: nothing.
+
+   #267 already has a positive control on the mechanism (the renamed reference
+   must still pass). That proves the transform does not *break* the task; it does
+   not prove the transform is *inert when it should be*. Without `style`, every
+   figure the meaning-stripping conditions produce confounds the cost of removing
+   meaning with the cost of renaming at all — tokenization, and identifiers
+   drifting off the training distribution. It is #231's A/A null applied one level
+   down: the null asks whether the *bench* moves when nothing changes, `style`
+   asks whether the *lever* moves when nothing is removed.
+
+   There is a specific reason to expect it non-zero on one arm: Python is
+   overwhelmingly snake_case, TypeScript natively camelCase, so the identical
+   transform is off-convention on `bench-py` and on-convention on `bench-ts`.
+   Read within each arm, never across — they are two bars, not a language
+   contrast (#262).
+
+   The expected-zero is an argument from construction, not an imported
+   measurement; ReCode's own figures were not obtained. A non-zero `style` is a
+   finding, not a defect.
+
 As an **arm** under ADR-0018 Q1 — a thing worth measuring for its own sake — #267
-is strengthened by all of this: the four-condition ladder gives it an axis, and
-§3a says it occupies a cell this scan found no published measurement for.
+is strengthened by all of this: the five-condition ladder gives it an axis and a
+negative control, and §3a says it occupies a cell this scan found no published
+measurement for.
 
 ## Sources
 
