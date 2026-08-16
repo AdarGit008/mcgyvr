@@ -93,4 +93,29 @@ lane's four records were renumbered 0028–0031. Worth noting as a gap in the
 gate — the baseline checks branch placement and record discipline, and does not
 check that a decision number is unique across open lanes.
 
+## Left open
+
+**The two survivors are unstarted.** #279 (the availability failure counter) and
+#280 (the ripgrep drift) both carry their plan in the issue body and neither has
+a lane.
+
+**Three deferrals name their own trigger, and none is a dependency edge here.**
+#16 waits on #233 before any risk floor is worth writing; #69 needs a provenance
+rule for a price before the data is worth vendoring; a learned router waits on
+`route.py`'s inspectability rule being revisited in its own record, which nothing
+currently proposes.
+
+**One question was raised and not answered.** ADR-0030 declines prefix-affinity
+routing partly because CON-05's "should be substantially larger" is a projection
+at our real ~2 KB prompt size. Measuring the hit rate at that size is a small rig
+task that would turn the projection into a number, and it is not filed — because
+under the freeze it cannot be scheduled, and after the freeze #272 and #224 have
+the prior claim on rig time.
+
+**The gate does not check what this lane nearly broke.** Decision-number
+uniqueness across concurrent lanes is unenforced; filed upstream as
+AdarGit008/baseline-skill#49, which also carries a second finding — the lane
+rules SKIP on the `pull_request` event and only fire on `push`, so a PR-event
+check can read green while the gate is red.
+
 next: land the identity changes as one range per lane/276's sequencing, then open r2 — and work #272 before scheduling #224's S1/S2, since it decides whether they earn the rig time at all
