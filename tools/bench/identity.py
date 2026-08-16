@@ -191,8 +191,14 @@ PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CO
 # `tier` here is the LANGUAGE ARM — `bench-py` / `bench-ts`, as every run.json
 # records it — and the axis the product ladder calls a tier is `model` (#289).
 # D2's "per target tier" is therefore discharged by `model`, with language as an
-# additional split; the cross-reference lives in `mcgyvr.config.Tier` too, so a
-# reader of either sense meets the other.
+# additional split.
+#
+# The matching note on `mcgyvr.config.Tier` is DEFERRED, not written: `src/mcgyvr`
+# is inside `product.SURFACE`, so a docstring there moves `product_sha256` and
+# re-baselines the open round. It lands with the identity range #276's sequencing
+# already schedules before `r2` opens. Until then a reader of the ladder sense
+# meets no cross-reference, which is why this one states both senses in full
+# rather than pointing at a file.
 BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
 
 # Declared in the contract, not yet enforced here. ADR-0027 D9 put `cells` in
@@ -206,6 +212,16 @@ BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
 # measured what it costs to honour — nothing, because a subset of an
 # already-paired set is itself already paired, so a subset bound is a
 # recomputation over verdicts on disk rather than a new dispatch.
+#
+# **It is not pending the way `PENDING` is, and promoting it is not the same
+# move.** Every entry in `PENDING` is a recorded *manifest* field awaiting
+# admission to `KEY`. `cells` is a field of a *bound record* — the denominator
+# the bound was measured over — and appears in neither `KEY` nor `RECORDED`,
+# because a run manifest does not carry it. So `BOUND_MATCH` gaining `cells`
+# would break `set(BOUND_MATCH) <= set(KEY)`, which
+# `tests/test_bench_identity.py` asserts today. Whoever closes D9 decides that
+# invariant's fate first: either the bound key stops being a subset of the run
+# key, or `cells` becomes a recorded field of the run it describes.
 BOUND_MATCH_PENDING: tuple[str, ...] = ("cells",)
 
 

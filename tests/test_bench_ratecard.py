@@ -98,7 +98,7 @@ def test_setup_is_additive_and_re_derives_from_the_invocation_stamps(
 
     Setup is stated as minutes-per-pass rather than a percentage. That is only
     honest while it does not track pass duration — so this checks the spread
-    across passes that differ threefold in length, not merely the mean.
+    across passes of very different lengths, not merely the mean.
     """
     rows = ratecard.overheads()
     assert card["overheads"] == rows, "the committed overhead rows are stale"
@@ -109,16 +109,43 @@ def test_setup_is_additive_and_re_derives_from_the_invocation_stamps(
 
     setups = [row["setup_minutes"] for row in rows]
     tasks = [row["task_minutes"] for row in rows]
-    assert max(tasks) > 3 * min(tasks), (
-        "the passes no longer span a wide enough range of durations for their "
-        "flat setup to be evidence that setup is additive"
+    # 2.5x, not 3x: the observed ratio is 3.01 and a 3x threshold clears by
+    # 0.2%, so any change to the bound set would flip it into a failure that
+    # reads like a finding when it is only the threshold.
+    ratio = max(tasks) / min(tasks)
+    assert ratio > 2.5, (
+        f"passes span only {ratio:.2f}x in duration — too narrow for their "
+        "flat setup to be evidence that setup is additive rather than a "
+        "percentage that happens to look flat"
     )
     assert max(setups) - min(setups) < 0.15, (
         f"setup spread {max(setups) - min(setups):.2f} min across passes "
-        "3x apart in length — it is tracking duration, so it is not additive "
-        "and rate-card.json's formula is wrong"
+        f"{ratio:.1f}x apart in length — it is tracking duration, so it is not "
+        "additive and rate-card.json's formula is wrong"
     )
     assert pytest.approx(sum(setups) / len(setups), abs=0.05) == ratecard.SETUP_MIN
+
+
+def test_the_record_cannot_drift_from_the_constant_it_states(
+    ratecard: Any, card: dict[str, Any]
+) -> None:
+    """The guard covers all three derived values, not just the cells.
+
+    Checking one of three was the card's own defect in miniature: bump
+    ``SETUP_MIN`` and leave ``rate-card.json``'s ``setup_minutes`` alone, and
+    a cells-only guard reports agreement while the record and the formula state
+    two different constants.
+    """
+    assert not ratecard.stale(card, ratecard.derive())
+
+    drifted = dict(card, setup_minutes=card["setup_minutes"] + 0.03)
+    assert any(
+        "setup_minutes" in item for item in ratecard.stale(drifted, ratecard.derive())
+    ), (
+        "a setup_minutes that disagrees with SETUP_MIN by less than the mean's "
+        "own tolerance passes the guard — exactly the drift the card exists "
+        "to make impossible"
+    )
 
 
 def test_the_wall_figure_exceeds_task_time_by_exactly_two_setups(
@@ -220,10 +247,34 @@ def test_the_superseded_constant_is_gone_from_the_prose() -> None:
     matching = json.loads(REPRODUCIBILITY.read_text(encoding="utf-8"))["matching"]
     assert "40 minutes" not in matching, (
         "reproducibility.json still prices a null at a flat 40 minutes. The "
-        "rate card measured that constant at 2.5x too high for the cheapest "
-        "cell and 18% too low for the dearest — point the prose at the card"
+        "rate card measured that constant at 2.0x too high for the cheapest "
+        "cell and 23% too low for the dearest — point the prose at the card"
     )
     assert "rate-card.json" in matching, (
         "the prose no longer states the old constant but names no replacement, "
         "so a reader asking what a null costs has nowhere to go"
     )
+
+
+def test_the_constant_is_retired_everywhere_it_was_quotable() -> None:
+    """The doctrine applied to the document the first pass of it missed.
+
+    ADR-0027's rejection argument prices bound combinations at "~40 minutes
+    each". A test that checked only ``reproducibility.json`` let that copy
+    survive — which is the same failure as replacing a figure in one place and
+    calling it replaced, one level up.
+    """
+    adr = next(
+        (REPO / "docs" / "decisions").glob("0027-run-identity-is-one-block*.md")
+    ).read_text(encoding="utf-8")
+    assert "~40 minutes each" in adr, (
+        "the phrase this test pins moved; re-point it rather than deleting the "
+        "check, or the amendment below becomes unanchored"
+    )
+    _, _, amendments = adr.partition("## Amendment — 2026-08-16 (#289)")
+    assert amendments, (
+        "ADR-0027 still prices bound combinations at ~40 minutes with no "
+        "amendment correcting it — the constant is quotable there even though "
+        "reproducibility.json retired it"
+    )
+    assert "2.66x" in amendments and "rate-card.json" in amendments

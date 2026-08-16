@@ -257,3 +257,35 @@ this document for the work:
 bound is invisible to the record, to the mutants and to the guard alike. The
 record carries what was done to look — the surface digest, the perturbations
 run, the bound applied — rather than a claim of completeness.
+
+## Amendment — 2026-08-16 (#289): the "~40 minutes each" is not a per-cell cost
+
+The rejection argument above prices 33 distinct bound combinations at *"~40
+minutes each"*. The count and the conclusion stand; the rate does not, and it is
+amended here rather than left quotable, because the same constant was corrected
+in `reproducibility.json` on the same day and a figure that survives in one
+document has not been replaced.
+
+Measured from the r1 nulls (`tools/bench/rate-card.json`, #289), a null's wall
+clock at n = 257 runs **19.6 to 52.1 minutes** by `(model, tier)` — a 2.66x
+spread, with the flat 40 being 2.0x too high for the cheapest cell and 23% too
+low for the dearest. The cost is a rate, not a constant:
+
+> `wall_minutes = 2 * (n * rate / 60 + 1.67)`
+
+Two corrections that change how the number should be used rather than only its
+size:
+
+1. **The setup term is additive, not proportional** — 1.64-1.72 minutes per
+   pass, flat across passes three times apart in duration. So a total depends on
+   how many *passes* it is cut into, not only how many tasks it contains, and a
+   percentage overhead gets both short and long sweeps wrong.
+2. **The 33 combinations do not each need a run.** #289 established that a
+   subset of an already-paired set is itself already paired, so a bound over any
+   subset is a recomputation over verdicts on disk. Where the 33 differ only in
+   denominator, the marginal cost is **zero** — which strengthens this section's
+   rejection rather than weakening it.
+
+Nothing in D1-D9 changes. The affected sentence is the cost estimate inside the
+"why re-running was rejected" argument, and the rejection is more securely
+grounded after the correction than before it.
