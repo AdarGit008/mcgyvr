@@ -23,10 +23,24 @@ On ``bench-ts`` it is 24-48% of the cell. A card keyed only on ``model`` would
 mis-price every ``ts`` cell, and a single pooled average hides the term that
 actually separates the arms.
 
-**Every figure here is summed task time** — the per-row ``latency_s`` and
-``acceptance_s`` the runner recorded. It excludes harness overhead, model load
-and the gap between the two runs of a pair, so it is a **lower bound** on rig
-occupancy rather than an estimate of it.
+**The rates are summed task time** — the per-row ``latency_s`` and
+``acceptance_s`` the runner recorded. What they miss is model load and harness
+startup, and that term is **additive, not proportional**: differencing the
+``invocations[0].started`` stamps of consecutive passes in the two r1 sessions
+puts it at **1.64-1.72 minutes per pass, mean 1.67**, flat across a 3x spread
+in pass duration (8.1 to 24.4 minutes). So::
+
+    wall_minutes_per_null = 2 * (n * rate / 60 + SETUP_MIN)
+
+An additive term behaves the opposite way to the multiplicative one it is easy
+to assume: it is ~20% of the cheapest cell at today's n and ~7% of the dearest,
+and it dominates any short pass. Pricing a small sweep off the rate alone
+understates it.
+
+Measured on 6 of 8 passes — the last pass of each session has no successor to
+difference against. Each gap also contains whatever idle sat between passes, so
+1.67 is an **upper** bound on setup; that it holds to +/-0.04 across passes
+three times apart in length is the argument that it is setup and not idle.
 
 The pairs are not named here. They are read from ``reproducibility.json``'s
 declared bounds, so the card prices exactly the runs the bounds were measured
@@ -40,6 +54,7 @@ Reads run records and dispatches nothing.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import pathlib
 from typing import Any
@@ -61,6 +76,12 @@ def _rows(run: str, tier: str) -> list[dict[str, Any]]:
     with path.open() as fh:
         rows = [json.loads(line) for line in fh if line.strip()]
     return [r for r in rows if r.get("arm") == DRAW]
+
+
+def _started(run: str, tier: str) -> datetime.datetime:
+    with (M / run / tier / "run.json").open() as fh:
+        invocations = json.load(fh)["invocations"]
+    return datetime.datetime.fromisoformat(invocations[0]["started"])
 
 
 def _cell(runs: list[str]) -> dict[str, Any]:
@@ -106,9 +127,60 @@ def derive() -> list[dict[str, Any]]:
     return card
 
 
-def minutes(rate_s: float, n: int) -> float:
-    """A null is a pair, so the dispatched work is 2n tasks at the cell's rate."""
-    return 2 * n * rate_s / 60
+# Model load plus harness startup, measured per pass rather than assumed as a
+# percentage — see the module docstring. Additive, so it dominates a short pass
+# and vanishes on a long one; a multiplicative factor would get both wrong.
+SETUP_MIN = 1.67
+
+
+def minutes(rate_s: float, n: int, setup: float = SETUP_MIN) -> float:
+    """Wall clock for one null: a pair of passes, each with its own setup.
+
+    Pass ``setup=0`` for summed task time alone — what the rates measure
+    directly, and what an occupancy figure must not be confused with.
+    """
+    return 2 * (n * rate_s / 60 + setup)
+
+
+def overheads() -> list[dict[str, Any]]:
+    """Re-derive the setup term from the invocation stamps, never asserting it.
+
+    A pass's wall clock is bounded above by the gap to the next pass's start in
+    the same session, so the last pass of each session yields nothing and is
+    omitted rather than estimated.
+    """
+    with REPRODUCIBILITY.open() as fh:
+        bounds = json.load(fh)["bounds"]
+    # Group the declared runs into sessions by the pair they belong to, in the
+    # order they were dispatched: a session is the run directories sharing a
+    # measurement date, and passes were dispatched back to back within it.
+    passes: dict[str, list[tuple[str, str]]] = {}
+    for bound in bounds:
+        for entry in bound["runs"]:
+            run, _, tier = entry.partition("/")
+            passes.setdefault(bound["measured"], []).append((run, tier))
+
+    out = []
+    for session, members in passes.items():
+        stamped = sorted(
+            ((_started(run, tier), run, tier) for run, tier in set(members)),
+            key=lambda row: row[0],
+        )
+        for index, (start, run, tier) in enumerate(stamped[:-1]):
+            gap = (stamped[index + 1][0] - start).total_seconds() / 60
+            cell = _cell([f"{run}/{tier}"])
+            task_time = cell["rows"] * cell["total_s"] / 60
+            out.append(
+                {
+                    "session": session,
+                    "run": run,
+                    "tier": tier,
+                    "task_minutes": round(task_time, 2),
+                    "wall_minutes": round(gap, 2),
+                    "setup_minutes": round(gap - task_time, 2),
+                }
+            )
+    return out
 
 
 def main() -> int:
@@ -127,17 +199,27 @@ def main() -> int:
         print(json.dumps(card, indent=2))
         return 0
 
-    print("Seconds are per task per run. A null is a pair: minutes = 2 * n * rate / 60")
-    print("Summed task time — a lower bound on rig occupancy, not an estimate.\n")
+    print("Seconds are per task per run. A null is a pair of passes:")
+    print(f"  wall minutes = 2 * (n * rate / 60 + {SETUP_MIN})   [setup is additive]\n")
     print(
         f"{'model':<20} {'tier':<10} {'rows':>5} {'gen s':>7} {'gate s':>7} "
-        f"{'total s':>8} {'min @ n=' + str(args.n):>12}"
+        f"{'total s':>8} {'task @ n=' + str(args.n):>13} {'wall':>8}"
     )
     for cell in card:
         print(
             f"{cell['model']:<20} {cell['tier']:<10} {cell['rows']:>5} "
             f"{cell['generation_s']:>7.2f} {cell['gate_s']:>7.2f} "
-            f"{cell['total_s']:>8.2f} {minutes(cell['total_s'], args.n):>12.1f}"
+            f"{cell['total_s']:>8.2f} "
+            f"{minutes(cell['total_s'], args.n, setup=0):>13.1f} "
+            f"{minutes(cell['total_s'], args.n):>8.1f}"
+        )
+
+    print("\nsetup, re-derived from consecutive invocation stamps:")
+    for row in overheads():
+        print(
+            f"  {row['run']:<38} {row['tier']:<9} "
+            f"task {row['task_minutes']:>6.2f}   wall {row['wall_minutes']:>6.2f}   "
+            f"setup {row['setup_minutes']:>5.2f}"
         )
 
     if CARD.exists() and json.loads(CARD.read_text(encoding="utf-8"))["cells"] != card:

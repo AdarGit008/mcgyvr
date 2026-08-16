@@ -79,7 +79,7 @@ def test_the_rate_is_the_sum_of_its_two_parts(card: dict[str, Any]) -> None:
 def test_the_formula_recovers_the_pair_totals(
     ratecard: Any, card: dict[str, Any]
 ) -> None:
-    """minutes = 2 * n * rate / 60 — the r1 pairs at n = 257, to the tenth."""
+    """The r1 pairs at n = 257, task time only, to the tenth of a minute."""
     expected = {
         ("qwen2.5-coder:1.5b", "bench-py"): 16.2,
         ("qwen2.5-coder:1.5b", "bench-ts"): 32.1,
@@ -87,8 +87,47 @@ def test_the_formula_recovers_the_pair_totals(
         ("qwen2.5-coder:7b", "bench-ts"): 48.7,
     }
     for cell in card["cells"]:
-        got = ratecard.minutes(cell["total_s"], 257)
+        got = ratecard.minutes(cell["total_s"], 257, setup=0)
         assert got == pytest.approx(expected[(cell["model"], cell["tier"])], abs=0.1)
+
+
+def test_setup_is_additive_and_re_derives_from_the_invocation_stamps(
+    ratecard: Any, card: dict[str, Any]
+) -> None:
+    """The claim that would silently become a lie if the harness got slower.
+
+    Setup is stated as minutes-per-pass rather than a percentage. That is only
+    honest while it does not track pass duration — so this checks the spread
+    across passes that differ threefold in length, not merely the mean.
+    """
+    rows = ratecard.overheads()
+    assert card["overheads"] == rows, "the committed overhead rows are stale"
+    assert len(rows) == 6, (
+        "6 of 8 passes are differenceable — the last of each session has no "
+        "successor. A different count means the sessions or the stamps moved"
+    )
+
+    setups = [row["setup_minutes"] for row in rows]
+    tasks = [row["task_minutes"] for row in rows]
+    assert max(tasks) > 3 * min(tasks), (
+        "the passes no longer span a wide enough range of durations for their "
+        "flat setup to be evidence that setup is additive"
+    )
+    assert max(setups) - min(setups) < 0.15, (
+        f"setup spread {max(setups) - min(setups):.2f} min across passes "
+        "3x apart in length — it is tracking duration, so it is not additive "
+        "and rate-card.json's formula is wrong"
+    )
+    assert pytest.approx(sum(setups) / len(setups), abs=0.05) == ratecard.SETUP_MIN
+
+
+def test_the_wall_figure_exceeds_task_time_by_exactly_two_setups(
+    ratecard: Any,
+) -> None:
+    """A null is a pair, and each pass pays setup once — not the pair."""
+    task_only = ratecard.minutes(3.44, 257, setup=0)
+    wall = ratecard.minutes(3.44, 257)
+    assert wall - task_only == pytest.approx(2 * ratecard.SETUP_MIN, abs=1e-6)
 
 
 def test_the_gate_does_not_scale_with_the_model_and_the_card_can_show_it(
