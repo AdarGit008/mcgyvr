@@ -13,7 +13,7 @@ Swept the ten proposals of the hybrid-orchestration dig one by one: verified or
 falsified each against its pinned source and against this repository, decided
 each with the owner, and recorded the rejections. The evidence is
 `docs/hybrid-orchestration-prior-art-2026-08-16.md`; the decisions are
-ADR-0027 through ADR-0030; #282 is the anchor.
+ADR-0028 through ADR-0031; #282 is the anchor.
 
 **Nothing was taken on the strength of a brief.** Every cited source path was
 re-fetched at its pinned commit and read, every mcgyvr-side claim re-checked
@@ -84,5 +84,13 @@ independently — weak external evidence that the direction is ordinary).
 **Nothing dispatched.** The freeze declared in lane/276 holds: `r1-commissioning`
 is open and every identity change is still to land, so no run was started and no
 rig was touched. This lane is docs only; `src/` and `tools/` are unchanged.
+
+**ADR-0027 was yielded to lane/265**, which is in flight with the run-identity
+contract and whose own record is dated two days before this lane's. The
+collision was silent by construction: two ADRs numbered 0027 under different
+filenames merge without a git conflict, so nothing would have reported it. This
+lane's four records were renumbered 0028–0031. Worth noting as a gap in the
+gate — the baseline checks branch placement and record discipline, and does not
+check that a decision number is unique across open lanes.
 
 next: land the identity changes as one range per lane/276's sequencing, then open r2 — and work #272 before scheduling #224's S1/S2, since it decides whether they earn the rig time at all

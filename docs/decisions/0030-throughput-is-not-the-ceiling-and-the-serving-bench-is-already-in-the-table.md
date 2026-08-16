@@ -1,4 +1,4 @@
-# ADR-0029 — throughput is not the ceiling, and the serving bench is already in the table
+# ADR-0030 — throughput is not the ceiling, and the serving bench is already in the table
 
 Status: Accepted
 Supersedes: none

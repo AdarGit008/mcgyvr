@@ -1,4 +1,4 @@
-# ADR-0030 — the pre-gate heuristic verifier is refuted by our own replies
+# ADR-0031 — the pre-gate heuristic verifier is refuted by our own replies
 
 Status: Accepted
 Supersedes: none

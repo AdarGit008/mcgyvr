@@ -1,4 +1,4 @@
-# ADR-0028 — the gate is the scorer, so there is no answer to extract
+# ADR-0029 — the gate is the scorer, so there is no answer to extract
 
 Status: Accepted
 Supersedes: none

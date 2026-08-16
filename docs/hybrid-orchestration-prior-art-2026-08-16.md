@@ -4,10 +4,10 @@ Date: 2026-08-16. Baseline: `d67dab86` (the dig that raised these read `b7209c13
 
 Five orchestration and routing projects were read against this repository and
 distilled into ten proposed actions. This record states what each one turned out
-to be. Four of them became [ADR-0027](decisions/0027-a-routing-policy-is-adopted-only-if-it-is-inspectable-here-and-measured-here.md),
-[ADR-0028](decisions/0028-the-gate-is-the-scorer-so-there-is-no-answer-to-extract.md),
-[ADR-0029](decisions/0029-throughput-is-not-the-ceiling-and-the-serving-bench-is-already-in-the-table.md)
-and [ADR-0030](decisions/0030-the-pre-gate-heuristic-verifier-is-refuted-by-our-own-replies.md);
+to be. Four of them became [ADR-0028](decisions/0028-a-routing-policy-is-adopted-only-if-it-is-inspectable-here-and-measured-here.md),
+[ADR-0029](decisions/0029-the-gate-is-the-scorer-so-there-is-no-answer-to-extract.md),
+[ADR-0030](decisions/0030-throughput-is-not-the-ceiling-and-the-serving-bench-is-already-in-the-table.md)
+and [ADR-0031](decisions/0031-the-pre-gate-heuristic-verifier-is-refuted-by-our-own-replies.md);
 the rest became comments on issues that already owned them (#16, #69, #254,
 #265, #268, #277), and two became new issues: #279 (a dead source is
 re-dispatched once per contract) and #280 (the ripgrep drift below).
@@ -35,16 +35,16 @@ here is an idea, never a line.
 
 | # | Proposal | Verdict | Where it went |
 |---|---|---|---|
-| 1 | Deterministic zero-token difficulty classifier | Rejected — the shape is already decided and the evidence is absent | ADR-0027, prior art on #16 |
+| 1 | Deterministic zero-token difficulty classifier | Rejected — the shape is already decided and the evidence is absent | ADR-0028, prior art on #16 |
 | 2 | Quality-tier → cost-tiebreak routing | Rejected — inherits (1)'s classifier | #277 |
 | 3 | Price table for the `api` family | Real gap, deferred — needs a provenance rule first | #69 |
 | 4 | Per-error-class retries + cooldown | Half real — cooldown approved, retries deferred | #279; #152 |
-| 5 | Port tag-aware `compute_accuracy` | Rejected — no surface exists here | ADR-0028, #254 |
-| 6 | Cache-aware routing + a serving bench | Rejected — the bench already exists; the lever is not the ceiling | ADR-0029 |
-| 7 | Declarative cascade rule engine | Rejected — same ground as (1) | ADR-0027, prior art on #16 |
-| 8 | Pre-gate text-response heuristic verifier | **Refuted, measured** | ADR-0030 |
+| 5 | Port tag-aware `compute_accuracy` | Rejected — no surface exists here | ADR-0029, #254 |
+| 6 | Cache-aware routing + a serving bench | Rejected — the bench already exists; the lever is not the ceiling | ADR-0030 |
+| 7 | Declarative cascade rule engine | Rejected — same ground as (1) | ADR-0028, prior art on #16 |
+| 8 | Pre-gate text-response heuristic verifier | **Refuted, measured** | ADR-0031 |
 | 9 | Contamination audit as a release gate | Already built here, and wider | #268 |
-| 10 | Trained per-query router | Rejected — post-v1, and uninspectable by construction | ADR-0027 |
+| 10 | Trained per-query router | Rejected — post-v1, and uninspectable by construction | ADR-0028 |
 
 ## What verification changed
 
@@ -135,7 +135,7 @@ for k, v in sorted(x.items(), key=lambda kv: -kv[1]):
 EOF
 ```
 
-Three things follow, and they are the whole of ADR-0030.
+Three things follow, and they are the whole of ADR-0031.
 
 1. **`truncated` and `incomplete-reply` are the same event.** Not correlated —
    identical. Every truncated reply carries that parse error and no other row

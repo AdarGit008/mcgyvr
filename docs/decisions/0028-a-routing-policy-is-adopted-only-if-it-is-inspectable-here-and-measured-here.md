@@ -1,4 +1,4 @@
-# ADR-0027 — a routing policy is adopted only if it is inspectable here and measured here
+# ADR-0028 — a routing policy is adopted only if it is inspectable here and measured here
 
 Status: Accepted
 Supersedes: none
