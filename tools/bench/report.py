@@ -7,7 +7,7 @@ must carry the interaction term — combined effect minus the sum of singles"*.
 A run directory holds **one cell**. This reads a set of them and lays them
 beside each other, which is the only thing a condition matrix is for.
 
-**What it refuses to do.** Two things, both because a comparison that is not
+**What it refuses to do.** Three things, all because a comparison that is not
 comparable is worse than no comparison:
 
 * it will not state a rate for a cell whose manifest cannot say which model,
@@ -17,6 +17,12 @@ comparable is worse than no comparison:
   weights contrast, and ADR-0024 exists because two runs differed by an ollama
   patch release that nothing on disk recorded. The check is cheap and the
   failure it prevents has already happened twice.
+* it will not treat two silences as agreement (ADR-0027). A keyed field that is
+  absent or ``null`` used to compare equal across cells, so `round` and
+  `product_sha256` — carried by 6 of the 139 manifests on disk — were checked on
+  paper and not in fact. Reading such cells is still allowed and now has to be
+  asked for, with ``--allow-unfingerprinted``, and the fields that went
+  unchecked are printed beside the numbers.
 
 **The interaction term.** Levers are *comparable but not addable*: two that fix
 the same three tasks give +3, not +6. For a cell naming more than one lever the
@@ -61,45 +67,20 @@ def _by_path(name: str, path: Path) -> types.ModuleType:
 matrix = _by_path("bench_matrix_report", HERE / "matrix.py")
 mode = _by_path("bench_mode_report", HERE / "mode.py")
 product = _by_path("bench_product_report", HERE / "product.py")
+identity = _by_path("bench_identity_report", HERE / "identity.py")
 
-# The facts every cell in one table must agree on. A difference in any of them
-# is a second variable inside a contrast that claims to vary one thing.
+# The facts every cell in one table must agree on, and the states in which a
+# fact may be missing, now live in `identity` — ADR-0027 D1, because this list
+# was one of five that disagreed and three lanes were queued to edit it.
 #
-# The first five were the whole list, and that was demonstrably too few: a
-# manifest mutated to a 4x smaller output cap, a different temperature, a
-# different wire protocol and an emptied task manifest produced a byte-identical
-# report — the -3.1pp headline published unchanged across a different corpus.
-# A guard that names five fields does not refuse the sixth; it permits it
-# silently, which reads as having checked.
-COMPARABLE = (
-    "model",
-    "endpoint",
-    "serving_build",
-    "tier",
-    "gate_rungs",
-    "max_output_tokens",
-    "greedy_temperature",
-    "protocol",
-    "tasks_sha256",
-    # The round and the revision it pins (#231 check 3). Without these a cell
-    # measured before an adopted change and a cell measured after it sit in one
-    # table, and the change re-baselines its own siblings — ADR-0018's stated
-    # reason for making the round the unit. A directory written before rounds
-    # existed carries neither, so pre-round cells agree with each other and
-    # refuse to be mixed with round cells, which is the honest answer: nothing
-    # recorded what revision produced them.
-    "round",
-    "product_sha256",
-)
+# The names are kept as aliases rather than retired outright: `product.py`'s
+# rationale cites `report.COMPARABLE` by name, and a reader who follows that
+# citation should land somewhere.
+COMPARABLE = identity.KEY
 
 REPRO_FILE = HERE / "reproducibility.json"
 
-# What a declared bound must match before it may describe a run. ADR-0019 D2 —
-# the null is measured per target tier and does not transfer up the ladder;
-# ADR-0024 — a serving build nothing recorded has already moved results twice;
-# and a bar that scores differently produces a different null, which is why the
-# rungs are in the key rather than in the prose beside it.
-BOUND_MATCH = ("model", "tier", "gate_rungs", "serving_build")
+BOUND_MATCH = identity.BOUND_MATCH
 BOUND_FIELDS = (
     *BOUND_MATCH,
     "bound_pp",
@@ -177,17 +158,26 @@ def _rejection_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
-def require_comparable(cells: list[dict[str, Any]]) -> None:
-    """Refuse a table whose cells differ in anything but their condition."""
-    for key in COMPARABLE:
-        seen = {json.dumps(c["manifest"].get(key), sort_keys=True) for c in cells}
-        if len(seen) > 1:
-            raise ReportError(
-                f"these cells differ in {key!r}: {', '.join(sorted(seen))}. "
-                "A contrast between them would vary two things and attribute "
-                "the result to one — the defect #189 shipped and ADR-0024 "
-                "closes. Re-run the odd cell, or report them separately."
-            )
+def require_comparable(
+    cells: list[dict[str, Any]], allow_unfingerprinted: bool = False
+) -> None:
+    """Refuse a table whose cells differ in anything but their condition.
+
+    Two refusals now, not one. The second — a keyed field that is absent or
+    ``null`` in any cell — is what this guard did not do before ADR-0027: it
+    compared ``.get(key)``, so a field no cell carried compared equal and passed.
+    `round` and `product_sha256` are the live case, carried by 6 of the 139
+    manifests on disk, and every pre-round table was reading as checked.
+
+    A caller who means to read pre-contract records says so.
+    """
+    try:
+        identity.require_comparable(
+            [c["manifest"] for c in cells],
+            allow_unfingerprinted=allow_unfingerprinted,
+        )
+    except identity.IdentityError as exc:
+        raise ReportError(str(exc)) from exc
 
 
 def load_bounds(path: Path | None = None) -> list[dict[str, Any]]:
@@ -248,11 +238,11 @@ def declared_bound(
     )
 
 
-def render(cells: list[dict[str, Any]]) -> str:
+def render(cells: list[dict[str, Any]], allow_unfingerprinted: bool = False) -> str:
     """The table, its contrasts, and the interaction term for every combination."""
     if not cells:
         raise ReportError("no cells")
-    require_comparable(cells)
+    require_comparable(cells, allow_unfingerprinted=allow_unfingerprinted)
     loaded = matrix.load()
     bound, no_bound_because = declared_bound(cells[0]["manifest"], load_bounds())
     first = cells[0]["manifest"]
@@ -278,6 +268,7 @@ def render(cells: list[dict[str, Any]]) -> str:
         f"- cells: {len(cells)} of {len(loaded.cells)} declared in "
         "`tools/bench/matrix.json`",
         _reproducibility_line(bound, no_bound_because),
+        *_unfingerprinted_line(cells, allow_unfingerprinted),
         "",
         "| condition | levers | n | pass | rate | vs baseline | prompt | completion |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
@@ -334,6 +325,32 @@ def render(cells: list[dict[str, Any]]) -> str:
     lines.extend(_interactions(loaded, by_condition, rate, bound))
     lines.extend(_rejections(cells))
     return "\n".join(lines)
+
+
+def _unfingerprinted_line(cells: list[dict[str, Any]], allowed: bool) -> list[str]:
+    """Name the identity fields this table could not check.
+
+    Printed whenever a keyed field is absent or ``null``, and not only when the
+    waiver was used: an unchecked field is a property of the figures below, and
+    ADR-0026 lens 3 is that a record states the property rather than a claim
+    about it. A single-cell table reaches here without a waiver — nothing was
+    compared, so nothing was refused, and the line is the whole protection.
+    """
+    missing = sorted(
+        {f for c in cells for f in identity.unfingerprinted(c["manifest"])}
+    )
+    if not missing:
+        return []
+    how = (
+        "read anyway on an explicit waiver"
+        if allowed and len(cells) > 1
+        else "nothing was compared against them"
+    )
+    return [
+        f"- **identity not checked**: {', '.join(f'`{f}`' for f in missing)} — "
+        f"absent or null on at least one cell; {how} (ADR-0027 D3). No figure "
+        "below is qualified against a difference in these"
+    ]
 
 
 def _reproducibility_line(bound: dict[str, Any] | None, because: str) -> str:
@@ -446,9 +463,21 @@ def main() -> int:
         help="one run directory per condition — each holding run.json and "
         "results.jsonl",
     )
+    parser.add_argument(
+        "--allow-unfingerprinted",
+        action="store_true",
+        help="read cells whose identity fields are absent or null. Off by "
+        "default: absence is not agreement, and every pre-round table was "
+        "passing this check without performing it (ADR-0027 D3)",
+    )
     args = parser.parse_args()
     try:
-        print(render([read_cell(d) for d in args.cells]))
+        print(
+            render(
+                [read_cell(d) for d in args.cells],
+                allow_unfingerprinted=args.allow_unfingerprinted,
+            )
+        )
     except ReportError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
