@@ -247,6 +247,11 @@ NOT_A_FIGURE = {
     "tools/power/mde.py": "the arithmetic; it has no run directories to describe",
     "tools/bench/prose.py": "reads contracts only; it states no rate, describes no run",
     "tools/bench/families.py": "cross-executes references; it reads no run and no rate",
+    "tools/bench/identity.py": (
+        "run identity and its migration tag (ADR-0027). It reads every manifest "
+        "and states what each one can and cannot say about itself; it states no "
+        "pass rate and describes no outcome, so there is no mode to declare"
+    ),
 }
 
 # Keyed by repo-relative path, not basename: `tools/bench/report.py` and
