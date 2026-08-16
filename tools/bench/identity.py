@@ -48,6 +48,7 @@ __all__ = [
     "ABSENT",
     "BACKFILLED",
     "BOUND_MATCH",
+    "BOUND_MATCH_PENDING",
     "CONTRAST",
     "GROUPS",
     "KEY",
@@ -186,7 +187,26 @@ PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CO
 # ADR-0019 D2 — the null is measured per target tier and does not transfer up the
 # ladder; ADR-0024 — a serving build nothing recorded has already moved results
 # twice; a bar that scores differently produces a different null.
+#
+# `tier` here is the LANGUAGE ARM — `bench-py` / `bench-ts`, as every run.json
+# records it — and the axis the product ladder calls a tier is `model` (#289).
+# D2's "per target tier" is therefore discharged by `model`, with language as an
+# additional split; the cross-reference lives in `mcgyvr.config.Tier` too, so a
+# reader of either sense meets the other.
 BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
+
+# Declared in the contract, not yet enforced here. ADR-0027 D9 put `cells` in
+# the matching key — a rate keyed on everything but its own denominator
+# transfers to subsets it never saw — and `reproducibility.json`'s `matching`
+# prose already states five fields against this tuple's four.
+#
+# Listed rather than left implicit for the reason `PENDING` exists above: a gap
+# a reader can see is a state, and a gap only one of two documents mentions is
+# an oversight waiting to be satisfied twice. #231 owns closing it, and #289
+# measured what it costs to honour — nothing, because a subset of an
+# already-paired set is itself already paired, so a subset bound is a
+# recomputation over verdicts on disk rather than a new dispatch.
+BOUND_MATCH_PENDING: tuple[str, ...] = ("cells",)
 
 
 def digest(value: Any) -> str:

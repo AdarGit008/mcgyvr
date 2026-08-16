@@ -157,6 +157,64 @@ def test_the_gate_does_not_scale_with_the_model_and_the_card_can_show_it(
         ), "the ts gate collapsed toward the py gate; the arms no longer differ"
 
 
+@pytest.fixture(scope="module")
+def identity() -> Any:
+    return _by_path("bench_identity_rc_t", REPO / "tools" / "bench" / "identity.py")
+
+
+def test_the_prose_and_the_code_agree_on_what_is_not_yet_enforced(
+    identity: Any,
+) -> None:
+    """The mismatch #289 was asked to close or record. It records it.
+
+    ``reproducibility.json``'s ``matching`` states five fields; ``BOUND_MATCH``
+    is four. That is deliberate — ADR-0027 D9 added ``cells`` and #231 owns
+    enforcing it — but a deferral written down in only one of the two places a
+    reader consults is indistinguishable from an oversight, and satisfiable
+    twice. So the code names the pending field, and this test holds the two
+    documents to the same list.
+    """
+    matching = json.loads(REPRODUCIBILITY.read_text(encoding="utf-8"))["matching"]
+    for field in identity.BOUND_MATCH_PENDING:
+        assert field in matching, (
+            f"{field!r} is pending in identity.py but the reproducibility "
+            "prose does not mention it"
+        )
+    assert not set(identity.BOUND_MATCH_PENDING) & set(identity.BOUND_MATCH), (
+        "a field cannot be both enforced and pending — if BOUND_MATCH gained "
+        "it, drop it from BOUND_MATCH_PENDING in the same change"
+    )
+
+
+def test_the_tier_collision_is_recorded_on_the_side_that_can_carry_it() -> None:
+    """Half a cross-reference, and the round pin is why it is only half.
+
+    ``tier`` means a language arm in the bench and a worker rung in the product
+    ladder. Both sides should say so. Only the bench side does, because
+    ``src/mcgyvr`` is inside ``product.SURFACE`` — so **a docstring in
+    ``config.py`` moves ``product_sha256`` and re-baselines the open round**.
+    A comment is not worth retiring a round over, and #276's sequencing already
+    schedules identity edits to land together before ``r2`` opens.
+
+    The consequence is worth stating plainly, because it is not obvious and it
+    accrues: documentation debt inside the product surface cannot be paid off
+    except at a round boundary. This test records the half that exists and the
+    reason the other half does not, so its absence is a decision rather than an
+    omission somebody later mistakes for one.
+    """
+    bench = (REPO / "tools" / "bench" / "identity.py").read_text(encoding="utf-8")
+    assert "LANGUAGE ARM" in bench, (
+        "tools/bench/identity.py no longer says which sense of `tier` its "
+        "BOUND_MATCH keys on"
+    )
+
+    surface = _by_path("bench_product_rc_t", REPO / "tools" / "bench" / "product.py")
+    assert "src/mcgyvr" in surface.SURFACE, (
+        "src/mcgyvr left the product surface — the ladder-side note this test "
+        "documents as deferred is now free to write, so write it and assert it"
+    )
+
+
 def test_the_superseded_constant_is_gone_from_the_prose() -> None:
     """A replaced figure that stays quotable somewhere else was not replaced."""
     matching = json.loads(REPRODUCIBILITY.read_text(encoding="utf-8"))["matching"]
