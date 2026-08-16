@@ -1,0 +1,72 @@
+{
+  "record": "bench/rate-card/1",
+  "issue": 289,
+  "doctrine": "What a null costs is a rate, never a total. A total is computed against a task count, and the task count expires the moment new problems are authored; seconds per task does not. The rule this record exists to enforce is the one its own predecessor broke: a constant measured on some cells may not be applied to cells it was not measured on. That is the same defect as a reproducibility bound keyed on everything but its own denominator (ADR-0027 D9).",
+  "unit": "seconds per task per run, summed from the runner-recorded latency_s (generation) and acceptance_s (gate) of every greedy row",
+  "formula": "minutes = 2 * n * total_s / 60. A null is a pair, so the dispatched work is 2n tasks.",
+  "bound": "Summed task time. It excludes harness overhead, model load and the gap between the two runs of a pair, so every figure is a LOWER BOUND on rig occupancy rather than an estimate of it. #289's acceptance requires the overhead term calibrated against r1's session clock before the card is quoted as occupancy.",
+  "what_it_replaces": "reproducibility.json's matching prose read 'a null costs about 40 minutes to re-measure'. Against the cells below that constant is 2.5x too high for the cheapest and 18% too low for the dearest \u2014 a 3.0x spread.",
+  "why_two_axes": "Generation scales with the model and the gate does not. The gate is 0.20 s/task at BOTH models on bench-py, identical to two decimals, which is what a linter blind to the model's output size looks like; on bench-ts it is 24-48% of the cell. A card keyed only on model would mis-price every ts cell, and one pooled average hides the term that separates the arms.",
+  "naming": "'tier' here is the language arm \u2014 bench-py / bench-ts \u2014 matching run.json and identity.BOUND_MATCH. Note that 'arm' in results.jsonl is the DRAW TYPE ('greedy'), and 'tier' in the product ladder is a worker rung. Three senses across two words; this record uses the BOUND_MATCH one and says so rather than adding a fourth (#289).",
+  "derivation": "uv run --no-sync python tools/bench/ratecard.py \u2014 reads the runs each reproducibility.json bound declares, so the card prices exactly the pairs the bounds were measured on and a second list cannot drift from the first. tests/test_bench_ratecard.py re-derives and refuses a stale record.",
+  "fields": {
+    "model": "The served model, as the bound declares it.",
+    "tier": "The language arm the pair ran on.",
+    "runs": "The two run/tier directories under records/measurements/ the rate is summed over.",
+    "rows": "Greedy rows counted across both runs of the pair \u2014 the denominator of every rate here.",
+    "generation_s": "Mean latency_s per task per run.",
+    "gate_s": "Mean acceptance_s per task per run.",
+    "total_s": "generation_s + gate_s. The rate the formula multiplies."
+  },
+  "measured": "2026-08-16, derived from the r1-commissioning nulls of 2026-08-13 and 2026-08-14.",
+  "cells": [
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "tier": "bench-py",
+      "runs": [
+        "bench-null-gate-15b-a-2026-08-13/bench-py",
+        "bench-null-gate-15b-b-2026-08-13/bench-py"
+      ],
+      "rows": 514,
+      "generation_s": 1.6985,
+      "gate_s": 0.1954,
+      "total_s": 1.8939
+    },
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "tier": "bench-ts",
+      "runs": [
+        "bench-null-gate-15b-a-2026-08-13/bench-ts",
+        "bench-null-gate-15b-b-2026-08-13/bench-ts"
+      ],
+      "rows": 514,
+      "generation_s": 1.9617,
+      "gate_s": 1.7803,
+      "total_s": 3.742
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-py",
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-py",
+        "bench-null-gate-7b-b-2026-08-14/bench-py"
+      ],
+      "rows": 514,
+      "generation_s": 3.2361,
+      "gate_s": 0.2046,
+      "total_s": 3.4407
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "tier": "bench-ts",
+      "runs": [
+        "bench-null-gate-7b-a-2026-08-14/bench-ts",
+        "bench-null-gate-7b-b-2026-08-14/bench-ts"
+      ],
+      "rows": 514,
+      "generation_s": 4.331,
+      "gate_s": 1.3552,
+      "total_s": 5.6863
+    }
+  ]
+}
