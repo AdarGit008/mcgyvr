@@ -14,7 +14,12 @@ how many files changed. See :mod:`mcgyvr.gate.changeset`.
 from __future__ import annotations
 
 from mcgyvr.gate.acceptance import Acceptance, AcceptanceReport
-from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
+from mcgyvr.gate.adapter import (
+    EnvironmentFaultError,
+    LanguageAdapter,
+    ToolFailedError,
+    ToolUnavailableError,
+)
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import (
     ChangeSet,
@@ -29,7 +34,7 @@ from mcgyvr.gate.preflight import (
     check_clean_tree,
     check_prompt_fits,
 )
-from mcgyvr.gate.runner import Gate, GateResult
+from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 
 __all__ = [
@@ -38,10 +43,12 @@ __all__ = [
     "AcceptanceReport",
     "ChangeSet",
     "ChangeSetError",
+    "EnvironmentFaultError",
     "FileChange",
     "Finding",
     "Gate",
     "GateResult",
+    "InconclusiveRung",
     "JavaScriptAdapter",
     "LanguageAdapter",
     "PreflightIssue",
@@ -49,6 +56,7 @@ __all__ = [
     "SemanticCheck",
     "SemanticReport",
     "TokenCount",
+    "ToolFailedError",
     "ToolUnavailableError",
     "check_clean_tree",
     "check_prompt_fits",

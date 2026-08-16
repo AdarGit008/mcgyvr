@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.gate.adapter import ToolUnavailableError
+from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.runner import Gate
@@ -121,6 +121,54 @@ def test_missing_tool_is_an_environment_issue_not_a_rejection(
     assert result.accepted, "a missing tool must not reject a clean change"
     assert any("ruff" in issue for issue in result.environment_issues)
     assert len(result.environment_issues) == 2  # lint and format both reported
+    assert result.inconclusive == (), "absent is a visible hole, not an unreadable rung"
+
+
+def test_a_crashed_tool_refuses_where_an_absent_one_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole of ADR-0032, as one comparison against the test above (#261).
+
+    Same repository, same clean change, same rung not running. The difference
+    is only *why*, and it is the difference between a hole the operator can
+    see and a hole that reports as a pass.
+    """
+    repo = repo_with_base(tmp_path)
+    (repo / "ok.py").write_text("x = 1\n")
+
+    def raise_failed(*_a: object, **_k: object) -> list[object]:
+        raise ToolFailedError("ruff", 2, "ruff failed: Failed to parse pyproject.toml")
+
+    monkeypatch.setattr(PythonAdapter, "lint", raise_failed)
+    monkeypatch.setattr(PythonAdapter, "format_check", raise_failed)
+    result = Gate().run(ChangeSet.detect(repo))
+
+    assert not result.accepted, "a rung that cannot say what it applied is not a pass"
+    assert result.findings == (), "and it is not a claim about the worker's change"
+    assert [(r.rung, r.tool, r.exit_code) for r in result.inconclusive] == [
+        ("lint", "ruff", 2),
+        ("format", "ruff", 2),
+    ], "each rung is tried; one broken tool does not hide the other's state"
+    assert all("ruff failed" in issue for issue in result.environment_issues), (
+        "a reader that only knows the older field still sees it"
+    )
+
+
+def test_one_crashed_rung_refuses_even_beside_a_working_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Format runs for real and is clean; lint cannot run. That is not a pass."""
+    repo = repo_with_base(tmp_path)
+    (repo / "ok.py").write_text("x = 1\n")
+
+    def raise_failed(*_a: object, **_k: object) -> list[object]:
+        raise ToolFailedError("ruff", 2, "")
+
+    monkeypatch.setattr(PythonAdapter, "lint", raise_failed)
+    result = Gate().run(ChangeSet.detect(repo))
+
+    assert not result.accepted
+    assert [r.rung for r in result.inconclusive] == ["lint"]
 
 
 def test_invalid_json_change_is_flagged(tmp_path: Path) -> None:

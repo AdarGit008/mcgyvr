@@ -18,16 +18,29 @@ An adapter supplies five capabilities:
 * **test-command location** — the conventional way this stack names its tests,
   a fallback for when a contract does not declare one.
 
-Lint and format shell out to real tools. When the tool is not installed, that
-is an *environment* problem, not a worker problem — the adapter raises
-:class:`ToolUnavailableError` and the gate records it as such rather than rejecting
-the worker's change (the same distinction #38 draws for acceptance commands).
+Lint and format shell out to real tools, and a tool can fail the adapter in two
+distinct ways. Neither is the worker's fault, and ADR-0032 turns on telling them
+apart:
+
+* **absent** — not on PATH at all. The reduction in the bar is legible from the
+  outside: the operator knows which rung did not run, and a keyless or minimal
+  install is expected to reach a verdict on the rungs it has. The adapter raises
+  :class:`ToolUnavailableError` and the gate records it and carries on.
+* **present and untrustworthy** — the tool ran and its result cannot be read: a
+  fatal exit, or output that is not the format it promised. Here the rung
+  reports *clean* while having applied no bar at all, which is the one failure
+  mode a gate must not have. The adapter raises :class:`ToolFailedError` and the
+  gate refuses the change.
+
+Both derive from :class:`EnvironmentFaultError`, so a caller that only wants
+"a check could not run" can catch the base.
 """
 
 from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
@@ -36,7 +49,16 @@ from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
 
 
-class ToolUnavailableError(Exception):
+class EnvironmentFaultError(Exception):
+    """A check could not be run, or its result cannot be trusted.
+
+    Never a verdict on the worker's change: the base of both faults an adapter
+    raises, so the gate can separate "the environment let us down" from "the
+    change is bad" without knowing which tool was involved.
+    """
+
+
+class ToolUnavailableError(EnvironmentFaultError):
     """A required external tool is not on PATH — an environment fault.
 
     Carries the tool name so the gate can tell the operator exactly what to
@@ -46,6 +68,30 @@ class ToolUnavailableError(Exception):
     def __init__(self, tool: str) -> None:
         super().__init__(f"required tool not found on PATH: {tool}")
         self.tool = tool
+
+
+class ToolFailedError(EnvironmentFaultError):
+    """A tool ran and its result cannot be trusted — the rung is inconclusive.
+
+    Distinct from :class:`ToolUnavailableError` in the one way that matters: the
+    tool was *there*, so nothing about the run looks degraded from the outside.
+    A ruff or eslint that dies on a malformed config exits 2 and writes **an
+    empty stdout**, which every JSON reader here turns into zero diagnostics —
+    a clean pass over a bar that never ran (#261).
+
+    Carries the exit code and the tool's own first line of complaint, because
+    the operator's next action is fixing the tool, and a bare "lint was
+    inconclusive" does not say what to fix.
+    """
+
+    def __init__(self, tool: str, exit_code: int, detail: str = "") -> None:
+        suffix = f": {detail}" if detail else ""
+        super().__init__(
+            f"{tool} exited {exit_code} and its output cannot be read{suffix}"
+        )
+        self.tool = tool
+        self.exit_code = exit_code
+        self.detail = detail
 
 
 class LanguageAdapter(ABC):
@@ -86,7 +132,10 @@ class LanguageAdapter(ABC):
         """Lint every owned file in one invocation; attribute to added lines.
 
         Batched, not per-file, so the subprocess count stays flat as the
-        change grows. Raises :class:`ToolUnavailableError` if the linter is absent.
+        change grows. Raises :class:`ToolUnavailableError` if the linter is
+        absent, and :class:`ToolFailedError` if it ran but its output cannot be
+        trusted — an empty list means *this change is clean*, and must never be
+        the answer to *we could not tell*.
         """
 
     @abstractmethod
@@ -95,7 +144,9 @@ class LanguageAdapter(ABC):
 
         A formatter wanting to reflow a pre-existing line is not the worker's
         fault and is ignored; only reformatting that touches an added line is
-        a finding. Raises :class:`ToolUnavailableError` if the formatter is absent.
+        a finding. Raises :class:`ToolUnavailableError` if the formatter is
+        absent, and :class:`ToolFailedError` if it ran untrustworthily — the
+        same distinction, for the same reason, as :meth:`lint`.
         """
 
     @abstractmethod
@@ -153,6 +204,45 @@ def require_tool(tool: str) -> str:
     if found is None:
         raise ToolUnavailableError(tool)
     return found
+
+
+def trusted_stdout(
+    tool: str,
+    proc: subprocess.CompletedProcess[str],
+    *,
+    expected: Sequence[int],
+) -> str:
+    """``proc.stdout``, or raise :class:`ToolFailedError` if the run means nothing.
+
+    ``expected`` is the set of exit codes under which the tool is *reporting*
+    rather than *failing* — for every checker the adapters drive that is
+    ``(0, 1)``: nothing to say, and something to say. Anything else is the tool
+    telling us it did not do the job.
+
+    The exit code has to be the test, and a format check on the output cannot
+    replace it. Measured 2026-08-16 against ruff 0.16.1, eslint 9 and prettier
+    3: all four invocations here answer a fatal config error with **exit 2 and
+    an empty stdout**, which ``json.loads(stdout or "[]")`` reads as zero
+    diagnostics and ``if not stdout.strip()`` reads as nothing to reformat.
+    Both are a clean pass. The bad output never arrives to be caught.
+    """
+    if proc.returncode in expected:
+        return proc.stdout
+    raise ToolFailedError(tool, proc.returncode, _first_complaint(proc.stderr))
+
+
+#: Enough of the tool's own words to act on, without pasting a stack trace into
+#: every row of a manifest.
+_DETAIL_LIMIT = 200
+
+
+def _first_complaint(stderr: str) -> str:
+    """The tool's first non-empty line of stderr, clipped; ``""`` if it said nothing."""
+    for line in stderr.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped[:_DETAIL_LIMIT]
+    return ""
 
 
 #: Variables by which a surrounding shell tells a tool to colourise even when
