@@ -20,7 +20,7 @@ from typing import NamedTuple
 
 import pytest
 
-from mcgyvr.gate.adapter import ToolUnavailableError
+from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import JavaScriptAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.runner import Gate
@@ -163,19 +163,47 @@ def test_lint_warnings_do_not_reject(
     assert ADAPTER.lint([change("w.ts", {1})], tmp_path) == []
 
 
-def test_lint_fatal_output_is_inconclusive_not_a_rejection(
+def test_a_fatal_eslint_is_a_fault_not_an_empty_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A fatal eslint run (e.g. no config) writes no JSON; we invent no findings."""
+    """A fatal eslint run says nothing at all — and nothing is not clean (#261).
+
+    Measured against eslint 9 on 2026-08-16: no config, an unloadable config
+    and an internal error all exit **2 with an empty stdout**. That is why the
+    stdout here is empty and why the exit code is what this asserts on — the
+    version of this test that fed it a non-JSON *string* was testing a shape
+    eslint does not produce, while the shape it does produce parsed cleanly as
+    zero findings and passed the change.
+    """
     write(tmp_path, "a.ts", "export const x = 1;\n")
     monkeypatch.setattr(
         "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
     )
     monkeypatch.setattr(
         "mcgyvr.gate.adapters.javascript.subprocess.run",
-        lambda *a, **k: _Proc(2, "Error: no eslint config found"),
+        lambda *a, **k: _Proc(2, "", "Error: no eslint config found"),
     )
-    assert ADAPTER.lint([change("a.ts", {1})], tmp_path) == []
+    with pytest.raises(ToolFailedError) as excinfo:
+        ADAPTER.lint([change("a.ts", {1})], tmp_path)
+    assert excinfo.value.tool == "eslint"
+    assert excinfo.value.exit_code == 2
+    assert "no eslint config found" in excinfo.value.detail
+
+
+def test_eslint_reporting_problems_is_not_a_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit 1 is eslint doing its job. Only a code outside (0, 1) is a fault."""
+    write(tmp_path, "u.ts", "const os = 1;\n")
+    _fake_eslint(
+        monkeypatch,
+        tmp_path,
+        "u.ts",
+        [{"ruleId": "no-unused-vars", "severity": 2, "message": "unused", "line": 1}],
+    )
+    assert [f.code for f in ADAPTER.lint([change("u.ts", {1})], tmp_path)] == [
+        "no-unused-vars"
+    ]
 
 
 def test_lint_raises_when_tool_absent(
@@ -247,6 +275,43 @@ def test_format_raises_when_tool_absent(
     with pytest.raises(ToolUnavailableError) as excinfo:
         ADAPTER.format_check([change("f.ts", {1})], tmp_path)
     assert excinfo.value.tool == "prettier"
+
+
+def test_a_fatal_prettier_listing_is_a_fault_not_an_all_clear(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An invalid prettier config exits 2 and lists no file — not "all formatted"."""
+    write(tmp_path, "f.ts", "const a=1;\n")
+    monkeypatch.setattr(
+        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.adapters.javascript.subprocess.run",
+        lambda *a, **k: _Proc(2, "", "[error] Invalid configuration"),
+    )
+    with pytest.raises(ToolFailedError) as excinfo:
+        ADAPTER.format_check([change("f.ts", {1})], tmp_path)
+    assert excinfo.value.tool == "prettier"
+    assert excinfo.value.exit_code == 2
+
+
+def test_a_prettier_that_cannot_print_a_differing_file_is_a_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file has already been reported as differing; a bad exit cannot unsay it."""
+    write(tmp_path, "f.ts", "const a=1;\n")
+    monkeypatch.setattr(
+        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
+    )
+
+    def run(argv, *a, **k):  # type: ignore[no-untyped-def]
+        if "--list-different" in argv:
+            return _Proc(1, "f.ts")
+        return _Proc(2, "", "[error] Cannot format")
+
+    monkeypatch.setattr("mcgyvr.gate.adapters.javascript.subprocess.run", run)
+    with pytest.raises(ToolFailedError):
+        ADAPTER.format_check([change("f.ts", {1})], tmp_path)
 
 
 # --- test-command conventions --------------------------------------------

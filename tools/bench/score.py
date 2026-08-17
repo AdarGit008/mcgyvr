@@ -172,6 +172,12 @@ class Verdict:
     rejected_by: str | None
     findings: tuple[str, ...]
     environment_issues: tuple[str, ...]
+    #: The rungs that ran and could not say what bar they applied (#261). A row
+    #: carrying any of these was scored by fewer rungs than the arm declares,
+    #: so a rate computed over it is not the rate it names. Kept separate from
+    #: ``environment_issues`` because an absent tool leaves the same hole
+    #: visibly, and only this one arrives looking like a pass (ADR-0034).
+    inconclusive: tuple[str, ...] = ()
 
     @property
     def rejected_before_acceptance(self) -> bool:
@@ -348,6 +354,10 @@ def rung_report(tasks: Any, *, gate: Gate | None = None) -> dict[str, dict[str, 
             # whose bars differ beyond the first finding.
             "canary_rejected_by": sorted({f.split(":", 1)[0] for f in canary.findings}),
             "environment_issues": list(reference.environment_issues),
+            # A rung that could not run is why the canary probe below exists,
+            # so the report says it in its own field rather than only inside a
+            # sentence in the line above (#261).
+            "inconclusive": list(reference.inconclusive),
         }
     return report
 
@@ -431,10 +441,21 @@ def as_verdict(result: Any) -> Verdict:
     findings = tuple(
         f"{finding.check}: {finding.message}" for finding in result.findings
     )
-    rejected_by = result.findings[0].check if result.findings else None
+    inconclusive = tuple(str(rung) for rung in result.inconclusive)
+    if result.findings:
+        rejected_by = result.findings[0].check
+    elif inconclusive:
+        # Not accepted, and no finding names a cause — the cause is that a rung
+        # could not run. Leaving this `None` would put "did not pass, rejected
+        # by nothing" in a manifest, which reads as a scoring bug rather than
+        # the environment fault it is.
+        rejected_by = "inconclusive"
+    else:
+        rejected_by = None
     return Verdict(
         passed=result.accepted,
         rejected_by=rejected_by,
         findings=findings,
         environment_issues=tuple(result.environment_issues),
+        inconclusive=inconclusive,
     )

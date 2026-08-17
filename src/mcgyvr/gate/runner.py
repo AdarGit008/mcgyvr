@@ -30,7 +30,10 @@ behind a test suite (ADR-0010).
 Every finding is attributed to a worker-added line wherever the check can know
 one. A tool that is not installed is recorded as an *environment* issue, not a
 worker rejection — a keyless or minimal install still reaches a verdict on the
-checks it could run.
+checks it could run. A tool that is installed and then *fails* is a different
+thing and ADR-0034 gives it a different answer: the rung is recorded as
+inconclusive and the change is not accepted, because a rung that cannot say
+what bar it applied reported clean while applying none.
 """
 
 from __future__ import annotations
@@ -39,7 +42,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from mcgyvr.gate.acceptance import Acceptance
-from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
+from mcgyvr.gate.adapter import (
+    LanguageAdapter,
+    ToolFailedError,
+    ToolUnavailableError,
+)
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
@@ -50,13 +57,48 @@ from mcgyvr.scope import Scope
 
 
 @dataclass(frozen=True)
+class InconclusiveRung:
+    """A rung that ran, and cannot say what bar it applied.
+
+    Not a finding: it makes no claim about the worker's change. Not merely an
+    environment issue either, because an absent tool leaves a legible hole and
+    this leaves none — the tool was there, it exited, and the rung reported
+    clean over a bar that never ran (#261, ADR-0034).
+
+    Carried structured rather than as a sentence because a run manifest has to
+    be able to answer *which rung was inconclusive* per row, and a rate quoted
+    from rows where lint could not run is not the rate it claims to be.
+    """
+
+    adapter: str
+    rung: str
+    tool: str
+    exit_code: int
+    detail: str = ""
+
+    def __str__(self) -> str:
+        suffix = f" ({self.detail})" if self.detail else ""
+        return (
+            f"{self.adapter}: {self.rung} is inconclusive — {self.tool} exited "
+            f"{self.exit_code}{suffix}"
+        )
+
+
+@dataclass(frozen=True)
 class GateResult:
     """The gate's verdict on one change.
 
-    ``accepted`` is simply the absence of findings. ``environment_issues`` are
-    things that stopped a check from running (a missing tool) — they do not by
-    themselves reject the worker, but they are surfaced so a degraded run is
-    never mistaken for a fully-checked one.
+    ``accepted`` requires two things: no findings, and no rung that could not
+    say whether it ran. ``environment_issues`` are things that stopped a check
+    from running (a missing tool) — they do not by themselves reject the worker,
+    but they are surfaced so a degraded run is never mistaken for a
+    fully-checked one.
+
+    ``inconclusive`` is the stronger case and it *does* reject (ADR-0034). A
+    missing linter is a hole the operator can see; a linter that crashed is a
+    hole that looks like a pass, and this project has hit that three times.
+    Every inconclusive rung is also rendered into ``environment_issues``, so a
+    reader that only knows about the older field still sees it.
 
     ``observations`` are findings a rung reported without rejecting on: real,
     line-attributed, and deliberately not part of the verdict. The semantic
@@ -69,10 +111,11 @@ class GateResult:
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = field(default=())
     observations: tuple[Finding, ...] = field(default=())
+    inconclusive: tuple[InconclusiveRung, ...] = field(default=())
 
     @property
     def accepted(self) -> bool:
-        return not self.findings
+        return not self.findings and not self.inconclusive
 
     def by_check(self) -> dict[str, list[Finding]]:
         grouped: dict[str, list[Finding]] = {}
@@ -125,8 +168,11 @@ class Gate:
 
         # 4 — per-adapter language checks.
         env_issues: list[str] = []
+        inconclusive: list[InconclusiveRung] = []
         for adapter in self.adapters:
-            findings.extend(self._run_adapter(adapter, changeset, env_issues))
+            findings.extend(
+                self._run_adapter(adapter, changeset, env_issues, inconclusive)
+            )
 
         # 5 — semantic resolution (#123): the first rung that needs the
         # sandbox, and much the cheaper of the two that do. It resolves the
@@ -153,6 +199,7 @@ class Gate:
             findings=tuple(findings),
             environment_issues=tuple(env_issues),
             observations=tuple(observations),
+            inconclusive=tuple(inconclusive),
         )
 
     def _run_adapter(
@@ -160,6 +207,7 @@ class Gate:
         adapter: LanguageAdapter,
         changeset: ChangeSet,
         env_issues: list[str],
+        inconclusive: list[InconclusiveRung],
     ) -> list[Finding]:
         repo = changeset.repo
         findings: list[Finding] = []
@@ -175,10 +223,26 @@ class Gate:
         if not syntax_clean:
             return findings
 
-        # Batched, so the subprocess count is per-adapter, not per-file.
+        # Batched, so the subprocess count is per-adapter, not per-file. Each
+        # rung is tried even when the one before it faulted: an operator fixing
+        # a broken environment wants both complaints, not one per run.
         for label, check in (("lint", adapter.lint), ("format", adapter.format_check)):
             try:
                 findings.extend(check(syntax_clean, repo))
+            except ToolFailedError as exc:
+                # The tool was there and its answer is unreadable. Recorded in
+                # both channels: `inconclusive` decides the verdict, and the
+                # rendered sentence keeps every existing reader of
+                # `environment_issues` seeing it (ADR-0034).
+                rung = InconclusiveRung(
+                    adapter=adapter.name,
+                    rung=label,
+                    tool=exc.tool,
+                    exit_code=exc.exit_code,
+                    detail=exc.detail,
+                )
+                inconclusive.append(rung)
+                env_issues.append(str(rung))
             except ToolUnavailableError as exc:
                 env_issues.append(
                     f"{adapter.name}: {exc.tool} not installed — {label} skipped"

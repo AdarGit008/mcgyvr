@@ -660,6 +660,10 @@ def _draws(
                 "rejected_before_acceptance": verdict.rejected_before_acceptance,
                 "fail_output": None if verdict.passed else "; ".join(verdict.findings),
                 "environment_issues": list(verdict.environment_issues) or None,
+                # Which rungs could not say what bar they applied (#261). A row
+                # with this set was scored by fewer rungs than the tier
+                # declares; a rate that pools it is not the rate it names.
+                "inconclusive": list(verdict.inconclusive) or None,
             }
         )
     return rows

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.gate.adapter import ToolUnavailableError
+from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import FileChange
 
@@ -136,6 +136,47 @@ def test_lint_of_no_owned_files_is_empty_and_needs_no_tool(
 ) -> None:
     monkeypatch.setattr("mcgyvr.gate.adapter.shutil.which", lambda _: None)
     assert ADAPTER.lint([change("README.md", {1})], tmp_path) == []
+
+
+# --- a ruff that cannot run (#261) ---------------------------------------
+#
+# Nothing here is faked. ruff is really invoked, really fails, and really
+# writes the empty stdout that used to score as a clean pass — which is the
+# only way to know the fix is keyed on what the tool actually does. The lever
+# is a `pyproject.toml` ruff cannot parse, because that is one of the three
+# incidents this project has already had, not a hypothetical.
+
+_UNPARSEABLE_CONFIG = "this is not toml at all [[[\n"
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
+def test_a_ruff_that_cannot_start_is_a_fault_not_a_clean_lint(tmp_path: Path) -> None:
+    write(tmp_path, "pyproject.toml", _UNPARSEABLE_CONFIG)
+    # an unused import: a real finding, if the linter ran
+    write(tmp_path, "a.py", "import os\n")
+    with pytest.raises(ToolFailedError) as excinfo:
+        ADAPTER.lint([change("a.py", {1})], tmp_path)
+    assert excinfo.value.tool == "ruff"
+    assert excinfo.value.exit_code == 2
+    assert excinfo.value.detail, "the operator is told what to fix, in ruff's own words"
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
+def test_a_ruff_that_cannot_start_is_a_fault_in_the_format_rung_too(
+    tmp_path: Path,
+) -> None:
+    write(tmp_path, "pyproject.toml", _UNPARSEABLE_CONFIG)
+    write(tmp_path, "a.py", "x   =    1\n")  # would reflow, if the formatter ran
+    with pytest.raises(ToolFailedError) as excinfo:
+        ADAPTER.format_check([change("a.py", {1})], tmp_path)
+    assert excinfo.value.tool == "ruff"
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff not installed")
+def test_the_same_file_is_rejected_when_ruff_can_start(tmp_path: Path) -> None:
+    """The control: without the broken config, the rung finds what it was blind to."""
+    write(tmp_path, "a.py", "import os\n")
+    assert [f.code for f in ADAPTER.lint([change("a.py", {1})], tmp_path)] == ["F401"]
 
 
 def test_locate_test_command_by_convention(tmp_path: Path) -> None:

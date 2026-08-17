@@ -278,6 +278,9 @@ def rescore_row(
         "rejected_before_acceptance": verdict.rejected_before_acceptance,
         "fail_output": None if verdict.passed else "; ".join(verdict.findings),
         "environment_issues": list(verdict.environment_issues) or None,
+        # Named exactly as the live sweep names it, for the same reason the
+        # field above is (#261).
+        "inconclusive": list(verdict.inconclusive) or None,
         "gate_s": round(time.monotonic() - started, 3),
     }
 

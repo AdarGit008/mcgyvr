@@ -18,11 +18,20 @@ import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
-from mcgyvr.gate.adapter import LanguageAdapter, plain_env, require_tool
+from mcgyvr.gate.adapter import (
+    LanguageAdapter,
+    ToolFailedError,
+    plain_env,
+    require_tool,
+    trusted_stdout,
+)
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
 
 _EXTENSIONS = (".py", ".pyi")
+
+#: Both rungs are the same binary, and both are named in the fault it raises.
+_RUFF = "ruff"
 
 
 class PythonAdapter(LanguageAdapter):
@@ -66,7 +75,7 @@ class PythonAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool("ruff")
+        ruff = require_tool(_RUFF)
         proc = subprocess.run(
             [
                 ruff,
@@ -81,12 +90,20 @@ class PythonAdapter(LanguageAdapter):
             text=True,
             env=plain_env(),
         )
+        # ruff reports on 0 (nothing to say) and 1 (diagnostics); 2 is ruff
+        # telling us it failed. On 2 it writes an *empty* stdout, so the JSON
+        # read below succeeds and yields no diagnostics — a clean pass under a
+        # linter that never ran (#261). The exit code is the only thing that
+        # separates the two, so it is checked first.
+        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
         try:
-            diagnostics = json.loads(proc.stdout or "[]")
-        except json.JSONDecodeError:
-            # ruff writes diagnostics to stdout and only fails hard on internal
-            # errors; a non-JSON stdout means we cannot trust the run.
-            return []
+            diagnostics = json.loads(stdout or "[]")
+        except json.JSONDecodeError as exc:
+            # An expected exit code with unreadable output: not a shape ruff
+            # produces today, and inconclusive rather than clean if it ever does.
+            raise ToolFailedError(
+                _RUFF, proc.returncode, f"stdout is not JSON: {exc}"
+            ) from exc
         added = _added_by_resolved_path(files, repo)
         findings: list[Finding] = []
         for diag in diagnostics:
@@ -112,7 +129,7 @@ class PythonAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool("ruff")
+        ruff = require_tool(_RUFF)
         proc = subprocess.run(
             [ruff, "format", "--diff", "--force-exclude", "--", *_paths(files)],
             cwd=repo,
@@ -120,9 +137,13 @@ class PythonAdapter(LanguageAdapter):
             text=True,
             env=plain_env(),
         )
-        if not proc.stdout.strip():
+        # Same shape as lint, same reason: `ruff format --diff` exits 0 already
+        # formatted, 1 would reformat, 2 failed — and on 2 the diff is empty,
+        # which reads as "nothing to reflow" (#261).
+        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
+        if not stdout.strip():
             return []
-        touched = _format_touched_lines(proc.stdout)
+        touched = _format_touched_lines(stdout)
         findings: list[Finding] = []
         for change in files:
             would_change = touched.get(change.path, set())
