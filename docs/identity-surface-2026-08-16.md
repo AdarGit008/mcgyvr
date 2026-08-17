@@ -264,11 +264,25 @@ Re-derived with `tools/power/mde.py` on the one stratum that resolves today
 | 308 | 6.2pp | 5.2pp | 4.2pp |
 | **400** | **5.5pp** | 4.5pp | 3.8pp |
 
-About **1.3x**, and still short of 5pp on the arm's own psi. It buys **nothing**
-for the seven strata that cannot resolve at any n, because `delta <= psi` is
-hard. Worth paying for only if the new material is more responsive than the old
-— and the existing corpus came out 88% frozen. That is #224's unmeasured
-responsive fraction, gated by #272.
+About **1.3x**. It buys **nothing** for the seven strata that cannot resolve at
+any n, because `delta <= psi` is hard. Worth paying for only if the new material
+is more responsive than the old — and the existing corpus came out 88% frozen.
+That is #224's unmeasured responsive fraction, gated by #272.
+
+> **Corrected 2026-08-17 (#299).** This paragraph read *"About 1.3x, and still
+> short of 5pp on the arm's own psi"*, and the half-sentence removed above is
+> where a 5pp target entered the project. **ADR-0019 sets no bar.** Its D2 states
+> fitness over a free variable `b`, and its D3 removes a fixed bar entirely for
+> the cheapest lever class — *"the bar is whatever the bench resolves."* 5pp
+> appears in that record three times and is, in turn, the quantum at n = 20, one
+> row of a sizing table, and the *outcome* at n = 400. None of them is a
+> threshold. The owner's note of 2026-08-17 is that the number was supplied in
+> conversation and never decided.
+>
+> The rest of the paragraph is untouched and is the argument that survives: the
+> case against 400 rests on 1.3x for the cost, on the seven strata no n reaches,
+> and on an unmeasured responsive fraction — not on falling short of a bar.
+> See ADR-0019's 2026-08-17 amendment.
 
 ## 5. The reproducibility bound, re-derived
 
