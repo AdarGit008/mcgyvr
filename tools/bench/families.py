@@ -248,6 +248,32 @@ def satisfies(arm: str, source: Task, target: Task) -> bool:
         return done.returncode == 0 and "FAIL" not in done.stdout
 
 
+def coverage(arm: str) -> dict[str, int]:
+    """How much of an arm this method can say anything about.
+
+    A task is only probed when some *other* task can stand in for it, and a
+    finding only lands when that stand-in — a function written for a different
+    problem — passes its acceptance. So "no family" is a statement about the
+    stand-ins tried, not about the task. Reported beside the findings in
+    ``families.json`` so the two are never read apart: a task with four rivals
+    and a task with two hundred are both "clean" in the families list and are
+    not the same claim.
+    """
+    tasks = load(arm)
+    probed = Counter(
+        target
+        for source, target in itertools.permutations(sorted(tasks), 2)
+        if covers(tasks[source], tasks[target])
+    )
+    tried = sorted(probed[task] for task in tasks)
+    return {
+        "tasks": len(tasks),
+        "never_probed": sum(1 for count in tried if count == 0),
+        "median_stand_ins": tried[len(tried) // 2],
+        "under_five_stand_ins": sum(1 for count in tried if count < 5),
+    }
+
+
 def scan(arm: str, workers: int = 10) -> dict[str, Any]:
     """Every comparable pair, in each direction :func:`covers` allows.
 
