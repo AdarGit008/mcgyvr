@@ -453,6 +453,13 @@ NOT_A_FIGURE = {
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
     ),
+    "tools/bench/ceiling.py": (
+        "what the acceptance ceiling bounds (#262, ADR-0035). It reports "
+        "DURATIONS — the reference sweep it runs, and the `acceptance_s` field "
+        "of rows already recorded — so it states no pass rate and describes no "
+        "outcome. The same exemption `ratecard.py` holds, and for the same "
+        "reason: a rate in seconds is not a rate a tier could hide a floor in"
+    ),
 }
 
 # Keyed by repo-relative path, not basename: `tools/bench/report.py` and

@@ -20,6 +20,7 @@ against the refusal, because the whole point is that it must not be silent.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import shutil
 import sys
@@ -385,3 +386,103 @@ def test_rejected_before_acceptance_states_a_fact_not_an_inference(
     assert score.Verdict(False, "lint", (), ()).rejected_before_acceptance
     assert score.Verdict(False, "scope", (), ()).rejected_before_acceptance
     assert not score.Verdict(False, "acceptance", (), ()).rejected_before_acceptance
+
+
+# --- one bar, one ceiling (#262, ADR-0035) ----------------------------------
+
+
+def test_the_scored_workspace_and_the_digested_one_are_the_same_workspace(
+    score: types.ModuleType, measure: types.ModuleType
+) -> None:
+    """`stage_bar` calls `stage_config`; it used to restate it.
+
+    That is #262 one level in: a bar digest resolved against a workspace no
+    candidate is scored in describes nothing. The copy had already begun to
+    drift — `prettier.config.mjs` would have entered the scored workspace and
+    not the digested one — so the seam is one function and this holds both
+    callers to it.
+
+    Compared as file *contents*, not names. A `pyproject.toml` rendered by two
+    code paths could carry the same name and two different rule selections,
+    which is the failure this is about wearing a passing test.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        scored, digested = Path(tmp) / "scored", Path(tmp) / "digested"
+        scored.mkdir()
+        digested.mkdir()
+        score.stage_config(scored)
+        measure.stage_bar(digested)
+        for staged in (scored, digested):
+            assert (staged / "pyproject.toml").is_file()
+        staged_names = {p.name for p in scored.iterdir()}
+        assert staged_names == {p.name for p in digested.iterdir()}
+        for path in sorted(scored.iterdir()):
+            if path.is_symlink():  # node_modules points at the repository's tree
+                assert (digested / path.name).is_symlink()
+                continue
+            assert path.read_bytes() == (digested / path.name).read_bytes(), path.name
+
+
+def test_the_staged_workspace_declares_both_halves_of_the_bar(
+    score: types.ModuleType,
+) -> None:
+    """Every configuration a rung reads is a file the workspace holds.
+
+    #262 acceptance box 2. The Python arm always had this — `lint_config`
+    renders `[tool.ruff]` and `[tool.ruff.format]` from the project's own
+    settings — and the JS/TS arm had eslint's half and not prettier's, so one
+    arm applied a declared style and the other applied its release's defaults.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        staged = score.stage_config(Path(tmp))
+        assert "[tool.ruff.lint]" in (staged / "pyproject.toml").read_text()
+        assert "[tool.ruff.format]" in (staged / "pyproject.toml").read_text()
+        if score.ESLINT_CONFIG.is_file():
+            assert (staged / score.ESLINT_CONFIG.name).is_file()
+        assert (staged / score.PRETTIER_CONFIG.name).is_file()
+
+
+def test_the_live_instruments_share_one_acceptance_ceiling() -> None:
+    """#262 acceptance box 3, as a property rather than as two matching literals.
+
+    `tools/problems/admit.py` carried its own `30.0` under a comment saying it
+    was "the same ceiling as the rigs'", while `tools/bench/score.py` scored at
+    `120.0` — admission applied a 4x tighter bar than the instrument it was
+    rehearsing and claimed the opposite. Asserting equality of two literals
+    would have passed on the day they were equal and said nothing after; this
+    asserts that admission *reads* the scorer's, so there is one number.
+    """
+    source = REPO / "tools" / "problems" / "admit.py"
+    admit = _by_path("problems_admit_s", source)
+    score_mod = _by_path("bench_score_ceiling", REPO / "tools" / "bench" / "score.py")
+    assert admit.TIMEOUT_S == score_mod.ACCEPTANCE_TIMEOUT_S
+
+    # Equal is not enough: two literals are equal on the day they are written
+    # and say nothing afterwards, which is precisely the state #262 found. The
+    # property is that admission holds no number of its own — asserted against
+    # the source, because a value read at import is indistinguishable from a
+    # literal once the module object exists.
+    assigned = [
+        node
+        for node in ast.parse(source.read_text(encoding="utf-8")).body
+        if isinstance(node, ast.Assign)
+        and any(t.id == "TIMEOUT_S" for t in node.targets if isinstance(t, ast.Name))
+    ]
+    assert len(assigned) == 1
+    with pytest.raises(ValueError):
+        ast.literal_eval(assigned[0].value)
+
+
+def test_the_retired_rigs_ceiling_is_left_where_it_describes_its_own_rows() -> None:
+    """The third copy is not a disagreement to fix. It is a fact about the past.
+
+    `tools/bundle/measure.py`'s arms were retired by #240 and `record_run`
+    refuses every call, so its `30.0` sets no ceiling for anything — it
+    describes the 31,062 recorded rows measured under it, 127 of them timeouts
+    at exactly that value. Raising it to match the live number would rewrite
+    what those rows say they were measured under.
+    """
+    retired = _by_path("bundle_measure_s", REPO / "tools" / "bundle" / "measure.py")
+    score_mod = _by_path("bench_score_retired", REPO / "tools" / "bench" / "score.py")
+    assert retired.ACCEPTANCE_TIMEOUT_S == 30.0
+    assert retired.ACCEPTANCE_TIMEOUT_S != score_mod.ACCEPTANCE_TIMEOUT_S

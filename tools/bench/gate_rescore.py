@@ -373,6 +373,24 @@ def rescore_dir(
     return summary
 
 
+def bar_of(tasks: list[Any]) -> dict[str, Any] | None:
+    """This arm's bar as content, resolved against the staging it is scored in.
+
+    ``breadth.stage_bar`` rather than a local copy, because the whole of #262 is
+    that a bar recorded somewhere other than where it is applied describes
+    nothing. The same call the dispatching rig makes, from the tool that
+    re-scores what the rig produced.
+    """
+    if not tasks:
+        return None
+    material, _ = breadth.identity_module.bar_material(
+        rungs=score.GATE_RUNGS,
+        language=tasks[0].language.name,
+        stage_workspace=breadth.stage_bar,
+    )
+    return material
+
+
 def summarise(
     measured: Path,
     manifest: dict[str, Any],
@@ -416,6 +434,15 @@ def summarise(
         "scorer": "tools/bench/score.py:score — mcgyvr.gate.runner.Gate.run",
         "gate_rungs": list(score.GATE_RUNGS),
         "gate_semantic": False,
+        # Five names are the same five on both arms across a 250-rule Python bar
+        # and a 66-rule JS/TS one, so they are not the bar (#262). This is, as
+        # content: the resolved rules, the configs that decided them, the tool
+        # versions, and the type check neither arm runs. `None` when a resolver
+        # would not answer — the tool refuses a degraded environment before this
+        # point unless `--allow-degraded` was passed, and that is exactly the
+        # caller who should see a null rather than half a bar.
+        "bar_resolved": bar_of(tasks),
+        "acceptance_timeout_s": score.ACCEPTANCE_TIMEOUT_S,
         "scorer_before": "acceptance command only (predates #113)",
         # Which rungs this run actually exercised, as counts of what rejected.
         # A declared rung that never fires across thousands of candidates is not
