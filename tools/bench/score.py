@@ -52,8 +52,34 @@ REPO = Path(__file__).resolve().parents[2]
 # accident (ADR-0011).
 GATE_RUNGS = ("scope", "secrets", "structured", "adapters", "acceptance")
 
-# Matches tools/bundle/measure.py's ACCEPTANCE_TIMEOUT_S, so "timed out" means
-# the same thing in both instruments and a slow suite is not a new rejection.
+# The one acceptance ceiling every live instrument applies (#262, ADR-0035).
+# `tools/problems/admit.py` imports this rather than carrying its own, so a
+# checker admitted to the pool is rehearsed against the ceiling that will score
+# it. The third copy, `tools/bundle/measure.py`'s 30.0, is a retired
+# instrument's and stays 30.0 on purpose: it describes runs already on disk.
+#
+# Derived, not chosen — and re-derivable: `tools/bench/ceiling.py` produces
+# every figure below, from the 32,601 rows in records/measurements carrying
+# `acceptance_s` and from the 514 admitted references run against their own
+# solutions (records/measurements/acceptance-ceiling-2026-08-17).
+#
+#   slowest of the 514 reference acceptance runs          0.305 s
+#   slowest acceptance run that ever PASSED (n = 8,230)  28.718 s
+#   second slowest pass                                   2.500 s
+#   rows in [30 s, 120 s), of the 1,539 measured at 120 s      0
+#
+# The ceiling is not a bound on what a correct solution costs — 393x headroom
+# over the slowest reference says nothing useful. It is a bound on a **slow but
+# correct candidate**, and that population has one member at 28.718 s and its
+# next at 2.500 s. A 30 s ceiling left that candidate 4.5% of margin, which is a
+# published pass one machine-load blip away from being a timeout; 120 s leaves
+# it 4.2x. What the wider ceiling costs is runaway time, and the whole campaign
+# to date holds 130 timeout rows, none of them passing, so the difference is
+# about 3.25 h of rig time spread over every run ever taken.
+#
+# The empty [30, 120) band is real but small, and is not the argument: 31,062 of
+# the 32,601 rows were measured under a 30 s ceiling and so are censored at it.
+# 1,539 rows could have landed in the band and none did.
 ACCEPTANCE_TIMEOUT_S = 120.0
 
 # The gate rejects an acceptance command that alters the working tree — it must
@@ -76,15 +102,20 @@ IGNORED = "__pycache__/\n*.pyc\nnode_modules\n"
 
 
 ESLINT_CONFIG = REPO / "eslint.config.mjs"
+#: The format half of the JS/TS bar. Before #262 there was no such file: prettier
+#: ran on its built-in defaults here and in the gate, so one arm applied a
+#: declared style and the other applied whatever its release shipped with, and
+#: no manifest recorded the difference. ADR-0035.
+PRETTIER_CONFIG = REPO / "prettier.config.mjs"
 NODE_MODULES = REPO / "node_modules"
 
 
 def stage_js_toolchain(into: Path) -> None:
-    """Give the workspace the project's JS lint standard and a resolvable parser.
+    """Give the workspace the project's JS bar and a resolvable parser.
 
-    Two things, and both are needed or the rung is inert rather than absent —
-    which is worse, because an inert rung passes everything while looking
-    healthy.
+    Three things, and the first two are needed or a rung is inert rather than
+    absent — which is worse, because an inert rung passes everything while
+    looking healthy.
 
     * ``eslint.config.mjs``. eslint 9 requires a flat config and finds none in a
       one-file workspace; without it the run aborts, writes no JSON, and the
@@ -94,14 +125,21 @@ def stage_js_toolchain(into: Path) -> None:
       directory — a temp workspace has nothing to find. The symlink points at
       the repository's installed tree, so the parser version is the one
       ``package-lock.json`` pins rather than whatever happens to be global.
+    * ``prettier.config.mjs``. The format rung is not inert without it —
+      prettier formats fine on its defaults, which is exactly why this was
+      missed for so long. What it was missing is a *declaration*: an
+      undeclared bar moves under a dependency bump with nothing recording it,
+      and the ruff-with-no-config incident this file's Python half exists to
+      prevent is the same shape on the other arm.
 
     ``node_modules`` is in the workspace ``.gitignore``, so it never enters the
     changeset and ``_worktree_tree`` does not see it as a mutation.
     """
-    if ESLINT_CONFIG.is_file():
-        (into / ESLINT_CONFIG.name).write_text(
-            ESLINT_CONFIG.read_text(encoding="utf-8"), encoding="utf-8"
-        )
+    for config in (ESLINT_CONFIG, PRETTIER_CONFIG):
+        if config.is_file():
+            (into / config.name).write_text(
+                config.read_text(encoding="utf-8"), encoding="utf-8"
+            )
     link_node_modules(into)
 
 
@@ -216,6 +254,29 @@ def stage_dir(task: Any, target_content: str, into: Path) -> Path:
         task.accept.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (into / ".gitignore").write_text(IGNORED, encoding="utf-8")
+    stage_config(into)
+    return into
+
+
+def stage_config(into: Path) -> Path:
+    """Everything in a scored workspace that is *the bar* rather than the task.
+
+    Split out of :func:`stage_dir` so the workspace the bar digest is resolved
+    against cannot drift from the workspace a candidate is scored in. It had
+    already started to: ``tools/breadth/measure.py:stage_bar`` carried its own
+    copy of these two lines, so ``prettier.config.mjs`` would have entered the
+    scored workspace and not the digested one, and ``bar_sha256`` would have
+    described a bar no candidate was judged by. That is #262's own defect one
+    level in — the bar recorded somewhere other than where it is applied — so
+    there is one function and both callers use it.
+
+    Deliberately **not** here: ``tsconfig.json`` and ``[tool.mypy]``. Neither
+    arm is type-checked, both for the same reason and by the same rule
+    (ADR-0006: the type checker is the target repository's, and a repository
+    declaring none is correctly not type-checked). Adding either would be a new
+    rung rather than a recorded one. What #262 asks for is that a reader can
+    see it, which is ``identity.bar_material``'s ``type_check`` entry.
+    """
     (into / "pyproject.toml").write_text(lint_config(), encoding="utf-8")
     stage_js_toolchain(into)
     return into

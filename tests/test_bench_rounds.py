@@ -77,6 +77,10 @@ def _tree(root: Path) -> Path:
     # applies it (#291).
     (root / "pyproject.toml").write_text("[tool.ruff]\nline-length = 88\n")
     (root / "eslint.config.mjs").write_text("export default [];\n")
+    # The format half of the JS/TS bar (#262). Absent from this fixture until
+    # there was a config to stage — prettier ran on its release's defaults, so
+    # only `package-lock.json` covered it.
+    (root / "prettier.config.mjs").write_text("export default {};\n")
     (root / "uv.lock").write_text("version = 1\n")
     (root / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
     (root / "data/task-catalog.json").write_text('{"task_types": []}\n')
@@ -136,10 +140,17 @@ def test_the_bar_is_in_the_surface(product: Any) -> None:
     Both lockfiles or neither. The arms are paired ts/py (ADR-0021, ADR-0025),
     so pinning ruff while eslint floats puts a language effect inside every
     contrast rather than a visible refusal.
+
+    Both *halves* or neither, for the same reason. `prettier.config.mjs` joined
+    in the change that created it (#262, ADR-0035): before that the JS/TS format
+    bar was prettier's built-in defaults and only the version could be pinned,
+    so a declared config the round did not hold would restate this test's own
+    defect — the pin covering the scorer and not its configuration.
     """
     for entry in (
         "pyproject.toml",
         "eslint.config.mjs",
+        "prettier.config.mjs",
         "uv.lock",
         "package-lock.json",
     ):
@@ -157,6 +168,21 @@ def test_changing_the_lint_config_moves_the_digest(
     after = product.digest(tree)
     (tree / "pyproject.toml").write_text("[tool.ruff]\nline-length = 100\n")
     assert product.digest(tree) != after
+
+
+def test_changing_the_format_config_moves_the_digest(
+    product: Any, tmp_path: Path
+) -> None:
+    """`printWidth` decides a verdict as surely as an eslint rule does.
+
+    The format rung rejects a worker-added line prettier would reflow, so a
+    column count is a bar. Until #262 there was no file to change and the round
+    could not have noticed.
+    """
+    tree = _tree(tmp_path)
+    before = product.digest(tree)
+    (tree / "prettier.config.mjs").write_text("export default {printWidth: 100};\n")
+    assert product.digest(tree) != before
 
 
 def test_a_non_python_file_under_a_declared_directory_is_covered(
@@ -452,6 +478,13 @@ NOT_A_FIGURE = {
         "run identity and its migration tag (ADR-0027). It reads every manifest "
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
+    ),
+    "tools/bench/ceiling.py": (
+        "what the acceptance ceiling bounds (#262, ADR-0035). It reports "
+        "DURATIONS — the reference sweep it runs, and the `acceptance_s` field "
+        "of rows already recorded — so it states no pass rate and describes no "
+        "outcome. The same exemption `ratecard.py` holds, and for the same "
+        "reason: a rate in seconds is not a rate a tier could hide a floor in"
     ),
 }
 
