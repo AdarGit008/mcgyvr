@@ -221,6 +221,27 @@ Rescored = dict[tuple[str, int], dict[str, Any]]
 Rescorer = Callable[..., Rescored]
 
 
+@pytest.fixture(autouse=True)
+def _pinned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub the round pin for every case in this file, as the breadth rig does.
+
+    ``rescore_dir`` calls ``require_pinned`` against the **real** repository,
+    which refuses whenever the tree has moved off the open round — the normal
+    state between campaigns, and the unavoidable state while the batch for the
+    next boundary is landing (#291). Without this, twelve cases fail for a
+    reason none of them is about, and pass only on the days someone happens to
+    have opened a round against this exact tree.
+
+    Autouse rather than a parameter each case opts into: the default for a case
+    added later must be "pinned", not "coupled to whether a campaign is open".
+    That the pin refuses a moved tree is `tests/test_bench_rounds.py`'s
+    assertion and is made there.
+    """
+    monkeypatch.setattr(
+        gate_rescore.revision, "require_pinned", lambda *a, **k: ("r-test", "0" * 64)
+    )
+
+
 @pytest.fixture
 def rescore(tmp_path: Path) -> Rescorer:
     """Re-score a one-task run built from the given candidates.

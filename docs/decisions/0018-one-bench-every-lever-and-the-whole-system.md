@@ -161,3 +161,30 @@ silent truncation of a design space reads as coverage.
   answered, pre-registration forecloses attractive post-hoc analyses, and one
   pinned revision per round means a win waits for a boundary. That is the
   decision, not a side effect of it.
+
+## Amendment — 2026-08-17 (ADR-0032, #291): a boundary is drained, not taken
+
+**Q3's decision is unchanged and is made operational.** Every arm in a round
+still runs against one product revision, and an adopted change still lands at the
+round boundary rather than mid-flight.
+
+**What Q3 did not say**, and what a driver on lane/261 read it as not saying:
+that *all* pending identity changes batch into the **same** boundary. Landing
+them one at a time, with runs between, satisfies Q3's letter — each round has one
+revision — while destroying what it exists for: three rounds whose arms are
+comparable only within themselves, and the commissioning rig time spent three
+times over. Q3's clause reads naturally as licensing a round per change, which is
+how it was read.
+
+**The rule, and where it now lives.** A round boundary is **drained, not taken**.
+`tools/bench/rounds.json` carries a `doctrine.clauses` block, read by
+`product.load_doctrine` and printed by `--open`; `product.py`'s docstring carries
+the same rule at the point of use; and `--open` refuses without `--adopted`,
+which is where the driver names the batch. The tool records the batch and cannot
+verify it — ADR-0032 says why, and says what is enforced instead.
+
+**Also amended by the same ADR:** the round pin's surface. Q3's "the code under
+test is pinned" was implemented as code only, which left the bar's configuration
+(`pyproject.toml`, `eslint.config.mjs`), the lockfiles that decide which checker
+applies it, the catalog a contract is validated against, and the system prompt
+files outside the digest. They are in it now.

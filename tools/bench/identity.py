@@ -134,7 +134,12 @@ GROUPS: dict[str, tuple[str, ...]] = {
     # What judged it. Five rung names are byte-identical across 328 ruff rules
     # and 66 eslint, so the bar is hashed as the RESOLVED rule list. `round` and
     # `product_sha256` sit here because the revision they pin includes the
-    # scorer.
+    # scorer AND the scorer's configuration — `pyproject.toml`,
+    # `eslint.config.mjs` and the two lockfiles that decide which checker
+    # applies them. It included only the scorer when this line was written,
+    # which made the justification false for half of what it claimed; ADR-0032
+    # (#291) put the configuration in `product.SURFACE` and this sentence is
+    # now true rather than aspirational.
     "bar": (
         "gate_rungs",
         "gate_semantic",
@@ -359,6 +364,15 @@ def require_comparable(
     # to be. Prompt wording is the largest effect in the surveyed literature —
     # up to 76pp — and until the fan-out lands, `bundle_sha256` hashes the
     # system half only, so this check is weaker than it reads.
+    #
+    # `bundle_sha256` stays OUT of KEY, decided rather than deferred (ADR-0032
+    # clause 6). #276's rule admits a field only once perturbation shows it
+    # flips more verdicts than the declared bound; no such run has been done,
+    # and corollary 1 is explicit that an untested field is recorded and not
+    # keyed. What made this look urgent — the prompt files sitting outside the
+    # round pin — is closed at the other end instead: `src/mcgyvr/prompts/*.md`
+    # is now inside `product_sha256`, which IS keyed. The check below is a
+    # mislabelling refusal inside the contrast axis, not an admission.
     for field in ("prompt_sha256", "bundle_sha256"):
         present = [m for m in manifests if state(m, field) == OBTAINED]
         by_condition: dict[Any, set[str]] = {}
