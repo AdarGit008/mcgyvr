@@ -15,7 +15,11 @@ Lint and format defer to the JS ecosystem's own tools — **eslint** and
 lines, so a file's pre-existing style can never fail the change. When a tool is
 absent that is an *environment* fault, surfaced as
 :class:`~mcgyvr.gate.adapter.ToolUnavailableError`, not a rejection — the same
-distinction the Python adapter and the acceptance rung (#38) draw.
+distinction the Python adapter and the acceptance rung (#38) draw. When a tool
+is present but its run cannot be read, that is
+:class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused
+(ADR-0034): eslint and prettier both answer a fatal config error with exit 2
+and an empty stdout, which every reader here would otherwise score as clean.
 
 The three grammars (JavaScript, TypeScript, TSX) are selected by extension.
 JSX rides on the JavaScript grammar, which parses it; ``.tsx`` needs its own
@@ -39,9 +43,18 @@ from tree_sitter_typescript import (
     language_typescript as _ts_language,
 )
 
-from mcgyvr.gate.adapter import LanguageAdapter, plain_env, require_tool
+from mcgyvr.gate.adapter import (
+    LanguageAdapter,
+    ToolFailedError,
+    plain_env,
+    require_tool,
+    trusted_stdout,
+)
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
+
+_ESLINT = "eslint"
+_PRETTIER = "prettier"
 
 # Grammars are built once at import — they are hard dependencies, cheap to
 # construct, and immutable, so a fresh Parser per parse is all a call needs.
@@ -60,6 +73,14 @@ _EXTENSIONS = _TS_EXTENSIONS + _TSX_EXTENSIONS + _JS_EXTENSIONS
 # eslint marks a real error with severity 2 and an advisory with 1. Only an
 # error rejects a change: a warning is, by the project's own config, not
 # fatal, so charging the worker for one would contradict the project's intent.
+#
+# This has no ruff counterpart — the Python adapter counts every diagnostic it
+# is given — and the asymmetry is deliberate rather than an oversight, because
+# the two tools do not mean the same thing by a non-fatal finding. ADR-0025's
+# 2026-08-16 amendment is where that is argued and where it must be changed;
+# this constant is the implementation of a decision, not the decision. Under
+# the current `eslint.config.mjs` all 66 enabled rules are severity `error`, so
+# the filter drops nothing today (#261).
 _ESLINT_ERROR = 2
 
 
@@ -120,7 +141,7 @@ class JavaScriptAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        eslint = require_tool("eslint")
+        eslint = require_tool(_ESLINT)
         proc = subprocess.run(
             [eslint, "--format", "json", "--", *_paths(files)],
             cwd=repo,
@@ -128,14 +149,18 @@ class JavaScriptAdapter(LanguageAdapter):
             text=True,
             env=plain_env(),
         )
+        # eslint reports on 0 (nothing to say) and 1 (problems found); 2 is a
+        # fatal error — no config, an unloadable config, an internal failure —
+        # and it writes **no stdout at all**, which the JSON read below turns
+        # into zero results. That is a clean pass under a linter that never ran
+        # (#261), and only the exit code distinguishes it.
+        stdout = trusted_stdout(_ESLINT, proc, expected=(0, 1))
         try:
-            results = json.loads(proc.stdout or "[]")
-        except json.JSONDecodeError:
-            # A fatal eslint error (no config, an internal failure) writes no
-            # JSON to stdout. We cannot trust the run, so we score it as
-            # inconclusive rather than inventing findings — as the Python
-            # adapter does when ruff's stdout is not JSON.
-            return []
+            results = json.loads(stdout or "[]")
+        except json.JSONDecodeError as exc:
+            raise ToolFailedError(
+                _ESLINT, proc.returncode, f"stdout is not JSON: {exc}"
+            ) from exc
         added = _added_by_resolved_path(files, repo)
         findings: list[Finding] = []
         for result in results:
@@ -163,7 +188,7 @@ class JavaScriptAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        prettier = require_tool("prettier")
+        prettier = require_tool(_PRETTIER)
         # One batched call finds which files differ at all; in the common case
         # (the worker's code is already formatted) it finds none and this is the
         # only prettier invocation. Only a file that both differs and gained
@@ -312,8 +337,10 @@ def _prettier_differing(prettier: str, paths: Sequence[str], repo: Path) -> set[
     """The owned files prettier would reformat, from one batched call.
 
     ``--list-different`` prints, one per line, the paths (as passed) that are
-    not already formatted, and exits non-zero when there are any — an expected
-    outcome here, not a failure.
+    not already formatted, and exits 1 when there are any — an expected outcome
+    here, not a failure. Exit 2 is prettier failing (an invalid config, an
+    unresolvable plugin), and it prints nothing, so an unguarded read of stdout
+    would say every file is already formatted (#261).
     """
     proc = subprocess.run(
         [prettier, "--list-different", "--", *paths],
@@ -322,7 +349,8 @@ def _prettier_differing(prettier: str, paths: Sequence[str], repo: Path) -> set[
         text=True,
         env=plain_env(),
     )
-    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+    stdout = trusted_stdout(_PRETTIER, proc, expected=(0, 1))
+    return {line.strip() for line in stdout.splitlines() if line.strip()}
 
 
 def _prettier_reflowed_lines(prettier: str, path: str, repo: Path) -> set[int]:
@@ -340,14 +368,17 @@ def _prettier_reflowed_lines(prettier: str, path: str, repo: Path) -> set[int]:
         text=True,
         env=plain_env(),
     )
-    if proc.returncode != 0:
-        return set()
+    # Printing a file's formatted output is a 0-or-nothing operation: prettier
+    # is not reporting a count here, so 1 is a failure like any other. This
+    # runs only for a file prettier has *already* said differs, so returning an
+    # empty set on a bad exit would silently unsay it (#261).
+    stdout = trusted_stdout(_PRETTIER, proc, expected=(0,))
     try:
         original = (repo / path).read_text(encoding="utf-8", errors="surrogateescape")
     except OSError:
         return set()
     old_lines = original.splitlines()
-    new_lines = proc.stdout.splitlines()
+    new_lines = stdout.splitlines()
     touched: set[int] = set()
     matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
     for tag, i1, i2, _j1, _j2 in matcher.get_opcodes():

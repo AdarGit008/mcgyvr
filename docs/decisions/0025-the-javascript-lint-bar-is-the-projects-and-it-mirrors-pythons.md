@@ -5,6 +5,9 @@ Supersedes: none
 Superseded-by: none
 Amends: ADR-0021 (a paired arm's bar is part of the contrast, not of the
 language)
+Amended-by: ADR-0026 (2026-08-13) — the premise is withdrawn, the decision
+stands; ADR-0034 (2026-08-16) — this record's Context reads the adapter as
+recording an environment issue on a failed invocation, and it records nothing
 Date: 2026-08-13
 
 ## Context
@@ -134,3 +137,39 @@ the rule that follows — no pooled figure across a stratum where the effect is
 heterogeneous, and no lever result transfers across languages without
 measurement. Matching two rule sets by intent is not matching them; the bar is
 now a property to be recorded and compared, not a claim to be made in prose.
+
+## Amendment — 2026-08-16 (#261): the severity filter is a decision, and here it is
+
+`javascript.py` counts only eslint severity `2`; `python.py` counts every ruff
+diagnostic it is handed. The asymmetry was written as a comment on a constant
+and had never been recorded as a choice, which under ADR-0026 lens 3 makes it
+an unstated part of the bar. #261's four-lens sweep found it while auditing the
+adapter's error handling, and it is settled here rather than in the code.
+
+**It changes nothing today.** Under the current `eslint.config.mjs` all 66
+enabled rules are severity `error`; the filter drops zero messages. The
+asymmetry is real in the code and not yet real in the output.
+
+> **DECIDED (2026-08-16, owner). The filter stays**, and this clause — not
+> `_ESLINT_ERROR` — is where it is changed.
+
+The two tools do not mean the same thing by a non-fatal finding, so counting
+"every diagnostic" on both sides would match the *implementations* while
+unmatching the *bars*:
+
+- eslint's severity is a **property of the project's config**. Setting a rule to
+  `warn` is this repository saying, in the file ADR-0025 clause 1 made the
+  standard, that tripping it is not fatal. Rejecting a worker for it would have
+  the gate overrule the standard it is enforcing.
+- ruff has no such dial in what the adapter receives. `pyproject.toml` selects
+  rule *families*; a selected rule that fires is a diagnostic, full stop. There
+  is no severity to honour, so counting them all is honouring the config, not
+  ignoring a severity.
+
+Symmetry here is between what each config *declares fatal*, which is what both
+adapters now implement — and the 2026-08-13 amendment above is the standing
+warning against matching two rule sets by intent instead of by measurement. The
+day a rule in `eslint.config.mjs` is set to `warn`, that is a deliberate
+narrowing of the JavaScript bar by the file that owns it, and ADR-0026's rule
+applies: it is a bar change, recorded per run, and it re-bases every JavaScript
+rate measured under it.

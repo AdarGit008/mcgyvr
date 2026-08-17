@@ -175,6 +175,21 @@ def _bench_mode() -> types.ModuleType:
 
 mode = _bench_mode()
 
+
+def _bench_identity() -> types.ModuleType:
+    """Run identity, and the three digests it computes for us (ADR-0027, #285)."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_identity", HERE.parent / "bench" / "identity.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+identity_module = _bench_identity()
+
 # The variables of this experiment, all held fixed within a run.
 #
 # DRAWS is DEC-6's own N: the proposal ADR-0008 stripped to "a rung may take
@@ -645,6 +660,10 @@ def _draws(
                 "rejected_before_acceptance": verdict.rejected_before_acceptance,
                 "fail_output": None if verdict.passed else "; ".join(verdict.findings),
                 "environment_issues": list(verdict.environment_issues) or None,
+                # Which rungs could not say what bar they applied (#261). A row
+                # with this set was scored by fewer rungs than the tier
+                # declares; a rate that pools it is not the rate it names.
+                "inconclusive": list(verdict.inconclusive) or None,
             }
         )
     return rows
@@ -854,6 +873,71 @@ def serving_build(endpoint: str) -> str | None:
     return str(version) if version else None
 
 
+def stage_bar(into: Path) -> None:
+    """Stage the workspace a candidate is scored in, minus the candidate.
+
+    Exactly ``score.stage_dir``'s two configuration steps and nothing else. The
+    bench's bar is not this repository's ``make lint`` bar: it is whatever a
+    workspace carries, which is a ``pyproject.toml`` rendered from the project's
+    ``[tool.ruff]`` and ``eslint.config.mjs`` beside a linked ``node_modules``.
+    Resolving the repository's own settings instead would digest a bar no
+    candidate is ever scored against.
+    """
+    (into / "pyproject.toml").write_text(score.lint_config(), encoding="utf-8")
+    score.stage_js_toolchain(into)
+
+
+def content_identity(
+    tasks: Sequence[Any], *, condition: str, worker: Any
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """The three digests ADR-0026 asked for, computed by `identity` (#285).
+
+    Returns ``(fields, refusals)``. Every field is always present — ``null``
+    where the world would not answer, with the reason in ``refusals`` — because
+    an **absent** key means the record predates the contract (ADR-0027 D2) and a
+    run made from here on must never claim that about itself.
+
+    Nothing here assembles a hash. This function's whole job is to hand
+    ``identity`` raw material: the tasks as this condition renders them, the
+    staging a candidate is scored under, and an endpoint to ask.
+
+    **The prompt is hashed over every task, not the first one.** ``record_run``
+    already builds the first task's prompt for ``bundle_sha256``, and that is
+    the curated-subset defect at a smaller scale: a 498-task sweep is not
+    described by task one. Rendering all of them is pure CPU and happens once
+    per run, against hours of dispatch.
+    """
+    fields: dict[str, Any] = {}
+    refusals: dict[str, str] = {}
+
+    rendered: dict[str, tuple[str, str]] = {}
+    try:
+        for task in tasks:
+            prompt = render_for(condition, ablate(task.contract, condition))
+            rendered[task.id] = (prompt.system, prompt.user)
+    except (bundle.MeasureError, matrix.MatrixError) as error:
+        rendered = {}
+        refusals["prompt_sha256"] = f"this tier's tasks would not render: {error}"
+    fields["prompt_sha256"] = (
+        identity_module.prompt_digest(rendered) if rendered else None
+    )
+
+    language = tasks[0].language.name if tasks else ""
+    bar, why = identity_module.bar_digest(
+        rungs=score.GATE_RUNGS, language=language, stage_workspace=stage_bar
+    )
+    fields["bar_sha256"] = bar
+    if why is not None:
+        refusals["bar_sha256"] = why
+
+    model_fields, model_refusals = identity_module.probe_model(
+        worker.endpoint, worker.model
+    )
+    fields.update(model_fields)
+    refusals.update(model_refusals)
+    return fields, refusals
+
+
 def record_run(
     out: Path,
     worker: Any,
@@ -888,7 +972,9 @@ def record_run(
     directory already on disk would buy nothing.
     """
     bundle.instruments.refuse_to_measure(tier=tier, what=f"{out}/run.json")
-    prompt = build_prompt(load_tier_tasks(tier)[0].contract)
+    tasks = load_tier_tasks(tier)
+    prompt = build_prompt(tasks[0].contract)
+    content, refusals = content_identity(tasks, condition=condition, worker=worker)
     identity = {
         "endpoint": bundle.redact(worker.endpoint),
         "protocol": worker.protocol.value,
@@ -914,7 +1000,20 @@ def record_run(
         "mode": mode.SINGLE_TIER,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
+        # The bar, the prompt and the weights as CONTENT rather than as names
+        # (#285). `gate_rungs` above is five names both arms write identically,
+        # `bundle_sha256` hashes the system half of a prompt whose user half is
+        # what the ablation edits, and `model` is a mutable tag. Each of these is
+        # computed inside `tools/bench/identity.py` and never assembled here:
+        # a runner that builds a hash and passes it in is `--condition` with a
+        # longer hex string.
+        **content,
     }
+    # `null` is a state, and D2 says it comes with a reason. The reason cannot
+    # live in the field without being the sentinel string D2 forbids, so it
+    # lives in one sibling block a reader finds where they found the null.
+    if refusals:
+        identity[identity_module.REFUSALS] = refusals
     # The round, and the product revision it pins (#231 check 3, ADR-0018).
     #
     # `bundle_sha256` hashes the system prompt and `tasks_sha256` the task set;
@@ -946,7 +1045,32 @@ def record_run(
         # product revision was measured against a revision nobody recorded, and
         # stamping today's onto it would invent one.
         previous.setdefault("mode", identity["mode"])
-        drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
+        # The #285 digests are adopted forward on ABSENCE and never on `null`,
+        # and the two are different facts about a directory. Absent is a
+        # manifest written before there was a writer — refusing to resume it on
+        # a key it could not have carried is a spurious refusal, which is
+        # `serving_build`'s argument above. `null` is a run whose endpoint or
+        # toolchain was asked and would not say; if it answers on the resume,
+        # the directory would hold rows measured under a bar or a set of weights
+        # nobody recorded beside rows measured under ones somebody did, and
+        # appending is exactly what must not happen quietly. That is drift, and
+        # it refuses below.
+        for field in (
+            *identity_module.MODEL_PROBE_FIELDS,
+            "prompt_sha256",
+            "bar_sha256",
+        ):
+            previous.setdefault(field, identity[field])
+        # The reasons block is an annotation on the fields, not a field. Two
+        # invocations that both failed to reach an endpoint may phrase it
+        # differently — a timeout on one, a refused connection on the next —
+        # and that is not a second run. What must agree is what the fields say,
+        # and they are compared directly.
+        drift = sorted(
+            k
+            for k, v in identity.items()
+            if k != identity_module.REFUSALS and previous.get(k) != v
+        )
         if drift:
             # A bench directory written before rounds existed carries no
             # revision, so `round` and `product_sha256` show as drift here. That
