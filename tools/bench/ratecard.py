@@ -26,6 +26,15 @@ A rate survives what a total cannot. New problems are being authored, so any
 figure computed against today's task count expires with the corpus; seconds per
 task does not.
 
+**The rates were measured under the bar as it stood at `r1-commissioning`.**
+The gate is 24-48% of a `ts` cell, so a change to what the gate *does* moves
+this card, not only the pass rates. #261 (open at PR #292) is one: a crashed
+linter currently scores as a clean pass, and making it an inconclusive rung
+changes where a run stops when the environment is broken. In a healthy
+environment the difference is an exit-code check per invocation and does not
+show here; in a degraded one it is not bounded by anything measured below.
+Re-derive rather than transfer across that boundary.
+
 **Two axes, not one.** Generation scales with the model and the gate does not:
 on ``bench-py`` the gate is 0.20 s/task at *both* models, identical to two
 decimals, which is what a linter blind to the model's output size looks like.

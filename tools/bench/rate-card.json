@@ -123,5 +123,6 @@
       "wall_minutes": 16.4,
       "setup_minutes": 1.67
     }
-  ]
+  ],
+  "bar_at_measurement": "These rates were measured under the bar as it stood at r1-commissioning. The gate is 24-48% of a bench-ts cell, so a change to what the gate DOES moves this card and not only the pass rates. #261 (open at PR #292) is one such change: a crashed linter currently scores as a clean pass, and making it an inconclusive rung changes where a run stops when the environment is broken. In a healthy environment the difference is an exit-code check per invocation and does not show in these figures; in a degraded one it is not bounded by anything measured here. Re-derive across that boundary rather than transferring \u2014 which is the same rule ADR-0019 D2 applies to a null, for the same reason."
 }
