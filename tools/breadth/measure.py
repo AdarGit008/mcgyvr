@@ -876,15 +876,19 @@ def serving_build(endpoint: str) -> str | None:
 def stage_bar(into: Path) -> None:
     """Stage the workspace a candidate is scored in, minus the candidate.
 
-    Exactly ``score.stage_dir``'s two configuration steps and nothing else. The
+    ``score.stage_config`` and nothing else, *called* rather than restated. The
     bench's bar is not this repository's ``make lint`` bar: it is whatever a
     workspace carries, which is a ``pyproject.toml`` rendered from the project's
-    ``[tool.ruff]`` and ``eslint.config.mjs`` beside a linked ``node_modules``.
-    Resolving the repository's own settings instead would digest a bar no
-    candidate is ever scored against.
+    ``[tool.ruff]`` beside ``eslint.config.mjs``, ``prettier.config.mjs`` and a
+    linked ``node_modules``. Resolving the repository's own settings instead
+    would digest a bar no candidate is ever scored against.
+
+    This used to hold its own copy of those steps, which is how a bar digest
+    comes to describe a workspace nothing is scored in: #262's defect, one
+    level in. The seam is now ``score.stage_config`` and the drift is not
+    available.
     """
-    (into / "pyproject.toml").write_text(score.lint_config(), encoding="utf-8")
-    score.stage_js_toolchain(into)
+    score.stage_config(into)
 
 
 def content_identity(
@@ -923,10 +927,17 @@ def content_identity(
     )
 
     language = tasks[0].language.name if tasks else ""
-    bar, why = identity_module.bar_digest(
+    # One resolution, hashed and recorded, rather than two calls that could
+    # answer differently. `bar_sha256` is the comparability key; the readable
+    # block beside it is what lets a reader of a ts/py contrast see *what*
+    # differed between the bars and not only that something did (#262).
+    material, why = identity_module.bar_material(
         rungs=score.GATE_RUNGS, language=language, stage_workspace=stage_bar
     )
-    fields["bar_sha256"] = bar
+    fields["bar_sha256"] = (
+        None if material is None else identity_module.digest(material)
+    )
+    fields[identity_module.BAR] = material
     if why is not None:
         refusals["bar_sha256"] = why
 
@@ -1066,10 +1077,16 @@ def record_run(
         # differently — a timeout on one, a refused connection on the next —
         # and that is not a second run. What must agree is what the fields say,
         # and they are compared directly.
+        # `bar_resolved` joins the reasons block in being an annotation rather
+        # than a field: it is the material `bar_sha256` hashes, so comparing
+        # both would refuse a resume twice for one change — and would refuse it
+        # for a cosmetic edit to a config comment, which the digest also catches
+        # but which reads very differently in a 250-rule diff.
+        annotations = (identity_module.REFUSALS, identity_module.BAR)
         drift = sorted(
             k
             for k, v in identity.items()
-            if k != identity_module.REFUSALS and previous.get(k) != v
+            if k not in annotations and previous.get(k) != v
         )
         if drift:
             # A bench directory written before rounds existed carries no
@@ -1085,6 +1102,13 @@ def record_run(
                 "sampler or another task set; resuming would average two "
                 "experiments into one distribution. Use a fresh --out directory."
             )
+        # Adopted forward, never overwritten. A directory written before this
+        # block existed gains the bar it was measured against — the digest it
+        # already carries proves the bar has not moved, since drift refused
+        # above otherwise — and a directory that already states one keeps its
+        # own words, so a resume never rewrites the description of rows it did
+        # not measure.
+        previous.setdefault(identity_module.BAR, identity[identity_module.BAR])
         previous["invocations"].append(invocation)
         path.write_text(json.dumps(previous, indent=2) + "\n", encoding="utf-8")
         return

@@ -176,6 +176,15 @@ TEMPERATURE = 0.0
 
 # Per acceptance command. The Python design's number, and generous for a task
 # set whose slowest reference runs in well under a second.
+#
+# **Frozen at 30.0, and deliberately not the live ceiling.** #262 reconciled the
+# live instruments to `tools/bench/score.py`'s 120.0; this rig's arms were
+# retired by #240 and `record_run` refuses every call it is given, so this
+# constant no longer sets a ceiling for anything — it *describes* the 31,062
+# rows in records/measurements that were measured under it, 127 of which are
+# timeouts at exactly this value. Raising it to match would rewrite what those
+# rows say they were measured under. Declared as a permitted disagreement in
+# `tests/test_four_lenses.py::DECLARED_DUPLICATES`.
 ACCEPTANCE_TIMEOUT_S = 30.0
 
 

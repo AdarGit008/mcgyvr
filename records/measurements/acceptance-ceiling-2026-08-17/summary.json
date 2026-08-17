@@ -1,0 +1,60 @@
+{
+  "references": {
+    "all": {
+      "n": 514,
+      "min": 0.0179,
+      "median": 0.0787,
+      "p95": 0.1368,
+      "max": 0.1952
+    },
+    "py": {
+      "n": 257,
+      "min": 0.0179,
+      "median": 0.0255,
+      "p95": 0.0499,
+      "max": 0.0631
+    },
+    "ts": {
+      "n": 257,
+      "min": 0.0943,
+      "median": 0.1122,
+      "p95": 0.1485,
+      "max": 0.1952
+    },
+    "failed": []
+  },
+  "candidates": {
+    "all": {
+      "n": 32601,
+      "min": 0.017,
+      "median": 0.094,
+      "p95": 1.202,
+      "max": 121.391
+    },
+    "passing": {
+      "n": 8230,
+      "min": 0.018,
+      "median": 0.1,
+      "p95": 0.598,
+      "max": 28.718
+    },
+    "timeouts": 130,
+    "timeouts_that_passed": 0,
+    "slowest_pass": {
+      "seconds": 28.718,
+      "run": "pool-sweep-14b-cap2048-2026-08-08",
+      "id": "p242-cycle-shape-report"
+    },
+    "second_slowest_pass": 2.5
+  },
+  "band_30_to_120": {
+    "runs_that_could_observe_it": [
+      "bench-control-norule-7b-2026-08-14",
+      "bench-null-gate-15b-a-2026-08-13",
+      "bench-null-gate-15b-b-2026-08-13"
+    ],
+    "rows_that_could_observe_it": 1539,
+    "rows_in_the_band": 0,
+    "rows_censored_at_30": 31062
+  }
+}

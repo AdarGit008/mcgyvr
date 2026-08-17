@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -478,6 +479,182 @@ def test_a_staging_failure_is_a_reason_and_not_a_traceback(identity: Any) -> Non
     )
     assert found is None
     assert why is not None and "no eslint config to copy" in why
+
+
+# --- the bar as content, not as a label (#262) -------------------------------
+
+
+@pytest.fixture(scope="module")
+def bench_score() -> Any:
+    return _by_path("bench_score_ti", REPO / "tools" / "bench" / "score.py")
+
+
+def _js_ready() -> bool:
+    return (
+        shutil.which("eslint") is not None
+        and shutil.which("prettier") is not None
+        and (REPO / "node_modules" / "typescript-eslint").is_dir()
+    )
+
+
+requires_js = pytest.mark.skipif(
+    not _js_ready(), reason="no pinned JS toolchain on PATH"
+)
+
+
+def test_the_digest_hashes_exactly_the_material_that_is_recorded(
+    identity: Any, bench_score: Any
+) -> None:
+    """One resolution, hashed and recorded — not two calls that could disagree.
+
+    #262's defect is a bar recorded somewhere other than where it is applied. A
+    digest computed by one code path and a readable block by another is that
+    defect inside this module, so the digest is defined as the hash of the block
+    and this holds it there.
+    """
+    material, why = identity.bar_material(
+        rungs=("acceptance",),
+        language="python",
+        stage_workspace=bench_score.stage_config,
+    )
+    assert why is None and material is not None
+    found, why = identity.bar_digest(
+        rungs=("acceptance",),
+        language="python",
+        stage_workspace=bench_score.stage_config,
+    )
+    assert why is None
+    assert found == identity.digest(material)
+
+
+def test_the_python_bar_records_its_rule_count_and_not_a_label(
+    identity: Any, bench_score: Any
+) -> None:
+    """`gate_rungs` says "adapters" on both arms; this says how many rules.
+
+    The count is asserted as a *shape* — an int, large, matching the rules
+    actually listed — rather than pinned at 250. Freezing it would make a ruff
+    release fail this file instead of moving `bar_sha256`, which is the field
+    whose whole job is to move.
+    """
+    material, why = identity.bar_material(
+        rungs=("acceptance",),
+        language="python",
+        stage_workspace=bench_score.stage_config,
+    )
+    assert why is None and material is not None
+    lint = material["lint"]
+    assert lint["tool"] == "ruff"
+    assert lint["rules_enabled"] == len(lint["rules"]) > 100
+    assert "select" in lint["config_source"], "the config that decided it"
+    assert material["format"]["config"] == "pyproject.toml"
+
+
+@requires_js
+def test_the_jsts_format_bar_names_a_config_that_exists(
+    identity: Any, bench_score: Any
+) -> None:
+    """#262 acceptance box 2: no rung applies a configuration that exists nowhere.
+
+    Before `prettier.config.mjs`, the JS/TS format rung ran on prettier's
+    built-in defaults — a bar that moves under a dependency bump with nothing
+    recording it. The assertion is that prettier itself resolves the staged
+    file, not that the file is on disk: a config the workspace holds and
+    prettier does not read would satisfy the weaker check and score nothing.
+    """
+    material, why = identity.bar_material(
+        rungs=("acceptance",),
+        language="jsts",
+        stage_workspace=bench_score.stage_config,
+    )
+    assert why is None and material is not None
+    fmt = material["format"]
+    assert fmt["unconfigured"] is False
+    assert fmt["config"] == bench_score.PRETTIER_CONFIG.name
+    assert fmt["config_source"] == bench_score.PRETTIER_CONFIG.read_text()
+
+
+@requires_js
+def test_an_unconfigured_formatter_is_a_recorded_state_and_not_a_refusal(
+    identity: Any, bench_score: Any
+) -> None:
+    """Prettier on defaults is a legal bar. What it may not be is unrecorded.
+
+    This is the state every JS/TS rate on disk was measured under, so the block
+    has to be able to *say* it — a `None` here would read as prettier having
+    been unreachable, which is a different fact about a run.
+    """
+
+    def without_prettier_config(into: Path) -> None:
+        bench_score.stage_config(into)
+        (into / bench_score.PRETTIER_CONFIG.name).unlink()
+
+    material, why = identity.bar_material(
+        rungs=("acceptance",),
+        language="jsts",
+        stage_workspace=without_prettier_config,
+    )
+    assert why is None and material is not None
+    fmt = material["format"]
+    assert fmt["unconfigured"] is True
+    assert fmt["config"] is None and fmt["config_source"] is None
+    assert fmt["version"], "prettier was reachable; only its configuration was not"
+
+
+@requires_js
+def test_enabled_rules_counts_the_bar_and_not_the_catalogue(identity: Any) -> None:
+    """66 enabled of 88 listed. Counting keys overstates this arm by a third.
+
+    `eslint --print-config` lists every rule the loaded plugins contribute,
+    most at severity 0. The overstatement runs in the direction that makes the
+    two arms look closer than they are, which is the direction #262 is about.
+    """
+    config = {
+        "rules": {
+            "a": "error",
+            "b": ["warn", {"x": 1}],
+            "c": "off",
+            "d": [0],
+            "e": 2,
+        }
+    }
+    assert identity._enabled_rules(config) == 3
+    assert identity._enabled_rules({"rules": []}) is None
+
+
+@requires_js
+def test_neither_arm_is_type_checked_and_both_say_so(
+    identity: Any, bench_score: Any
+) -> None:
+    """The correction to #262: the absence is symmetric, not a JS/TS asymmetry.
+
+    The issue reads it as the TypeScript arm alone — no `tsconfig.json` is
+    staged. True, and incomplete: `score.lint_config` renders a `pyproject.toml`
+    holding `[tool.ruff]` and nothing else, so `_declares_mypy` is false and the
+    Python arm is not type-checked either. Per ADR-0006 neither is a defect. The
+    defect was that a reader of a pass rate could not tell.
+
+    Asked of the product's own adapters rather than restated, so a repository
+    that *does* declare a checker gets the real command — asserted below, or
+    this would pass just as well against a function that returns None.
+    """
+    for language in ("python", "jsts"):
+        material, why = identity.bar_material(
+            rungs=("acceptance",),
+            language=language,
+            stage_workspace=bench_score.stage_config,
+        )
+        assert why is None and material is not None
+        assert material["type_check"] is None, language
+
+
+def test_the_type_check_entry_is_the_adapters_answer_and_not_a_constant(
+    identity: Any, tmp_path: Path
+) -> None:
+    (tmp_path / "tsconfig.json").write_text("{}", encoding="utf-8")
+    assert identity._type_check("jsts", tmp_path) == ["tsc", "--noEmit"]
+    (tmp_path / "pyproject.toml").write_text("[tool.mypy]\n", encoding="utf-8")
+    assert identity._type_check("python", tmp_path) == ["mypy"]
 
 
 # --- the model --------------------------------------------------------------

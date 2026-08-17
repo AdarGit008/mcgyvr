@@ -96,8 +96,13 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "REMOTES": True,
     # Must agree: the two rigs sweep the same ladder.
     "LADDER": True,
-    # Known to DISAGREE, and filed. 120.0 against 30.0 — a comment at
-    # score.py:55 asserts they match and is false by 4x. See the audit.
+    # Two copies, and they are no longer the same quantity. #262 reconciled the
+    # LIVE instruments to one number: `tools/bench/score.py` declares 120.0 and
+    # `tools/problems/admit.py` imports it, so admission rehearses the ceiling
+    # that will score it. What is left here is `tools/bundle/measure.py`'s 30.0,
+    # which describes a RETIRED instrument's runs already on disk (#240) — it
+    # must not move, because moving it would restate what those rows were
+    # measured under. Declared False for that reason and not the old one.
     "ACCEPTANCE_TIMEOUT_S": False,
     # Known to disagree, and filed: 1.0 against 2.0, under a docstring at
     # availability.py:55 calling the two "the same trick ... for the same

@@ -48,6 +48,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+
 __all__ = [
     "ABSENT",
     "BACKFILLED",
@@ -502,59 +504,64 @@ def _post_json(url: str, body: dict[str, Any], *, timeout: float) -> Any | None:
 #: The solution filename each arm's checker is pointed at when the bar is
 #: resolved. eslint resolves a config *per file*, so asking it for "the rules"
 #: without naming one is asking a question it does not answer.
+#:
+#: Measured, and the difference is not academic: the same ``eslint.config.mjs``
+#: resolves **66** enabled rules for ``solution.ts`` and **80** for
+#: ``solution.js``, because ``typescript-eslint``'s recommended set turns off
+#: core rules it replaces with type-aware ones. Every bench contract targets
+#: ``.ts``, so 66 is this arm's number — but a corpus admitting one ``.js``
+#: target would be scored by a different bar under the same five names, which is
+#: #262 in miniature.
 BAR_PROBE_FILE = {"python": "solution.py", "jsts": "solution.ts"}
 
+#: Where the readable bar sits in a run manifest. A sibling block, like
+#: :data:`REFUSALS`, and for the same reason: it is not a comparability field —
+#: ``bar_sha256`` is — it is the statement of what that digest hashed, so a
+#: reader of a ts/py contrast can see *what* differed and not only *that* it did
+#: (#262). Excluded from the resume drift check for the same reason: the digest
+#: covers this material exactly, so comparing both refuses a resume twice for
+#: one change.
+BAR = "bar_resolved"
 
-def bar_digest(
+
+def bar_material(
     *,
     rungs: Sequence[str],
     language: str,
     stage_workspace: Callable[[Path], None],
-) -> tuple[str | None, str | None]:
-    """The bar as **resolved rules**, not as five names. Returns (digest, why).
+) -> tuple[dict[str, Any] | None, str | None]:
+    """What the bar actually contains, as content. Returns (material, why).
 
-    `gate_rungs` records five names — ``scope``, ``secrets``, ``structured``,
-    ``adapters``, ``acceptance`` — and both bench arms write the same five. They
-    are byte-identical across a ruff configuration selecting 251 rules and an
-    eslint one selecting 66, so **two arms scored by two different rule sets are
-    indistinguishable on disk**, and ADR-0026 measured what that costs: under
-    the full bar the arms read py 8.9% / ts 12.8%, and on correctness alone they
-    read py 27.3% / ts 23.9%. The bar reverses which arm leads.
+    :func:`bar_digest` hashes exactly this, so the digest and the readable block
+    cannot describe two different bars — which is #262's own defect, one level
+    in.
 
-    So the digest is over what the checkers *resolve to*, asked of the checkers
-    themselves rather than derived from the config by re-implementing their
-    resolution:
+    The shape, per arm:
 
-    * ``ruff check --show-settings`` → ``linter.rules.enabled``, every rule by
-      name and code. The rest of that output is deliberately dropped: it carries
-      ``linter.project_root``, an absolute path, and a digest that moves when
-      the repository is checked out somewhere else is describing the machine.
-    * ``eslint --print-config <file>`` → the resolved config, rules and
-      severities, for the file the arm actually writes.
-    * the version of every tool that resolved any of it, because ADR-0025's
-      consequence is that pinning the toolchain makes the checker version part
-      of the instrument — a rule that changes what it flags between two patch
-      releases changes the bar without changing a line of configuration.
+    * ``lint`` — the checker, its version, the config that decided it, the count
+      of enabled rules, and the rules themselves.
+    * ``format`` — the formatter, its version, and the configuration it read.
+      Before #262 the JS/TS entry here would have been prettier reading nothing
+      at all: a bar that moves under a dependency bump with nothing recording
+      it, which is the ruff-with-no-config incident on the other arm.
+    * ``type_check`` — the command the **product's own adapter** locates for
+      this workspace, or ``null``. Asked of the adapter rather than restated
+      here, for the reason the rules are asked of ruff and eslint: a second
+      implementation of the resolution drifts from the one that scores.
 
-    **Per language, not per run.** ADR-0026's rule is that no figure pools
-    across a stratum where the effect is heterogeneous, and the two arms' bars
-    are the case it was written from. A single digest over both would restate
-    `gate_rungs`' defect with more hex.
+    **Both arms answer ``null`` for ``type_check``, and that is a correction to
+    #262.** The issue reads it as a JS/TS asymmetry — no ``tsconfig.json`` is
+    staged, so ``tsc`` never runs. True, and incomplete: ``score.lint_config``
+    renders a ``pyproject.toml`` holding ``[tool.ruff]`` and nothing else, so
+    ``_declares_mypy`` is false and the Python arm is not type-checked either.
+    The absence is **symmetric** — better news for comparability than the issue
+    assumed, and exactly as unrecorded. Per ADR-0006 neither is a defect: a
+    repository declaring no type checker is correctly not type-checked. So this
+    records it rather than adding a rung.
 
-    **The workspace is staged by the caller** (ADR-0027 D4 in the other
-    direction): the bench's bar is not the repository's `make lint` bar — it is
-    whatever `score.stage_dir` puts in a workspace, which is `pyproject.toml`
-    rendered from the project's `[tool.ruff]` and `eslint.config.mjs` copied
-    beside a linked `node_modules`. Resolving the repository's settings instead
-    would digest a bar no candidate is ever scored against. The caller passes
-    its staging, not a hash.
-
-    A resolver that will not answer makes this ``None`` with a reason rather
-    than a digest over the half that did: a bar hashed from one of its two
-    checkers is not the bar, and would read as having recorded one. On a real
-    dispatch this cannot fire — `score.require_toolchain` refuses a run with a
-    missing rung tool before the first candidate — so the ``None`` path is for
-    off-rig callers, which is exactly who should not get a confident answer.
+    ``rungs`` is carried through because five names remain what a manifest's
+    ``gate_rungs`` says, and a reader needs the names beside the content to see
+    that the names are not the bar.
     """
     probe = BAR_PROBE_FILE.get(language)
     if probe is None:
@@ -570,28 +577,223 @@ def bar_digest(
             return None, f"the bar workspace could not be staged: {error}"
         (workspace / probe).write_text("", encoding="utf-8")
 
-        material: dict[str, Any] = {"rungs": list(rungs), "language": language}
-        if language == "python":
-            rules, why = _ruff_rules(workspace)
-            if rules is None:
-                return None, why
-            material["ruff_rules"] = rules
-            for tool in ("ruff",):
-                version, why = _tool_version(tool, workspace)
-                if version is None:
-                    return None, why
-                material[f"{tool}_version"] = version
-        else:
-            config, why = _eslint_config(workspace, probe)
-            if config is None:
-                return None, why
-            material["eslint_config"] = config
-            for tool in ("eslint", "prettier"):
-                version, why = _tool_version(tool, workspace)
-                if version is None:
-                    return None, why
-                material[f"{tool}_version"] = version
+        material: dict[str, Any] = {"language": language, "rungs": list(rungs)}
+        build = _python_bar if language == "python" else _jsts_bar
+        arm, why = build(workspace, probe)
+        if arm is None:
+            return None, why
+        material.update(arm)
+        material["type_check"] = _type_check(language, workspace)
+    return material, None
+
+
+def bar_digest(
+    *,
+    rungs: Sequence[str],
+    language: str,
+    stage_workspace: Callable[[Path], None],
+) -> tuple[str | None, str | None]:
+    """The bar as **resolved rules**, not as five names. Returns (digest, why).
+
+    `gate_rungs` records five names — ``scope``, ``secrets``, ``structured``,
+    ``adapters``, ``acceptance`` — and both bench arms write the same five. They
+    are byte-identical across a ruff configuration resolving 250 rules and an
+    eslint one resolving 66, so **two arms scored by two different rule sets are
+    indistinguishable on disk**, and ADR-0026 measured what that costs: under
+    the full bar the arms read py 8.9% / ts 12.8%, and on correctness alone they
+    read py 27.3% / ts 23.9%. The bar reverses which arm leads.
+
+    So the digest is over what the checkers *resolve to*, asked of the checkers
+    themselves rather than derived from the config by re-implementing their
+    resolution. :func:`bar_material` is that content and this is its hash; there
+    is one function that gathers it so the digest and the readable block in a
+    manifest cannot describe two different bars.
+
+    **Per language, not per run.** ADR-0026's rule is that no figure pools
+    across a stratum where the effect is heterogeneous, and the two arms' bars
+    are the case it was written from. A single digest over both would restate
+    `gate_rungs`' defect with more hex.
+
+    **The workspace is staged by the caller** (ADR-0027 D4 in the other
+    direction): the bench's bar is not the repository's `make lint` bar — it is
+    whatever `score.stage_config` puts in a workspace, which is a
+    `pyproject.toml` rendered from the project's `[tool.ruff]` beside
+    `eslint.config.mjs`, `prettier.config.mjs` and a linked `node_modules`.
+    Resolving the repository's settings instead would digest a bar no candidate
+    is ever scored against. The caller passes its staging, not a hash.
+
+    A resolver that will not answer makes this ``None`` with a reason rather
+    than a digest over the half that did: a bar hashed from one of its two
+    checkers is not the bar, and would read as having recorded one. On a real
+    dispatch this cannot fire — `score.require_toolchain` refuses a run with a
+    missing rung tool before the first candidate — so the ``None`` path is for
+    off-rig callers, which is exactly who should not get a confident answer.
+    """
+    material, why = bar_material(
+        rungs=rungs, language=language, stage_workspace=stage_workspace
+    )
+    if material is None:
+        return None, why
     return digest(material), None
+
+
+def _python_bar(
+    workspace: Path, probe: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    """ruff, twice: it is both this arm's linter and this arm's formatter.
+
+    ``--show-settings`` rather than the config, because expanding
+    ``E, F, W, I, N, UP, B, SIM, RUF`` into concrete rules is ruff's resolution
+    and re-implementing it here would drift from the one that scores. It is also
+    the reason **#262's own headline figure is wrong**: the issue reports 328
+    Python rules against 66 JS/TS ones, from prefix-matching ``ruff rule --all``
+    against ``select``, and a string prefix is not a ruff selector. ``E`` matches
+    ``EM``, ``EXE`` and ``ERA``; ``F`` matches ``FURB``, ``FAST``, ``FBT``,
+    ``FIX``, ``FLY`` and ``FA``; ``I`` matches ``ISC``, ``ICN``, ``INT`` and
+    ``INP``; ``N`` matches ``NPY``; ``B`` matches ``BLE``. Sixty rules from ten
+    linters this project never selected, plus six removed ones. Asked of ruff,
+    the answer is **250** under both 0.16.1 and 0.16.2, so the ratio is 3.8:1 and
+    not 5:1.
+
+    ``linter.rules.enabled`` is the only line taken from that output. The rest
+    carries ``linter.project_root``, an absolute path, and a bar that moves when
+    the repository is checked out somewhere else is describing the machine.
+    """
+    rules, why = _ruff_rules(workspace)
+    if rules is None:
+        return None, why
+    version, why = _tool_version("ruff", workspace)
+    if version is None:
+        return None, why
+    config = (workspace / "pyproject.toml").read_text(encoding="utf-8")
+    return {
+        "lint": {
+            "tool": "ruff",
+            "version": version,
+            "config": "pyproject.toml",
+            "config_source": config,
+            "rules_enabled": len(rules),
+            "rules": rules,
+        },
+        # The staged `pyproject.toml` carries `[tool.ruff.format]`, so unlike the
+        # JS/TS arm before #262 this half of the bar was always declared. It is
+        # recorded anyway: a reader comparing the two arms needs both entries to
+        # be present to see that one of them used to be empty.
+        "format": {
+            "tool": "ruff format",
+            "version": version,
+            "config": "pyproject.toml",
+            "config_source": config,
+        },
+    }, None
+
+
+def _jsts_bar(workspace: Path, probe: str) -> tuple[dict[str, Any] | None, str | None]:
+    """eslint for the lint half, prettier for the format half.
+
+    The format entry is what #262 asks for. Until ``prettier.config.mjs``
+    existed, prettier ran on its built-in defaults in the gate and in every
+    scored workspace, and no manifest said so — a bar that a dependency bump
+    could move with nothing recording it. ``config_source`` is the staged file
+    verbatim rather than a resolved option dump, because prettier's CLI has no
+    ``--print-config``: what it *can* be asked is where its configuration came
+    from, and :func:`_prettier_config_path` asks exactly that, so a workspace
+    where the file failed to stage answers ``null`` instead of quietly
+    recording defaults under a declared name.
+    """
+    config, why = _eslint_config(workspace, probe)
+    if config is None:
+        return None, why
+    versions: dict[str, str] = {}
+    for tool in ("eslint", "prettier"):
+        version, why = _tool_version(tool, workspace)
+        if version is None:
+            return None, why
+        versions[tool] = version
+    resolved, why = _prettier_config_path(workspace, probe)
+    if resolved is None:
+        return None, why
+    declared = resolved != _PRETTIER_UNCONFIGURED
+    return {
+        "lint": {
+            "tool": "eslint",
+            "version": versions["eslint"],
+            "config": "eslint.config.mjs",
+            "config_source": config,
+            "rules_enabled": _enabled_rules(config),
+            "rules": config.get("rules", {}),
+        },
+        "format": {
+            "tool": "prettier",
+            "version": versions["prettier"],
+            "config": resolved if declared else None,
+            "config_source": (
+                (workspace / resolved).read_text(encoding="utf-8") if declared else None
+            ),
+            # The state #262 found, kept nameable rather than inferred from a
+            # `null`: prettier formatting on defaults is not the same fact as
+            # prettier failing to run.
+            "unconfigured": not declared,
+        },
+    }, None
+
+
+#: What ``prettier --find-config-path`` says when it walked up and found
+#: nothing. It exits non-zero and prints nothing, so the absence needs a name of
+#: its own to be recordable.
+_PRETTIER_UNCONFIGURED = ""
+
+
+def _prettier_config_path(workspace: Path, probe: str) -> tuple[str | None, str | None]:
+    """Which configuration prettier resolves for the file the arm writes.
+
+    Returns the workspace-relative path, or :data:`_PRETTIER_UNCONFIGURED` when
+    prettier found none — which is a legitimate recorded state and not a
+    failure. ``None`` is reserved for prettier being unreachable, where a bar
+    hashed without its formatter would read as having recorded one.
+    """
+    proc = _run(["prettier", "--find-config-path", probe], workspace)
+    if proc is None:
+        return None, "prettier is not on PATH, so the JS/TS format bar is unresolved"
+    found = proc.stdout.strip()
+    if proc.returncode != 0 or not found:
+        return _PRETTIER_UNCONFIGURED, None
+    return Path(found).name, None
+
+
+def _enabled_rules(config: Any) -> int | None:
+    """How many of a resolved eslint config's rules are actually on.
+
+    ``--print-config`` lists every rule the plugins contribute, most of them at
+    severity 0 — 88 entries for 66 enabled rules on ``.ts``. Counting the keys
+    would overstate this arm's bar by a third, which is the direction that makes
+    the two arms look closer than they are.
+    """
+    rules = config.get("rules") if isinstance(config, dict) else None
+    if not isinstance(rules, dict):
+        return None
+    return sum(1 for value in rules.values() if _severity(value) != 0)
+
+
+def _severity(value: Any) -> int | None:
+    head = value[0] if isinstance(value, list) and value else value
+    if isinstance(head, bool):  # `True`/`False` predate eslint 9 and are not used
+        return int(head)
+    if isinstance(head, int):
+        return head
+    return {"off": 0, "warn": 1, "error": 2}.get(head)
+
+
+def _type_check(language: str, workspace: Path) -> list[str] | None:
+    """The type-check command the product's own adapter locates here, or None.
+
+    Asked of the adapter for the reason the rules are asked of ruff and eslint:
+    a second implementation of "does this repository declare a type checker"
+    would drift from the one the gate runs. Both arms answer ``None`` on a bench
+    workspace today — see :func:`bar_material`.
+    """
+    adapter = JavaScriptAdapter() if language == "jsts" else PythonAdapter()
+    return adapter.locate_type_check_command(workspace)
 
 
 def _run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str] | None:

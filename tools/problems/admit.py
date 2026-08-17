@@ -59,9 +59,34 @@ ID_RE = re.compile(r"^p\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$")
 # needs its own anti-triviality design before the pool can carry it.
 V1_TYPES = frozenset({"function_implementation", "bug_fix"})
 
-# Same ceiling as the rigs' ACCEPTANCE_TIMEOUT_S: admission rehearses the
-# measurement, so a checker too slow for the rig is too slow for the pool.
-TIMEOUT_S = 30.0
+
+def _bench_score() -> Any:
+    """``tools/bench/score.py``, for the one acceptance ceiling it declares.
+
+    By path, because ``tools/`` holds no packages — the shim every cross-tool
+    reference in this tree uses. Loaded for a single constant, and that is the
+    point: the alternative is a second literal, which is what #262 found here.
+    """
+    cached = sys.modules.get("bench_score")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "bench_score", REPO / "tools" / "bench" / "score.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+# The rig's ceiling, imported rather than restated (#262, ADR-0035). Admission
+# rehearses the measurement, so a checker too slow for the rig is too slow for
+# the pool — and the only way that sentence stays true is if there is one
+# number. This line used to be a literal `30.0` under a comment claiming it
+# matched, while `tools/bench/score.py` scored at `120.0`: admission applied a
+# 4x tighter bar than the instrument it was rehearsing, and said the opposite.
+TIMEOUT_S = _bench_score().ACCEPTANCE_TIMEOUT_S
 
 MIN_ASSERTIONS = 5
 JACCARD_REJECT = 0.55
