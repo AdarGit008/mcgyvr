@@ -441,6 +441,13 @@ NOT_A_FIGURE = {
         "not a pass rate, and describes no outcome — so there is no tier "
         "attribution to declare and no escalation that could hide a floor"
     ),
+    "tools/bench/idempotency.py": (
+        "the language-idempotency census (#295). It reads contracts and "
+        "references through emit.py's divergence screen and reports a share of "
+        "the CORPUS — how much of it could be rendered into both arms — so it "
+        "describes no run and states no pass rate, the same exemption prose.py "
+        "holds for the same reason"
+    ),
     "tools/bench/identity.py": (
         "run identity and its migration tag (ADR-0027). It reads every manifest "
         "and states what each one can and cannot say about itself; it states no "
@@ -469,6 +476,11 @@ CHECKED = {
     "tools/bench/gate_rescore.py",
     "tools/bench/report.py",
     "tools/power/report.py",
+    # Checked rather than exempt, though it states no *pass* rate. Its figures
+    # are agreement and concordance over recorded verdicts, and a reader will
+    # quote "the arms agree on 84%" against a sweep — so the row has to say
+    # which tier's verdicts it agrees about (#295, #231 check 6).
+    "tools/bench/arms.py",
 }
 
 
