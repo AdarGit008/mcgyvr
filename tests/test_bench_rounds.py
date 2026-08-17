@@ -23,6 +23,7 @@ other figure-producing tools said nothing at all.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -59,17 +60,26 @@ def product() -> Any:
 
 def _tree(root: Path) -> Path:
     """A miniature repo with one file at each declared surface path."""
-    for entry in ("src/mcgyvr", "tools/breadth", "tools/bundle", "tools/bench"):
+    for entry in ("src/mcgyvr", "tools/breadth", "tools/bundle", "tools/bench", "data"):
         (root / entry).mkdir(parents=True, exist_ok=True)
     (root / "src/mcgyvr/runner.py").write_text("x = 1\n")
     (root / "src/mcgyvr/worker").mkdir(exist_ok=True)
     (root / "src/mcgyvr/worker/prompt.py").write_text("y = 2\n")
+    (root / "src/mcgyvr/prompts").mkdir(exist_ok=True)
+    (root / "src/mcgyvr/prompts/python.md").write_text("You are a worker.\n")
     (root / "tools/breadth/measure.py").write_text("m = 3\n")
     (root / "tools/bundle/measure.py").write_text("b = 4\n")
     (root / "tools/bench/score.py").write_text("s = 5\n")
     (root / "tools/bench/matrix.py").write_text("mx = 6\n")
     (root / "tools/bench/matrix.json").write_text("{}\n")
     (root / "tools/bench/product.py").write_text("p = 7\n")
+    # The bar: its configuration and the lockfiles that decide which checker
+    # applies it (#291).
+    (root / "pyproject.toml").write_text("[tool.ruff]\nline-length = 88\n")
+    (root / "eslint.config.mjs").write_text("export default [];\n")
+    (root / "uv.lock").write_text("version = 1\n")
+    (root / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
+    (root / "data/task-catalog.json").write_text('{"task_types": []}\n')
     return root
 
 
@@ -108,9 +118,68 @@ def test_a_missing_surface_entry_raises_rather_than_shrinking_the_pin(
         product.digest(tree)
 
 
-def test_tasks_are_not_in_the_surface(product: Any) -> None:
-    """`tasks_sha256` pins them; folding them in would close a round on authoring."""
-    assert not any("tasks" in entry for entry in product.SURFACE)
+def test_the_task_set_is_not_in_the_surface(product: Any) -> None:
+    """`tasks_sha256` pins them; folding them in would close a round on authoring.
+
+    Named by directory rather than by the substring `tasks`, which
+    `data/task-catalog.json` would otherwise trip. The catalog is the vocabulary
+    a contract is validated against and it *is* in the surface; the problems are
+    the corpus and are not.
+    """
+    assert not any(entry.endswith("/tasks") for entry in product.SURFACE)
+    assert "data/task-catalog.json" in product.SURFACE
+
+
+def test_the_bar_is_in_the_surface(product: Any) -> None:
+    """#291: the pin covered the scorer and not the scorer's configuration.
+
+    Both lockfiles or neither. The arms are paired ts/py (ADR-0021, ADR-0025),
+    so pinning ruff while eslint floats puts a language effect inside every
+    contrast rather than a visible refusal.
+    """
+    for entry in (
+        "pyproject.toml",
+        "eslint.config.mjs",
+        "uv.lock",
+        "package-lock.json",
+    ):
+        assert entry in product.SURFACE
+
+
+def test_changing_the_lint_config_moves_the_digest(
+    product: Any, tmp_path: Path
+) -> None:
+    """A rule flipped to `warn` narrows the bar; until #291 no round refused."""
+    tree = _tree(tmp_path)
+    before = product.digest(tree)
+    (tree / "eslint.config.mjs").write_text("export default [{rules: {}}];\n")
+    assert product.digest(tree) != before
+    after = product.digest(tree)
+    (tree / "pyproject.toml").write_text("[tool.ruff]\nline-length = 100\n")
+    assert product.digest(tree) != after
+
+
+def test_a_non_python_file_under_a_declared_directory_is_covered(
+    product: Any, tmp_path: Path
+) -> None:
+    """`src/mcgyvr/prompts/*.md` is the text a worker is sent (#291)."""
+    tree = _tree(tmp_path)
+    before = product.digest(tree)
+    (tree / "src/mcgyvr/prompts/python.md").write_text("You are a different worker.\n")
+    assert product.digest(tree) != before
+
+
+def test_a_derived_artifact_does_not_move_the_digest(
+    product: Any, tmp_path: Path
+) -> None:
+    """Otherwise the pin would depend on whether the tree had been imported."""
+    tree = _tree(tmp_path)
+    before = product.digest(tree)
+    cache = tree / "src/mcgyvr/__pycache__"
+    cache.mkdir()
+    (cache / "runner.cpython-312.pyc").write_bytes(b"\x00compiled")
+    (tree / "src/mcgyvr/runner.pyc").write_bytes(b"\x00also")
+    assert product.digest(tree) == before
 
 
 def test_the_open_round_is_complete(product: Any) -> None:
@@ -169,6 +238,126 @@ def test_the_refusal_names_which_files_moved(product: Any, tmp_path: Path) -> No
     path = _rounds(tmp_path, {"id": "r1", "product_sha256": "stale", "files": files})
     with pytest.raises(product.ProductError, match=r"src/mcgyvr/worker/prompt\.py"):
         product.require_pinned(tree, path)
+
+
+# --- the batching rule (#291, ADR-0032) -------------------------------------
+
+
+def test_the_shipped_doctrine_carries_the_batching_clause(product: Any) -> None:
+    """The rule lived only in the body of a closed issue until #291.
+
+    Asserted against the shipped `rounds.json` rather than a fixture: the defect
+    was that the rule was *not in the repository*, and a fixture would pass with
+    the file still empty.
+    """
+    clauses = product.load_doctrine().get("clauses", [])
+    assert clauses, "rounds.json declares no doctrine"
+    assert any("DRAINED" in c for c in clauses), (
+        "no clause says a boundary carries every pending identity change; a "
+        "driver reading rounds.json learns only that rounds exist"
+    )
+
+
+def test_a_driver_who_reads_only_product_py_learns_the_batching_rule(
+    product: Any,
+) -> None:
+    """#291 acceptance 1. The docstring is where a driver actually looks."""
+    text = product.__doc__ or ""
+    assert "every pending identity change lands in the same boundary" in text.lower()
+
+
+def test_a_file_with_no_doctrine_block_yields_an_empty_one(
+    product: Any, tmp_path: Path
+) -> None:
+    """Doctrine constrains a judgement; a round opened without it is still a round."""
+    path = _rounds(tmp_path, {"id": "r1", "product_sha256": "aaa"})
+    assert product.load_doctrine(path) == {}
+
+
+def _open_in(
+    product: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tree: Path,
+    rounds: Path,
+    **kwargs: Any,
+) -> int:
+    monkeypatch.setattr(product, "REPO", tree)
+    monkeypatch.setattr(product, "ROUNDS_FILE", rounds)
+    args = argparse.Namespace(
+        open="r2", opened="2026-08-17", issue=291, why="the batch", adopted=[]
+    )
+    for key, value in kwargs.items():
+        setattr(args, key, value)
+    return int(product._open_cli(args))
+
+
+def test_opening_a_round_without_naming_the_batch_is_refused(
+    product: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`_open_cli` appended unconditionally, which is where the rule was violable."""
+    tree = _tree(tmp_path / "tree")
+    rounds = _rounds(tmp_path, {"id": "r1", "product_sha256": "aaa"})
+    with pytest.raises(product.ProductError, match="--adopted"):
+        _open_in(product, monkeypatch, tree, rounds)
+
+
+def test_a_named_batch_is_recorded_in_the_round(
+    product: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The tool records the batch; it cannot verify it, and the entry is the claim."""
+    tree = _tree(tmp_path / "tree")
+    rounds = _rounds(tmp_path, {"id": "r1", "product_sha256": "aaa"})
+    assert (
+        _open_in(
+            product, monkeypatch, tree, rounds, adopted=["#291 the bar", "#285 digests"]
+        )
+        == 0
+    )
+    entry = json.loads(rounds.read_text())["rounds"][-1]
+    assert entry["id"] == "r2"
+    assert entry["adopted"] == ["#291 the bar", "#285 digests"]
+    # The digest and the file map describe the same tree. They did not: the
+    # helpers took the repo root as a *default argument*, bound at definition
+    # time, so `digest()` read the real repository while `_lines(REPO)` read
+    # whatever the global had been pointed at. Same paths in production, two
+    # different trees in one round entry under anything that redirects them.
+    assert entry["product_sha256"] == product.digest(tree)
+    assert set(entry["files"]) == {
+        p.relative_to(tree).as_posix() for p in product.surface_files(tree)
+    }
+
+
+def test_the_doctrine_is_printed_at_the_moment_the_rule_is_violable(
+    product: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A rule a driver has to go looking for is the rule lane/261 walked past."""
+    tree = _tree(tmp_path / "tree")
+    path = tmp_path / "rounds.json"
+    path.write_text(
+        json.dumps(
+            {
+                "doctrine": {"clauses": ["A round boundary is DRAINED, not TAKEN."]},
+                "rounds": [{"id": "r1", "product_sha256": "aaa"}],
+            }
+        )
+    )
+    _open_in(product, monkeypatch, tree, path, adopted=["#291"])
+    assert "DRAINED" in capsys.readouterr().out
+
+
+def test_opening_a_round_does_not_drop_the_doctrine(
+    product: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`_open_cli` rewrites the whole file, so the block has to survive the write."""
+    tree = _tree(tmp_path / "tree")
+    path = tmp_path / "rounds.json"
+    doctrine = {"clauses": ["A round boundary is DRAINED, not TAKEN."]}
+    path.write_text(json.dumps({"doctrine": doctrine, "rounds": [{"id": "r1"}]}))
+    _open_in(product, monkeypatch, tree, path, adopted=["#291"])
+    assert json.loads(path.read_text())["doctrine"] == doctrine
 
 
 def test_a_run_with_no_round_is_described_rather_than_skipped(product: Any) -> None:
@@ -247,6 +436,11 @@ NOT_A_FIGURE = {
     "tools/power/mde.py": "the arithmetic; it has no run directories to describe",
     "tools/bench/prose.py": "reads contracts only; it states no rate, describes no run",
     "tools/bench/families.py": "cross-executes references; it reads no run and no rate",
+    "tools/bench/identity.py": (
+        "run identity and its migration tag (ADR-0027). It reads every manifest "
+        "and states what each one can and cannot say about itself; it states no "
+        "pass rate and describes no outcome, so there is no mode to declare"
+    ),
 }
 
 # Keyed by repo-relative path, not basename: `tools/bench/report.py` and
