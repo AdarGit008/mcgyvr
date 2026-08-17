@@ -55,14 +55,25 @@ def _cell(
 ) -> Path:
     directory = tmp_path / condition
     directory.mkdir(parents=True, exist_ok=True)
+    # A complete identity block, because that is what a run now writes: under
+    # ADR-0027 a keyed field this manifest cannot answer refuses the table
+    # rather than comparing equal to the next cell's silence. The tests that
+    # care about an incomplete one build it by deleting from here, so what they
+    # exercise is visible at the call site.
     manifest = {
         "model": "qwen2.5-coder:1.5b",
         "endpoint": "http://srv2:11434",
         "serving_build": "0.32.5",
+        "protocol": "openai",
         "tier": "bench-py",
         "condition": condition,
         "draws": 0,
+        "greedy_temperature": 0.0,
+        "max_output_tokens": 2048,
+        "tasks_sha256": {"function_implementation": "abc123"},
         "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+        "round": "r1-commissioning",
+        "product_sha256": "ed508e612ff8dd1d74c0147f1734758668171a0fad8b0fb9ee653aa0",
     }
     manifest.update(manifest_overrides)
     (directory / "run.json").write_text(json.dumps(manifest))
