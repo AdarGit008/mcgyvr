@@ -22,7 +22,7 @@ mcgyvr = "mcgyvr.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.4",
-    "ruff>=0.16",
+    "ruff>=0.16.2",
     "mypy>=1.18",
     "types-pyyaml>=6.0.12.20260724",
 ]
