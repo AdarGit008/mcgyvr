@@ -216,6 +216,22 @@ def test_recorded_is_wider_than_keyed_and_the_gap_is_named(identity: Any) -> Non
         assert field not in identity.KEY
 
 
+def test_bundle_sha256_is_recorded_and_not_keyed_by_decision(identity: Any) -> None:
+    """ADR-0032 clause 6 (#291), which asked the question and answered it `no`.
+
+    Unlike its neighbours in `PENDING` this one has a writer
+    (`tools/breadth/measure.py:915`), so "nothing writes it" is not the reason —
+    #276's admission rule is, and no perturbation run has been done. The gap it
+    was raised to close is covered from the other end: `src/mcgyvr/prompts/*.md`
+    entered `product.SURFACE`, so the prompt files move `product_sha256`, which
+    is keyed.
+    """
+    assert "bundle_sha256" in identity.RECORDED
+    assert "bundle_sha256" in identity.PENDING
+    assert "bundle_sha256" not in identity.KEY
+    assert "product_sha256" in identity.KEY
+
+
 def test_drift_reads_absence_as_a_difference(identity: Any) -> None:
     """The resume check's question, and the same rule as the guard's."""
     complete = _manifest()
