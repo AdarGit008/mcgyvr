@@ -1,0 +1,145 @@
+{
+  "record": "bench/families/1",
+  "issue": 268,
+  "measured": "2026-08-17",
+  "status": "PAUSED. #268 opened to rule on every family and put a screen at admission; it stops after this sweep. Owner direction 2026-08-17: the check treats the symptom. The duplicates are authored, and a detector built before the emitter is fixed pays for the same defect twice. The issue resumes after the authoring side (#225), with the emitter recording what would turn this sweep into a lookup. This file is the evidence, committed so the 186,782 executions behind it are not spent again.",
+  "method": "Write A's reference as the solution, alias its functions to the names B's acceptance imports, run B's acceptance. Passing means A's behaviour satisfies everything B states. Deterministic, no model, no rig time. `families` entries are [subset, superset]: the superset passes the subset's acceptance and not the reverse.",
+  "derivation": "uv run --no-sync python tools/bench/families.py <arm> --workers 8, one arm at a time; `coverage` from the same module. Re-derivable, and expensive: the four arms together are 186,782 executions.",
+  "not_every_family_is_a_duplicate": "Five of the eight bench-py findings are containment — one computation stated twice, which is one slot's evidence occupying two. Three are not: a DIFFERENT function that passes only because the subset's acceptance never tests the case separating them. b430-sort-by-len is the clearest — all five of its assertion inputs give the same answer under sort-by-length and under plain sorted(), and `return sorted(words)` against its real accept.py prints ok. That is a false pass rather than a duplicate: it inflates every rate already measured. The three are filed on #269 with executed counterexamples, that issue owning what a pass can distinguish. The split between the two kinds was made by READING both references and hand-building counterexamples — three proven by execution, five by judgement — and is not mechanical.",
+  "why_a_mechanical_split_is_harder_than_it_looks": "The obvious probe — do the two references ever disagree — classifies almost everything as weak, because these acceptances do not state their input domain. unit_price(-7, 2) = -4 and fuel_legs(-7, 2) = 0 disagree, and they are the clearest real duplicate here. A probe can manufacture the counterexample; ruling whether that input is in the task's domain needs the prose. Designed, deliberately not built, recorded on #268 for whoever resumes.",
+  "what_this_cannot_see": "For a weak acceptance to surface here, it must admit a function written for an UNRELATED problem — the lowest bar there is. An acceptance that admits a plausible wrong version of its own task (an off-by-one, a dropped validation, an unsorted traversal) is invisible, because no other task happens to make that mistake. So a task with no family is not 'checked and clean', it is 'no unrelated function happened to pass'. Read `coverage` beside `families`, never apart: a task with four stand-ins tried and one with two hundred are both absent from the findings and are not the same claim. Further limits: a pair differing by an optional parameter has different arities and is never compared; where a source declares several functions of one arity the alias picks by sorted order and may pick wrong; references raising different exception types for one error read as distinct; a timeout counts as a failure.",
+  "the_prune_is_coarser_than_the_corpus_on_purpose": "`covers` matches on PARAMETER COUNT and discards the types the contracts declare, so b430-sort-by-len's `words: list` matched b267-alias-map's `aliases: dict`. Tightening it to types would cut false pairings and would also have removed that finding. The looseness is doing work until weak acceptance has its own instrument (#269); stated here so it is not mistaken for an oversight and tightened by someone who does not know what it bought.",
+  "the_arms_are_not_equally_strong": "CORRECTED 2026-08-17, and the correction is the finding. The first reading of 'bench-ts yields 7 families where bench-py yields 8' was that b430's TypeScript acceptance separates sort-by-length from plain sort and its Python one does not. It does not: plain `.sort()` passes b430's accept.mjs exactly as `sorted(words)` passes its accept.py, on the same five inputs. Both arms are equally weak. What differs is the STAND-IN. The ts aliasNames is `Object.keys(aliases).sort()`, which given an array returns its indices and fails; python's `sorted(aliases)` takes a list as happily as a dict. So the arm gap here measures python's duck typing, not the corpus — this method finds accidental stand-ins more often on the py arm for reasons that have nothing to do with the material, and a per-arm family count is not a per-arm quality read.",
+  "the_pool_gate_has_what_the_bench_gate_lacks": "pool-py yields 1 family in 499 tasks against the bench's 8 in 257. tools/problems/admit.py requires a no-op stub and an echo stub to FAIL before a problem is admitted; the bench gate has no equivalent. Suggestive only — different generators, different eras — and recorded because it points at the mechanism rather than at a rate.",
+  "arms": [
+    {
+      "arm": "bench-py",
+      "tasks": 257,
+      "comparable_pairs": 14641,
+      "runs": 21977,
+      "duplicates": [],
+      "families": [
+        [
+          "b172-trace-relay",
+          "b094-relay-chain"
+        ],
+        [
+          "b277-fuel-legs",
+          "b333-pace-split"
+        ],
+        [
+          "b302-stock-take",
+          "b277-fuel-legs"
+        ],
+        [
+          "b302-stock-take",
+          "b333-pace-split"
+        ],
+        [
+          "b322-fit-budget",
+          "b144-shelf-fit"
+        ],
+        [
+          "b348-bill-split",
+          "b230-crate-fill"
+        ],
+        [
+          "b373-set-minus",
+          "b131-prune-listing"
+        ],
+        [
+          "b430-sort-by-len",
+          "b267-alias-map"
+        ]
+      ],
+      "coverage": {
+        "tasks": 257,
+        "never_probed": 4,
+        "median_stand_ins": 111,
+        "under_five_stand_ins": 20
+      }
+    },
+    {
+      "arm": "bench-ts",
+      "tasks": 257,
+      "comparable_pairs": 12210,
+      "runs": 18179,
+      "duplicates": [],
+      "families": [
+        [
+          "b172-trace-relay",
+          "b094-relay-chain"
+        ],
+        [
+          "b277-fuel-legs",
+          "b333-pace-split"
+        ],
+        [
+          "b302-stock-take",
+          "b277-fuel-legs"
+        ],
+        [
+          "b302-stock-take",
+          "b333-pace-split"
+        ],
+        [
+          "b322-fit-budget",
+          "b144-shelf-fit"
+        ],
+        [
+          "b348-bill-split",
+          "b230-crate-fill"
+        ],
+        [
+          "b373-set-minus",
+          "b131-prune-listing"
+        ]
+      ],
+      "coverage": {
+        "tasks": 257,
+        "never_probed": 4,
+        "median_stand_ins": 102,
+        "under_five_stand_ins": 28
+      }
+    },
+    {
+      "arm": "pool-py",
+      "tasks": 499,
+      "comparable_pairs": 40090,
+      "runs": 80180,
+      "duplicates": [],
+      "families": [
+        [
+          "p180-print-expr-tree",
+          "p181-print-mixed-ops"
+        ]
+      ],
+      "coverage": {
+        "tasks": 499,
+        "never_probed": 0,
+        "median_stand_ins": 174,
+        "under_five_stand_ins": 4
+      }
+    },
+    {
+      "arm": "pool-ts",
+      "tasks": 499,
+      "comparable_pairs": 33223,
+      "runs": 66446,
+      "duplicates": [],
+      "families": [
+        [
+          "p180-print-expr-tree",
+          "p181-print-mixed-ops"
+        ]
+      ],
+      "coverage": {
+        "tasks": 499,
+        "never_probed": 0,
+        "median_stand_ins": 138,
+        "under_five_stand_ins": 5
+      }
+    }
+  ],
+  "the_arms_still_drift_and_here_is_what_shows_it": "The b430 asymmetry above is retracted; the drift it was cited for is not. 20 of 257 python references declare nested functions against 2 of 257 on the ts arm. ADR-0023 clause 4 found the same class independently: 104 bench and 106 reserve python checkers accepted only ValueError while their TypeScript twins used assert.throws(fn, Error, ...), which any subclass satisfies, on contracts that never name a type. Both are structural drift between two renderings of one prose, and both are #295's."
+}

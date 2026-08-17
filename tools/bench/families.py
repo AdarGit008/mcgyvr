@@ -33,12 +33,23 @@ does not; this catches ``b094``/``b172`` and the prose screen does not.** Neithe
 is sufficient, and a problem that is both re-skinned *and* re-parameterised is
 invisible to both.
 
+**Containment is directed, and the prune has to be too.** A source satisfies a
+target only if it supplies every function the target's acceptance imports, so
+the comparable direction is the one where the target's *arity multiset* is
+contained in the source's — not the one where the two are equal. Requiring
+equality was this scan's own blind spot and it cost two known families:
+``b333-pace-split`` declares ``pace_list/1`` and ``pace_of/2``, and
+``b302-stock-take`` and ``b277-fuel-legs`` each declare one function of arity 2,
+so shape equality never compared them and ``b302 ⊂ b277 ⊂ b333`` went unseen
+(#268, 2026-08-17). Pairs are therefore generated as directed ordered pairs
+under containment, which is why the run count is not twice the pair count.
+
 Further limits, so a reader does not take "no duplicates found" for "no
-duplicates": arity is a prune, so a pair differing by an optional parameter is
-never compared; multi-function tasks are aliased by sorted arity, so same-shape
-helpers may be paired in the wrong order; references that raise different
-exception types for one error read as distinct; and a timeout counts as a
-failure.
+duplicates": a pair differing by an *optional* parameter has different arities
+and is still never compared; where a source declares several functions of one
+arity, the alias picks by sorted order, so same-arity helpers may be paired in
+the wrong order; references that raise different exception types for one error
+read as distinct; and a timeout counts as a failure.
 """
 
 from __future__ import annotations
@@ -52,6 +63,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -108,6 +120,15 @@ ARMS: dict[str, Arm] = {
         (sys.executable, "accept.py"),
         "{new} = {old}",
     ),
+    "pool-ts": Arm(
+        REPO / "tools" / "problems" / "tasks" / "ts",
+        TS_SIGNATURE,
+        "reference.ts",
+        "accept.mjs",
+        "solution.ts",
+        ("node", "accept.mjs"),
+        "export const {new} = {old};",
+    ),
 }
 
 TIMEOUT_S = 25.0
@@ -127,9 +148,56 @@ class Task:
 
     @property
     def shape(self) -> tuple[int, ...]:
-        """Arity per declared function. Two tasks of different shape cannot
-        satisfy each other's acceptance, so this prunes before any run."""
+        """Arity per declared function, sorted. Reported, not compared — see
+        :func:`covers` for the prune, which is containment rather than
+        equality."""
         return tuple(arity for arity, _ in self.functions)
+
+    @property
+    def arities(self) -> Counter[int]:
+        """How many functions of each arity this task declares."""
+        return Counter(arity for arity, _ in self.functions)
+
+
+def covers(source: Task, target: Task) -> bool:
+    """Can ``source``'s reference stand in for every function ``target``'s
+    acceptance imports?
+
+    Only arity is checked, because that is all the alias can honour. The
+    relation is *directed*: a task declaring a helper as well as the function
+    under test covers one that declares the function alone, and not the
+    reverse. Equality — what this scan required until 2026-08-17 — is the
+    special case where both hold, and requiring it hid ``b302 ⊂ b277 ⊂ b333``.
+    """
+    have = source.arities
+    return all(have[arity] >= count for arity, count in target.arities.items())
+
+
+def aliases(source: Task, target: Task) -> list[tuple[str, str]]:
+    """``(source name, target name)`` per function the target imports.
+
+    Matched by arity, each source function spent at most once. Where the source
+    declares several of one arity the choice is by sorted order and may be the
+    wrong one — the false negative the module docstring names.
+
+    Defined only where :func:`covers` holds. Asked for a binding it cannot make,
+    it refuses: binding fewer names than the acceptance imports would produce a
+    NameError inside the run and read as "these two are distinct", which is the
+    silent false negative this whole scan exists to remove.
+    """
+    spare: dict[int, list[str]] = {}
+    for arity, name in source.functions:
+        spare.setdefault(arity, []).append(name)
+    out = []
+    for arity, name in target.functions:
+        if not spare.get(arity):
+            raise FamilyError(
+                f"{source.id} cannot stand in for {target.id}: no unspent "
+                f"function of arity {arity} for {name!r}. Pair on `covers` "
+                "before aliasing."
+            )
+        out.append((spare[arity].pop(0), name))
+    return out
 
 
 def load(arm: str) -> dict[str, Task]:
@@ -158,16 +226,14 @@ def satisfies(arm: str, source: Task, target: Task) -> bool:
     with tempfile.TemporaryDirectory(prefix="mcgyvr-families-") as tmp:
         work = Path(tmp)
         body = (source.directory / spec.reference).read_text(encoding="utf-8")
-        aliases = "\n".join(
+        bound = "\n".join(
             spec.alias.format(new=new, old=old)
-            # `strict` holds because the pair was selected on equal shape, which
-            # is arity per function — so the two tuples are the same length.
-            for (_, old), (_, new) in zip(
-                source.functions, target.functions, strict=True
-            )
+            # The pair was selected by `covers`, so every function the target
+            # imports has a source function of its arity to bind to.
+            for old, new in aliases(source, target)
             if old != new
         )
-        (work / spec.solution).write_text(f"{body}\n\n{aliases}\n", encoding="utf-8")
+        (work / spec.solution).write_text(f"{body}\n\n{bound}\n", encoding="utf-8")
         shutil.copy(target.directory / spec.accept, work / spec.accept)
         try:
             done = subprocess.run(
@@ -182,43 +248,66 @@ def satisfies(arm: str, source: Task, target: Task) -> bool:
         return done.returncode == 0 and "FAIL" not in done.stdout
 
 
-def scan(arm: str, workers: int = 10) -> dict[str, Any]:
-    """Every shape-compatible pair, both directions.
+def coverage(arm: str) -> dict[str, int]:
+    """How much of an arm this method can say anything about.
 
-    ``families`` entries are ``[subset, superset]``: the superset's reference
-    satisfies the subset's whole acceptance and not the reverse.
+    A task is only probed when some *other* task can stand in for it, and a
+    finding only lands when that stand-in — a function written for a different
+    problem — passes its acceptance. So "no family" is a statement about the
+    stand-ins tried, not about the task. Reported beside the findings in
+    ``families.json`` so the two are never read apart: a task with four rivals
+    and a task with two hundred are both "clean" in the families list and are
+    not the same claim.
     """
     tasks = load(arm)
-    pairs = [
-        (a, b)
-        for a, b in itertools.combinations(sorted(tasks), 2)
-        if tasks[a].shape == tasks[b].shape
+    probed = Counter(
+        target
+        for source, target in itertools.permutations(sorted(tasks), 2)
+        if covers(tasks[source], tasks[target])
+    )
+    tried = sorted(probed[task] for task in tasks)
+    return {
+        "tasks": len(tasks),
+        "never_probed": sum(1 for count in tried if count == 0),
+        "median_stand_ins": tried[len(tried) // 2],
+        "under_five_stand_ins": sum(1 for count in tried if count < 5),
+    }
+
+
+def scan(arm: str, workers: int = 10) -> dict[str, Any]:
+    """Every comparable pair, in each direction :func:`covers` allows.
+
+    ``families`` entries are ``[subset, superset]``: the superset's reference
+    satisfies the subset's whole acceptance and not the reverse. ``runs`` is
+    not twice ``pairs`` — containment is directed, so a pair whose covering
+    holds one way only is executed once.
+    """
+    tasks = load(arm)
+    runs = [
+        (source, target)
+        for source, target in itertools.permutations(sorted(tasks), 2)
+        if covers(tasks[source], tasks[target])
     ]
+    pairs = {tuple(sorted(run)) for run in runs}
     print(
-        f"{arm}: {len(tasks)} tasks, {len(pairs)} shape-compatible pairs, "
-        f"{2 * len(pairs)} runs",
+        f"{arm}: {len(tasks)} tasks, {len(pairs)} comparable pairs, {len(runs)} runs",
         file=sys.stderr,
     )
-    verdicts: dict[tuple[str, str], dict[str, bool]] = {}
+    verdicts: dict[tuple[str, str], bool] = {}
     with futures.ThreadPoolExecutor(max_workers=workers) as pool:
         submitted = {
-            pool.submit(satisfies, arm, tasks[a], tasks[b]): (a, b, "ab")
-            for a, b in pairs
+            pool.submit(satisfies, arm, tasks[source], tasks[target]): (source, target)
+            for source, target in runs
         }
-        submitted.update(
-            {
-                pool.submit(satisfies, arm, tasks[b], tasks[a]): (a, b, "ba")
-                for a, b in pairs
-            }
-        )
         for future in futures.as_completed(submitted):
-            a, b, direction = submitted[future]
-            verdicts.setdefault((a, b), {})[direction] = future.result()
+            verdicts[submitted[future]] = future.result()
 
     duplicates: list[list[str]] = []
     families: list[list[str]] = []
-    for (a, b), seen in sorted(verdicts.items()):
-        forward, backward = seen.get("ab", False), seen.get("ba", False)
+    for a, b in sorted(pairs):
+        # `a satisfies b` means a's reference passes b's acceptance, so a is the
+        # superset: it meets everything b requires and possibly more.
+        forward, backward = verdicts.get((a, b), False), verdicts.get((b, a), False)
         if forward and backward:
             duplicates.append([a, b])
         elif forward:
@@ -229,6 +318,7 @@ def scan(arm: str, workers: int = 10) -> dict[str, Any]:
         "arm": arm,
         "tasks": len(tasks),
         "pairs": len(pairs),
+        "runs": len(runs),
         "duplicates": duplicates,
         "families": sorted(families),
     }
