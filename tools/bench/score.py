@@ -176,7 +176,7 @@ class Verdict:
     #: carrying any of these was scored by fewer rungs than the arm declares,
     #: so a rate computed over it is not the rate it names. Kept separate from
     #: ``environment_issues`` because an absent tool leaves the same hole
-    #: visibly, and only this one arrives looking like a pass (ADR-0032).
+    #: visibly, and only this one arrives looking like a pass (ADR-0034).
     inconclusive: tuple[str, ...] = ()
 
     @property

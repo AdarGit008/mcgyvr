@@ -31,7 +31,7 @@ Every finding is attributed to a worker-added line wherever the check can know
 one. A tool that is not installed is recorded as an *environment* issue, not a
 worker rejection — a keyless or minimal install still reaches a verdict on the
 checks it could run. A tool that is installed and then *fails* is a different
-thing and ADR-0032 gives it a different answer: the rung is recorded as
+thing and ADR-0034 gives it a different answer: the rung is recorded as
 inconclusive and the change is not accepted, because a rung that cannot say
 what bar it applied reported clean while applying none.
 """
@@ -63,7 +63,7 @@ class InconclusiveRung:
     Not a finding: it makes no claim about the worker's change. Not merely an
     environment issue either, because an absent tool leaves a legible hole and
     this leaves none — the tool was there, it exited, and the rung reported
-    clean over a bar that never ran (#261, ADR-0032).
+    clean over a bar that never ran (#261, ADR-0034).
 
     Carried structured rather than as a sentence because a run manifest has to
     be able to answer *which rung was inconclusive* per row, and a rate quoted
@@ -94,7 +94,7 @@ class GateResult:
     but they are surfaced so a degraded run is never mistaken for a
     fully-checked one.
 
-    ``inconclusive`` is the stronger case and it *does* reject (ADR-0032). A
+    ``inconclusive`` is the stronger case and it *does* reject (ADR-0034). A
     missing linter is a hole the operator can see; a linter that crashed is a
     hole that looks like a pass, and this project has hit that three times.
     Every inconclusive rung is also rendered into ``environment_issues``, so a
@@ -233,7 +233,7 @@ class Gate:
                 # The tool was there and its answer is unreadable. Recorded in
                 # both channels: `inconclusive` decides the verdict, and the
                 # rendered sentence keeps every existing reader of
-                # `environment_issues` seeing it (ADR-0032).
+                # `environment_issues` seeing it (ADR-0034).
                 rung = InconclusiveRung(
                     adapter=adapter.name,
                     rung=label,

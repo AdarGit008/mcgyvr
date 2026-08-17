@@ -127,7 +127,7 @@ def test_missing_tool_is_an_environment_issue_not_a_rejection(
 def test_a_crashed_tool_refuses_where_an_absent_one_does_not(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The whole of ADR-0032, as one comparison against the test above (#261).
+    """The whole of ADR-0034, as one comparison against the test above (#261).
 
     Same repository, same clean change, same rung not running. The difference
     is only *why*, and it is the difference between a hole the operator can

@@ -1,4 +1,4 @@
-# ADR-0032 — a rung that cannot say what bar it applied is a refusal, and an absent tool is not
+# ADR-0034 — a rung that cannot say what bar it applied is a refusal, and an absent tool is not
 
 Status: Accepted
 Supersedes: none

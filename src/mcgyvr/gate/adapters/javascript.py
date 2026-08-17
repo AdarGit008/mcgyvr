@@ -18,7 +18,7 @@ absent that is an *environment* fault, surfaced as
 distinction the Python adapter and the acceptance rung (#38) draw. When a tool
 is present but its run cannot be read, that is
 :class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused
-(ADR-0032): eslint and prettier both answer a fatal config error with exit 2
+(ADR-0034): eslint and prettier both answer a fatal config error with exit 2
 and an empty stdout, which every reader here would otherwise score as clean.
 
 The three grammars (JavaScript, TypeScript, TSX) are selected by extension.

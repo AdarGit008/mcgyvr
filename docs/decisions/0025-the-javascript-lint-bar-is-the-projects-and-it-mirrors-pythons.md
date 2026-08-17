@@ -6,7 +6,7 @@ Superseded-by: none
 Amends: ADR-0021 (a paired arm's bar is part of the contrast, not of the
 language)
 Amended-by: ADR-0026 (2026-08-13) — the premise is withdrawn, the decision
-stands; ADR-0032 (2026-08-16) — this record's Context reads the adapter as
+stands; ADR-0034 (2026-08-16) — this record's Context reads the adapter as
 recording an environment issue on a failed invocation, and it records nothing
 Date: 2026-08-13
 

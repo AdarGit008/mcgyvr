@@ -19,7 +19,7 @@ An adapter supplies five capabilities:
   a fallback for when a contract does not declare one.
 
 Lint and format shell out to real tools, and a tool can fail the adapter in two
-distinct ways. Neither is the worker's fault, and ADR-0032 turns on telling them
+distinct ways. Neither is the worker's fault, and ADR-0034 turns on telling them
 apart:
 
 * **absent** — not on PATH at all. The reduction in the bar is legible from the
