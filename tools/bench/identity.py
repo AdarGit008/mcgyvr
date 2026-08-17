@@ -52,6 +52,7 @@ __all__ = [
     "ABSENT",
     "BACKFILLED",
     "BOUND_MATCH",
+    "BOUND_MATCH_PENDING",
     "CONTRAST",
     "GROUPS",
     "KEY",
@@ -247,7 +248,42 @@ PENDING_REASON: dict[str, str] = {
 # ADR-0019 D2 — the null is measured per target tier and does not transfer up the
 # ladder; ADR-0024 — a serving build nothing recorded has already moved results
 # twice; a bar that scores differently produces a different null.
+#
+# `tier` here is the LANGUAGE ARM — `bench-py` / `bench-ts`, as every run.json
+# records it — and the axis the product ladder calls a tier is `model` (#289).
+# D2's "per target tier" is therefore discharged by `model`, with language as an
+# additional split.
+#
+# The matching note on `mcgyvr.config.Tier` is DEFERRED, not written: `src/mcgyvr`
+# is inside `product.SURFACE`, so a docstring there moves `product_sha256` and
+# re-baselines the open round. It lands with the identity range #276's sequencing
+# already schedules before `r2` opens. Until then a reader of the ladder sense
+# meets no cross-reference, which is why this one states both senses in full
+# rather than pointing at a file.
 BOUND_MATCH: tuple[str, ...] = ("model", "tier", "gate_rungs", "serving_build")
+
+# Declared in the contract, not yet enforced here. ADR-0027 D9 put `cells` in
+# the matching key — a rate keyed on everything but its own denominator
+# transfers to subsets it never saw — and `reproducibility.json`'s `matching`
+# prose already states five fields against this tuple's four.
+#
+# Listed rather than left implicit for the reason `PENDING` exists above: a gap
+# a reader can see is a state, and a gap only one of two documents mentions is
+# an oversight waiting to be satisfied twice. #231 owns closing it, and #289
+# measured what it costs to honour — nothing, because a subset of an
+# already-paired set is itself already paired, so a subset bound is a
+# recomputation over verdicts on disk rather than a new dispatch.
+#
+# **It is not pending the way `PENDING` is, and promoting it is not the same
+# move.** Every entry in `PENDING` is a recorded *manifest* field awaiting
+# admission to `KEY`. `cells` is a field of a *bound record* — the denominator
+# the bound was measured over — and appears in neither `KEY` nor `RECORDED`,
+# because a run manifest does not carry it. So `BOUND_MATCH` gaining `cells`
+# would break `set(BOUND_MATCH) <= set(KEY)`, which
+# `tests/test_bench_identity.py` asserts today. Whoever closes D9 decides that
+# invariant's fate first: either the bound key stops being a subset of the run
+# key, or `cells` becomes a recorded field of the run it describes.
+BOUND_MATCH_PENDING: tuple[str, ...] = ("cells",)
 
 
 def digest(value: Any) -> str:
