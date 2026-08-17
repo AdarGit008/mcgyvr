@@ -41,7 +41,9 @@ arms = _by_path("arms", REPO / "tools" / "bench" / "arms.py")
 
 
 def _pairing(both_pass: int, both_fail: int, py_only: int, ts_only: int) -> Any:
-    return arms.Pairing("t", both_pass, both_fail, py_only, ts_only)
+    return arms.Pairing(
+        "t", both_pass, both_fail, py_only, ts_only, arms.mode.SINGLE_TIER
+    )
 
 
 def test_phi_matches_the_two_by_two_formula_worked_by_hand() -> None:
@@ -138,3 +140,49 @@ def test_a_single_arm_run_is_skipped_rather_than_read_as_total_agreement(
         encoding="utf-8",
     )
     assert arms.pair(run) is None
+
+
+def _paired_run(root: Path, py_mode: str | None, ts_mode: str | None) -> Path:
+    run = root / "some-run"
+    for arm, declared in (("bench-py", py_mode), ("bench-ts", ts_mode)):
+        cell = run / arm
+        cell.mkdir(parents=True)
+        (cell / "results.jsonl").write_text(
+            json.dumps({"task": "b001", "arm": "greedy", "draw": 0, "passed": True}),
+            encoding="utf-8",
+        )
+        if declared is not None:
+            (cell / "run.json").write_text(
+                json.dumps({"mode": declared}), encoding="utf-8"
+            )
+    return run
+
+
+def test_a_row_carries_the_mode_its_verdicts_were_measured_under(
+    tmp_path: Path,
+) -> None:
+    """A reader quoting one row needs to know what that row is a rate of."""
+    run = _paired_run(tmp_path, arms.mode.FULL_LADDER, arms.mode.FULL_LADDER)
+    found = arms.pair(run)
+
+    assert found is not None
+    assert found.mode == arms.mode.FULL_LADDER
+
+
+def test_a_manifest_with_no_mode_reads_as_the_pre_231_default(tmp_path: Path) -> None:
+    """Fifteen of the recorded paired runs predate the declaration, and reading
+    them as unknown would empty the table rather than describe it."""
+    run = _paired_run(tmp_path, None, None)
+    found = arms.pair(run)
+
+    assert found is not None
+    assert found.mode == arms.mode.SINGLE_TIER
+
+
+def test_two_arms_declaring_different_modes_are_not_a_pair(tmp_path: Path) -> None:
+    """One paired cell measured two ways is not one cell, and joining it would
+    put a contrast between modes inside a single row."""
+    run = _paired_run(tmp_path, arms.mode.SINGLE_TIER, arms.mode.FULL_LADDER)
+
+    with pytest.raises(arms.ArmsError, match=r"not measured under one mode"):
+        arms.pair(run)

@@ -31,9 +31,11 @@ own row; the totals line is a count of rows, never a pooled rate.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import math
 import sys
+import types
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,6 +43,26 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
 MEASUREMENTS = REPO / "records" / "measurements"
+
+
+def _sibling(name: str) -> types.ModuleType:
+    """A tool beside this one, imported by path.
+
+    `tools/bench` is a directory of scripts rather than a package, so a plain
+    import would resolve against however the caller happened to be invoked.
+    """
+    spec = importlib.util.spec_from_file_location(
+        name, Path(__file__).parent / f"{name}.py"
+    )
+    if spec is None or spec.loader is None:  # pragma: no cover — a broken tree
+        raise RuntimeError(f"tools/bench/{name}.py is not importable")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+mode = _sibling("mode")
 
 # The two directory names a paired bench run writes. A run holding one of them
 # is a single-arm sweep and is skipped rather than counted as total agreement.
@@ -60,6 +82,7 @@ class Pairing:
     both_fail: int
     py_only: int
     ts_only: int
+    mode: str
 
     @property
     def cells(self) -> int:
@@ -171,12 +194,25 @@ def pair(run: Path) -> Pairing | None:
                 tally["ts_only"] += 1
             case _:
                 tally["both_fail"] += 1
+    # Both arms of one run share its mode, so the row carries one — and a row
+    # is per run, which is why this reads `of` per cell rather than `banner`
+    # across the table. A banner over sixteen runs would refuse a mixture that
+    # is not a mixture: no figure here is drawn across two runs (#231 check 6).
+    found = mode.read(*(run / arm for arm in ARMS))
+    declared = {mode.of(manifest) for manifest in found} or {mode.SINGLE_TIER}
+    if len(declared) > 1:
+        raise ArmsError(
+            f"{run.name}: its arms declare {sorted(declared)}, so the two "
+            "halves of one paired cell were not measured under one mode and "
+            "the pair is not a pair"
+        )
     return Pairing(
         run.name,
         tally["both_pass"],
         tally["both_fail"],
         tally["py_only"],
         tally["ts_only"],
+        declared.pop(),
     )
 
 
@@ -218,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
                         "pass_concordance": round(row.pass_concordance, 4),
                         "phi": round(row.phi, 4),
                         "mcnemar_p": round(row.mcnemar_p, 6),
+                        "mode": row.mode,
                     }
                     for row in rows
                 ],
@@ -240,6 +277,14 @@ def main(argv: list[str] | None = None) -> int:
             f"{row.mcnemar_p:9.4f}"
         )
     print(f"\n{len(rows)} paired runs. Not pooled: model, condition and bar differ.")
+    # One declaration per mode present, not one for the table: every row above
+    # is a single run's figure, so a reader picking one row out needs to know
+    # what that row's rate is a rate OF (#231 check 6).
+    for declared in sorted({row.mode for row in rows}):
+        runs = [row.run for row in rows if row.mode == declared]
+        print(
+            f"\n{mode.declare({'mode': declared})}\n  {len(runs)} of {len(rows)} rows"
+        )
     return 0
 
 
