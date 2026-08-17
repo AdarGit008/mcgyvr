@@ -128,17 +128,29 @@ SURFACE: tuple[str, ...] = (
     "tools/bench/matrix.json",
     "tools/bench/product.py",
     # The bar as configuration. `score.lint_config` reads `pyproject.toml` at
-    # call time and `score.stage_js_toolchain` copies `eslint.config.mjs` into
-    # every workspace, so a rule flipped in either moves what the gate rejects
-    # without touching a line of scorer code. ADR-0025 clause 1 makes the eslint
-    # config the *project's* standard — it binds the gate, not just the bench.
+    # call time and `score.stage_config` copies `eslint.config.mjs` and
+    # `prettier.config.mjs` into every workspace, so a rule flipped in any of
+    # them moves what the gate rejects without touching a line of scorer code.
+    # ADR-0025 clause 1 makes the eslint config the *project's* standard — it
+    # binds the gate, not just the bench.
+    #
+    # `prettier.config.mjs` joined this list in the change that created it
+    # (#262, ADR-0035). Until then the JS/TS format bar was prettier's built-in
+    # defaults, pinned only through `package-lock.json` — the version was
+    # covered and the settings were not, because there were none to cover. A
+    # declared config that the pin did not hold would be this list's own defect
+    # restated: the round would cover the scorer and not the scorer's
+    # configuration, which is what ADR-0032 closed.
     "pyproject.toml",
     "eslint.config.mjs",
+    "prettier.config.mjs",
     # The bar as implementation. `uv.lock` decides which ruff resolves under
-    # `uv run` (328 rules as this project selects) and `package-lock.json`
-    # decides which eslint and typescript-eslint the workspace's linked
-    # `node_modules` supplies (66). ADR-0025's consequence is explicit: pinning
-    # the toolchain makes the checker version part of the instrument.
+    # `uv run` (250 rules as this project selects — the 328 that stood here was
+    # a string-prefix count that swept in ten unselected linters, corrected on
+    # #262) and `package-lock.json` decides which eslint, typescript-eslint and
+    # prettier the workspace's linked `node_modules` supplies (66 enabled rules
+    # for a `.ts` target). ADR-0025's consequence is explicit: pinning the
+    # toolchain makes the checker version part of the instrument.
     "uv.lock",
     "package-lock.json",
     # The vocabulary a contract is validated against (`src/mcgyvr/catalog.py`,
