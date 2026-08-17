@@ -317,3 +317,81 @@ resolvable, p = 1.000). Nothing downstream moves: **zero of the twelve rejected
 anything** (minimum p = 0.070), and that is what the argument rides on. The
 "eleven" figure propagated to `tools/instruments.json` (breadth-d2's
 `retired.why`) before this correction; the live tool is the authority.
+
+## Amendment — 2026-08-17 (#299): no bar was ever set, and a stack of small gains is not a null
+
+Two readings of this record have hardened into facts it does not support. Both
+push the same way — toward treating small measured gains as worthless — and both
+are corrected here rather than in the documents that carry them, because this is
+the record they cite.
+
+### `b` is a parameter. It was never 5pp, or any other number
+
+`5pp` appears three times above and **none of them is a decided target**:
+
+| where | what it actually is |
+|---|---|
+| D1 clause 1 | the **quantum** at n = 20 — `1/20`, an arithmetic property of a 20-task set |
+| the sizing table | one **row** among five (1pp, 2pp, 3pp, 5pp, 10pp), listing what each costs |
+| D5's recommendation | the **outcome** at n = 400 — "resolves +5 to +8pp" |
+
+D2 states the fitness rule over a free variable — *"the bench is fit for a bar
+`b` if and only if `MDE <= b` and `d < b`"* — and D3 then removes a fixed bar
+entirely for the cheapest lever class: *"for a Class R lever the bar is whatever
+the bench resolves — there is no floor of 3pp, or of any other inherited number,
+standing between a measured improvement and shipping."*
+
+So a reader cannot take a target from this record. That is deliberate: the whole
+of D3 is that one number cannot serve a prompt line and a fine-tune at once.
+
+**Where the reading entered.**
+[`docs/identity-surface-2026-08-16.md`](../identity-surface-2026-08-16.md) (#276)
+wrote *"n = 400 → 5.5pp. About 1.3x, and still short of 5pp on the arm's own
+psi"*, treating 5pp as a threshold to fall short of. That sentence has since been
+quoted as the reason n = 400 is not worth buying. The owner's note of 2026-08-17
+is that the number was not derived from anything — it was supplied in
+conversation and never decided. Annotated at the source.
+
+The argument against 400 that *does* survive is the one beside it and it is
+untouched here: 400 buys about 1.3x on the one stratum that resolves, nothing on
+the seven that cannot resolve at any n, and its value turns on whether new
+material is more responsive than the 88% frozen corpus we hold — which is #224's
+unmeasured number, gated by #272. That case rests on cost and on an unmeasured
+input, not on a bar.
+
+### Individually unresolved is not jointly null
+
+Five levers at +2pp each, every one of them below an MDE of 7pp, is not a system
+that gains nothing. It is plausibly a system that gains 10pp, which this bench
+resolves comfortably. Reading each contrast's non-rejection as a zero and then
+summing the zeros is not an inference the exact test licenses.
+
+D4 already guards half of this, and the guard holds:
+
+> A lever may be retired only by NULL. Never by UNDECIDED, and never by a small
+> number.
+
+— together with this record's own finding that *every* bundle contrast on the
+table is UNDECIDED. So nothing has in fact been retired, and the arithmetic
+error above has not yet been committed.
+
+What was missing is the positive half, stated here: **a set of individually
+unresolved, same-signed levers remains a live hypothesis, and declining to
+measure the combination is a choice about cost rather than a conclusion about the
+system.** #233 owns running it, and it is the cheap kind of question — a
+different contrast over material already authored, not more material.
+
+Two assumptions travel with the hypothesis and are named so the test is not
+mistaken for a foregone conclusion. The levers must be **same-signed** — a +2pp
+and a −2pp cancel — and they must not be **redundant**, since two levers that fix
+the same failures stack to one of them and not to two. Neither is measured on
+anything we hold. That is an argument for running #233, not for assuming either
+answer.
+
+### What this amendment does not change
+
+D1 through D6 stand as written. No bar is set here; setting one is not this
+record's job and is still per lever class under D3. The sizing function, the
+`psi` range and the n = 400 recommendation are untouched — what changes is only
+that a reader may not quote a target this record declined to fix, and may not
+read a row of UNDECIDEDs as a measured zero.
