@@ -917,3 +917,128 @@ def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:
         breadth.task_lost_every_draw([{"dispatch_error": "down"}, {"passed": False}])
         is False
     )
+
+
+# --- the three digests reach the manifest (#285) -----------------------------
+
+
+def _no_endpoint(monkeypatch: Any) -> None:
+    """No ollama here, and the manifest must say so rather than omit the fields."""
+    monkeypatch.setattr(breadth.identity_module, "_get_json", lambda *a, **k: None)
+    monkeypatch.setattr(breadth.identity_module, "_post_json", lambda *a, **k: None)
+
+
+def test_the_manifest_carries_every_digest_field_or_a_stated_null(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """ADR-0027 D2: absent means "predates the contract", so a fresh run has none.
+
+    A run made from here on writes all six fields. Where the world would not
+    answer it writes `null` **and the reason**, because a bare null is a state
+    a reader cannot act on — "nobody asked" and "it would not say" are different
+    facts about a measurement.
+    """
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), invocation, tier="d1", draws=2)
+    recorded = json.loads((tmp_path / "run.json").read_text())
+
+    for field in (
+        *breadth.identity_module.MODEL_PROBE_FIELDS,
+        "prompt_sha256",
+        "bar_sha256",
+    ):
+        assert field in recorded, f"{field} is absent, which claims the run predates it"
+    reasons = recorded[breadth.identity_module.REFUSALS]
+    for field in breadth.identity_module.MODEL_PROBE_FIELDS:
+        assert recorded[field] is None
+        assert reasons[field]
+    # The bar is asserted on the pairing rather than on the value: `d1` is the
+    # JS/TS arm, so it resolves where eslint is installed (CI) and refuses where
+    # it is not (a bare checkout). Either is correct; a null with no reason, or
+    # a digest with one, is not.
+    assert (recorded["bar_sha256"] is None) == ("bar_sha256" in reasons)
+
+
+def test_the_prompt_digest_is_the_render_and_not_the_system_half(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """The defect, measured: on `bench-py`'s 257 contracts `bundle_sha256` is
+    ONE value across `stock`, `norule`, `noscaffold` and `planonly`, because
+    every one of those levers edits the user message. Four conditions, one
+    digest — so the resume refusal that reads it cannot tell a mislabelled cell
+    from a correct one, which is how eight directories were mislabelled.
+    """
+    _no_endpoint(monkeypatch)
+    tasks = breadth.load_tier_tasks("bench-py")
+    seen = {}
+    for condition in (breadth.STOCK, breadth.NO_SCAFFOLD):
+        fields, _ = breadth.content_identity(
+            tasks, condition=condition, worker=_worker()
+        )
+        seen[condition] = fields["prompt_sha256"]
+    assert len(set(seen.values())) == 2, (
+        "the ablation did not move the prompt digest, which is the one thing "
+        "it exists to do"
+    )
+
+
+def test_a_digest_absent_from_an_older_directory_is_adopted_forward(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """`serving_build`'s argument: refusing a resume on a key the directory
+    could not have carried is a spurious refusal, not a caught one."""
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    path = tmp_path / "run.json"
+    older = json.loads(path.read_text())
+    for field in (*breadth.identity_module.MODEL_PROBE_FIELDS, "prompt_sha256"):
+        older.pop(field, None)
+    path.write_text(json.dumps(older))
+
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert len(json.loads(path.read_text())["invocations"]) == 2
+
+
+def test_a_digest_that_was_null_and_is_now_answered_refuses_the_resume(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """`null` is not absent, and this is the half of the rule that has teeth.
+
+    A directory whose endpoint would not name its weights holds rows measured
+    under weights nobody recorded. Appending rows measured under weights
+    somebody did would put both in one denominator, and the manifest would
+    describe only the second half.
+    """
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    monkeypatch.setattr(
+        breadth.identity_module,
+        "_get_json",
+        lambda *a, **k: {"models": [{"name": "test-model", "digest": "beef"}]},
+    )
+    with pytest.raises(breadth.bundle.MeasureError, match="model_sha256"):
+        breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+
+def test_the_reason_block_is_not_compared_as_identity(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """Two invocations that both failed to reach an endpoint may phrase it
+    differently — a timeout on one, a refused connection on the next — and that
+    is not a second run. What must agree is what the fields say."""
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    path = tmp_path / "run.json"
+    recorded = json.loads(path.read_text())
+    recorded[breadth.identity_module.REFUSALS] = {"model_sha256": "phrased otherwise"}
+    path.write_text(json.dumps(recorded))
+
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert len(json.loads(path.read_text())["invocations"]) == 2
