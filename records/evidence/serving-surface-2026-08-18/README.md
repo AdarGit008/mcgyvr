@@ -280,3 +280,59 @@ existence, and the refusal text says so and names where the answer lives.
 - `concurrency.json` — the ramps, per host and engine, with the token counts each
   server reported
 - `census.json` — every model on both rigs, with what each endpoint said about it
+
+
+---
+
+## Correction, 2026-08-19 — the concurrency method, twice
+
+Finding 2's method statement and Finding 7's numbers were both revised after two
+further vLLM configurations were measured. The corrections are recorded rather
+than edited in, because what was wrong is the useful part.
+
+**The first rule read the throughput plateau alone.** It returned **6 for both
+ollama hosts** — one configured `-np 2` and one `-np 1` — so it could not
+distinguish the two configurations it was meant to measure. Any claim that "the
+ramp recovers `OLLAMA_NUM_PARALLEL`" rests on reading the curve by eye, which is
+how it was originally reported here, and is withdrawn.
+
+**The second rule required the latency plateau to agree.** It fixed ollama and
+then threw away a correct answer: a vLLM launched `--max-num-seqs 16` reports a
+throughput plateau at 16 and a latency plateau at 8, because latency does not
+stay flat until queueing begins — a larger batch is slower per request even when
+every request fits. At n=12 of 16 slots, latency had risen 25% with no queueing.
+
+**What holds, measured 2026-08-19 on srv1:**
+
+| server | throughput plateau | max speedup | configured | reported |
+|---|---|---|---|---|
+| vLLM `--max-num-seqs 8` | 8 | 2.52 | 8 | **8** |
+| vLLM `--max-num-seqs 16` | 16 | 3.94 | 16 | **16** |
+| ollama `-np 2` | 6 | 1.69 | 2 | **none** |
+| ollama `-np 1` | 6 | — | 1 | **none** |
+
+The plateau is the batch width on a server that batches, and two different
+configured values were recovered on the same engine. Ollama's curve barely rises
+(1.69x), so the point at which it flattens is unrelated to its slot count — which
+is consistent with an independent throughput study finding that this engine's
+parallelism setting behaves as queue depth rather than as a batch.
+
+`BATCHING_SPEEDUP = 2.0` separates those groups and is a **judgement calibrated
+on four measurements**, not a derived constant. A fifth configuration could move
+it.
+
+## Correction — the exclusion gate, reproduced on hardware
+
+A review predicted from the source that the orchestrator's exclusion gate read
+*total* card usage rather than each backend's own footprint, so a backend holding
+nothing would report failure whenever another engine held the card. The first
+end-to-end survey reproduced it exactly:
+
+```
+q15-vllm-s16 REFUSED: ['ollama'] would not give up the card: ollama=4916 MiB
+family qwen2.5-coder-1.5b: … [2 of 3]
+```
+
+The 4,916 MiB was vLLM's own allocation. After the fix, the same survey measured
+all three entries and the family reported `[3 of 3]`. The unit tests passed
+throughout, because the stub backends always report a successful release.

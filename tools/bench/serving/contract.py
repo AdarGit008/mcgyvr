@@ -86,6 +86,12 @@ RAMP_PROMPT = (
     "Do not stop early. Keep writing continuous prose until you are cut off."
 )
 
+#: Below this peak-over-single-request ratio a server is not meaningfully
+#: batching, so its throughput curve has no knee and the plateau it does have is
+#: unrelated to its slot count. Calibrated on four measured configurations
+#: (2.52 and 3.94 against 1.71) — a judgement, not a derived constant.
+BATCHING_SPEEDUP = 2.0
+
 #: A card holding less than this is idle: a few hundred MiB is display and
 #: compositor overhead on these headless rigs, and a model is gigabytes.
 IDLE_GPU_MIB = 500
@@ -344,63 +350,74 @@ def ramp(
 def knee(levels: list[dict[str, Any]]) -> int | None:
     """The measured batch width, or ``None`` when the curve does not show one.
 
-    **Two statistics, and they must agree.** A server with ``k`` slots runs
-    ``k`` requests together, so up to ``k`` the per-request latency stays flat
-    and throughput climbs; past ``k`` the extra requests queue, latency grows
-    and throughput stops. The width therefore shows up twice — as the end of a
-    latency plateau, and as the start of a throughput plateau — and this returns
-    a number only when both say the same thing.
+    **The throughput plateau is the width — but only on a server that batches.**
+    Measured 2026-08-19 across four configurations:
 
-    **Requiring agreement is not caution, it is the correction.** An earlier
-    version used the throughput plateau alone and reported 6 for a host
-    configured with 2 slots. Worse, it reported **6 for both ollama rigs — one
-    running two slots and one running one** — so it could not distinguish the
-    two configurations it was supposed to be measuring. It was reading where a
-    slow creep flattens, which is not a batch width.
+    ==========================  ==================  ==============  ==========
+    server                      throughput plateau  max speedup     configured
+    ==========================  ==================  ==============  ==========
+    vLLM ``--max-num-seqs 8``   **8**               2.52            8
+    vLLM ``--max-num-seqs 16``  **16**              3.94            16
+    ollama ``-np 2``            6                   1.71            2
+    ollama ``-np 1``            6                   —               1
+    ==========================  ==================  ==============  ==========
 
-    Measured 2026-08-18:
+    So the plateau recovers the flag on the engine that batches and returns the
+    same 6 for two ollama hosts configured one slot apart. What separates them
+    is not which statistic to read but whether there is a knee to find: a server
+    that does not meaningfully batch has a curve that creeps and flattens
+    somewhere unrelated to its slot count.
 
-    ===========================  ==============  ================  ==========
-    server                       throughput      latency plateau   configured
-    ===========================  ==============  ================  ==========
-    vLLM, ``--max-num-seqs 8``   8               8                 **8**
-    ollama, ``-np 2``            6               none              2
-    ollama, ``-np 1``            6               none              1
-    ===========================  ==============  ================  ==========
+    **Two earlier rules were wrong and are recorded because the reasons differ.**
+    The first read the plateau alone and reported 6 for a 2-slot host. The
+    second required the latency plateau to agree — which fixed ollama and then
+    threw away a CORRECT answer for ``--max-num-seqs 16``, because latency does
+    not stay flat until queueing starts: a larger batch is slower per request
+    even when every request fits, and at n=12 of 16 slots latency rose 25% with
+    no queueing at all.
 
-    So this recovers a vLLM batch width and returns ``None`` for ollama — and
-    the ``None`` is a finding rather than a gap. Ollama shows no latency
-    plateau at any width because it is not batching in the way that produces
-    one, which is the same conclusion an independent throughput study reached
-    from the other direction: its parallelism setting behaves as queue depth
-    rather than as a batch.
+    :data:`BATCHING_SPEEDUP` is a judgement calibrated on those four
+    measurements, not a derived constant — it separates 2.52 and 3.94 from 1.71
+    and nothing finer has been measured. A fifth configuration could move it.
     """
     plateau = _throughput_plateau(levels)
-    flat = _latency_plateau(levels)
-    return plateau if plateau is not None and plateau == flat else None
+    speedup = _max_speedup(levels)
+    if plateau is None or speedup is None or speedup < BATCHING_SPEEDUP:
+        return None
+    return plateau
 
 
 def readings(levels: list[dict[str, Any]]) -> dict[str, Any]:
-    """Both statistics and the agreement between them, for the record.
+    """Every statistic behind the verdict, so a reader can see WHY.
 
-    Kept beside :func:`knee` so a reader can see WHY a width was or was not
-    recovered rather than only that it was not.
+    Both plateaus are reported even though only the throughput one decides the
+    width, because the disagreement between them is informative: on a 16-slot
+    server they differ by design — latency rises with batch size before any
+    queueing starts — and a reader who only saw the verdict could not tell that
+    from a broken measurement.
     """
-    plateau = _throughput_plateau(levels)
-    flat = _latency_plateau(levels)
-    rates = [row["tokens_per_s"] or 0 for row in levels]
-    single = next((row["tokens_per_s"] for row in levels if row["n"] == 1), None)
+    speedup = _max_speedup(levels)
     return {
-        "throughput_plateau_n": plateau,
-        "latency_plateau_n": flat,
-        "agree": plateau is not None and plateau == flat,
-        "max_speedup_vs_n1": (round(max(rates) / single, 2) if single else None),
+        "throughput_plateau_n": _throughput_plateau(levels),
+        "latency_plateau_n": _latency_plateau(levels),
+        "max_speedup_vs_n1": speedup,
+        "batches": None if speedup is None else speedup >= BATCHING_SPEEDUP,
         "note": (
-            "a width is reported only when both statistics agree; the "
-            "throughput plateau alone returned the same number for two "
-            "servers configured one slot apart"
+            "the throughput plateau is the batch width on a server that "
+            "batches; below BATCHING_SPEEDUP the curve has no knee to find and "
+            "its plateau is unrelated to the slot count — measured 6 for two "
+            "ollama hosts configured one slot apart"
         ),
     }
+
+
+def _max_speedup(levels: list[dict[str, Any]]) -> float | None:
+    """Peak throughput over the single-request rate — does this server batch?"""
+    single = next((row["tokens_per_s"] for row in levels if row["n"] == 1), None)
+    rates = [row["tokens_per_s"] or 0 for row in levels]
+    if not single or not rates:
+        return None
+    return round(max(rates) / single, 2)
 
 
 def _throughput_plateau(levels: list[dict[str, Any]]) -> int | None:

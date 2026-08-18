@@ -375,17 +375,19 @@ def test_a_knee_that_misses_its_expectation_is_flagged(
 # --- the shared pieces ------------------------------------------------------
 
 
-def test_a_width_is_reported_only_when_both_statistics_agree(contract: Any) -> None:
-    """The correction: a throughput plateau alone is not a batch width.
+def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
+    """Two configured values on one engine, and a decline on the other.
 
-    Real measurements, 2026-08-18. The vLLM server was launched with
-    `--max-num-seqs 8` and both statistics land on 8. The two ollama servers
-    were configured one slot apart — `-np 2` and `-np 1` — and the throughput
-    plateau returns **6 for both**, so on its own it could not distinguish the
-    two configurations it was meant to measure. Requiring the latency plateau to
-    agree turns that into `None`, which is the honest reading: ollama shows no
-    latency plateau at any width because it is not batching in the way that
-    produces one.
+    Real measurements. The vLLM servers were launched `--max-num-seqs 8` and
+    `--max-num-seqs 16` and the throughput plateau returns exactly those — two
+    DIFFERENT values on the same engine, which is what makes this a measurement
+    of the flag rather than a number that happened to match once.
+
+    Two earlier rules were wrong in opposite directions and both are pinned
+    here. Reading the plateau alone reported 6 for a 2-slot ollama host.
+    Requiring the latency plateau to agree fixed that and then threw away the
+    correct 16, because latency does not stay flat until queueing starts: at
+    n=12 of 16 slots it had already risen 25% with every request still fitting.
     """
 
     def rows(triples: list[tuple[int, float, float]]) -> list[dict[str, Any]]:
@@ -393,22 +395,33 @@ def test_a_width_is_reported_only_when_both_statistics_agree(contract: Any) -> N
             {"n": n, "tokens_per_s": t, "latency_mean_s": lat} for n, t, lat in triples
         ]
 
-    vllm = rows(
+    vllm8 = rows(
         [
-            (1, 42.6, 3.004),
-            (2, 27.6, 9.277),
-            (3, 40.8, 9.377),
-            (4, 54.4, 9.398),
-            (6, 80.5, 9.525),
-            (8, 106.5, 9.596),
-            (12, 80.9, 12.739),
-            (16, 106.8, 14.418),
-            (24, 107.3, 19.133),
+            (1, 42.6, 3.002),
+            (2, 27.5, 9.291),
+            (3, 40.7, 9.405),
+            (4, 54.3, 9.403),
+            (6, 80.7, 9.502),
+            (8, 106.3, 9.615),
+            (12, 81.3, 12.695),
+            (16, 106.9, 14.396),
+            (24, 107.2, 19.154),
         ]
     )
-    assert contract.knee(vllm) == 8, "the configured --max-num-seqs"
-
-    ollama_two = rows(
+    vllm16 = rows(
+        [
+            (1, 42.6, 3.005),
+            (2, 27.4, 9.326),
+            (3, 40.9, 9.369),
+            (4, 54.3, 9.405),
+            (6, 80.8, 9.482),
+            (8, 106.3, 9.62),
+            (12, 127.7, 12.01),
+            (16, 167.7, 12.196),
+            (24, 140.2, 15.584),
+        ]
+    )
+    ollama = rows(
         [
             (1, 98.9, 1.293),
             (2, 147.6, 1.729),
@@ -421,27 +434,20 @@ def test_a_width_is_reported_only_when_both_statistics_agree(contract: Any) -> N
             (24, 168.4, 10.287),
         ]
     )
-    ollama_one = rows(
-        [
-            (2, 108.1, 1.877),
-            (3, 113.1, 2.398),
-            (4, 116.5, 2.918),
-            (6, 120.2, 3.938),
-            (8, 122.9, 4.892),
-            (12, 124.3, 6.949),
-            (16, 125.1, 8.976),
-            (24, 125.5, 13.161),
-        ]
-    )
-    assert contract.knee(ollama_two) is None
-    assert contract.knee(ollama_one) is None
 
-    # The reason the old rule was unsafe: identical answer, different servers.
-    assert (
-        contract.readings(ollama_two)["throughput_plateau_n"]
-        == contract.readings(ollama_one)["throughput_plateau_n"]
-        == 6
-    )
+    assert contract.knee(vllm8) == 8
+    assert contract.knee(vllm16) == 16
+    assert contract.knee(ollama) is None
+
+    # WHY ollama declines: its curve barely rises, so the place it flattens is
+    # not a slot count. The plateau alone would have said 6.
+    assert contract.readings(ollama)["batches"] is False
+    assert contract.readings(ollama)["throughput_plateau_n"] == 6
+    assert contract.readings(vllm16)["batches"] is True
+
+    # WHY the agreement rule was wrong: on a 16-slot server the two plateaus
+    # differ by design, because a bigger batch is slower per request.
+    assert contract.readings(vllm16)["latency_plateau_n"] == 8
 
 
 def test_a_base_url_ending_in_v1_is_not_doubled(contract: Any) -> None:
