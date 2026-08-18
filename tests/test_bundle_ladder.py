@@ -494,6 +494,97 @@ def test_resuming_onto_an_edited_task_set_is_refused(
         measure.record_run(tmp_path, worker, {})
 
 
+# --- the resume check is the contract's, over a declared field set (#287) ----
+
+# Read at collection so the parametrised cases below iterate the declaration
+# itself rather than a list written out here — a field added to the rig's set
+# without a refusal case is then a test failure, not a gap.
+_IDENTITY_FIELDS: tuple[str, ...] = _measure().IDENTITY_FIELDS
+
+
+def _mutated(value: object) -> object:
+    """A different value of the same shape, so the refusal is about identity."""
+    if value is None:
+        return "now-answered"
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, (int, float)):
+        return value + 1
+    if isinstance(value, str):
+        return value + "-other"
+    if isinstance(value, list):
+        return [*value, "other"]
+    assert isinstance(value, dict), f"unhandled shape {type(value)}"
+    return {**value, "mutation-probe": "x"}
+
+
+def test_the_manifest_keys_are_exactly_the_declared_field_set(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
+    """#287 defect 1: the checked set was whatever the runner happened to write.
+
+    Two assertions, and the second is the regression guard: the freshly
+    assembled manifest carries the declared fields and nothing else, and every
+    declared field is a name ``identity.GROUPS`` has heard of — so this rig can
+    never again record a field outside the contract, which is how ``language``
+    and ``conditions_sha256`` lived here while the module knew neither.
+    """
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+    measure.record_run(tmp_path, worker, {})
+    recorded = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+
+    assert set(recorded) - {"invocations"} == set(measure.IDENTITY_FIELDS)
+    assert set(measure.IDENTITY_FIELDS) <= set(measure.identity_module.RECORDED)
+
+
+@pytest.mark.parametrize("field", sorted(_IDENTITY_FIELDS))
+def test_a_manifest_mutated_in_any_identity_field_refuses_the_resume(
+    tmp_path: Path, live_instruments: types.ModuleType, field: str
+) -> None:
+    """The old comparison walked the new dict; this one walks the declaration."""
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+    measure.record_run(tmp_path, worker, {})
+
+    path = tmp_path / "run.json"
+    recorded = json.loads(path.read_text(encoding="utf-8"))
+    recorded[field] = _mutated(recorded[field])
+    path.write_text(json.dumps(recorded), encoding="utf-8")
+
+    with pytest.raises(measure.MeasureError, match=field):
+        measure.record_run(tmp_path, worker, {})
+
+
+@pytest.mark.parametrize("field", sorted(_IDENTITY_FIELDS))
+def test_a_field_the_resuming_invocation_no_longer_writes_is_drift(
+    tmp_path: Path, live_instruments: types.ModuleType, field: str
+) -> None:
+    """#287 defect 2: the old comparison walked only the new dict's keys, so a
+    field present in ``previous`` and no longer written resumed silently and
+    the manifest kept a stale value describing rows it did not measure.
+    ``identity.drift`` compares state as well as value, so the direction needs
+    no new logic — only a field set that is not derived from the new dict.
+
+    Asserted on ``drift`` itself rather than through ``record_run``, because
+    the runner writes all six unconditionally — the direction guards the next
+    edit to it, not a path reachable today. (Through ``record_run`` the
+    ``language`` case would also meet the call site's adoption first: absence
+    is read as the arm that was the only one there was, #167.)
+    """
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+    measure.record_run(tmp_path, worker, {})
+    recorded = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+
+    resumed = {k: v for k, v in recorded.items() if k != "invocations"}
+    del resumed[field]
+    drifted = measure.identity_module.drift(
+        recorded, resumed, fields=measure.IDENTITY_FIELDS
+    )
+    assert drifted == [field]
+
+
 def test_neither_arm_can_have_a_run_recorded_for_it_any_more(tmp_path: Path) -> None:
     """#240 retired both of this rig's task sets, so this rig no longer measures.
 

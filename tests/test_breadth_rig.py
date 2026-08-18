@@ -1042,3 +1042,148 @@ def test_the_reason_block_is_not_compared_as_identity(
 
     breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
     assert len(json.loads(path.read_text())["invocations"]) == 2
+
+
+# --- the resume check is the contract's, over a declared field set (#287) ----
+
+
+# One fully populated manifest, every declared field obtained, in the manner of
+# `tests/test_bench_identity.py`'s fixture. The parametrised cases below iterate
+# `breadth.IDENTITY_FIELDS` itself — never a list written out here — and the
+# coverage test holds this dict to the declaration so a field added to the
+# runner cannot arrive without a refusal case.
+_FULL_MANIFEST: dict[str, Any] = {
+    "endpoint": "http://srv2:11434",
+    "protocol": "openai",
+    "model": "qwen2.5-coder:1.5b",
+    "serving_build": "0.32.5",
+    "tier": "bench-py",
+    "draws": 5,
+    "greedy_temperature": 0.0,
+    "sampled_temperature": 0.7,
+    "max_output_tokens": 768,
+    "condition": "stock",
+    "gate_rungs": ["scope", "secrets", "structured", "adapters", "acceptance"],
+    "gate_semantic": False,
+    "mode": "single-tier",
+    "bundle_sha256": "aa" * 32,
+    "tasks_sha256": {"function_implementation": "bb" * 32},
+    "prompt_sha256": "cc" * 32,
+    "bar_sha256": "dd" * 32,
+    "model_sha256": "ee" * 32,
+    "vocabulary_sha256": "ff" * 32,
+    "merges_sha256": "ab" * 32,
+    "template_sha256": "cd" * 32,
+    "round": "r1-commissioning",
+    "product_sha256": "ef" * 32,
+}
+
+
+def _mutated(value: Any) -> Any:
+    """A different value of the same shape, so the refusal is about identity."""
+    if value is None:
+        return "now-answered"
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, (int, float)):
+        return value + 1
+    if isinstance(value, str):
+        return value + "-other"
+    if isinstance(value, list):
+        return [*value, "other"]
+    assert isinstance(value, dict), f"unhandled shape {type(value)}"
+    return {**value, "mutation-probe": "x"}
+
+
+def test_the_fixture_covers_every_declared_field() -> None:
+    """The coverage claim, checked rather than asserted in a docstring."""
+    assert set(_FULL_MANIFEST) == set(breadth.IDENTITY_FIELDS), (
+        "a field joined IDENTITY_FIELDS with no refusal case below, or left it "
+        "while the fixture still carries one"
+    )
+
+
+def test_every_declared_field_is_in_the_contract() -> None:
+    """#287 defect 3's regression guard, module half: a runner can never again
+    record a field `identity.GROUPS` has not heard of — which is how the bundle
+    rig guarded its resume on two fields that appeared nowhere in the module."""
+    assert set(breadth.IDENTITY_FIELDS) <= set(breadth.identity_module.RECORDED)
+
+
+def test_the_manifest_keys_are_exactly_the_declared_field_set(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """#287 defect 1: the checked set was whatever the runner happened to write.
+
+    A freshly assembled bench manifest, minus the two annotations and the
+    invocation log, carries the declared fields and nothing else. With this
+    green, a field added to `identity.GROUPS` and written by this runner
+    without joining its drift set fails here — the declaration, the dict and
+    the contract can no longer drift apart silently.
+    """
+    _no_endpoint(monkeypatch)
+    monkeypatch.setattr(
+        breadth.product, "require_pinned", lambda *a, **k: ("r-test", "0" * 64)
+    )
+    breadth.record_run(
+        tmp_path,
+        _worker(),
+        {"started": "2026-08-18T00:00:00+00:00", "tasks": []},
+        tier="bench-ts",
+        draws=0,
+    )
+    recorded = json.loads((tmp_path / "run.json").read_text())
+
+    annotations = {
+        breadth.identity_module.REFUSALS,
+        breadth.identity_module.BAR,
+        "invocations",
+    }
+    assert set(recorded) - annotations == set(breadth.IDENTITY_FIELDS)
+
+
+@pytest.mark.parametrize("field", sorted(breadth.IDENTITY_FIELDS))
+def test_a_field_mutated_in_the_previous_manifest_is_drift(field: str) -> None:
+    """One direction of the per-field refusal, off the declaration itself."""
+    previous = dict(_FULL_MANIFEST)
+    previous[field] = _mutated(previous[field])
+    drifted = breadth.identity_module.drift(
+        previous, dict(_FULL_MANIFEST), fields=breadth.IDENTITY_FIELDS
+    )
+    assert drifted == [field]
+
+
+@pytest.mark.parametrize("field", sorted(breadth.IDENTITY_FIELDS))
+def test_a_field_the_resuming_invocation_no_longer_writes_is_drift(
+    field: str,
+) -> None:
+    """#287 defect 2: the old comparison walked only the new dict's keys, so a
+    field present in `previous` and no longer written resumed silently and the
+    manifest kept a stale value describing rows it did not measure.
+    `identity.drift` compares state as well as value, so the direction needs no
+    new logic — only a field set that is not derived from the new dict."""
+    resumed = dict(_FULL_MANIFEST)
+    del resumed[field]
+    drifted = breadth.identity_module.drift(
+        dict(_FULL_MANIFEST), resumed, fields=breadth.IDENTITY_FIELDS
+    )
+    assert drifted == [field]
+
+
+def test_the_drift_verdict_still_arrives_as_the_resume_refusal(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """The wiring half: `identity.drift`'s verdict is what `record_run` refuses
+    on, with the field named in the error. The per-field cases above prove the
+    comparison; this proves the runner asks it."""
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-18T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    path = tmp_path / "run.json"
+    recorded = json.loads(path.read_text())
+    recorded["condition"] = "planonly"
+    path.write_text(json.dumps(recorded), encoding="utf-8")
+
+    with pytest.raises(breadth.bundle.MeasureError, match="condition"):
+        breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)

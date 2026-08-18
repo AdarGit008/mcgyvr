@@ -177,7 +177,16 @@ mode = _bench_mode()
 
 
 def _bench_identity() -> types.ModuleType:
-    """Run identity, and the three digests it computes for us (ADR-0027, #285)."""
+    """Run identity, and the three digests it computes for us (ADR-0027, #285).
+
+    Shared through the ``sys.modules`` slot with the bundle rig's copy (#287):
+    two loads of the contract would be the five-lists problem rebuilt one
+    level down, and the bundle module above has already loaded it by the time
+    this runs.
+    """
+    cached = sys.modules.get("bench_identity")
+    if cached is not None:
+        return cached
     spec = importlib.util.spec_from_file_location(
         "bench_identity", HERE.parent / "bench" / "identity.py"
     )
@@ -949,6 +958,44 @@ def content_identity(
     return fields, refusals
 
 
+#: Every identity field this rig's ``record_run`` writes, declared beside it so
+#: the resume check is over a named set rather than the keys of the local dict
+#: it just assembled (#287, ADR-0027 D1). Derived from the new dict, the check
+#: could never notice a field added to ``identity.GROUPS`` that this rig fails
+#: to write, nor a field ``previous`` carries that a resume no longer does — a
+#: test asserts a freshly assembled manifest's keys, minus the two annotations,
+#: equal this tuple, and that every name here is in ``identity.RECORDED``.
+#:
+#: ``round`` and ``product_sha256`` are written for bench tiers only; on a
+#: `d1`-`d3` or `pool-*` resume both sides are absent, which
+#: ``identity.drift`` reads as agreement rather than drift.
+IDENTITY_FIELDS: tuple[str, ...] = (
+    "endpoint",
+    "protocol",
+    "model",
+    "serving_build",
+    "tier",
+    "draws",
+    "greedy_temperature",
+    "sampled_temperature",
+    "max_output_tokens",
+    "condition",
+    "gate_rungs",
+    "gate_semantic",
+    "mode",
+    "bundle_sha256",
+    "tasks_sha256",
+    "prompt_sha256",
+    "bar_sha256",
+    "model_sha256",
+    "vocabulary_sha256",
+    "merges_sha256",
+    "template_sha256",
+    "round",
+    "product_sha256",
+)
+
+
 def record_run(
     out: Path,
     worker: Any,
@@ -1075,19 +1122,14 @@ def record_run(
         # The reasons block is an annotation on the fields, not a field. Two
         # invocations that both failed to reach an endpoint may phrase it
         # differently — a timeout on one, a refused connection on the next —
-        # and that is not a second run. What must agree is what the fields say,
-        # and they are compared directly.
+        # and that is not a second run. What must agree is what the fields say.
         # `bar_resolved` joins the reasons block in being an annotation rather
         # than a field: it is the material `bar_sha256` hashes, so comparing
         # both would refuse a resume twice for one change — and would refuse it
         # for a cosmetic edit to a config comment, which the digest also catches
-        # but which reads very differently in a 250-rule diff.
-        annotations = (identity_module.REFUSALS, identity_module.BAR)
-        drift = sorted(
-            k
-            for k, v in identity.items()
-            if k not in annotations and previous.get(k) != v
-        )
+        # but which reads very differently in a 250-rule diff. Neither is in
+        # IDENTITY_FIELDS, which is how they stay out of the comparison (#287).
+        drift = identity_module.drift(previous, identity, fields=IDENTITY_FIELDS)
         if drift:
             # A bench directory written before rounds existed carries no
             # revision, so `round` and `product_sha256` show as drift here. That

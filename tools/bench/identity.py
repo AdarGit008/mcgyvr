@@ -135,6 +135,13 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "sampled_temperature",
         "max_output_tokens",
         "seed",
+        # The retired bundle rig's resume-guard fields (DEC-9, #287). Its two
+        # committed manifests already carry these names, so they join the
+        # contract rather than surviving as a sixth list in the one rig #265
+        # did not touch. Recorded, never keyed — #240 retired both arms, so
+        # nothing will ever ask #276's rule to admit them.
+        "language",
+        "conditions_sha256",
     ),
     # What served it. Observed, never assumed: two builds are two instruments
     # (ADR-0024), and concurrency decides whether greedy is reproducible at all.
@@ -243,6 +250,17 @@ PENDING_REASON: dict[str, str] = {
     "sampled_temperature": AWAITING_ADMISSION,
     "gate_semantic": AWAITING_ADMISSION,
     "mode": AWAITING_ADMISSION,
+    # The retired bundle rig's resume-guard fields (DEC-9, #287): recorded so
+    # its committed manifests sit inside the contract, and keyed by nothing —
+    # #240 retired both arms, so no perturbation run will ever be made to admit
+    # them. `conditions_sha256` is on both committed manifests under this name
+    # (records/measurements/{jsts-bundle-2026-08-04,python-bundle-2026-08-07}/
+    # run.json); `language` is on the python one, and the jsts arm predates it
+    # and adopts it at the call site.
+    "language": "the retired bundle rig's resume-guard field (DEC-9): recorded, "
+    "keyed by nothing — #240 retired both arms",
+    "conditions_sha256": "the retired bundle rig's resume-guard field (DEC-9): "
+    "recorded, keyed by nothing — #240 retired both arms",
 }
 
 

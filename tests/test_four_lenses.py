@@ -116,6 +116,13 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # different schemas and are NOT required to agree — but a reader sees one
     # number in three files, so it is declared rather than left to be noticed.
     "SCHEMA_VERSION": False,
+    # Each rig's declared resume field set (#287): one name by design — the
+    # tests that hold a manifest's keys to the declaration read the same shape
+    # in both rigs — and two values by design, because the rigs record
+    # different identity blocks. What must agree is not the tuples but their
+    # membership in `identity.RECORDED`, which each rig's declared-set test
+    # asserts against the one contract module.
+    "IDENTITY_FIELDS": False,
     # Name collisions across unrelated meanings.
     "CHECK": False,  # the gate's own per-module check name
     "ARMS": False,  # each rig's arms are its own

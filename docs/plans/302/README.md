@@ -139,7 +139,7 @@ Goal: the plan has a home; the ADR namespace is governed; the first check lands.
 Goal: after P1, no known defect contaminates a row, identity doesn't lie, and nothing else needs
 the SURFACE before r2. Sub-items land in numbered order, one lane each.
 
-1. - [ ] **#287** — both runners' resume-drift checks route through `identity.drift()`.
+1. - [x] **#287** — both runners' resume-drift checks route through `identity.drift()`.
    DEC-9: `language`/`conditions_sha256` join GROUPS at this boundary (adopted line included).
 2. - [ ] **#286** — the observed block: writer in both runners; probe set (quantization,
    context_length, concurrency, seed); file beside run.json. (probe_model verified live on srv2,
