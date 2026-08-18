@@ -1,4 +1,4 @@
-# ADR-0035 — the bare word "bar" is banned: adoption-bar and scoring-bar name two decisions
+# ADR-0036 — the bare word "bar" is banned: adoption-bar and scoring-bar name two decisions
 
 Status: Accepted
 Supersedes: none
@@ -95,3 +95,14 @@ documents.
   decisions survived because each use was locally unambiguous to its author.
   The test this record applies — *do the two referents move for different
   reasons?* — is reusable the next time one term quietly covers two things.
+
+## Renumbered (2026-08-18)
+
+This record was written and merged as **ADR-0035** (#301, PR #303, 2026-08-17
+23:25). Seventy minutes earlier, #262's ceiling record had merged under the
+same number (PR #298, 22:15) — two lanes on one evening, and nothing in the
+tree could refuse the second claim: no test reads docs/decisions/, and there
+was no index. Resolved on lane/304 (P0 of the #302 plan): this file is
+renumbered to **ADR-0036**, so ADR-0035 resolves uniquely to the ceiling
+record — which every code, config, and test citation already meant.
+`tests/test_decisions.py` now refuses a duplicated number corpus-wide.
