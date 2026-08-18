@@ -8,8 +8,8 @@
   "command_timeout_ms": 600000,
   "decision_globs": ["docs/decisions/0*.md"],
   "doc_globs": ["**/*.md"],
-  "generated_globs": ["docs/config-reference.md"],
-  "_generated_globs": "CTX-08: the config reference is rendered from SCHEMA in src/mcgyvr/config.py by `make docs`. Hand-editing it is the failure the marker exists to prevent.",
+  "generated_globs": ["docs/config-reference.md", "docs/decisions/INDEX.md"],
+  "_generated_globs": "CTX-08: the config reference is rendered from SCHEMA in src/mcgyvr/config.py, and the decision index from the records' own headers by tools/decisions/index.py — both by `make docs`. Hand-editing either is the failure the marker exists to prevent.",
   "grounding_docs": ["docs/decisions/0001-founding-scope-and-boundaries.md"],
   "prior_art_recheck_days": 90,
   "sources_of_truth": {
