@@ -1,0 +1,324 @@
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 0, "value": 4958, "seconds": 1.112}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 0, "value": 0.934}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 1, "value": 4958, "seconds": 0.946}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 1, "value": 0.921}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 2, "value": 4958, "seconds": 0.937}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 2, "value": 0.924}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 3, "value": 4958, "seconds": 0.986}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 3, "value": 1.177}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 4, "value": 4958, "seconds": 1.032}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 4, "value": 0.897}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 5, "value": 4958, "seconds": 0.991}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 5, "value": 0.928}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 6, "value": 4958, "seconds": 0.969}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 6, "value": 0.903}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 7, "value": 4958, "seconds": 1.001}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 7, "value": 0.915}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 8, "value": 4958, "seconds": 0.96}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 8, "value": 1.26}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 9, "value": 4958, "seconds": 1.169}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 9, "value": 0.937}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 10, "value": 4958, "seconds": 0.948}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 10, "value": 0.949}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 11, "value": 4958, "seconds": 0.93}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 11, "value": 0.981}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 12, "value": 4958, "seconds": 0.994}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 12, "value": 0.989}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 13, "value": 4958, "seconds": 0.912}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 13, "value": 1.195}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 14, "value": 4958, "seconds": 0.976}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 14, "value": 1.568}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 15, "value": 4958, "seconds": 0.915}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 15, "value": 0.946}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 16, "value": 4958, "seconds": 0.984}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 16, "value": 0.94}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 17, "value": 4958, "seconds": 0.97}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 17, "value": 1.176}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 18, "value": 4958, "seconds": 0.942}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 18, "value": 0.884}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 19, "value": 4958, "seconds": 1.17}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 19, "value": 0.931}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 20, "value": 4958, "seconds": 1.09}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 20, "value": 1.19}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 21, "value": 4958, "seconds": 1.192}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 21, "value": 0.961}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 22, "value": 4958, "seconds": 1.194}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 22, "value": 0.965}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 23, "value": 4958, "seconds": 1.224}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 23, "value": 0.954}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 24, "value": 4958, "seconds": 0.984}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 24, "value": 0.905}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 25, "value": 4958, "seconds": 0.905}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 25, "value": 0.938}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 26, "value": 4958, "seconds": 0.954}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 26, "value": 2.217}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 27, "value": 4958, "seconds": 1.195}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 27, "value": 0.918}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 28, "value": 4958, "seconds": 0.914}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 28, "value": 0.932}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv1", "index": 29, "value": 4958, "seconds": 1.004}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv1", "index": 29, "value": 1.112}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "tags", "model": "nemotron-3-nano:4b", "value": 0.153}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "ps", "model": "nemotron-3-nano:4b", "value": 0.145}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "version", "model": "nemotron-3-nano:4b", "value": 0.427}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv1", "model": "nemotron-3-nano:4b", "value": 1.442, "bytes": 11554036}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.nemotron_h.attention.head_count_kv", "value": 42}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.nemotron_h.feed_forward_length", "value": 42}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.merges", "value": 269443}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.scores", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.token_type", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.tokens", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "tensors", "value": 263}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "nemotron-3-nano:4b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "tags", "model": "qwen2.5-coder:7b", "value": 0.144}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "ps", "model": "qwen2.5-coder:7b", "value": 0.145}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "version", "model": "qwen2.5-coder:7b", "value": 0.141}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv1", "model": "qwen2.5-coder:7b", "value": 1.093, "bytes": 7768580}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.token_type", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.tokens", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "tensors", "value": 339}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:7b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "tags", "model": "qwen2.5-coder:3b", "value": 0.143}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "ps", "model": "qwen2.5-coder:3b", "value": 0.141}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "version", "model": "qwen2.5-coder:3b", "value": 0.148}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv1", "model": "qwen2.5-coder:3b", "value": 1.125, "bytes": 7764818}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "tensors", "value": 434}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:3b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "tags", "model": "qwen2.5-coder:1.5b", "value": 0.145}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "ps", "model": "qwen2.5-coder:1.5b", "value": 0.144}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "version", "model": "qwen2.5-coder:1.5b", "value": 1.444}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv1", "model": "qwen2.5-coder:1.5b", "value": 1.1, "bytes": 7766132}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "tensors", "value": 338}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "qwen2.5-coder:1.5b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "tags", "model": "llama3.2:3b", "value": 0.141}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "ps", "model": "llama3.2:3b", "value": 0.14}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv1", "endpoint": "version", "model": "llama3.2:3b", "value": 0.141}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv1", "model": "llama3.2:3b", "value": 1.233, "bytes": 9664862}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "model_info.general.languages", "value": 8}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "model_info.tokenizer.ggml.merges", "value": 280147}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "model_info.tokenizer.ggml.token_type", "value": 128256}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "model_info.tokenizer.ggml.tokens", "value": 128256}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "tensors", "value": 255}
+{"phase": "fast", "metric": "array_length", "host": "srv1", "model": "llama3.2:3b", "key": "capabilities", "value": 2}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 0, "value": 1, "seconds": 1.458}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 0, "value": 1.216}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 1, "value": 1, "seconds": 0.993}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 1, "value": 0.95}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 2, "value": 1, "seconds": 0.966}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 2, "value": 0.927}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 3, "value": 1, "seconds": 1.949}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 3, "value": 1.016}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 4, "value": 1, "seconds": 0.943}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 4, "value": 0.974}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 5, "value": 1, "seconds": 0.931}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 5, "value": 0.925}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 6, "value": 1, "seconds": 1.185}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 6, "value": 0.941}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 7, "value": 1, "seconds": 0.955}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 7, "value": 1.342}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 8, "value": 1, "seconds": 1.343}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 8, "value": 1.171}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 9, "value": 1, "seconds": 0.978}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 9, "value": 1.995}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 10, "value": 1, "seconds": 0.972}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 10, "value": 0.952}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 11, "value": 1, "seconds": 1.259}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 11, "value": 0.936}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 12, "value": 1, "seconds": 0.991}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 12, "value": 1.195}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 13, "value": 1, "seconds": 0.957}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 13, "value": 0.942}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 14, "value": 1, "seconds": 1.179}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 14, "value": 1.005}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 15, "value": 1, "seconds": 0.958}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 15, "value": 1.215}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 16, "value": 1, "seconds": 1.215}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 16, "value": 0.939}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 17, "value": 1, "seconds": 0.942}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 17, "value": 0.93}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 18, "value": 1, "seconds": 1.209}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 18, "value": 1.146}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 19, "value": 1, "seconds": 0.981}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 19, "value": 1.164}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 20, "value": 1, "seconds": 1.102}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 20, "value": 1.4}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 21, "value": 1, "seconds": 1.036}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 21, "value": 1.049}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 22, "value": 1, "seconds": 0.976}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 22, "value": 1.23}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 23, "value": 1, "seconds": 1.012}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 23, "value": 0.961}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 24, "value": 1, "seconds": 1.003}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 24, "value": 0.936}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 25, "value": 1, "seconds": 0.964}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 25, "value": 1.205}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 26, "value": 1, "seconds": 1.03}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 26, "value": 0.935}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 27, "value": 1, "seconds": 0.961}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 27, "value": 0.957}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 28, "value": 1, "seconds": 1.273}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 28, "value": 0.929}
+{"phase": "fast", "metric": "idle_gpu_mib", "host": "srv2", "index": 29, "value": 1, "seconds": 0.944}
+{"phase": "fast", "metric": "ssh_step_seconds", "host": "srv2", "index": 29, "value": 0.958}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "nemotron-3-nano:30b-a3b-iq2", "value": 0.145}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "nemotron-3-nano:30b-a3b-iq2", "value": 0.135}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "nemotron-3-nano:30b-a3b-iq2", "value": 0.14}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "value": 1.375, "bytes": 10611936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.general.languages", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.general.tags", "value": 3}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.nemotron_h_moe.attention.head_count_kv", "value": 52}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.nemotron_h_moe.feed_forward_length", "value": 52}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.tokenizer.ggml.merges", "value": 269443}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.tokenizer.ggml.token_type", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "model_info.tokenizer.ggml.tokens", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "tensors", "value": 401}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:30b-a3b-iq2", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "nemotron-3-nano:4b", "value": 0.14}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "nemotron-3-nano:4b", "value": 0.136}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "nemotron-3-nano:4b", "value": 0.138}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "nemotron-3-nano:4b", "value": 1.513, "bytes": 11554036}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.nemotron_h.attention.head_count_kv", "value": 42}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.nemotron_h.feed_forward_length", "value": 42}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.merges", "value": 269443}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.scores", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.token_type", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "model_info.tokenizer.ggml.tokens", "value": 131072}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "tensors", "value": 263}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "nemotron-3-nano:4b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen3-coder-next-ud:q3_K_XL", "value": 0.139}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen3-coder-next-ud:q3_K_XL", "value": 0.143}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen3-coder-next-ud:q3_K_XL", "value": 0.145}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "value": 1.208, "bytes": 7780549}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "model_info.general.tags", "value": 2}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "tensors", "value": 843}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder-next-ud:q3_K_XL", "key": "capabilities", "value": 2}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen3-coder:30b", "value": 0.14}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen3-coder:30b", "value": 0.136}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen3-coder:30b", "value": 0.412}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen3-coder:30b", "value": 1.197, "bytes": 7782617}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "model_info.general.tags", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "tensors", "value": 579}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3-coder:30b", "key": "capabilities", "value": 2}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "gpt-oss:20b", "value": 0.14}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "gpt-oss:20b", "value": 0.14}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "gpt-oss:20b", "value": 0.138}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "gpt-oss:20b", "value": 2.158, "bytes": 19345733}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "model_info.tokenizer.ggml.eos_token_ids", "value": 3}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "model_info.tokenizer.ggml.merges", "value": 446189}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "model_info.tokenizer.ggml.scores", "value": 201088}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "model_info.tokenizer.ggml.token_type", "value": 201088}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "model_info.tokenizer.ggml.tokens", "value": 201088}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "tensors", "value": 459}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "gpt-oss:20b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen2.5-coder:1.5b", "value": 0.143}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen2.5-coder:1.5b", "value": 0.142}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen2.5-coder:1.5b", "value": 0.143}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen2.5-coder:1.5b", "value": 1.169, "bytes": 7766133}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "tensors", "value": 338}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:1.5b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "deepseek-coder-v2:16b", "value": 0.139}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "deepseek-coder-v2:16b", "value": 0.136}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "deepseek-coder-v2:16b", "value": 0.144}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "deepseek-coder-v2:16b", "value": 0.931, "bytes": 5014895}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "model_info.tokenizer.ggml.merges", "value": 99757}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "model_info.tokenizer.ggml.token_type", "value": 102400}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "model_info.tokenizer.ggml.tokens", "value": 102400}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "tensors", "value": 377}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "deepseek-coder-v2:16b", "key": "capabilities", "value": 2}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen3:30b-a3b", "value": 0.149}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen3:30b-a3b", "value": 0.137}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen3:30b-a3b", "value": 0.135}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen3:30b-a3b", "value": 1.181, "bytes": 7785492}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "tensors", "value": 579}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen3:30b-a3b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "yi-coder:9b", "value": 0.147}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "yi-coder:9b", "value": 0.136}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "yi-coder:9b", "value": 0.144}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "yi-coder:9b", "value": 0.719, "bytes": 1683258}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "model_info.tokenizer.ggml.scores", "value": 64000}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "model_info.tokenizer.ggml.token_type", "value": 64000}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "model_info.tokenizer.ggml.tokens", "value": 64000}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "tensors", "value": 435}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "yi-coder:9b", "key": "capabilities", "value": 1}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen2.5-coder:14b", "value": 0.137}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen2.5-coder:14b", "value": 0.135}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen2.5-coder:14b", "value": 0.141}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen2.5-coder:14b", "value": 1.173, "bytes": 7785739}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "model_info.tokenizer.ggml.token_type", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "model_info.tokenizer.ggml.tokens", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "tensors", "value": 579}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:14b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen2.5-coder:7b", "value": 0.142}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen2.5-coder:7b", "value": 0.146}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen2.5-coder:7b", "value": 0.136}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen2.5-coder:7b", "value": 1.17, "bytes": 7768580}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.token_type", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "model_info.tokenizer.ggml.tokens", "value": 152064}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "tensors", "value": 339}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:7b", "key": "capabilities", "value": 3}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "tags", "model": "qwen2.5-coder:3b", "value": 0.145}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "ps", "model": "qwen2.5-coder:3b", "value": 0.144}
+{"phase": "fast", "metric": "discovery_seconds", "host": "srv2", "endpoint": "version", "model": "qwen2.5-coder:3b", "value": 0.135}
+{"phase": "fast", "metric": "capture_show_seconds", "host": "srv2", "model": "qwen2.5-coder:3b", "value": 1.203, "bytes": 7764818}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "details.families", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "model_info.general.languages", "value": 1}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "model_info.general.tags", "value": 6}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.merges", "value": 151387}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.token_type", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "model_info.tokenizer.ggml.tokens", "value": 151936}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "tensors", "value": 434}
+{"phase": "fast", "metric": "array_length", "host": "srv2", "model": "qwen2.5-coder:3b", "key": "capabilities", "value": 3}
+{"phase": "load", "metric": "load_seconds", "host": "srv1", "model": "nemotron-3-nano:4b", "index": 0, "value": 31.793, "ok": true, "why": null, "vram_fraction": 1.0, "size": 2813769808, "size_vram": 2813769808}
+{"phase": "load", "metric": "vram_fraction", "host": "srv1", "model": "nemotron-3-nano:4b", "index": 0, "value": 1.0}
+{"phase": "load", "metric": "load_seconds", "host": "srv1", "model": "nemotron-3-nano:4b", "index": 1, "value": 31.137, "ok": true, "why": null, "vram_fraction": 1.0, "size": 2813769808, "size_vram": 2813769808}
+{"phase": "load", "metric": "vram_fraction", "host": "srv1", "model": "nemotron-3-nano:4b", "index": 1, "value": 1.0}
