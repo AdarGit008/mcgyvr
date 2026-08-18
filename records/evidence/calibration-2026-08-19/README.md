@@ -74,3 +74,45 @@ raised from 30 s after a step timed out on a host thrashing with a 36 GB model
 in page cache. The distribution above is the quiet case. What the ratio shows is
 that the constant is a tail-guard, not a typical-case budget — which is worth
 stating, because a reader comparing 180 to 0.96 would otherwise cut it.
+
+## Phase 2 — `load` (34 loads, 2279 s, one model at a time, cleared between)
+
+| metric | n | min | p50 | p95 | max |
+|---|---|---|---|---|---|
+| `load_seconds`, succeeded | 24 | 29 | 32 | 37 | 38 |
+| `load_seconds`, refused | 10 | 91 | 99 | — | 145 |
+
+`LOAD_TIMEOUT_S = 2400` against a 38 s worst case is **63×**. Harmless, and the
+refusals took 91–145 s only because each is two full clear-load attempts.
+
+### Finding C3 — `MIN_VRAM_FRACTION = 0.8` makes five real models unmeasurable
+
+The distribution is clean and the threshold sits in the gap:
+
+| | n | vram_fraction |
+|---|---|---|
+| model fits on the card | 24 | **0.908 – 1.000** |
+| model does not fit | 5 | 0.297, 0.330, 0.581, 0.581, **0.794** |
+
+So as a *detector* it works. As a *policy* it is wrong. Every one of the five is
+a model larger than srv2's 12 GB card — `gpt-oss:20b` (13.8 GB) reached **0.794**,
+six thousandths under the line — and a model larger than the card **cannot** be
+fully resident. Refusing them means the instrument cannot measure five of the
+twelve models that host actually holds, permanently.
+
+The refusal message this lane wrote says *"a model far larger than the card is
+the known case — it never reaches 80% VRAM, and this refusal is the correct
+answer about it rather than a bug to route around."* That is the sentence to
+withdraw. The check was written to catch **placement contamination** — a model
+pushed onto the CPU because another engine held the card, measured at 0.07 — and
+it cannot tell that apart from a model that simply does not fit.
+
+`claim` already checks `card_idle_before_load` separately, and that is the check
+that catches contamination. When the card was verified idle and the model still
+lands partly on the CPU, that is the honest placement for that model on that
+host.
+
+**Decision owed.** Record `placement: full | partial` with the fraction and stop
+refusing on it when the card was idle beforehand — which makes all 17 models
+measurable — or keep refusing and accept that srv2's five largest are outside
+the instrument.
