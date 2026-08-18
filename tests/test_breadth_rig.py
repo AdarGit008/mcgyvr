@@ -923,9 +923,18 @@ def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:
 
 
 def _no_endpoint(monkeypatch: Any) -> None:
-    """No ollama here, and the manifest must say so rather than omit the fields."""
+    """No ollama here, and the manifest must say so rather than omit the fields.
+
+    All THREE fetchers, because the observed capture (#286) reads Prometheus
+    text through its own `_get_text` — a separate function by design, since
+    routing `/metrics` through a JSON parser would report "did not answer" for
+    an endpoint that answered in the format it documents. Patching only the two
+    JSON fetchers left every test in this file making a live `/metrics` call
+    while reading as offline.
+    """
     monkeypatch.setattr(breadth.identity_module, "_get_json", lambda *a, **k: None)
     monkeypatch.setattr(breadth.identity_module, "_post_json", lambda *a, **k: None)
+    monkeypatch.setattr(breadth.observed_module, "_get_text", lambda *a, **k: None)
 
 
 def test_the_manifest_carries_every_digest_field_or_a_stated_null(
@@ -1063,7 +1072,15 @@ def test_the_observed_block_is_written_beside_the_manifest(
 
     path = tmp_path / breadth.observed_module.OBSERVED_FILE
     assert path.is_file(), "run.json was written and the observed block was not"
-    block = json.loads(path.read_text())
+    # Two captures per directory since #286: `at_open` before the first draw,
+    # `at_close` when the sweep finishes and the model is certainly resident.
+    recorded = json.loads(path.read_text())
+    # A capture carries two labelled SOURCES: `native` is what the endpoint said
+    # about itself, `host` is what the serving machine said. They prove
+    # different things, so they are never merged.
+    block = recorded[breadth.observed_module.CAPTURES][breadth.observed_module.AT_OPEN][
+        breadth.observed_module.NATIVE_SOURCE
+    ]
     assert block["model"] == "test-model"
     for field in breadth.observed_module.PROBE_SET:
         assert field in block

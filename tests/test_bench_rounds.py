@@ -479,14 +479,38 @@ NOT_A_FIGURE = {
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
     ),
-    "tools/bench/census.py": (
-        "the serving-host census (#286 lane). It records what is on the "
-        "machines and how they are configured — models held, endpoints "
+    "tools/bench/serving/run.py": (
+        "the serving survey's orchestrator (#286 lane). It records what is on "
+        "the machines and how they are configured — models held, endpoints "
         "answered, service settings, measured batch width — and reads no run "
         "directory and no row. It states a throughput in tokens per second, "
         "which is the same exemption `ratecard.py` holds for a rate in "
         "seconds: not a pass rate, so there is no tier attribution to declare "
         "and no escalation that could hide a floor"
+    ),
+    "tools/bench/serving/pin.py": (
+        "binds a run to what the serving host said, as three falsifiable "
+        "claims — same machine, same process, same configuration (#286 lane). "
+        "It reads no run directory and no row, and states no rate: what it "
+        "produces is a boolean about whether other readings can be trusted"
+    ),
+    "tools/bench/serving/fingerprint.py": (
+        "the serving-configuration fingerprint (#286 lane). It parses what a "
+        "server says it was configured with and pins it as two digests — "
+        "semantic and operational — and reads no run directory, no row and no "
+        "rate. It states nothing about outcomes at all"
+    ),
+    "tools/bench/serving/contract.py": (
+        "the backend interface and the pieces no engine owns — the ramp and "
+        "the machine readings. It describes servers, never runs"
+    ),
+    "tools/bench/serving/backends/ollama.py": (
+        "one serving backend: how that engine yields the card, takes it and "
+        "describes itself. It states no rate about any run"
+    ),
+    "tools/bench/serving/backends/vllm.py": (
+        "one serving backend: how that engine yields the card, takes it and "
+        "describes itself. It states no rate about any run"
     ),
     "tools/bench/observed.py": (
         "the `observed` block's writer (#286, ADR-0027 D7). It captures what a "
@@ -533,14 +557,31 @@ CHECKED = {
 }
 
 
+#: Directory names under the figure trees that hold CORPUS rather than tools.
+#: `reserve/` and `tasks/` are problems — an `accept.py` is a task's acceptance
+#: script, not something that could state a rate — so they are named here and
+#: everything else is swept in. Excluding by name rather than including by name
+#: keeps the property this file is built on: the default for a new directory of
+#: code is "must declare", not "was forgotten".
+NOT_TOOLS = {"__pycache__", "reserve", "tasks", "problems"}
+
+
 def _figure_tools() -> list[str]:
+    """Every tool under the figure-producing trees, at any depth.
+
+    ``rglob`` rather than ``glob``: the flat form let a whole subdirectory
+    escape the classification this check exists to enforce, so a tool added
+    under ``tools/bench/<anything>/`` would never have to declare whether it
+    states a rate. A default of "was forgotten" is exactly what this test is
+    for, and it cannot apply to files it never looks at.
+    """
     found = []
     for directory in (REPO / "tools" / "bench", REPO / "tools" / "power"):
         found.extend(
             sorted(
                 p.relative_to(REPO).as_posix()
-                for p in directory.glob("*.py")
-                if p.is_file()
+                for p in directory.rglob("*.py")
+                if p.is_file() and not NOT_TOOLS.intersection(p.parts)
             )
         )
     return found

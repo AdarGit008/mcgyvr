@@ -223,6 +223,24 @@ PROBE_SET: tuple[str, ...] = (
     "seed",
 )
 
+#: The two moments a capture is taken. `at_open` describes the server the rows
+#: were started against; `at_close` is the one that can actually answer
+#: `context_length`, because by then the model is resident.
+CAPTURES = "captures"
+AT_OPEN = "at_open"
+AT_CLOSE = "at_close"
+
+#: The two SOURCES a capture can draw on, labelled apart because they prove
+#: different things. `native` is what the endpoint this run dispatched to said
+#: about itself; `host` is what the machine said. They coincide when the
+#: endpoint resolves straight to that machine with nothing in between —
+#: measured true on these rigs — and diverge behind a proxy or a load balancer.
+NATIVE_SOURCE = "native"
+HOST_SOURCE = "host"
+
+#: Whether the host readings provably describe THIS run's server (serving/pin).
+PIN = "pin"
+
 #: Where the comprehensive capture lives, under the endpoint's own key names.
 #: Everything else in the file is this module's reading of it.
 NATIVE = "native"
@@ -283,9 +301,35 @@ UNVERIFIED: dict[str, str] = {
 }
 
 #: Long, and for :func:`identity.probe_model`'s reason: ``verbose`` returns the
-#: tokenizer arrays, and a timeout tuned for a version string would record
-#: "unobtainable" for a server that answered perfectly well, slowly.
+#: tokenizer arrays — 151,936 of them on the 1.5B — and a timeout tuned for a
+#: version string would record "unobtainable" for a server that answered
+#: perfectly well, slowly. This applies to that ONE call.
 CAPTURE_TIMEOUT_S = 30.0
+
+#: Every other call, which returns kilobytes at most. Short on purpose: a
+#: capture makes a dozen requests and runs immediately before a sweep's first
+#: draw, so charging all of them the `/api/show` budget would put six minutes of
+#: silence in front of a run against an endpoint that drops rather than refuses.
+DISCOVERY_TIMEOUT_S = 5.0
+
+
+def _url(base: str, path: str) -> str:
+    """Join a base URL to a path, tolerating a base that already ends in ``/v1``.
+
+    The same rule as :func:`mcgyvr.runner._url_for`, and for the same reason: a
+    ``base_url`` copied from a hosted provider's own page carries ``/v1``, and
+    ``tools/bundle/worker.example.json`` documents that spelling. Without this,
+    ``https://host/v1`` is probed at ``/v1/v1/models`` — a 404 that this module
+    would then record as "nothing there described itself at all" about a server
+    answering perfectly well. Restated here rather than imported because
+    ``_url_for`` is private to a module inside ``product.SURFACE`` and this tool
+    must not move that digest to reuse eight lines.
+    """
+    base = base.rstrip("/")
+    if path.startswith("/v1/") and base.endswith("/v1"):
+        base = base[: -len("/v1")]
+    return base + path
+
 
 #: A list longer than this is recorded as its length and its digest rather than
 #: inline. Comprehensive means nothing a reader can act on is lost, not that
@@ -347,13 +391,32 @@ def scrub(value: Any) -> Any:
 
 
 def _scrub_text(text: str) -> str:
-    """One string, through the three redactions, in the order they compose."""
+    """One string, through the three redactions, in the order they compose.
+
+    ``bundle.redact`` reads ``urlsplit(...).port``, which **raises** on a port
+    outside 0-65535 or an unbalanced bracket. That is fine for the one endpoint
+    URL ``run.json`` holds and not fine here: this runs over every string a
+    server sent, including a free-text Modelfile and 58 KB of Prometheus text,
+    any of which can contain something URL-shaped and invalid. Left unguarded it
+    took down the whole sweep — `record_run` calls the writer after `run.json` is
+    already on disk, so a raise there means no rows and a traceback, which is
+    exactly the "worst of both" :func:`capture` promises not to be. An
+    unparseable candidate is redacted wholesale: it cannot be shown to be safe.
+    """
     bundle = _bundle_rig()
-    text = _CREDENTIAL_URL.sub(lambda m: bundle.redact(m.group(0)), text)
+    text = _CREDENTIAL_URL.sub(lambda m: _redact_one(bundle, m.group(0)), text)
     text = _HOME_PATH.sub(lambda m: f"{m.group('root')}/{_REDACTED}", text)
     for shape in _TOKEN_SHAPES:
         text = shape.sub(_REDACTED, text)
     return text
+
+
+def _redact_one(bundle: types.ModuleType, url: str) -> str:
+    """``bundle.redact(url)``, or ``<redacted>`` if it will not parse."""
+    try:
+        return str(bundle.redact(url))
+    except Exception:
+        return _REDACTED
 
 
 def elide(value: Any) -> Any:
@@ -458,11 +521,13 @@ def _capture_ollama(
     """
     native: dict[str, Any] = {}
     for name, path in OLLAMA_READS:
-        answer = identity._get_json(f"{base}{path}", timeout=timeout)
+        answer = identity._get_json(_url(base, path), timeout=DISCOVERY_TIMEOUT_S)
         if answer is not None:
             native[name] = answer
+    # The one call that earns the long timeout: `verbose` returns the tokenizer
+    # arrays, and this is the measurement CAPTURE_TIMEOUT_S was chosen for.
     show = identity._post_json(
-        f"{base}/api/show", {"model": model, "verbose": True}, timeout=timeout
+        _url(base, "/api/show"), {"model": model, "verbose": True}, timeout=timeout
     )
     if show is not None:
         native["show"] = show
@@ -482,10 +547,10 @@ def _capture_served(base: str, timeout: float) -> tuple[dict[str, Any], str]:
     """
     native: dict[str, Any] = {}
     for name, path in VLLM_READS:
-        answer = identity._get_json(f"{base}{path}", timeout=timeout)
+        answer = identity._get_json(_url(base, path), timeout=DISCOVERY_TIMEOUT_S)
         if answer is not None:
             native[name] = answer
-    metrics = _get_text(f"{base}/metrics", timeout=timeout)
+    metrics = _get_text(_url(base, "/metrics"), timeout=DISCOVERY_TIMEOUT_S)
     if metrics is not None:
         native["metrics"] = metrics
     return native, _identify(native)
@@ -514,21 +579,86 @@ def _identify(native: dict[str, Any]) -> str:
 
 
 def write(
-    out: Path, endpoint: str, model: str, *, timeout: float = CAPTURE_TIMEOUT_S
+    out: Path,
+    endpoint: str,
+    model: str,
+    *,
+    when: str = AT_OPEN,
+    host: dict[str, Any] | None = None,
+    timeout: float = CAPTURE_TIMEOUT_S,
 ) -> Path | None:
-    """Write :data:`OBSERVED_FILE` beside ``run.json``, once per directory.
+    """Add a capture to :data:`OBSERVED_FILE` beside ``run.json``.
 
-    Returns the path written, or ``None`` when the file was already there — a
-    resume keeps the capture the directory was opened with rather than restating
-    it, because this block is not a comparison and overwriting it would lose the
-    only record of what the endpoint said when the rows started.
+    **Two captures per run directory, not one.** ``at_open`` is written before
+    the first draw and describes the server the rows were started against;
+    ``at_close`` is written when the run finishes.
+
+    The close capture is not a nicety. ``context_length`` — the field this whole
+    block exists to record, and the one whose measured value (4096 served
+    against 32768 advertised) is the lane's finding — reads ``/api/ps``, which
+    lists only models that are RESIDENT. At open, on a fresh directory, nothing
+    is loaded yet, so the field was structurally refused on every first run: the
+    capture was taken before the model arrived and then noted that it was not
+    there. At close the model is certainly resident, so the field answers.
+
+    The close capture also records what the server looked like *under* the load
+    the run applied, which nothing else does.
+
+    Each capture is written **once**. A resume adds neither: the open capture
+    describes rows this invocation did not measure, and re-writing the close one
+    would restate a server state that has moved on. A file with only an open
+    capture is a run that did not finish, which is itself worth knowing.
     """
     path = out / OBSERVED_FILE
+    existing: dict[str, Any] = {}
     if path.exists():
-        return None
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            # Not only a decode error: invalid UTF-8 or an unreadable mode
+            # raises out of `write`, past `record_run`, past `main`'s
+            # `except MeasureError` — aborting the sweep with a traceback on the
+            # one path outside the `capture()` guard. Nothing compares this
+            # block; it may never be the reason a run produces no rows.
+            existing = {}
+        # A pre-#286 single-capture file is migrated forward rather than
+        # overwritten: it was an `at_open` capture before the key existed.
+        if existing and CAPTURES not in existing:
+            existing = {CAPTURES: {AT_OPEN: existing}}
+        if when in (existing.get(CAPTURES) or {}):
+            return None
     out.mkdir(parents=True, exist_ok=True)
-    block = capture(endpoint, model, timeout=timeout)
-    path.write_text(json.dumps(block, indent=2) + "\n", encoding="utf-8")
+    try:
+        block = capture(endpoint, model, timeout=timeout)
+    except Exception as error:
+        # Scrubbed like any other path. An exception message is server-derived
+        # text — it routinely carries the URL that failed, and that URL may
+        # carry a credential — so the one branch that skipped `scrub` was the
+        # one most likely to be holding one.
+        block = scrub(
+            {
+                "endpoint": endpoint,
+                "model": model,
+                ENGINE: UNREACHABLE,
+                **dict.fromkeys(PROBE_SET),
+                NATIVE: {},
+                identity.REFUSALS: dict.fromkeys(
+                    PROBE_SET,
+                    f"the capture itself failed: {type(error).__name__}: "
+                    f"{error}. Recorded rather than raised, because nothing "
+                    "compares this block and it must never be the reason a "
+                    "sweep produces no rows",
+                ),
+            }
+        )
+    # `host` is SUPPLIED, never gathered here. This module answers "what did
+    # the endpoint say about itself" — one HTTP round trip to the thing being
+    # measured — which is what lets it work unchanged against an endpoint nobody
+    # can log into. Host-side readings are a different kind of evidence and are
+    # labelled as such, so a later reader can always tell which is which.
+    captures = dict(existing.get(CAPTURES) or {})
+    captures[when] = {NATIVE_SOURCE: block, HOST_SOURCE: host or {}}
+    path.write_text(json.dumps({CAPTURES: captures}, indent=2) + "\n", encoding="utf-8")
     return path
 
 
@@ -555,7 +685,20 @@ def _served_probe_set(
             ),
         )
 
-    where = "vLLM" if engine is VLLM else "this OpenAI-compatible server"
+    # Every measured claim below is a fact about vLLM 0.26.0, so it may only be
+    # written when vLLM is what answered. An `openai-compatible` server is any
+    # server that serves /v1/models and does not look like vLLM — llama-server,
+    # LM Studio, TGI, or an ollama whose /api/* calls failed transiently and
+    # fell through to this arm. Telling that reader its quantization is missing
+    # because VLLM_SERVER_DEV_MODE is unset would be a stated reason that is
+    # simply untrue, and a null is required to carry a TRUE reason.
+    vllm = engine is VLLM
+    where = "vLLM" if vllm else "this OpenAI-compatible server"
+    unmeasured = (
+        f"{where} was identified by what it answered, not by a version, so "
+        "nothing here has been measured against it — this refusal records that "
+        "the field was not on the surface it does serve, and nothing more"
+    )
     config = _engine_config(native)
     fields: dict[str, Any] = {}
     reasons: dict[str, str] = {}
@@ -567,11 +710,13 @@ def _served_probe_set(
         fields["quantization"] = None
         reasons["quantization"] = (
             f"{where} does not describe the weights it loaded on any endpoint "
-            "this reads. It is on /server_info, which exists only when the "
-            "server was launched with VLLM_SERVER_DEV_MODE=1 — measured "
+            "this reads. On vLLM it is on /server_info, which exists only when "
+            "the server was launched with VLLM_SERVER_DEV_MODE=1 — measured "
             "`quantization=auto_awq` on srv1 and srv2 with the flag set, and "
-            "the endpoint 404s without it. This is therefore a fact about how "
-            "the server was started, not about what vLLM can say"
+            "the endpoint 404s without it, so there it is a fact about how the "
+            "server was started rather than a limit on what it can say"
+            if vllm
+            else f"{where} served no endpoint carrying the quantization. {unmeasured}"
         )
 
     max_model_len = _model_field(native, model, "max_model_len")
@@ -582,8 +727,8 @@ def _served_probe_set(
     else:
         fields["context_length"] = None
         reasons["context_length"] = (
-            f"{where} listed no max_model_len on the model card for {model!r} "
-            "and no max_seq_len on /server_info"
+            f"{where} listed no max_model_len on the model card for {model!r}"
+            + (" and no max_seq_len on /server_info" if vllm else f". {unmeasured}")
         )
 
     fields["concurrency"] = None
@@ -597,12 +742,13 @@ def _served_probe_set(
         "looks like the answer and is NOT: it is KV-cache capacity, and it "
         "moves opposite to the flag — srv1 ran --max-num-seqs 8 and reported "
         "16.004, srv2 ran 16 and reported 5.314. It is not unknowable, only "
-        "unaskable: a concurrency ramp recovers it (tools/bench/census.py "
-        "--concurrency), and on srv1 it read the knee at exactly 8 — "
-        "throughput plateauing at 106.5 tok/s and per-request latency flat at "
-        "~9.5s through n=8 before the queue forms. That is a measurement this "
-        f"capture must not make, because it would perturb the run it describes. "
-        f"The raw metrics are recorded under {NATIVE}, so the material is on disk"
+        "unaskable: a concurrency ramp recovers it, and on srv1 it read the "
+        "knee at exactly 8 — throughput plateauing at 106.5 tok/s and "
+        "per-request latency flat at ~9.5s through n=8 before the queue forms. "
+        "That is a measurement this capture must not make, because it would "
+        f"perturb the run it describes. The raw metrics are under {NATIVE}"
+        if vllm
+        else f"the batch width is not on any endpoint {where} served. {unmeasured}"
     )
 
     seed = config.get("seed")
@@ -617,6 +763,10 @@ def _served_probe_set(
             "VLLM_SERVER_DEV_MODE=1. Note that vLLM 0.26.0 defaults to "
             "`seed=0` rather than to none, measured on both rigs: on this "
             "engine an unrecorded seed is a set seed nobody wrote down"
+            if vllm
+            else "no dispatch in this tree sends a seed (greedy bypasses the "
+            f"sampler RNG), and {where} reported none. Whether it holds one "
+            f"server-side is unknown here. {unmeasured}"
         )
     return fields, reasons
 
@@ -680,31 +830,6 @@ def _model_field(native: dict[str, Any], model: str, field: str) -> Any:
         if row.get("id") == model or row.get("root") == model:
             return row.get(field)
     return rows[0].get(field) if len(rows) == 1 else None
-
-
-def _config_info(native: dict[str, Any], label: str) -> Any:
-    """``label`` from any Prometheus ``*_config_info`` label set, or ``None``.
-
-    vLLM publishes engine configuration as Info metrics — a series whose value
-    is always 1 and whose labels are the settings. Which series carries which
-    setting has moved between releases, so this scans every ``_config_info``
-    series rather than naming one, and returns the first match as a number
-    where it is one. Read narrowly on purpose: the raw text is captured whole,
-    so a reader is never limited to what this function knows how to find.
-    """
-    metrics = native.get("metrics")
-    if not isinstance(metrics, str):
-        return None
-    for line in metrics.splitlines():
-        line = line.strip()
-        if line.startswith("#") or "_config_info{" not in line:
-            continue
-        labels = line[line.index("{") + 1 : line.rindex("}")] if "}" in line else ""
-        for pair in labels.split(","):
-            name, _, raw = pair.partition("=")
-            if name.strip() == label:
-                return _as_number(raw.strip().strip('"'))
-    return None
 
 
 def _get_text(url: str, *, timeout: float) -> str | None:
@@ -783,14 +908,14 @@ def _ollama_probe_set(
     # port chosen at load time. A capture written by the dispatching client
     # cannot reach 127.0.0.1 on the serving host, ever. So the answer exists,
     # it is not here, and the reason names where it is rather than implying
-    # nobody can know. `tools/bench/census.py` reads it with host access.
+    # nobody can know. `tools/bench/serving/` reads it with host access.
     fields["concurrency"] = None
     reasons["concurrency"] = (
         "not on any endpoint ollama serves over the network. It is "
         "OLLAMA_NUM_PARALLEL, and it reaches `llama-server`'s /props as "
         "`total_slots` on 127.0.0.1 — measured 2026-08-18 as 2 on srv1 and 1 "
         "on srv2, which is two rigs serving at different widths. Obtainable "
-        "only with access to the serving host (tools/bench/census.py), never "
+        "only with access to the serving host (tools/bench/serving/), never "
         "from here. Recorded as a refusal because it is the term ADR-0027 "
         "needs: greedy is not deterministic under continuous batching, so a "
         "run without it cannot be read as reproducing even weakly"

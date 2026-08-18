@@ -207,7 +207,18 @@ def _bench_observed() -> types.ModuleType:
     blocks are opposite: that one is compared and must stay diffable, this one
     is compared by nothing and must be comprehensive. Nothing in this file
     reads what it writes.
+
+
+    Shared through the ``sys.modules`` slot with the other rig's copy, exactly
+    as ``_bench_identity`` above is and for the same reason: two loads would be
+    the five-lists problem one level down. It also has teeth in tests — a stub
+    installed on one rig's copy does not stop the other's ``record_run`` from
+    making real HTTP calls, which is how three breadth tests came to probe the
+    network while appearing to be offline.
     """
+    cached = sys.modules.get("bench_observed")
+    if cached is not None:
+        return cached
     spec = importlib.util.spec_from_file_location(
         "bench_observed", HERE.parent / "bench" / "observed.py"
     )
@@ -219,6 +230,29 @@ def _bench_observed() -> types.ModuleType:
 
 
 observed_module = _bench_observed()
+
+
+def _host_block(endpoint: str) -> dict[str, object]:
+    """What the serving MACHINE says, when it can be reached.
+
+    Empty when it cannot — a hosted endpoint has no host, and a run from a
+    machine without keys records what the endpoint said and nothing more. Never
+    raises: a capture must not be the reason a sweep produces no rows.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = sys.modules.get("serving_pin")
+        if module is None:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["serving_pin"] = module
+            spec.loader.exec_module(module)
+        return dict(module.host_block(endpoint))
+    except Exception:
+        return {}
+
 
 # The variables of this experiment, all held fixed within a run.
 #
@@ -1190,7 +1224,17 @@ def record_run(
     # the same "absent means predates the contract" reading D2 gives run.json.
     #
     # Nothing in this file reads what this writes.
-    observed_module.write(out, worker.endpoint, worker.model)
+    observed_module.write(
+        out,
+        worker.endpoint,
+        worker.model,
+        when=observed_module.AT_OPEN,
+        # Gathered at OPEN as well as at close. Without both sides the pin's two
+        # comparison claims — same process, same config — have nothing to
+        # compare and are structurally unreachable, which is what the module
+        # exists to establish.
+        host=_host_block(worker.endpoint),
+    )
 
 
 def first_pass_indices(
@@ -1719,6 +1763,21 @@ def main() -> int:
             "resume will fill what is missing.",
             file=sys.stderr,
         )
+
+    # The SECOND capture (#286): taken now, with the model certainly resident.
+    # `context_length` reads `/api/ps`, which lists only loaded models, so the
+    # open capture — written before the first draw — could never answer it on a
+    # fresh directory. It also records what the endpoint looked like under the
+    # load this run just applied, which nothing else does. Written even on an
+    # aborted run: a directory with an open capture and no close one is a run
+    # that did not finish, and that is worth being able to see.
+    observed_module.write(
+        args.out,
+        worker.endpoint,
+        worker.model,
+        when=observed_module.AT_CLOSE,
+        host=_host_block(worker.endpoint),
+    )
 
     missing = record_completeness(args.out)
     summary = summarise(rows_path)

@@ -768,3 +768,127 @@ def test_the_contract_module_records_the_landed_state(observed: Any) -> None:
         "the third state is gone: nothing in the repository is waiting on a "
         "writer for these four any more."
     )
+
+
+# --- what the review found, pinned so it cannot come back -------------------
+
+
+def test_a_base_url_that_already_ends_in_v1_is_not_doubled(
+    observed: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`https://host/v1` is the documented spelling, and it was probed at /v1/v1.
+
+    `tools/bundle/worker.example.json` documents `base_url` with `/v1` on it,
+    because every hosted provider prints its endpoint that way — and
+    `runner._url_for` exists precisely to absorb it. This module concatenated
+    instead, so a healthy server 404'd on every probe and was recorded as
+    "nothing there described itself at all".
+    """
+    asked: list[str] = []
+
+    def get(url: str, *, timeout: float) -> Any:
+        asked.append(url)
+        return None
+
+    monkeypatch.setattr(observed.identity, "_get_json", get, raising=True)
+    monkeypatch.setattr(
+        observed.identity, "_post_json", lambda url, body, *, timeout: None
+    )
+    monkeypatch.setattr(observed, "_get_text", lambda url, *, timeout: None)
+    observed.capture("https://api.example.com/v1", "m")
+
+    assert "https://api.example.com/v1/models" in asked
+    assert not [url for url in asked if "/v1/v1/" in url]
+
+
+def test_a_capture_never_raises_however_bad_the_server_text_is(
+    observed: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`bundle.redact` reads `urlsplit(...).port`, which RAISES on a bad port.
+
+    Fine for the one URL `run.json` holds; not fine over every string a server
+    sent. `record_run` calls the writer after `run.json` is already on disk, so
+    an exception here meant a traceback and zero rows — the exact "worst of
+    both" the docstring promises to avoid. An unparseable candidate is redacted
+    wholesale, because it cannot be shown to be safe.
+    """
+    hostile = {
+        "details": {},
+        "modelfile": "FROM registry://u:p@host:99999/blob\n",
+        "license": "see ftp://a:b@[unbalanced/x",
+    }
+    _endpoint(observed, monkeypatch, TAGS, hostile, ps=PS)
+
+    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
+    text = json.dumps(block)
+    assert "99999" not in text and "u:p@" not in text
+
+    # And the writer is belt-and-braces: even a capture that somehow throws must
+    # leave a file rather than kill the sweep.
+    monkeypatch.setattr(
+        observed, "capture", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    written = observed.write(tmp_path, "http://srv2:11434", "qwen2.5-coder:1.5b")
+    assert written is not None
+    recorded = json.loads(written.read_text())[observed.CAPTURES][observed.AT_OPEN][
+        observed.NATIVE_SOURCE
+    ]
+    assert "boom" in recorded[observed.identity.REFUSALS]["seed"]
+
+
+def test_a_non_vllm_server_is_never_told_vllm_facts_about_itself(
+    observed: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A null must carry a TRUE reason, and these reasons are vLLM measurements.
+
+    The realistic path is not a hypothetical: an ollama whose `/api/*` calls
+    fail transiently falls through to the served arm — ollama does serve
+    `/v1/models` — is identified as `openai-compatible`, and would have had
+    `/server_info`, `VLLM_SERVER_DEV_MODE=1` and "vLLM 0.26.0 defaults to
+    seed=0" written to its disk as the stated reasons for its nulls.
+    """
+    plain = {"object": "list", "data": [{"id": "m", "object": "model"}]}
+    _endpoint(observed, monkeypatch, None, None, models=plain)
+    block = observed.capture("http://rig:8080", "m")
+
+    assert block[observed.ENGINE] == observed.OPENAI_COMPATIBLE
+    reasons = block[observed.identity.REFUSALS]
+    for field, reason in reasons.items():
+        for claim in ("VLLM_SERVER_DEV_MODE", "/server_info", "vLLM 0.26.0"):
+            assert claim not in reason, f"{field} asserts {claim!r} about a non-vLLM"
+    assert all(
+        "nothing here has been measured against it" in r for r in reasons.values()
+    )
+
+
+def test_the_long_timeout_is_spent_only_on_the_call_that_earned_it(
+    observed: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dozen probes at the /api/show budget put six minutes before a sweep.
+
+    `CAPTURE_TIMEOUT_S` exists for one call — `/api/show` with `verbose`, which
+    returns the tokenizer arrays. Everything else returns kilobytes, and this
+    capture runs immediately before the first draw.
+    """
+    seen: list[tuple[str, float]] = []
+
+    def note_get(url: str, *, timeout: float) -> None:
+        seen.append((url, timeout))
+        return None
+
+    def note_post(url: str, body: dict[str, Any], *, timeout: float) -> None:
+        seen.append((url, timeout))
+        return None
+
+    monkeypatch.setattr(observed.identity, "_get_json", note_get, raising=True)
+    monkeypatch.setattr(observed.identity, "_post_json", note_post)
+    monkeypatch.setattr(observed, "_get_text", note_get, raising=True)
+    observed.capture("http://srv2:11434", "m")
+
+    long_calls = [url for url, timeout in seen if timeout >= observed.CAPTURE_TIMEOUT_S]
+    assert long_calls == ["http://srv2:11434/api/show"]
+    assert all(
+        timeout == observed.DISCOVERY_TIMEOUT_S
+        for url, timeout in seen
+        if url != "http://srv2:11434/api/show"
+    )

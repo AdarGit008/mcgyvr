@@ -447,7 +447,7 @@ def test_the_run_manifest_records_what_was_reached(
 
 
 def test_the_observed_block_is_written_beside_the_manifest(
-    tmp_path: Path, live_instruments: types.ModuleType
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """#286: `record_run` writes both blocks, on this rig too.
 
@@ -459,6 +459,20 @@ def test_the_observed_block_is_written_beside_the_manifest(
     checked on the path where the whole capture — not one field — goes to disk.
     """
     measure = _measure()
+    # Offline, on all THREE fetchers. Unstubbed, `record_run` sends a dozen real
+    # requests — and this fixture's URL carries a credential, so one of them puts
+    # `user:secret` on the wire. It passed only because `box` does not resolve
+    # here; behind a wildcard resolver it would leave the machine, and behind a
+    # firewall that drops rather than refuses the test would take six minutes.
+    monkeypatch.setattr(
+        measure.identity_module, "_get_json", lambda *a, **k: None, raising=True
+    )
+    monkeypatch.setattr(
+        measure.identity_module, "_post_json", lambda *a, **k: None, raising=True
+    )
+    monkeypatch.setattr(
+        measure.observed_module, "_get_text", lambda *a, **k: None, raising=True
+    )
     worker = measure.resolve_worker(
         {"endpoint": "https://user:secret@box/v1", "model": "m", "protocol": "openai"},
         {},
@@ -468,7 +482,10 @@ def test_the_observed_block_is_written_beside_the_manifest(
     path = tmp_path / measure.observed_module.OBSERVED_FILE
     assert path.is_file(), "run.json was written and the observed block was not"
 
-    block = json.loads(path.read_text(encoding="utf-8"))
+    recorded = json.loads(path.read_text(encoding="utf-8"))
+    block = recorded[measure.observed_module.CAPTURES][measure.observed_module.AT_OPEN][
+        measure.observed_module.NATIVE_SOURCE
+    ]
     assert block["model"] == "m"
     assert block["endpoint"] == "https://box/v1"
     assert "secret" not in path.read_text(encoding="utf-8")

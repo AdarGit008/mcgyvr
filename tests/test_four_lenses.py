@@ -123,6 +123,15 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # membership in `identity.RECORDED`, which each rig's declared-set test
     # asserts against the one contract module.
     "IDENTITY_FIELDS": False,
+    # One per serving backend, and duplicated BY CONSTRUCTION: the contract in
+    # `tools/bench/serving/contract.py` requires every backend to declare its
+    # own name and default port, and a backend may not name another backend, so
+    # there is nowhere shared for either to live. They must NOT agree — two
+    # backends sharing a name or a port would be one backend — which is the
+    # opposite of the usual reason for declaring a duplicate, and is why this is
+    # stated rather than left to be noticed.
+    "NAME": False,
+    "PORT": False,
     # Name collisions across unrelated meanings.
     "CHECK": False,  # the gate's own per-module check name
     "ARMS": False,  # each rig's arms are its own
