@@ -289,3 +289,37 @@ size:
 Nothing in D1-D9 changes. The affected sentence is the cost estimate inside the
 "why re-running was rejected" argument, and the rejection is more securely
 grounded after the correction than before it.
+
+## Amendment — 2026-08-18 (#287, DEC-9): D1's roster grows two fields, and both resume checks now call the module
+
+The fan-out row *"wiring the two runners' resume drift checks to the module —
+the reporter reads it today, the runners still carry their own lists"* is
+closed. Both `record_run` sites — `tools/breadth/measure.py` and
+`tools/bundle/measure.py` — now call `identity.drift` over a module-level
+declared field tuple (`IDENTITY_FIELDS`, one per rig), with a test per rig
+holding a freshly assembled manifest's keys to the declaration and the
+declaration to `identity.RECORDED`. The comparison is therefore two-directional
+by construction: a field present in the previous manifest and no longer written
+by a resume is a state drift and refuses, which the old walk over the new
+dict's keys could not see.
+
+**DEC-9.** `language` and `conditions_sha256` join `GROUPS` — the request
+group, under their own names — **recorded, not keyed**. They are the retired
+bundle rig's resume-guard fields, which until this amendment appeared nowhere
+in the module: the five-lists problem in miniature, still live in the two files
+this ADR did not touch. The committed bundle manifests already carry both names
+(`conditions_sha256` on `jsts-bundle-2026-08-04` and `python-bundle-2026-08-07`;
+`language` on the python one, with the jsts arm predating it and adopting it at
+the call site), so the contract grows to fit the records rather than the
+records being rewritten. `KEY` is untouched; both fields sit in `PENDING` with
+the stated reason that #240 retired both arms, so nothing will ever ask #276's
+rule to admit them. This is an adopted identity change under
+`tools/bench/rounds.json`'s own clause and lands at the r2 boundary via the
+`--adopted` line drafted in #287.
+
+The adoptions stay at the call sites, applied before `drift` is called, exactly
+as its docstring directs — including `round`/`product_sha256` staying
+non-adopted: a pre-round directory was measured against a revision nobody
+recorded, and stamping today's onto it would invent one.
+
+Nothing else in D1-D9 changes.

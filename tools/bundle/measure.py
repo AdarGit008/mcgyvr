@@ -154,6 +154,31 @@ def _instruments() -> Any:
 
 instruments = _instruments()
 
+
+def _bench_identity() -> Any:
+    """Run identity — the drift comparison both rigs' resume checks call (#287).
+
+    Reached by path like the declaration above, and through the same
+    ``sys.modules`` slot the breadth rig uses, for the same reason: two copies
+    of the identity module would be the five-lists problem rebuilt one level
+    down, with each rig guarding its resume against its own idea of the
+    contract.
+    """
+    cached = sys.modules.get("bench_identity")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "bench_identity", REPO / "tools" / "bench" / "identity.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+identity_module = _bench_identity()
+
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
 # c2 check exists to catch, on the one axis where a divergence would be silent:
@@ -626,6 +651,23 @@ def rig_revision() -> str:
     return proc.stdout.strip() if proc.returncode == 0 else "unknown"
 
 
+#: Every field this rig's ``record_run`` writes, declared beside it so the
+#: resume check is over a named set rather than whatever the local dict happens
+#: to hold (#287, ADR-0027 D1). A test asserts a freshly assembled manifest's
+#: keys equal this tuple and that every name here is in ``identity.RECORDED``,
+#: so this rig can never again record a field the contract has not heard of —
+#: which is how ``language`` and ``conditions_sha256`` lived here for two
+#: months while ``identity.GROUPS`` had never heard of either.
+IDENTITY_FIELDS: tuple[str, ...] = (
+    "endpoint",
+    "protocol",
+    "model",
+    "language",
+    "conditions_sha256",
+    "tasks_sha256",
+)
+
+
 def record_run(
     out: Path,
     worker: Worker,
@@ -670,8 +712,12 @@ def record_run(
     }
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
+        # Adopted before the check, as `identity.drift`'s docstring directs:
+        # the arm predates the field, so a manifest without it was the arm
+        # that was the only one there was (#167), and the adoption is visible
+        # here rather than hidden inside a comparison.
         previous.setdefault("language", DEFAULT_LANGUAGE.name)
-        drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
+        drift = identity_module.drift(previous, identity, fields=IDENTITY_FIELDS)
         if drift:
             raise MeasureError(
                 f"{path} records a different run: {', '.join(drift)} changed. "
