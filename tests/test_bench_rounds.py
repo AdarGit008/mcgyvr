@@ -479,6 +479,22 @@ NOT_A_FIGURE = {
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
     ),
+    "tools/bench/census.py": (
+        "the serving-host census (#286 lane). It records what is on the "
+        "machines and how they are configured — models held, endpoints "
+        "answered, service settings, measured batch width — and reads no run "
+        "directory and no row. It states a throughput in tokens per second, "
+        "which is the same exemption `ratecard.py` holds for a rate in "
+        "seconds: not a pass rate, so there is no tier attribution to declare "
+        "and no escalation that could hide a floor"
+    ),
+    "tools/bench/observed.py": (
+        "the `observed` block's writer (#286, ADR-0027 D7). It captures what a "
+        "serving endpoint says about itself and writes it beside the manifest; "
+        "it reads no rows, states no rate and describes no outcome. The mode "
+        "declaration would be doubly meaningless here, since nothing reads this "
+        "block for comparison at all — the property its own test suite pins"
+    ),
     "tools/bench/ceiling.py": (
         "what the acceptance ceiling bounds (#262, ADR-0035). It reports "
         "DURATIONS — the reference sweep it runs, and the `acceptance_s` field "

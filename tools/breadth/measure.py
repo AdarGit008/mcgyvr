@@ -199,6 +199,27 @@ def _bench_identity() -> types.ModuleType:
 
 identity_module = _bench_identity()
 
+
+def _bench_observed() -> types.ModuleType:
+    """The `observed` block's writer (#286, ADR-0027 D7).
+
+    A sibling of the identity contract rather than part of it, because the two
+    blocks are opposite: that one is compared and must stay diffable, this one
+    is compared by nothing and must be comprehensive. Nothing in this file
+    reads what it writes.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "bench_observed", HERE.parent / "bench" / "observed.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+observed_module = _bench_observed()
+
 # The variables of this experiment, all held fixed within a run.
 #
 # DRAWS is DEC-6's own N: the proposal ADR-0008 stripped to "a rung may take
@@ -1158,6 +1179,18 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
+    # The second block (#286, ADR-0027 D7): everything the endpoint will answer
+    # about itself, beside the block that gets compared. Written here — on the
+    # branch that OPENS the directory — and not on the resume above, because it
+    # describes the server the rows were started against. A resume writes
+    # nothing: capturing again would restate rows this invocation did not
+    # measure, and a resume against a materially different server is refused by
+    # the keyed drift check above, which is where a refusal belongs. A directory
+    # opened before this contract existed therefore never gains one, which is
+    # the same "absent means predates the contract" reading D2 gives run.json.
+    #
+    # Nothing in this file reads what this writes.
+    observed_module.write(out, worker.endpoint, worker.model)
 
 
 def first_pass_indices(

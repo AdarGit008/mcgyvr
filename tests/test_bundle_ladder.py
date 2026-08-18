@@ -446,6 +446,36 @@ def test_the_run_manifest_records_what_was_reached(
     assert "secret" not in json.dumps(manifest)
 
 
+def test_the_observed_block_is_written_beside_the_manifest(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
+    """#286: `record_run` writes both blocks, on this rig too.
+
+    Both of this rig's arms were retired by #240, so this writer is exercised by
+    test rather than by dispatch. It is here anyway because ``record_run`` is
+    the seam that records what ran, and a seam that records one block and not
+    the other is the gap the next rig inherits. The credentials in the endpoint
+    are the same fixture the manifest test above uses, so the redaction is
+    checked on the path where the whole capture — not one field — goes to disk.
+    """
+    measure = _measure()
+    worker = measure.resolve_worker(
+        {"endpoint": "https://user:secret@box/v1", "model": "m", "protocol": "openai"},
+        {},
+    )
+
+    measure.record_run(tmp_path, worker, {"started": "2026-08-04T09:00:00+00:00"})
+    path = tmp_path / measure.observed_module.OBSERVED_FILE
+    assert path.is_file(), "run.json was written and the observed block was not"
+
+    block = json.loads(path.read_text(encoding="utf-8"))
+    assert block["model"] == "m"
+    assert block["endpoint"] == "https://box/v1"
+    assert "secret" not in path.read_text(encoding="utf-8")
+    for field in measure.observed_module.PROBE_SET:
+        assert field in block, "absent would read as 'predates the contract' (D2)"
+
+
 def test_a_second_invocation_is_appended_not_replaced(
     tmp_path: Path, live_instruments: types.ModuleType
 ) -> None:

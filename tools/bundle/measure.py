@@ -179,6 +179,28 @@ def _bench_identity() -> Any:
 
 identity_module = _bench_identity()
 
+
+def _bench_observed() -> Any:
+    """The `observed` block's writer (#286, ADR-0027 D7).
+
+    Reached by path like the contract above. This rig refuses every live sweep
+    under #240, so this writer is exercised by test rather than by dispatch —
+    it is here because ``record_run`` is the seam that records what ran, and a
+    seam that records one block and not the other is the gap the next rig
+    inherits.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "bench_observed", REPO / "tools" / "bench" / "observed.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+observed_module = _bench_observed()
+
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
 # c2 check exists to catch, on the one axis where a divergence would be silent:
@@ -733,6 +755,10 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
+    # The second block (#286, ADR-0027 D7), written on the branch that OPENS the
+    # directory and never on the resume above — see the same call in
+    # `tools/breadth/measure.py` for why. Nothing in this file reads it.
+    observed_module.write(out, worker.endpoint, worker.model)
 
 
 def node_runs_typescript() -> bool:
