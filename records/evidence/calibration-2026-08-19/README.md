@@ -517,3 +517,54 @@ documented as informational: it feeds `latency_plateau_n`, which decides nothing
 It has no measurement behind it, and it is kept because throughput and latency
 disagree by design on a genuinely wide server — that disagreement is how a reader
 tells a real 16-slot curve from a broken measurement.
+
+### D3 — `RAMP_TOKENS = 475`
+
+**What the number is for, which the earlier framing had wrong.** `saturation_n`
+(`knee` in code) is consumed at `run.py:235` as a drift tripwire: the survey config
+declares `concurrency.expect`, the ramp measures, and a mismatch is recorded and
+printed. It exists to catch a server restarted with a different `--max-num-seqs`
+that nobody noticed — which is #286's own subject. It is not a capacity plan for
+the bench's dispatch, so "which workload should it describe" is the wrong question.
+The right one is **at which generation length is the drift check most sensitive.**
+
+**Why the answer moves with token count.** Short generations are prefill-dominated
+— the prompt is processed once and few tokens are emitted — and prefill batches
+well, so throughput climbs past the slot count and saturation over-reads. Long
+generations are decode-dominated, and decode is memory-bandwidth-bound, so the
+curve flattens where the slots actually run out. That is the mechanism behind C4's
+ollama readings of 12 / 4 / 2 at 32 / 128 / 512.
+
+**Sensitivity, measured** — how much cutoff slack each column has before a vLLM
+cell flips, at `PLATEAU_FRACTION = 0.92`:
+
+| tokens | cutoffs that read every cell correctly | slack above 0.92 |
+|---|---|---|
+| 32 | none — cfg 1 is wrong at every cutoff | — |
+| 128 | 0.90 – 0.94 | 0.02 |
+| 512 | 0.90 – 0.97 | **0.05** |
+
+**Cost, measured** (9 levels x 2 repeats, srv1, `Qwen2.5-Coder-1.5B-AWQ`):
+
+| tokens | vLLM ramp | ollama ramp | percentile of 33,358 real completions |
+|---|---|---|---|
+| 32 | 1.7 min | 0.7 min | below p10 |
+| 128 | 6.5 min | 2.2 min | p28 |
+| 194 | ~9.8 min | ~3.3 min | p50 |
+| **475** | **~24 min** | **~8.1 min** | **p90** |
+| 512 | 26 min | 8.2 min | p92 |
+
+**475 takes the sensitivity without the round number.** It sits within 7% of the
+512 column, keeping almost all of its 0.05 slack, and it is a figure the served
+workload justifies rather than one chosen by reasoning — which matters now that
+every `saturation_n` reports the token count that produced it. It is an
+interpolation inside a bracket whose endpoints agree at all five vLLM widths, not
+an extrapolation.
+
+**The counter-pressure is recorded and untested.** Longer generations are exactly
+the decode-bound regime in which the *card* binds before the *flag* — the
+D1-amendment failure mode where `saturation_n` under-reads `declared_slots`. It did
+not appear on a 1.5B AWQ with headroom on srv1's card. A 7B, or srv2's 12 GB card,
+is where it would appear first. Raising the token count buys sensitivity now and
+carries that risk forward; the split fields make it visible when it happens rather
+than silently wrong.
