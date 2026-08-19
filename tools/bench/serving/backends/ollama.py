@@ -230,12 +230,22 @@ def release(host: str) -> dict[str, Any]:
     # verdict quietly reported "2 of 3".
     mine = run("own_processes", "pgrep -c '[l]lama-server' 2>/dev/null || echo 0")
     remaining = contract.first_int(mine)
+    # **DE-L.** The kill's own read-back was echoed into `steps` and parsed by
+    # nothing, so a `sudo -n` failure on the pkill was invisible in the flag —
+    # it was caught only incidentally, because the restart that follows would
+    # also fail. Recorded as its own field so the two are distinguishable: a
+    # kill that did not work and a restart that rescued it is a different fact
+    # about the host from a kill that worked.
+    killed = next((step for step in steps if step["step"] == "kill_servers"), {})
+    after_kill = contract.first_int((killed.get("stdout") or "").split("=")[-1])
     used = contract.first_int(gpu)
     return {
         "backend": NAME,
         "steps": steps,
         "gpu_used_mib": used,
         "own_processes_remaining": remaining,
+        "children_after_kill": after_kill,
+        "kill_was_effective": None if after_kill is None else after_kill == 0,
         "released": remaining == 0,
         # A reading of the CARD, separate from the statement about this backend.
         # `released` deliberately does not consult it: a backend that holds
@@ -419,10 +429,17 @@ def claim(
             )
         )
         check["card_used_mib_after_load"] = card_now
+        # **DE-E: `None` is not evidence of agreement.** The pre-load gate is
+        # `card_idle_before_load is True` precisely because a failed reading is
+        # not a clean card; this one was `card_now is not None and ...`, so a
+        # timed-out read made it False and the placement passed unverified —
+        # and the read that fails is the SECOND one, taken on a box that has
+        # just loaded a model. Demonstrated: `verified: True` with
+        # `vram_fraction: 1.0` and `card_used_mib_after_load: None`, which is
+        # the field D7 item 4's co-residency claim rests on.
         check["residency_contradicts_card"] = bool(
             (placed.get("size_vram") or 0) > 0
-            and card_now is not None
-            and card_now < IDLE_BEFORE_LOAD_MIB
+            and (card_now is None or card_now < IDLE_BEFORE_LOAD_MIB)
         )
         check["ok"] = bool(
             loaded == "200"
@@ -479,7 +496,11 @@ def claim(
     if not last["card_idle_before_load"]:
         reasons.append("card_not_idle_before_load")
     if last.get("residency_contradicts_card"):
-        reasons.append("residency_contradicts_card")
+        reasons.append(
+            "residency_contradicts_card"
+            if last.get("card_used_mib_after_load") is not None
+            else "card_unreadable_after_load"
+        )
     if last.get("coresidency_arranged") is False:
         reasons.append("coresidency_not_arranged")
     raise contract.RefusedError(

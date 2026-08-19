@@ -280,7 +280,16 @@ def release(host: str) -> dict[str, Any]:
     # count alone read 0 on the docker rig no matter what the container was
     # doing — `released: True` on a card we had not freed. Both are counted.
     mine = run(
-        "own_processes", "{ pgrep -c '[v]llm serve' 2>/dev/null || echo 0; } | head -1"
+        "own_processes",
+        # **BL-B: `-f`.** Without it `pgrep` matches the process NAME, which can
+        # never contain a space, so this counted 0 against a live
+        # `vllm serve …` every time — verified at 0 where `pgrep -cf` returns 2.
+        # On the pip rig, with no container to count either, `released` was
+        # therefore unconditionally True, and `run.py` trusts that flag as the
+        # ONLY exclusion gate before every entry of the next engine. The three
+        # patterns are the three this function actually kills.
+        "{ pgrep -cf '[v]llm serve|[v]llm[.]entrypoints|[V]LLM::EngineCore' "
+        "2>/dev/null || echo 0; } | head -1",
     )
     boxes = run(
         "own_containers",
@@ -698,7 +707,13 @@ def launched_width(host: str) -> dict[str, Any]:
     for source, command in (
         (
             "process",
-            "ps -eo args | grep -E '[v]llm (serve|.*api_server)' | head -1",
+            # `COLUMNS=` explicitly: `ps` truncates its output to that width
+            # when the variable is set, and `--max-num-seqs` sits ~110
+            # characters into this argv. Non-interactive ssh normally does not
+            # set it — normally is not a property worth depending on when the
+            # consequence is silently reading no width at all.
+            "COLUMNS=1000 ps -eo args | grep -E '[v]llm (serve|.*api_server)' "
+            "| head -1",
         ),
         (
             "container",

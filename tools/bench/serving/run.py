@@ -86,6 +86,11 @@ def _journal(path: Path | None) -> Any:
 
     def append(record: dict[str, Any]) -> None:
         with path.open("a", encoding="utf-8") as handle:
+            # A torn last line — no trailing newline, which is what a crash
+            # mid-append leaves — would otherwise have this record concatenated
+            # onto it, so the pair fails to parse and TWO entries are lost.
+            if path.stat().st_size and not path.read_bytes().endswith(b"\n"):
+                handle.write("\n")
             handle.write(json.dumps(record) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
@@ -117,11 +122,15 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
             # A truncated last line is what a crash mid-append looks like; that
             # one entry is simply re-measured.
             continue
-        if retry_failed and row.get("outcome") != "ok":
-            continue
         host, label = row.get("host"), row.get("label")
         if host and label:
             rows[f"{host}\u0000{label}"] = row
+    # **DE-D: last write wins FIRST, then the failures are dropped.** Filtering
+    # during the scan let an older `ok` line survive a newer `refused` one, so
+    # `--retry-failed` resurrected a superseded measurement and counted the cell
+    # done — reporting `ok` for a cell whose most recent answer was a refusal.
+    if retry_failed:
+        rows = {k: v for k, v in rows.items() if v.get("outcome") == "ok"}
     return rows
 
 
@@ -153,7 +162,35 @@ def run(
     # overlap — produces an empty, SUCCESSFUL survey. E6 exists because labels
     # read like affinity and were not; an unvalidated affinity field is the same
     # class of silent nothing with a new name.
+    # **DE-M.** `expect` and `placement` are whitelisted; the entry itself was
+    # not, so a misspelled top-level key was silently ignored. The one that
+    # matters is `coresident_with`: mistyped, the co-residency entry measures
+    # SOLO under the label `coresident-3b-beside-1.5b`, with
+    # `coresidency_arranged: null` instead of a refusal. Same silent-nothing
+    # class E6 was written against, one level up.
+    known = {
+        "label",
+        "backend",
+        "id",
+        "family",
+        "hosts",
+        "serve",
+        "expect",
+        "placement",
+        "concurrency",
+        "coresident",
+        "coresident_with",
+    }
     for entry in entries:
+        unknown = {k for k in entry if not k.startswith("_")} - known
+        if unknown:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} sets "
+                f"{sorted(unknown)}, which this survey reads nowhere. Keys "
+                f"starting with `_` are documentation and are ignored on "
+                f"purpose; anything else is an entry that believes it declared "
+                f"something. Known keys: {sorted(known)}."
+            )
         stray = set(entry.get("hosts") or []) - set(hosts)
         if stray:
             raise contract.NotCleanError(
@@ -229,6 +266,24 @@ def run(
                 entry["measured"][label] = {
                     k: v for k, v in prior.items() if k not in ("host", "label")
                 }
+                # **DE-B.** The skip used to `continue` before any refusal was
+                # appended, so a RESUMED survey wrote `refusals: []` — and the
+                # survey is resumed by design. The deliverable would have
+                # asserted "nothing refused" about a run that refused. D8's
+                # decision was that a campaign be countable rather than read.
+                if prior.get("outcome") != "ok":
+                    result["refusals"].append(
+                        {
+                            "host": host,
+                            "label": label,
+                            "backend": name,
+                            "why": (prior.get("refusal") or {}).get("prose")
+                            or prior.get("refused")
+                            or prior.get("incomplete"),
+                            "stage": (prior.get("refusal") or {}).get("stage"),
+                            "resumed": True,
+                        }
+                    )
                 continue
             print(f"[{host}] {label} ({name}) — yielding the card", flush=True)
 
@@ -637,20 +692,70 @@ def main(argv: list[str] | None = None) -> int:
     if journal is not None:
         journal.parent.mkdir(parents=True, exist_ok=True)
         print(f"journal: {journal}", flush=True)
+
+    def teardown(config: dict[str, Any]) -> None:
+        """Leave both rigs idle, whatever happened above.
+
+        **A stated requirement of this campaign**, and it does not belong inside
+        `run`: the survey's own invariant is that the engine under test is NEVER
+        told to yield the card, and a teardown that releases everything would
+        violate that invariant's letter inside the loop it protects. Here there
+        is no measurement left to protect.
+
+        The co-residency entry pins its neighbour with `keep_alive: -1`, which by
+        design never expires. It was cleared only incidentally, by the next
+        entry's release — so a survey that ended on that entry, or refused early,
+        left a model resident on the card indefinitely.
+        """
+        try:
+            names = config.get("backends") or contract.available_backends()
+            for host in config.get("hosts") or []:
+                for name in names:
+                    try:
+                        left = contract.load_backend(str(name)).release(host)
+                        print(
+                            f"[{host}] final release of {name}: "
+                            f"released={left.get('released')} "
+                            f"card={left.get('card_used_mib')} MiB",
+                            flush=True,
+                        )
+                    except Exception as error:
+                        print(
+                            f"[{host}] final release of {name} FAILED: {error}",
+                            flush=True,
+                        )
+        except Exception as error:  # never let teardown mask the real result
+            print(f"teardown could not run: {error}", flush=True)
+
     prior = completed(journal, args.retry_failed) if args.resume else {}
     if prior:
         print(f"resuming: {len(prior)} entries already measured", flush=True)
     try:
         result = run(config, journal=journal, resume=prior)
     except BaseException as error:
+        teardown(config)
         partial = {
             "config": config,
             "aborted": f"{type(error).__name__}: {error}",
             "hosts": getattr(run, "partial", {}),
         }
-        args.out.write_text(json.dumps(partial, indent=1) + "\n", encoding="utf-8")
-        print(f"\nABORTED — partial result in {args.out}: {error}")
+        # **DE-J.** `run.partial` is a function attribute and is empty until the
+        # first host is reached, so a structural abort before that — the E6 host
+        # validation, a Ctrl-C, a backend that will not load — wrote an EMPTY
+        # partial over a complete document from a previous run. The journal
+        # survives either way, but the artifact D8 made durable did not.
+        if partial["hosts"] or not args.out.exists():
+            args.out.write_text(json.dumps(partial, indent=1) + "\n", encoding="utf-8")
+            print(f"\nABORTED — partial result in {args.out}: {error}")
+        else:
+            side = args.out.with_suffix(args.out.suffix + ".aborted.json")
+            side.write_text(json.dumps(partial, indent=1) + "\n", encoding="utf-8")
+            print(
+                f"\nABORTED before any host was reached: {error}\n"
+                f"{args.out} left intact; the abort is recorded in {side}"
+            )
         raise
+    teardown(config)
     args.out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
 
     print(f"\nwrote {args.out} ({args.out.stat().st_size} bytes)")

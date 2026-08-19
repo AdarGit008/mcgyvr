@@ -87,6 +87,9 @@ def emit(out: Path, row: dict[str, Any]) -> None:
     costs microseconds.
     """
     with out.open("a", encoding="utf-8") as handle:
+        # Heal a torn tail before appending — see the note above.
+        if out.stat().st_size and not out.read_bytes().endswith(b"\n"):
+            handle.write("\n")
         handle.write(json.dumps(row) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
@@ -103,9 +106,25 @@ def key(row: dict[str, Any]) -> tuple[Any, ...]:
         row.get("phase"),
         row.get("host"),
         row.get("engine"),
+        # **DE-K.** The ramp's model is chosen at RUNTIME (`_smallest`, `_awq`),
+        # not passed in, so two runs of the identical command can measure
+        # different weights — and E7 pre-warmed a checkpoint into the directory
+        # `_awq` ranks. Without the model in the key, a resume skipped work
+        # whose rows name a model that is no longer the one that would run.
+        row.get("model"),
         row.get("arm"),
         row.get("configured_width", row.get("width")),
         row.get("tokens"),
+    )
+
+
+def _succeeded(row: dict[str, Any]) -> bool:
+    """Whether a sample is an answer rather than a failure to get one."""
+    return not (
+        row.get("error")
+        or row.get("refused")
+        or row.get("saturation_refused")
+        or row.get("failed")
     )
 
 
@@ -128,7 +147,13 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
             # A half-written last line is what a crash mid-append looks like.
             # Ignoring it re-does exactly that one sample, which is right.
             continue
-        if retry_failed and (row.get("error") or row.get("refused")):
+        # **DE-C.** This used to test `error` or `refused` only, which are set
+        # when an EXCEPTION escaped — so the two refusal paths the previous
+        # review installed were unreachable by `--retry-failed`: a ramp refused
+        # by BL-4's "the curve was not measured to its end", and a sleep arm
+        # that set `failed` because the card never dropped. Those are precisely
+        # the rows a second look might resolve.
+        if retry_failed and not _succeeded(row):
             continue
         done.add(key(row))
     return done
@@ -280,10 +305,48 @@ def ramp(
         # only axis here is the token count.
         vllm.release(host)
         base = ollama.probe(host) if "ollama" in engines else None
+        if "ollama" in engines and not base:
+            # **BL-A.** `probe` returns None for an unreachable engine AND for a
+            # transient ssh or HTTP failure, and this used to `continue` with no
+            # row and no message. A phase that skips a host in silence and exits
+            # 0 is indistinguishable from one that had nothing to do.
+            emit(
+                out,
+                {
+                    "phase": "ramp",
+                    "host": host,
+                    "engine": "ollama",
+                    "refused": "the engine did not answer its probe on this host",
+                },
+            )
         if base:
-            model = _smallest(ollama.inventory(host, base))
+            inventory = ollama.inventory(host, base)
+            if not inventory:
+                # DE-H: `_smallest([])` raised IndexError and took the whole
+                # phase down for BOTH hosts. `ollama.release` restarts the
+                # service, so an empty inventory mid-restart is realistic.
+                emit(
+                    out,
+                    {
+                        "phase": "ramp",
+                        "host": host,
+                        "engine": "ollama",
+                        "refused": "the engine reported an empty inventory",
+                    },
+                )
+                continue
+            model = _smallest(inventory)
             for tokens in TOKEN_COUNTS:
-                if ("ramp", host, "ollama", None, None, tokens) in done:
+                probe = key(
+                    {
+                        "phase": "ramp",
+                        "host": host,
+                        "engine": "ollama",
+                        "model": model,
+                        "tokens": tokens,
+                    }
+                )
+                if probe in done:
                     print(f"  {host}/ollama tokens={tokens} — already done", flush=True)
                     continue
                 try:
@@ -304,6 +367,28 @@ def ramp(
 
         # vLLM: launch at each configured width, ramp at each token count.
         model = _awq(host, vllm) if "vllm" in engines else None
+        if "vllm" in engines and not model:
+            # **BL-A, and this is the expensive half.** `_awq` shells out to
+            # `ls ~/.cache/huggingface/hub`, and `contract.ssh` returns None for
+            # a connect timeout, a loaded box and an empty listing alike. A bare
+            # `continue` here deleted D7 items 2 and 6 — the five-width matrices,
+            # ~4.7 h and the campaign's headline result — from a transient drop,
+            # emitted nothing, and exited 0. Demonstrated: the phase printed
+            # "finished in 0s" and never created its output file.
+            emit(
+                out,
+                {
+                    "phase": "ramp",
+                    "host": host,
+                    "engine": "vllm",
+                    "refused": (
+                        "no AWQ checkpoint could be listed on this host. NOTE "
+                        "this is also what a failed ssh looks like, so it is a "
+                        "refusal to be investigated rather than a fact about "
+                        "the host"
+                    ),
+                },
+            )
         if not model:
             continue
         # **DE-9.** `vllm.release` runs at the TOP of each host's iteration and
@@ -332,7 +417,17 @@ def _widths(
         # counts are all recorded needs no server, and the launch is the
         # expensive part — 33 s on srv1 and 109 s on srv2, plus the teardown.
         if all(
-            ("ramp", host, "vllm", None, width, tokens) in done
+            key(
+                {
+                    "phase": "ramp",
+                    "host": host,
+                    "engine": "vllm",
+                    "model": model,
+                    "configured_width": width,
+                    "tokens": tokens,
+                }
+            )
+            in done
             for tokens in TOKEN_COUNTS
         ):
             print(f"  {host}/vllm width={width} — already done", flush=True)
@@ -364,6 +459,13 @@ def _widths(
         try:
             ollama.release(host)
             vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
+            # **DE-F, and this is the whole of E5's vLLM half.** `launched_width`
+            # was only reachable from `describe`, whose only caller is the
+            # survey — and the campaign config has no vLLM entries at all. So
+            # every width row would have carried the value this run DISPATCHED,
+            # unverified against the host, which is the state E5 was revised to
+            # leave behind. Read here, where the server was just launched.
+            declared = vllm.declared_slots(serve, host)
         except Exception as error:
             emit(
                 out,
@@ -377,7 +479,38 @@ def _widths(
             )
             continue
         for tokens in TOKEN_COUNTS:
-            if ("ramp", host, "vllm", None, width, tokens) in done:
+            if (
+                key(
+                    {
+                        "phase": "ramp",
+                        "host": host,
+                        "engine": "vllm",
+                        "model": model,
+                        "configured_width": width,
+                        "tokens": tokens,
+                    }
+                )
+                in done
+            ):
+                continue
+            if declared.get("provenance") == "contradicted":
+                # A server whose argv does not match what we asked for is not
+                # the server this row would claim to describe. Refused rather
+                # than recorded beside the number, because the number would be
+                # about a configuration nobody chose.
+                emit(
+                    out,
+                    {
+                        "phase": "ramp",
+                        "host": host,
+                        "engine": "vllm",
+                        "model": model,
+                        "width": width,
+                        "tokens": tokens,
+                        "refused": declared.get("refused"),
+                        "declared_slots": declared,
+                    },
+                )
                 continue
             _one_ramp(
                 out,
@@ -387,6 +520,7 @@ def _widths(
                 "vllm",
                 width,
                 tokens,
+                declared,
             )
 
 
@@ -443,7 +577,9 @@ def sleep_state(
             ("control_no_flag", ["--enforce-eager"]),
             ("enabled", ["--enforce-eager", "--enable-sleep-mode"]),
         ):
-            if ("sleep", host, None, arm, None, None) in (done or set()):
+            if key({"phase": "sleep", "host": host, "model": model, "arm": arm}) in (
+                done or set()
+            ):
                 print(f"  {host}/{arm} — already done", flush=True)
                 continue
             serve = {
@@ -529,6 +665,7 @@ def _one_ramp(
     engine: str,
     width: int | None,
     tokens: int,
+    declared: dict[str, Any] | None = None,
 ) -> None:
     """One ramp, every level recorded so thresholds can be re-derived later."""
     original = contract.RAMP_TOKENS
@@ -562,6 +699,10 @@ def _one_ramp(
             "host": host,
             "model": model,
             "configured_width": width,
+            # D1: what the server SAYS, beside what the curve did, each with
+            # its provenance. `configured_width` above is what this run asked
+            # for; this is what the host reports it is running.
+            "declared_slots": declared,
             "tokens": tokens,
             "saturation_n": saturated.get("n"),
             "saturation_refused": saturated.get("refused"),
@@ -696,7 +837,19 @@ def main(argv: list[str] | None = None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     hosts = [h.strip() for h in args.hosts.split(",") if h.strip()]
     began = time.monotonic()
-    done = completed(args.out, args.retry_failed) if args.resume else set()
+    # Only the two phases that CONSULT `done` are told to resume. `fast` and
+    # `load` ignore it, and printing "resuming: N samples" while re-running
+    # everything is a message that is simply false.
+    resumable = args.phase in ("ramp", "sleep")
+    done = (
+        completed(args.out, args.retry_failed) if args.resume and resumable else set()
+    )
+    if args.resume and not resumable:
+        print(
+            f"--resume has no effect on the {args.phase} phase: it does not "
+            "consult prior samples",
+            flush=True,
+        )
     if done:
         print(f"resuming: {len(done)} samples already on disk", flush=True)
     if args.phase == "fast":

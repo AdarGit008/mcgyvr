@@ -346,8 +346,12 @@ def main(argv: list[str] | None = None) -> int:
     # Detached, because ssh sessions on these rigs drop under load and the
     # campaign must not depend on this terminal surviving nine hours.
     launched = subprocess.run(
-        f"cd {REPO} && nohup sh -c {shlex.quote(phases)} > {args.log} 2>&1 "
-        "< /dev/null & echo $!",
+        # **DE-I: append.** E15 says relaunch the identical command to resume —
+        # and `>` truncated the log holding the crash that made the resume
+        # necessary. The path is quoted for the same reason every other
+        # interpolation here is.
+        f"cd {REPO} && nohup sh -c {shlex.quote(phases)} "
+        f">> {shlex.quote(str(args.log))} 2>&1 < /dev/null & echo $!",
         shell=True,
         capture_output=True,
         text=True,

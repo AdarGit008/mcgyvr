@@ -1401,3 +1401,109 @@ def test_resume_keeps_a_refusal_but_retry_failed_drops_it(tmp_path: Path) -> Non
     )
     assert set(runner.completed(journal)) == {"h\x00ok-one", "h\x00bad-one"}
     assert set(runner.completed(journal, retry_failed=True)) == {"h\x00ok-one"}
+
+
+def test_a_torn_line_costs_one_sample_not_two(tmp_path: Path) -> None:
+    """A crash mid-append leaves a line without its newline.
+
+    The next append is then concatenated onto it, the PAIR fails to parse, and
+    two records are lost — including one written after the crash, by the run
+    that was supposed to be recovering. The comment claiming this "re-does
+    exactly that one sample" was true of the torn row and false of the row
+    after it.
+    """
+    runner: Any = _by_path("torn_run", SERVING / "run.py")
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(
+        json.dumps({"host": "h", "label": "first", "outcome": "ok"})
+        + "\n"
+        # torn: no trailing newline, which is what a kill mid-write leaves
+        + '{"host": "h", "label": "tor',
+        encoding="utf-8",
+    )
+    append = runner._journal(journal)
+    append({"host": "h", "label": "after", "outcome": "ok"})
+
+    recovered = runner.completed(journal)
+    assert "h\x00first" in recovered, "the record before the tear must survive"
+    assert "h\x00after" in recovered, "the record AFTER the tear must survive"
+    assert "h\x00tor" not in recovered
+
+
+def test_retry_failed_does_not_resurrect_a_superseded_measurement(
+    tmp_path: Path,
+) -> None:
+    """A cell measured `ok`, then re-measured `refused`, is refused.
+
+    Filtering during the scan let the older `ok` line survive the newer one, so
+    the cell was counted done and the document reported `ok` for a cell whose
+    most recent answer was a refusal — the opposite of what the flag is for.
+    """
+    runner: Any = _by_path("supersede_run", SERVING / "run.py")
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(
+        json.dumps({"host": "srv2", "label": "gpt-oss-20b", "outcome": "ok"})
+        + "\n"
+        + json.dumps({"host": "srv2", "label": "gpt-oss-20b", "outcome": "refused"})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert runner.completed(journal)["srv2\x00gpt-oss-20b"]["outcome"] == "refused"
+    assert runner.completed(journal, retry_failed=True) == {}
+
+
+def test_a_resumed_survey_still_reports_its_refusals(
+    runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The deliverable must not claim a run refused nothing when it refused.
+
+    The resume skip returned before any refusal was appended, and the survey is
+    resumed by design — so `d7-survey.json` would have carried `refusals: []`
+    for a run that refused. D8 decided a campaign be countable rather than read.
+    """
+    table = _stub(runner, monkeypatch)
+
+    def _explode(*a: Any, **k: Any) -> None:
+        raise runner.contract.NotCleanError("no")
+
+    monkeypatch.setattr(table["alpha"], "claim", _explode)
+    config = {
+        "hosts": ["h"],
+        "backends": ["alpha", "beta"],
+        "models": [{"label": "a", "backend": "alpha", "id": "m"}],
+    }
+    journal = tmp_path / "j.jsonl"
+    first = runner.run(config, journal=journal)
+    assert len(first["refusals"]) == 1
+
+    resumed = runner.run(config, resume=runner.completed(journal))
+    assert resumed["hosts"]["h"]["measured"]["a"]["outcome"] == "launch_failed"
+    assert len(resumed["refusals"]) == 1, resumed["refusals"]
+    assert resumed["refusals"][0]["resumed"] is True
+
+
+def test_an_entry_key_the_survey_reads_nowhere_is_refused(
+    runner: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`expect` and `placement` were whitelisted; the entry itself was not.
+
+    Mistype `coresident_with` and the co-residency entry measures SOLO under a
+    label that says otherwise, with `coresidency_arranged: null` rather than a
+    refusal — the same silent nothing E6 was written against, one level up.
+    """
+    _stub(runner, monkeypatch)
+    with pytest.raises(runner.contract.NotCleanError, match="reads nowhere"):
+        runner.run(
+            {
+                "hosts": ["h"],
+                "backends": ["alpha", "beta"],
+                "models": [
+                    {
+                        "label": "a",
+                        "backend": "alpha",
+                        "id": "m",
+                        "coresident_wth": ["other"],
+                    }
+                ],
+            }
+        )
