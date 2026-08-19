@@ -294,9 +294,7 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                 )
                 # D1: hoisted so the summary and any consumer can read the
                 # declaration beside the curve without digging for it.
-                row["declared_slots"] = (row["description"] or {}).get(
-                    "declared_slots"
-                )
+                row["declared_slots"] = (row["description"] or {}).get("declared_slots")
                 concurrency = spec.get("concurrency") or {}
                 if collect.get("concurrency", True) and concurrency.get("measure"):
                     print(f"[{host}] {label} — concurrency ramp", flush=True)
@@ -312,9 +310,7 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                     expected = concurrency.get("expect")
                     measured["expected"] = expected
                     measured["matches_expected"] = (
-                        None
-                        if expected is None
-                        else saturated.get("n") == expected
+                        None if expected is None else saturated.get("n") == expected
                     )
                     row["concurrency"] = measured
                     if measured["matches_expected"] is False:

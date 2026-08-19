@@ -526,9 +526,7 @@ def _throughput_plateau(levels: list[dict[str, Any]]) -> int | None:
     best = max((rate for _, rate in rates), default=0)
     if not best:
         return None
-    return next(
-        (int(n) for n, rate in rates if rate >= PLATEAU_FRACTION * best), None
-    )
+    return next((int(n) for n, rate in rates if rate >= PLATEAU_FRACTION * best), None)
 
 
 def _latency_plateau(

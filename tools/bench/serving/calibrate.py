@@ -301,17 +301,13 @@ def ramp(
 def _card_mib(host: str) -> int | None:
     """What the card is holding, right now. The only evidence sleep produces."""
     return contract.first_int(
-        contract.ssh(
-            host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader"
-        )
+        contract.ssh(host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader")
     )
 
 
 def _post(base: str, path: str, timeout: float = 60.0) -> dict[str, Any]:
     """POST with no body, returning the status rather than raising on it."""
-    request = urllib.request.Request(
-        contract.url(base, path), data=b"", method="POST"
-    )
+    request = urllib.request.Request(contract.url(base, path), data=b"", method="POST")
     began = time.monotonic()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -587,9 +583,7 @@ def main(argv: list[str] | None = None) -> int:
                 int(t.strip()) for t in args.tokens.split(",") if t.strip()
             )
         if args.widths:
-            WIDTHS = tuple(
-                int(w.strip()) for w in args.widths.split(",") if w.strip()
-            )
+            WIDTHS = tuple(int(w.strip()) for w in args.widths.split(",") if w.strip())
         print(f"ramp: widths={WIDTHS} tokens={TOKEN_COUNTS}", flush=True)
         ramp(args.out, hosts, tuple(e.strip() for e in args.engines.split(",")))
     print(f"{args.phase} finished in {time.monotonic() - began:.0f}s -> {args.out}")

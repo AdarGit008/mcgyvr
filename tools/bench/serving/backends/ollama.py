@@ -463,9 +463,7 @@ def describe(
     }
 
 
-def declared_slots(
-    server: dict[str, Any], model: str | None = None
-) -> dict[str, Any]:
+def declared_slots(server: dict[str, Any], model: str | None = None) -> dict[str, Any]:
     """What this engine SAYS its slot count is — never what the curve did.
 
     **D1, 2026-08-19.** A scheduler limit and a throughput saturation point are
@@ -491,8 +489,7 @@ def declared_slots(
             "value": None,
             "provenance": "observed",
             "refused": (
-                "no resident child process, so the engine has not stated a slot "
-                "count"
+                "no resident child process, so the engine has not stated a slot count"
             ),
         }
     try:
@@ -517,9 +514,7 @@ def declared_slots(
     }
 
 
-def _instance_for(
-    server: dict[str, Any], model: str | None
-) -> dict[str, Any] | None:
+def _instance_for(server: dict[str, Any], model: str | None) -> dict[str, Any] | None:
     """The child serving ``model``, or ``None`` — never a blind ``instances[0]``.
 
     This engine runs one child per resident model, and up to three can be
@@ -543,9 +538,7 @@ def _instance_for(
     return instances[0] if len(instances) == 1 else None
 
 
-def serving_config(
-    server: dict[str, Any], model: str | None = None
-) -> dict[str, Any]:
+def serving_config(server: dict[str, Any], model: str | None = None) -> dict[str, Any]:
     """The whole serving configuration, parsed and pinned as two digests.
 
     This engine's config is split in two places and neither is on the network:
@@ -571,9 +564,7 @@ def serving_config(
                 f"matched to {model!r}; this config would have described an "
                 "unidentified one of them"
             ),
-            "resident_command_lines": [
-                row.get("command_line") for row in instances
-            ],
+            "resident_command_lines": [row.get("command_line") for row in instances],
         }
     config: dict[str, Any] = dict(_command_flags(instance.get("command_line") or ""))
     try:

@@ -485,9 +485,7 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     # Every value carries the conditions that define it — a saturation point at
     # one token budget is not comparable with one at another.
     assert contract.saturation(vllm16)["ramp_tokens"] == contract.RAMP_TOKENS
-    assert (
-        contract.saturation(vllm16)["plateau_fraction"] == contract.PLATEAU_FRACTION
-    )
+    assert contract.saturation(vllm16)["plateau_fraction"] == contract.PLATEAU_FRACTION
 
     # `batches` is retired: it claimed to say which of two different quantities
     # to believe.
@@ -756,6 +754,7 @@ def test_no_host_reading_reaches_disk_unredacted(
         f'Environment="OLLAMA_KEY={token}" HOME=/home/someone '
         f"api=https://user:pw@host/x {key} --port 9 llama-server"
     )
+
     # Each backend's OWN contract reference: an earlier test clears the shared
     # module slot, so a later fresh load holds a different module object and
     # patching only the fixture's copy would leave the real fetchers live.

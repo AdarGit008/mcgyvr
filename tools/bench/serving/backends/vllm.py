@@ -599,7 +599,7 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         "mib=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits "
         "2>/dev/null | head -1); "
         f'[ "$code" = "200" ] && [ "${{mib:-0}}" -ge {int(MIN_ALLOCATION_MIB)} ] '
-        '&& { echo ready; exit 0; }; sleep 10; done; '
+        "&& { echo ready; exit 0; }; sleep 10; done; "
         'echo "timeout code=$code mib=$mib"',
         timeout=START_TIMEOUT_S + 120,
     )
