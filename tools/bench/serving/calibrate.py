@@ -213,7 +213,9 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                     )
 
 
-def ramp(out: Path, hosts: list[str]) -> None:
+def ramp(
+    out: Path, hosts: list[str], engines: tuple[str, ...] = ("ollama", "vllm")
+) -> None:
     """The concurrency matrix: configured width x token count, both engines."""
     ollama = contract.load_backend("ollama")
     vllm = contract.load_backend("vllm")
@@ -221,7 +223,7 @@ def ramp(out: Path, hosts: list[str]) -> None:
         # Ollama first: its width is whatever the host is configured for, so the
         # only axis here is the token count.
         vllm.release(host)
-        base = ollama.probe(host)
+        base = ollama.probe(host) if "ollama" in engines else None
         if base:
             model = _smallest(ollama.inventory(host, base))
             for tokens in TOKEN_COUNTS:
@@ -242,15 +244,23 @@ def ramp(out: Path, hosts: list[str]) -> None:
                 _one_ramp(out, base, model, host, "ollama", None, tokens)
 
         # vLLM: launch at each configured width, ramp at each token count.
-        model = _awq(host, vllm)
+        model = _awq(host, vllm) if "vllm" in engines else None
         if not model:
             continue
         for width in WIDTHS:
+            # The environment a pip-installed vLLM needs on this rig. Omitting
+            # it produced ten failed launches and no vLLM rows at all: the
+            # server never started and `claim` correctly refused an empty card.
             serve = {
                 "max_model_len": 8192,
                 "max_num_seqs": width,
                 "gpu_memory_utilization": 0.85,
                 "flags": ["--enforce-eager"],
+                "env": {
+                    "FLASHINFER_DISABLE_VERSION_CHECK": "1",
+                    "CUDA_HOME": "$HOME/.local/lib/python3.14/"
+                    "site-packages/nvidia/cu13",
+                },
             }
             try:
                 ollama.release(host)
@@ -369,10 +379,22 @@ def _smallest(models: list[str]) -> str:
 
 def _awq(host: str, vllm: types.ModuleType) -> str | None:
     listing = contract.ssh(host, "ls ~/.cache/huggingface/hub 2>/dev/null || true")
-    for line in (listing or "").splitlines():
-        if "AWQ" in line and "models--" in line:
-            return line.strip().removeprefix("models--").replace("--", "/", 1)
-    return None
+    # Smallest AWQ first: the ramp is a concurrency measurement, not a memory
+    # experiment, and the first alphabetical match put a 14B on a 12 GB card.
+    order = ("1.5B", "3B", "4B", "7B", "14B")
+    found = [
+        line.strip()
+        for line in (listing or "").splitlines()
+        if "AWQ" in line and "models--" in line
+    ]
+    found.sort(
+        key=lambda name: next(
+            (i for i, size in enumerate(order) if size in name), len(order)
+        )
+    )
+    if not found:
+        return None
+    return found[0].removeprefix("models--").replace("--", "/", 1)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -381,6 +403,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--hosts", default="srv1,srv2")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=30)
+    parser.add_argument(
+        "--engines",
+        default="ollama,vllm",
+        help="restrict the ramp phase — re-running one half must not redo the other",
+    )
     args = parser.parse_args(argv)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -391,7 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.phase == "load":
         load(args.out, hosts, repeats=max(1, args.repeats // 15))
     else:
-        ramp(args.out, hosts)
+        ramp(args.out, hosts, tuple(e.strip() for e in args.engines.split(",")))
     print(f"{args.phase} finished in {time.monotonic() - began:.0f}s -> {args.out}")
     return 0
 

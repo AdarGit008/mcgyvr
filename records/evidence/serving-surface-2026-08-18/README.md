@@ -336,3 +336,55 @@ family qwen2.5-coder-1.5b: … [2 of 3]
 The 4,916 MiB was vLLM's own allocation. After the fix, the same survey measured
 all three entries and the family reported `[3 of 3]`. The unit tests passed
 throughout, because the stub backends always report a successful release.
+
+## Correction, 2026-08-19 — two cited files were never written, and the survey that would have filled them
+
+The `## Files` section above names `concurrency.json` and `census.json`. **Neither
+exists, and neither ever did** — `git log --diff-filter=A` over this directory
+returns one commit, adding `README.md` and `routes.json` only. A record citing
+evidence that was never written is worse than one citing none, so the citation is
+withdrawn here rather than deleted above.
+
+Where that material actually survives:
+
+| named file | what survives | where |
+|---|---|---|
+| `concurrency.json` | the four ramps and the rule they falsified | the concurrency correction above; every level of every later ramp in `../calibration-2026-08-19/samples.jsonl` |
+| `census.json` | served window, slot count and placement per model | Findings 1, 2b and 2c above; per-model load time and VRAM fraction in the calibration samples |
+
+What is genuinely lost is the raw per-endpoint capture per model — the bytes each
+server returned. Re-running the census is the only way back to it.
+
+### The end-to-end survey, recorded here because its result file is gone
+
+`run.py --config configs/srv-full.json --hosts srv1` ran twice on 2026-08-18. Both
+runs wrote their result JSON to a transient path that no longer exists, so this is
+the only record of them. The first run is the one quoted in the exclusion-gate
+correction above. The second, against the fixed gate, measured all three entries:
+
+```
+q15-ollama-srv1   knee None   (no expectation; the stale expect: 2 was removed)
+q15-vllm-s8       knee 8      configured --max-num-seqs 8
+q15-vllm-s16      knee 16     configured --max-num-seqs 16
+family qwen2.5-coder-1.5b: REFUTED as identical [3 of 3]
+  digests are not the same KIND (['checkpoint-tensor digest', 'manifest digest'])
+  quantizations (['Q4_K_M', 'auto_awq']) make these different instruments
+```
+
+Three things that only a full orchestrator run could establish, and which no unit
+test could: release-then-claim frees a shared 6 GB card across an engine switch;
+the ramp recovers the batch width through the whole pipeline rather than only in
+isolation; and a refused entry does not lose the run — the entries measured before
+it were written.
+
+The family verdict is the intended behaviour rather than a failure: `family` is a
+**declared** claim that two entries are the same model, and the measurement is
+allowed to disagree with it in writing. Here it did, on two independent grounds,
+with its denominator attached.
+
+### A trap for the next digest
+
+`/v1/models` is **not byte-stable**. Its model card carries a `created` timestamp
+that changes per request — two calls one second apart differ, and the difference
+is not client-versus-host. Nothing digests it today (`fingerprint.py` reads
+`/server_info`), and nothing should without stripping that field first.

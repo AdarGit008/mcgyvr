@@ -165,3 +165,27 @@ harness also picked the first AWQ model alphabetically, which put a 14B on a
 
 The refusal working exactly as designed is the reason this cost only rig time
 rather than ten rows of plausible nonsense.
+
+## Addendum, 2026-08-19 — the ollama matrix replicated
+
+The first attempt to re-run the vLLM half re-ran ollama instead: the harness patch
+had died on an assertion and written nothing, so the unchanged harness ran the full
+matrix again and spent 1.5 h of rig time. As evidence that is not wasted — it is an
+independent replication of Finding C4 on the same hardware:
+
+| host | tokens | knee, run 1 | knee, run 2 | speedup, run 1 | speedup, run 2 |
+|---|---|---|---|---|---|
+| srv1 | **32** | **12** | **12** | 2.52 | 2.49 |
+| srv1 | 128 | none | none | 1.70 | 1.70 |
+| srv1 | 512 | none | none | 1.48 | 1.45 |
+
+The token-count dependence is reproducible, not a single bad matrix. At 32 tokens
+the rule is confidently wrong twice; at 128 and 512 it declines twice.
+
+The launch failure is worth recording beside the numbers, because it is the third
+instance of one mechanism in this campaign: `str.replace` returns its input
+unchanged when the pattern misses, and `ruff format` reflows the code between the
+read and the patch, so an edit that did nothing reports no error. The first two
+instances cost minutes; this one cost 1.5 h of rig time, because the file was never
+re-read before the run was launched. Verifying the marker in the file and launching
+are now one step.
