@@ -760,3 +760,86 @@ patch silently never reached the file and the unchanged harness ran. An 8–9 h
 campaign with no time limit is the wrong place to repeat either, and the process
 rule already adopted on this lane applies to the launch: assert the marker in the
 file after writing *and* after the formatter, and make verify-then-launch one step.
+
+### Correction, 2026-08-19 — D7 is BOTH rigs, not srv2 alone
+
+The D7 block above is headed "the comprehensive srv2 campaign". That is wrong and
+the owner corrected it: **each rig gets the fullest run it can support.** srv1 runs
+the full survey, the 5-width matrix at 475 tokens and the D6 instrumentation;
+**srv2 runs all of that plus everything only srv2 can do** — MoE against dense,
+intended co-residency, sleep state, the five previously-refused placements, and the
+`kv_cache_max_concurrency = 5.314` prediction against a declared 16. srv2 is a
+superset of srv1's campaign, not a different one.
+
+### The D7 model roster, settled 2026-08-19
+
+The corpus the calibration measured is **17 ollama models: 5 on srv1, 12 on srv2**
+(the AWQ model is vLLM and ramp-only, and is not part of it). The D7 roster is
+drawn from it by the owner:
+
+**srv1 — 5**, the whole srv1 corpus: `qwen2.5-coder:1.5b`, `qwen2.5-coder:3b`,
+`qwen2.5-coder:7b`, `nemotron-3-nano:4b`, `llama3.2:3b`.
+
+**srv2 — 10**: the srv1 five plus `qwen2.5-coder:14b`, `deepseek-coder-v2:16b`,
+`yi-coder:9b`, `gpt-oss:20b`, and `qwen3-coder:30b`.
+
+Three points settled with it:
+
+1. **`llama3.2:3b` is not on srv2.** The survey never saw it there. It is to be
+   **downloaded, or copied from srv1**, and then verified exactly as every other
+   model on the roster — no model enters the campaign unverified.
+2. **`qwen3-coder:30b` is the intended tag** (Qwen3-Coder-30B-A3B), confirmed by the
+   owner against the two near-miss tags srv2 also carries, `qwen3:30b-a3b` and
+   `nemotron-3-nano:30b-a3b-iq2`.
+3. **`yi-coder:9b` is added back** to the srv2 roster.
+
+Out of scope, from srv2's twelve: `qwen3:30b-a3b`,
+`nemotron-3-nano:30b-a3b-iq2`, `qwen3-coder-next-ud:q3_K_XL`.
+
+**Two of the five `MIN_VRAM_FRACTION` refusals are in the roster** — `gpt-oss:20b`
+and `qwen3-coder:30b` — so D4's withdrawal is exercised on models that the
+instrument has never been able to measure.
+
+**On D4's MoE-against-dense contrast**, the roster's architectures matter:
+`gpt-oss:20b`, `qwen3-coder:30b` and `deepseek-coder-v2:16b` (DeepSeek-V2-Lite,
+~16B total against ~2.4B active) are **all MoE**. The dense comparators of
+comparable footprint are `qwen2.5-coder:14b` and `yi-coder:9b`. The sharpest single
+pair is **`qwen2.5-coder:14b` (dense) against `gpt-oss:20b` (MoE)**: similar bytes,
+very different active parameters — the cleanest available test of D4's claim that
+the same `vram_fraction` means different things.
+
+### Step 0 and step 1.1, added by the owner 2026-08-19
+
+**Step 0 — recon and readiness, before anything touches the rigs for D7.**
+
+*0.1 — a scouting crew with a verifier.* A great deal of running was done on srv1
+and srv2 out of the `local-ai` repo, and none of it is in this tree. Scouts gather
+the run configs and recorded gotchas (from `local-ai`, and separately from what our
+own harness assumes about the rigs); a verifier then runs **read-only** commands on
+both hosts to test which of those claims hold today. The output is one **gaps and
+gotchas** list, which is read and resolved before the D7 run. `local-ai` is read for
+context only — its host findings inform our run configuration and do not enter this
+repo's record as this repo's content.
+
+*0.2 — two readiness subagents, one per rig.*
+
+- **0.2.1** Backend readiness as a **verifiable definition of done, not prose**:
+  every line a command and an expected value, pass or fail. SSH, driver and free
+  VRAM, disk for the digest path, vLLM present (binary or docker) with `CUDA_HOME`
+  resolved, a smallest-model launch reaching health inside `START_TIMEOUT_S`,
+  `/server_info` parsing at depth 0, whether a sleep endpoint exists, a clean
+  shutdown returning the card to idle; ollama's version, `/props total_slots`, its
+  `-np`, and `/api/tags`.
+- **0.2.2** Every roster model **exists and responds on load** — present in
+  `/api/tags`, loads, answers one trivial completion, placement recorded, unloaded.
+  A missing model is provisioned (downloaded or copied between the machines) and
+  then verified identically.
+- **0.2.3** Both machines are left **idle with GPU and RAM free**, proven by a
+  closing reading in the report.
+- **0.2.4** Return a report with the gaps and gotchas.
+
+**Step 1.1 — baseline check, then adversarial review, then fixes.** After the
+harness rewrite the baseline gate must be green, an adversarial review runs against
+the rewrite, and its findings are fixed **before** the launch step. The rewrite is
+the largest single change this lane makes and it is what an 8–9 h campaign on two
+rigs depends on.
