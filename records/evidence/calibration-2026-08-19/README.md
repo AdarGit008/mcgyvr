@@ -728,3 +728,35 @@ single-channel 13.3 GB/s against srv1's 21.8.
 
 Rough total 8–9 h of rig time. The owner set no limit; completeness is the
 constraint that binds, not the clock.
+
+### D8 — explicit outcomes and a durable output, before the D7 campaign launches
+
+The rewrite is forced by D1–D6 regardless: the fields split, two constants move, a
+gate becomes a declaration, elision changes, and what is discarded starts being
+recorded. D8 decides what else goes in while it is open.
+
+**The three recorded defects share one root cause** — the row schema encodes
+outcomes by *which fields happen to be missing*:
+
+1. the same quantity is `configured_width` on a success row and `width` on a
+   failure row, and a failed *launch* is distinguishable from a failed *ramp* only
+   by the absence of `tokens`
+2. ollama rows carry `configured_width: null` and no other field naming `-np`, so
+   they cannot be scored without hand-joining to a separate document
+3. a refused `vram_fraction` is recoverable only by regex over the prose in `why`
+
+**Decided.** Every row carries an explicit `outcome` — `ok` / `launch_failed` /
+`ramp_failed` / `refused` — and a structured `refusal` with a reason code beside the
+prose, so nothing is inferred from absence and nothing is recoverable only from a
+sentence. `declared_slots` is populated for both engines (`-np` and
+`--max-num-seqs`) and is never null when it is known. Every derived number ships
+with the parameters that produced it: `ramp_tokens`, `plateau_fraction`,
+`ramp_repeats`.
+
+**And the output is durable.** Rows append to a committed path as they complete.
+The last two campaigns lost work twice — the end-to-end orchestrator survey was
+written to a transient path and is gone, and 1.5 h of rig time was spent because a
+patch silently never reached the file and the unchanged harness ran. An 8–9 h
+campaign with no time limit is the wrong place to repeat either, and the process
+rule already adopted on this lane applies to the launch: assert the marker in the
+file after writing *and* after the formatter, and make verify-then-launch one step.
