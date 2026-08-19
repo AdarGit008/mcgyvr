@@ -73,3 +73,63 @@ def live_instruments(
         yield instruments
     finally:
         instruments.declared.cache_clear()
+
+
+def _load_by_path(slot: str, path: Path) -> types.ModuleType:
+    """A tools module through its shared ``sys.modules`` slot, loading if absent.
+
+    `tools/` is not a package, so every rig reaches its siblings by path through
+    one slot; this uses the same slot so a fixture patches the object the rigs
+    actually hold.
+    """
+    cached = sys.modules.get(slot)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(slot, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[slot] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(autouse=True)
+def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reaches a serving endpoint unless it says so.
+
+    Since #286 both rigs' ``record_run`` writes the `observed` block, which
+    probes the endpoint — so every existing test that records a run began making
+    real outbound requests, silently. Measured: ~344 attempts across two
+    previously-offline suites, 80 of them to a fixture host whose URL carries a
+    credential, passing only because that host does not resolve here. Behind a
+    wildcard resolver the credential leaves the machine; behind a firewall that
+    drops rather than refuses, one test takes minutes.
+
+    Stubbed centrally rather than per test, because the property wanted is "the
+    suite is offline", and a per-test discipline is one someone forgets. A test
+    that wants to control these seams patches them itself afterwards and wins,
+    since its ``monkeypatch`` applies later than this one.
+
+    Both JSON fetchers and the text fetcher: `/metrics` is Prometheus text and
+    goes through a separate function by design, and patching only the first two
+    left every capture making a live call while reading as offline.
+    """
+    # LOADED, not looked-up. Returning early when the modules were not yet in
+    # `sys.modules` made the guarantee "you are offline, unless something loads
+    # the capture module after I looked" — and `contract.observed()` does load
+    # it lazily, the first time anything calls `scrub`. A protection that
+    # silently does not apply is the shape of half the defects this lane found,
+    # so the modules are imported here rather than hoped for.
+    identity = _load_by_path("bench_identity", REPO / "tools" / "bench" / "identity.py")
+    observed = _load_by_path("bench_observed", REPO / "tools" / "bench" / "observed.py")
+    # BOTH guards, because they catch different failures. Importing above fixes
+    # "the module was not loaded yet". `raising=True` here fixes "the module is
+    # loaded and the function was renamed" — with `raising=False` a rename would
+    # leave the real fetcher live and this fixture would go on reporting that
+    # the suite is offline. Two ways to silently become a no-op, two guards.
+    for module, name in (
+        (identity, "_get_json"),
+        (identity, "_post_json"),
+        (observed, "_get_text"),
+    ):
+        monkeypatch.setattr(module, name, lambda *a, **k: None, raising=True)
