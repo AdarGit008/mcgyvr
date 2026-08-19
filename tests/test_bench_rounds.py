@@ -500,6 +500,15 @@ NOT_A_FIGURE = {
         "semantic and operational — and reads no run directory, no row and no "
         "rate. It states nothing about outcomes at all"
     ),
+    "tools/bench/serving/calibrate.py": (
+        "the constants campaign (#286 lane). It measures the thresholds and "
+        "timeouts `serving/` was built on — array sizes, load durations, VRAM "
+        "fractions, the concurrency ramp at several token counts — and writes "
+        "every sample as it is taken. Its figures are tokens per second and "
+        "speedup RATIOS against a single request: properties of a server, not "
+        "of a run. It reads no run directory and no row, so there is no tier "
+        "attribution to declare, the same exemption `run.py` holds beside it"
+    ),
     "tools/bench/serving/contract.py": (
         "the backend interface and the pieces no engine owns — the ramp and "
         "the machine readings. It describes servers, never runs"
