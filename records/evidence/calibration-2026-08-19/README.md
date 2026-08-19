@@ -614,3 +614,33 @@ exercised: MoE, two co-resident models, and sleep. The purpose is to see what th
 endpoints actually return under each and to harden the mechanism against it. The
 `placement.expect` design above is provisional until that run reports; it is the
 shape the evidence supports, not a shape any measurement has yet exercised.
+
+### D5 — elide by name, with a 4096-item backstop
+
+`MAX_INLINE_ITEMS = 512` is a size-based guess at an intent about identity, and the
+guess broke as models grew. Its own docstring states the intent — *"keeps every
+structural list inline … and elides only the three tokenizer arrays"* — and that
+sentence was true when the reference model had 338 tensors. Measured across the
+corpus, `tensors` runs **255–843**, so 512 splits one field down the middle of the
+model ladder: inline on the small models, elided on the large ones. A reader
+comparing two captures sees differently-shaped files and cannot tell a real
+difference from the rule flipping.
+
+**Nothing is lost either way.** `observed.py:433` replaces an elided list with
+`{elided, count, sha256}` on the same digest convention `run.json` uses, so drift
+detection is untouched. Only legibility is at stake.
+
+**Which lists are worth reading decides it.** A tensor row carries a name, a shape
+and a dtype: when two captures differ, an inline `tensors` shows that
+`blk.0.attn_q.weight` went from one quantization to another, which separates a
+re-quantization from an architecture swap without re-running anything. A diff in
+201,088 vocabulary entries is unreadable at any threshold.
+
+**Decided: state the intent instead of approximating it.** The three tokenizer
+arrays are elided by key. Everything else stays inline, `tensors` included, at
+~60 KB per capture for the largest model. A **4096-item backstop** stays as a
+safety valve for an array no measurement has seen — the named set expresses the
+policy, the cap prevents a future model from committing 400,000 rows to git. The
+rule cannot drift as models grow, because it no longer depends on how big anything
+is. The cost is two mechanisms where there was one: a reader must know both to
+predict a capture's shape.
