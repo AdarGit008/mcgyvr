@@ -676,3 +676,55 @@ durations, digest durations against model size, per-attempt load outcomes, and
 *both* ramp repeats rather than only the winner — and the max-of-2 bias is then
 quantified against `PLATEAU_FRACTION` rather than assumed away. No extra rig time
 beyond the run already owed under D4.
+
+### D7 — the comprehensive srv2 campaign, with no time or token limit
+
+**Decided by the owner: the most comprehensive run**, the full 5-width srv2 matrix
+plus the D4 additions, with no time or token budget imposed.
+
+**Why srv2's ramp is not cleanup.** srv2's measured `kv_cache_max_concurrency` is
+**5.314**. vLLM launched there with `--max-num-seqs 16` should read `saturation_n`
+of about **5, not 16** — the card binding before the flag. That is exactly the
+divergence the D1 amendment records as *untested, not excluded*, and srv1 could not
+test it: a 1.5B AWQ had headroom at every width up to 16, so the flag always bound
+first. srv2 is the only place the caveat is falsifiable.
+
+Running declared 8 **and** declared 16 discriminates where one cell cannot:
+
+- both read ~5 → the card binds; the D1 caveat is a measured phenomenon
+- 8 reads 8 and 16 reads ~5 → the crossover is located between them
+- both read their flag → the prediction is refuted and `kv_cache_max_concurrency`
+  does not govern saturation
+
+**Costs, scaled from measured srv1 times.** srv2 runs **1.30x** slower — consistent
+across all three ollama token counts (0.8/0.6, 2.6/2.0, 9.7/7.4) and matching its
+single-channel 13.3 GB/s against srv1's 21.8.
+
+| item | estimate |
+|---|---|
+| srv2 vLLM ramp, one width at 475 tokens | ~31 min |
+| srv2 full 5-width matrix | ~2.7 h |
+| srv2 full survey via the docker launcher (12 models) | ~1–1.5 h |
+| srv1 5-width matrix re-run at 475 tokens | ~2 h |
+
+**The campaign, as one session:**
+
+1. **srv2 full survey via the docker launcher** — all 12 models, load, digest,
+   describe, with placement *recorded* per D4 rather than refused, so the five
+   large models appear for the first time.
+2. **srv2 vLLM 5-width matrix at 475 tokens** (1, 2, 4, 8, 16) — the cross-host
+   replication of C6 and the `kv_cache_max_concurrency` prediction in one.
+3. **MoE against dense** — a MoE and a dense model of comparable footprint, each
+   captured for placement and ramped, so D4's claim that the same
+   `vram_fraction` means different things is measured rather than argued.
+4. **Intended co-residency** — 1.5B and 3B loaded together; placement captured for
+   each, and a ramp run with the neighbour resident.
+5. **Sleep state** — placement and the endpoint's answers captured during and after
+   a sleep/offload window, to see what a sampled sleep actually looks like.
+6. **srv1 at 475 tokens** — the new `RAMP_TOKENS` is an interpolation between two
+   measured columns; this confirms it on the host whose matrix is already known.
+7. **D6 instrumentation throughout** — start durations, digest durations against
+   model size, per-attempt load outcomes, and **both** ramp repeats.
+
+Rough total 8–9 h of rig time. The owner set no limit; completeness is the
+constraint that binds, not the clock.
