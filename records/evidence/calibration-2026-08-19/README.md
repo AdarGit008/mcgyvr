@@ -644,3 +644,35 @@ policy, the cap prevents a future model from committing 400,000 rows to git. The
 rule cannot drift as models grow, because it no longer depends on how big anything
 is. The cost is two mechanisms where there was one: a reader must know both to
 predict a capture's shape.
+
+### D6 — the four unmeasured constants are instrumented on the D4 validation run
+
+| constant | value | what exists today | what is missing |
+|---|---|---|---|
+| `START_TIMEOUT_S` | 900 s | 15 clean vLLM launches in C6 | none was timed — the metric is not recorded |
+| `DIGEST_TIMEOUT_S` | 1800 s | one point: 5.57 GB in 34 s (srv2, docker) | no distribution, no scaling against size |
+| `LOAD_ATTEMPTS` | 2 | refusals cost 91–145 s, being two full clear-load cycles | whether a second attempt ever rescues a first |
+| `RAMP_REPEATS` | 2 | — | the discarded repeat is never written down |
+
+**`RAMP_REPEATS` is not like the other three — it is coupled to D2.**
+`contract.py:325` runs each level twice and keeps the better:
+
+    max((_level(base, model, n) for _ in range(RAMP_REPEATS)), key=tokens_per_s)
+
+Max-of-2 is biased upward, and what it biases is the **peak** — the denominator of
+`saturation_n = first n reaching PLATEAU_FRACTION x peak`. An inflated peak makes
+the cutoff harder to reach, which biases `saturation_n` toward **over-reading**:
+precisely the C6 failure mode this campaign found. The size of that bias is
+unmeasured because the losing repeat is discarded and never recorded — and
+recording it costs **no rig time at all**, since the work is already done twice.
+
+**`LOAD_ATTEMPTS` has a directly testable question**: if a second attempt never
+rescues a first, the constant doubles the cost of every refusal (91–145 s) for
+nothing.
+
+**Decided: instrument all four on the D4 validation run** and set them from that
+data afterwards. The run records what is presently thrown away — vLLM start
+durations, digest durations against model size, per-attempt load outcomes, and
+*both* ramp repeats rather than only the winner — and the max-of-2 bias is then
+quantified against `PLATEAU_FRACTION` rather than assumed away. No extra rig time
+beyond the run already owed under D4.
