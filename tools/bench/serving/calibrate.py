@@ -45,6 +45,7 @@ import json
 import sys
 import time
 import types
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -297,6 +298,126 @@ def ramp(
                 )
 
 
+def _card_mib(host: str) -> int | None:
+    """What the card is holding, right now. The only evidence sleep produces."""
+    return contract.first_int(
+        contract.ssh(
+            host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader"
+        )
+    )
+
+
+def _post(base: str, path: str, timeout: float = 60.0) -> dict[str, Any]:
+    """POST with no body, returning the status rather than raising on it."""
+    request = urllib.request.Request(
+        contract.url(base, path), data=b"", method="POST"
+    )
+    began = time.monotonic()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return {
+                "status": response.status,
+                "seconds": round(time.monotonic() - began, 3),
+            }
+    except Exception as error:
+        return {
+            "status": None,
+            "error": f"{type(error).__name__}: {error}",
+            "seconds": round(time.monotonic() - began, 3),
+        }
+
+
+def sleep_state(out: Path, hosts: list[str]) -> None:
+    """D7 item 5 — what a sampled sleep actually looks like on the card.
+
+    **E3, 2026-08-19: the card is the evidence, never the status.** Measured on
+    both rigs: a server launched WITHOUT ``--enable-sleep-mode`` answers
+    ``POST /sleep?level=1`` with **200** and then reports
+    ``{"is_sleeping": true}`` while freeing 20-22 MiB of ~5-10 GB. Every
+    endpoint agrees that the model is asleep and the card says it never left.
+
+    So both arms are run, in this order, and the negative control is the point
+    rather than a formality: without the flag the endpoints lie, with it they do
+    not, and a reading that cannot tell those apart is not a measurement of
+    sleep. The pass condition is a VRAM drop, and it is asserted here rather
+    than left for a reader to notice.
+    """
+    vllm = contract.load_backend("vllm")
+    ollama = contract.load_backend("ollama")
+    for host in hosts:
+        model = _awq(host, vllm)
+        if not model:
+            emit(out, {"phase": "sleep", "host": host, "refused": "no AWQ checkpoint"})
+            continue
+        for arm, flags in (
+            ("control_no_flag", ["--enforce-eager"]),
+            ("enabled", ["--enforce-eager", "--enable-sleep-mode"]),
+        ):
+            serve = {
+                "max_model_len": 8192,
+                "max_num_seqs": 8,
+                "gpu_memory_utilization": 0.85,
+                "flags": flags,
+                "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
+            }
+            base = f"http://{host}:{vllm.PORT}"
+            row: dict[str, Any] = {
+                "phase": "sleep",
+                "metric": "sleep",
+                "host": host,
+                "arm": arm,
+                "model": model,
+                "flags": flags,
+            }
+            try:
+                ollama.release(host)
+                vllm.claim(host, base, model, serve)
+                row["awake_mib"] = _card_mib(host)
+                row["is_sleeping_before"] = contract.get_json(
+                    contract.url(base, "/is_sleeping")
+                )
+                row["sleep_call"] = _post(base, "/sleep?level=1")
+                time.sleep(15)
+                row["asleep_mib"] = _card_mib(host)
+                row["is_sleeping_after"] = contract.get_json(
+                    contract.url(base, "/is_sleeping")
+                )
+                row["wake_call"] = _post(base, "/wake_up")
+                time.sleep(10)
+                row["awake_again_mib"] = _card_mib(host)
+                awake, asleep = row["awake_mib"], row["asleep_mib"]
+                row["freed_mib"] = (
+                    None if awake is None or asleep is None else awake - asleep
+                )
+                # THE verdict, and it reads the card. `>= half` rather than a
+                # fixed MiB because the two rigs hold very different amounts.
+                row["actually_freed"] = (
+                    None
+                    if row["freed_mib"] is None or not awake
+                    else row["freed_mib"] >= awake * 0.5
+                )
+                row["endpoint_claimed_asleep"] = bool(
+                    (row["is_sleeping_after"] or {}).get("is_sleeping")
+                )
+                # The finding, stated as a field so it can be counted: the
+                # endpoint said asleep and the card disagreed.
+                row["endpoint_lied"] = bool(
+                    row["endpoint_claimed_asleep"] and row["actually_freed"] is False
+                )
+            except Exception as error:
+                row["refused"] = f"{type(error).__name__}: {error}"
+            finally:
+                vllm.release(host)
+            emit(out, row)
+            print(
+                f"  {host}/{arm}: awake={row.get('awake_mib')} "
+                f"asleep={row.get('asleep_mib')} freed={row.get('freed_mib')} "
+                f"actually_freed={row.get('actually_freed')} "
+                f"endpoint_lied={row.get('endpoint_lied')}",
+                flush=True,
+            )
+
+
 def _one_ramp(
     out: Path,
     base: str,
@@ -411,8 +532,14 @@ def _awq(host: str, vllm: types.ModuleType) -> str | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Declared first because Python requires it before ANY reference in the
+    # function, and the --tokens/--widths help strings quote the defaults.
+    global TOKEN_COUNTS, WIDTHS
+
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--phase", choices=("fast", "load", "ramp"), required=True)
+    parser.add_argument(
+        "--phase", choices=("fast", "load", "ramp", "sleep"), required=True
+    )
     parser.add_argument("--hosts", default="srv1,srv2")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=30)
@@ -420,6 +547,24 @@ def main(argv: list[str] | None = None) -> int:
         "--engines",
         default="ollama,vllm",
         help="restrict the ramp phase — re-running one half must not redo the other",
+    )
+    # **E12, 2026-08-19.** The module-level TOKEN_COUNTS is the HISTORICAL
+    # matrix — (32, 128, 512) is what the calibration measured, and rewriting it
+    # would make the record's own columns unreproducible. D7 wants the same five
+    # widths at the single D3 budget of 475, which is three times less rig time
+    # than re-running the whole matrix, so it is asked for rather than edited in.
+    parser.add_argument(
+        "--tokens",
+        default="",
+        help=(
+            "ramp phase: token counts to sweep (comma separated). Default is "
+            f"the historical matrix {TOKEN_COUNTS}. D7 runs --tokens 475."
+        ),
+    )
+    parser.add_argument(
+        "--widths",
+        default="",
+        help=f"ramp phase: vLLM launch widths. Default {WIDTHS}.",
     )
     args = parser.parse_args(argv)
 
@@ -430,7 +575,22 @@ def main(argv: list[str] | None = None) -> int:
         fast(args.out, hosts, repeats=args.repeats)
     elif args.phase == "load":
         load(args.out, hosts, repeats=max(1, args.repeats // 15))
+    elif args.phase == "sleep":
+        sleep_state(args.out, hosts)
     else:
+        # Rebound for the duration of this process only. `ramp` reads the
+        # module globals, and every emitted row already carries its own
+        # `tokens` and `configured_width`, so a narrowed sweep is legible in the
+        # output rather than something a reader has to know was passed.
+        if args.tokens:
+            TOKEN_COUNTS = tuple(
+                int(t.strip()) for t in args.tokens.split(",") if t.strip()
+            )
+        if args.widths:
+            WIDTHS = tuple(
+                int(w.strip()) for w in args.widths.split(",") if w.strip()
+            )
+        print(f"ramp: widths={WIDTHS} tokens={TOKEN_COUNTS}", flush=True)
         ramp(args.out, hosts, tuple(e.strip() for e in args.engines.split(",")))
     print(f"{args.phase} finished in {time.monotonic() - began:.0f}s -> {args.out}")
     return 0

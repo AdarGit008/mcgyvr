@@ -233,6 +233,8 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                     claim_kwargs["placement"] = spec["placement"]
                 if spec.get("coresident"):
                     claim_kwargs["coresident"] = True
+                if spec.get("coresident_with"):
+                    claim_kwargs["coresident_with"] = spec["coresident_with"]
                 claimed = backend.claim(
                     host,
                     entry["present"][name]["base"] or f"http://{host}:{backend.PORT}",

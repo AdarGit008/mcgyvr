@@ -234,6 +234,7 @@ def claim(
     expect: dict[str, Any] | None = None,
     placement: dict[str, Any] | None = None,
     coresident: bool = False,
+    coresident_with: list[str] | None = None,
 ) -> dict[str, Any]:
     """Load ``model`` and prove the card is in the state the entry declared.
 
@@ -264,6 +265,13 @@ def claim(
     serve = serve or {}
     expect = expect or {}
     placement = placement or {}
+    # **D7 item 4 measures INTENDED co-residency**, which needs a neighbour
+    # actually on the card — accepting one is not the same as arranging one.
+    # Named models are loaded first, then the model under test, so what is
+    # measured is this model sharing a card rather than this model alone.
+    neighbours = list(coresident_with or [])
+    if neighbours:
+        coresident = True
     # A pin naming a field this backend does not compute is a config that
     # believes it is pinned and is not — checked before anything else, because
     # a verification that only runs on the failure path never runs at all.
@@ -277,6 +285,22 @@ def claim(
     trail: list[dict[str, Any]] = []
     for attempt in range(1, LOAD_ATTEMPTS + 1):
         released = release(host)
+        # Loaded AFTER the release, so the neighbours are this attempt's doing
+        # and not a leftover — and before the model under test, so the card is
+        # already shared when it lands. A neighbour that will not load is a
+        # refusal of the whole entry: an entry that asked to measure sharing and
+        # got sole residency would silently measure the wrong thing.
+        neighbourhood = []
+        for other in neighbours:
+            body = json.dumps({"model": other, "keep_alive": "10m", "num_predict": 1})
+            status = contract.ssh(
+                host,
+                f"curl -s -m 3600 -X POST "
+                f"{shlex.quote(contract.url(base, '/api/generate'))} "
+                f"-d {shlex.quote(body)} -o /dev/null -w '%{{http_code}}'",
+                timeout=LOAD_TIMEOUT_S,
+            )
+            neighbourhood.append({"model": other, "load_http_status": status})
         contract.drop_page_cache(host)
         options = {"num_predict": 1}
         if "num_ctx" in serve:
@@ -313,6 +337,14 @@ def claim(
             "resident_names": names,
             "sole_resident": names == [model],
             "coresidency_allowed": coresident,
+            "coresident_with": neighbours or None,
+            "coresident_loads": neighbourhood or None,
+            "coresidency_arranged": (
+                None
+                if not neighbours
+                else all(row["load_http_status"] == "200" for row in neighbourhood)
+                and all(other in names for other in neighbours)
+            ),
             "size": placed.get("size"),
             "size_vram": placed.get("size_vram"),
             "vram_fraction": fraction,
@@ -350,6 +382,7 @@ def claim(
             loaded == "200"
             and model in names
             and (coresident or check["sole_resident"])
+            and check["coresidency_arranged"] is not False
             and check["placement_meets_expectation"] is not False
             and check["server"].get("instances")
             and not check["residency_contradicts_card"]
@@ -392,6 +425,8 @@ def claim(
         reasons.append("card_not_idle_before_load")
     if last.get("residency_contradicts_card"):
         reasons.append("residency_contradicts_card")
+    if last.get("coresidency_arranged") is False:
+        reasons.append("coresidency_not_arranged")
     raise contract.NotCleanError(
         f"{model} on {host} would not come up clean in {LOAD_ATTEMPTS} attempts "
         f"[{','.join(reasons) or 'unknown'}]: resident={last['resident_names']}, "
