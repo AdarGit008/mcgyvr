@@ -481,6 +481,22 @@ def main(argv: list[str] | None = None) -> int:
         text=True,
     )
     pid = (launched.stdout or "").strip()
+    # **`launched: True` has to be a claim, not a formality.** `&` binds looser
+    # than `&&`, so the whole `cd … && nohup …` compound is what gets
+    # backgrounded and `echo $!` prints that subshell's pid whatever happened
+    # inside it. The returncode is the `echo`'s and is therefore always 0 — a
+    # log path that is a directory, or unwritable, or a full disk, all printed
+    # a valid pid and a cheerful True about a chain that never ran. stderr is
+    # the one channel that does carry the diagnostic, and it was captured and
+    # thrown away. This file exists to refuse rather than to look like it
+    # worked; a launcher structurally unable to report its own failure to
+    # launch is the same defect one level up.
+    problem = (launched.stderr or "").strip()
+    if problem or not pid.isdigit():
+        print("REFUSED — the driver did not start:")
+        for line in (problem or "no pid was printed").splitlines():
+            print(f"  {line}")
+        return 1
     print(json.dumps({"launched": True, "pid": pid, "log": str(args.log)}))
     return 0
 

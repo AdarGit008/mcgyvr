@@ -88,11 +88,23 @@ def emit(out: Path, row: dict[str, Any]) -> None:
     """
     with out.open("a", encoding="utf-8") as handle:
         # Heal a torn tail before appending — see the note above.
-        if out.stat().st_size and not out.read_bytes().endswith(b"\n"):
+        if _ends_mid_line(out):
             handle.write("\n")
         handle.write(json.dumps(row) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
+
+
+def _ends_mid_line(path: Path) -> bool:
+    """Whether the file's last byte is something other than a newline.
+
+    One byte is read, not the whole file — see the note on `run.py`'s twin.
+    """
+    if not path.stat().st_size:
+        return False
+    with path.open("rb") as tail:
+        tail.seek(-1, os.SEEK_END)
+        return tail.read(1) != b"\n"
 
 
 def key(row: dict[str, Any]) -> tuple[Any, ...]:
@@ -137,7 +149,7 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
     """
     if not out.exists():
         return set()
-    done: set[tuple[Any, ...]] = set()
+    rows: dict[tuple[Any, ...], dict[str, Any]] = {}
     for line in out.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -153,10 +165,15 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
         # by BL-4's "the curve was not measured to its end", and a sleep arm
         # that set `failed` because the card never dropped. Those are precisely
         # the rows a second look might resolve.
-        if retry_failed and not _succeeded(row):
-            continue
-        done.add(key(row))
-    return done
+        rows[key(row)] = row
+    # **DE-D, mirrored from `run.py.completed`.** Filtering DURING the scan let
+    # an older `ok` line survive a newer failed one for the same key, so
+    # `--retry-failed` counted the cell done and skipped the very retry it was
+    # asked for — reporting the superseded success as the cell's answer. Last
+    # write wins first; only then are the failures dropped.
+    if retry_failed:
+        rows = {k: row for k, row in rows.items() if _succeeded(row)}
+    return set(rows)
 
 
 def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:

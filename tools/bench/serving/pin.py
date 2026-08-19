@@ -210,7 +210,6 @@ def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
     the dispatch URL names the serving machine — and :func:`same_machine` is the
     claim that checks it rather than assuming it.
     """
-    from urllib.parse import urlsplit
 
     host = host or (urlsplit(endpoint).hostname or "")
     if not host or host in ("localhost", "127.0.0.1"):

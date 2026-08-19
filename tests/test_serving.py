@@ -147,7 +147,12 @@ class _Backend:
         model: str,
         serve: Any = None,
         expect: Any = None,
+        coresident_with: Any = None,
     ) -> dict[str, Any]:
+        # Accepted because the real backends do: a co-residency entry names its
+        # neighbour here, and a stub that refused the argument made the survey
+        # report `launch_failed` for a claim that never had a chance to run.
+        self.coresident_with = coresident_with
         self.claimed.append(model)
         return {
             "backend": self.NAME,
@@ -1485,6 +1490,90 @@ def test_retry_failed_does_not_resurrect_a_superseded_measurement(
     )
     assert runner.completed(journal)["srv2\x00gpt-oss-20b"]["outcome"] == "refused"
     assert runner.completed(journal, retry_failed=True) == {}
+
+
+def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
+    tmp_path: Path,
+) -> None:
+    """`run.py`'s DE-D defect, in the module that never got the fix.
+
+    A sample measured once, then re-measured into a failure, is a failure. The
+    filter ran DURING the scan here, so the older good line survived the newer
+    bad one and `--retry-failed` counted the cell done — skipping the retry it
+    was asked for. The twin in `run.py` is pinned by
+    `test_retry_failed_does_not_resurrect_a_superseded_measurement`.
+    """
+    cal: Any = _by_path("supersede_cal", SERVING / "calibrate.py")
+    out = tmp_path / "c.jsonl"
+    sample = {"phase": "ramp", "host": "srv2", "engine": "vllm", "model": "m"}
+    out.write_text(
+        json.dumps({**sample, "saturation_n": 8})
+        + "\n"
+        + json.dumps({**sample, "error": "ssh died"})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert len(cal.completed(out)) == 1
+    assert cal.completed(out, retry_failed=True) == set()
+
+
+def test_a_journal_reads_one_byte_to_heal_its_tail(tmp_path: Path) -> None:
+    """Not the whole file, which is O(n^2) bytes across n appends.
+
+    Both journals fsync per row and an hours-long ramp is the design case named
+    in their own docstrings, so the append path is where a long campaign spends
+    its I/O. The healing itself still has to work: a torn tail must not have the
+    next record concatenated onto it, or the pair fails to parse and two entries
+    are lost rather than one.
+    """
+    for module, path in (("heal_run", "run.py"), ("heal_cal", "calibrate.py")):
+        mod: Any = _by_path(module, SERVING / path)
+        torn = tmp_path / f"{module}.jsonl"
+        torn.write_text('{"host": "srv1", "cut": tr', encoding="utf-8")
+        assert mod._ends_mid_line(torn) is True
+        torn.write_text('{"host": "srv1"}\n', encoding="utf-8")
+        assert mod._ends_mid_line(torn) is False
+        torn.write_text("", encoding="utf-8")
+        assert mod._ends_mid_line(torn) is False
+
+
+def test_a_lapsed_coresidency_is_counted_not_only_recorded(
+    runner: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refusal list is what a consumer counts; this path left it empty.
+
+    Four refusal paths set a row-level refusal and three of them also appended
+    to `result["refusals"]`. The one that did not was the post-ramp co-residency
+    lapse — so the entry whose entire purpose is co-residency was the entry
+    whose failure the top-level summary reported as no failure at all.
+    """
+    table = _stub(runner, monkeypatch)
+    # Resident when the claim looks, gone by the time the ramp ends: BL-6, an
+    # ollama neighbour pinned with `keep_alive: -1` that the server evicts.
+    monkeypatch.setattr(table["alpha"], "residents", lambda host: [], raising=False)
+    result = runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "collect": {},
+            "models": [
+                {
+                    "label": "a",
+                    "backend": "alpha",
+                    "id": "m",
+                    "family": "f",
+                    "coresident_with": ["neighbour"],
+                }
+            ],
+        }
+    )
+    row = result["hosts"]["h"]["measured"]["a"]
+    assert row["outcome"] == "ramp_failed"
+    assert row["refusal"]["stage"] == "post-ramp"
+    counted = [r for r in result["refusals"] if r.get("stage") == "post-ramp"]
+    assert counted, "the lapse set row['refusal'] and was never counted"
+    assert "coresidency lapsed" in counted[0]["why"]
+    assert counted[0]["label"] == "a"
 
 
 def test_a_resumed_survey_still_reports_its_refusals(

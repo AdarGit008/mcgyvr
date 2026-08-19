@@ -89,13 +89,29 @@ def _journal(path: Path | None) -> Any:
             # A torn last line — no trailing newline, which is what a crash
             # mid-append leaves — would otherwise have this record concatenated
             # onto it, so the pair fails to parse and TWO entries are lost.
-            if path.stat().st_size and not path.read_bytes().endswith(b"\n"):
+            if _ends_mid_line(path):
                 handle.write("\n")
             handle.write(json.dumps(record) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
 
     return append
+
+
+def _ends_mid_line(path: Path) -> bool:
+    """Whether the file's last byte is something other than a newline.
+
+    One byte is read, not the whole file. The obvious spelling — `read_bytes()`
+    and look at the end — costs the file's full length on EVERY append, so a
+    journal of n rows reads O(n^2) bytes to inspect n single bytes. These are
+    the fsynced-per-row paths a long campaign spends its I/O in, and the
+    docstrings above describe an hours-long ramp as the design case.
+    """
+    if not path.stat().st_size:
+        return False
+    with path.open("rb") as tail:
+        tail.seek(-1, os.SEEK_END)
+        return tail.read(1) != b"\n"
 
 
 def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any]:
@@ -514,6 +530,25 @@ def run(
                             "solo run wearing a co-residency label"
                         ),
                     }
+                    # Counted, not merely recorded on the row. This was the one
+                    # refusal path of four that set `row["refusal"]` and then
+                    # left `result["refusals"]` empty — so the top-level list a
+                    # consumer scans read "no refusals" about the entry whose
+                    # whole point is co-residency. DE-B fixed exactly this for
+                    # the resume path and a resumed survey therefore reported
+                    # the lapse the first run had swallowed.
+                    result["refusals"].append(
+                        {
+                            "host": host,
+                            "label": label,
+                            "backend": name,
+                            "why": (
+                                f"coresidency lapsed: {missing} were resident "
+                                "when the measurement began and are not now"
+                            ),
+                            "stage": "post-ramp",
+                        }
+                    )
             # Outside the guard: the row is terminal either way, and a row that
             # failed to describe is exactly the one worth having on disk.
             record({"host": host, "label": label, **row})
