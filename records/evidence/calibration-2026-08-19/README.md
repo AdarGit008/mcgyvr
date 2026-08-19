@@ -189,3 +189,83 @@ read and the patch, so an edit that did nothing reports no error. The first two
 instances cost minutes; this one cost 1.5 h of rig time, because the file was never
 re-read before the run was launched. Verifying the marker in the file and launching
 are now one step.
+
+### Finding C5 — ollama's slots are real, they contend, and there is no batching past them
+
+Derived from the ramp levels already in `samples.jsonl`. No new rig time: the
+question was answerable from data the matrix had already paid for.
+
+Both hosts ramped the **same model** (`qwen2.5-coder:1.5b`), so srv1 (`-np 2`)
+against srv2 (`-np 1`) is a one-variable comparison. Throughput cannot settle it —
+the discriminator is **wall time against mean latency at n=2**, which separates
+"the two requests ran together" from "the second one waited".
+
+At 512 tokens, where generation dominates and per-request overhead is ~5%:
+
+| | n=1 latency | n=2 wall | n=2 mean latency | serial predicts wall | concurrent predicts wall |
+|---|---|---|---|---|---|
+| srv1 `-np 2` | 4.14 s | **6.01 s** | 6.01 s | 8.28 s | 6.01 s |
+| srv2 `-np 1` | 4.17 s | **7.95 s** | 6.06 s | 8.34 s | ~6 s |
+
+srv1's wall equals its mean latency: both requests were in flight in the same
+window. srv2's wall exceeds its mean by 1.9 s and lands within 5% of the serial
+prediction: the second request queued. **Two slots run concurrently; one slot
+serializes.**
+
+Three consequences, each measured:
+
+1. **The slots contend.** Two concurrent sequences on srv1 cost 1.45x the
+   single-sequence time each, so throughput rises 1.45x rather than 2x. They share
+   the same compute.
+2. **Nothing batches past `-np`.** srv1's speedup creeps from 1.45 at n=2 to 1.47
+   at n=24 — that residual is keeping both slots full, not admitting more work into
+   a batch. vLLM at width 8 reached 2.52x by comparison.
+3. **`-np` is a configured choice, not a property of the host.** srv2's 1 is a
+   *measured* value — `-np 1` on the `llama-server` command line and
+   `total_slots: 1` from `/props` — not an inference from an unset environment
+   variable. Ollama also re-derives it per model: srv1 gives `nemotron-3-nano:4b`
+   one slot on a host configured for two (Finding 2b of the serving record). Any
+   row that reports a width must therefore carry the width that was configured
+   *for that model on that host at that moment*, which is the gap named in the
+   schema note below.
+
+#### Why the 32-token rows read a knee on a one-slot server
+
+srv2 has one slot and reads **2.27x** at 32 tokens. Model-level batching cannot
+produce that. The mechanism is per-request fixed cost — HTTP, tokenize, schedule,
+detokenize — which runs on the CPU and overlaps with GPU work on a *different*
+request:
+
+| generation length | time per request (srv2) | generation | fixed cost |
+|---|---|---|---|
+| 32 tokens | 0.64 s | ~0.27 s | **~0.37 s (58%)** |
+| 512 tokens | 4.17 s | ~4.0 s | ~0.2 s (5%) |
+
+At 32 tokens more than half of each request is overlappable overhead. The ramp
+watches only total tokens per second, so it cannot distinguish "the server did
+more work at once" from "the paperwork happened while the GPU was busy" — it
+clears the `BATCHING_SPEEDUP` gate and reports a knee of 12 on a server with one
+slot.
+
+This is the mechanism behind C4 rather than a separate finding: C4 recorded that
+the rule is confidently wrong at 32 tokens, and this states why.
+
+#### What the ramp should have been measured at
+
+`RAMP_TOKENS` was chosen to be "enough work to overlap" and never checked against
+the workload the bench actually generates. Measured over **33,358 completions in
+170 measurement files** under `records/measurements/`:
+
+| p25 | p50 | p75 | p90 | p99 | max |
+|---|---|---|---|---|---|
+| 117 | **194** | 319 | 475 | 768 | 2048 |
+
+28.5% of real replies are shorter than 128 tokens; 92.1% are shorter than 512. So
+`RAMP_TOKENS = 128` sits near the 28th percentile of the served workload — most
+real replies are longer than the length the batch width was measured at — and 512
+sits near the 92nd. The grid brackets the workload; no point on it is *at* it.
+
+**This sharpens C4's first decision.** A reported width must carry its token count,
+and the token count that describes this bench is its own median, not a round
+number: **194 for the typical case, 475 for the tail.** Measuring at 32 is
+measuring a workload this project does not run.
