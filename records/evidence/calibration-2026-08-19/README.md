@@ -375,3 +375,60 @@ here would be reading noise.
 3. **`RAMP_TOKENS`**: 128 and 512 agree at every width, so anything >= 128 is
    stable for vLLM. Against the served workload (median 194, p90 475 - see above),
    the defensible choices are 194 or 475, not 128.
+
+## Owner decisions, 2026-08-19
+
+Taken in session, one at a time, against the findings above. Each block records the
+decision, the evidence that decided it, and what it costs. These are decisions on
+this lane's constants; they are not amendments to any ADR.
+
+### D1 — `BATCHING_SPEEDUP` is set to 1.0, renamed, and confined to the inferred path
+
+**Decided: record both widths.** The constant survives as a number and does not
+survive as a concept.
+
+What the review above got wrong: "no threshold fixes it" was a claim about
+separating vLLM@4 (1.23) from ollama@2 (1.45), and that claim is true. But
+separating them is not the job. Recomputed from `samples.jsonl`, a `> 1.0` gate at
+512 tokens is exact on vLLM:
+
+| configured | max speedup | plateau | `> 1.0` reports | truth |
+|---|---|---|---|---|
+| 1 | 1.02 | 1 | 1 | 1 |
+| 2 | 1.00 | 1 | *declined* | 2 |
+| 4 | 1.23 | 4 | 4 | 4 |
+| 8 | 2.43 | 8 | 8 | 8 |
+| 16 | 3.78 | 16 | 16 | 16 |
+
+Four correct, one declined, **no wrong answer**. At 2.0 the same matrix gives two
+correct and three correct answers suppressed. The gate at 1.0 says only *concurrency
+raised throughput at all, so a plateau is claimable* — it asserts nothing about
+batching, and it is renamed accordingly.
+
+**The result is coupled to `RAMP_TOKENS` (D3).** At 128 tokens the same rule reads
+2 for a 1-sequence server (speedup 1.06, plateau 2); at 32 it reads 4 for that
+server and 16 for an 8-sequence one. The clean column is 512.
+
+**`batches` is retired with the concept.** C5 showed it reads `true` for srv2's
+**one-slot** ollama at 2.27 — 58% of a 32-token request there is CPU-side fixed
+cost overlapping across requests. The field asserted batching on a server that
+provably cannot batch.
+
+**One field, one meaning, both engines.** The width now carries its provenance:
+
+| field | vLLM | ollama | meaning |
+|---|---|---|---|
+| `width` | inferred | declared | the server's concurrent-sequence limit |
+| `width_source` | `inferred_plateau` | `declared_props` | how it is known |
+| `max_speedup_vs_n1` | as measured | as measured | peak throughput over the single-request rate — a raw statistic carrying no verdict |
+
+`llama-server`'s `/props` answers `total_slots` directly (confirmed four ways);
+only vLLM's `max_num_seqs` is unaskable. Inference on ollama is measurably unfit
+for the `width` field: at 512 tokens srv2 `-np 1` reads 2, and srv1 `-np 2` reads
+2 on one run and 4 on an identical rerun.
+
+**ollama keeps ramping.** The declared width goes in `width`; the inferred plateau
+is recorded beside it in `readings`. Every ollama run is then a live test of the
+inference method against ground truth on the same host — a stronger cross-check
+than the one being replaced, which had nothing to compare against. The cost is the
+ramp's rig time on an engine whose width could be read in one HTTP call.
