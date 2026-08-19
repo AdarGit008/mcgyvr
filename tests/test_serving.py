@@ -1216,7 +1216,10 @@ def test_the_launcher_refuses_the_exact_failure_it_exists_for(
     real = launcher.REPO
 
     def _staged(path: str) -> str:
-        text = (real / path).read_text(encoding="utf-8")
+        # `real` is the launcher's own Path, whose read_text mypy cannot narrow
+        # through the SimpleNamespace below — annotated rather than cast so the
+        # str-ness is asserted here, where the substitution happens.
+        text: str = (real / path).read_text(encoding="utf-8")
         return text.replace("RAMP_TOKENS = 475", "RAMP_TOKENS = 128")
 
     class _Repo:

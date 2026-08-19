@@ -109,7 +109,7 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
 #: of the defect this list looks for, and a check that cannot tell a definition
 #: from a mention of one pushes every author toward deleting the explanation.
 #: So a comment or docstring line is not a hit.
-ABSENT: tuple[tuple[str, str, str], ...] = (
+WITHDRAWN: tuple[tuple[str, str, str], ...] = (
     (
         "tools/bench/serving/backends/ollama.py",
         "MIN_VRAM_FRACTION = 0.8",
@@ -167,7 +167,7 @@ def check(label: str) -> list[str]:
         text = (REPO / path).read_text(encoding="utf-8")
         if marker not in text:
             problems.append(f"[{label}] {path}: MISSING {marker!r} — {decision}")
-    for path, marker, decision in ABSENT:
+    for path, marker, decision in WITHDRAWN:
         code = code_lines((REPO / path).read_text(encoding="utf-8"))
         hit = next((line for line in code if marker in line), None)
         if hit is not None:
@@ -217,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(f"verified {len(MARKERS)} markers present and {len(ABSENT)} absent")
+    print(f"verified {len(MARKERS)} markers present and {len(WITHDRAWN)} absent")
     if args.dry_run:
         print("--dry-run: nothing launched")
         return 0

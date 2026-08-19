@@ -457,6 +457,11 @@ NOT_A_FIGURE = {
     "tools/bench/matrix.py": "the condition matrix loader",
     "tools/bench/score.py": "the scorer itself, wrapped by the rigs",
     "tools/bench/mode.py": "the declaration",
+    "tools/bench/serving/launch.py": (
+        "the verify-then-launch step. It reads the harness source for decision "
+        "markers and starts a campaign; it measures nothing, states no rate, and "
+        "describes no run"
+    ),
     "tools/bench/product.py": "the pin the declaration reads",
     "tools/bench/regrade.py": "re-scores rows in place; it reports verdicts moved",
     "tools/power/mde.py": "the arithmetic; it has no run directories to describe",
