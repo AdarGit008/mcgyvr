@@ -269,3 +269,109 @@ sits near the 92nd. The grid brackets the workload; no point on it is *at* it.
 and the token count that describes this bench is its own median, not a round
 number: **194 for the typical case, 475 for the tail.** Measuring at 32 is
 measuring a workload this project does not run.
+
+### Finding C6 — the vLLM matrix: the plateau recovers the flag, and both gates are wrong
+
+15 ramps, 5 configured widths x 3 token counts, srv1, `Qwen2.5-Coder-1.5B-AWQ`,
+11432 s. Every launch clean; the 15 error rows in `samples.jsonl` are the earlier
+runs that had no `env`.
+
+| configured `--max-num-seqs` | 32 tok | 128 tok | 512 tok | throughput plateau (all three) |
+|---|---|---|---|---|
+| 1 | none | none | none | 4 / 2 / 1 |
+| 2 | none | none | none | 1 / 1 / 1 |
+| **4** | none | none | none | **4 / 4 / 4** |
+| **8** | **16** | 8 | 8 | 16 / 8 / 8 |
+| **16** | 16 | 16 | 16 | 16 / 16 / 16 |
+
+**The throughput plateau recovers the configured width exactly at 4, 8 and 16**,
+and 128 agrees with 512 at every one of the five widths. Three distinct configured
+values recovered on one engine is a stronger result than the two this lane had.
+
+#### `BATCHING_SPEEDUP` does not survive, and no value of it would
+
+At width 4 the plateau is **4 at all three token counts** — three independent
+measurements, each correct — and the gate discards all three because the speedup
+is 1.23-1.49. The curve is unambiguous: at 512 tokens throughput is 44.0 tok/s at
+n=1, rises to 54.0 at n=4, and is 54.2 at every level from 8 to 24.
+
+The threshold cannot be lowered to fix it:
+
+| curve | max speedup | plateau | truth |
+|---|---|---|---|
+| vLLM `--max-num-seqs 4` @512 | **1.23** | 4 | 4 |
+| ollama `-np 2` @512 | **1.45 / 1.48** | 2 (run 1), 4 (run 2) | 2 |
+
+Any gate low enough to admit the first admits the second, whose plateau is
+unstable across replications and unrelated to its slot count. So the failure is
+not a mis-set number — **speedup magnitude cannot separate these two curves at
+any threshold**, because it measures how much compute headroom the card had, not
+whether the engine batches. `BATCHING_SPEEDUP` is a concept to withdraw, not a
+constant to recalibrate.
+
+#### The single wrong cell is the unnamed 0.95, not the token count
+
+Width 8 at 32 tokens is the only cell in the matrix that reports a wrong width. It
+is not a token-count effect in the way C4's ollama result was:
+
+```
+n= 8   95.3 tok/s      95.3 / 101.5 = 0.939   <- just under the 0.95 cutoff
+n=16  100.7 tok/s
+n=24  101.5 tok/s      peak
+```
+
+`_throughput_plateau` takes the first level reaching **0.95 x peak**. At 32 tokens
+n=8 lands at 0.939 of peak — short by 1.1 tok/s — so the rule walks on to n=16. At
+512 tokens the same width gives 106.7 against a peak of 107.1 (0.996) and reads 8.
+
+So the two thresholds that were function defaults, invisible to the review that
+scrutinised `BATCHING_SPEEDUP`, are between them responsible for every wrong
+answer in this matrix: `0.95` produces the one false width, and `BATCHING_SPEEDUP`
+suppresses three correct ones.
+
+#### Partial batches cost a full batch-time, at every width
+
+The dips reproduce across all five widths and all three token counts, which makes
+them scheduler behaviour rather than noise:
+
+- **n=2 is slower than n=1 at every single width** (0.62x - 0.74x). Two requests
+  cost more than one and deliver less throughput than one.
+- **n=12 against width 8**: 1.84x versus 2.43x at n=8 and n=16 — one full batch of
+  eight plus a two-thirds-empty batch of four pays two batch-times for one and a
+  half batches of work.
+- **n=6 against width 4**: 0.93x versus 1.23x at n=4 and n=8 — the same arithmetic
+  one width down.
+
+Latency shows it directly: at width 8 and 512 tokens, mean latency is 37.25-38.36 s
+flat across n=2 to n=8 (one batch, finishing together), then steps to 50.86 s at
+n=12.
+
+#### A prediction that was tested and did not bite
+
+srv1's `kv_cache_max_concurrency` measured **16.004** at `max_model_len 8192`, so
+the matrix's top width sat exactly at the KV-cache ceiling and a knee below 16 was
+expected as capacity binding rather than method failure. It read **16 at all three
+token counts**. The ceiling was reached, not exceeded.
+
+#### Widths 1 and 2 have no signal to recover
+
+Width 2 reads a speedup of exactly **1.00** at all three token counts, with a
+plateau of 1. This is not a gate suppressing an answer — vLLM at two sequences
+batches no better than at one on this model and card. A method that reported 2
+here would be reading noise.
+
+#### Decisions owed
+
+1. **Withdraw `BATCHING_SPEEDUP`.** Shown above to be unfixable by recalibration.
+   The replacement question is whether the ramp needs an engine gate at all:
+   ollama's width is *readable* (`total_slots` from `llama-server`'s `/props`,
+   confirmed four ways), and only vLLM's `max_num_seqs` is unaskable. Making the
+   ramp a vLLM instrument removes the gate from the path entirely — at the cost of
+   the independent cross-check that first caught the `-np`-versus-`/props`
+   agreement.
+2. **Name and set the plateau cutoff.** `0.95` is a function default at
+   `contract.py:429`. It produced the matrix's only false width at a margin of
+   1.1 tok/s. Whatever it becomes, it must be a named constant beside the others.
+3. **`RAMP_TOKENS`**: 128 and 512 agree at every width, so anything >= 128 is
+   stable for vLLM. Against the served workload (median 194, p90 475 - see above),
+   the defensible choices are 194 or 475, not 128.
