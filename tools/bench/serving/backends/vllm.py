@@ -41,6 +41,7 @@ import json
 import os
 import shlex
 import sys
+import time
 import types
 from pathlib import Path
 from typing import Any
@@ -309,8 +310,19 @@ def claim(
     model: str,
     serve: dict[str, Any] | None = None,
     expect: dict[str, Any] | None = None,
+    **declared: Any,
 ) -> dict[str, Any]:
     """Be serving ``model`` under ``serve``, and prove it.
+
+    **DE-7, 2026-08-19.** ``**declared`` absorbs the per-entry declarations the
+    orchestrator forwards for backends that model them — ``placement``,
+    ``coresident``, ``coresident_with``. Without it, a config entry naming any
+    of those on a vLLM entry raised ``TypeError`` inside the claim guard and was
+    recorded as a refusal, with the orchestrator's own comment three lines away
+    asserting that "a backend that does not model placement is unaffected". What
+    it ignored is written down rather than dropped, because an entry that
+    believes it declared something nothing reads is the defect D4's whole
+    replacement mechanism exists to avoid.
 
     If a server is already up with the right model and the right parameters,
     nothing is restarted — this engine's startup is expensive and a needless
@@ -324,6 +336,7 @@ def claim(
     """
     serve = serve or {}
     expect = expect or {}
+    ignored = {key: value for key, value in declared.items() if value}
     # BEFORE anything ACTS. A pin naming a field this backend does not compute
     # is a config that believes it is pinned and is not — and the check has to
     # precede `_start`, which stops the running server and relaunches it. Placed
@@ -367,7 +380,16 @@ def claim(
         and (wanted is None or digest.get("weights_sha256") == wanted)
     )
     if check["ok"]:
-        return {"backend": NAME, "model": model, "verified": True, "checks": check}
+        return {
+            "backend": NAME,
+            "model": model,
+            "verified": True,
+            "checks": check,
+            # Written down rather than dropped: a config that declares something
+            # nothing reads is the defect D4's replacement exists to avoid, and
+            # silence here would make it invisible.
+            "declarations_ignored": ignored or None,
+        }
 
     if wanted is not None and digest.get("weights_sha256") != wanted:
         raise contract.NotCleanError(
@@ -460,7 +482,9 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
         + runner
         + f"; status=$?; rm -f {path}; exit $status"
     )
+    began = time.monotonic()
     raw = contract.ssh(host, script, timeout=DIGEST_TIMEOUT_S)
+    digest_seconds = round(time.monotonic() - began, 2)
     try:
         result = json.loads((raw or "").strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
@@ -474,6 +498,11 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
     # each bypassed it; a leak test that planted secrets only in the other
     # readings could not have found that.
     result = dict(contract.scrub(result))
+    # **D6/D7 item 7.** DIGEST_TIMEOUT_S has no scaling curve behind it because
+    # the duration was never recorded next to the size. `bytes` is already in
+    # the result, so one number here turns every campaign digest into a point on
+    # that curve — at no rig time, and unrecoverable afterwards.
+    result["digest_seconds"] = digest_seconds
     result["method"] = (
         "sha256 over every tensor's bytes in sorted key order across all "
         "shards, computed on the serving host: this engine states no weights "
@@ -581,12 +610,18 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             f"{CONTAINER_IMAGE} {shlex.quote(model)} "
             + " ".join(shlex.quote(arg) for arg in args)
         )
+    began = time.monotonic()
     launched = contract.ssh(host, command)
     # The loop's own worst case is (curl 5s + sleep 10s) per iteration, so the
     # ssh budget has to cover THAT, not START_TIMEOUT_S alone. It previously
     # allotted 960 s to a loop that could run 1350 s, so a slow start was cut
     # off by the client and recorded as if the server had never come up.
-    rounds = int(START_TIMEOUT_S // 15)
+    # //20, not //15: each round is `curl -m 5` + `nvidia-smi` + `sleep 10`,
+    # and on a box loading a 19 GB model the nvidia-smi is not free. At //15 the
+    # loop's worst case was 900 s + 60 nvidia-smi calls against a 1020 s ssh
+    # budget, which a 2 s nvidia-smi is enough to overrun — reinstating, in
+    # smaller form, the very mismatch this fix was for.
+    rounds = int(START_TIMEOUT_S // 20)
     # **A model is not ready when /health says 200.** Measured on these rigs:
     # /health answers before the weights are on the card. The check that holds
     # is 200 AND the card carrying an allocation — which is what
@@ -630,6 +665,12 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             "command": command,
             "launched": launched,
             "ready": ready,
+            # **D6/D7 item 7.** START_TIMEOUT_S has never been calibrated
+            # against anything, because the one number that would calibrate it
+            # was not recorded. Measured on the rigs at 33 s (srv1) and 109 s
+            # (srv2) for a 1.5B; every launch in the campaign adds a point at
+            # no cost, and the campaign is the only chance to collect them.
+            "start_seconds": round(time.monotonic() - began, 2),
             "serve": serve,
         }
     )

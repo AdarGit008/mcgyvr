@@ -110,6 +110,20 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
     # structure exists to prevent, and scoping the roster to the config's own
     # entries reintroduced it: the survey would clear nothing and measure a
     # model at a twentieth of its speed without a single reading looking wrong.
+    # **DE-11.** `hosts` on an entry is filtered against the run's host list
+    # with a bare `continue`, so a typo — or a `--hosts` override that does not
+    # overlap — produces an empty, SUCCESSFUL survey. E6 exists because labels
+    # read like affinity and were not; an unvalidated affinity field is the same
+    # class of silent nothing with a new name.
+    for entry in entries:
+        stray = set(entry.get("hosts") or []) - set(hosts)
+        if stray:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} names host(s) "
+                f"{sorted(stray)}, which are not in this run's hosts {hosts}. "
+                "An entry pinned to a host that is not being surveyed is silently "
+                "skipped, so the run would report success having measured nothing."
+            )
     names = config.get("backends") or contract.available_backends()
     backends = {str(name): contract.load_backend(str(name)) for name in names}
     for entry in entries:
@@ -215,6 +229,11 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                     # refused to measure this" with "we measured it and it
                     # failed", which are different results about the rig.
                     "outcome": "refused",
+                    "refusal": {
+                        "reasons": ["backend_would_not_yield_card"],
+                        "stage": "exclusion",
+                        "prose": why,
+                    },
                     "refused_stage": "exclusion",
                     "refused": why,
                     "yielded": yielded,
@@ -259,7 +278,16 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                     "model": spec["id"],
                     "family": spec.get("family"),
                     "verified": False,
-                    "outcome": "refused",
+                    # D8 names this one `launch_failed`: the card was
+                    # yielded and the model still would not come up, which is a
+                    # different fact about the rig from "we declined to try".
+                    "outcome": "launch_failed",
+                    "refusal": {
+                        "reasons": list(getattr(error, "reasons", [])) or ["unknown"],
+                        "stage": "claim",
+                        "kind": type(error).__name__,
+                        "prose": str(error),
+                    },
                     "refused_stage": "claim",
                     "refused_kind": type(error).__name__,
                     "refused": str(error),
@@ -274,10 +302,12 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                 "model": spec["id"],
                 "family": spec.get("family"),
                 "verified": True,
-                # D8. Downgraded to `incomplete` below if describe or the ramp
-                # fails, so the terminal value is always one of
-                # measured / incomplete / refused and never has to be inferred.
-                "outcome": "measured",
+                # D8's vocabulary: ok / launch_failed / ramp_failed / refused.
+                # Downgraded below if describe or the ramp fails, so the terminal
+                # value is always one of the four and is never inferred from
+                # which fields happen to be missing — which D8 records as the
+                # single root cause of all three defects it was deciding about.
+                "outcome": "ok",
                 "yielded": yielded,
                 "claim": claimed,
             }
@@ -323,7 +353,18 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                         )
             except Exception as error:
                 print(f"[{host}] {label} INCOMPLETE: {error}", flush=True)
-                row["outcome"] = "incomplete"
+                # Which stage failed is stated, not left to be inferred from
+                # whether `description` happens to exist — that inference is
+                # D8's defect 1, verbatim.
+                stage = "ramp" if row.get("description") else "describe"
+                row["outcome"] = "ramp_failed"
+                row["refusal"] = {
+                    "reasons": list(getattr(error, "reasons", [])) or ["unknown"],
+                    "stage": stage,
+                    "kind": type(error).__name__,
+                    "prose": str(error),
+                }
+                row["incomplete_stage"] = stage
                 row["incomplete_kind"] = type(error).__name__
                 row["incomplete"] = f"{type(error).__name__}: {error}"
                 result["refusals"].append(
@@ -335,6 +376,38 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                         "stage": "describe/ramp — the claim itself succeeded",
                     }
                 )
+            # **BL-6.** Co-residency is re-read AFTER the ramp, because it is
+            # the ramp that takes the time: an ollama ramp at 475 tokens runs
+            # minutes per level, and a neighbour that left part way through
+            # turns D7 item 4 into a solo measurement with
+            # `coresidency_arranged: true` written beside it. The neighbours are
+            # loaded `keep_alive: -1` so this should hold; this is the check
+            # that says whether it did.
+            wanted_neighbours = spec.get("coresident_with") or []
+            if wanted_neighbours and row.get("outcome") == "ok":
+                try:
+                    still = backend.residents(host)
+                except Exception as error:
+                    still = []
+                    row["coresidency_after_error"] = str(error)
+                missing = [m for m in wanted_neighbours if m not in still]
+                row["coresidency_after"] = {
+                    "resident": still,
+                    "expected": wanted_neighbours,
+                    "missing": missing,
+                    "held": not missing,
+                }
+                if missing:
+                    row["outcome"] = "ramp_failed"
+                    row["refusal"] = {
+                        "reasons": ["coresidency_lapsed_during_measurement"],
+                        "stage": "post-ramp",
+                        "prose": (
+                            f"{missing} were resident when the measurement "
+                            "began and are not now, so what was measured is a "
+                            "solo run wearing a co-residency label"
+                        ),
+                    }
             # Outside the guard: the row is terminal either way, and a row that
             # failed to describe is exactly the one worth having on disk.
             record({"host": host, "label": label, **row})

@@ -25,8 +25,17 @@ gets 1, which is why :func:`claim` loads exactly the model it is asked about.
 something else holds the card is placed on the CPU and stays there for the life
 of its ``llama-server`` — measured at 0.08 GB of VRAM against a 1.17 GB model,
 serving happily and 20x slower. Freeing the card afterwards does not migrate it
-back. So :func:`claim` clears first and then *verifies the placement*, because
-that ratio is the only reading which shows it.
+back. So :func:`claim` clears first, **refuses a load onto a card that was not
+idle**, and records the placement it got.
+
+**The ratio is recorded; it is not a pass mark.** D4 (2026-08-19) withdrew the
+0.8 floor that used to gate on it, because the fraction's meaning depends on the
+architecture, on whether co-residency was intended, and on the moment in the load
+at which it was sampled — none of which a single number carries. A MoE serving a
+fifth of its bytes off-card is working as designed; the refusal the old gate was
+built around, ``gpt-oss:20b`` at 0.794, was never a failure. What catches the
+contamination above is the *card* reading before the load, which is a gate, and
+an entry may declare its own floor via ``placement.min_vram_fraction``.
 """
 
 from __future__ import annotations
@@ -116,7 +125,19 @@ LOAD_ATTEMPTS = 2
 #: to record what a big model actually does — a 36 GB model against a 12 GB card
 #: spills to RAM and takes minutes, and a wait that expired early would
 #: attribute the NEXT model's readings to this one.
+#:
+#: **DE-8, 2026-08-19: this and the remote `curl -m` are now one number.** They
+#: were 2400 and 3600, in that order — so a load running past 2400 s made the
+#: ssh client give up while the load continued server-side, the attempt was
+#: recorded as failed, and attempt 2 issued a service restart and a fresh load
+#: **on top of the one still running**. Measured margin is 95x on the worst
+#: model, so this is a tail case; it is also a stacked clear-and-load hours into
+#: an unattended campaign, which is the worst possible time for it.
 LOAD_TIMEOUT_S = 2400.0
+
+#: The remote cap, strictly below the ssh budget that wraps it, so the request
+#: is always the thing that gives up first and the client always hears about it.
+LOAD_CURL_TIMEOUT_S = int(LOAD_TIMEOUT_S) - 120
 
 
 def probe(host: str) -> str | None:
@@ -282,6 +303,23 @@ def claim(
             "The weights pin here is `model_sha256`, the manifest digest this "
             "engine lists for a tag. Nothing was measured."
         )
+    # The same guard, for the same reason, on the field D4 introduced AS the
+    # replacement for the withdrawn gate. Without it a typo'd
+    # `min_vram_fraction` is silently ignored and the entry believes it
+    # declared a floor it does not have — "a config that lies", on the one
+    # field whose entire purpose is to be the declaration.
+    unknown = set(placement) - {
+        "min_vram_fraction",
+        "expect_spill",
+        "observed_2026_08_19",
+    }
+    if unknown:
+        raise contract.NotCleanError(
+            f"{model} on {host}: {sorted(unknown)} is not a placement "
+            "declaration this backend reads. Known keys: min_vram_fraction "
+            "(the only one that gates), expect_spill, observed_2026_08_19. "
+            "Nothing was measured."
+        )
     trail: list[dict[str, Any]] = []
     for attempt in range(1, LOAD_ATTEMPTS + 1):
         released = release(host)
@@ -292,10 +330,18 @@ def claim(
         # got sole residency would silently measure the wrong thing.
         neighbourhood = []
         for other in neighbours:
-            body = json.dumps({"model": other, "keep_alive": "10m", "num_predict": 1})
+            # **BL-6: `-1`, not a duration.** A 10-minute keep-alive counts
+            # down from the neighbour's load, and the neighbour receives no
+            # traffic afterwards — the model under test does. The D3 ramp at 475
+            # tokens is ~8 min for the SMALLEST model on the faster rig, before
+            # describe and the second repeat, so the neighbour was evicted part
+            # way through the curve on essentially every run and D7 item 4
+            # quietly became a solo measurement with `coresidency_arranged:
+            # true` written beside it.
+            body = json.dumps({"model": other, "keep_alive": -1, "num_predict": 1})
             status = contract.ssh(
                 host,
-                f"curl -s -m 3600 -X POST "
+                f"curl -s -m {LOAD_CURL_TIMEOUT_S} -X POST "
                 f"{shlex.quote(contract.url(base, '/api/generate'))} "
                 f"-d {shlex.quote(body)} -o /dev/null -w '%{{http_code}}'",
                 timeout=LOAD_TIMEOUT_S,
@@ -315,7 +361,7 @@ def claim(
         # command.
         loaded = contract.ssh(
             host,
-            f"curl -s -m 3600 -X POST "
+            f"curl -s -m {LOAD_CURL_TIMEOUT_S} -X POST "
             f"{shlex.quote(contract.url(base, '/api/generate'))} "
             f"-d {shlex.quote(body)} -o /dev/null -w '%{{http_code}}'",
             timeout=LOAD_TIMEOUT_S,
@@ -380,6 +426,15 @@ def claim(
         )
         check["ok"] = bool(
             loaded == "200"
+            # **BL-1.** This was read and then not consulted, which is the exact
+            # shape of the defect D4 was decided against: a gate withdrawn on
+            # the grounds that another check covered it, where the other check
+            # covered nothing. `is True` and not `is not False` — a card whose
+            # reading failed is not evidence that the card was clean, and with
+            # MIN_VRAM_FRACTION gone there is no second net. Verified against
+            # the case in this module's own docstring: a foreign 4,916 MiB
+            # allocation, the model placed at fraction 0.08, and `ok: True`.
+            and check["card_idle_before_load"] is True
             and model in names
             and (coresident or check["sole_resident"])
             and check["coresidency_arranged"] is not False
@@ -427,7 +482,7 @@ def claim(
         reasons.append("residency_contradicts_card")
     if last.get("coresidency_arranged") is False:
         reasons.append("coresidency_not_arranged")
-    raise contract.NotCleanError(
+    raise contract.RefusedError(
         f"{model} on {host} would not come up clean in {LOAD_ATTEMPTS} attempts "
         f"[{','.join(reasons) or 'unknown'}]: resident={last['resident_names']}, "
         f"vram_fraction={last['vram_fraction']}, "
@@ -436,7 +491,11 @@ def claim(
         f"http={last['load_http_status']}. Nothing was measured. Note that a low "
         "vram_fraction is NOT by itself a refusal any more (D4): a MoE serving "
         "part of its bytes off-card is working as designed, and only an entry "
-        "that DECLARED a placement floor can fail one."
+        "that DECLARED a placement floor can fail one.",
+        # D8: the codes travel as data. Joining them into the sentence above and
+        # stopping there would have reproduced the very defect they were added
+        # to fix — a reason recoverable only by regex over prose.
+        reasons=reasons or ["unknown"],
     )
 
 
@@ -453,17 +512,25 @@ def describe(
     of reach of anything that is not on the serving host.
     """
     server = _server(host)
+    # Resolved once here rather than per consumer: it is one ssh, and both
+    # consumers below need the same answer about the same child.
+    blob = blob_path(host, model)
     return {
         "backend": NAME,
         "capture": contract.observed().capture(base, model),
         "resident": _resident(host),
         "server": server,
-        "serving_config": serving_config(server, model),
-        "declared_slots": declared_slots(server, model),
+        "model_blob": blob,
+        "serving_config": serving_config(server, model, blob),
+        "declared_slots": declared_slots(server, model, blob),
     }
 
 
-def declared_slots(server: dict[str, Any], model: str | None = None) -> dict[str, Any]:
+def declared_slots(
+    server: dict[str, Any],
+    model: str | None = None,
+    blob: str | None = None,
+) -> dict[str, Any]:
     """What this engine SAYS its slot count is — never what the curve did.
 
     **D1, 2026-08-19.** A scheduler limit and a throughput saturation point are
@@ -483,13 +550,18 @@ def declared_slots(server: dict[str, Any], model: str | None = None) -> dict[str
     value is the one that was dispatched to it, and a consumer that could not
     tell the two apart would be comparing a reading with an intention.
     """
-    instance = _instance_for(server, model)
+    instance = _instance_for(server, model, blob)
     if instance is None:
+        resident = len(server.get("instances") or [])
         return {
             "value": None,
             "provenance": "observed",
             "refused": (
                 "no resident child process, so the engine has not stated a slot count"
+                if not resident
+                else f"{resident} children are resident and none is serving "
+                f"{model!r} (blob {blob!r}); a slot count read off the wrong "
+                "child would be a number about another model"
             ),
         }
     try:
@@ -514,7 +586,44 @@ def declared_slots(server: dict[str, Any], model: str | None = None) -> dict[str
     }
 
 
-def _instance_for(server: dict[str, Any], model: str | None) -> dict[str, Any] | None:
+def residents(host: str) -> list[str]:
+    """The model names this engine currently reports as loaded.
+
+    Public because the orchestrator needs to re-read residency **after** a ramp,
+    not only before it: a co-resident neighbour that was evicted mid-curve makes
+    the measurement a solo one, and nothing about the resulting number looks
+    wrong. See `claim`'s `coresident_with`.
+    """
+    return [str(row.get("name")) for row in _resident(host) if row.get("name")]
+
+
+def blob_path(host: str, model: str) -> str | None:
+    """The weights blob this tag resolves to, read from the engine itself.
+
+    **BL-5, 2026-08-19.** The child's command line carries
+    ``--model .../blobs/sha256-<hex>`` and **never the tag**, so matching a
+    child by its model name — or by any stem of it — cannot fire. The first
+    version of :func:`_instance_for` did exactly that, and every success came
+    from its sole-instance fallback: the one case it was written for, two
+    children on one card, returned ``None`` with a reason that was factually
+    false ("no resident child process" while two were resident).
+
+    The manifest is the join. ``ollama show --modelfile`` names the blob a tag
+    resolves to, and that blob appears verbatim in the child's command line.
+    """
+    line = contract.ssh(
+        host,
+        f"ollama show --modelfile {shlex.quote(model)} 2>/dev/null "
+        "| grep -m1 -oE '/[^ ]*blobs/sha256[-:][0-9a-f]+'",
+    )
+    return line.strip() if line else None
+
+
+def _instance_for(
+    server: dict[str, Any],
+    model: str | None,
+    blob: str | None = None,
+) -> dict[str, Any] | None:
     """The child serving ``model``, or ``None`` — never a blind ``instances[0]``.
 
     This engine runs one child per resident model, and up to three can be
@@ -526,19 +635,20 @@ def _instance_for(server: dict[str, Any], model: str | None) -> dict[str, Any] |
     instances = server.get("instances") or []
     if not instances:
         return None
-    if model is None:
-        return instances[0] if len(instances) == 1 else None
-    # The child's command line carries the blob path, not the tag, so match on
-    # the tag's own components rather than expecting the name verbatim.
-    stem = model.replace(":", "-")
-    for instance in instances:
-        line = instance.get("command_line") or ""
-        if model in line or stem in line:
-            return instance
+    # The blob is the only identification that actually works; the sole-instance
+    # fallback stands only where there is nothing to confuse the child with.
+    if blob:
+        for instance in instances:
+            if blob in (instance.get("command_line") or ""):
+                return instance
     return instances[0] if len(instances) == 1 else None
 
 
-def serving_config(server: dict[str, Any], model: str | None = None) -> dict[str, Any]:
+def serving_config(
+    server: dict[str, Any],
+    model: str | None = None,
+    blob: str | None = None,
+) -> dict[str, Any]:
     """The whole serving configuration, parsed and pinned as two digests.
 
     This engine's config is split in two places and neither is on the network:
@@ -556,13 +666,13 @@ def serving_config(server: dict[str, Any], model: str | None = None) -> dict[str
                 "configuration does not exist yet"
             )
         }
-    instance = _instance_for(server, model)
+    instance = _instance_for(server, model, blob)
     if instance is None:
         return {
             "refused": (
                 f"{len(instances)} children are resident and none could be "
-                f"matched to {model!r}; this config would have described an "
-                "unidentified one of them"
+                f"matched to {model!r} (blob {blob!r}); this config would have "
+                "described an unidentified one of them"
             ),
             "resident_command_lines": [row.get("command_line") for row in instances],
         }

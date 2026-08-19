@@ -248,54 +248,76 @@ def ramp(
         model = _awq(host, vllm) if "vllm" in engines else None
         if not model:
             continue
-        for width in WIDTHS:
-            # The environment a pip-installed vLLM needs on this rig. Omitting
-            # it produced ten failed launches and no vLLM rows at all: the
-            # server never started and `claim` correctly refused an empty card.
-            serve = {
-                "max_model_len": 8192,
-                "max_num_seqs": width,
-                "gpu_memory_utilization": 0.85,
-                "flags": ["--enforce-eager"],
-                # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
-                # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/
-                # cu13"`, and `vllm._start` renders env values through
-                # `shlex.quote`, so `$HOME` never expanded. Read straight off a
-                # live server's /proc/<pid>/environ: the literal string, which
-                # no path resolves. The expanded path does exist and 3.14 is
-                # right today — but no process has ever seen a valid value, so
-                # the record's claim that this env block fixed ten failed
-                # launches is false; something else fixed them. Expanding it
-                # correctly now would introduce an UNTESTED variable into the
-                # launch path immediately before a multi-hour campaign, and its
-                # effect is unmeasured precisely because it has never been set.
-                "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
-            }
-            try:
-                ollama.release(host)
-                vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
-            except Exception as error:
-                emit(
-                    out,
-                    {
-                        "phase": "ramp",
-                        "engine": "vllm",
-                        "host": host,
-                        "width": width,
-                        "error": str(error)[:200],
-                    },
-                )
-                continue
-            for tokens in TOKEN_COUNTS:
-                _one_ramp(
-                    out,
-                    f"http://{host}:{vllm.PORT}",
-                    model,
-                    host,
-                    "vllm",
-                    width,
-                    tokens,
-                )
+        # **DE-9.** `vllm.release` runs at the TOP of each host's iteration and
+        # nowhere at the end, so after the last width the server keeps the card.
+        # That is exactly the leftover step 0.1 found: a `--max-num-seqs 16`
+        # instrument holding 4954 of srv1's 6144 MiB, never shut down after the
+        # phase-3 ramps. It bites between phases and at the end of the campaign
+        # — which is precisely when the record says "both rigs left idle".
+        try:
+            _widths(out, model, host, vllm, ollama)
+        finally:
+            vllm.release(host)
+
+
+def _widths(
+    out: Path,
+    model: str,
+    host: str,
+    vllm: types.ModuleType,
+    ollama: types.ModuleType,
+) -> None:
+    """Every configured width for one host, ramped at every token count."""
+    for width in WIDTHS:
+        serve = {
+            "max_model_len": 8192,
+            "max_num_seqs": width,
+            "gpu_memory_utilization": 0.85,
+            # `--enforce-eager` is MANDATORY on srv1 (compute capability
+            # 7.5, no CUDA graphs) and is kept on srv2 as well: item 2 is a
+            # cross-host replication, and graphs on one host but not the
+            # other would be an uncontrolled difference sitting inside the
+            # comparison the item exists to make.
+            "flags": ["--enforce-eager"],
+            # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
+            # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/
+            # cu13"`, and `vllm._start` renders env values through
+            # `shlex.quote`, so `$HOME` never expanded. Read straight off a
+            # live server's /proc/<pid>/environ: the literal string, which
+            # no path resolves. The expanded path does exist and 3.14 is
+            # right today — but no process has ever seen a valid value, so
+            # the record's claim that this env block fixed ten failed
+            # launches is false; something else fixed them. Expanding it
+            # correctly now would introduce an UNTESTED variable into the
+            # launch path immediately before a multi-hour campaign, and its
+            # effect is unmeasured precisely because it has never been set.
+            "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
+        }
+        try:
+            ollama.release(host)
+            vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
+        except Exception as error:
+            emit(
+                out,
+                {
+                    "phase": "ramp",
+                    "engine": "vllm",
+                    "host": host,
+                    "width": width,
+                    "error": str(error)[:200],
+                },
+            )
+            continue
+        for tokens in TOKEN_COUNTS:
+            _one_ramp(
+                out,
+                f"http://{host}:{vllm.PORT}",
+                model,
+                host,
+                "vllm",
+                width,
+                tokens,
+            )
 
 
 def _card_mib(host: str) -> int | None:
@@ -400,13 +422,23 @@ def sleep_state(out: Path, hosts: list[str]) -> None:
                 row["endpoint_lied"] = bool(
                     row["endpoint_claimed_asleep"] and row["actually_freed"] is False
                 )
+                # **DE-12.** The docstring promised an assertion and the first
+                # version computed a field instead, so an `enabled` arm freeing
+                # 20 MiB emitted a row indistinguishable in status from one
+                # freeing 10 GB. The control arm is EXPECTED to free nothing —
+                # that is what makes it a control — so only the enabled arm can
+                # fail here.
+                row["failed"] = bool(
+                    arm == "enabled" and row["actually_freed"] is not True
+                )
             except Exception as error:
                 row["refused"] = f"{type(error).__name__}: {error}"
             finally:
                 vllm.release(host)
             emit(out, row)
             print(
-                f"  {host}/{arm}: awake={row.get('awake_mib')} "
+                f"  {host}/{arm}: {'FAILED ' if row.get('failed') else ''}"
+                f"awake={row.get('awake_mib')} "
                 f"asleep={row.get('asleep_mib')} freed={row.get('freed_mib')} "
                 f"actually_freed={row.get('actually_freed')} "
                 f"endpoint_lied={row.get('endpoint_lied')}",
@@ -511,17 +543,26 @@ def _awq(host: str, vllm: types.ModuleType) -> str | None:
     listing = contract.ssh(host, "ls ~/.cache/huggingface/hub 2>/dev/null || true")
     # Smallest AWQ first: the ramp is a concurrency measurement, not a memory
     # experiment, and the first alphabetical match put a 14B on a 12 GB card.
+    # Delimited, and largest-first. A bare `"4B" in name` matches inside `"14B"`,
+    # so a 14B sorted as a 4B and the "first alphabetical match put a 14B on a
+    # 12 GB card" failure this ordering exists to prevent came back through the
+    # ordering itself. Harmless today only because both rigs now hold the 1.5B,
+    # which ranks first either way.
     order = ("1.5B", "3B", "4B", "7B", "14B")
     found = [
         line.strip()
         for line in (listing or "").splitlines()
         if "AWQ" in line and "models--" in line
     ]
-    found.sort(
-        key=lambda name: next(
-            (i for i, size in enumerate(order) if size in name), len(order)
-        )
-    )
+
+    def rank(name: str) -> int:
+        upper = name.upper()
+        for index, size in enumerate(order):
+            if f"-{size.upper()}-" in upper or upper.endswith(f"-{size.upper()}"):
+                return index
+        return len(order)
+
+    found.sort(key=rank)
     if not found:
         return None
     return found[0].removeprefix("models--").replace("--", "/", 1)

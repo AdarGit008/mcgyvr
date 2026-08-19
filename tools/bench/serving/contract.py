@@ -79,15 +79,19 @@ RAMP_REPEATS = 2
 #: **D3, 2026-08-19.** 128 was too short to be a throughput measurement: at that
 #: length the per-request fixed costs — scheduling, prefill, the first token —
 #: are a large share of the reply, so the curve reads the overhead as much as
-#: the rate. 475 was chosen from the measured matrix as the point where the
-#: plateau is stable and the run still fits the campaign's budget; it is a
-#: judgement against measured curves, not a derived constant.
+#: the rate. 475 is an **interpolation** between the two measured columns of the
+#: calibration matrix (128 and 512) — a judgement against measured curves, and
+#: not itself a measured point. D7 item 6 re-runs srv1 at this budget precisely
+#: to confirm the interpolation on the host whose matrix is already known.
 #:
-#: One model on the roster spends this budget differently. ``gpt-oss:20b``
-#: emits hidden ``reasoning_content`` — roughly half the output even at low
-#: reasoning — so its ``completion_tokens`` counts reasoning tokens and 475
-#: buys about half that in visible text. Throughput is still throughput; the
-#: quantity simply is not comparable to another model's visible-token rate.
+#: **Two** models on the roster spend this budget differently, not one.
+#: ``gpt-oss:20b`` emits hidden reasoning — measured at ~72% of its output on a
+#: readiness probe, heavier than the ~52% on record — and
+#: ``nemotron-3-nano:4b``, which is on **both** rigs' rosters, ran ~69% hidden
+#: ``thinking`` (54 tokens for a 17-token visible reply). For both,
+#: ``completion_tokens`` counts reasoning tokens, so 475 buys roughly a third of
+#: that in visible text. Throughput is still throughput; the quantity simply is
+#: not comparable to a non-reasoning model's visible-token rate.
 RAMP_TOKENS = 475
 
 #: Long enough that no reply ends early. Unequal replies are what sank the
@@ -137,6 +141,25 @@ LATENCY_TOLERANCE = 0.10
 #: called a saturation point.
 INFERRED_SATURATION_MIN_SPEEDUP = 1.0
 
+#: The floor aggregate rate a level is given time to achieve, in tokens/second.
+#:
+#: **BL-4, 2026-08-19.** The per-request cap was a flat 600 s, set when
+#: :data:`RAMP_TOKENS` was 128. D3 raised the budget to 475 — 3.7x — without
+#: revisiting it. A level of ``n`` requests on a one-slot server finishes in
+#: roughly ``n * RAMP_TOKENS / rate``, so at 475 tokens a flat 600 s silently
+#: required 12.7 tok/s at n=16 and **19.0 at n=24**. The two deep-spill models
+#: on the roster sit near or below that line — and D4's withdrawal is precisely
+#: what admits them to a ramp for the first time. Their top levels would have
+#: timed out, been dropped, and (before this same fix) produced a truncated
+#: saturation point reported clean.
+#:
+#: 4 tok/s is deliberately below anything measured on these rigs: the cap exists
+#: to bound a hung request, not to score a slow one.
+RAMP_FLOOR_TOKENS_PER_S = 4.0
+
+#: Added to every per-request budget, for connection setup and prefill.
+RAMP_TIMEOUT_BASE_S = 90.0
+
 #: A card holding less than this is idle: a few hundred MiB is display and
 #: compositor overhead on these headless rigs, and a model is gigabytes.
 IDLE_GPU_MIB = 500
@@ -154,6 +177,23 @@ class NotCleanError(RuntimeError):
     came from a measurement that ran anyway on a machine that was not ready,
     and each looked plausible until its baseline was read.
     """
+
+
+class RefusedError(NotCleanError):
+    """A refusal whose reasons are readable without parsing the sentence.
+
+    **D8's third recorded defect**: "a refused ``vram_fraction`` is recoverable
+    only by regex over the prose in ``why``". Building a list of clean reason
+    codes and then interpolating them into the message reproduces that defect
+    with extra steps — the codes exist, and a consumer still has to get them
+    back out of a string. They travel as a list.
+
+    Subclasses :exc:`NotCleanError` so every existing handler is unchanged.
+    """
+
+    def __init__(self, message: str, reasons: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.reasons = reasons or []
 
 
 def available_backends() -> list[str]:
@@ -365,13 +405,14 @@ def ramp(
     why concurrency is measured here once per configuration instead.
     """
     _level(base, model, 1)  # warm, and discard: a cold load would be charged
-    rows = [
-        max(
-            (_level(base, model, n) for _ in range(RAMP_REPEATS)),
-            key=lambda row: row["tokens_per_s"] or 0,
-        )
-        for n in levels
-    ]
+    # **D6/D7 item 7: keep every repeat.** `max` over repeats is what the curve
+    # is read from, and that biases the PEAK — which is the denominator of
+    # `saturation_n`'s whole definition. The size of that bias has never been
+    # quantified, and it is quantifiable at **no rig time at all**, because the
+    # losing repeat has already been paid for. Discarding it made the one
+    # measurement that could settle it unrecoverable afterwards.
+    attempts = [[_level(base, model, n) for _ in range(RAMP_REPEATS)] for n in levels]
+    rows = [max(group, key=lambda row: row["tokens_per_s"] or 0) for group in attempts]
     # `or 1` silently turned every speedup into a raw tokens/second figure
     # whenever the n=1 level read zero — same column, different quantity, no
     # indication which. `None` says the ratio has no baseline.
@@ -383,7 +424,31 @@ def ramp(
             if not first
             else [round((row["tokens_per_s"] or 0) / first, 2) for row in rows]
         ),
+        "repeats": attempts,
+        "repeat_spread": [
+            {
+                "n": group[0]["n"],
+                "tokens_per_s": [row["tokens_per_s"] for row in group],
+                # The bias `max` introduces at this level, as a fraction. D6
+                # wants the distribution; this is the one-number summary of it.
+                "max_over_min": (
+                    None
+                    if not all(row["tokens_per_s"] for row in group)
+                    else round(
+                        max(row["tokens_per_s"] for row in group)
+                        / min(row["tokens_per_s"] for row in group),
+                        3,
+                    )
+                ),
+            }
+            for group in attempts
+        ],
         "saturation": saturation(rows),
+        # The SAME set `saturation` decided on. These two blocks land in one
+        # emitted row, and computing them on different sets produced a row
+        # saying `saturation_n: 4` and `throughput_plateau_n: 16` about one
+        # measurement — the one-field-two-meanings defect D1 fixed, one level
+        # further down. `readings` states which set it used.
         "readings": readings(rows),
         "method": (
             "aggregate throughput against offered concurrency. The lowest level "
@@ -392,6 +457,41 @@ def ramp(
             "not comparable across token budgets"
         ),
     }
+
+
+def usable(
+    levels: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split a ramp into the levels worth reading and the ones that are not.
+
+    **Any** loss disqualifies a level, not total loss. The first version dropped
+    a level only when NOTHING was countable, which left the halfway case as the
+    dangerous one: ``completion_tokens_total`` sums the replies that carried a
+    ``usage`` block while ``wall_s`` is the wall of all ``n`` of them, so a level
+    where 8 of 16 replies came back without ``usage`` reports exactly half its
+    true throughput, with ``errors: 0``, and reads as clean data. That is the
+    "could not count becomes does not batch" defect — fixed, at first, for the
+    all-or-nothing case only.
+
+    One definition, used by :func:`saturation` and :func:`readings` both, so the
+    two cannot disagree about which measurement they describe.
+    """
+
+    def unusable(row: dict[str, Any]) -> bool:
+        return bool(row.get("errors")) or row.get("counted", 0) != row.get("ok", 0)
+
+    clean = [row for row in levels if not unusable(row) and row.get("counted")]
+    dropped = [
+        {
+            "n": row["n"],
+            "errors": row.get("errors", 0),
+            "error_kinds": row.get("error_kinds") or [],
+            "uncounted": row.get("ok", 0) - row.get("counted", 0),
+        }
+        for row in levels
+        if unusable(row) or not row.get("counted")
+    ]
+    return clean, dropped
 
 
 def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
@@ -412,9 +512,16 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
     ==========================  ==================  ==============  ==========
     vLLM ``--max-num-seqs 8``   8                   2.52            8
     vLLM ``--max-num-seqs 16``  16                  3.94            16
-    ollama ``-np 2``            6                   1.71            2
-    ollama ``-np 1``            6                   —               1
+    ollama ``-np 2``            4                   1.71            2
+    ollama ``-np 1``            —                   —               1
     ==========================  ==================  ==============  ==========
+
+    The ollama plateau column is stated **at the shipped**
+    :data:`PLATEAU_FRACTION` **of 0.92**. It read 6 in the original record,
+    which was computed at 0.95 before D2 moved the constant; the vLLM columns
+    are unchanged at either value. Re-deriving it here rather than copying the
+    old table forward is the point — the number is a function of the fraction,
+    which is why the fraction travels with every emitted value.
 
     The two right-hand columns agree on the engine that batches and disagree on
     the one that does not. Reporting them separately is the whole fix; the old
@@ -430,19 +537,22 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
     "the curve flattened here", i.e. a wrong saturation point rather than a
     refusal. This was live: nothing downstream read the ``errors`` count.
     """
-    clean = [row for row in levels if not row.get("errors") and row.get("counted")]
-    dropped = [
-        {
-            "n": row["n"],
-            "errors": row.get("errors", 0),
-            "uncounted": row.get("ok", 0) - row.get("counted", 0),
-        }
-        for row in levels
-        if row.get("errors") or not row.get("counted")
-    ]
+
+    clean, dropped = usable(levels)
+    # **Any** loss, not total loss. The first version dropped a level only
+    # when NOTHING was countable, which left the halfway case as the
+    # dangerous one: `tokens` sums the replies that carried a `usage` block
+    # while `wall` is the wall of all `n` of them, so a level where 8 of 16
+    # replies came back without `usage` reports exactly half its true
+    # throughput, with `errors: 0`, and reads as clean data. That is the
     conditions = {
         "ramp_tokens": RAMP_TOKENS,
         "plateau_fraction": PLATEAU_FRACTION,
+        # D8 names three parameters every derived number must ship with, and
+        # this is the third: `max` over repeats biases the PEAK, which is the
+        # denominator of this whole definition, so the repeat count is not
+        # decoration.
+        "ramp_repeats": RAMP_REPEATS,
         "levels_offered": [row["n"] for row in levels],
         "levels_used": [row["n"] for row in clean],
         "levels_dropped": dropped,
@@ -453,6 +563,38 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
             "refused": "every level lost requests or returned no token count",
             **conditions,
         }
+    # **A curve needs more than one point.** With only n=1 surviving,
+    # `_max_speedup` is exactly 1.0 by construction, the degenerate-curve guard
+    # below is written against a strict comparison, and the plateau is the only
+    # level there is — so a ramp in which every level but the first failed
+    # reported `saturation_n: 1` as a clean answer, with the evidence of failure
+    # demoted to a sibling field.
+    if len(clean) < 2:
+        return {
+            "n": None,
+            "refused": (
+                f"only level n={clean[0]['n']} survived; a curve with one point "
+                f"has no saturation point, and the rest were dropped: {dropped}"
+            ),
+            **conditions,
+        }
+    # **The top of the curve is the peak, and the peak is the denominator.**
+    # Dropping a level from the MIDDLE is safe — the plateau is still found
+    # against the true peak. Dropping the HIGHEST offered level truncates the
+    # curve and recomputes the peak on what is left, so the saturation point
+    # comes back lower than it is, with no refusal. This is the expected path
+    # for a model whose requests time out at high concurrency, which is exactly
+    # what D4's withdrawal newly admits to a ramp.
+    if clean[-1]["n"] != levels[-1]["n"]:
+        return {
+            "n": None,
+            "refused": (
+                f"the curve was not measured to its end: level "
+                f"n={levels[-1]['n']} was offered and dropped, so the peak this "
+                f"fraction is taken against is a truncation. Dropped: {dropped}"
+            ),
+            **conditions,
+        }
     speedup = _max_speedup(clean)
     plateau = _throughput_plateau(clean)
     if speedup is None:
@@ -461,7 +603,7 @@ def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
             "refused": "no n=1 level survived, so there is no baseline to rise from",
             **conditions,
         }
-    if speedup < INFERRED_SATURATION_MIN_SPEEDUP:
+    if speedup <= INFERRED_SATURATION_MIN_SPEEDUP:
         return {
             "n": None,
             "refused": (
@@ -489,19 +631,28 @@ def readings(levels: list[dict[str, Any]]) -> dict[str, Any]:
     queueing starts — and a reader who only saw the verdict could not tell that
     from a broken measurement.
     """
-    speedup = _max_speedup(levels)
+    clean, dropped = usable(levels)
+    speedup = _max_speedup(clean)
     return {
-        "throughput_plateau_n": _throughput_plateau(levels),
-        "latency_plateau_n": _latency_plateau(levels),
+        # Computed on the SAME set `saturation` decided on. These two blocks
+        # land in one emitted row, and computing them on different sets produced
+        # a row saying `saturation_n: 4` and `throughput_plateau_n: 16` about one
+        # measurement — the one-field-two-meanings defect D1 fixed, one level
+        # further down.
+        "levels_used": [row["n"] for row in clean],
+        "levels_dropped": [row["n"] for row in dropped],
+        "throughput_plateau_n": _throughput_plateau(clean),
+        "latency_plateau_n": _latency_plateau(clean),
         "max_speedup_vs_n1": speedup,
         "note": (
             "both plateaus are reported because their disagreement is readable: "
             "on a wide server they differ by design, since a larger batch is "
-            "slower per request before any queueing starts. Neither is a slot "
-            "count — the throughput plateau read 6 for two ollama hosts "
-            "configured one slot apart. The former `batches` boolean is retired "
-            "(D1): it claimed to say which column to believe, and the two "
-            "columns measure different things"
+            "slower per request before any queueing starts. NEITHER is a slot "
+            "count: an engine configured one slot returned a throughput plateau "
+            "several times that. Computed on the levels that fully succeeded — "
+            "see levels_used and levels_dropped. The former `batches` boolean "
+            "is retired (D1): it claimed to say which column to believe, and "
+            "the two columns measure different things"
         ),
     }
 
@@ -557,8 +708,12 @@ def _level(base: str, model: str, n: int) -> dict[str, Any]:
     """One level: ``n`` simultaneous completions, and what they cost."""
     out: list[dict[str, Any]] = []
     lock = threading.Lock()
+    # The budget is the whole LEVEL's: every request is offered at once, so on a
+    # server that serializes them the last one waits for all the others.
+    budget = RAMP_TIMEOUT_BASE_S + n * RAMP_TOKENS / RAMP_FLOOR_TOKENS_PER_S
     threads = [
-        threading.Thread(target=_one, args=(base, model, out, lock)) for _ in range(n)
+        threading.Thread(target=_one, args=(base, model, out, lock, budget))
+        for _ in range(n)
     ]
     begin = time.monotonic()
     for thread in threads:
@@ -591,7 +746,11 @@ def _level(base: str, model: str, n: int) -> dict[str, Any]:
 
 
 def _one(
-    base: str, model: str, out: list[dict[str, Any]], lock: threading.Lock
+    base: str,
+    model: str,
+    out: list[dict[str, Any]],
+    lock: threading.Lock,
+    timeout: float = 600.0,
 ) -> None:
     """One capped completion, timed, with the server's own token count."""
     payload = json.dumps(
@@ -611,7 +770,7 @@ def _one(
     )
     begin = time.monotonic()
     try:
-        with urllib.request.urlopen(request, timeout=600) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read())
         usage = body.get("usage") or {}
         record: dict[str, Any] = {

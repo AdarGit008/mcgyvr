@@ -1,40 +1,85 @@
 {
-  "_doc": "The D7 campaign survey — items 1, 3 and 4. Items 2 and 6 (the five-width vLLM matrices at 475 tokens) are calibrate.py --phase ramp --tokens 475; item 5 (sleep) is calibrate.py --phase sleep. Every digest here was verified on the live hosts during step 0.2 on 2026-08-19; `placement.observed_2026_08_19` is what that step MEASURED, so a campaign reading can be compared against a number rather than against an intuition.",
-  "_host_affinity": "E6: an entry runs only on the hosts it names. The roster is 5 models on srv1 and 10 on srv2, which a full host-by-entry cross-product could not express — srv1's 6144 MiB card cannot hold the five large models, and running them there would produce five refusals that mean nothing.",
-  "_placement": "D4: MIN_VRAM_FRACTION is withdrawn as a global gate. `min_vram_fraction` here is a per-entry DECLARATION and is present only where a floor is a real expectation. The two MoE models that the old 0.8 gate refused carry NO floor: a MoE serving part of its bytes off-card is working as designed, and `gpt-oss:20b` at 0.794 — the refusal the entire finding was built around — was never a failure.",
-  "hosts": ["srv1", "srv2"],
-  "collect": { "host_config": true, "concurrency": true },
+  "_doc": "The D7 campaign survey \u2014 items 1, 3 and 4. Items 2 and 6 (the five-width vLLM matrices at 475 tokens) are calibrate.py --phase ramp --tokens 475; item 5 (sleep) is calibrate.py --phase sleep. Every digest here was verified on the live hosts during step 0.2 on 2026-08-19; `placement.observed_2026_08_19` is what that step MEASURED, so a campaign reading can be compared against a number rather than against an intuition.",
+  "_host_affinity": "E6: an entry runs only on the hosts it names. The roster is 5 models on srv1 and 10 on srv2, which a full host-by-entry cross-product could not express \u2014 srv1's 6144 MiB card cannot hold the five large models, and running them there would produce five refusals that mean nothing.",
+  "_placement": "D4: MIN_VRAM_FRACTION is withdrawn as a global gate. `min_vram_fraction` here is a per-entry DECLARATION and is present only where a floor is a real expectation. The two MoE models that the old 0.8 gate refused carry NO floor: a MoE serving part of its bytes off-card is working as designed, and `gpt-oss:20b` at 0.794 \u2014 the refusal the entire finding was built around \u2014 was never a failure.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": true
+  },
   "models": [
     {
       "label": "qwen2.5-coder-1.5b",
       "backend": "ollama",
       "id": "qwen2.5-coder:1.5b",
       "family": "qwen2.5-coder-1.5b",
-      "hosts": ["srv1", "srv2"],
-      "expect": { "model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668" },
-      "placement": { "min_vram_fraction": 0.85, "observed_2026_08_19": { "srv1": 1.0, "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"
+      },
+      "placement": {
+        "min_vram_fraction": 0.85,
+        "observed_2026_08_19": {
+          "srv1": 1.0,
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "qwen2.5-coder-3b",
       "backend": "ollama",
       "id": "qwen2.5-coder:3b",
       "family": "qwen2.5-coder-3b",
-      "hosts": ["srv1", "srv2"],
-      "expect": { "model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225" },
-      "placement": { "min_vram_fraction": 0.85, "observed_2026_08_19": { "srv1": 1.0, "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225"
+      },
+      "placement": {
+        "min_vram_fraction": 0.85,
+        "observed_2026_08_19": {
+          "srv1": 1.0,
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "qwen2.5-coder-7b",
-      "_doc": "local-ai encodes a hard pool rule `never_7b_on_srv1` — 4.7 GB plus its KV cache does not fit 6144 MiB. That is a SERVING-TIER decision and this is a calibration campaign: the spill is the data point, and it is the only partial-offload point srv1 offers. Measured 0.908 on srv1 against 1.0 on srv2 — the same weights, two placements, which is D4's whole argument in one entry.",
+      "_doc": "local-ai encodes a hard pool rule `never_7b_on_srv1` \u2014 4.7 GB plus its KV cache does not fit 6144 MiB. That is a SERVING-TIER decision and this is a calibration campaign: the spill is the data point, and it is the only partial-offload point srv1 offers. Measured 0.908 on srv1 against 1.0 on srv2 \u2014 the same weights, two placements, which is D4's whole argument in one entry.",
       "backend": "ollama",
       "id": "qwen2.5-coder:7b",
       "family": "qwen2.5-coder-7b",
-      "hosts": ["srv1", "srv2"],
-      "expect": { "model_sha256": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364" },
-      "placement": { "min_vram_fraction": 0.85, "observed_2026_08_19": { "srv1": 0.908, "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364"
+      },
+      "placement": {
+        "min_vram_fraction": 0.85,
+        "observed_2026_08_19": {
+          "srv1": 0.908,
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "nemotron-3-nano-4b",
@@ -42,32 +87,69 @@
       "backend": "ollama",
       "id": "nemotron-3-nano:4b",
       "family": "nemotron-3-nano-4b",
-      "hosts": ["srv1", "srv2"],
-      "expect": { "model_sha256": "6cc467f054393a55e98a74098abde0c762ffb6d1d8cd64becf30458f38886197" },
-      "placement": { "min_vram_fraction": 0.85, "observed_2026_08_19": { "srv1": 1.0, "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "6cc467f054393a55e98a74098abde0c762ffb6d1d8cd64becf30458f38886197"
+      },
+      "placement": {
+        "min_vram_fraction": 0.85,
+        "observed_2026_08_19": {
+          "srv1": 1.0,
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "llama3.2-3b",
-      "_doc": "Provisioned onto srv2 in step 0.2 by `ollama pull` and verified byte-identical to srv1's copy — the digests match, so the mutable-tag risk this pin exists for did not fire.",
+      "_doc": "Provisioned onto srv2 in step 0.2 by `ollama pull` and verified byte-identical to srv1's copy \u2014 the digests match, so the mutable-tag risk this pin exists for did not fire.",
       "backend": "ollama",
       "id": "llama3.2:3b",
       "family": "llama3.2-3b",
-      "hosts": ["srv1", "srv2"],
-      "expect": { "model_sha256": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72" },
-      "placement": { "min_vram_fraction": 0.85, "observed_2026_08_19": { "srv1": 1.0, "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72"
+      },
+      "placement": {
+        "min_vram_fraction": 0.85,
+        "observed_2026_08_19": {
+          "srv1": 1.0,
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "qwen2.5-coder-14b",
-      "_doc": "D7 item 3, the DENSE half of the sharpest MoE/dense pair: similar bytes to gpt-oss:20b, very different active parameters. Measured fully resident at 1.0 on srv2's 12 GB card at 4096 context — the brief expected a spill and there is none, which is itself the contrast.",
+      "_doc": "D7 item 3, the DENSE half of the sharpest MoE/dense pair: similar bytes to gpt-oss:20b, very different active parameters. Measured fully resident at 1.0 on srv2's 12 GB card at 4096 context \u2014 the brief expected a spill and there is none, which is itself the contrast.",
       "backend": "ollama",
       "id": "qwen2.5-coder:14b",
       "family": "qwen2.5-coder-14b",
-      "hosts": ["srv2"],
-      "expect": { "model_sha256": "9ec8897f747e246e970bc5cfdda85d22f1123dc2e3d34978a010a75968716849" },
-      "placement": { "min_vram_fraction": 0.9, "observed_2026_08_19": { "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "9ec8897f747e246e970bc5cfdda85d22f1123dc2e3d34978a010a75968716849"
+      },
+      "placement": {
+        "min_vram_fraction": 0.9,
+        "observed_2026_08_19": {
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "yi-coder-9b",
@@ -75,55 +157,132 @@
       "backend": "ollama",
       "id": "yi-coder:9b",
       "family": "yi-coder-9b",
-      "hosts": ["srv2"],
-      "expect": { "model_sha256": "39c63e7675d7a5c44f71c142c269ab95951170a80971c946e216d3ef575791e6" },
-      "placement": { "min_vram_fraction": 0.9, "observed_2026_08_19": { "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "39c63e7675d7a5c44f71c142c269ab95951170a80971c946e216d3ef575791e6"
+      },
+      "placement": {
+        "min_vram_fraction": 0.9,
+        "observed_2026_08_19": {
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "deepseek-coder-v2-16b",
-      "_doc": "MoE (~16B total against ~2.4B active) and yet fully resident at 1.0 — the case that makes the point most sharply: architecture alone does not predict placement, so a placement gate cannot be read as an architecture check.",
+      "_doc": "MoE (~16B total against ~2.4B active) and yet fully resident at 1.0 \u2014 the case that makes the point most sharply: architecture alone does not predict placement, so a placement gate cannot be read as an architecture check.",
       "backend": "ollama",
       "id": "deepseek-coder-v2:16b",
       "family": "deepseek-coder-v2-16b",
-      "hosts": ["srv2"],
-      "expect": { "model_sha256": "63fb193b3a9b4322a18e8c6b250ca2e70a5ff531e962dbf95ba089b2566f2fa5" },
-      "placement": { "min_vram_fraction": 0.9, "observed_2026_08_19": { "srv2": 1.0 } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "63fb193b3a9b4322a18e8c6b250ca2e70a5ff531e962dbf95ba089b2566f2fa5"
+      },
+      "placement": {
+        "min_vram_fraction": 0.9,
+        "observed_2026_08_19": {
+          "srv2": 1.0
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     },
     {
       "label": "gpt-oss-20b",
-      "_doc": "THE model D4 was decided about. It read 0.794 and the withdrawn 0.8 gate refused it as unmeasurable; it is a MoE and was never failing. No floor is declared here — that is the decision, expressed. Also a reasoning model: ~72% of its output budget went to hidden reasoning on the readiness probe, heavier than the ~52% on record.",
+      "_doc": "THE model D4 was decided about. It read 0.794 and the withdrawn 0.8 gate refused it as unmeasurable; it is a MoE and was never failing. No floor is declared here \u2014 that is the decision, expressed. Also a reasoning model: ~72% of its output budget went to hidden reasoning on the readiness probe, heavier than the ~52% on record.",
       "backend": "ollama",
       "id": "gpt-oss:20b",
       "family": "gpt-oss-20b",
-      "hosts": ["srv2"],
-      "expect": { "model_sha256": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7" },
-      "placement": { "observed_2026_08_19": { "srv2": 0.7945 }, "expect_spill": true },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7"
+      },
+      "placement": {
+        "observed_2026_08_19": {
+          "srv2": 0.7945
+        },
+        "expect_spill": true
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          6,
+          8,
+          12
+        ],
+        "_doc": "E13: the ladder stops at 12 for the two deep-spill models. ollama on srv2 reports total_slots = 1 for every model, so levels 16 and 24 are pure queueing and the saturation point is found well below them - while at these rates each of those two levels alone costs roughly 6-9 minutes per repeat. This also interacts with the BL-4 rule: the curve must be measured to its END or it is refused, so a ladder whose top a model cannot reach would refuse the whole ramp rather than truncate it."
+      }
     },
     {
       "label": "qwen3-coder-30b",
-      "_doc": "The deepest spill on the roster at 0.581 — 19.2 GB against a 12 GB card. No floor, same reason as gpt-oss:20b. Do not confuse with the off-roster `qwen3:30b-a3b` (pulled as F16, not Q4) or `qwen3-coder-next-ud:q3_K_XL` (36 GB, swaps, and has a reproducible CUDA fault on this host); both sit next to it in `ollama list`, which is why this is pinned by digest.",
+      "_doc": "The deepest spill on the roster at 0.581 \u2014 19.2 GB against a 12 GB card. No floor, same reason as gpt-oss:20b. Do not confuse with the off-roster `qwen3:30b-a3b` (pulled as F16, not Q4) or `qwen3-coder-next-ud:q3_K_XL` (36 GB, swaps, and has a reproducible CUDA fault on this host); both sit next to it in `ollama list`, which is why this is pinned by digest.",
       "backend": "ollama",
       "id": "qwen3-coder:30b",
       "family": "qwen3-coder-30b",
-      "hosts": ["srv2"],
-      "expect": { "model_sha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca" },
-      "placement": { "observed_2026_08_19": { "srv2": 0.5806 }, "expect_spill": true },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv2"
+      ],
+      "expect": {
+        "model_sha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca"
+      },
+      "placement": {
+        "observed_2026_08_19": {
+          "srv2": 0.5806
+        },
+        "expect_spill": true
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          6,
+          8,
+          12
+        ],
+        "_doc": "E13: the ladder stops at 12 for the two deep-spill models. ollama on srv2 reports total_slots = 1 for every model, so levels 16 and 24 are pure queueing and the saturation point is found well below them - while at these rates each of those two levels alone costs roughly 6-9 minutes per repeat. This also interacts with the BL-4 rule: the curve must be measured to its END or it is refused, so a ladder whose top a model cannot reach would refuse the whole ramp rather than truncate it."
+      }
     },
     {
       "label": "coresident-3b-beside-1.5b",
-      "_doc": "D7 item 4 — INTENDED co-residency. The 1.5B is loaded first and stays resident, then the 3B lands beside it; placement is captured for the pair and the ramp runs with the neighbour up. Before this rewrite `claim` required `resident_names == [model]`, so this step was refused by construction: the harness could not express the thing the decision asked it to measure.",
+      "_doc": "D7 item 4 \u2014 INTENDED co-residency. The 1.5B is loaded first and stays resident, then the 3B lands beside it; placement is captured for the pair and the ramp runs with the neighbour up. Before this rewrite `claim` required `resident_names == [model]`, so this step was refused by construction: the harness could not express the thing the decision asked it to measure.",
       "backend": "ollama",
       "id": "qwen2.5-coder:3b",
       "family": "qwen2.5-coder-3b",
-      "hosts": ["srv1", "srv2"],
-      "coresident_with": ["qwen2.5-coder:1.5b"],
-      "expect": { "model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225" },
-      "placement": { "observed_2026_08_19": { "note": "solo readings were 1.0 on both hosts; this entry measures whether sharing changes that" } },
-      "concurrency": { "measure": true }
+      "hosts": [
+        "srv1",
+        "srv2"
+      ],
+      "coresident_with": [
+        "qwen2.5-coder:1.5b"
+      ],
+      "expect": {
+        "model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225"
+      },
+      "placement": {
+        "observed_2026_08_19": {
+          "note": "solo readings were 1.0 on both hosts; this entry measures whether sharing changes that"
+        }
+      },
+      "concurrency": {
+        "measure": true
+      }
     }
   ]
 }

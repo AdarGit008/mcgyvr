@@ -410,15 +410,17 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     """
 
     def rows(triples: list[tuple[int, float, float]]) -> list[dict[str, Any]]:
-        # `errors: 0` and a non-zero `counted` are what mark a level as clean
-        # enough to read; `saturation` drops any level missing either, so the
-        # fixtures have to carry them or every curve would be refused.
+        # A level is clean when nothing errored AND every reply that arrived
+        # was countable — `counted == ok`. Partial counting is a drop, because
+        # summing only the counted tokens over the wall of ALL of them reports a
+        # fraction of the true throughput as if it were the whole thing.
         return [
             {
                 "n": n,
                 "tokens_per_s": t,
                 "latency_mean_s": lat,
                 "errors": 0,
+                "ok": n,
                 "counted": n,
             }
             for n, t, lat in triples
@@ -1031,3 +1033,213 @@ def test_a_reused_pid_after_a_reboot_is_not_the_same_process(pin_module: Any) ->
         _side("1000:50:7", "aaa"), _side("2000:50:7", "aaa"), {"held": True}
     )
     assert result["claims"]["same_process"] is False
+
+
+# --- the two paths the adversarial review found untested --------------------
+
+
+def _ollama_rig(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    card_before: int,
+    card_after: int,
+    resident: list[dict[str, Any]],
+    children: str = "4242 /usr/local/lib/ollama/llama-server --model "
+    "/blobs/sha256-aaa --port 4242 -c 4096 -np 2",
+) -> Any:
+    """A fake ollama host: one card reading, one `/api/ps`, one child listing.
+
+    Loaded by path and patched on its OWN contract reference, because an earlier
+    test clears the shared module slot and a fresh load holds a different module
+    object.
+    """
+    ollama: Any = _by_path("gated_ollama", SERVING / "backends" / "ollama.py")
+
+    reads: list[int] = []
+
+    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
+        if "memory.used" in command:
+            # The card is read twice per attempt and the two readings are
+            # different facts: once by `release`, BEFORE the load, and once by
+            # `claim` after it. A stub returning one value for both cannot
+            # express "idle beforehand, holding the model afterwards" — which is
+            # the only state in which a clean claim succeeds.
+            # Two reads per ATTEMPT, and `claim` retries the whole cycle, so
+            # the pattern is before/after/before/after — not first/rest.
+            reads.append(1)
+            return f"{card_before if len(reads) % 2 else card_after} MiB"
+        if "api/ps" in command and "curl -s -m 15" in command:
+            return json.dumps({"models": resident})
+        # `pgrep -af '[l]lama-server'` — the bracket keeps pgrep from matching
+        # its own command line, and it also means the literal "llama-server"
+        # does not appear in the string. Matching on it silently returned no
+        # children, so these tests raised on `no_server_child` and would have
+        # passed with the gate under test deleted.
+        if "pgrep -af" in command:
+            return children
+        if "http_code" in command:
+            return "200"
+        if "pgrep -c" in command:
+            return "0"
+        if "modelfile" in command:
+            return "/blobs/sha256-aaa"
+        return ""
+
+    monkeypatch.setattr(ollama.contract, "ssh", _ssh)
+    monkeypatch.setattr(
+        ollama.contract,
+        "get_json",
+        lambda url, timeout=None: {"models": [{"name": "m", "digest": "d"}]},
+    )
+    return ollama
+
+
+def test_a_dirty_card_refuses_the_load_that_lands_on_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D4 withdrew a gate on the promise that this check replaced it.
+
+    `MIN_VRAM_FRACTION` was removed because a placement fraction means different
+    things per architecture — and the stated replacement was that `claim`
+    already refuses a card that was not idle before the load. It did not: the
+    field was READ and then left out of the verdict, so the promise was only
+    ever true of the prose. Without it nothing catches contamination for the two
+    MoE entries, which are precisely the entries D4 exists to make measurable.
+
+    A foreign allocation before the load, the model placed at 8% — the case this
+    module's own docstring describes as serving happily at a twentieth of speed.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=4916,
+        card_after=4996,
+        resident=[{"name": "m", "size": 1000, "size_vram": 80}],
+    )
+    with pytest.raises(ollama.contract.NotCleanError) as raised:
+        ollama.claim("h", "http://h:11434", "m")
+    # EXACTLY this reason: a refusal for some other cause would carry
+    # `card_not_idle_before_load` too, since the reason list is built from every
+    # failing condition. Equality is what makes this a test of the gate.
+    assert raised.value.reasons == ["card_not_idle_before_load"]
+
+
+def test_a_refusal_carries_its_reasons_as_data_not_prose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D8's third defect was a reason recoverable only by regex over a sentence.
+
+    Building reason codes and then interpolating them into the message would
+    reproduce it exactly: the codes exist and a consumer still has to parse them
+    back out of a string.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
+        children="",
+    )
+    with pytest.raises(ollama.contract.RefusedError) as raised:
+        ollama.claim("h", "http://h:11434", "m")
+    assert raised.value.reasons == ["no_server_child"]
+
+
+def test_a_placement_key_the_backend_does_not_read_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`expect` has had this guard from the start; `placement` had none.
+
+    D4 replaced a constant with a per-entry declaration, so an ignored typo in
+    that declaration is an entry believing it set a floor it does not have — on
+    the one field whose whole purpose is to BE the declaration.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
+    )
+    with pytest.raises(ollama.contract.NotCleanError, match="placement declaration"):
+        ollama.claim("h", "http://h:11434", "m", placement={"min_vram_fracton": 0.8})
+
+
+def test_co_residency_is_arranged_rather_than_merely_tolerated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D7 item 4 measures INTENDED co-residency.
+
+    Accepting a neighbour is not arranging one, and before this the gate was
+    `resident_names == [model]`, so the step was refused by construction. A
+    neighbour that does not become resident refuses the entry: a row that asked
+    to measure sharing and silently measured solo is the wrong answer, not a
+    lenient one.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
+    )
+    with pytest.raises(ollama.contract.RefusedError) as raised:
+        ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
+    assert raised.value.reasons == ["coresidency_not_arranged"]
+
+
+# --- the verify-then-launch step --------------------------------------------
+
+
+def _launcher() -> Any:
+    return _by_path("serving_launch", SERVING / "launch.py")
+
+
+def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
+    """The markers describe THIS tree, so they must hold against it.
+
+    A marker list that has drifted from the code is worse than none: it refuses
+    every launch until someone deletes the check, which is how the check stops
+    existing.
+    """
+    launcher = _launcher()
+    assert launcher.check("test") == []
+
+
+def test_the_launcher_refuses_the_exact_failure_it_exists_for(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """1.5 h of rig time went to a patch that silently never reached the file.
+
+    The unchanged harness ran and produced a full set of plausible readings. So
+    the interesting property is not that the launcher passes — it is that it
+    REFUSES when a decision is missing, and names which one.
+    """
+    launcher = _launcher()
+    real = launcher.REPO
+
+    def _staged(path: str) -> str:
+        text = (real / path).read_text(encoding="utf-8")
+        return text.replace("RAMP_TOKENS = 475", "RAMP_TOKENS = 128")
+
+    class _Repo:
+        def __truediv__(self, path: str) -> Any:
+            return types.SimpleNamespace(read_text=lambda encoding=None: _staged(path))
+
+    monkeypatch.setattr(launcher, "REPO", _Repo())
+    problems = launcher.check("reverted")
+    assert any("RAMP_TOKENS = 475" in p and "D3" in p for p in problems)
+
+
+def test_a_docstring_naming_a_withdrawn_constant_is_not_a_hit() -> None:
+    """The absence check reads code, not prose, and this is why.
+
+    The first version was a plain substring test and refused a correct tree,
+    because the docstring explaining what D1 replaced `BATCHING_SPEEDUP = 2.0`
+    with contains the string. A record of what a constant used to be is the
+    opposite of the defect the list hunts for — and a check that cannot tell a
+    definition from a mention of one pushes every author toward deleting the
+    explanation.
+    """
+    launcher = _launcher()
+    source = (SERVING / "contract.py").read_text(encoding="utf-8")
+    assert "BATCHING_SPEEDUP = 2.0" in source, "the explanation should still be there"
+    code = launcher.code_lines(source)
+    assert not [line for line in code if "BATCHING_SPEEDUP = 2.0" in line]

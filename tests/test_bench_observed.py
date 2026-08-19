@@ -40,8 +40,11 @@ def observed() -> Any:
 
 # The two documents, in the shape srv2 (ollama 0.32.5) returned them on
 # 2026-08-18 for `qwen2.5-coder:1.5b`, cut down to the keys under test. The
-# tokenizer arrays are the real lengths in miniature: what matters is that one
-# is over `MAX_INLINE_ITEMS` and one is under it.
+# tokenizer arrays are the real lengths in miniature. Since D5 they are elided
+# by NAME, not by length — `MAX_INLINE_ITEMS` is only the backstop for an array
+# nobody named — so their sizes no longer straddle a threshold and are simply
+# realistic. The size relation the earlier version of this comment described
+# stopped being the rule the code applies.
 TAGS: dict[str, Any] = {
     "models": [
         {
