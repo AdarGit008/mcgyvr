@@ -432,3 +432,88 @@ is recorded beside it in `readings`. Every ollama run is then a live test of the
 inference method against ground truth on the same host — a stronger cross-check
 than the one being replaced, which had nothing to compare against. The cost is the
 ramp's rig time on an engine whose width could be read in one HTTP call.
+
+### D1, amended the same day — a plateau is not a slot limit
+
+The decision above put a declared value and an inferred one in one `width` field.
+That reintroduced, one level down, the defect it had just fixed: the two sources do
+not measure the same quantity.
+
+- **Declared slots** are a *scheduler* limit. `--max-num-seqs`, `-np`. The server
+  will not run more sequences than this, ever.
+- **The throughput plateau** is a *workload* measurement: the offered concurrency
+  past which this model, on this card, at this generation length, stops delivering
+  more tokens per second.
+
+They coincide only when the scheduler limit binds before the hardware does, and
+nothing guarantees that. **This lane already measured a divergence**: ollama on
+srv2 with `-np 1` reads a plateau of **2** at 512 tokens. One slot, and the curve
+still rose from n=1 to n=2, because per-request CPU-side fixed cost overlaps across
+requests — C5's mechanism. The plateau exceeded the limit.
+
+The opposite direction — a model saturating the card at n=4 while configured for 16,
+so the plateau *under*-reads the limit — is **untested, not excluded**. Every vLLM
+width up to 16 was recovered on a 1.5B AWQ model with headroom to spare on srv1's
+card. A 7B, or srv2's 12 GB card, is where it would appear.
+
+So C6's result is restated: **at 4, 8 and 16 the flag bound before the card did, so
+the plateau recovered it there.** Not "the plateau measures the concurrency limit".
+
+**The fields split.** No `width`, no `width_source`.
+
+| field | source | what it is |
+|---|---|---|
+| `declared_slots` | ollama `/props total_slots`; `null` on vLLM (unaskable) | the scheduler's hard limit — a read, not a derivation, and immune to every threshold below |
+| `saturation_n` | the throughput curve | the concurrency past which throughput stops rising, for this model, card and token count |
+| `max_speedup_vs_n1` | the curve | peak over the single-request rate; a raw statistic carrying no verdict |
+
+Where both exist their agreement is a reported finding, not a hidden assumption:
+srv2's `declared_slots: 1` beside `saturation_n: 2` is now an interpretable row
+instead of a wrong answer.
+
+### D2 — `PLATEAU_FRACTION = 0.92`
+
+The cutoff is not a side question: it **is** the definition of `saturation_n`.
+
+    saturation_n = first n whose tokens_per_s >= PLATEAU_FRACTION * max(tokens_per_s)
+
+Before D1's split this constant was tuned to make the plateau match `--max-num-seqs`,
+which was circular — tuning a measurement until it reproduces a number it does not
+measure. After the split the two roles are separate. The **definition** claims only
+that throughput reached 92% of its own peak. The **calibration** uses the nine vLLM
+cells where the flag is known and binds as the only available ground truth for what
+counts as flat.
+
+Swept over every ramp on disk, scored against the configured width (vLLM only;
+cfg 2 excluded, its speedup is exactly 1.00 and D1's gate declines it):
+
+| cutoff | 32 tok | 128 tok | 512 tok | cells right |
+|---|---|---|---|---|
+| 0.90 | cfg 1 wrong | all | all | 8 / 9 |
+| **0.92** | cfg 1 wrong | all | all | **8 / 9** |
+| 0.93 | cfg 1 wrong | all | all | 8 / 9 |
+| 0.94 | cfg 1, cfg 8 wrong | all | all | 7 / 9 |
+| 0.95 (was) | cfg 1, cfg 8 wrong | cfg 1 wrong | all | 6 / 9 |
+| 0.97 | 3 wrong | cfg 1 wrong | all | 5 / 9 |
+| 0.99 | 3 wrong | 2 wrong | cfg 1 wrong | 3 / 9 |
+
+At 512 tokens the cutoff barely matters — everything from 0.90 to 0.97 reads all
+five widths. It is load-bearing only at shorter generations. The band that holds
+across **all three** token counts is 0.90–0.93; above 0.93 the C6 false width
+returns, cfg 8 at 32 tokens landing at 0.939 of peak and short by 1.1 tok/s.
+
+**0.92 is the centre of that band.** The reason to prefer it over 0.95 is not
+accuracy at the shipping setting — both are exact at 512 — but that 0.95's
+correctness *depends on `RAMP_TOKENS` staying at 512*. That is the coupling C4
+found and this campaign exists to break: a constant chosen by reasoning, never
+varied, silently deciding whether another rule works.
+
+**Two consequences built in.** `saturation_n` is meaningless without its parameters
+and is reported with both the token count and the cutoff that produced it — two runs
+at different values are not comparable numbers. `declared_slots` needs neither.
+
+**The `0.10` latency tolerance** at `contract.py:433` is named alongside and
+documented as informational: it feeds `latency_plateau_n`, which decides nothing.
+It has no measurement behind it, and it is kept because throughput and latency
+disagree by design on a genuinely wide server — that disagreement is how a reader
+tells a real 16-slot curve from a broken measurement.
