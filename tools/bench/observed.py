@@ -324,9 +324,19 @@ def _url(base: str, path: str) -> str:
     answering perfectly well. Restated here rather than imported because
     ``_url_for`` is private to a module inside ``product.SURFACE`` and this tool
     must not move that digest to reuse eight lines.
+
+    The strip is unconditional, which is where this diverges from ``_url_for``:
+    that function is only ever handed one path per protocol and both start with
+    ``/v1/``, while ``VLLM_READS`` mixes ``/v1/models`` with six root-level
+    paths and ``_capture_served`` adds ``/metrics``. Stripping only for ``/v1/``
+    paths sent every root path to ``/v1/version``, ``/v1/server_info`` and so
+    on — 404s that were then recorded as refusals blaming an unset
+    ``VLLM_SERVER_DEV_MODE``, sending a reader after a flag when the cause was
+    the URL. Every path here is written from the root, so the base's ``/v1``
+    is redundant in all cases, not just some.
     """
     base = base.rstrip("/")
-    if path.startswith("/v1/") and base.endswith("/v1"):
+    if base.endswith("/v1"):
         base = base[: -len("/v1")]
     return base + path
 
@@ -499,7 +509,7 @@ def capture(
     if engine is OLLAMA:
         fields, reasons = _ollama_probe_set(native, model)
     else:
-        native, engine = _capture_served(base, timeout)
+        native, engine = _capture_served(base)
         fields, reasons = _served_probe_set(base, model, native, engine)
     block: dict[str, Any] = {
         "endpoint": _bundle_rig().redact(endpoint),
@@ -573,7 +583,7 @@ def _capture_ollama(
     return native, OLLAMA
 
 
-def _capture_served(base: str, timeout: float) -> tuple[dict[str, Any], str]:
+def _capture_served(base: str) -> tuple[dict[str, Any], str]:
     """Everything the OpenAI-compatible surface will answer, vLLM's extras too.
 
     ``/metrics`` is Prometheus text rather than JSON, and it is captured raw:

@@ -710,10 +710,8 @@ def test_a_probe_that_cannot_reach_anything_still_writes(
     def boom(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("the fetchers swallow their own failures")
 
-    monkeypatch.setattr(observed.identity, "_get_json", lambda url, *, timeout: None)
-    monkeypatch.setattr(
-        observed.identity, "_post_json", lambda url, body, *, timeout: None
-    )
+    monkeypatch.setattr(observed.identity, "_get_json", boom)
+    monkeypatch.setattr(observed.identity, "_post_json", boom)
     written = observed.write(tmp_path / "fresh", "http://nothing:1", "m")
     assert written is not None and written.is_file()
 
@@ -802,6 +800,13 @@ def test_a_base_url_that_already_ends_in_v1_is_not_doubled(
 
     assert "https://api.example.com/v1/models" in asked
     assert not [url for url in asked if "/v1/v1/" in url]
+
+    # The doubling check above passes even with the bug it was written for:
+    # /v1/models is the one path the old rule handled. The six root-level
+    # entries in VLLM_READS are where it went wrong, so name them.
+    for path in ("/version", "/server_info", "/load", "/is_sleeping"):
+        assert f"https://api.example.com{path}" in asked, path
+        assert f"https://api.example.com/v1{path}" not in asked, path
 
 
 def test_a_capture_never_raises_however_bad_the_server_text_is(
