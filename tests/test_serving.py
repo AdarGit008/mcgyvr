@@ -1236,11 +1236,35 @@ def test_an_interrupted_driver_lets_go_of_the_rigs(
 
     assert "wait $CHILD" in driver, "a foreground phase defers the trap"
     assert "} &" in driver, "the phases must not be the foreground child"
-    assert "trap 'pkill -P $CHILD" in driver, "the phase's children outlive it"
+    assert "pkill -P $CHILD" in driver, "the phase's children outlive it"
     assert "--release" in driver, "the handler has to release something"
     # Once for the signal, once for the ordinary end: a campaign that refuses in
     # its last phase would otherwise exit still holding a card.
     assert driver.count("cleanup") >= 3
+
+    # **The stop sentinel, and the ORDER it is written in.** `pkill -P $CHILD`
+    # and `kill $CHILD` are two commands, and between them the subshell's `wait`
+    # returns and it forks the NEXT phase — which is then reparented to init and
+    # never signalled, so `cleanup` releases the rigs while an orphaned survey
+    # re-claims them. Measured on stand-ins at 4-17 of every 20 SIGTERM trials
+    # before the guard and 0 of 20 after.
+    #
+    # Pinned as an order, not as a presence: a `touch` that happened after the
+    # kills would satisfy a substring test and close nothing.
+    trap = next(line for line in driver.splitlines() if line.startswith("trap "))
+    assert trap.index("touch") < trap.index("pkill"), (
+        "the sentinel must be written BEFORE anything is signalled"
+    )
+    assert trap.index("touch") < trap.index("cleanup"), (
+        "a phase must not be able to start during the release"
+    )
+    # Every phase after the first is gated on it. The first is deliberately not:
+    # nothing can have set the sentinel before the driver starts, and the `rm`
+    # on the way in is what makes an interrupted run's leftover harmless.
+    assert driver.count("[ -f ") == len(launcher.CAMPAIGN) - 1, (
+        "every phase but the first is gated on the sentinel"
+    )
+    assert "rm -f " in driver, "a stale sentinel must not silence a fresh campaign"
 
 
 def test_the_launcher_refuses_the_exact_failure_it_exists_for(

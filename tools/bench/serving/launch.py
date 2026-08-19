@@ -415,8 +415,33 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    # **The stop sentinel.** The phases used to be `;`-joined, and that is the
+    # one thing the interrupt path could not survive. `pkill -P $CHILD` and
+    # `kill $CHILD` in the trap below are two separate commands, and the gap
+    # between them is a real window: the instant `pkill` signals the phase in
+    # flight, the subshell's `wait` returns and it forks the NEXT phase —
+    # before `kill` arrives to stop the subshell. That phase is reparented to
+    # init and is never signalled, so `cleanup` releases the rigs while an
+    # orphaned survey re-claims them and runs on unsupervised for hours.
+    #
+    # The wasted rig time is not the worst of it. The rows that orphan writes
+    # during the release race land in the journal, and `--resume` treats any
+    # row that is present as done — so the corrupted cells are then skipped
+    # permanently on the relaunch.
+    #
+    # Measured on stand-ins: **17 of 30** SIGTERM trials left the next phase
+    # alive with ppid 1. With this guard, **0 of 20**.
+    #
+    # `set -m` plus a process-group kill is NOT the fix and was tried: dash
+    # refuses job control without a tty and still orphaned 13 of 20.
+    stop = shlex.quote(".campaign-stop")
+
     if args.campaign:
-        phases = "; ".join(
+        # First phase unguarded, every later one gated on the sentinel. A
+        # phase that FAILS must still not cancel the ones behind it — that is
+        # what `;` bought and this keeps, since `[ -f … ] ||` tests the
+        # sentinel and not the previous phase's status.
+        phases = f"\n[ -f {stop} ] || ".join(
             command.format(python=sys.executable) for _, command in CAMPAIGN
         )
         print("campaign phases, in order:")
@@ -448,14 +473,28 @@ def main(argv: list[str] | None = None) -> int:
     # SIGKILL is not survivable by anything and is not claimed to be. The
     # trailing call covers the ordinary end too, since a campaign that refuses
     # in its last phase would otherwise exit holding a card.
+    # **Only SIGTERM reaches this trap; `INT` in the list is dead.** The driver
+    # is started as an asynchronous command with job control off, and POSIX
+    # requires the shell to set SIGINT and SIGQUIT to SIG_IGN in such a child —
+    # a `trap` cannot re-enable a signal that was ignored on entry. Read off a
+    # live driver: `SigIgn` covers HUP, INT and QUIT; `SigCgt` covers only TERM
+    # and CHLD, and `kill -INT` on it did nothing at all. `INT` is left in the
+    # list because it costs nothing and becomes live if this is ever launched
+    # in its own session — but **stop the driver with a plain `kill <pid>`**.
     release = (
         f"{shlex.quote(sys.executable)} tools/bench/serving/launch.py "
         f"--release --hosts {shlex.quote(CAMPAIGN_HOSTS)} || true"
     )
+    # The sentinel is touched FIRST, before anything is signalled, so a phase
+    # that has not started yet cannot start during the kill. Cleared on the way
+    # in rather than on the way out: the interrupt path ends at `exit 130` and
+    # deliberately leaves the file behind, so clearing it is the next launch's
+    # job and a stale one can never silence a fresh campaign.
     phases = (
         f"cleanup() {{ {release}; }}\n"
-        "trap 'pkill -P $CHILD 2>/dev/null; kill $CHILD 2>/dev/null; "
-        "cleanup; exit 130' INT TERM\n"
+        f"rm -f {stop}\n"
+        f"trap 'touch {stop}; pkill -P $CHILD 2>/dev/null; "
+        "kill $CHILD 2>/dev/null; cleanup; exit 130' INT TERM\n"
         f"{{ {phases}\n}} &\n"
         "CHILD=$!\n"
         "wait $CHILD\n"
