@@ -568,3 +568,49 @@ not appear on a 1.5B AWQ with headroom on srv1's card. A 7B, or srv2's 12 GB car
 is where it would appear first. Raising the token count buys sensitivity now and
 carries that risk forward; the split fields make it visible when it happens rather
 than silently wrong.
+
+### D4 — `MIN_VRAM_FRACTION` is withdrawn as a gate and replaced by a declaration
+
+**What it measures.** `backends/ollama.py:455`: `vram_fraction = size_vram / size`
+from `/api/ps` — the fraction of *this model's own bytes* resident on the GPU. It
+is ollama-only; vLLM has no equivalent check.
+
+**Three facts the number does not carry, each of which changes its meaning.** The
+owner supplied all three; none is in the 34 loads the constant was calibrated on,
+which were every one of them dense, single-model and awake.
+
+1. **MoE is in scope.** `size` is the full weight footprint, and a MoE serves fine
+   with much of it on CPU because only a fraction of the parameters are active per
+   token. **0.794 on a MoE is a working configuration; 0.794 on a dense model is
+   20% of the layers on CPU and a large slowdown.** `gpt-oss:20b` — the refusal
+   this finding was built around, 13.8 GB on a 12 GB card, six thousandths under
+   the line — *is* a MoE. The headline case was never a failure.
+2. **Two models may be resident at once** (1.5B + 3B). The fraction is per-model,
+   but a neighbour holding VRAM pushes one of them partial. A reading of 0.6 then
+   means either "another engine took the card" or "exactly the layout I
+   configured", and the fraction cannot distinguish them.
+3. **Sleep is in scope** — offload-to-RAM for fast reload. Placement becomes
+   time-varying, so a sample taken in a sleep window reads a healthy model as a
+   broken load, and a single sample stops being a property of the configuration.
+
+**So no single number survives**, not 0.8 and not any other: the fraction's meaning
+depends on the architecture, the intended co-residency and the sampling moment, and
+it carries none of them. This is the same shape as `BATCHING_SPEEDUP` — a threshold
+over a statistic that does not contain the thing being judged.
+
+**Decided: the `concurrency.expect` pattern.** The survey declares `placement.expect`
+per model; the run measures; a mismatch is recorded and reported. A declaration can
+carry architecture and intended co-residency; a constant cannot. With nothing
+declared the run records and never refuses, which makes all 17 models measurable.
+Contamination stays caught where it always was, by `card_idle_before_load`.
+
+To make the recorded number readable, capture alongside it: `resident_names`
+(already captured), and the architecture and expert count, which `/api/show`
+carries and nothing reads today.
+
+**Owner caveat — a validation run is owed.** Once the decisions here are locked and
+the harness is fixed, the servers are run again with these settings deliberately
+exercised: MoE, two co-resident models, and sleep. The purpose is to see what the
+endpoints actually return under each and to harden the mechanism against it. The
+`placement.expect` design above is provisional until that run reports; it is the
+shape the evidence supports, not a shape any measurement has yet exercised.
