@@ -331,14 +331,39 @@ def _url(base: str, path: str) -> str:
     return base + path
 
 
-#: A list longer than this is recorded as its length and its digest rather than
-#: inline. Comprehensive means nothing a reader can act on is lost, not that
-#: 151,936 tokenizer entries are copied into every run directory: the arrays are
-#: already hashed into ``run.json``'s ``vocabulary_sha256`` and
-#: ``merges_sha256``, so the digest here is a join key and the count is the fact.
-#: 512 keeps every structural list inline — the 1.5B's ``tensors`` is 338 rows —
-#: and elides only the three tokenizer arrays.
-MAX_INLINE_ITEMS = 512
+#: **D5, 2026-08-19: elide BY NAME, with a length backstop.**
+#:
+#: The three tokenizer arrays are elided because of *what they are*, not because
+#: of how long they happen to be. A size threshold was doing the right thing for
+#: the wrong reason, and the reason is what generalises: at 512 the same
+#: constant decided both "this is a tokenizer array" and "this list is too long
+#: to read", which are different judgements. The 1.5B's ``tensors`` is 338 rows
+#: and sits inline; a 30B's is thousands and would have been elided by length —
+#: silently losing a STRUCTURAL list that a reader can act on, while the
+#: tokenizer arrays it was aimed at were already covered by name.
+#:
+#: The arrays are hashed into ``run.json``'s ``vocabulary_sha256`` and
+#: ``merges_sha256`` regardless, so an elided array's digest is a join key back
+#: to those and its count is the fact worth keeping.
+#: The two arrays named here are exactly the ones ``identity`` hashes into
+#: ``vocabulary_sha256`` and ``merges_sha256``, so an elided array's digest is
+#: a join key back to a field that already exists rather than a new one. The
+#: rest are the sibling GGUF tokenizer arrays, which are the same KIND of thing
+#: and are elided for the same reason.
+ELIDE_BY_NAME: frozenset[str] = frozenset(
+    {
+        "tokenizer.ggml.tokens",
+        "tokenizer.ggml.merges",
+        "tokenizer.ggml.token_type",
+        "tokenizer.ggml.scores",
+    }
+)
+
+#: The backstop, for a list this does not know by name. Deliberately far above
+#: any structural list these models produce — the largest seen is in the low
+#: thousands — so it catches an unforeseen array without quietly eliding a
+#: tensor table. A list hitting this is worth noticing, not just shrinking.
+MAX_INLINE_ITEMS = 4096
 
 #: What an elided list is replaced by. A dict rather than a truncated list, so
 #: no reader can mistake it for the array itself.
@@ -419,19 +444,31 @@ def _redact_one(bundle: types.ModuleType, url: str) -> str:
         return _REDACTED
 
 
-def elide(value: Any) -> Any:
-    """``value`` with any list over :data:`MAX_INLINE_ITEMS` summarised.
+def elide(value: Any, key: str | None = None) -> Any:
+    """``value`` with tokenizer arrays summarised by name, plus a length backstop.
+
+    D5: a list is elided when its KEY names it a tokenizer array
+    (:data:`ELIDE_BY_NAME`), or — failing that — when it exceeds
+    :data:`MAX_INLINE_ITEMS`. Each summary records which rule fired, because
+    "this was elided because we know what it is" and "this was elided because it
+    was surprisingly long" are different facts about a run.
 
     The summary is the count and :func:`identity.digest` of the whole array —
     the same digest convention ``run.json`` uses, so a reader can join an elided
     array here to ``vocabulary_sha256`` there without rehashing anything.
     """
     if isinstance(value, dict):
-        return {k: elide(v) for k, v in value.items()}
+        return {k: elide(v, k) for k, v in value.items()}
     if isinstance(value, list):
-        if len(value) > MAX_INLINE_ITEMS:
-            return {ELIDED: True, "count": len(value), "sha256": identity.digest(value)}
-        return [elide(v) for v in value]
+        named = key is not None and key.lower() in ELIDE_BY_NAME
+        if named or len(value) > MAX_INLINE_ITEMS:
+            return {
+                ELIDED: True,
+                "rule": "name" if named else "length",
+                "count": len(value),
+                "sha256": identity.digest(value),
+            }
+        return [elide(v, key) for v in value]
     return value
 
 

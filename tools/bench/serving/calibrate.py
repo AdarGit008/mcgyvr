@@ -256,11 +256,19 @@ def ramp(
                 "max_num_seqs": width,
                 "gpu_memory_utilization": 0.85,
                 "flags": ["--enforce-eager"],
-                "env": {
-                    "FLASHINFER_DISABLE_VERSION_CHECK": "1",
-                    "CUDA_HOME": "$HOME/.local/lib/python3.14/"
-                    "site-packages/nvidia/cu13",
-                },
+                # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
+                # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/
+                # cu13"`, and `vllm._start` renders env values through
+                # `shlex.quote`, so `$HOME` never expanded. Read straight off a
+                # live server's /proc/<pid>/environ: the literal string, which
+                # no path resolves. The expanded path does exist and 3.14 is
+                # right today — but no process has ever seen a valid value, so
+                # the record's claim that this env block fixed ten failed
+                # launches is false; something else fixed them. Expanding it
+                # correctly now would introduce an UNTESTED variable into the
+                # launch path immediately before a multi-hour campaign, and its
+                # effect is unmeasured precisely because it has never been set.
+                "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
             }
             try:
                 ollama.release(host)
@@ -320,6 +328,7 @@ def _one_ramp(
     finally:
         contract.RAMP_TOKENS = original
     readings = result.get("readings") or {}
+    saturated = result.get("saturation") or {}
     emit(
         out,
         {
@@ -330,17 +339,21 @@ def _one_ramp(
             "model": model,
             "configured_width": width,
             "tokens": tokens,
-            "knee": result.get("knee"),
+            "saturation_n": saturated.get("n"),
+            "saturation_refused": saturated.get("refused"),
+            "ramp_tokens": saturated.get("ramp_tokens"),
+            "plateau_fraction": saturated.get("plateau_fraction"),
+            "levels_dropped": saturated.get("levels_dropped"),
             "throughput_plateau_n": readings.get("throughput_plateau_n"),
             "latency_plateau_n": readings.get("latency_plateau_n"),
             "max_speedup_vs_n1": readings.get("max_speedup_vs_n1"),
-            "batches": readings.get("batches"),
             "levels": result.get("levels"),
         },
     )
     print(
-        f"  {host}/{engine} width={width} tokens={tokens} -> knee "
-        f"{result.get('knee')} speedup {readings.get('max_speedup_vs_n1')}",
+        f"  {host}/{engine} width={width} tokens={tokens} -> saturation_n "
+        f"{saturated.get('n')} speedup {readings.get('max_speedup_vs_n1')}"
+        + (f" REFUSED: {saturated['refused']}" if saturated.get("refused") else ""),
         flush=True,
     )
 

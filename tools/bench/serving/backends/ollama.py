@@ -86,10 +86,26 @@ NAME = "ollama"
 #: The port this engine ships on.
 PORT = 11434
 
-#: How much of a model must be on the card before it counts as GPU-resident.
-#: The engine serves a CPU-placed model perfectly happily, so this ratio is the
-#: only signal that distinguishes the two.
-MIN_VRAM_FRACTION = 0.8
+#: A card holding less than this, after a release, is carrying nothing of ours.
+#: Used to decide whether the card was actually idle before a load — a reading
+#: of the CARD, which is what `card_idle_before_load` claimed to be and was not.
+IDLE_BEFORE_LOAD_MIB = contract.IDLE_GPU_MIB
+
+# **D4, 2026-08-19: `MIN_VRAM_FRACTION` is withdrawn as a gate.** It was 0.8, and
+# it refused five real models as unmeasurable. The refusal it was built around —
+# `gpt-oss:20b` at 0.794 — was never a failure: that model is a **MoE**, and a
+# MoE holding a fifth of its bytes off-card is working as designed, not failing
+# to load.
+#
+# No single number can be right here, because the fraction's MEANING depends on
+# three things the number does not carry: the architecture (dense vs MoE),
+# whether co-residency was intended, and the moment in the load at which the
+# sample was taken. A gate that cannot state its own conditions is not a gate.
+#
+# What replaces it is a DECLARATION, per entry, in the survey config:
+# `placement.expect`. An entry says what placement it expects and the run
+# records what it got; a mismatch is reported against a stated expectation
+# rather than against a constant that means different things per model.
 
 #: How many times the whole clear-load-verify cycle is retried. The load is not
 #: retried alone: what fails is a dirty card, and reloading onto one reproduces
@@ -167,7 +183,17 @@ def release(host: str) -> dict[str, Any]:
         "curl -s -m 30 -X POST http://127.0.0.1:11434/api/generate "
         '-d "{\\"model\\":\\"$m\\",\\"keep_alive\\":0}" -o /dev/null; done; true',
     )
-    run("kill_servers", "pkill -f '[l]lama-server' 2>/dev/null; sleep 4; true")
+    # **E9, 2026-08-19.** ollama runs as `User=ollama` on both rigs, so this
+    # `pkill` as the ssh user got EPERM on every match — silently, because
+    # stderr was discarded and the step ended `; true`. The card still cleared,
+    # via the service restart below, so the effect was right and the RECORD was
+    # a lie: a cleanup step that cannot work, wrapped in a suppressor that hides
+    # that it did not. Now it runs under `sudo -n` and its effect is read back.
+    run(
+        "kill_servers",
+        "sudo -n pkill -f '[l]lama-server' 2>/dev/null; sleep 4; "
+        "echo \"remaining=$(pgrep -c '[l]lama-server' 2>/dev/null || echo 0)\"",
+    )
     run(
         "restart_service",
         "sudo -n systemctl restart ollama 2>/dev/null && echo restarted "
@@ -190,6 +216,13 @@ def release(host: str) -> dict[str, Any]:
         "gpu_used_mib": used,
         "own_processes_remaining": remaining,
         "released": remaining == 0,
+        # A reading of the CARD, separate from the statement about this backend.
+        # `released` deliberately does not consult it: a backend that holds
+        # nothing must not report failure because ANOTHER engine holds the card.
+        # But `claim` needs to know whether the card was clear before a load, and
+        # it was previously handed this backend's process count under that name.
+        "card_used_mib": used,
+        "card_idle": None if used is None else used < IDLE_BEFORE_LOAD_MIB,
     }
 
 
@@ -199,24 +232,38 @@ def claim(
     model: str,
     serve: dict[str, Any] | None = None,
     expect: dict[str, Any] | None = None,
+    placement: dict[str, Any] | None = None,
+    coresident: bool = False,
 ) -> dict[str, Any]:
-    """Load ``model`` alone and prove it is the only thing on the card.
+    """Load ``model`` and prove the card is in the state the entry declared.
 
-    Loading is not the hard part; verifying is. Four checks, each of which maps
-    to a way a measurement here was silently ruined before it existed:
+    Loading is not the hard part; verifying is. Each check maps to a way a
+    measurement here was silently ruined before it existed:
 
-    1. The card was idle before the load — placement is decided then.
-    2. Exactly this model is resident, and nothing else.
-    3. Its ``size_vram`` is most of its ``size`` — the CPU-placement check.
-    4. Its weights are the ones expected, when the caller pinned a digest. A tag
-       is mutable: the same name re-pulled tomorrow serves different bytes, and
-       every other check here still passes.
+    1. **The card was idle before the load** — placement is decided then. This
+       now reads the CARD (``release()["card_idle"]``). It previously read this
+       backend's own process count under that name, so it was true whenever
+       ollama held nothing, including when another engine held the whole card.
+       D4 withdrew ``MIN_VRAM_FRACTION`` on the stated grounds that this check
+       caught contamination separately; that was not true of the code, and this
+       is what makes it true.
+    2. **The model under test is resident**, and the full resident set is
+       recorded. Requiring it to be the ONLY resident is now an entry's choice,
+       not a law: D7 item 4 measures two models co-resident deliberately, and a
+       gate that refuses by construction cannot express it. Entries default to
+       sole residency, so nothing becomes laxer by accident.
+    3. **Placement is recorded and compared to what the entry declared**
+       (``placement.expect``), not to a global constant — see D4 above.
+    4. **The weights are the ones expected**, when the caller pinned a digest. A
+       tag is mutable: the same name re-pulled tomorrow serves different bytes,
+       and every other check here still passes.
 
     Retries the whole cycle rather than the load, and raises
     :exc:`contract.NotCleanError` rather than returning something measurable.
     """
     serve = serve or {}
     expect = expect or {}
+    placement = placement or {}
     # A pin naming a field this backend does not compute is a config that
     # believes it is pinned and is not — checked before anything else, because
     # a verification that only runs on the failure path never runs at all.
@@ -253,23 +300,59 @@ def claim(
         placed = _placement(resident, model)
         digest = _digest(base, model)
         wanted = expect.get("model_sha256")
+        names = [row.get("name") for row in resident]
+        fraction = placed.get("fraction")
+        floor = placement.get("min_vram_fraction")
         check = {
             "attempt": attempt,
-            "card_idle_before_load": released.get("released"),
+            # Reads the card, not this backend's process count. See the
+            # docstring — the old field was the same name and a different fact.
+            "card_idle_before_load": released.get("card_idle"),
+            "card_used_mib_before_load": released.get("card_used_mib"),
             "load_http_status": loaded,
-            "resident_names": [row.get("name") for row in resident],
+            "resident_names": names,
+            "sole_resident": names == [model],
+            "coresidency_allowed": coresident,
             "size": placed.get("size"),
             "size_vram": placed.get("size_vram"),
-            "vram_fraction": placed.get("fraction"),
+            "vram_fraction": fraction,
+            # D4: a declaration per entry, not a constant. `None` means the
+            # entry declared nothing, and then placement is RECORDED, not gated.
+            "placement_expected": placement or None,
+            "placement_meets_expectation": (
+                None if floor is None else (fraction or 0) >= floor
+            ),
             "model_sha256": digest,
             "model_sha256_expected": wanted,
             "server": _server(host),
         }
+        # **E11, 2026-08-19: residency is cross-checked against the card.**
+        # Measured on srv1: after a child is killed, `/api/ps` keeps listing the
+        # model — with its full `size_vram` and its original `expires_at` — for
+        # the whole keep-alive window. So the residency list can assert that a
+        # model is on the card, at fraction 1.0, when the card holds nothing.
+        # E9 made the kill actually work, which is what opens this window; the
+        # service restart that follows closes it, and this makes the guarantee
+        # independent of that ordering rather than dependent on it.
+        card_now = contract.first_int(
+            contract.ssh(
+                host,
+                "nvidia-smi --query-gpu=memory.used --format=csv,noheader",
+            )
+        )
+        check["card_used_mib_after_load"] = card_now
+        check["residency_contradicts_card"] = bool(
+            (placed.get("size_vram") or 0) > 0
+            and card_now is not None
+            and card_now < IDLE_BEFORE_LOAD_MIB
+        )
         check["ok"] = bool(
             loaded == "200"
-            and check["resident_names"] == [model]
-            and (placed.get("fraction") or 0) >= MIN_VRAM_FRACTION
+            and model in names
+            and (coresident or check["sole_resident"])
+            and check["placement_meets_expectation"] is not False
             and check["server"].get("instances")
+            and not check["residency_contradicts_card"]
             and (wanted is None or digest == wanted)
         )
         trail.append(check)
@@ -292,17 +375,42 @@ def claim(
             "is mutable and this one has moved — every other check passed, which "
             "is why the digest is pinned. Nothing was measured."
         )
+    # **D8: the reason is structured, not only prose.** A refusal that a reader
+    # has to parse out of a sentence cannot be counted across a campaign.
+    reasons = []
+    if last["load_http_status"] != "200":
+        reasons.append("load_http_status")
+    if model not in (last["resident_names"] or []):
+        reasons.append("model_not_resident")
+    elif not last["sole_resident"] and not last["coresidency_allowed"]:
+        reasons.append("unexpected_coresidency")
+    if last["placement_meets_expectation"] is False:
+        reasons.append("placement_below_declared_floor")
+    if not last["server"].get("instances"):
+        reasons.append("no_server_child")
+    if not last["card_idle_before_load"]:
+        reasons.append("card_not_idle_before_load")
+    if last.get("residency_contradicts_card"):
+        reasons.append("residency_contradicts_card")
     raise contract.NotCleanError(
-        f"{model} on {host} would not come up clean in {LOAD_ATTEMPTS} attempts: "
-        f"resident={last['resident_names']}, vram_fraction={last['vram_fraction']}, "
-        f"http={last['load_http_status']}. Nothing was measured. A model far larger "
-        f"than the card is the known case — it never reaches "
-        f"{MIN_VRAM_FRACTION:.0%} VRAM, and this refusal is the correct answer "
-        "about it rather than a bug to route around."
+        f"{model} on {host} would not come up clean in {LOAD_ATTEMPTS} attempts "
+        f"[{','.join(reasons) or 'unknown'}]: resident={last['resident_names']}, "
+        f"vram_fraction={last['vram_fraction']}, "
+        f"declared={last['placement_expected']}, "
+        f"card_before={last['card_used_mib_before_load']} MiB, "
+        f"http={last['load_http_status']}. Nothing was measured. Note that a low "
+        "vram_fraction is NOT by itself a refusal any more (D4): a MoE serving "
+        "part of its bytes off-card is working as designed, and only an entry "
+        "that DECLARED a placement floor can fail one."
     )
 
 
-def describe(host: str, base: str, model: str) -> dict[str, Any]:
+def describe(
+    host: str,
+    base: str,
+    model: str,
+    serve: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Everything this engine will say about ``model``.
 
     The public capture, plus what only the child process answers — which is
@@ -315,11 +423,94 @@ def describe(host: str, base: str, model: str) -> dict[str, Any]:
         "capture": contract.observed().capture(base, model),
         "resident": _resident(host),
         "server": server,
-        "serving_config": serving_config(server),
+        "serving_config": serving_config(server, model),
+        "declared_slots": declared_slots(server, model),
     }
 
 
-def serving_config(server: dict[str, Any]) -> dict[str, Any]:
+def declared_slots(
+    server: dict[str, Any], model: str | None = None
+) -> dict[str, Any]:
+    """What this engine SAYS its slot count is — never what the curve did.
+
+    **D1, 2026-08-19.** A scheduler limit and a throughput saturation point are
+    different quantities that coincide only when the limit binds before the
+    hardware does, so they are different fields. This is the limit; the curve is
+    :func:`contract.saturation`.
+
+    For this engine the value is genuinely **observed**: the child process
+    answers ``total_slots`` on its own ``/props``, which is the engine's own
+    statement of how many requests it will run at once. It is set from
+    ``OLLAMA_NUM_PARALLEL`` where that is configured and from the engine's
+    default where it is not — measured 2 on srv1 (which sets it) and 1 on srv2
+    (which does not).
+
+    The provenance travels with the value because it is not observable on every
+    engine. Where an engine states its width on no endpoint, the only available
+    value is the one that was dispatched to it, and a consumer that could not
+    tell the two apart would be comparing a reading with an intention.
+    """
+    instance = _instance_for(server, model)
+    if instance is None:
+        return {
+            "value": None,
+            "provenance": "observed",
+            "refused": (
+                "no resident child process, so the engine has not stated a slot "
+                "count"
+            ),
+        }
+    try:
+        props = json.loads(instance.get("props") or "{}")
+    except json.JSONDecodeError:
+        return {
+            "value": None,
+            "provenance": "observed",
+            "refused": "the child's /props did not parse as JSON",
+        }
+    if "total_slots" not in props:
+        return {
+            "value": None,
+            "provenance": "observed",
+            "refused": "the child's /props carries no total_slots key",
+        }
+    return {
+        "value": props["total_slots"],
+        "provenance": "observed",
+        "source": "llama-server /props total_slots",
+        "refused": None,
+    }
+
+
+def _instance_for(
+    server: dict[str, Any], model: str | None
+) -> dict[str, Any] | None:
+    """The child serving ``model``, or ``None`` — never a blind ``instances[0]``.
+
+    This engine runs one child per resident model, and up to three can be
+    resident at once (``OLLAMA_MAX_LOADED_MODELS=3`` on srv1). Taking the first
+    instance therefore described *an* unidentified model whenever more than one
+    was up, which D7 item 4 does deliberately. A config that cannot say which
+    model it describes is not a config.
+    """
+    instances = server.get("instances") or []
+    if not instances:
+        return None
+    if model is None:
+        return instances[0] if len(instances) == 1 else None
+    # The child's command line carries the blob path, not the tag, so match on
+    # the tag's own components rather than expecting the name verbatim.
+    stem = model.replace(":", "-")
+    for instance in instances:
+        line = instance.get("command_line") or ""
+        if model in line or stem in line:
+            return instance
+    return instances[0] if len(instances) == 1 else None
+
+
+def serving_config(
+    server: dict[str, Any], model: str | None = None
+) -> dict[str, Any]:
     """The whole serving configuration, parsed and pinned as two digests.
 
     This engine's config is split in two places and neither is on the network:
@@ -337,7 +528,18 @@ def serving_config(server: dict[str, Any]) -> dict[str, Any]:
                 "configuration does not exist yet"
             )
         }
-    instance = instances[0]
+    instance = _instance_for(server, model)
+    if instance is None:
+        return {
+            "refused": (
+                f"{len(instances)} children are resident and none could be "
+                f"matched to {model!r}; this config would have described an "
+                "unidentified one of them"
+            ),
+            "resident_command_lines": [
+                row.get("command_line") for row in instances
+            ],
+        }
     config: dict[str, Any] = dict(_command_flags(instance.get("command_line") or ""))
     try:
         props = json.loads(instance.get("props") or "{}")

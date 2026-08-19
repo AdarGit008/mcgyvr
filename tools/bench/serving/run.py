@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -67,8 +68,38 @@ def _contract() -> types.ModuleType:
 contract = _contract()
 
 
-def run(config: dict[str, Any]) -> dict[str, Any]:
-    """The whole survey, as the config describes it."""
+def _journal(path: Path | None) -> Any:
+    """Append one record and put it on the disk, or do nothing.
+
+    **D8, 2026-08-19: a durable output, written as the run goes.** The
+    end-of-run write and the abort handler both depend on the process living
+    long enough to reach them, and neither survives what actually ends a long
+    campaign here: an ssh that dies under load, an OOM killer, a reboot. Nine
+    hours of rig time must not be recoverable only from a traceback.
+
+    fsync per record on purpose. A row costs a model load — seconds to minutes
+    — so a flush per row is free against what it protects, and buffering is
+    exactly what loses the tail.
+    """
+    if path is None:
+        return lambda record: None
+
+    def append(record: dict[str, Any]) -> None:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+    return append
+
+
+def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
+    """The whole survey, as the config describes it.
+
+    ``journal``, when given, receives one JSON line per completed entry the
+    moment it completes — see :func:`_journal`.
+    """
+    record = _journal(journal)
     hosts: list[str] = config.get("hosts") or []
     entries: list[dict[str, Any]] = config.get("models") or []
     collect = config.get("collect") or {}
@@ -122,6 +153,16 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
 
         for spec in entries:
             label = str(spec.get("label") or spec["id"])
+            # **E6, 2026-08-19: an entry runs only on the hosts that name it.**
+            # This loop was a full host x entry cross-product, so the campaign's
+            # roster — 5 models on srv1 and 10 on srv2 — could not be expressed
+            # at all. Labels like `q15-ollama-srv1` READ like affinity and were
+            # not, which is worse than no affinity: the config appeared to say
+            # something it had no way to mean. Omitting `hosts` still means
+            # every host, so nothing that worked before changes.
+            wanted = spec.get("hosts")
+            if wanted is not None and host not in wanted:
+                continue
             name = str(spec["backend"])
             backend = backends[name]
             print(f"[{host}] {label} ({name}) — yielding the card", flush=True)
@@ -164,23 +205,41 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
                         "stage": "exclusion",
                     }
                 )
-                entry["measured"][label] = {
+                entry["measured"][label] = row_out = {
                     "backend": name,
                     "model": spec["id"],
                     "family": spec.get("family"),
                     "verified": False,
+                    # D8: an explicit outcome, so a campaign can be counted
+                    # rather than read. `verified: False` alone conflated "we
+                    # refused to measure this" with "we measured it and it
+                    # failed", which are different results about the rig.
+                    "outcome": "refused",
+                    "refused_stage": "exclusion",
                     "refused": why,
                     "yielded": yielded,
                 }
+                record({"host": host, "label": label, **row_out})
                 continue
 
             try:
+                # D4: the entry's own placement declaration replaces the
+                # withdrawn global VRAM gate, and `coresident` lets an entry
+                # ask for the co-residency D7 item 4 measures on purpose.
+                # `claim` takes them as keywords so a backend that does not
+                # model placement is unaffected.
+                claim_kwargs: dict[str, Any] = {}
+                if spec.get("placement") is not None:
+                    claim_kwargs["placement"] = spec["placement"]
+                if spec.get("coresident"):
+                    claim_kwargs["coresident"] = True
                 claimed = backend.claim(
                     host,
                     entry["present"][name]["base"] or f"http://{host}:{backend.PORT}",
                     str(spec["id"]),
                     spec.get("serve"),
                     spec.get("expect"),
+                    **claim_kwargs,
                 )
             except Exception as error:
                 print(f"[{host}] {label} REFUSED: {error}", flush=True)
@@ -193,14 +252,18 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
                         "stage": "claim",
                     }
                 )
-                entry["measured"][label] = {
+                entry["measured"][label] = row_out = {
                     "backend": name,
                     "model": spec["id"],
                     "family": spec.get("family"),
                     "verified": False,
+                    "outcome": "refused",
+                    "refused_stage": "claim",
+                    "refused_kind": type(error).__name__,
                     "refused": str(error),
                     "yielded": yielded,
                 }
+                record({"host": host, "label": label, **row_out})
                 continue
 
             base = entry["present"][name]["base"] or f"http://{host}:{backend.PORT}"
@@ -209,6 +272,10 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
                 "model": spec["id"],
                 "family": spec.get("family"),
                 "verified": True,
+                # D8. Downgraded to `incomplete` below if describe or the ramp
+                # fails, so the terminal value is always one of
+                # measured / incomplete / refused and never has to be inferred.
+                "outcome": "measured",
                 "yielded": yielded,
                 "claim": claimed,
             }
@@ -220,7 +287,14 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
             # unguarded loop did: one RuntimeError and nothing was written at
             # all. A failure here is one model's failure, recorded as such.
             try:
-                row["description"] = backend.describe(host, base, str(spec["id"]))
+                row["description"] = backend.describe(
+                    host, base, str(spec["id"]), spec.get("serve") or {}
+                )
+                # D1: hoisted so the summary and any consumer can read the
+                # declaration beside the curve without digging for it.
+                row["declared_slots"] = (row["description"] or {}).get(
+                    "declared_slots"
+                )
                 concurrency = spec.get("concurrency") or {}
                 if collect.get("concurrency", True) and concurrency.get("measure"):
                     print(f"[{host}] {label} — concurrency ramp", flush=True)
@@ -229,20 +303,30 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
                         str(spec["id"]),
                         tuple(concurrency.get("levels") or contract.RAMP_LEVELS),
                     )
+                    # D1: what the curve did, and what the server said, are
+                    # two quantities. `saturation_n` is measured here; the
+                    # backend supplies `declared_slots` with its provenance.
+                    saturated = measured.get("saturation") or {}
                     expected = concurrency.get("expect")
                     measured["expected"] = expected
                     measured["matches_expected"] = (
-                        None if expected is None else measured["knee"] == expected
+                        None
+                        if expected is None
+                        else saturated.get("n") == expected
                     )
                     row["concurrency"] = measured
                     if measured["matches_expected"] is False:
                         print(
-                            f"[{host}] {label} — knee {measured['knee']} != "
-                            f"expected {expected}",
+                            f"[{host}] {label} — saturation_n "
+                            f"{saturated.get('n')} != expected {expected} "
+                            f"(at {saturated.get('ramp_tokens')} tokens, "
+                            f"fraction {saturated.get('plateau_fraction')})",
                             flush=True,
                         )
             except Exception as error:
                 print(f"[{host}] {label} INCOMPLETE: {error}", flush=True)
+                row["outcome"] = "incomplete"
+                row["incomplete_kind"] = type(error).__name__
                 row["incomplete"] = f"{type(error).__name__}: {error}"
                 result["refusals"].append(
                     {
@@ -253,6 +337,9 @@ def run(config: dict[str, Any]) -> dict[str, Any]:
                         "stage": "describe/ramp — the claim itself succeeded",
                     }
                 )
+            # Outside the guard: the row is terminal either way, and a row that
+            # failed to describe is exactly the one worth having on disk.
+            record({"host": host, "label": label, **row})
 
     result["families"] = verdicts(result)
     return result
@@ -389,6 +476,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--hosts", default="", help="override the config's hosts (comma separated)"
     )
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        default=None,
+        help=(
+            "append one JSON line per entry as it completes (D8). Defaults to "
+            "<out>.jsonl; pass 'none' to disable."
+        ),
+    )
     args = parser.parse_args(argv)
 
     config = json.loads(args.config.read_text(encoding="utf-8"))
@@ -400,8 +496,14 @@ def main(argv: list[str] | None = None) -> int:
     # and a structural failure after four hours of rig time must still leave the
     # four hours on disk, with the reason it stopped beside them.
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    journal: Path | None = args.out.with_suffix(args.out.suffix + ".jsonl")
+    if args.journal is not None:
+        journal = None if str(args.journal).lower() == "none" else args.journal
+    if journal is not None:
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        print(f"journal: {journal}", flush=True)
     try:
-        result = run(config)
+        result = run(config, journal=journal)
     except BaseException as error:
         partial = {
             "config": config,
@@ -420,8 +522,21 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {host}/{label}: REFUSED")
                 continue
             ramp = row.get("concurrency") or {}
-            knee = ramp.get("knee")
-            note = "" if knee is None else f"  batch width ~= {knee}"
+            saturated = ramp.get("saturation") or {}
+            declared = row.get("declared_slots") or {}
+            note = ""
+            if saturated.get("n") is not None:
+                note += (
+                    f"  saturation_n={saturated['n']}"
+                    f" @{saturated.get('ramp_tokens')}tok"
+                )
+            elif saturated.get("refused"):
+                note += f"  saturation_n REFUSED: {saturated['refused']}"
+            if declared.get("value") is not None:
+                note += (
+                    f"  declared_slots={declared['value']}"
+                    f" ({declared.get('provenance')})"
+                )
             if ramp.get("matches_expected") is False:
                 note += f"  (expected {ramp.get('expected')} — MISMATCH)"
             print(f"  {host}/{label}: ok{note}")

@@ -156,8 +156,17 @@ class _Backend:
             "checks": {"weights": {"weights_sha256": self.digest}},
         }
 
-    def describe(self, host: str, base: str, model: str) -> dict[str, Any]:
-        return {"backend": self.NAME, "capture": {"model_sha256": f"{self.NAME}-sha"}}
+    def describe(
+        self, host: str, base: str, model: str, serve: Any = None
+    ) -> dict[str, Any]:
+        # `serve` is accepted because D1 made the launched width part of what a
+        # backend can be asked to describe: one engine states it on no endpoint,
+        # so there the only available value is the dispatched one.
+        return {
+            "backend": self.NAME,
+            "capture": {"model_sha256": f"{self.NAME}-sha"},
+            "declared_slots": {"value": None, "provenance": "dispatched"},
+        }
 
 
 def _stub(
@@ -171,7 +180,17 @@ def _stub(
     monkeypatch.setattr(runner.contract, "load_backend", lambda name: table[name])
     monkeypatch.setattr(runner.contract, "snapshot", lambda host: {"host": host})
     monkeypatch.setattr(
-        runner.contract, "ramp", lambda *a, **k: {"knee": 4, "levels": []}
+        runner.contract,
+        "ramp",
+        lambda *a, **k: {
+            "saturation": {
+                "n": 4,
+                "refused": None,
+                "ramp_tokens": 475,
+                "plateau_fraction": 0.92,
+            },
+            "levels": [],
+        },
     )
     return table
 
@@ -346,7 +365,7 @@ def test_two_serve_configs_of_one_model_are_two_rows(
     assert sorted(result["hosts"]["h"]["measured"]) == ["s16", "s8"]
 
 
-def test_a_knee_that_misses_its_expectation_is_flagged(
+def test_a_saturation_point_that_misses_its_expectation_is_flagged(
     runner: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`expect` is the positive control: a miss is recorded, not smoothed over."""
@@ -367,7 +386,7 @@ def test_a_knee_that_misses_its_expectation_is_flagged(
         }
     )
     measured = result["hosts"]["h"]["measured"]["a"]["concurrency"]
-    assert measured["knee"] == 4
+    assert measured["saturation"]["n"] == 4
     assert measured["expected"] == 2
     assert measured["matches_expected"] is False
 
@@ -391,8 +410,18 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     """
 
     def rows(triples: list[tuple[int, float, float]]) -> list[dict[str, Any]]:
+        # `errors: 0` and a non-zero `counted` are what mark a level as clean
+        # enough to read; `saturation` drops any level missing either, so the
+        # fixtures have to carry them or every curve would be refused.
         return [
-            {"n": n, "tokens_per_s": t, "latency_mean_s": lat} for n, t, lat in triples
+            {
+                "n": n,
+                "tokens_per_s": t,
+                "latency_mean_s": lat,
+                "errors": 0,
+                "counted": n,
+            }
+            for n, t, lat in triples
         ]
 
     vllm8 = rows(
@@ -435,15 +464,34 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
         ]
     )
 
-    assert contract.knee(vllm8) == 8
-    assert contract.knee(vllm16) == 16
-    assert contract.knee(ollama) is None
+    assert contract.saturation(vllm8)["n"] == 8
+    assert contract.saturation(vllm16)["n"] == 16
 
-    # WHY ollama declines: its curve barely rises, so the place it flattens is
-    # not a slot count. The plateau alone would have said 6.
-    assert contract.readings(ollama)["batches"] is False
-    assert contract.readings(ollama)["throughput_plateau_n"] == 6
-    assert contract.readings(vllm16)["batches"] is True
+    # D1: ollama's saturation point is REPORTED, not suppressed. The old rule
+    # returned None here because a 1.71x rise fell under BATCHING_SPEEDUP=2.0 —
+    # which was suppressing a real reading in order to stop it being mistaken
+    # for a slot count. The split makes the suppression unnecessary: this is
+    # where ollama's throughput stops rising, and it is NOT its slot count.
+    # **D2 moves this reading, and that is the point.** At the former inline
+    # 0.95 this curve read 6; at PLATEAU_FRACTION = 0.92 it reads 4, because
+    # the curve is still creeping upward by a percent or two per level and 0.95
+    # placed the saturation point later than the hardware reached it. Neither
+    # number was ever this engine's slot count — it was configured 2 — which is
+    # exactly why D1 stopped calling it one.
+    assert contract.saturation(ollama)["n"] == 4
+    assert contract.saturation(ollama)["refused"] is None
+    assert contract.readings(ollama)["throughput_plateau_n"] == 4
+
+    # Every value carries the conditions that define it — a saturation point at
+    # one token budget is not comparable with one at another.
+    assert contract.saturation(vllm16)["ramp_tokens"] == contract.RAMP_TOKENS
+    assert (
+        contract.saturation(vllm16)["plateau_fraction"] == contract.PLATEAU_FRACTION
+    )
+
+    # `batches` is retired: it claimed to say which of two different quantities
+    # to believe.
+    assert "batches" not in contract.readings(vllm16)
 
     # WHY the agreement rule was wrong: on a 16-slot server the two plateaus
     # differ by design, because a bigger batch is slower per request.
@@ -711,8 +759,13 @@ def test_no_host_reading_reaches_disk_unredacted(
     # Each backend's OWN contract reference: an earlier test clears the shared
     # module slot, so a later fresh load holds a different module object and
     # patching only the fixture's copy would leave the real fetchers live.
+    def _ssh(h: str, c: str, timeout: float | None = None) -> str:
+        # The readiness loop is answered so `_start` reaches its RETURN and the
+        # launch record can be inspected. Everything else leaks on purpose.
+        return "ready" if "/health" in c else leak
+
     for module in (contract, ollama.contract, vllm.contract):
-        monkeypatch.setattr(module, "ssh", lambda h, c, timeout=None: leak)
+        monkeypatch.setattr(module, "ssh", _ssh)
     monkeypatch.setattr(vllm, "launcher", lambda host: "pip")
     monkeypatch.setattr(
         vllm.contract, "get_json", lambda url, timeout=None: {"vllm_config": leak}

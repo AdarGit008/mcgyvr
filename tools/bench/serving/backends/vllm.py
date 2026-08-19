@@ -203,7 +203,7 @@ def readings(host: str) -> dict[str, Any]:
     """This engine's own footprint on the machine."""
     reads = {
         "processes": "ps -eo args | grep -E '[v]llm (serve|.*api_server)' || true",
-        "containers": "docker ps --filter ancestor=vllm/vllm-openai "
+        "containers": f"docker ps --filter ancestor={CONTAINER_IMAGE} "
         "--format '{{.Names}} {{.Status}}' | head -5 || true",
     }
     out: dict[str, Any] = {
@@ -247,9 +247,18 @@ def release(host: str) -> dict[str, Any]:
         steps.append({"step": name, "command": command, "stdout": stdout})
         return stdout
 
+    # **E8, 2026-08-19.** This filtered on the bare repo name, which docker
+    # resolves to `:latest`. It matched a `:v0.26.0` container only because both
+    # tags happened to share an image id — verified empirically on srv2, and a
+    # coincidence, not a mechanism. Pull a newer `latest` and the filter stops
+    # matching while `released` below still reports True, because that flag is a
+    # `pgrep` for a bare process a container never shows. `run.py` trusts it as
+    # the ONLY exclusion gate, so the campaign would have measured the next
+    # engine behind a live allocation of ours, with nothing in the record
+    # looking wrong.
     run(
         "stop_containers",
-        "docker ps --filter ancestor=vllm/vllm-openai "
+        f"docker ps --filter ancestor={CONTAINER_IMAGE} "
         "--format '{{.Names}}' | xargs -r docker stop >/dev/null 2>&1; true",
     )
     run(
@@ -265,17 +274,32 @@ def release(host: str) -> dict[str, Any]:
     # refused the very engine it was about to measure. With the shipped config
     # that meant the third entry was refused on every host while the family
     # verdict quietly reported "2 of 3".
+    # A containerised server is NOT a `vllm serve` process on the host, so this
+    # count alone read 0 on the docker rig no matter what the container was
+    # doing — `released: True` on a card we had not freed. Both are counted.
     mine = run(
         "own_processes", "{ pgrep -c '[v]llm serve' 2>/dev/null || echo 0; } | head -1"
     )
+    boxes = run(
+        "own_containers",
+        f"docker ps --filter ancestor={CONTAINER_IMAGE} -q 2>/dev/null | wc -l "
+        "|| echo 0",
+    )
     remaining = contract.first_int(mine)
+    containers = contract.first_int(boxes)
     used = contract.first_int(gpu)
     return {
         "backend": NAME,
         "steps": steps,
         "gpu_used_mib": used,
         "own_processes_remaining": remaining,
-        "released": remaining == 0,
+        "own_containers_remaining": containers,
+        "released": remaining == 0 and (containers or 0) == 0,
+        # A reading of the CARD, kept separate from the statement about this
+        # backend: a backend holding nothing must not report failure because
+        # another engine holds the card.
+        "card_used_mib": used,
+        "card_idle": None if used is None else used < contract.IDLE_GPU_MIB,
     }
 
 
@@ -362,8 +386,18 @@ def claim(
     )
 
 
-def describe(host: str, base: str, model: str) -> dict[str, Any]:
-    """Everything this engine will say about ``model``."""
+def describe(
+    host: str,
+    base: str,
+    model: str,
+    serve: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Everything this engine will say about ``model``.
+
+    ``serve`` is the block this run launched with. It is a parameter rather
+    than something read back because this engine states ``max_num_seqs``
+    nowhere on the wire — see :func:`declared_slots`.
+    """
     return {
         "backend": NAME,
         "capture": contract.observed().capture(base, model),
@@ -371,6 +405,7 @@ def describe(host: str, base: str, model: str) -> dict[str, Any]:
         "served": inventory(host, base),
         "weights": weights_sha256(host, model),
         "serving_config": serving_config(base),
+        "declared_slots": declared_slots(serve),
     }
 
 
@@ -547,14 +582,44 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             + " ".join(shlex.quote(arg) for arg in args)
         )
     launched = contract.ssh(host, command)
+    # The loop's own worst case is (curl 5s + sleep 10s) per iteration, so the
+    # ssh budget has to cover THAT, not START_TIMEOUT_S alone. It previously
+    # allotted 960 s to a loop that could run 1350 s, so a slow start was cut
+    # off by the client and recorded as if the server had never come up.
+    rounds = int(START_TIMEOUT_S // 15)
+    # **A model is not ready when /health says 200.** Measured on these rigs:
+    # /health answers before the weights are on the card. The check that holds
+    # is 200 AND the card carrying an allocation — which is what
+    # MIN_ALLOCATION_MIB exists for, and it was not being used here.
     ready = contract.ssh(
         host,
-        f"for i in $(seq 1 {int(START_TIMEOUT_S // 10)}); do "
+        f"for i in $(seq 1 {rounds}); do "
         f"code=$(curl -s -m 5 -o /dev/null -w '%{{http_code}}' "
         f"http://127.0.0.1:{PORT}/health); "
-        '[ "$code" = "200" ] && { echo ready; exit 0; }; sleep 10; done; echo timeout',
-        timeout=START_TIMEOUT_S + 60,
+        "mib=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits "
+        "2>/dev/null | head -1); "
+        f'[ "$code" = "200" ] && [ "${{mib:-0}}" -ge {int(MIN_ALLOCATION_MIB)} ] '
+        '&& { echo ready; exit 0; }; sleep 10; done; '
+        'echo "timeout code=$code mib=$mib"',
+        timeout=START_TIMEOUT_S + 120,
     )
+    # **Asserted, not merely recorded.** This was stored and never read, so a
+    # server that never came up was measured against anyway — the exact shape of
+    # failure the rest of this module exists to prevent.
+    if (ready or "").split()[:1] != ["ready"]:
+        raise contract.NotCleanError(
+            f"vllm on {host} did not reach health with an allocation inside "
+            # SCRUBBED. Host output carries credentials — a systemd
+            # `Environment=` line, an exported launch command — and an exception
+            # message is written to logs and to the run record like any other
+            # field. The first version of this interpolated it raw.
+            f"{START_TIMEOUT_S:.0f}s: {contract.scrub(ready)!r}. Launcher was "
+            f"{how!r}. Nothing "
+            "was measured. Check /tmp/vllm-serving.log on the host (pip) or "
+            "`docker logs mcgyvr-vllm` (docker); the known causes here are a "
+            "cold weights download inside the start budget and a KV cache that "
+            "will not fit the card at the requested max_model_len."
+        )
     # The recorded command contains the exported environment VALUES — the very
     # thing an `env` block is used to pass a key through — so what is written
     # down is scrubbed even though what was executed was not.
@@ -568,6 +633,45 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             "serve": serve,
         }
     )
+
+
+def declared_slots(serve: dict[str, Any] | None = None) -> dict[str, Any]:
+    """What this engine was LAUNCHED with — it states this nowhere on the wire.
+
+    **D1 split `declared_slots` from `saturation_n` on the understanding that
+    the declaration is a read. For this engine it is not, and B1 of the step 0.1
+    gaps list is the evidence.** Searched on a live vLLM 0.26.0 started
+    `--max-num-seqs 16`: `/server_info` (three top-level keys, `vllm_config`
+    3,118 characters), `/v1/models`, and every environment block — `'num_seqs'`
+    0 hits, `'seqs'` 0 hits, `'scheduler'` 0 hits. There is no JSON path.
+
+    So the value here can only come from what we dispatched, and it says so.
+    A dispatched value labelled as an observation would be the one-field-two-
+    meanings defect D1 fixed, reintroduced a level down.
+
+    **Do not "fix" this by reading `/metrics`.** That endpoint carries
+    ``vllm:cache_config_info{kv_cache_max_concurrency="16.001953125"}`` on that
+    same server, which reads as 16 and is not the flag: it is
+    ``kv_cache_size_tokens / max_model_len`` = 131088 / 8192. It agrees with the
+    flag today by coincidence and diverges the moment either term moves.
+    """
+    serve = serve or {}
+    value = serve.get("max_num_seqs")
+    if value is None:
+        return {
+            "value": None,
+            "provenance": "dispatched",
+            "refused": (
+                "this run did not launch the server, so there is no dispatched "
+                "width — and this engine states max_num_seqs on no endpoint"
+            ),
+        }
+    return {
+        "value": value,
+        "provenance": "dispatched",
+        "source": "serve.max_num_seqs passed to `vllm serve` by this run",
+        "refused": None,
+    }
 
 
 def serving_config(base: str) -> dict[str, Any]:

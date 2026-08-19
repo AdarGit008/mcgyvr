@@ -37,7 +37,7 @@ The interface, which :mod:`run` calls and nothing else does:
     might measure. What "prove" means is the backend's own business — the two
     engines place weights differently and fail differently.
 
-``describe(host, base, model) -> dict``
+``describe(host, base, model, serve=None) -> dict``
     Everything the backend will say about that model, including
     ``observed.capture``.
 
@@ -75,7 +75,20 @@ RAMP_LEVELS: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16, 24)
 RAMP_REPEATS = 2
 
 #: Tokens per request, capped so every request is the SAME amount of work.
-RAMP_TOKENS = 128
+#:
+#: **D3, 2026-08-19.** 128 was too short to be a throughput measurement: at that
+#: length the per-request fixed costs — scheduling, prefill, the first token —
+#: are a large share of the reply, so the curve reads the overhead as much as
+#: the rate. 475 was chosen from the measured matrix as the point where the
+#: plateau is stable and the run still fits the campaign's budget; it is a
+#: judgement against measured curves, not a derived constant.
+#:
+#: One model on the roster spends this budget differently. ``gpt-oss:20b``
+#: emits hidden ``reasoning_content`` — roughly half the output even at low
+#: reasoning — so its ``completion_tokens`` counts reasoning tokens and 475
+#: buys about half that in visible text. Throughput is still throughput; the
+#: quantity simply is not comparable to another model's visible-token rate.
+RAMP_TOKENS = 475
 
 #: Long enough that no reply ends early. Unequal replies are what sank the
 #: first concurrency method: it read the CLUSTERING of completion times, which
@@ -86,11 +99,43 @@ RAMP_PROMPT = (
     "Do not stop early. Keep writing continuous prose until you are cut off."
 )
 
-#: Below this peak-over-single-request ratio a server is not meaningfully
-#: batching, so its throughput curve has no knee and the plateau it does have is
-#: unrelated to its slot count. Calibrated on four measured configurations
-#: (2.52 and 3.94 against 1.71) — a judgement, not a derived constant.
-BATCHING_SPEEDUP = 2.0
+#: **The definition of** :func:`saturation_n`, not a tolerance around it.
+#:
+#: ``saturation_n`` is the lowest offered concurrency whose throughput reaches
+#: this fraction of the curve's peak. There is no separate ground truth it is
+#: approximating — a throughput curve does not contain a "true" saturation
+#: point that this rounds to. Changing this number changes what the field
+#: means, so it is stated once, here, and every emitted value carries it.
+#:
+#: **D2, 2026-08-19.** 0.92 rather than the previous inline 0.95: at 0.95 a
+#: curve that is still creeping upward by a percent or two per level reads its
+#: saturation point later than the hardware reaches it.
+PLATEAU_FRACTION = 0.92
+
+#: Informational only — reported beside the latency plateau, never a gate.
+#:
+#: Kept because the disagreement between the two plateaus is itself readable:
+#: on a wide server they differ by design, since a larger batch is slower per
+#: request before any queueing starts. A reader who saw only one could not tell
+#: that from a broken measurement.
+LATENCY_TOLERANCE = 0.10
+
+#: The floor for **inferring** a saturation point, and it applies to nothing
+#: else.
+#:
+#: **D1, 2026-08-19.** Formerly ``BATCHING_SPEEDUP = 2.0``, which was used to
+#: decide whether a server "batches" and, through that, to suppress its width
+#: entirely. Recomputed from ``samples.jsonl`` at 512 tokens: a ``> 1.0`` gate
+#: reads four of five vLLM widths correctly and declines the fifth with **no
+#: wrong answer**, where 2.0 suppresses three correct ones. The 2.0 threshold
+#: was separating vLLM at 4 from ollama at 2 — and that is not the job. A
+#: declared limit and an inferred saturation point are different quantities
+#: and are now different fields; this constant governs only the inferred one.
+#:
+#: At 1.0 it excludes exactly the degenerate case: a curve whose peak never
+#: exceeds its own single-request rate has no rise, so nothing about it can be
+#: called a saturation point.
+INFERRED_SATURATION_MIN_SPEEDUP = 1.0
 
 #: A card holding less than this is idle: a few hundred MiB is display and
 #: compositor overhead on these headless rigs, and a model is gigabytes.
@@ -338,53 +383,101 @@ def ramp(
             if not first
             else [round((row["tokens_per_s"] or 0) / first, 2) for row in rows]
         ),
-        "knee": knee(rows),
+        "saturation": saturation(rows),
         "readings": readings(rows),
         "method": (
-            "aggregate throughput against offered concurrency; the knee is the "
-            "batch width. Validated against a known slot count on both engines"
+            "aggregate throughput against offered concurrency. The lowest level "
+            "reaching PLATEAU_FRACTION of peak is the SATURATION POINT, which "
+            "is a property of this host under this load — not a slot count, and "
+            "not comparable across token budgets"
         ),
     }
 
 
-def knee(levels: list[dict[str, Any]]) -> int | None:
-    """The measured batch width, or ``None`` when the curve does not show one.
+def saturation(levels: list[dict[str, Any]]) -> dict[str, Any]:
+    """Where this host's throughput stops rising — **not** its slot count.
 
-    **The throughput plateau is the width — but only on a server that batches.**
+    **D1, 2026-08-19: a throughput plateau is not a slot limit.** A scheduler
+    limit (``--max-num-seqs``, ``-np``) and a throughput saturation point
+    coincide only when the limit binds before the hardware does. This lane
+    measured the divergence directly: ollama on srv2 with ``-np 1`` reads a
+    plateau of **2** at 512 tokens. One field cannot hold both quantities, so
+    it no longer tries — ``declared_slots`` is what the server says, supplied by
+    the backend, and this is what the curve does.
+
     Measured 2026-08-19 across four configurations:
 
     ==========================  ==================  ==============  ==========
-    server                      throughput plateau  max speedup     configured
+    server                      throughput plateau  max speedup     declared
     ==========================  ==================  ==============  ==========
-    vLLM ``--max-num-seqs 8``   **8**               2.52            8
-    vLLM ``--max-num-seqs 16``  **16**              3.94            16
+    vLLM ``--max-num-seqs 8``   8                   2.52            8
+    vLLM ``--max-num-seqs 16``  16                  3.94            16
     ollama ``-np 2``            6                   1.71            2
     ollama ``-np 1``            6                   —               1
     ==========================  ==================  ==============  ==========
 
-    So the plateau recovers the flag on the engine that batches and returns the
-    same 6 for two ollama hosts configured one slot apart. What separates them
-    is not which statistic to read but whether there is a knee to find: a server
-    that does not meaningfully batch has a curve that creeps and flattens
-    somewhere unrelated to its slot count.
+    The two right-hand columns agree on the engine that batches and disagree on
+    the one that does not. Reporting them separately is the whole fix; the old
+    ``batches`` boolean, which tried to say which column to believe, is retired.
 
-    **Two earlier rules were wrong and are recorded because the reasons differ.**
-    The first read the plateau alone and reported 6 for a 2-slot host. The
-    second required the latency plateau to agree — which fixed ollama and then
-    threw away a CORRECT answer for ``--max-num-seqs 16``, because latency does
-    not stay flat until queueing starts: a larger batch is slower per request
-    even when every request fits, and at n=12 of 16 slots latency rose 25% with
-    no queueing at all.
+    **The value is meaningless without its conditions**, so every result carries
+    them: the token budget it was measured at and the plateau fraction that
+    defines it. A saturation point at 128 tokens and one at 475 are different
+    measurements of different things.
 
-    :data:`BATCHING_SPEEDUP` is a judgement calibrated on those four
-    measurements, not a derived constant — it separates 2.52 and 3.94 from 1.71
-    and nothing finer has been measured. A fifth configuration could move it.
+    **Levels that did not fully succeed are excluded, not averaged in.** A level
+    whose requests partly failed produces a *lower* throughput — which reads as
+    "the curve flattened here", i.e. a wrong saturation point rather than a
+    refusal. This was live: nothing downstream read the ``errors`` count.
     """
-    plateau = _throughput_plateau(levels)
-    speedup = _max_speedup(levels)
-    if plateau is None or speedup is None or speedup < BATCHING_SPEEDUP:
-        return None
-    return plateau
+    clean = [row for row in levels if not row.get("errors") and row.get("counted")]
+    dropped = [
+        {
+            "n": row["n"],
+            "errors": row.get("errors", 0),
+            "uncounted": row.get("ok", 0) - row.get("counted", 0),
+        }
+        for row in levels
+        if row.get("errors") or not row.get("counted")
+    ]
+    conditions = {
+        "ramp_tokens": RAMP_TOKENS,
+        "plateau_fraction": PLATEAU_FRACTION,
+        "levels_offered": [row["n"] for row in levels],
+        "levels_used": [row["n"] for row in clean],
+        "levels_dropped": dropped,
+    }
+    if not clean:
+        return {
+            "n": None,
+            "refused": "every level lost requests or returned no token count",
+            **conditions,
+        }
+    speedup = _max_speedup(clean)
+    plateau = _throughput_plateau(clean)
+    if speedup is None:
+        return {
+            "n": None,
+            "refused": "no n=1 level survived, so there is no baseline to rise from",
+            **conditions,
+        }
+    if speedup < INFERRED_SATURATION_MIN_SPEEDUP:
+        return {
+            "n": None,
+            "refused": (
+                f"peak throughput is {speedup}x the single-request rate, at or "
+                f"below INFERRED_SATURATION_MIN_SPEEDUP "
+                f"({INFERRED_SATURATION_MIN_SPEEDUP}) — a curve that never rises "
+                f"has no saturation point to find"
+            ),
+            **conditions,
+        }
+    return {
+        "n": plateau,
+        "refused": None,
+        "max_speedup_vs_n1": speedup,
+        **conditions,
+    }
 
 
 def readings(levels: list[dict[str, Any]]) -> dict[str, Any]:
@@ -401,12 +494,14 @@ def readings(levels: list[dict[str, Any]]) -> dict[str, Any]:
         "throughput_plateau_n": _throughput_plateau(levels),
         "latency_plateau_n": _latency_plateau(levels),
         "max_speedup_vs_n1": speedup,
-        "batches": None if speedup is None else speedup >= BATCHING_SPEEDUP,
         "note": (
-            "the throughput plateau is the batch width on a server that "
-            "batches; below BATCHING_SPEEDUP the curve has no knee to find and "
-            "its plateau is unrelated to the slot count — measured 6 for two "
-            "ollama hosts configured one slot apart"
+            "both plateaus are reported because their disagreement is readable: "
+            "on a wide server they differ by design, since a larger batch is "
+            "slower per request before any queueing starts. Neither is a slot "
+            "count — the throughput plateau read 6 for two ollama hosts "
+            "configured one slot apart. The former `batches` boolean is retired "
+            "(D1): it claimed to say which column to believe, and the two "
+            "columns measure different things"
         ),
     }
 
@@ -421,16 +516,23 @@ def _max_speedup(levels: list[dict[str, Any]]) -> float | None:
 
 
 def _throughput_plateau(levels: list[dict[str, Any]]) -> int | None:
-    """The lowest offered concurrency whose throughput reaches the plateau."""
+    """The lowest offered concurrency reaching :data:`PLATEAU_FRACTION` of peak.
+
+    Levels that did not fully succeed are excluded by the caller, not here: a
+    level whose requests partly failed has a *lower* throughput and would be
+    read as evidence that the curve had flattened. See :func:`saturation`.
+    """
     rates = [(row["n"], row["tokens_per_s"] or 0) for row in levels]
     best = max((rate for _, rate in rates), default=0)
     if not best:
         return None
-    return next((int(n) for n, rate in rates if rate >= 0.95 * best), None)
+    return next(
+        (int(n) for n, rate in rates if rate >= PLATEAU_FRACTION * best), None
+    )
 
 
 def _latency_plateau(
-    levels: list[dict[str, Any]], tolerance: float = 0.10
+    levels: list[dict[str, Any]], tolerance: float = LATENCY_TOLERANCE
 ) -> int | None:
     """The largest ``n`` in the longest run of levels sharing a latency.
 
@@ -467,15 +569,22 @@ def _level(base: str, model: str, n: int) -> dict[str, Any]:
         thread.join()
     wall = time.monotonic() - begin
     good = [row for row in out if "error" not in row]
-    tokens = sum(row["completion_tokens"] or 0 for row in good)
+    # A reply that arrived without a `usage` block is NOT a reply that generated
+    # zero tokens. Summing it as 0 turned "we could not count" into "this server
+    # is slow", which reads downstream as a plateau. Counted separately so
+    # `saturation` can drop the level instead of believing it.
+    counted = [row for row in good if row.get("completion_tokens") is not None]
+    tokens = sum(row["completion_tokens"] for row in counted)
     latencies = [row["latency_s"] for row in good]
     return {
         "n": n,
         "wall_s": round(wall, 3),
         "ok": len(good),
+        "counted": len(counted),
         "errors": len(out) - len(good),
+        "error_kinds": sorted({row["error"] for row in out if "error" in row}),
         "completion_tokens_total": tokens,
-        "tokens_per_s": round(tokens / wall, 1) if wall else None,
+        "tokens_per_s": (round(tokens / wall, 1) if wall and counted else None),
         "latency_mean_s": (
             round(sum(latencies) / len(latencies), 3) if latencies else None
         ),
