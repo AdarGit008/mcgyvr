@@ -1,0 +1,78 @@
+{
+  "_doc": "One run of the serving survey. Keys are (host, backend, label); the same weights served by two engines are two instruments, so they are two entries. `family` is a CLAIM that they are the same model \u2014 the digests decide, and may refute it.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": true
+  },
+  "models": [
+    {
+      "label": "q15-ollama-srv1",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:1.5b",
+      "family": "qwen2.5-coder-1.5b",
+      "_expect_note": "expect.model_sha256 pins the weights: a tag is mutable, and the same name re-pulled serves different bytes while every other check still passes. Obtained by running once without it and reading the digest off the description.",
+      "expect": {
+        "model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"
+      },
+      "concurrency": {
+        "measure": true,
+        "_expect_note": "No `expect`: this engine has no recoverable batch width. The throughput plateau alone returned 6 for two hosts configured one slot apart (-np 2 and -np 1), and there is no latency plateau at any width, so `knee` correctly reports None. An expectation here would be permanently unmeetable."
+      }
+    },
+    {
+      "label": "q15-vllm-s8",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "qwen2.5-coder-1.5b",
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "gpu_memory_utilization": 0.85,
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      },
+      "concurrency": {
+        "measure": true,
+        "expect": 8
+      },
+      "expect": {
+        "weights_sha256": "047d5b14da69a39eefe24f8bafa34278a336a08a93d757d70cd38c6b7c3d8c78"
+      },
+      "_expect_note": "sha256 over every tensor's bytes in the checkpoint, in sorted key order across all shards, computed on the serving host \u2014 this engine states no weights digest on any endpoint. Measured on srv1: 731 tensors, 1.61 GB, 5.1s. NOT comparable with another backend's digest, which is why the field is named apart."
+    },
+    {
+      "label": "q15-vllm-s16",
+      "_doc": "Same model, same backend, different batch width \u2014 a separate instrument, and the test that the ramp reads the FLAG rather than the hardware.",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "qwen2.5-coder-1.5b",
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 16,
+        "gpu_memory_utilization": 0.85,
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      },
+      "concurrency": {
+        "measure": true,
+        "expect": 16
+      },
+      "expect": {
+        "weights_sha256": "047d5b14da69a39eefe24f8bafa34278a336a08a93d757d70cd38c6b7c3d8c78"
+      },
+      "_expect_note": "sha256 over every tensor's bytes in the checkpoint, in sorted key order across all shards, computed on the serving host \u2014 this engine states no weights digest on any endpoint. Measured on srv1: 731 tensors, 1.61 GB, 5.1s. NOT comparable with another backend's digest, which is why the field is named apart."
+    }
+  ]
+}
