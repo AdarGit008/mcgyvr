@@ -1246,3 +1246,158 @@ def test_a_docstring_naming_a_withdrawn_constant_is_not_a_hit() -> None:
     assert "BATCHING_SPEEDUP = 2.0" in source, "the explanation should still be there"
     code = launcher.code_lines(source)
     assert not [line for line in code if "BATCHING_SPEEDUP = 2.0" in line]
+
+
+def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """E5, revised: no endpoint carries it, but the host does.
+
+    Concluding "there is no observed source" from the HTTP surface alone stopped
+    one step early. The flag is in the server's own argv on the pip rig and in
+    the container's `Config.Cmd` on the docker rig — both verified on the rigs.
+    That matters because `claim` has a path that does NOT restart a server
+    already serving the wanted configuration, so on that path a server someone
+    else started at a different width would otherwise be described using our
+    variable, with nothing looking wrong.
+
+    Fixtures are the two real shapes, read off srv1 and srv2 on 2026-08-19.
+    """
+    vllm: Any = _by_path("width_vllm", SERVING / "backends" / "vllm.py")
+    pip_argv = (
+        "adaramir 774452 /usr/bin/python3 /home/adaramir/.local/bin/vllm serve "
+        "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --max-model-len 8192 "
+        "--gpu-memory-utilization 0.85 --max-num-seqs 16 --port 8000 --enforce-eager"
+    )
+    container_cmd = (
+        '["Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","--max-model-len","16384",'
+        '"--gpu-memory-utilization","0.90","--max-num-seqs","16",'
+        '"--enable-prefix-caching","--enable-sleep-mode"]'
+    )
+    for shape in (pip_argv, container_cmd):
+        monkeypatch.setattr(vllm.contract, "ssh", lambda h, c, timeout=None, r=shape: r)
+        assert vllm.launched_width("h")["value"] == 16
+
+    monkeypatch.setattr(vllm.contract, "ssh", lambda h, c, timeout=None: pip_argv)
+    agreed = vllm.declared_slots({"max_num_seqs": 16}, "h")
+    assert agreed["value"] == 16 and agreed["provenance"] == "observed"
+
+    # The case the whole revision is for: the server is not ours. Neither number
+    # is reported, because picking one would be picking which of two
+    # contradictory facts about the running server to believe.
+    clash = vllm.declared_slots({"max_num_seqs": 8}, "h")
+    assert clash["provenance"] == "contradicted" and clash["value"] is None
+
+    monkeypatch.setattr(vllm.contract, "ssh", lambda h, c, timeout=None: "")
+    fallback = vllm.declared_slots({"max_num_seqs": 8}, "h")
+    assert fallback["value"] == 8 and fallback["provenance"] == "dispatched"
+
+
+def test_the_serial_guard_matches_a_driver_not_a_mention_of_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """E14 is enforced, and its first version refused a correct launch.
+
+    The rigs are measured one at a time because the ramp times requests with
+    THIS machine's clock, so a second driver would put its own contention inside
+    the throughput curve. The guard was `pgrep -af serving/(run|calibrate).py`,
+    which matched the shell that was *editing* the file — its argv contained the
+    script's name. A guard that fires on anything merely mentioning the driver
+    is a guard that gets switched off.
+    """
+    launcher = _launcher()
+    real_driver = "4242 /repo/.venv/bin/python tools/bench/serving/run.py --config x"
+    mere_mention = "4243 /bin/bash -c echo tools/bench/serving/run.py"
+    editor = "4244 /usr/bin/vim tools/bench/serving/calibrate.py"
+
+    monkeypatch.setattr(
+        launcher.subprocess,
+        "run",
+        lambda *a, **k: types.SimpleNamespace(
+            stdout="\n".join([real_driver, mere_mention, editor])
+        ),
+    )
+    running = launcher.already_running()
+    assert len(running) == 1, running
+    assert running[0].startswith("4242")
+
+
+def test_the_campaign_phases_are_declared_rather_than_typed(
+    tmp_path: Path,
+) -> None:
+    """E15 in code: an order that lives in one person's shell is not reviewable.
+
+    Also pins the two properties the order exists for — sleep first, because it
+    is twenty minutes that exercises the whole vLLM path the eleven hours behind
+    it depend on; and every D7 item this campaign is responsible for appearing
+    exactly once.
+    """
+    launcher = _launcher()
+    names = [name for name, _ in launcher.CAMPAIGN]
+    assert names[0].startswith("sleep"), names
+    commands = " ".join(command for _, command in launcher.CAMPAIGN)
+    for item in ("--phase sleep", "--config", "--phase ramp", "--tokens 475"):
+        assert item in commands, item
+    # Every phase resumes, or a crash costs the elapsed time rather than nothing.
+    assert commands.count("--resume") == len(launcher.CAMPAIGN)
+    # Every phase writes into the committed evidence directory (D8: the output
+    # is durable and lands somewhere a reader can find it).
+    assert commands.count(launcher.EVIDENCE) == len(launcher.CAMPAIGN)
+
+
+def test_a_crashed_survey_resumes_instead_of_restarting(
+    runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """D8 made the output durable; nothing read it back.
+
+    Seventeen cells over six hours, one fsynced journal line each — and a
+    restart re-measured all of them anyway, because the journal was written and
+    never consulted. Durable output nothing resumes from is a record, not a
+    checkpoint.
+
+    Simulated by journalling one cell, then re-running with that journal: the
+    already-measured entry must not reach the backend a second time.
+    """
+    table = _stub(runner, monkeypatch)
+    config = {
+        "hosts": ["h"],
+        "backends": ["alpha", "beta"],
+        "models": [
+            {"label": "one", "backend": "alpha", "id": "m"},
+            {"label": "two", "backend": "alpha", "id": "m"},
+        ],
+    }
+    journal = tmp_path / "journal.jsonl"
+    runner.run(config, journal=journal)
+    assert len(table["alpha"].claimed) == 2
+    assert len(journal.read_text(encoding="utf-8").strip().splitlines()) == 2
+
+    prior = runner.completed(journal)
+    assert set(prior) == {"h\x00one", "h\x00two"}
+
+    table["alpha"].claimed.clear()
+    result = runner.run(config, journal=tmp_path / "second.jsonl", resume=prior)
+    # Nothing was claimed again, and the rows are still in the result.
+    assert table["alpha"].claimed == []
+    assert sorted(result["hosts"]["h"]["measured"]) == ["one", "two"]
+
+
+def test_resume_keeps_a_refusal_but_retry_failed_drops_it(tmp_path: Path) -> None:
+    """A refusal is an answer, not a gap.
+
+    Re-running it buys the same refusal for the same rig time. `--retry-failed`
+    is how a caller says the conditions have changed and it wants another look.
+    """
+    runner: Any = _by_path("resume_run", SERVING / "run.py")
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(
+        json.dumps({"host": "h", "label": "ok-one", "outcome": "ok"})
+        + "\n"
+        + json.dumps({"host": "h", "label": "bad-one", "outcome": "refused"})
+        + "\n"
+        # A crash mid-append looks exactly like this, and costs one entry.
+        + '{"host": "h", "label": "trunc',
+        encoding="utf-8",
+    )
+    assert set(runner.completed(journal)) == {"h\x00ok-one", "h\x00bad-one"}
+    assert set(runner.completed(journal, retry_failed=True)) == {"h\x00ok-one"}

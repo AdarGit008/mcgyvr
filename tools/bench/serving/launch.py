@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -82,7 +84,12 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
     (
         "tools/bench/serving/backends/vllm.py",
         "def declared_slots(",
-        "E5 — dispatched, because this engine states it nowhere",
+        "E5 — the width, with its provenance",
+    ),
+    (
+        "tools/bench/serving/backends/vllm.py",
+        "def launched_width(",
+        "E5 revised — read off the host's own argv, not off our variable",
     ),
     (
         "tools/bench/serving/backends/vllm.py",
@@ -131,6 +138,87 @@ WITHDRAWN: tuple[tuple[str, str, str], ...] = (
         "D1 — retired",
     ),
 )
+
+
+#: **E15: the campaign, in order, as code.** Written down rather than typed,
+#: because an order that exists only in one person's shell is not a decision
+#: anybody can review, reproduce, or diff.
+#:
+#: Sleep runs first deliberately. It is the short phase — two arms on two hosts,
+#: about twenty minutes — and it exercises the entire vLLM path both rigs
+#: depend on: launch, the readiness assertion, `/server_info` parsing, and the
+#: container release. Twenty minutes buys a smoke test for the eleven hours
+#: behind it.
+#:
+#: Phases are independent. A phase that refuses must not cancel the two behind
+#: it — the same durability argument as D8's journal, applied one level up.
+#:
+#: **Every phase carries ``--resume``, so relaunching this exact command
+#: continues rather than restarts.** D8 made the output durable; durable output
+#: nothing reads back is a record, not a checkpoint. Across eleven hours the
+#: difference is whether a crash costs the elapsed time or costs nothing.
+EVIDENCE = "records/evidence/calibration-2026-08-19"
+CAMPAIGN: tuple[tuple[str, str], ...] = (
+    (
+        "sleep (D7 item 5)",
+        f"{{python}} tools/bench/serving/calibrate.py --phase sleep --resume "
+        f"--hosts srv1,srv2 --out {EVIDENCE}/d7-sleep.jsonl",
+    ),
+    (
+        "survey (D7 items 1, 3, 4)",
+        f"{{python}} tools/bench/serving/run.py "
+        f"--config tools/bench/serving/configs/d7-campaign.json --resume "
+        f"--out {EVIDENCE}/d7-survey.json",
+    ),
+    (
+        "width matrices (D7 items 2, 6)",
+        f"{{python}} tools/bench/serving/calibrate.py --phase ramp --resume "
+        f"--tokens 475 --hosts srv1,srv2 --out {EVIDENCE}/d7-ramp.jsonl",
+    ),
+)
+
+
+def already_running() -> list[str]:
+    """Campaign drivers alive on this machine right now.
+
+    **E14: the two rigs are measured one at a time.** Splitting the campaign by
+    host would halve the wall-clock and the machines share nothing — but the
+    ramp computes throughput from CLIENT-side wall-clock, and this client would
+    then be driving two conversations at once. Measured on these rigs at 12-21%
+    aggregate degradation, which would land inside the throughput curve that is
+    the campaign's headline output rather than beside it.
+
+    A decision not to do something is not enforced by intending not to do it, so
+    a second driver is refused rather than trusted against.
+    """
+    # Matched on the PROCESS SHAPE, not on the text of a command line. The
+    # first version was `pgrep -af serving/(run|calibrate).py` and it refused
+    # this very launch, because the shell that was editing this file had the
+    # script's name inside its own argv. A guard that fires on anything merely
+    # MENTIONING the driver is a guard that gets switched off.
+    found = subprocess.run(
+        ["ps", "-eo", "pid=,args="],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    mine = {str(os.getpid()), str(os.getppid())}
+    drivers: list[str] = []
+    for line in (found.stdout or "").splitlines():
+        pid, _, args = line.strip().partition(" ")
+        if pid in mine or not args:
+            continue
+        fields = args.split()
+        # argv[0] is a python, and one of its arguments IS the script — not a
+        # string that happens to contain the script's name.
+        if not Path(fields[0]).name.startswith("python"):
+            continue
+        if any(
+            arg.endswith(("serving/run.py", "serving/calibrate.py"))
+            for arg in fields[1:]
+        ):
+            drivers.append(f"{pid} {args[:120]}")
+    return drivers
 
 
 def code_lines(text: str) -> list[str]:
@@ -182,8 +270,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--command",
-        required=True,
-        help="the campaign command to launch, as one shell string",
+        default="",
+        help="one shell string to launch instead of the declared CAMPAIGN",
+    )
+    parser.add_argument(
+        "--campaign",
+        action="store_true",
+        help="launch the declared CAMPAIGN phases, in order (E15)",
     )
     parser.add_argument("--log", type=Path, required=True)
     parser.add_argument(
@@ -218,15 +311,43 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"verified {len(MARKERS)} markers present and {len(WITHDRAWN)} absent")
+
+    # E14, checked rather than assumed.
+    running = already_running()
+    if running:
+        print("REFUSED — a campaign driver is already running on this client:")
+        for line in running:
+            print(f"  {line}")
+        print(
+            "\nThe rigs are measured one at a time (E14): the ramp times "
+            "requests with THIS machine's clock, so a second driver would put "
+            "its own contention inside the throughput curve."
+        )
+        return 1
+
+    if args.campaign:
+        phases = "; ".join(
+            command.format(python=sys.executable) for _, command in CAMPAIGN
+        )
+        print("campaign phases, in order:")
+        for name, _ in CAMPAIGN:
+            print(f"  - {name}")
+    else:
+        phases = args.command
+    if not phases:
+        print("nothing to launch: pass --campaign or --command")
+        return 1
+
     if args.dry_run:
-        print("--dry-run: nothing launched")
+        print(f"--dry-run: nothing launched. Would run:\n  {phases}")
         return 0
 
     args.log.parent.mkdir(parents=True, exist_ok=True)
     # Detached, because ssh sessions on these rigs drop under load and the
     # campaign must not depend on this terminal surviving nine hours.
     launched = subprocess.run(
-        f"cd {REPO} && nohup {args.command} > {args.log} 2>&1 < /dev/null & echo $!",
+        f"cd {REPO} && nohup sh -c {shlex.quote(phases)} > {args.log} 2>&1 "
+        "< /dev/null & echo $!",
         shell=True,
         capture_output=True,
         text=True,

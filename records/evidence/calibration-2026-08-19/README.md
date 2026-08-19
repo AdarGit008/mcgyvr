@@ -843,3 +843,49 @@ harness rewrite the baseline gate must be green, an adversarial review runs agai
 the rewrite, and its findings are fixed **before** the launch step. The rewrite is
 the largest single change this lane makes and it is what an 8–9 h campaign on two
 rigs depends on.
+
+### E1–E15, locked by the owner 2026-08-19
+
+Fifteen decisions taken during steps 0 through 2 and reviewed by the owner one at
+a time. **All fifteen are approved and locked**, on the same footing as D1–D8: a
+change to any of them is a new decision with its own reason, not an edit.
+
+Three were changed by the owner's review rather than merely confirmed, and those
+are marked. The right-hand column names where each one lives — a decision that
+exists only in prose is one nobody's code remembers.
+
+| | Decision | Where it lives |
+|---|---|---|
+| **E1** | The leftover vLLM server stays up through step 0.1 and is torn down in 0.2 — it made every vLLM endpoint testable at depth 0 without paying a cold start | executed; srv1 idle at 1 MiB |
+| **E2** | `qwen2.5-coder:7b` stays on the srv1 roster despite local-ai's `never_7b_on_srv1` rule. That rule is a serving-tier decision; a model that spills is the placement data point D4 asked for, and it is the only one srv1 offers | `configs/d7-campaign.json` |
+| **E3** | The sleep step asserts a measured VRAM drop, never the endpoint's status | `calibrate.py` `sleep_state` |
+| **E4** | The campaign driver runs detached with a log — ssh sessions on these rigs drop under load | `launch.py` |
+| **E5** | `declared_slots` carries a **provenance**. ollama's is observed from the child's `/props`. **Revised by the owner:** vLLM's is *also* observed — from the server's own argv (`ps`) or the container's `Config.Cmd`, both verified on the rigs — with `dispatched` only as the fallback when the host read fails. Concluding "no observed source" from the HTTP surface alone stopped one step early. A disagreement between the two is reported as `contradicted` and refuses both numbers, because it means the server being measured is not the one this run launched | `backends/vllm.py` `launched_width`, `backends/ollama.py` `declared_slots` |
+| **E6** | Config entries gain a `hosts` list, and an entry naming a host outside the run is refused rather than skipped | `run.py` |
+| **E7** | srv2's HF cache is pre-warmed before the campaign, so no launch takes a cold download inside its start budget | executed; 1.6 GB present |
+| **E8** | The docker filter is pinned to `CONTAINER_IMAGE`, not the bare repo name — it matched only because two tags shared an image id | `backends/vllm.py` |
+| **E9** | The ollama kill runs under `sudo -n` and its effect is read back. ollama runs as another user, so the kill was getting EPERM silently while the log recorded a cleanup that could not have worked | `backends/ollama.py` |
+| **E10** | `CUDA_HOME` is **dropped**, not repaired. `$HOME` never expanded — read off the live process — so it never took effect, and the record crediting it with fixing ten launches is false. **CUDA itself is untouched**: torch ships its own runtime, and the server it was set on was serving from the card at 4,916 MiB | `calibrate.py` |
+| **E11** | Residency is cross-checked against the card. `/api/ps` keeps listing a killed model at full `size_vram` for the whole keep-alive window, so a residency list can report 100% resident on an empty card — including, without this, the co-residency claim D7 item 4 rests on | `backends/ollama.py` |
+| **E12** | `--tokens` / `--widths` rather than editing `TOKEN_COUNTS`, which *is* the historical matrix and would make this record's own columns unreproducible | `calibrate.py` |
+| **E13** | The ladder stops at 12 for the two deep-spill models. srv2 reports one slot for every model, so levels 16 and 24 are pure queueing far past the saturation point at 6–9 min each | `configs/d7-campaign.json` |
+| **E14** | The two rigs are measured **one at a time**. Splitting by host would halve the wall-clock and the machines share nothing — but the ramp computes throughput from client-side wall-clock, and 12–21% aggregate degradation would land inside the curve rather than beside it. **A second driver is refused**, because a decision not to do something is not enforced by intending not to | `launch.py` `already_running` |
+| **E15** | Phase order — sleep, then survey, then the width matrices — is declared in code. Sleep is twenty minutes that exercises the whole vLLM path the eleven hours behind it depend on. Phases chain with `;`: one that refuses must not cancel the two behind it | `launch.py` `CAMPAIGN` |
+
+**Two guards refused a correct launch before they worked**, and both are recorded
+because the failure mode is the same one: a check that fires on the wrong thing is
+a check somebody switches off.
+
+- The marker list's absence test was a plain substring match, and refused this tree
+  because the docstring explaining what D1 *replaced* `BATCHING_SPEEDUP = 2.0` with
+  contains the string. Absence is now matched against code lines only — otherwise
+  the check would push every author toward deleting the explanation.
+- E14's guard was `pgrep -af serving/(run|calibrate).py` and matched the shell that
+  was editing the file, because the script's name was inside its argv. It now
+  matches the process *shape*: a python whose arguments include the script.
+
+**Revised campaign estimate: ~11–12 h, not D7's 8–9 h.** The review measured the
+config at 17 host×entry cells each with a full ramp; at measured solo rates the
+ollama ramps alone compute to ~5.5 h, on top of ~4.7 h of width matrices and
+~1–1.5 h of survey overhead. The owner set completeness rather than the clock as
+the binding constraint and accepted the revised figure.

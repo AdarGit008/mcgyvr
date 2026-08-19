@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import time
 import types
@@ -77,10 +78,60 @@ WIDTHS: tuple[int, ...] = (1, 2, 4, 8, 16)
 
 
 def emit(out: Path, row: dict[str, Any]) -> None:
-    """One sample, appended and flushed. Written now, not at the end."""
+    """One sample, appended and put on the disk. Written now, not at the end.
+
+    ``fsync``, not just ``flush``. A flush hands the bytes to the kernel, which
+    is enough to survive this process dying and not enough to survive the box
+    going down — and the box going down eight hours into an unattended campaign
+    is precisely the case this exists for. A sample costs a model load; a sync
+    costs microseconds.
+    """
     with out.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(row) + "\n")
         handle.flush()
+        os.fsync(handle.fileno())
+
+
+def key(row: dict[str, Any]) -> tuple[Any, ...]:
+    """What identifies a sample, so a resumed run knows it already has it.
+
+    Deliberately the *conditions*, not the result: a row that refused is still an
+    answer about this rig at these settings, and paying for it twice buys the
+    same refusal. `--retry-failed` is how you say otherwise.
+    """
+    return (
+        row.get("phase"),
+        row.get("host"),
+        row.get("engine"),
+        row.get("arm"),
+        row.get("configured_width", row.get("width")),
+        row.get("tokens"),
+    )
+
+
+def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
+    """Every sample already on disk, by :func:`key`.
+
+    **This is what makes an eleven-hour run restartable.** Without it a crash at
+    hour eight costs eight hours, which for a campaign with no time limit is the
+    difference between a setback and a run nobody dares start.
+    """
+    if not out.exists():
+        return set()
+    done: set[tuple[Any, ...]] = set()
+    for line in out.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            # A half-written last line is what a crash mid-append looks like.
+            # Ignoring it re-does exactly that one sample, which is right.
+            continue
+        if retry_failed and (row.get("error") or row.get("refused")):
+            continue
+        done.add(key(row))
+    return done
 
 
 def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
@@ -215,9 +266,13 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
 
 
 def ramp(
-    out: Path, hosts: list[str], engines: tuple[str, ...] = ("ollama", "vllm")
+    out: Path,
+    hosts: list[str],
+    engines: tuple[str, ...] = ("ollama", "vllm"),
+    done: set[tuple[Any, ...]] | None = None,
 ) -> None:
     """The concurrency matrix: configured width x token count, both engines."""
+    done = done if done is not None else set()
     ollama = contract.load_backend("ollama")
     vllm = contract.load_backend("vllm")
     for host in hosts:
@@ -228,6 +283,9 @@ def ramp(
         if base:
             model = _smallest(ollama.inventory(host, base))
             for tokens in TOKEN_COUNTS:
+                if ("ramp", host, "ollama", None, None, tokens) in done:
+                    print(f"  {host}/ollama tokens={tokens} — already done", flush=True)
+                    continue
                 try:
                     ollama.claim(host, base, model)
                 except Exception as error:
@@ -255,7 +313,7 @@ def ramp(
         # phase-3 ramps. It bites between phases and at the end of the campaign
         # — which is precisely when the record says "both rigs left idle".
         try:
-            _widths(out, model, host, vllm, ollama)
+            _widths(out, model, host, vllm, ollama, done)
         finally:
             vllm.release(host)
 
@@ -266,9 +324,19 @@ def _widths(
     host: str,
     vllm: types.ModuleType,
     ollama: types.ModuleType,
+    done: set[tuple[Any, ...]],
 ) -> None:
     """Every configured width for one host, ramped at every token count."""
     for width in WIDTHS:
+        # Checked BEFORE the launch, not before each ramp: a width whose token
+        # counts are all recorded needs no server, and the launch is the
+        # expensive part — 33 s on srv1 and 109 s on srv2, plus the teardown.
+        if all(
+            ("ramp", host, "vllm", None, width, tokens) in done
+            for tokens in TOKEN_COUNTS
+        ):
+            print(f"  {host}/vllm width={width} — already done", flush=True)
+            continue
         serve = {
             "max_model_len": 8192,
             "max_num_seqs": width,
@@ -309,6 +377,8 @@ def _widths(
             )
             continue
         for tokens in TOKEN_COUNTS:
+            if ("ramp", host, "vllm", None, width, tokens) in done:
+                continue
             _one_ramp(
                 out,
                 f"http://{host}:{vllm.PORT}",
@@ -345,7 +415,9 @@ def _post(base: str, path: str, timeout: float = 60.0) -> dict[str, Any]:
         }
 
 
-def sleep_state(out: Path, hosts: list[str]) -> None:
+def sleep_state(
+    out: Path, hosts: list[str], done: set[tuple[Any, ...]] | None = None
+) -> None:
     """D7 item 5 — what a sampled sleep actually looks like on the card.
 
     **E3, 2026-08-19: the card is the evidence, never the status.** Measured on
@@ -371,6 +443,9 @@ def sleep_state(out: Path, hosts: list[str]) -> None:
             ("control_no_flag", ["--enforce-eager"]),
             ("enabled", ["--enforce-eager", "--enable-sleep-mode"]),
         ):
+            if ("sleep", host, None, arm, None, None) in (done or set()):
+                print(f"  {host}/{arm} — already done", flush=True)
+                continue
             serve = {
                 "max_model_len": 8192,
                 "max_num_seqs": 8,
@@ -603,17 +678,33 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help=f"ramp phase: vLLM launch widths. Default {WIDTHS}.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "skip samples already in --out. This is what makes a multi-hour "
+            "phase restartable after a crash instead of restartable from zero."
+        ),
+    )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="with --resume, re-run samples that errored or refused",
+    )
     args = parser.parse_args(argv)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     hosts = [h.strip() for h in args.hosts.split(",") if h.strip()]
     began = time.monotonic()
+    done = completed(args.out, args.retry_failed) if args.resume else set()
+    if done:
+        print(f"resuming: {len(done)} samples already on disk", flush=True)
     if args.phase == "fast":
         fast(args.out, hosts, repeats=args.repeats)
     elif args.phase == "load":
         load(args.out, hosts, repeats=max(1, args.repeats // 15))
     elif args.phase == "sleep":
-        sleep_state(args.out, hosts)
+        sleep_state(args.out, hosts, done)
     else:
         # Rebound for the duration of this process only. `ramp` reads the
         # module globals, and every emitted row already carries its own
@@ -626,7 +717,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.widths:
             WIDTHS = tuple(int(w.strip()) for w in args.widths.split(",") if w.strip())
         print(f"ramp: widths={WIDTHS} tokens={TOKEN_COUNTS}", flush=True)
-        ramp(args.out, hosts, tuple(e.strip() for e in args.engines.split(",")))
+        ramp(
+            args.out,
+            hosts,
+            tuple(e.strip() for e in args.engines.split(",")),
+            done,
+        )
     print(f"{args.phase} finished in {time.monotonic() - began:.0f}s -> {args.out}")
     return 0
 

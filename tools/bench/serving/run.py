@@ -93,13 +93,51 @@ def _journal(path: Path | None) -> Any:
     return append
 
 
-def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
+def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any]:
+    """Entries already measured, keyed ``(host, label)``, from the journal.
+
+    **This is what makes the survey restartable.** The journal was already
+    written per entry and fsynced, so the work survived a crash — and nothing
+    read it back, so a restart re-measured all seventeen cells anyway. Durable
+    output that nothing resumes from is a record, not a checkpoint.
+
+    A row that **refused** counts as done: it is an answer about this rig under
+    these conditions, and paying the rig time again buys the same refusal.
+    ``--retry-failed`` is how a caller says otherwise.
+    """
+    if journal is None or not journal.exists():
+        return {}
+    rows: dict[str, Any] = {}
+    for line in journal.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            # A truncated last line is what a crash mid-append looks like; that
+            # one entry is simply re-measured.
+            continue
+        if retry_failed and row.get("outcome") != "ok":
+            continue
+        host, label = row.get("host"), row.get("label")
+        if host and label:
+            rows[f"{host}\u0000{label}"] = row
+    return rows
+
+
+def run(
+    config: dict[str, Any],
+    journal: Path | None = None,
+    resume: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """The whole survey, as the config describes it.
 
     ``journal``, when given, receives one JSON line per completed entry the
-    moment it completes — see :func:`_journal`.
+    moment it completes — see :func:`_journal`. ``resume`` is what a previous
+    run of the same survey already measured, from :func:`completed`.
     """
     record = _journal(journal)
+    resume = resume or {}
     hosts: list[str] = config.get("hosts") or []
     entries: list[dict[str, Any]] = config.get("models") or []
     collect = config.get("collect") or {}
@@ -179,6 +217,19 @@ def run(config: dict[str, Any], journal: Path | None = None) -> dict[str, Any]:
                 continue
             name = str(spec["backend"])
             backend = backends[name]
+            # Checked before the card is yielded and before anything is loaded:
+            # skipping late would still pay the expensive part.
+            prior = resume.get(f"{host}\u0000{label}")
+            if prior is not None:
+                print(
+                    f"[{host}] {label} — already measured "
+                    f"({prior.get('outcome')}), skipping",
+                    flush=True,
+                )
+                entry["measured"][label] = {
+                    k: v for k, v in prior.items() if k not in ("host", "label")
+                }
+                continue
             print(f"[{host}] {label} ({name}) — yielding the card", flush=True)
 
             # THE exclusion, and the only one. Every other backend gives up the
@@ -548,6 +599,19 @@ def main(argv: list[str] | None = None) -> int:
         "--hosts", default="", help="override the config's hosts (comma separated)"
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "skip entries already recorded in the journal. Seventeen cells over "
+            "six hours: without this a crash at hour five costs five hours."
+        ),
+    )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="with --resume, re-measure entries whose outcome was not `ok`",
+    )
+    parser.add_argument(
         "--journal",
         type=Path,
         default=None,
@@ -573,8 +637,11 @@ def main(argv: list[str] | None = None) -> int:
     if journal is not None:
         journal.parent.mkdir(parents=True, exist_ok=True)
         print(f"journal: {journal}", flush=True)
+    prior = completed(journal, args.retry_failed) if args.resume else {}
+    if prior:
+        print(f"resuming: {len(prior)} entries already measured", flush=True)
     try:
-        result = run(config, journal=journal)
+        result = run(config, journal=journal, resume=prior)
     except BaseException as error:
         partial = {
             "config": config,

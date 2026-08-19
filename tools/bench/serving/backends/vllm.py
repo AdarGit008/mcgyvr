@@ -39,6 +39,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shlex
 import sys
 import time
@@ -427,7 +428,7 @@ def describe(
         "served": inventory(host, base),
         "weights": weights_sha256(host, model),
         "serving_config": serving_config(base),
-        "declared_slots": declared_slots(serve),
+        "declared_slots": declared_slots(serve, host),
     }
 
 
@@ -676,42 +677,119 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def declared_slots(serve: dict[str, Any] | None = None) -> dict[str, Any]:
-    """What this engine was LAUNCHED with — it states this nowhere on the wire.
+def launched_width(host: str) -> dict[str, Any]:
+    """The width the running server was actually started with, read off the host.
 
-    **D1 split `declared_slots` from `saturation_n` on the understanding that
-    the declaration is a read. For this engine it is not, and B1 of the step 0.1
-    gaps list is the evidence.** Searched on a live vLLM 0.26.0 started
-    `--max-num-seqs 16`: `/server_info` (three top-level keys, `vllm_config`
-    3,118 characters), `/v1/models`, and every environment block — `'num_seqs'`
-    0 hits, `'seqs'` 0 hits, `'scheduler'` 0 hits. There is no JSON path.
+    **E5, revised 2026-08-19.** The first version concluded there was no observed
+    source because no HTTP endpoint carries ``max_num_seqs`` — which is true, and
+    was the wrong place to stop looking. The harness has ssh, and the flag is in
+    the running process's own argv on the pip rig and in the container's
+    ``Config.Cmd`` on the docker rig. Verified on both:
+    ``vllm serve … --max-num-seqs 16 --port 8000`` and
+    ``["…","--max-num-seqs","16",…]``.
 
-    So the value here can only come from what we dispatched, and it says so.
-    A dispatched value labelled as an observation would be the one-field-two-
-    meanings defect D1 fixed, reintroduced a level down.
+    That is a genuine observation and it is strictly better than reading back the
+    value this run intended, because the two can differ. ``claim`` has a path
+    that does NOT restart a server already serving the wanted configuration, so
+    on that path a server started by someone else — at some other width — would
+    otherwise have been described using our own variable and nothing would have
+    looked wrong.
+    """
+    for source, command in (
+        (
+            "process",
+            "ps -eo args | grep -E '[v]llm (serve|.*api_server)' | head -1",
+        ),
+        (
+            "container",
+            f"docker ps --filter ancestor={CONTAINER_IMAGE} --format '{{{{.Names}}}}' "
+            "| head -1 | xargs -r -I{} docker inspect {} "
+            "--format '{{{{json .Config.Cmd}}}}'",
+        ),
+    ):
+        line = contract.ssh(host, command)
+        if not line:
+            continue
+        # Both shapes reduce to the same thing: the flag followed by its value,
+        # separated either by whitespace or by the JSON array's quoting.
+        found = re.search(r'max-num-seqs["\s,]+"?(\d+)', line)
+        if found:
+            return {"value": int(found.group(1)), "source": source}
+    return {"value": None, "source": None}
 
-    **Do not "fix" this by reading `/metrics`.** That endpoint carries
-    ``vllm:cache_config_info{kv_cache_max_concurrency="16.001953125"}`` on that
-    same server, which reads as 16 and is not the flag: it is
-    ``kv_cache_size_tokens / max_model_len`` = 131088 / 8192. It agrees with the
-    flag today by coincidence and diverges the moment either term moves.
+
+def declared_slots(
+    serve: dict[str, Any] | None = None,
+    host: str | None = None,
+) -> dict[str, Any]:
+    """What this engine is running at — read off the host, not off the wire.
+
+    **No HTTP endpoint carries it.** Searched on a live vLLM 0.26.0 started
+    ``--max-num-seqs 16``: ``/server_info`` (three top-level keys,
+    ``vllm_config`` 3,118 characters), ``/v1/models``, and every environment
+    block — ``'num_seqs'`` 0 hits, ``'seqs'`` 0 hits, ``'scheduler'`` 0 hits.
+
+    **But the host has it**, in the server's own argv — see
+    :func:`launched_width`. So this is an observation after all, and the
+    dispatched value is only the fallback for when the host read fails.
+
+    When both are available and they DISAGREE, that is reported and refused
+    rather than resolved: it means the server being measured is not the one this
+    run launched, and picking either number would be picking which of two
+    contradictory facts to believe.
+
+    **Do not "fix" the missing endpoint by reading `/metrics`.** It carries
+    ``vllm:cache_config_info{kv_cache_max_concurrency="16.001953125"}``, which
+    reads as 16 and is not the flag: it is
+    ``kv_cache_size_tokens / max_model_len``. Measured on srv1 at **16.004 on a
+    server launched ``--max-num-seqs 8``** — a positive disproof, not a caveat.
     """
     serve = serve or {}
-    value = serve.get("max_num_seqs")
-    if value is None:
+    dispatched = serve.get("max_num_seqs")
+    observed = launched_width(host) if host else {"value": None, "source": None}
+
+    if (
+        observed["value"] is not None
+        and dispatched is not None
+        and observed["value"] != dispatched
+    ):
         return {
             "value": None,
-            "provenance": "dispatched",
+            "provenance": "contradicted",
             "refused": (
-                "this run did not launch the server, so there is no dispatched "
-                "width — and this engine states max_num_seqs on no endpoint"
+                f"the running server reports --max-num-seqs "
+                f"{observed['value']} in its {observed['source']} arguments, "
+                f"and this run dispatched {dispatched}. The server being "
+                "measured is not the one this run launched."
             ),
+            "observed": observed["value"],
+            "dispatched": dispatched,
+        }
+    if observed["value"] is not None:
+        return {
+            "value": observed["value"],
+            "provenance": "observed",
+            "source": f"--max-num-seqs in the server's {observed['source']} arguments",
+            "dispatched": dispatched,
+            "refused": None,
+        }
+    if dispatched is not None:
+        return {
+            "value": dispatched,
+            "provenance": "dispatched",
+            "source": (
+                "serve.max_num_seqs passed by this run; the host read returned "
+                "nothing, so this is what we asked for rather than what is running"
+            ),
+            "refused": None,
         }
     return {
-        "value": value,
-        "provenance": "dispatched",
-        "source": "serve.max_num_seqs passed to `vllm serve` by this run",
-        "refused": None,
+        "value": None,
+        "provenance": None,
+        "refused": (
+            "no width could be read from the running server and this run did "
+            "not dispatch one"
+        ),
     }
 
 
