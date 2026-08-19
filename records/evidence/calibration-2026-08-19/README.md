@@ -116,3 +116,52 @@ host.
 refusing on it when the card was idle beforehand — which makes all 17 models
 measurable — or keep refusing and accept that srv2's five largest are outside
 the instrument.
+
+## Phase 3 — `ramp` (the concurrency matrix, 11127 s)
+
+### Finding C4 — `RAMP_TOKENS` decides whether the rule is right at all
+
+Ollama, both hosts, three token counts, nothing else varied:
+
+| host | configured | tokens | knee reported | max speedup | throughput plateau |
+|---|---|---|---|---|---|
+| srv1 | `-np 2` | **32** | **12** | **2.52** | 12 |
+| srv1 | `-np 2` | 128 | none | 1.70 | 4 |
+| srv1 | `-np 2` | 512 | none | 1.48 | 2 |
+| srv2 | `-np 1` | **32** | **12** | **2.27** | 12 |
+| srv2 | `-np 1` | 128 | none | 1.35 | 6 |
+| srv2 | `-np 1` | 512 | none | 1.09 | 2 |
+
+At 32 tokens both hosts clear the `BATCHING_SPEEDUP = 2.0` gate and report a
+knee of **12** — wrong for both, and *identical* on two hosts configured one slot
+apart. The rule declines correctly only at 128 and 512.
+
+This is the measurement that was owed. `RAMP_TOKENS = 128` was chosen by
+reasoning and never varied, and the earlier record said only that the plateau
+"could move with it". It does more than move: at 32 tokens the rule produces a
+confident wrong answer, and at 128 it produces the right refusal. Short
+generations are prefill-dominated, and prefill batches well on an engine whose
+decode does not — so the speedup gate measures the wrong phase of the work.
+
+The throughput plateau alone is also unstable across token counts (12 / 4 / 2 on
+srv1, 12 / 6 / 2 on srv2), so the "plateau of 6 on both ollama hosts" recorded
+earlier was a fact about 128-token generations, not about the engine.
+
+**Decisions owed.**
+1. `RAMP_TOKENS` is not a tuning knob — it is part of the measurement's
+   definition, and any reported width must carry the token count it was measured
+   at. 512 gives the cleanest ollama refusal (1.48 / 1.09).
+2. `BATCHING_SPEEDUP = 2.0` does not survive as a token-count-independent gate.
+   Either the gate moves with the token count, or the measurement is defined at
+   one token count and the constant is calibrated there and only there.
+
+### Harness defect — ten vLLM ramps produced nothing
+
+All ten vLLM launches in the first matrix failed with `served=[], gpu=1 MiB`.
+`calibrate.py` passed no `env`, so a pip-installed vLLM started without
+`CUDA_HOME` and never came up, and `claim` correctly refused an empty card. The
+harness also picked the first AWQ model alphabetically, which put a 14B on a
+12 GB card. Both fixed; the vLLM half of the matrix is being re-run.
+
+The refusal working exactly as designed is the reason this cost only rig time
+rather than ten rows of plausible nonsense.
