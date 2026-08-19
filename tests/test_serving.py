@@ -1203,6 +1203,41 @@ def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
     assert launcher.check("test") == []
 
 
+def test_an_interrupted_driver_lets_go_of_the_rigs(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """A killed driver left srv2 holding 11,078 MiB until it was cleared by hand.
+
+    The property is not that a handler exists — it is that the handler can RUN.
+    `sh` defers a trap while a FOREGROUND child is running, so the obvious
+    spelling releases the rigs only once the interrupted phase has finished on
+    its own: measured at 300 seconds against a 300-second phase, which over
+    eleven hours is no handler at all. The phases must therefore be backgrounded
+    behind an interruptible `wait`, and the handler must kill the phase's own
+    children before releasing, or the release races a live claimant.
+
+    Pinned against the driver text the launcher actually emits, because every
+    one of these is a shell construct that a later edit could drop while the
+    campaign still launched perfectly.
+    """
+    launcher = _launcher()
+    assert (
+        launcher.main(
+            ["--campaign", "--dry-run", "--log", str(tmp_path / "unused.log")]
+        )
+        == 0
+    )
+    driver = capsys.readouterr().out
+
+    assert "wait $CHILD" in driver, "a foreground phase defers the trap"
+    assert "} &" in driver, "the phases must not be the foreground child"
+    assert "trap 'pkill -P $CHILD" in driver, "the phase's children outlive it"
+    assert "--release" in driver, "the handler has to release something"
+    # Once for the signal, once for the ordinary end: a campaign that refuses in
+    # its last phase would otherwise exit still holding a card.
+    assert driver.count("cleanup") >= 3
+
+
 def test_the_launcher_refuses_the_exact_failure_it_exists_for(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

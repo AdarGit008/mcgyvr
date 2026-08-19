@@ -19,11 +19,13 @@ fsynced journal line per entry (D8). Nine hours must not depend on this terminal
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shlex
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -103,6 +105,11 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
     ),
     ("tools/bench/observed.py", "ELIDE_BY_NAME", "D5"),
     ("tools/bench/observed.py", "MAX_INLINE_ITEMS = 4096", "D5 — the backstop"),
+    (
+        "tools/bench/serving/launch.py",
+        "wait $CHILD",
+        "the interrupt path — a foreground phase defers the trap",
+    ),
 )
 
 #: Markers that must NOT be present — a withdrawn thing is only withdrawn if it
@@ -158,11 +165,16 @@ WITHDRAWN: tuple[tuple[str, str, str], ...] = (
 #: nothing reads back is a record, not a checkpoint. Across eleven hours the
 #: difference is whether a crash costs the elapsed time or costs nothing.
 EVIDENCE = "records/evidence/calibration-2026-08-19"
+
+#: The rigs this campaign drives, in one place because the interrupt handler
+#: has to release exactly the hosts the phases claimed. Two spellings that
+#: could drift is how a cleanup path comes to skip the rig it was written for.
+CAMPAIGN_HOSTS = "srv1,srv2"
 CAMPAIGN: tuple[tuple[str, str], ...] = (
     (
         "sleep (D7 item 5)",
         f"{{python}} tools/bench/serving/calibrate.py --phase sleep --resume "
-        f"--hosts srv1,srv2 --out {EVIDENCE}/d7-sleep.jsonl",
+        f"--hosts {CAMPAIGN_HOSTS} --out {EVIDENCE}/d7-sleep.jsonl",
     ),
     (
         "survey (D7 items 1, 3, 4)",
@@ -173,9 +185,66 @@ CAMPAIGN: tuple[tuple[str, str], ...] = (
     (
         "width matrices (D7 items 2, 6)",
         f"{{python}} tools/bench/serving/calibrate.py --phase ramp --resume "
-        f"--tokens 475 --hosts srv1,srv2 --out {EVIDENCE}/d7-ramp.jsonl",
+        f"--tokens 475 --hosts {CAMPAIGN_HOSTS} --out {EVIDENCE}/d7-ramp.jsonl",
     ),
 )
+
+
+def _contract() -> types.ModuleType:
+    """``contract.py`` through the shared slot, loaded on use rather than import.
+
+    Loaded lazily and not at module scope: every other entry point here — the
+    marker check, the dry run, the refusals — must keep working even if a
+    sibling module cannot be imported, and a launcher that refuses to verify
+    itself because the cleanup path has a syntax error is a launcher that
+    refuses for the wrong reason.
+    """
+    cached = sys.modules.get("serving_contract")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "serving_contract", HERE / "contract.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["serving_contract"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def release_all(hosts: str) -> int:
+    """Release every backend on every host, and say what each one left behind.
+
+    **The interrupt path, and the reason it exists.** A campaign driver that is
+    killed leaves the rigs holding whatever the phase in flight had claimed:
+    measured on 2026-08-19, stopping the driver mid-sleep left srv2's vLLM
+    container up with 11,078 MiB resident, and it stayed there until it was
+    cleared by hand. Nothing in the phases is at fault — `run.py` releases at
+    the end of a survey and `calibrate.py` releases between arms — but an end
+    that never arrives runs neither.
+
+    Signalling the container's process from the host is the wrong tool and
+    needs root besides; `release()` stops it the way it was started, through
+    docker, which the invoking user can already do. Deliberately best-effort:
+    one unreachable rig must not stop the other from being cleared.
+    """
+    contract = _contract()
+    failures = 0
+    for host in [name for name in hosts.split(",") if name]:
+        for name in contract.available_backends():
+            try:
+                left = contract.load_backend(str(name)).release(host)
+                print(
+                    f"[{host}] release {name}: released={left.get('released')} "
+                    f"card={left.get('card_used_mib')} MiB",
+                    flush=True,
+                )
+                if not left.get("released"):
+                    failures += 1
+            except Exception as error:
+                print(f"[{host}] release {name} FAILED: {error}", flush=True)
+                failures += 1
+    return 1 if failures else 0
 
 
 def already_running() -> list[str]:
@@ -278,13 +347,34 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="launch the declared CAMPAIGN phases, in order (E15)",
     )
-    parser.add_argument("--log", type=Path, required=True)
+    parser.add_argument("--log", type=Path)
+    parser.add_argument(
+        "--release",
+        action="store_true",
+        help="release every backend on --hosts and exit (the interrupt path)",
+    )
+    parser.add_argument(
+        "--hosts",
+        default=CAMPAIGN_HOSTS,
+        help="comma-separated hosts for --release",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="verify and report, launch nothing",
     )
     args = parser.parse_args(argv)
+
+    # Before every guard below, deliberately. A release runs while the driver
+    # it is cleaning up after is still dying, so `already_running` would refuse
+    # it; it must not spend the seconds a signal handler has on `ruff format`;
+    # and a marker check gates CHANGING the rigs, not letting go of them. The
+    # one thing worse than an unverified harness is a rig nobody released.
+    if args.release:
+        return release_all(args.hosts)
+
+    if args.log is None:
+        parser.error("--log is required unless --release is given")
 
     # 1. As written.
     problems = check("after writing")
@@ -337,6 +427,40 @@ def main(argv: list[str] | None = None) -> int:
     if not phases:
         print("nothing to launch: pass --campaign or --command")
         return 1
+
+    # **The interrupt path.** A driver that is killed must let go of the rigs
+    # before it dies: on 2026-08-19 stopping one mid-sleep left srv2 holding
+    # 11,078 MiB until it was cleared by hand.
+    #
+    # The phases run in the BACKGROUND with an explicit `wait`, which is the
+    # whole reason this is not three lines. `sh` will not run a trap while a
+    # FOREGROUND child is running — it defers until that child returns — so the
+    # obvious spelling releases the rigs only after the phase that was
+    # interrupted has finished anyway. Measured: SIGTERM to the driver with a
+    # 300-second phase in flight ran the release 300 seconds later. Across an
+    # eleven-hour campaign that is indistinguishable from no handler at all.
+    # `wait` is interruptible, so a signal is acted on the moment it arrives.
+    #
+    # The handler kills the phase's own children before releasing, because
+    # killing the subshell alone reparents the python it launched and the
+    # release would then be racing a live claimant for the card.
+    #
+    # SIGKILL is not survivable by anything and is not claimed to be. The
+    # trailing call covers the ordinary end too, since a campaign that refuses
+    # in its last phase would otherwise exit holding a card.
+    release = (
+        f"{shlex.quote(sys.executable)} tools/bench/serving/launch.py "
+        f"--release --hosts {shlex.quote(CAMPAIGN_HOSTS)} || true"
+    )
+    phases = (
+        f"cleanup() {{ {release}; }}\n"
+        "trap 'pkill -P $CHILD 2>/dev/null; kill $CHILD 2>/dev/null; "
+        "cleanup; exit 130' INT TERM\n"
+        f"{{ {phases}\n}} &\n"
+        "CHILD=$!\n"
+        "wait $CHILD\n"
+        "cleanup"
+    )
 
     if args.dry_run:
         print(f"--dry-run: nothing launched. Would run:\n  {phases}")
