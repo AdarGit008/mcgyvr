@@ -923,9 +923,18 @@ def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:
 
 
 def _no_endpoint(monkeypatch: Any) -> None:
-    """No ollama here, and the manifest must say so rather than omit the fields."""
+    """No ollama here, and the manifest must say so rather than omit the fields.
+
+    All THREE fetchers, because the observed capture (#286) reads Prometheus
+    text through its own `_get_text` — a separate function by design, since
+    routing `/metrics` through a JSON parser would report "did not answer" for
+    an endpoint that answered in the format it documents. Patching only the two
+    JSON fetchers left every test in this file making a live `/metrics` call
+    while reading as offline.
+    """
     monkeypatch.setattr(breadth.identity_module, "_get_json", lambda *a, **k: None)
     monkeypatch.setattr(breadth.identity_module, "_post_json", lambda *a, **k: None)
+    monkeypatch.setattr(breadth.observed_module, "_get_text", lambda *a, **k: None)
 
 
 def test_the_manifest_carries_every_digest_field_or_a_stated_null(
@@ -1042,6 +1051,81 @@ def test_the_reason_block_is_not_compared_as_identity(
 
     breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
     assert len(json.loads(path.read_text())["invocations"]) == 2
+
+
+# --- the second block reaches disk beside the first (#286, ADR-0027 D7) ------
+
+
+def test_the_observed_block_is_written_beside_the_manifest(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """`record_run` is the seam, so both blocks are written from it or neither.
+
+    The four declared fields are present here for the same reason they are
+    present in ``run.json``: absent means "predates the contract" (D2), and a
+    run made from here on must never produce one. This endpoint answers nothing,
+    so all four are `null` with a reason — which is a measurement, not a gap.
+    """
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    path = tmp_path / breadth.observed_module.OBSERVED_FILE
+    assert path.is_file(), "run.json was written and the observed block was not"
+    # Two captures per directory since #286: `at_open` before the first draw,
+    # `at_close` when the sweep finishes and the model is certainly resident.
+    recorded = json.loads(path.read_text())
+    # A capture carries two labelled SOURCES: `native` is what the endpoint said
+    # about itself, `host` is what the serving machine said. They prove
+    # different things, so they are never merged.
+    block = recorded[breadth.observed_module.CAPTURES][breadth.observed_module.AT_OPEN][
+        breadth.observed_module.NATIVE_SOURCE
+    ]
+    assert block["model"] == "test-model"
+    for field in breadth.observed_module.PROBE_SET:
+        assert field in block
+        assert block[breadth.identity_module.REFUSALS][field]
+
+
+def test_a_resume_does_not_recapture_the_observed_block(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """It describes the endpoint the rows were STARTED against.
+
+    Recapturing on a resume would restate rows this invocation did not measure,
+    and a resume against a materially different server is refused by the keyed
+    drift check — which is where a refusal belongs, since nothing compares this
+    block.
+    """
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    path = tmp_path / breadth.observed_module.OBSERVED_FILE
+    before = path.read_text()
+    path.write_text(json.dumps({"marked": True}))
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+
+    assert json.loads(path.read_text()) == {"marked": True}
+    assert before != path.read_text()
+
+
+def test_nothing_in_the_rig_reads_the_observed_block(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """A guard wired to this block would compare a field nobody admitted.
+
+    Proven by removing it: every path that reads a run directory must behave
+    identically whether or not the file is there, because the block it holds is
+    comprehensive precisely because it is compared by nothing (D7).
+    """
+    _no_endpoint(monkeypatch)
+    invocation = {"started": "2026-08-17T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    (tmp_path / breadth.observed_module.OBSERVED_FILE).unlink()
+
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert len(json.loads((tmp_path / "run.json").read_text())["invocations"]) == 2
 
 
 # --- the resume check is the contract's, over a declared field set (#287) ----

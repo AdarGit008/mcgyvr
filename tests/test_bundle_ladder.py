@@ -446,6 +446,53 @@ def test_the_run_manifest_records_what_was_reached(
     assert "secret" not in json.dumps(manifest)
 
 
+def test_the_observed_block_is_written_beside_the_manifest(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#286: `record_run` writes both blocks, on this rig too.
+
+    Both of this rig's arms were retired by #240, so this writer is exercised by
+    test rather than by dispatch. It is here anyway because ``record_run`` is
+    the seam that records what ran, and a seam that records one block and not
+    the other is the gap the next rig inherits. The credentials in the endpoint
+    are the same fixture the manifest test above uses, so the redaction is
+    checked on the path where the whole capture — not one field — goes to disk.
+    """
+    measure = _measure()
+    # Offline, on all THREE fetchers. Unstubbed, `record_run` sends a dozen real
+    # requests — and this fixture's URL carries a credential, so one of them puts
+    # `user:secret` on the wire. It passed only because `box` does not resolve
+    # here; behind a wildcard resolver it would leave the machine, and behind a
+    # firewall that drops rather than refuses the test would take six minutes.
+    monkeypatch.setattr(
+        measure.identity_module, "_get_json", lambda *a, **k: None, raising=True
+    )
+    monkeypatch.setattr(
+        measure.identity_module, "_post_json", lambda *a, **k: None, raising=True
+    )
+    monkeypatch.setattr(
+        measure.observed_module, "_get_text", lambda *a, **k: None, raising=True
+    )
+    worker = measure.resolve_worker(
+        {"endpoint": "https://user:secret@box/v1", "model": "m", "protocol": "openai"},
+        {},
+    )
+
+    measure.record_run(tmp_path, worker, {"started": "2026-08-04T09:00:00+00:00"})
+    path = tmp_path / measure.observed_module.OBSERVED_FILE
+    assert path.is_file(), "run.json was written and the observed block was not"
+
+    recorded = json.loads(path.read_text(encoding="utf-8"))
+    block = recorded[measure.observed_module.CAPTURES][measure.observed_module.AT_OPEN][
+        measure.observed_module.NATIVE_SOURCE
+    ]
+    assert block["model"] == "m"
+    assert block["endpoint"] == "https://box/v1"
+    assert "secret" not in path.read_text(encoding="utf-8")
+    for field in measure.observed_module.PROBE_SET:
+        assert field in block, "absent would read as 'predates the contract' (D2)"
+
+
 def test_a_second_invocation_is_appended_not_replaced(
     tmp_path: Path, live_instruments: types.ModuleType
 ) -> None:

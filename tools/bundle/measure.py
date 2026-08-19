@@ -179,6 +179,62 @@ def _bench_identity() -> Any:
 
 identity_module = _bench_identity()
 
+
+def _bench_observed() -> Any:
+    """The `observed` block's writer (#286, ADR-0027 D7).
+
+    Reached by path like the contract above. This rig refuses every live sweep
+    under #240, so this writer is exercised by test rather than by dispatch —
+    it is here because ``record_run`` is the seam that records what ran, and a
+    seam that records one block and not the other is the gap the next rig
+    inherits.
+
+
+    Shared through the ``sys.modules`` slot with the other rig's copy, exactly
+    as ``_bench_identity`` above is and for the same reason: two loads would be
+    the five-lists problem one level down. It also has teeth in tests — a stub
+    installed on one rig's copy does not stop the other's ``record_run`` from
+    making real HTTP calls, which is how three breadth tests came to probe the
+    network while appearing to be offline.
+    """
+    cached = sys.modules.get("bench_observed")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "bench_observed", REPO / "tools" / "bench" / "observed.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+observed_module = _bench_observed()
+
+
+def _host_block(endpoint: str) -> dict[str, object]:
+    """What the serving MACHINE says, when it can be reached.
+
+    Empty when it cannot — a hosted endpoint has no host, and a run from a
+    machine without keys records what the endpoint said and nothing more. Never
+    raises: a capture must not be the reason a sweep produces no rows.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = sys.modules.get("serving_pin")
+        if module is None:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["serving_pin"] = module
+            spec.loader.exec_module(module)
+        return dict(module.host_block(endpoint))
+    except Exception:
+        return {}
+
+
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
 # c2 check exists to catch, on the one axis where a divergence would be silent:
@@ -732,6 +788,23 @@ def record_run(
     path.write_text(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
+    )
+    # The second block (#286, ADR-0027 D7), written on the branch that OPENS the
+    # directory and never on the resume above — see the same call in
+    # `tools/breadth/measure.py` for why. Nothing in this file reads it.
+    # `at_open` with its host block. This rig refuses every live sweep under
+    # #240 so it never reaches a close, and the pin needs both sides — but the
+    # OPEN reading is recorded anyway, for the reason the writer above it exists
+    # at all: `record_run` is the seam that records what ran, and a seam that
+    # records one block and not the other is the gap the next rig inherits.
+    # Deleting this as "dead code" would have applied an argument that, followed
+    # through, deletes the observed writer too.
+    observed_module.write(
+        out,
+        worker.endpoint,
+        worker.model,
+        when=observed_module.AT_OPEN,
+        host=_host_block(worker.endpoint),
     )
 
 

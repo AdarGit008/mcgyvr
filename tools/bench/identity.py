@@ -214,11 +214,21 @@ PENDING: tuple[str, ...] = tuple(f for f in RECORDED if f not in KEY and f != CO
 # to perturb and the list read as though it did.
 #
 # Every pending field carries a reason, and the test suite holds this to the
-# tree: a field pending on #276's rule must have a writer, and a field pending
-# on #286 must not — so the day someone writes one without moving it here, the
-# list stops agreeing with the repository and says so.
+# tree: a field pending on #276's rule must have a writer — so the day someone
+# writes one without moving it here, the list stops agreeing with the repository
+# and says so.
+#
+# 2026-08-18 (#286): the third state is gone. `AWAITING_PROBE_SET` — "nothing in
+# the repository computes it" — described the four probe-set fields until
+# `tools/bench/observed.py` landed, and they are now captured on every run that
+# opens a directory. They did NOT become `AWAITING_ADMISSION`: that name means
+# "#276's rule has not admitted it", and #276's rule is not their promotion
+# path. D7 is, and D7 makes promotion the owner's.
 AWAITING_ADMISSION = "awaiting #276's perturbation rule"
-AWAITING_PROBE_SET = "awaiting the `observed` probe set (#286)"
+CAPTURED_IN_OBSERVED = (
+    "captured in observed.json (#286) and compared by nothing; promotion into "
+    "KEY is the owner's under ADR-0027 D7, not #276's perturbation rule"
+)
 
 PENDING_REASON: dict[str, str] = {
     # Written by `probe_model` since #285. Recorded on every run made from here
@@ -236,12 +246,18 @@ PENDING_REASON: dict[str, str] = {
     # contrast the bench exists to draw.
     "prompt_sha256": "keyed within a condition (D6), never globally",
     "bundle_sha256": AWAITING_ADMISSION,
-    # #286's, not #285's: they are the probe set, captured comprehensively and
-    # compared by nothing until someone promotes them.
-    "quantization": AWAITING_PROBE_SET,
-    "context_length": AWAITING_PROBE_SET,
-    "concurrency": AWAITING_PROBE_SET,
-    "seed": AWAITING_PROBE_SET,
+    # #286's, not #285's: the probe set, captured comprehensively and compared
+    # by nothing until the owner promotes one. Written since 2026-08-18 into
+    # `observed.json` beside this block, where "written" means the field is
+    # always present — answered where ollama's native surface answers it
+    # (`quantization` does) and `null` with a stated reason where it does not
+    # (`context_length` and `concurrency` are not on that surface at all, and
+    # `seed` is observed and never set). A null here is a measurement, which is
+    # the whole difference between this state and the one it replaced.
+    "quantization": CAPTURED_IN_OBSERVED,
+    "context_length": CAPTURED_IN_OBSERVED,
+    "concurrency": CAPTURED_IN_OBSERVED,
+    "seed": CAPTURED_IN_OBSERVED,
     # Written since before this module existed, and pending for the ordinary
     # reason. Listed rather than left to a default: a field that falls through
     # to "the usual" is a field nobody decided about, and this dict is complete
@@ -389,6 +405,19 @@ def probe_model(
     the weights do not. The separable weights identity is the **model layer**
     digest, which `/api/show` and `/api/tags` do not expose; reading it needs
     manifest parsing on the serving host and is not something a dispatch can do.
+
+    **Correction, 2026-08-18 (#286).** The last sentence is too strong. Building
+    the `observed` capture found the layer digest on the native surface after
+    all: `/api/show` returns a generated Modelfile whose `FROM` line is the blob
+    path, and on srv2 `qwen2.5-coder:1.5b` gives
+    `FROM /usr/share/ollama/.ollama/models/blobs/sha256-29d8c98f…` against a
+    manifest digest of `d7372fd8…` — two different values, the second of which
+    is what this function records. What remains true is that this function does
+    not read it and `model_sha256` stays the manifest digest: parsing a digest
+    out of a free-text field is a different contract from reading one the API
+    states, and promoting it is D7's decision rather than this docstring's. The
+    string is captured verbatim in `observed.json`, so the material is on disk
+    for whoever takes that up.
 
     Over-sensitive is the safe direction for a comparability guard: it refuses a
     contrast that would have been sound, and it never permits one that is not.

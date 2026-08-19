@@ -782,12 +782,21 @@ def test_every_pending_field_says_which_of_the_two_reasons(identity: Any) -> Non
     assert not set(identity.PENDING_REASON) - set(identity.PENDING)
 
 
-def test_the_four_digests_are_no_longer_awaiting_a_writer(identity: Any) -> None:
-    """The acceptance property, read off the module rather than off a PR body."""
+def test_no_declared_field_is_waiting_on_a_writer(identity: Any) -> None:
+    """The acceptance property, read off the module rather than off a PR body.
+
+    #285 gave the five digests writers; #286 gave the probe set one. What is
+    left is two states, not three: a field is either queued behind #276's
+    perturbation rule or it is captured in the `observed` block, whose promotion
+    path is the owner's under D7 and not #276's. The assertion that the third
+    name is *gone* is the one that would catch a fifth field arriving with no
+    writer and the old excuse.
+    """
     for field in (*identity.MODEL_PROBE_FIELDS, "bar_sha256"):
         assert identity.PENDING_REASON[field] == identity.AWAITING_ADMISSION
     for field in ("quantization", "context_length", "concurrency", "seed"):
-        assert identity.PENDING_REASON[field] == identity.AWAITING_PROBE_SET
+        assert identity.PENDING_REASON[field] == identity.CAPTURED_IN_OBSERVED
+    assert not hasattr(identity, "AWAITING_PROBE_SET")
 
 
 def test_a_verified_record_demotes_when_a_field_is_admitted(
