@@ -261,34 +261,52 @@ def test_a_ramp_that_raised_is_not_treated_as_done_by_a_plain_resume(
     assert calibrate.key(raised) not in retried
 
 
-CLAIMED = {
-    "backend": "vllm",
-    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
-    "verified": True,
-    "checks": {
-        "started": {
-            "restarted": True,
-            "reason": "no server was serving this model",
-            "launcher": "pip",
-            "command": "vllm serve ...",
-            "launched": True,
-            "ready": True,
-            "start_seconds": 108.7,
-            "serve": {"max_model_len": 8192},
-        },
-        "gpu_used_mib": 4916,
-        "allocation_present": True,
-        "served_models": ["Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"],
-        "engine_config": {"dtype": "half"},
-        "weights": {"weights_sha256": "abc123", "digest_seconds": 34.2},
-        "weights_sha256_expected": None,
-    },
-    "declarations_ignored": None,
+STARTED = {
+    "restarted": True,
+    "reason": "no server was serving this model",
+    "launcher": "pip",
+    "command": "vllm serve ...",
+    "launched": True,
+    "ready": True,
+    # srv2's real figure from 2026-08-19, the number D6 asked for.
+    "start_seconds": 108.7,
+    "serve": {"max_model_len": 8192},
 }
 
 
+@pytest.fixture(scope="module")
+def claimed() -> dict[str, Any]:
+    """What ``vllm.claim`` really returns, obtained from ``vllm.claim``.
+
+    **This fixture was a hand-written literal and that was the same defect one
+    file out.** A mutation sweep on 2026-08-20 added a field to ``claim``'s
+    success branch and every test here still passed, because they were comparing
+    the disposition against a copy of the answer rather than against the
+    producer. Seven of eight mutations were caught; this was the eighth.
+
+    So the seams are stubbed and the function runs its own body: whatever key
+    set ``claim`` builds today is the key set the disposition is held to.
+    """
+    vllm: Any = _by_path("serving_vllm_sink", SERVING / "backends" / "vllm.py")
+    model = "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"
+    # None forces the restart branch, which is the branch that has a start time
+    # to report -- an already-serving host is not a launch and records none.
+    vllm._running_config = lambda *a, **k: None
+    vllm._start = lambda *a, **k: dict(STARTED)
+    vllm.inventory = lambda *a, **k: [model]
+    vllm.weights_sha256 = lambda *a, **k: {
+        "weights_sha256": "abc123",
+        "digest_seconds": 34.2,
+    }
+    vllm.contract.ssh = lambda *a, **k: "4916 MiB"
+    vllm.contract.first_int = lambda *a, **k: 4916
+    result: dict[str, Any] = vllm.claim("srv2", "http://srv2:8000", model, {})
+    assert result.get("verified") is True, "the stubbed claim must reach its ok branch"
+    return result
+
+
 def test_the_launch_sink_declares_a_disposition_for_every_field_claim_returns(
-    calibrate: Any,
+    calibrate: Any, claimed: dict[str, Any]
 ) -> None:
     """A1's half of the same contract.
 
@@ -297,25 +315,27 @@ def test_the_launch_sink_declares_a_disposition_for_every_field_claim_returns(
     every key the producer returns is carried or declared dropped.
     """
     disposition = calibrate.LAUNCH_ROW_DISPOSITION
-    undeclared = sorted(set(CLAIMED) - set(disposition))
+    undeclared = sorted(set(claimed) - set(disposition))
     assert not undeclared, (
         f"vllm.claim() returns {undeclared} and _launch_row does not say what "
         "becomes of them."
     )
-    stale = sorted(set(disposition) - set(CLAIMED))
+    stale = sorted(set(disposition) - set(claimed))
     assert not stale, (
         f"LAUNCH_ROW_DISPOSITION names {stale}, which claim() does not return."
     )
 
 
-def test_the_launch_timing_reaches_the_row(calibrate: Any) -> None:
+def test_the_launch_timing_reaches_the_row(
+    calibrate: Any, claimed: dict[str, Any]
+) -> None:
     """D6's START_TIMEOUT_S evidence, pinned by name.
 
     ``vllm.claim`` computed this on all ten launches of the 2026-08-19/20
     campaign and the value reached no file, leaving a 900 s timeout resting on
     nothing after the run commissioned to calibrate it.
     """
-    row = calibrate._launch_row("srv2", "m", 16, CLAIMED)
+    row = calibrate._launch_row("srv2", "m", 16, claimed)
     assert row["start_seconds"] == 108.7, (
         "the launch row does not carry start_seconds, so START_TIMEOUT_S stays "
         "uncalibrated no matter how many servers this campaign starts."
@@ -327,9 +347,9 @@ def test_the_launch_timing_reaches_the_row(calibrate: Any) -> None:
 
 
 def test_every_carried_launch_field_names_a_key_that_is_really_in_the_row(
-    calibrate: Any,
+    calibrate: Any, claimed: dict[str, Any]
 ) -> None:
-    row = calibrate._launch_row("srv2", "m", 16, CLAIMED)
+    row = calibrate._launch_row("srv2", "m", 16, claimed)
     for field, carried in sorted(calibrate.LAUNCH_ROW_DISPOSITION.items()):
         if carried is None:
             continue
