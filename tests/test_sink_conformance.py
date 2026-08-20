@@ -354,3 +354,81 @@ def test_the_ollama_ramp_can_state_its_own_slot_count(calibrate: Any) -> None:
         "no cheap seam to the declared slot count, so the ramp has no way to "
         "record one without paying for a full capture."
     )
+
+
+# A5: the three ways a sleep cell used to report a verdict it had not earned.
+# Each row below is what `sleep_state` would hold at the moment the verdict is
+# computed, with one thing having gone wrong.
+UNMEASURED_SLEEP = {
+    "the card was never read": {
+        "awake_mib": None,
+        "asleep_mib": None,
+        "sleep_call": {"status": 200},
+        "is_sleeping_after": {"is_sleeping": True},
+    },
+    "the sleep call was refused": {
+        "awake_mib": 4916,
+        "asleep_mib": 4914,
+        "sleep_call": {"status": 404},
+        "is_sleeping_after": {"is_sleeping": True},
+    },
+    "the endpoint went silent": {
+        "awake_mib": 11109,
+        "asleep_mib": 189,
+        "sleep_call": {"status": 200},
+        "is_sleeping_after": None,
+    },
+}
+
+
+@pytest.mark.parametrize("case", sorted(UNMEASURED_SLEEP))
+def test_a_sleep_cell_that_measured_nothing_says_so(calibrate: Any, case: str) -> None:
+    """A5: a transient failure must not read as a clean measurement.
+
+    The control arm is where this bit hardest. DE-12 is right that only the
+    ``enabled`` arm can fail — a control freeing nothing is the finding — so a
+    control whose card read returned ``None`` recorded ``failed: false`` and was
+    indistinguishable from the measurement it was there to make.
+    """
+    assert calibrate._sleep_unmeasured(UNMEASURED_SLEEP[case]) is not None, (
+        f"{case}: the row reports a verdict it did not earn."
+    )
+
+
+def test_a_sleep_cell_that_did_measure_is_not_refused(calibrate: Any) -> None:
+    """The negative control — otherwise the guard above could just return a string.
+
+    These are srv2's real enabled-arm readings from 2026-08-20: 11,109 MiB down
+    to 189, the run that showed the flag works.
+    """
+    good = {
+        "awake_mib": 11109,
+        "asleep_mib": 189,
+        "sleep_call": {"status": 200},
+        "is_sleeping_after": {"is_sleeping": True},
+    }
+    assert calibrate._sleep_unmeasured(good) is None
+
+
+def test_an_unmeasured_sleep_cell_is_re_done_by_a_plain_resume(
+    calibrate: Any, tmp_path: Path
+) -> None:
+    """A5 composes with A6: unmeasured is owed, not answered.
+
+    ``_succeeded`` alone was not enough — it already returned False for these
+    rows once they carried a marker, but ``completed`` forgave everything except
+    under ``--retry-failed``. The pair is what makes an unmeasured cell recover
+    on the resume the driver actually runs.
+    """
+    journal = tmp_path / "sleep.jsonl"
+    row = {
+        "phase": "sleep",
+        "host": "srv1",
+        "arm": "control_no_flag",
+        "model": "m",
+        "error": calibrate._sleep_unmeasured(
+            UNMEASURED_SLEEP["the card was never read"]
+        ),
+    }
+    journal.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    assert calibrate.key(row) not in calibrate.completed(journal)

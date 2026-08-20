@@ -619,6 +619,51 @@ def _post(base: str, path: str, timeout: float = 60.0) -> dict[str, Any]:
         }
 
 
+def _sleep_unmeasured(row: dict[str, Any]) -> str | None:
+    """Why this sleep cell measured nothing, or ``None`` if it measured.
+
+    **A5.** Three paths recorded a transient failure as a clean measurement, and
+    all three are the same mistake as the sink defects above: a value that was
+    not obtained being written as a value that was.
+
+    1. ``_card_mib`` returning ``None`` -- the ssh or nvidia-smi failed -- left
+       ``freed_mib`` null, ``actually_freed`` null, and on a CONTROL arm
+       ``failed: false``, because DE-12 correctly says only the enabled arm can
+       fail. A control that read nothing is indistinguishable in the row from a
+       control that read a card which did not move, which is the entire finding
+       the control exists to establish.
+    2. ``/is_sleeping`` not answering made ``endpoint_claimed_asleep`` ``False``
+       via ``(None or {}).get(...)``, so ``endpoint_lied`` computed ``False`` --
+       "the endpoint told the truth" -- from an endpoint that said nothing.
+       ``endpoint_lied`` is phase 1's headline and it was reachable by silence.
+    3. A non-200 from ``POST /sleep`` was never checked, and the card delta was
+       scored anyway. Nothing was asked to sleep, and the row reports on how
+       much sleeping happened.
+
+    None of the three fired on the 2026-08-19/20 campaign -- every cell produced
+    real readings -- and all three were un-retryable once written, because a row
+    with no failure marked is a row ``--resume`` treats as done.
+    """
+    if row.get("awake_mib") is None or row.get("asleep_mib") is None:
+        return (
+            "the card was not read (nvidia-smi or its ssh returned nothing), so "
+            "there is no VRAM delta to score and no arm can be judged on it"
+        )
+    status = (row.get("sleep_call") or {}).get("status")
+    if status != 200:
+        return (
+            f"POST /sleep answered {status!r}, so nothing was asked to sleep "
+            "and the card delta is not a measurement of sleeping"
+        )
+    if row.get("is_sleeping_after") is None:
+        return (
+            "/is_sleeping did not answer after the sleep call, so whether the "
+            "endpoint CLAIMED to be asleep is unknown -- and endpoint_lied is a "
+            "statement about that claim, not about the card alone"
+        )
+    return None
+
+
 def sleep_state(
     out: Path, hosts: list[str], done: set[tuple[Any, ...]] | None = None
 ) -> None:
@@ -688,6 +733,23 @@ def sleep_state(
                 row["freed_mib"] = (
                     None if awake is None or asleep is None else awake - asleep
                 )
+                # **A5.** Decided BEFORE any verdict is computed: a cell that
+                # measured nothing must not report on what it measured.
+                unmeasured = _sleep_unmeasured(row)
+                if unmeasured:
+                    row["actually_freed"] = None
+                    row["endpoint_claimed_asleep"] = None
+                    row["endpoint_lied"] = None
+                    row["failed"] = None
+                    # `error`, not `refused`: nothing was learned and the cell
+                    # is still owed, so a plain --resume re-does it. See
+                    # `_raised` -- srv1 declining to start vLLM with the sleep
+                    # flag inside 900 s IS an answer and stays a refusal; a card
+                    # read that returned nothing is not.
+                    row["error"] = unmeasured
+                    emit(out, row)
+                    print(f"  {host}/{arm}: UNMEASURED — {unmeasured}", flush=True)
+                    continue
                 # THE verdict, and it reads the card. `>= half` rather than a
                 # fixed MiB because the two rigs hold very different amounts.
                 row["actually_freed"] = (
