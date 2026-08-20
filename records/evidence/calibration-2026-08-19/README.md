@@ -889,3 +889,124 @@ config at 17 host×entry cells each with a full ramp; at measured solo rates the
 ollama ramps alone compute to ~5.5 h, on top of ~4.7 h of width matrices and
 ~1–1.5 h of survey overhead. The owner set completeness rather than the clock as
 the binding constraint and accepted the revised figure.
+
+## Addendum, 2026-08-20 — the campaign ran, and the four owed blocks are closed
+
+Appended, not edited: the four **Decision owed** blocks above (lines 48, 115, 150
+and 363 as this file stood on 2026-08-19) are history and stay as written. This
+section names what closed each one, and what the run that followed says about it.
+
+### The campaign
+
+Launched 2026-08-19 19:31, finished 2026-08-20 04:43 — **9 h 12 m against an
+11.5 h estimate**, three phases, **33 cells, zero failures**. Both rigs left idle
+at 1 MiB. Clean exit: no `.campaign-stop` remained, so the trailing `cleanup` ran
+rather than the interrupt path.
+
+| phase | cells | wall clock |
+|---|---|---|
+| 1 — sleep | 4/4 | 1141 s (19 m) |
+| 2 — survey | 17/17, zero refusals | 4 h 53 m |
+| 3 — ramp | 12/12, zero errors | 14404 s (4 h 00 m) |
+
+Evidence beside this file: `d7-sleep.jsonl`, `d7-survey.json` +
+`d7-survey.json.jsonl`, `d7-ramp.jsonl`, `samples.jsonl`.
+
+### The four blocks, and what closed each
+
+| block | question it left open | closed by | what the run adds |
+|---|---|---|---|
+| **line 48** — C1, `MAX_INLINE_ITEMS = 512` split `tensors` down the middle of the model ladder | elide `tensors` everywhere, or keep it everywhere? | **D5** — elide *by name*, with a 4096-item backstop | **Nothing.** D5 governs `observed.py`'s capture shape; this campaign is a serving survey and writes no `observed.json`. Landed in code at `tools/bench/observed.py:363` (`ELIDE_BY_NAME`) and `:376` (`MAX_INLINE_ITEMS = 4096`), proven by test, not by this run. |
+| **line 115** — C3, `MIN_VRAM_FRACTION = 0.8` made five srv2 models unmeasurable | record placement, or keep refusing on it? | **D4** — the gate is withdrawn; `placement` is declared and recorded, never refused | **All 17 models measured, none refused.** See below. |
+| **line 150** — C4, `RAMP_TOKENS` decides whether the rule is right at all | fix the token count, or move the gate with it? | **D3** (`RAMP_TOKENS = 475`) and **D1** (`BATCHING_SPEEDUP` → 1.0, renamed, confined to the inferred path) | All 12 ramp cells ran at `ramp_tokens: 475`, **zero levels dropped**. |
+| **line 363** — the vLLM matrix's three owed items | withdraw `BATCHING_SPEEDUP`; name the plateau cutoff; set `RAMP_TOKENS` | **D1**, **D2** (`PLATEAU_FRACTION = 0.92`), **D3** | All 12 cells carry `plateau_fraction: 0.92`; `saturation_n` tracked the configured width exactly on every cell that was not refused. |
+
+### D4 on live data — placement recorded, never gated
+
+The three entries that spilled are the three the step-0.2 arithmetic predicted, to
+four decimals:
+
+| entry | predicted 2026-08-19 | measured 2026-08-20 |
+|---|---|---|
+| srv1 / `qwen2.5-coder:7b` | 0.908 | **0.9080** |
+| srv2 / `gpt-oss:20b` | 0.7945 | **0.7945** |
+| srv2 / `qwen3-coder:30b` | 0.5806 | **0.5806** |
+
+The other 14 cells read exactly **1.0**. `gpt-oss:20b` — the MoE the withdrawn 0.8
+gate refused, and the case D4 was argued around — measured without incident.
+
+**A number the next pricing session should have:** every entry that *did* declare a
+floor read exactly 1.0, against floors of 0.85 and 0.9. Not one came within ten
+points of firing. `min_vram_fraction` is today a field that has never gated
+anything on any entry. Whether it should fire somewhere, or is ceremony, is a
+separate question and is not decided here.
+
+#### Correction — `placement_meets_expectation` is null on six rows, not three
+
+The session record of 2026-08-19/20 and the commit message of `7d5ec4d8` both say
+the field "came back null on exactly those three entries and true on every other."
+Read off `d7-survey.json`, it is null on **six of seventeen**:
+
+| row | `vram_fraction` | `placement_meets_expectation` |
+|---|---|---|
+| srv1 / `qwen2.5-coder-7b` | 0.9080 | null |
+| srv1 / `coresident-3b-beside-1.5b` | 1.0 | null |
+| srv2 / `qwen2.5-coder-7b` | **1.0** | null |
+| srv2 / `gpt-oss-20b` | 0.7945 | null |
+| srv2 / `qwen3-coder-30b` | 0.5806 | null |
+| srv2 / `coresident-3b-beside-1.5b` | 1.0 | null |
+
+The rule is not "null where it spilled" but **"null where the entry declares no
+floor"** — which after DE-G is the 7B on *both* hosts and both co-residency cells,
+regardless of what they measured. srv2's 7B is the row that separates the two
+readings: it did not spill (1.0) and is still null. The other eleven rows are
+`true`, and all eleven read exactly 1.0.
+
+This does not change DE-G — it strengthens the reason for it. The field tracks the
+*declaration*, which is exactly what D4 said it should do.
+
+### D1/D2/D3 on live data — the width matrices
+
+All twelve cells at `ramp_tokens: 475`, `plateau_fraction: 0.92`, zero levels
+dropped, and all ten vLLM rows carrying `declared_slots.provenance: "observed"`
+read from the server's own `--max-num-seqs` with `dispatched` matching `value`
+every time (E5-revised).
+
+| configured width | srv1 speedup | srv1 `sat_n` | srv2 speedup | srv2 `sat_n` |
+|---|---|---|---|---|
+| 1 | 1.00 | *refused* | 1.02 | 1 |
+| 2 | 1.00 | *refused* | 1.97 | 2 |
+| 4 | 1.23 | 4 | 3.94 | 4 |
+| 8 | 2.41 | 8 | 7.84 | 8 |
+| 16 | **3.76** | 16 | **15.42** | 16 |
+
+Both rigs saturate at exactly their configured width — `--max-num-seqs` binds on
+both, never the card. The **efficiency** differs: srv2 returns 96% of linear at
+width 16 (15.42/16), srv1 returns 23% (3.76/16). Both ran `--enforce-eager`
+(mandatory on srv1's compute capability 7.5, kept on srv2 deliberately), so the gap
+is hardware, not configuration. ollama arms: srv1 1.45x at `sat_n` 2, srv2 1.10x at
+`sat_n` 2.
+
+srv1 also shows throughput and latency parting company at the top: at width 16 its
+`saturation_n` is 16 but `latency_plateau_n` is **8**. srv2's two agree at 16.
+
+**The boundary case worth keeping.** srv1 width 1 read exactly **1.00** and DE-1
+refused it; srv2 width 1 read **1.02** and was recorded.
+`INFERRED_SATURATION_MIN_SPEEDUP` uses `<=`, so **0.02 separates** "excluded as a
+curve that never rises" from "a valid measurement". Both are correct under the rule
+as written; its sensitivity at its own boundary is now demonstrated rather than
+theoretical.
+
+### D6's four constants are still unmeasured
+
+`START_TIMEOUT_S`, `DIGEST_TIMEOUT_S`, `LOAD_ATTEMPTS` and `RAMP_REPEATS` were to be
+instrumented on this run and were not. They are seed content for #322's first run
+headers, and remain owed.
+
+### A confound this sweep exposed
+
+**Quantization is not controlled across the roster:** Q4_K_M on 9 of 11 srv2 cells,
+Q4_0 on `yi-coder-9b` and `deepseek-coder-v2-16b`, MXFP4 on `gpt-oss-20b`. Context
+is uniform at 4096 and every digest matched its pin. That is fine for placement,
+which is what the survey is for — and **a real confound for any throughput rate read
+across models.**
