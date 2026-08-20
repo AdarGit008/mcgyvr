@@ -140,6 +140,25 @@ def _succeeded(row: dict[str, Any]) -> bool:
     )
 
 
+def _raised(row: dict[str, Any]) -> bool:
+    """Whether an exception escaped, as opposed to the cell refusing.
+
+    The two were treated identically by :func:`completed` and they are not the
+    same thing. A **refusal** is an answer about this rig at these settings --
+    BL-4 declining a curve that never rises, srv1 declining to start vLLM with
+    ``--enable-sleep-mode`` inside 900 s -- and re-running it buys the same
+    refusal, which is why :func:`key` is the conditions and why
+    ``--retry-failed`` exists to override that.
+
+    An **exception** is not an answer. Nothing was learned, the cell is still
+    owed, and the console line for it says nothing at all. Counting it as done
+    made a cell lost to a transient error unrecoverable by the ``--resume`` the
+    campaign driver actually runs -- recoverable only by knowing to add a flag
+    whose name says "failed" for a cell that never reported failing.
+    """
+    return bool(row.get("error"))
+
+
 def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
     """Every sample already on disk, by :func:`key`.
 
@@ -171,6 +190,11 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
     # `--retry-failed` counted the cell done and skipped the very retry it was
     # asked for — reporting the superseded success as the cell's answer. Last
     # write wins first; only then are the failures dropped.
+    # An exception is re-done ALWAYS, not only under `--retry-failed`: see
+    # `_raised`. Applied after the scan for the same DE-D reason as the filter
+    # below -- last write wins first, so a newer exception cannot be masked by
+    # an older success for the same key.
+    rows = {k: row for k, row in rows.items() if not _raised(row)}
     if retry_failed:
         rows = {k: row for k, row in rows.items() if _succeeded(row)}
     return set(rows)
@@ -353,6 +377,18 @@ def ramp(
                 )
                 continue
             model = _smallest(inventory)
+            # **A4.** Read once per model rather than per token count: it is one
+            # ssh and the answer cannot change between token budgets. Without
+            # it every ollama ramp row carried `declared_slots: null` while the
+            # survey read the same number off /props on the same host.
+            try:
+                ollama_declared = ollama.slots_now(host)
+            except Exception as error:
+                ollama_declared = {
+                    "value": None,
+                    "provenance": None,
+                    "refused": f"{type(error).__name__}: {error}",
+                }
             for tokens in TOKEN_COUNTS:
                 probe = key(
                     {
@@ -380,7 +416,16 @@ def ramp(
                         },
                     )
                     continue
-                _one_ramp(out, base, model, host, "ollama", None, tokens)
+                _one_ramp(
+                    out,
+                    base,
+                    model,
+                    host,
+                    "ollama",
+                    None,
+                    tokens,
+                    declared=ollama_declared,
+                )
 
         # vLLM: launch at each configured width, ramp at each token count.
         model = _awq(host, vllm) if "vllm" in engines else None
@@ -475,7 +520,14 @@ def _widths(
         }
         try:
             ollama.release(host)
-            vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
+            # **A1.** The return value used to be discarded. `vllm.claim` times
+            # every launch and hands back `checks.started.start_seconds` with a
+            # comment saying D6 wants it -- and ten launches computed it and
+            # threw it away, leaving START_TIMEOUT_S = 900 s resting on nothing
+            # after the campaign that was commissioned to measure it. The
+            # MARKERS guard passed the whole time: it asserts that vllm.py
+            # contains the string "start_seconds", which it does.
+            claimed = vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
             # **DE-F, and this is the whole of E5's vLLM half.** `launched_width`
             # was only reachable from `describe`, whose only caller is the
             # survey — and the campaign config has no vLLM entries at all. So
@@ -483,6 +535,7 @@ def _widths(
             # unverified against the host, which is the state E5 was revised to
             # leave behind. Read here, where the server was just launched.
             declared = vllm.declared_slots(serve, host)
+            emit(out, _launch_row(host, model, width, claimed))
         except Exception as error:
             emit(
                 out,
@@ -674,6 +727,114 @@ def sleep_state(
             )
 
 
+#: What becomes of every key :func:`contract.ramp` returns, when this module
+#: writes a ramp row. A tuple names the row keys the field reaches; ``None``
+#: means the field is deliberately not carried and ``RAMP_ROW_DROPPED`` says
+#: why. ``tests/test_sink_conformance.py`` compares this table against the
+#: producer's real key set and against the row really written, so a field added
+#: to :func:`contract.ramp` without a decision here goes red.
+#:
+#: **This table exists because four fields were dropped here for a whole
+#: campaign and no check could see it.** ``launch.py``'s MARKERS entry
+#: ``'"repeats": attempts'`` passed throughout, because it asserts that
+#: ``contract.py`` contains that string -- which it does. The value never
+#: reached a file. A guard over source text cannot catch a sink.
+RAMP_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    "levels": ("levels",),
+    "saturation": (
+        "saturation_n",
+        "saturation_refused",
+        "ramp_tokens",
+        "plateau_fraction",
+        "levels_dropped",
+    ),
+    "readings": ("throughput_plateau_n", "latency_plateau_n", "max_speedup_vs_n1"),
+    # **D6/D7 item 7, restored.** The survey has carried these since it was
+    # written; the ramp journal -- where every headline speedup figure lives --
+    # did not. `contract.ramp` states the cost of dropping them: the bias `max`
+    # introduces over repeats is "unrecoverable afterwards", and the campaign
+    # of 2026-08-19/20 measured it 149 times in the survey and zero times for
+    # the twelve ramp cells D1 and D2 were decided on.
+    "repeats": ("repeats",),
+    "repeat_spread": ("repeat_spread",),
+    # The per-level ratio the plateau is read from. Recomputable from `levels`,
+    # carried anyway: a reader checking a plateau should not have to reproduce
+    # the arithmetic to see the curve the plateau was read off.
+    "speedup_vs_n1": ("speedup_vs_n1",),
+    "method": None,
+}
+
+#: Why a field in :data:`RAMP_ROW_DISPOSITION` is not carried. Dropping is
+#: allowed; dropping silently is not.
+RAMP_ROW_DROPPED: dict[str, str] = {
+    "method": (
+        "prose, identical on every row, and it is a constant in "
+        "contract.ramp's own source where a reader can cite it by line. "
+        "Repeating it per row would grow the journal without making any "
+        "figure more interpretable."
+    ),
+}
+
+
+#: What becomes of every key :func:`vllm.claim` returns, when this module writes
+#: a launch row. Same contract as :data:`RAMP_ROW_DISPOSITION` and enforced by
+#: the same test -- see ``tests/test_sink_conformance.py``.
+LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    "backend": ("engine",),
+    "model": ("model",),
+    "verified": ("verified",),
+    "checks": (
+        "start_seconds",
+        "launcher",
+        "restarted",
+        "reason",
+        "gpu_used_mib",
+        "allocation_present",
+        "served_models",
+        "weights_sha256",
+        "digest_seconds",
+    ),
+    "declarations_ignored": ("declarations_ignored",),
+}
+
+#: Why a field in :data:`LAUNCH_ROW_DISPOSITION` is not carried.
+LAUNCH_ROW_DROPPED: dict[str, str] = {}
+
+
+def _launch_row(
+    host: str, model: str, width: int | None, claimed: dict[str, Any]
+) -> dict[str, Any]:
+    """One vLLM launch, and what it cost -- D6's START_TIMEOUT_S evidence.
+
+    A row of its own rather than fields folded into the ramp rows: one launch
+    serves every token count at that width, so folding it in would repeat the
+    same timing under several keys and invite someone to average them.
+    """
+    checks = claimed.get("checks") or {}
+    started = checks.get("started") or {}
+    weights = checks.get("weights") or {}
+    return {
+        "phase": "ramp",
+        "metric": "launch",
+        "engine": claimed.get("backend"),
+        "host": host,
+        "model": claimed.get("model") or model,
+        "configured_width": width,
+        "verified": claimed.get("verified"),
+        # The four D6 asked for, at the only moment anything can answer them.
+        "start_seconds": started.get("start_seconds"),
+        "launcher": started.get("launcher"),
+        "restarted": started.get("restarted"),
+        "reason": started.get("reason"),
+        "gpu_used_mib": checks.get("gpu_used_mib"),
+        "allocation_present": checks.get("allocation_present"),
+        "served_models": checks.get("served_models"),
+        "weights_sha256": weights.get("weights_sha256"),
+        "digest_seconds": weights.get("digest_seconds"),
+        "declarations_ignored": claimed.get("declarations_ignored"),
+    }
+
+
 def _one_ramp(
     out: Path,
     base: str,
@@ -730,6 +891,12 @@ def _one_ramp(
             "latency_plateau_n": readings.get("latency_plateau_n"),
             "max_speedup_vs_n1": readings.get("max_speedup_vs_n1"),
             "levels": result.get("levels"),
+            # The three fields the sink dropped for a whole campaign. See
+            # RAMP_ROW_DISPOSITION: `repeat_spread` is the only error bar any
+            # speedup figure in this file will ever have.
+            "speedup_vs_n1": result.get("speedup_vs_n1"),
+            "repeats": result.get("repeats"),
+            "repeat_spread": result.get("repeat_spread"),
         },
     )
     print(

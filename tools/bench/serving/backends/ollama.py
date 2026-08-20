@@ -520,6 +520,22 @@ def claim(
     )
 
 
+def slots_now(host: str) -> dict[str, Any]:
+    """This host's declared slot count, without a full :func:`describe`.
+
+    The ramp needs the same number the survey records and cannot pay for a
+    capture to get it: :func:`describe` probes the endpoint and builds the whole
+    ``observed`` block, which is minutes of work for one integer.
+
+    It went without. Every ollama row in the ramp journal carries
+    ``declared_slots: null`` while the survey read ``total_slots`` off
+    ``/props`` seventeen times on the same two hosts -- so the ollama arm of a
+    width comparison could not say, from its own row, whether it was measured
+    against one slot or two. The value was reachable the whole time.
+    """
+    return declared_slots(_server(host))
+
+
 def describe(
     host: str,
     base: str,

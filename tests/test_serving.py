@@ -1530,6 +1530,28 @@ def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
     cal: Any = _by_path("supersede_cal", SERVING / "calibrate.py")
     out = tmp_path / "c.jsonl"
     sample = {"phase": "ramp", "host": "srv2", "engine": "vllm", "model": "m"}
+
+    # DE-D's own case, restated with a REFUSAL as the superseding row. A refusal
+    # is an answer about this rig at these settings, so a plain resume counts
+    # the cell done and only `--retry-failed` re-does it -- which is the
+    # ordering property this test was written for.
+    out.write_text(
+        json.dumps({**sample, "saturation_n": 8})
+        + "\n"
+        + json.dumps({**sample, "saturation_refused": "the curve never rose"})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert len(cal.completed(out)) == 1
+    assert cal.completed(out, retry_failed=True) == set()
+
+    # **Changed 2026-08-20 (A6).** This assertion used to read `== 1` with an
+    # `error` row superseding the success, which pinned the defect rather than
+    # the property: an exception is not an answer, nothing was learned, and the
+    # cell is still owed. Counting it done made a cell lost to a transient error
+    # unrecoverable by the `--resume` the campaign driver runs. DE-D's ordering
+    # is unchanged and is asserted above; what changed is which failures a plain
+    # resume forgives.
     out.write_text(
         json.dumps({**sample, "saturation_n": 8})
         + "\n"
@@ -1537,7 +1559,7 @@ def test_calibrate_retry_failed_does_not_resurrect_a_superseded_sample(
         + "\n",
         encoding="utf-8",
     )
-    assert len(cal.completed(out)) == 1
+    assert cal.completed(out) == set()
     assert cal.completed(out, retry_failed=True) == set()
 
 
