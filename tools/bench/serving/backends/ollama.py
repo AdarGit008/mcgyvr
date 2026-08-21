@@ -332,6 +332,9 @@ def claim(
         )
     trail: list[dict[str, Any]] = []
     for attempt in range(1, LOAD_ATTEMPTS + 1):
+        # #325: each attempt on a timeline. The release is inside the span
+        # because it is this attempt's doing -- the card is cleared FOR it.
+        attempt_started_at = contract.now()
         released = release(host)
         # Loaded AFTER the release, so the neighbours are this attempt's doing
         # and not a leftover — and before the model under test, so the card is
@@ -385,6 +388,7 @@ def claim(
         floor = placement.get("min_vram_fraction")
         check = {
             "attempt": attempt,
+            "started_at": attempt_started_at,
             # Reads the card, not this backend's process count. See the
             # docstring — the old field was the same name and a different fact.
             "card_idle_before_load": released.get("card_idle"),
@@ -429,6 +433,8 @@ def claim(
             )
         )
         check["card_used_mib_after_load"] = card_now
+        # The last read of the attempt; the verdict below is arithmetic.
+        check["ended_at"] = contract.now()
         # **DE-E: `None` is not evidence of agreement.** The pre-load gate is
         # `card_idle_before_load is True` precisely because a failed reading is
         # not a clean card; this one was `card_now is not None and ...`, so a

@@ -30,6 +30,8 @@ which is the defect.
 from __future__ import annotations
 
 import ast
+import datetime
+import hashlib
 import importlib.util
 import json
 import sys
@@ -549,6 +551,15 @@ SINK_EXEMPT: dict[str, str] = {
         "literal refusal row: claim raised; the exception's `reasons` and "
         "text are carried, its attempt trail is not (#326 owns that)"
     ),
+    # #325: the phase rows. Scalars off the clock seam; nothing is dropped.
+    "calibrate.py::main::?/phase": (
+        "scalar: the phase's own span and its length, read off contract.now "
+        "at the run's start and end; the phase name is argv's, hence `?`"
+    ),
+    "run.py::run::span": (
+        "scalar: the survey's own span and its length, read off contract.now; "
+        "the same dict is set on the document as result['run']"
+    ),
 }
 
 PHASE_FUNCTIONS = {
@@ -619,10 +630,15 @@ def _sinks(path: Path) -> dict[str, tuple[str, int]]:
         if not isinstance(node, ast.Call):
             continue
         name = _sink_name(node.func)
+        # A keyword spelling -- `emit(out=o, row=r)` -- must not be a way to
+        # write a row the census does not see.
+        keyed_row = next((kw.value for kw in node.keywords if kw.arg == "row"), None)
         if name == "emit" and len(node.args) >= 2:
             row = node.args[1]
         elif name == "record" and len(node.args) >= 1:
             row = node.args[0]
+        elif name in ("emit", "record") and keyed_row is not None:
+            row = keyed_row
         else:
             continue
         found.append((enclosing[node], _row_site(row), node.lineno))
@@ -720,6 +736,7 @@ def test_a_sink_cannot_hide_from_the_census(tmp_path: Path) -> None:
         "    def inner():\n"
         '        emit(out, {"phase": "p", "metric": "in_a_nested_def"})\n'
         '    calibrate.emit(out, {"phase": "p", "metric": "via_attribute"})\n'
+        '    emit(out=out, row={"phase": "p", "metric": "by_keyword"})\n'
         'emit(None, {"phase": "p", "metric": "at_module_level"})\n',
         encoding="utf-8",
     )
@@ -727,6 +744,7 @@ def test_a_sink_cannot_hide_from_the_census(tmp_path: Path) -> None:
         "hidden.py::write::p/in_a_method",
         "hidden.py::inner::p/in_a_nested_def",
         "hidden.py::phase::p/via_attribute",
+        "hidden.py::phase::p/by_keyword",
         "hidden.py::<module>::p/at_module_level",
     }
 
@@ -995,8 +1013,9 @@ class _SurveyBackend:
 
 
 def _survey_row(
-    resident: list[str] | Exception,
+    resident: list[str] | Exception, journal: Path | None = None
 ) -> tuple[dict[str, Any], _SurveyBackend, dict[str, Any]]:
+    """One survey cell's row. With ``journal``, the real sink writes there."""
     runner: Any = _by_path("serving_run_survey_sink", RUN)
     backend = _SurveyBackend(resident)
     ramp = {"saturation": {"n": 4}, "levels": [1], "repeats": 2}
@@ -1004,7 +1023,21 @@ def _survey_row(
     runner.contract.snapshot = lambda host: {}
     runner.contract.ramp = lambda *a, **k: dict(ramp)
     rows: list[dict[str, Any]] = []
-    runner._journal = lambda path: rows.append
+    if journal is None:
+        runner._journal = lambda path, stamp=None: rows.append
+    else:
+        real = runner._journal
+
+        def spy(path: Path | None, stamp: dict[str, Any] | None = None) -> Any:
+            append = real(path, stamp)
+
+            def both(record: dict[str, Any]) -> None:
+                rows.append(record)
+                append(record)
+
+            return both
+
+        runner._journal = spy
     runner.run(
         {
             "hosts": ["h"],
@@ -1019,10 +1052,11 @@ def _survey_row(
                 }
             ],
         },
-        journal=Path("unused.jsonl"),
+        journal=journal or Path("unused.jsonl"),
     )
-    assert len(rows) == 1
-    return rows[0], backend, ramp
+    cells = [r for r in rows if r.get("metric") != "phase"]
+    assert len(cells) == 1 and len(rows) == 2, "one cell row and the phase row"
+    return cells[0], backend, ramp
 
 
 def _at(row: dict[str, Any], dotted: str) -> Any:
@@ -1066,3 +1100,381 @@ def test_the_survey_sink_records_a_residency_read_that_raised() -> None:
     assert row["coresidency_after_error"] == "ssh died"
     assert row["coresidency_after"]["resident"] == []
     assert row["outcome"] == "ramp_failed"
+
+
+# --- #325: a clock on every row, and the tree that ran -----------------------
+#
+# Every duration the harness recorded was a `time.monotonic()` delta, which
+# cannot be placed on a timeline. On the 2026-08-20 campaign 8,185.3 s of the
+# 14,404 s ramp phase belonged to no row, and no journal named the commit, a
+# config digest or the run's start. These tests hold the stamp to its
+# disposition, the spans to every sink and claim attempt, and show the phase's
+# remainder to be a sum of named terms rather than a number nobody can account
+# for.
+
+
+def _is_utc_instant(text: Any) -> bool:
+    if not isinstance(text, str):
+        return False
+    when = datetime.datetime.fromisoformat(text)
+    return when.utcoffset() == datetime.timedelta(0)
+
+
+FAKE_STAMP: dict[str, Any] = {
+    "commit": "deadbeef",
+    "commit_unknown_reason": None,
+    "tree_dirty": False,
+    "harness_sha256": "0" * 64,
+    "config_sha256": None,
+    "argv": ["--phase", "ramp"],
+    "run_started_at": "2026-08-21T00:00:00.000+00:00",
+}
+
+
+def test_provenance_names_the_tree_that_ran_or_says_why_it_cannot(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`commit` and `tree_dirty` travel together; no git is said, not raised."""
+
+    def git(status: str | None, head: str | None = "abc123\n") -> Any:
+        return lambda *args: head if args[0] == "rev-parse" else status
+
+    monkeypatch.setattr(contract, "_git", git(""))
+    clean = contract.provenance()
+    assert set(clean) == set(contract.PROVENANCE_DISPOSITION), (
+        "the stamp's key set is PROVENANCE_DISPOSITION's, both directions"
+    )
+    assert clean["commit"] == "abc123" and clean["tree_dirty"] is False
+    assert clean["commit_unknown_reason"] is None
+    assert len(clean["harness_sha256"]) == 64
+    assert _is_utc_instant(clean["run_started_at"])
+
+    monkeypatch.setattr(contract, "_git", git(" M tools/bench/serving/run.py\n"))
+    assert contract.provenance()["tree_dirty"] is True
+
+    monkeypatch.setattr(contract, "_git", git(None, head=None))
+    without = contract.provenance()
+    assert without["commit"] is None and without["tree_dirty"] is None
+    assert isinstance(without["commit_unknown_reason"], str)
+    assert "git" in without["commit_unknown_reason"]
+    # Every field is carried: nothing to explain in a DROPPED table.
+    for field, keys in contract.PROVENANCE_DISPOSITION.items():
+        assert keys == (field,)
+
+
+def test_the_digests_move_when_a_harness_byte_or_an_underscore_key_is_edited(
+    contract: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`config_sha256` is over the bytes read, so a `_`-key edit moves it --
+    the 2026-08-20 campaign's `_`-key hand-edit is recorded nowhere -- and
+    `harness_sha256` moves on one byte of the harness."""
+    monkeypatch.setattr(contract, "_git", lambda *a: None)
+    body = b'{"hosts": ["h"]}'
+    edited = b'{"hosts": ["h"], "_note": "decided by hand"}'
+    assert (
+        contract.provenance(body)["config_sha256"] == hashlib.sha256(body).hexdigest()
+    )
+    assert (
+        contract.provenance(body)["config_sha256"]
+        != contract.provenance(edited)["config_sha256"]
+    )
+    assert contract.provenance()["config_sha256"] is None, "calibrate has no config"
+    assert contract.provenance(argv=["--phase", "ramp"])["argv"] == ["--phase", "ramp"]
+
+    contract._product()  # loaded from the real tree before REPO is moved
+    harness = tmp_path / "tools" / "bench" / "serving"
+    harness.mkdir(parents=True)
+    (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 475\n")
+    (harness / "__pycache__").mkdir()
+    (harness / "__pycache__" / "contract.pyc").write_bytes(b"derived")
+    monkeypatch.setattr(contract, "REPO", tmp_path)
+    before = contract.provenance()["harness_sha256"]
+    (harness / "__pycache__" / "contract.pyc").write_bytes(b"re-derived")
+    assert contract.provenance()["harness_sha256"] == before, "derived files are out"
+    (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 476\n")
+    assert contract.provenance()["harness_sha256"] != before
+
+
+def _span_ordered(row: dict[str, Any]) -> None:
+    assert _is_utc_instant(row.get("started_at")), row
+    assert _is_utc_instant(row.get("ended_at")), row
+    assert row["started_at"] <= row["ended_at"], row
+
+
+def _stamped(row: dict[str, Any], stamp: dict[str, Any]) -> None:
+    for field, keys in sys.modules["serving_contract"].PROVENANCE_DISPOSITION.items():
+        for key in keys:
+            assert key in row, f"{key} is not on the row"
+            assert row[key] == stamp[field]
+
+
+def _drive_sleep(
+    calibrate: Any, claimed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`sleep_run`'s seams, with the real `emit` left in place."""
+    cards = iter([11109, 189, 11000] * 4)
+    backends = {"vllm": _SleepVllm(claimed), "ollama": _SleepOllama()}
+    monkeypatch.setattr(calibrate.contract, "load_backend", lambda n: backends[n])
+    monkeypatch.setattr(
+        calibrate.contract, "get_json", lambda *a, **k: {"is_sleeping": True}
+    )
+    monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
+    monkeypatch.setattr(calibrate, "_card_mib", lambda host: next(cards))
+    monkeypatch.setattr(calibrate, "_post", lambda *a, **k: {"status": 200})
+    monkeypatch.setattr(calibrate.time, "sleep", lambda s: None)
+
+
+def _rows(path: Path) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_the_stamp_reaches_the_ramp_launch_sleep_and_survey_rows_and_every_claim_attempt(  # noqa: E501
+    calibrate: Any,
+    contract: Any,
+    claimed: dict[str, Any],
+    ollama_attempt: dict[str, Any],
+    produced: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Through the real sinks, to real files, read back."""
+    monkeypatch.setattr(calibrate, "STAMP", dict(FAKE_STAMP))
+    monkeypatch.setattr(contract, "ramp", lambda *a, **k: produced)
+    out = tmp_path / "calibrate.jsonl"
+    calibrate._one_ramp(out, "http://s", "m", "h", "vllm", 4, 475, declared={})
+    calibrate.emit(out, calibrate._launch_row("h", "m", 4, claimed))
+    _drive_sleep(calibrate, claimed, monkeypatch)
+    calibrate.sleep_state(out, ["h"])
+    rows = _rows(out)
+    assert [r.get("metric") for r in rows] == ["ramp", "launch", "sleep", "sleep"]
+    for row in rows:
+        _stamped(row, FAKE_STAMP)
+        _span_ordered(row)
+    launch = rows[1]
+    assert (
+        launch["started_at"]
+        == launch["claim_started_at"]
+        == claimed["checks"]["started_at"]
+    )
+    assert (
+        launch["ended_at"] == launch["claim_ended_at"] == claimed["checks"]["ended_at"]
+    )
+    # The sleep arm's unit is wider than its claim, and holds both spans. The
+    # stubbed claim's span is the fixture's, so only its carriage is checked.
+    assert rows[2]["claim_started_at"] == claimed["checks"]["started_at"]
+    assert rows[2]["claim_ended_at"] == claimed["checks"]["ended_at"]
+
+    # The survey: every row the sink writes, including the phase row.
+    journal = tmp_path / "survey.jsonl"
+    runner: Any = _by_path("serving_run_stamp", RUN)
+    monkeypatch.setattr(runner.contract, "provenance", lambda *a, **k: dict(FAKE_STAMP))
+    _survey_row(["n"], journal=journal)
+    survey = _rows(journal)
+    assert len(survey) == 2
+    for row in survey:
+        _stamped(row, FAKE_STAMP)
+        _span_ordered(row)
+
+    # Every claim attempt, from the claim that built it.
+    for attempt in ollama_attempt["attempts"]:
+        _span_ordered(attempt)
+    _span_ordered(claimed["checks"])
+    load = calibrate._load_row("h", "m", 0, 1.0, True, None, ollama_attempt)
+    assert load["attempt_started_at"] == ollama_attempt["attempts"][-1]["started_at"]
+
+
+def test_the_phase_duration_is_a_row_with_a_clock_not_a_print(
+    calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """One phase row per invocation; a `--resume`d journal holds two."""
+    monkeypatch.setattr(contract, "provenance", lambda *a, **k: dict(FAKE_STAMP))
+    monkeypatch.setattr(calibrate, "ramp", lambda *a, **k: None)
+    out = tmp_path / "ramp.jsonl"
+    argv = ["--phase", "ramp", "--out", str(out), "--hosts", "h", "--resume"]
+    assert calibrate.main(argv) == 0
+    assert calibrate.main(argv) == 0
+    rows = _rows(out)
+    assert [r["metric"] for r in rows] == ["phase", "phase"]
+    for row in rows:
+        assert row["phase"] == "ramp"
+        _span_ordered(row)
+        _stamped(row, FAKE_STAMP)
+        assert row["seconds"] == contract.seconds_between(
+            row["started_at"], row["ended_at"]
+        )
+        assert row["started_at"] == FAKE_STAMP["run_started_at"]
+
+    runner: Any = _by_path("serving_run_phase", RUN)
+    monkeypatch.setattr(runner.contract, "provenance", lambda *a, **k: dict(FAKE_STAMP))
+    journal = tmp_path / "survey.jsonl"
+    _survey_row(["n"], journal=journal)
+    _survey_row(["n"], journal=journal)
+    phases = [r for r in _rows(journal) if r.get("metric") == "phase"]
+    assert len(phases) == 2 and all(r["phase"] == "survey" for r in phases)
+    # And the document carries the same four, beside the stamp.
+    document = runner.run(
+        {"hosts": [], "backends": ["alpha"], "models": []}, journal=None
+    )
+    assert set(document["run"]) == set(FAKE_STAMP) | {
+        "metric",
+        "started_at",
+        "ended_at",
+        "seconds",
+    }
+    assert document["run"]["metric"] == "phase"
+
+
+def test_a_phase_row_is_not_a_cell_for_resume(calibrate: Any, tmp_path: Path) -> None:
+    """ "resuming: N samples" counts cells; the phase row is not one."""
+    cell = {
+        "phase": "ramp",
+        "host": "h",
+        "engine": "vllm",
+        "model": "m",
+        "configured_width": 4,
+        "tokens": 475,
+        "metric": "ramp",
+    }
+    span = {"phase": "ramp", "metric": "phase", "started_at": "x", "ended_at": "y"}
+    journal = tmp_path / "ramp.jsonl"
+    journal.write_text(json.dumps(cell) + "\n" + json.dumps(span) + "\n")
+    assert calibrate.completed(journal) == {calibrate.key(cell)}
+    assert calibrate.completed(journal, retry_failed=True) == {calibrate.key(cell)}
+
+    runner: Any = _by_path("serving_run_resume_phase", RUN)
+    survey = tmp_path / "survey.jsonl"
+    survey.write_text(
+        json.dumps({"host": "h", "label": "one", "outcome": "ok"})
+        + "\n"
+        + json.dumps({"phase": "survey", **span})
+        + "\n"
+        # Belt and braces: a phase row that somehow carried a host and label.
+        + json.dumps({"host": "h", "label": "two", **span})
+        + "\n"
+    )
+    assert set(runner.completed(survey)) == {"h\x00one"}
+
+
+class _FakeClock:
+    """Advances only where a seam says it does."""
+
+    def __init__(self, contract: Any) -> None:
+        self.t = 1_000_000.0
+        self.contract = contract
+        self.inside: dict[str, float] = {}
+
+    def now(self) -> str:
+        return str(self.contract.stamp(self.t))
+
+    def spend(self, term: str, seconds: float) -> None:
+        self.t += seconds
+        self.inside[term] = self.inside.get(term, 0.0) + seconds
+
+
+def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
+    calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """phase span - sum(launch + ramp row spans) == the clock spent inside the
+    seams that write no row. On 2026-08-20 that remainder was 8,185.3 s and
+    no file held its split; here every second of it has a name.
+
+    The seams: `release` (both engines), `ollama.slots_now`,
+    `vllm.declared_slots` -- and `ollama.claim` in the ramp phase, which loads
+    a model and writes no row (the load phase's claim does; #326/#327 own
+    whether the ramp's should).
+    """
+    clock = _FakeClock(contract)
+    monkeypatch.setattr(contract, "now", clock.now)
+    monkeypatch.setattr(calibrate, "STAMP", dict(FAKE_STAMP))
+    monkeypatch.setattr(calibrate, "WIDTHS", (1, 2))
+    monkeypatch.setattr(calibrate, "TOKEN_COUNTS", (475,))
+
+    def ramp(*a: Any, **k: Any) -> dict[str, Any]:
+        clock.spend("contract.ramp", 100.0)
+        return {
+            "levels": [{"n": 1, "wall_s": 40.0}, {"n": 2, "wall_s": 40.0}],
+            "repeats": 2,
+            "saturation": {"n": 2},
+            "readings": {},
+        }
+
+    class Vllm:
+        NAME, PORT = "vllm", 8000
+
+        def release(self, host: str) -> None:
+            clock.spend("release", 7.0)
+
+        def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+            started_at = contract.now()
+            clock.spend("vllm.claim", 60.0)
+            return {
+                "backend": "vllm",
+                "verified": True,
+                "checks": {"started_at": started_at, "ended_at": contract.now()},
+            }
+
+        def declared_slots(self, serve: Any, host: str) -> dict[str, Any]:
+            clock.spend("vllm.declared_slots", 9.0)
+            return {"value": serve["max_num_seqs"], "provenance": "observed"}
+
+    class Ollama:
+        def probe(self, host: str) -> str:
+            return "http://h:11434"
+
+        def inventory(self, host: str, base: str) -> list[str]:
+            return ["m"]
+
+        def release(self, host: str) -> None:
+            clock.spend("release", 3.0)
+
+        def slots_now(self, host: str) -> dict[str, Any]:
+            clock.spend("ollama.slots_now", 5.0)
+            return {"value": 2, "provenance": "observed"}
+
+        def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+            clock.spend("ollama.claim", 11.0)
+            return {}
+
+    backends: dict[str, Any] = {"vllm": Vllm(), "ollama": Ollama()}
+    monkeypatch.setattr(contract, "load_backend", lambda n: backends[n])
+    monkeypatch.setattr(contract, "ramp", ramp)
+    monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
+    rows: list[dict[str, Any]] = []
+    monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
+
+    phase_started = contract.now()
+    calibrate.ramp(Path("unused.jsonl"), ["h"])
+    phase_ended = contract.now()
+    phase = contract.seconds_between(phase_started, phase_ended)
+
+    assert [r["metric"] for r in rows] == ["ramp", "launch", "ramp", "launch", "ramp"]
+    spans = 0.0
+    previous = phase_started
+    for row in rows:
+        _span_ordered(row)
+        assert phase_started <= row["started_at"] and row["ended_at"] <= phase_ended
+        assert previous <= row["started_at"], "rows overlap"
+        previous = row["ended_at"]
+        span = contract.seconds_between(row["started_at"], row["ended_at"])
+        spans += span
+        if row["metric"] == "ramp":
+            assert sum(lv["wall_s"] for lv in row["levels"]) <= span, (
+                "both repeats of every level lie inside the ramp row"
+            )
+            assert span == clock.inside["contract.ramp"] / 3
+        else:
+            assert span == 60.0
+    unattributed = {
+        k: v
+        for k, v in clock.inside.items()
+        if k not in ("contract.ramp", "vllm.claim")
+    }
+    assert round(phase - spans, 3) == round(sum(unattributed.values()), 3)
+    assert set(unattributed) == {
+        "release",
+        "ollama.slots_now",
+        "ollama.claim",
+        "vllm.declared_slots",
+    }
+    # vllm.release at the host's top and in `finally` (DE-9); ollama's per width.
+    assert unattributed["release"] == 7.0 * 2 + 3.0 * 2

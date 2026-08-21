@@ -77,8 +77,30 @@ TOKEN_COUNTS: tuple[int, ...] = (32, 128, 512)
 WIDTHS: tuple[int, ...] = (1, 2, 4, 8, 16)
 
 
+#: The provenance stamp every row written by this process carries (#325):
+#: :func:`contract.provenance`, computed once by :func:`main` when the run
+#: begins. Filled on first use when nothing set it, so a row written outside
+#: `main` -- a test driving one phase -- is stamped too rather than stamped
+#: differently.
+STAMP: dict[str, Any] | None = None
+
+
+def _stamp() -> dict[str, Any]:
+    global STAMP
+    if STAMP is None:
+        STAMP = contract.provenance(argv=sys.argv[1:])
+    return STAMP
+
+
 def emit(out: Path, row: dict[str, Any]) -> None:
     """One sample, appended and put on the disk. Written now, not at the end.
+
+    **Stamped here, at the sink (#325).** Every row carries the commit, the
+    harness digest, the argv and the run's start, under
+    :data:`contract.PROVENANCE_DISPOSITION`'s keys. At the sink and not in
+    each builder because there are nineteen builders and one sink, and the
+    census in ``tests/test_sink_conformance.py`` proves every write passes
+    through here. A row's own keys win, which none of them overlap.
 
     ``fsync``, not just ``flush``. A flush hands the bytes to the kernel, which
     is enough to survive this process dying and not enough to survive the box
@@ -90,7 +112,7 @@ def emit(out: Path, row: dict[str, Any]) -> None:
         # Heal a torn tail before appending — see the note above.
         if _ends_mid_line(out):
             handle.write("\n")
-        handle.write(json.dumps(row) + "\n")
+        handle.write(json.dumps({**_stamp(), **row}) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
 
@@ -184,6 +206,11 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
         # by BL-4's "the curve was not measured to its end", and a sleep arm
         # that set `failed` because the card never dropped. Those are precisely
         # the rows a second look might resolve.
+        # #325: the phase row is the phase's own span, not a cell. Its key
+        # would be (phase, None, ...) and a resumed run must never count it as
+        # a sample -- "resuming: N samples" is a count of cells.
+        if row.get("metric") == "phase":
+            continue
         rows[key(row)] = row
     # **DE-D, mirrored from `run.py.completed`.** Filtering DURING the scan let
     # an older `ok` line survive a newer failed one for the same key, so
@@ -293,6 +320,7 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
         for model in ollama.inventory(host, base):
             for index in range(repeats):
                 vllm.release(host)
+                started_at = contract.now()
                 began = time.monotonic()
                 try:
                     claimed = ollama.claim(host, base, model)
@@ -301,6 +329,7 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                     claimed, ok, why = {}, False, f"{type(error).__name__}: {error}"
                 seconds = round(time.monotonic() - began, 3)
                 row = _load_row(host, model, index, seconds, ok, why, claimed)
+                row["started_at"], row["ended_at"] = started_at, contract.now()
                 emit(out, row)
                 if row["vram_fraction"] is not None:
                     emit(
@@ -387,6 +416,7 @@ def ramp(
                 if probe in done:
                     print(f"  {host}/ollama tokens={tokens} — already done", flush=True)
                     continue
+                started_at = contract.now()
                 try:
                     ollama.claim(host, base, model)
                 except Exception as error:
@@ -398,6 +428,8 @@ def ramp(
                             "host": host,
                             "tokens": tokens,
                             "error": str(error)[:200],
+                            "started_at": started_at,
+                            "ended_at": contract.now(),
                         },
                     )
                     continue
@@ -503,6 +535,7 @@ def _widths(
             # effect is unmeasured precisely because it has never been set.
             "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"},
         }
+        started_at = contract.now()
         try:
             ollama.release(host)
             # **A1.** The return value used to be discarded. `vllm.claim` times
@@ -530,6 +563,8 @@ def _widths(
                     "host": host,
                     "width": width,
                     "error": str(error)[:200],
+                    "started_at": started_at,
+                    "ended_at": contract.now(),
                 },
             )
             continue
@@ -564,6 +599,9 @@ def _widths(
                         "tokens": tokens,
                         "refused": declared.get("refused"),
                         "declared_slots": declared,
+                        # Refused before anything ran: an instant, not a span.
+                        "started_at": (refused_at := contract.now()),
+                        "ended_at": refused_at,
                     },
                 )
                 continue
@@ -707,6 +745,10 @@ def sleep_state(
                 "arm": arm,
                 "model": model,
                 "flags": flags,
+                # #325: the arm's own span, from the release that makes room
+                # to the write. The claim's span is carried beside it as
+                # `claim_started_at`/`claim_ended_at` by `_claim_fields`.
+                "started_at": contract.now(),
             }
             try:
                 ollama.release(host)
@@ -748,6 +790,7 @@ def sleep_state(
                     # flag inside 900 s IS an answer and stays a refusal; a card
                     # read that returned nothing is not.
                     row["error"] = unmeasured
+                    row["ended_at"] = contract.now()
                     emit(out, row)
                     print(f"  {host}/{arm}: UNMEASURED — {unmeasured}", flush=True)
                     continue
@@ -779,6 +822,7 @@ def sleep_state(
                 row["refused"] = f"{type(error).__name__}: {error}"
             finally:
                 vllm.release(host)
+            row["ended_at"] = contract.now()
             emit(out, row)
             print(
                 f"  {host}/{arm}: {'FAILED ' if row.get('failed') else ''}"
@@ -847,6 +891,11 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "model": ("model",),
     "verified": ("verified",),
     "checks": (
+        # #325: the claim's span, `checks.started_at`/`ended_at`, carried
+        # under the claim's name so a sink with a wider unit (the sleep arm)
+        # can hold its own `started_at` beside it.
+        "claim_started_at",
+        "claim_ended_at",
         "start_seconds",
         "launcher",
         "restarted",
@@ -889,6 +938,10 @@ LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # D6's "does a second attempt ever rescue a first": the ordinal of the
     # attempt whose record this is (on a success, the one that succeeded).
     "attempt": ("attempt",),
+    # #325: the attempt's own span; the row's `started_at`/`ended_at` spans
+    # every attempt, so the two are named apart.
+    "started_at": ("attempt_started_at",),
+    "ended_at": ("attempt_ended_at",),
     "card_idle_before_load": ("card_idle_before_load",),
     "card_used_mib_before_load": ("card_used_mib_before_load",),
     "card_used_mib_after_load": ("card_used_mib_after_load",),
@@ -966,6 +1019,8 @@ def _load_row(
         "ok": ok,
         "why": why,
         "attempt": attempt.get("attempt"),
+        "attempt_started_at": attempt.get("started_at"),
+        "attempt_ended_at": attempt.get("ended_at"),
         "card_idle_before_load": attempt.get("card_idle_before_load"),
         "card_used_mib_before_load": attempt.get("card_used_mib_before_load"),
         "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
@@ -992,13 +1047,17 @@ def _launch_row(
     serves every token count at that width, so folding it in would repeat the
     same timing under several keys and invite someone to average them.
     """
+    fields = _claim_fields(claimed)
     return {
         "phase": "ramp",
         "metric": "launch",
         "host": host,
         "model": claimed.get("model") or model,
         "configured_width": width,
-        **_claim_fields(claimed),
+        # The launch row's unit IS the claim, so its span is the claim's.
+        "started_at": fields["claim_started_at"],
+        "ended_at": fields["claim_ended_at"],
+        **fields,
     }
 
 
@@ -1016,6 +1075,8 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
     return {
         "engine": claimed.get("backend"),
         "verified": claimed.get("verified"),
+        "claim_started_at": checks.get("started_at"),
+        "claim_ended_at": checks.get("ended_at"),
         # The four D6 asked for, at the only moment anything can answer them.
         "start_seconds": started.get("start_seconds"),
         "launcher": started.get("launcher"),
@@ -1043,6 +1104,7 @@ def _one_ramp(
     """One ramp, every level recorded so thresholds can be re-derived later."""
     original = contract.RAMP_TOKENS
     contract.RAMP_TOKENS = tokens
+    started_at = contract.now()
     try:
         result = contract.ramp(base, model)
     except Exception as error:
@@ -1056,11 +1118,14 @@ def _one_ramp(
                 "width": width,
                 "tokens": tokens,
                 "error": str(error)[:200],
+                "started_at": started_at,
+                "ended_at": contract.now(),
             },
         )
         return
     finally:
         contract.RAMP_TOKENS = original
+    ended_at = contract.now()
     readings = result.get("readings") or {}
     saturated = result.get("saturation") or {}
     emit(
@@ -1072,6 +1137,11 @@ def _one_ramp(
             "host": host,
             "model": model,
             "configured_width": width,
+            # #325: the curve on a timeline. `levels[].wall_s` sums to what
+            # the requests took; this is when the ramp ran, so the phase's
+            # remaining minutes can be attributed to the seams between rows.
+            "started_at": started_at,
+            "ended_at": ended_at,
             # D1: what the server SAYS, beside what the curve did, each with
             # its provenance. `configured_width` above is what this run asked
             # for; this is what the host reports it is running.
@@ -1215,6 +1285,10 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     hosts = [h.strip() for h in args.hosts.split(",") if h.strip()]
+    # #325: stamped once, when the run begins; `emit` puts it on every row.
+    global STAMP
+    STAMP = contract.provenance(argv=list(argv) if argv is not None else sys.argv[1:])
+    started_at = STAMP["run_started_at"]
     began = time.monotonic()
     # Only the two phases that CONSULT `done` are told to resume. `fast` and
     # `load` ignore it, and printing "resuming: N samples" while re-running
@@ -1255,6 +1329,21 @@ def main(argv: list[str] | None = None) -> int:
             tuple(e.strip() for e in args.engines.split(",")),
             done,
         )
+    # #325: the phase's duration is a ROW, not only a print. The print went
+    # to a log that no reader of the journal holds, and the journal could not
+    # say how long the phase it records took, nor when. One row per
+    # invocation: a phase `--resume`d twice holds two spans, which is true.
+    ended_at = contract.now()
+    emit(
+        args.out,
+        {
+            "phase": args.phase,
+            "metric": "phase",
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "seconds": contract.seconds_between(started_at, ended_at),
+        },
+    )
     print(f"{args.phase} finished in {time.monotonic() - began:.0f}s -> {args.out}")
     return 0
 

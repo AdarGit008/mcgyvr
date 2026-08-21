@@ -362,6 +362,10 @@ def claim(
             "here is `weights_sha256`, a sha256 over every tensor's bytes in "
             "the checkpoint. Nothing was measured, and nothing was restarted."
         )
+    # #325: the whole claim on a timeline, not only its launch as a delta.
+    # `start_seconds` below says how long the launch took; this says WHEN the
+    # claim ran, so a ramp phase's minutes can be attributed row by row.
+    claim_started_at = contract.now()
     running = _running_config(base)
     if running and running.get("model") == model and _matches(running, serve):
         started = {"restarted": False, "reason": "already serving this configuration"}
@@ -376,6 +380,8 @@ def claim(
     digest = weights_sha256(host, model)
     wanted = expect.get("weights_sha256")
     check = {
+        "started_at": claim_started_at,
+        "ended_at": contract.now(),
         "started": started,
         "gpu_used_mib": allocated,
         "allocation_present": (allocated or 0) >= MIN_ALLOCATION_MIB,

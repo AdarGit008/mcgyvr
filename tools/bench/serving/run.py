@@ -68,8 +68,13 @@ def _contract() -> types.ModuleType:
 contract = _contract()
 
 
-def _journal(path: Path | None) -> Any:
+def _journal(path: Path | None, stamp: dict[str, Any] | None = None) -> Any:
     """Append one record and put it on the disk, or do nothing.
+
+    ``stamp`` is :func:`contract.provenance`'s dict and every record carries it
+    under :data:`contract.PROVENANCE_DISPOSITION`'s keys (#325) -- merged here,
+    at the sink, where the census in ``tests/test_sink_conformance.py`` proves
+    every write passes. The record's own keys win; none overlap.
 
     **D8, 2026-08-19: a durable output, written as the run goes.** The
     end-of-run write and the abort handler both depend on the process living
@@ -83,8 +88,10 @@ def _journal(path: Path | None) -> Any:
     """
     if path is None:
         return lambda record: None
+    stamp = stamp or {}
 
     def append(record: dict[str, Any]) -> None:
+        record = {**stamp, **record}
         with path.open("a", encoding="utf-8") as handle:
             # A torn last line — no trailing newline, which is what a crash
             # mid-append leaves — would otherwise have this record concatenated
@@ -139,7 +146,9 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
             # one entry is simply re-measured.
             continue
         host, label = row.get("host"), row.get("label")
-        if host and label:
+        # #325: the survey's phase row has neither, and is excluded by name as
+        # well so the rule is stated rather than incidental.
+        if host and label and row.get("metric") != "phase":
             rows[f"{host}\u0000{label}"] = row
     # **DE-D: last write wins FIRST, then the failures are dropped.** Filtering
     # during the scan let an older `ok` line survive a newer `refused` one, so
@@ -180,14 +189,19 @@ def run(
     config: dict[str, Any],
     journal: Path | None = None,
     resume: dict[str, Any] | None = None,
+    stamp: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The whole survey, as the config describes it.
 
     ``journal``, when given, receives one JSON line per completed entry the
     moment it completes — see :func:`_journal`. ``resume`` is what a previous
     run of the same survey already measured, from :func:`completed`.
+    ``stamp`` is :func:`contract.provenance` for this run (#325); computed
+    here when the caller did not, so a run is never unstamped.
     """
-    record = _journal(journal)
+    stamp = stamp or contract.provenance(argv=sys.argv[1:])
+    started_at = stamp["run_started_at"]
+    record = _journal(journal, stamp)
     resume = resume or {}
     hosts: list[str] = config.get("hosts") or []
     entries: list[dict[str, Any]] = config.get("models") or []
@@ -328,6 +342,9 @@ def run(
                     )
                 continue
             print(f"[{host}] {label} ({name}) — yielding the card", flush=True)
+            # #325: the cell's span opens with the release that makes room for
+            # it and closes at the write, on every path below.
+            cell_started_at = contract.now()
 
             # THE exclusion, and the only one. Every other backend gives up the
             # card; the one under test is never touched by this loop.
@@ -385,6 +402,8 @@ def run(
                     "refused_stage": "exclusion",
                     "refused": why,
                     "yielded": yielded,
+                    "started_at": cell_started_at,
+                    "ended_at": contract.now(),
                 }
                 record({"host": host, "label": label, **row_out})
                 continue
@@ -440,6 +459,8 @@ def run(
                     "refused_kind": type(error).__name__,
                     "refused": str(error),
                     "yielded": yielded,
+                    "started_at": cell_started_at,
+                    "ended_at": contract.now(),
                 }
                 record({"host": host, "label": label, **row_out})
                 continue
@@ -458,6 +479,7 @@ def run(
                 "outcome": "ok",
                 "yielded": yielded,
                 "claim": claimed,
+                "started_at": cell_started_at,
             }
             entry["measured"][label] = row
             # Described and ramped INSIDE a guard, and the row is already in the
@@ -577,9 +599,22 @@ def run(
                     )
             # Outside the guard: the row is terminal either way, and a row that
             # failed to describe is exactly the one worth having on disk.
+            row["ended_at"] = contract.now()
             record({"host": host, "label": label, **row})
 
     result["families"] = verdicts(result)
+    # #325: the survey's own span, as a journal row and on the document. The
+    # 2026-08-20 survey's "4 h 53 m" was derived from a residual of clock
+    # readings and a pair of mtimes, which agreed; neither is a record.
+    ended_at = contract.now()
+    span = {
+        "metric": "phase",
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "seconds": contract.seconds_between(started_at, ended_at),
+    }
+    record({"phase": "survey", **span})
+    result["run"] = {**stamp, **span}
     return result
 
 
@@ -738,7 +773,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    config = json.loads(args.config.read_text(encoding="utf-8"))
+    # #325: the bytes are what `config_sha256` is over -- the file as read,
+    # before the `--hosts` override that the document records separately.
+    config_bytes = args.config.read_bytes()
+    config = json.loads(config_bytes.decode("utf-8"))
+    stamp = contract.provenance(
+        config_bytes, argv=list(argv) if argv is not None else sys.argv[1:]
+    )
     if args.hosts:
         config["hosts"] = [h.strip() for h in args.hosts.split(",") if h.strip()]
 
@@ -792,7 +833,7 @@ def main(argv: list[str] | None = None) -> int:
     if prior:
         print(f"resuming: {len(prior)} entries already measured", flush=True)
     try:
-        result = run(config, journal=journal, resume=prior)
+        result = run(config, journal=journal, resume=prior, stamp=stamp)
     except BaseException as error:
         teardown(config)
         partial = {

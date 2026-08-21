@@ -1434,7 +1434,8 @@ def test_a_crashed_survey_resumes_instead_of_restarting(
     journal = tmp_path / "journal.jsonl"
     runner.run(config, journal=journal)
     assert len(table["alpha"].claimed) == 2
-    assert len(journal.read_text(encoding="utf-8").strip().splitlines()) == 2
+    # Two cells and, since #325, the survey's own phase row.
+    assert len(journal.read_text(encoding="utf-8").strip().splitlines()) == 3
 
     prior = runner.completed(journal)
     assert set(prior) == {"h\x00one", "h\x00two"}
@@ -1444,6 +1445,58 @@ def test_a_crashed_survey_resumes_instead_of_restarting(
     # Nothing was claimed again, and the rows are still in the result.
     assert table["alpha"].claimed == []
     assert sorted(result["hosts"]["h"]["measured"]) == ["one", "two"]
+
+
+def test_every_survey_journal_row_carries_the_stamp_its_document_carries(
+    runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#325: one run, one stamp, on every journal row and on `result["run"]`.
+
+    Driven through `main` so `config_sha256` is over the bytes the file held
+    -- including a `_`-key that the survey ignores and the digest must not.
+    """
+    import hashlib
+
+    _stub(runner, monkeypatch)
+    config = tmp_path / "survey.json"
+    config.write_bytes(
+        json.dumps(
+            {
+                "hosts": ["h"],
+                "backends": ["alpha", "beta"],
+                "models": [
+                    {"label": "one", "backend": "alpha", "id": "m", "_why": "x"},
+                    {"label": "two", "backend": "beta", "id": "m"},
+                ],
+            }
+        ).encode("utf-8")
+    )
+    out = tmp_path / "survey.out.json"
+    assert runner.main(["--config", str(config), "--out", str(out)]) == 0
+    document = json.loads(out.read_text(encoding="utf-8"))
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "survey.out.json.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(rows) == 3, "two cells and the phase row"
+    fields = (
+        "commit",
+        "tree_dirty",
+        "harness_sha256",
+        "config_sha256",
+        "run_started_at",
+    )
+    stamp = {k: document["run"][k] for k in fields}
+    assert stamp["config_sha256"] == hashlib.sha256(config.read_bytes()).hexdigest()
+    assert stamp["harness_sha256"] and stamp["run_started_at"]
+    for row in rows:
+        assert {k: row[k] for k in fields} == stamp
+        assert row["started_at"] <= row["ended_at"]
+    phase = rows[-1]
+    assert phase["metric"] == "phase" and phase["started_at"] == stamp["run_started_at"]
+    assert document["run"]["seconds"] == phase["seconds"]
 
 
 def test_resume_keeps_a_refusal_but_retry_failed_drops_it(tmp_path: Path) -> None:

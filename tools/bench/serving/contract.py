@@ -51,6 +51,8 @@ OpenAI-compatible HTTP and token arithmetic, and the machine readings are
 
 from __future__ import annotations
 
+import datetime
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -194,6 +196,122 @@ class RefusedError(NotCleanError):
     def __init__(self, message: str, reasons: list[str] | None = None) -> None:
         super().__init__(message)
         self.reasons = reasons or []
+
+
+# --- the clock, and the tree that ran (#325) ---------------------------------
+#
+# Every duration this harness recorded before #325 was a `time.monotonic()`
+# delta. A delta cannot be placed on a timeline, so on the 2026-08-20 campaign
+# 8,185 s of a 14,404 s ramp phase belonged to no row, and no journal named
+# the commit, the config or the moment the run began: that the campaign ran
+# from session 5's tree was inferred from the clock and recorded nowhere.
+#
+# One clock seam, `now`, and one stamp, `provenance`. Rows carry instants as
+# UTC ISO-8601 strings so a reader can order them across files and against a
+# log; tests stub `now` and drive it, which is how the remainder of a phase is
+# shown to be a sum of named terms rather than a number nobody can account for.
+
+#: The serving harness, as a surface for :func:`provenance`'s
+#: ``harness_sha256`` -- ``product.digest``'s shape (path and content, derived
+#: files excluded) over this directory. Not the product surface: the product
+#: is what a bench measures, and this is the instrument that measures a rig.
+HARNESS_SURFACE: tuple[str, ...] = ("tools/bench/serving",)
+
+
+def stamp(epoch: float) -> str:
+    """An instant as a UTC ISO-8601 string, millisecond precision, ``+00:00``."""
+    when = datetime.datetime.fromtimestamp(epoch, datetime.UTC)
+    return when.isoformat(timespec="milliseconds")
+
+
+def now() -> str:
+    """The wall clock, as :func:`stamp` renders it. THE seam: stub this."""
+    return stamp(time.time())
+
+
+def seconds_between(started_at: str, ended_at: str) -> float:
+    """The span between two :func:`stamp` strings, in seconds."""
+    begin = datetime.datetime.fromisoformat(started_at)
+    end = datetime.datetime.fromisoformat(ended_at)
+    return round((end - begin).total_seconds(), 3)
+
+
+#: Every field :func:`provenance` returns, and the row key each reaches. Every
+#: one is carried, so there is no ``PROVENANCE_DROPPED``. The sinks merge the
+#: stamp under these keys (``calibrate.emit``, ``run._journal``) and
+#: ``tests/test_sink_conformance.py`` holds the key set to this table.
+PROVENANCE_DISPOSITION: dict[str, tuple[str, ...]] = {
+    "commit": ("commit",),
+    "commit_unknown_reason": ("commit_unknown_reason",),
+    "tree_dirty": ("tree_dirty",),
+    "harness_sha256": ("harness_sha256",),
+    "config_sha256": ("config_sha256",),
+    "argv": ("argv",),
+    "run_started_at": ("run_started_at",),
+}
+
+
+def _git(*args: str) -> str | None:
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(REPO), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
+def _product() -> types.ModuleType:
+    slot = "bench_product"
+    cached = sys.modules.get(slot)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        slot, REPO / "tools" / "bench" / "product.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[slot] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def provenance(
+    config_bytes: bytes | None = None, argv: list[str] | None = None
+) -> dict[str, Any]:
+    """What ran, from where, starting when -- stamped onto every row.
+
+    ``commit`` is ``HEAD`` and ``tree_dirty`` says whether that names this
+    tree; a SHA on a dirty tree is worse than none (``product.py``), so the two
+    travel together and ``harness_sha256`` is over the files that actually
+    ran -- ``product.digest``'s own algorithm over :data:`HARNESS_SURFACE`,
+    reused rather than rebuilt. No git at all is recorded as such, beside
+    ``commit: null``, rather than raised: a run on a box without git is still
+    a run whose rows deserve a clock.
+
+    ``config_sha256`` is over the bytes the survey read (``run.py`` has a config
+    file; ``calibrate.py`` has none and carries ``argv``, which both do).
+    ``run_started_at`` is :func:`now` at the moment this is called, which the
+    callers make the moment the run begins.
+    """
+    head = _git("rev-parse", "HEAD")
+    status = _git("status", "--porcelain", "--untracked-files=all")
+    reason = None if head else "git rev-parse HEAD failed: no git, or not a repository"
+    return {
+        "commit": head.strip() if head else None,
+        "commit_unknown_reason": reason,
+        "tree_dirty": None if status is None else bool(status.strip()),
+        "harness_sha256": _product().digest(REPO, HARNESS_SURFACE),
+        "config_sha256": (
+            None if config_bytes is None else hashlib.sha256(config_bytes).hexdigest()
+        ),
+        "argv": list(argv) if argv is not None else None,
+        "run_started_at": now(),
+    }
 
 
 def available_backends() -> list[str]:

@@ -1010,3 +1010,42 @@ Q4_0 on `yi-coder-9b` and `deepseek-coder-v2-16b`, MXFP4 on `gpt-oss-20b`. Conte
 is uniform at 4096 and every digest matched its pin. That is fine for placement,
 which is what the survey is for — and **a real confound for any throughput rate read
 across models.**
+
+## Addendum, 2026-08-21 — the journals carry no clock, and two figures above were derived on record from nothing (#325)
+
+Appended, not edited. Two figures in the 2026-08-20 addendum above are correct
+and could not be checked from the files beside this README, because no row in
+`d7-ramp.jsonl`, `d7-sleep.jsonl` or `d7-survey.json.jsonl` carries an instant:
+every duration the harness wrote was a `time.monotonic()` delta.
+
+**8,185.3 s of the ramp phase belongs to no row.** Method: the phase's
+`ramp finished in 14404s` (`d7-campaign.log:89`) minus the sum of the twelve
+ramp rows' 108 `levels[].wall_s`, which is 6,218.7 s. The 56.8% remainder is
+losing repeats (`contract.ramp` keeps the better of two), ten vLLM launches,
+two weights digests, the releases between cells and the slot reads — in a
+split no file holds. **4 h 53 m for the survey** (table above) agrees with
+the residual of the clock readings at the top of that addendum
+(33,120 − 1,141 − 14,404 = 17,575 s) and with the `d7-sleep.jsonl` →
+`d7-survey.json` mtime gap (19:50 → 00:42); session 5's record does not say
+which it was derived from, and no journal holds either.
+
+**What #325 changed, so the next run does not repeat this.** Every row now
+carries `started_at`/`ended_at` (UTC ISO-8601, one seam: `contract.now`), the
+launch row's span is the claim's, every `ollama.claim` attempt and the
+`vllm.claim` checks are spanned, and each phase writes one
+`{"metric": "phase", "started_at", "ended_at", "seconds"}` row — a `--resume`d
+journal holds one per invocation, and `completed()` never counts it as a cell.
+Every row is also stamped with `commit`, `tree_dirty`, `harness_sha256`
+(`product.digest`'s shape over `tools/bench/serving/`), `config_sha256` (the
+bytes the survey read — a `_`-key hand-edit moves it), `argv` and
+`run_started_at`; the survey document carries the same under `result["run"]`.
+
+**Its check.** `tests/test_sink_conformance.py::test_the_ramp_phase_remainder_is_a_sum_of_named_terms`
+drives `calibrate.ramp` with a fake clock that advances only inside the stubbed
+seams and asserts that `phase span − Σ(launch + ramp row spans)` equals exactly
+the clock spent inside `release`, `ollama.slots_now`, `vllm.declared_slots` and
+the ramp phase's `ollama.claim` — the seams that write no row. One of those is
+a finding of its own: the ramp phase's ollama load writes no row at all (the
+load phase's does), so its minutes are attributable only as a remainder; #326
+and #327 own whether that becomes a row. The 8,185.3 s above stays as
+derived, from the log; the next campaign's equivalent will be a sum of rows.
