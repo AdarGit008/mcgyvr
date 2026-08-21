@@ -301,22 +301,7 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                     claimed, ok, why = {}, False, f"{type(error).__name__}: {error}"
                 seconds = round(time.monotonic() - began, 3)
                 attempt = (claimed.get("attempts") or [{}])[-1]
-                emit(
-                    out,
-                    {
-                        "phase": "load",
-                        "metric": "load_seconds",
-                        "host": host,
-                        "model": model,
-                        "index": index,
-                        "value": seconds,
-                        "ok": ok,
-                        "why": why,
-                        "vram_fraction": attempt.get("vram_fraction"),
-                        "size": attempt.get("size"),
-                        "size_vram": attempt.get("size_vram"),
-                    },
-                )
+                emit(out, _load_row(host, model, index, seconds, ok, why, claimed))
                 if attempt.get("vram_fraction") is not None:
                     emit(
                         out,
@@ -715,7 +700,13 @@ def sleep_state(
             }
             try:
                 ollama.release(host)
-                vllm.claim(host, base, model, serve)
+                # **#324.** A1's defect one function down: `claim` times the
+                # launch and the return was discarded here too, so the three
+                # sleep-arm launches that came up on 2026-08-19/20 recorded no
+                # `start_seconds`. Assigned and merged, under the same
+                # disposition the launch row is held to.
+                claimed = vllm.claim(host, base, model, serve)
+                row.update(_claim_fields(claimed))
                 row["awake_mib"] = _card_mib(host)
                 row["is_sleeping_before"] = contract.get_json(
                     contract.url(base, "/is_sleeping")
@@ -863,6 +854,125 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
 LAUNCH_ROW_DROPPED: dict[str, str] = {}
 
 
+#: What becomes of what a sleep cell's producers return. The claim half is the
+#: launch row's, because :func:`_claim_fields` writes both; the other four are
+#: the documents ``POST /sleep``, ``POST /wake_up`` and ``GET /is_sleeping``
+#: answered, carried whole under the key the row has always used. Held to the
+#: producers by ``tests/test_sink_conformance.py``.
+SLEEP_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    **LAUNCH_ROW_DISPOSITION,
+    "sleep_call": ("sleep_call",),
+    "wake_call": ("wake_call",),
+    "is_sleeping_before": ("is_sleeping_before",),
+    "is_sleeping_after": ("is_sleeping_after",),
+}
+
+#: Why a field in :data:`SLEEP_ROW_DISPOSITION` is not carried.
+SLEEP_ROW_DROPPED: dict[str, str] = {}
+
+
+#: What becomes of every key of the attempt record ``ollama.claim`` returns
+#: (the last entry of ``attempts`` on success), when the load phase writes its
+#: row. Before #324 the row kept three of the twenty-one and no check could say
+#: so. Same contract as :data:`RAMP_ROW_DISPOSITION`.
+LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    # D6's "does a second attempt ever rescue a first": the ordinal of the
+    # attempt that succeeded, which on a success is `len(attempts)`.
+    "attempt": ("attempt",),
+    "card_idle_before_load": ("card_idle_before_load",),
+    "card_used_mib_before_load": ("card_used_mib_before_load",),
+    "card_used_mib_after_load": ("card_used_mib_after_load",),
+    "load_http_status": ("load_http_status",),
+    "resident_names": ("resident_names",),
+    "sole_resident": ("sole_resident",),
+    "size": ("size",),
+    "size_vram": ("size_vram",),
+    "vram_fraction": ("vram_fraction",),
+    "placement_expected": ("placement_expected",),
+    "placement_meets_expectation": ("placement_meets_expectation",),
+    "residency_contradicts_card": ("residency_contradicts_card",),
+    "model_sha256": ("model_sha256",),
+    "server": ("server",),
+    "ok": None,
+    "coresidency_allowed": None,
+    "coresident_with": None,
+    "coresident_loads": None,
+    "coresidency_arranged": None,
+    "model_sha256_expected": None,
+}
+
+#: Why a field in :data:`LOAD_ROW_DISPOSITION` is not carried.
+LOAD_ROW_DROPPED: dict[str, str] = {
+    "ok": (
+        "the attempt record reaches this sink only on claim's success path, "
+        "where `ok` is True by construction; the row's own `ok` (did claim "
+        "return at all) is the field a reader wants and the two would be "
+        "confused if both were present."
+    ),
+    "coresidency_allowed": (
+        "the load phase never passes `coresident`, so this is False on every "
+        "row; the survey's co-residency entries are where the field varies "
+        "and the survey row carries the whole claim."
+    ),
+    "coresident_with": (
+        "the load phase never passes `coresident_with`, so this is None on "
+        "every row it could write; see coresidency_allowed."
+    ),
+    "coresident_loads": (
+        "the load phase loads no neighbours, so this is None on every row; "
+        "see coresidency_allowed."
+    ),
+    "coresidency_arranged": (
+        "the load phase arranges no co-residency, so this is None on every "
+        "row; see coresidency_allowed."
+    ),
+    "model_sha256_expected": (
+        "the load phase pins no digest (`expect` is never passed), so this "
+        "is None on every row; the served digest itself is carried as "
+        "model_sha256 so the identity is still on the record."
+    ),
+}
+
+
+def _load_row(
+    host: str,
+    model: str,
+    index: int,
+    seconds: float,
+    ok: bool,
+    why: str | None,
+    claimed: dict[str, Any],
+) -> dict[str, Any]:
+    """One ollama load, timed, with the placement the attempt record saw."""
+    attempts = claimed.get("attempts") or []
+    attempt = attempts[-1] if attempts else {}
+    return {
+        "phase": "load",
+        "metric": "load_seconds",
+        "host": host,
+        "model": model,
+        "index": index,
+        "value": seconds,
+        "ok": ok,
+        "why": why,
+        "attempt": len(attempts) or None,
+        "card_idle_before_load": attempt.get("card_idle_before_load"),
+        "card_used_mib_before_load": attempt.get("card_used_mib_before_load"),
+        "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
+        "load_http_status": attempt.get("load_http_status"),
+        "resident_names": attempt.get("resident_names"),
+        "sole_resident": attempt.get("sole_resident"),
+        "size": attempt.get("size"),
+        "size_vram": attempt.get("size_vram"),
+        "vram_fraction": attempt.get("vram_fraction"),
+        "placement_expected": attempt.get("placement_expected"),
+        "placement_meets_expectation": attempt.get("placement_meets_expectation"),
+        "residency_contradicts_card": attempt.get("residency_contradicts_card"),
+        "model_sha256": attempt.get("model_sha256"),
+        "server": attempt.get("server"),
+    }
+
+
 def _launch_row(
     host: str, model: str, width: int | None, claimed: dict[str, Any]
 ) -> dict[str, Any]:
@@ -872,16 +982,29 @@ def _launch_row(
     serves every token count at that width, so folding it in would repeat the
     same timing under several keys and invite someone to average them.
     """
+    fields = _claim_fields(claimed)
+    return {
+        "phase": "ramp",
+        "metric": "launch",
+        "host": host,
+        "configured_width": width,
+        **fields,
+        "model": fields["model"] or model,
+    }
+
+
+def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
+    """``vllm.claim``'s return, flattened as :data:`LAUNCH_ROW_DISPOSITION` says.
+
+    One function for both sinks that write a launch -- the width row and the
+    sleep row -- so the disposition is true of each because it is the same code.
+    """
     checks = claimed.get("checks") or {}
     started = checks.get("started") or {}
     weights = checks.get("weights") or {}
     return {
-        "phase": "ramp",
-        "metric": "launch",
         "engine": claimed.get("backend"),
-        "host": host,
-        "model": claimed.get("model") or model,
-        "configured_width": width,
+        "model": claimed.get("model"),
         "verified": claimed.get("verified"),
         # The four D6 asked for, at the only moment anything can answer them.
         "start_seconds": started.get("start_seconds"),

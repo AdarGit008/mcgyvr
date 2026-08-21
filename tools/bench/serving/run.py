@@ -150,6 +150,32 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
     return rows
 
 
+#: What becomes of each producer the survey row is built from, by producer
+#: name: the row keys it reaches, dotted for a nested path. Every producer is a
+#: dict this repo's code builds and each is carried whole, so nothing is
+#: dropped and there is no ``SURVEY_ROW_DROPPED``; the keys listed beside the
+#: whole are the derived fields the sink adds from it. Held to the row
+#: :func:`run` really writes by ``tests/test_sink_conformance.py``. #324.
+SURVEY_ROW_DISPOSITION: dict[str, tuple[str, ...]] = {
+    "claim": ("claim",),
+    # D1 hoists the declaration beside the curve.
+    "describe": ("description", "declared_slots"),
+    "contract.ramp": (
+        "concurrency",
+        "concurrency.expected",
+        "concurrency.matches_expected",
+    ),
+    # BL-6: re-read after the ramp. `coresidency_after_error` is written only
+    # when `residents` raised, and is checked on that path.
+    "residents": (
+        "coresidency_after.resident",
+        "coresidency_after.expected",
+        "coresidency_after.missing",
+        "coresidency_after.held",
+    ),
+}
+
+
 def run(
     config: dict[str, Any],
     journal: Path | None = None,

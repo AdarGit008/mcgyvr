@@ -29,10 +29,12 @@ which is the defect.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import sys
 import types
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -452,3 +454,516 @@ def test_an_unmeasured_sleep_cell_is_re_done_by_a_plain_resume(
     }
     journal.write_text(json.dumps(row) + "\n", encoding="utf-8")
     assert calibrate.key(row) not in calibrate.completed(journal)
+
+
+# --------------------------------------------------------------------------
+# #324: the census. ADR-0037 rule 5 -- coverage of rule 4 is mechanical, not
+# counted. Everything above holds a sink to its producer; nothing above says
+# which sinks exist, so a new `emit()` with a dict producer and no disposition
+# shipped green. The census enumerates every write and demands each be either
+# DISPOSED (a `*_ROW_DISPOSITION` beside the sink) or EXEMPT with a reason
+# that names what is discarded. Modelled on
+# tests/test_bench_rounds.py::test_every_figure_tool_is_classified.
+# --------------------------------------------------------------------------
+
+CALIBRATE = SERVING / "calibrate.py"
+RUN = SERVING / "run.py"
+
+#: The rule SINK_EXEMPT applies, stated once: a sink is DISPOSED when its
+#: producer is a dict this repo's code builds (`contract.ramp`, `vllm.claim`,
+#: `ollama.claim`, `describe`, `residents`), and EXEMPT -- with a reason naming
+#: what is discarded -- when the producer is a scalar, a literal row, or a
+#: remote server's document.
+SINK_DISPOSED: dict[str, str] = {
+    "calibrate.py::load::_load_row": "LOAD_ROW_DISPOSITION",
+    "calibrate.py::_widths::_launch_row": "LAUNCH_ROW_DISPOSITION",
+    "calibrate.py::_one_ramp::ramp/ramp": "RAMP_ROW_DISPOSITION",
+    # The unmeasured early write and the terminal write are the same row.
+    "calibrate.py::sleep_state::row#1": "SLEEP_ROW_DISPOSITION",
+    "calibrate.py::sleep_state::row#2": "SLEEP_ROW_DISPOSITION",
+    "run.py::run::row": "SURVEY_ROW_DISPOSITION",
+}
+
+SINK_EXEMPT: dict[str, str] = {
+    "calibrate.py::fast::fast/idle_gpu_mib": (
+        "scalar: one integer parsed out of nvidia-smi's csv line by "
+        "first_int; the raw line is discarded"
+    ),
+    "calibrate.py::fast::fast/ssh_step_seconds": (
+        "scalar: a wall-clock duration; the shell output of `free -m` and "
+        "/proc/loadavg it timed is discarded unread"
+    ),
+    "calibrate.py::fast::fast/discovery_seconds": (
+        "scalar: a wall-clock duration; the HTTP body of /api/tags, /api/ps "
+        "or /api/version it timed is discarded unread"
+    ),
+    "calibrate.py::fast::fast/capture_show_seconds": (
+        "scalar: a wall-clock duration and the byte length of /api/show's "
+        "body; the body itself (a remote server's document) is discarded"
+    ),
+    "calibrate.py::fast::fast/array_length": (
+        "scalar: the length of one list inside /api/show's body; the list's "
+        "contents are discarded"
+    ),
+    "calibrate.py::load::load/vram_fraction": (
+        "a re-emission of one load-row field under its own metric so the "
+        "fraction can be read as a series; nothing new is produced or dropped"
+    ),
+    "calibrate.py::ramp::ramp/refused#1": (
+        "literal row: ollama's probe returned None; nothing was produced to dispose of"
+    ),
+    "calibrate.py::ramp::ramp/refused#2": (
+        "literal row: the inventory was empty; the empty list is the whole "
+        "of what was produced"
+    ),
+    "calibrate.py::ramp::ramp/refused#3": (
+        "literal row: `_awq` found no checkpoint; the ssh listing (a shell "
+        "string, possibly None) is discarded"
+    ),
+    "calibrate.py::ramp::ramp/error": (
+        "literal row: ollama.claim raised; the exception text is carried, the "
+        "partial attempt trail the exception may hold is discarded (#326 "
+        "owns the refusal's attempt trail)"
+    ),
+    "calibrate.py::_widths::ramp/error": (
+        "literal row: vllm.claim or declared_slots raised; the exception "
+        "text is carried and nothing else was produced"
+    ),
+    "calibrate.py::_widths::ramp/refused": (
+        "literal row: the declared slots contradicted the request; the "
+        "`declared` dict is carried whole and the ramp never ran"
+    ),
+    "calibrate.py::_one_ramp::ramp/error": (
+        "literal row: contract.ramp raised; the exception text is carried and "
+        "no levels were produced"
+    ),
+    "calibrate.py::sleep_state::sleep/refused": (
+        "literal row: no AWQ checkpoint on the host; the ssh listing (a "
+        "shell string, possibly None) is discarded"
+    ),
+    "run.py::run::row_out#1": (
+        "literal refusal row: the backend would not yield the card; the "
+        "release dict is carried as `yielded` and nothing else was produced"
+    ),
+    "run.py::run::row_out#2": (
+        "literal refusal row: claim raised; the exception's `reasons` and "
+        "text are carried, its attempt trail is not (#326 owns that)"
+    ),
+}
+
+PHASE_FUNCTIONS = {
+    "calibrate.py": {"fast", "load", "ramp", "_widths", "_one_ramp", "sleep_state"},
+    "run.py": {"run"},
+}
+
+
+def _row_site(row: ast.expr) -> str:
+    """A sink's site label.
+
+    A dict literal is keyed by its `phase`/`metric` constants -- or by the
+    name it unpacks, when it is `{..., **row}`. A call is its builder. A name
+    is itself.
+    """
+    if isinstance(row, ast.Dict):
+        unpacked = [v for k, v in zip(row.keys, row.values, strict=True) if k is None]
+        if unpacked:
+            return ast.unparse(unpacked[-1])
+        consts: dict[str, str] = {
+            str(k.value): (str(v.value) if isinstance(v, ast.Constant) else "?")
+            for k, v in zip(row.keys, row.values, strict=True)
+            if isinstance(k, ast.Constant)
+        }
+        metric = consts.get("metric") or (
+            "refused" if "refused" in consts else "error" if "error" in consts else "-"
+        )
+        return f"{consts.get('phase', '?')}/{metric}"
+    if isinstance(row, ast.Call):
+        return ast.unparse(row.func)
+    return ast.unparse(row)
+
+
+def _sinks(path: Path) -> dict[str, tuple[str, int]]:
+    """Every `emit(out, row)` and `record(row)` in ``path``: key -> (func, line).
+
+    The key is ``<file>::<function>::<site>``, with ``#n`` appended when the
+    same site label occurs more than once in one function.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: list[tuple[str, str, int]] = []
+    for func in tree.body:
+        if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for node in ast.walk(func):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+                continue
+            if node.func.id == "emit" and len(node.args) >= 2:
+                row = node.args[1]
+            elif node.func.id == "record" and len(node.args) >= 1:
+                row = node.args[0]
+            else:
+                continue
+            site = _row_site(row)
+            found.append((func.name, site, node.lineno))
+    counts = Counter((f, s) for f, s, _ in found)
+    seen: Counter[tuple[str, str]] = Counter()
+    keyed: dict[str, tuple[str, int]] = {}
+    for name, site, line in found:
+        label = site
+        if counts[(name, site)] > 1:
+            seen[(name, site)] += 1
+            label = f"{site}#{seen[(name, site)]}"
+        keyed[f"{path.name}::{name}::{label}"] = (name, line)
+    return keyed
+
+
+def _unclassified(sinks: dict[str, Any]) -> set[str]:
+    return set(sinks) - set(SINK_DISPOSED) - set(SINK_EXEMPT)
+
+
+@pytest.fixture(scope="module")
+def census() -> dict[str, tuple[str, int]]:
+    return {**_sinks(CALIBRATE), **_sinks(RUN)}
+
+
+def test_every_sink_is_classified(
+    calibrate: Any, census: dict[str, tuple[str, int]]
+) -> None:
+    """Every write is DISPOSED or EXEMPT, and both tables point at real things."""
+    unclassified = _unclassified(census)
+    assert not unclassified, (
+        "a sink with neither a disposition nor an exemption. Either add a "
+        "*_ROW_DISPOSITION beside it (its producer is a dict this repo builds) "
+        "or add it to SINK_EXEMPT with a reason naming what is discarded: "
+        f"{sorted(unclassified)}"
+    )
+    stale = (set(SINK_DISPOSED) | set(SINK_EXEMPT)) - set(census)
+    assert not stale, (
+        f"the census tables name sinks that no longer exist: {sorted(stale)}"
+    )
+    runner: Any = _by_path("serving_run_census", RUN)
+    for site, table in sorted(SINK_DISPOSED.items()):
+        module = runner if site.startswith("run.py") else calibrate
+        assert isinstance(getattr(module, table, None), dict), (
+            f"{site} claims {table}, which {site.split('::')[0]} does not define"
+        )
+    for site, why in sorted(SINK_EXEMPT.items()):
+        assert len(why) > 20, f"{site}: {why!r} does not say what is discarded"
+
+
+def test_the_census_finds_a_sink_in_every_phase_function(
+    census: dict[str, tuple[str, int]],
+) -> None:
+    """A census that finds nothing reads red, not vacuously green."""
+    for file, wanted in PHASE_FUNCTIONS.items():
+        found = {func for key, (func, _) in census.items() if key.startswith(file)}
+        missing = wanted - found
+        assert not missing, f"{file}: no sink found inside {sorted(missing)}"
+
+
+def test_nothing_is_both_disposed_and_exempt() -> None:
+    both = set(SINK_DISPOSED) & set(SINK_EXEMPT)
+    assert not both, sorted(both)
+
+
+def test_a_sink_added_without_a_disposition_is_refused(tmp_path: Path) -> None:
+    """The mutation that shipped green before #324, re-applied on a copy."""
+    anchor = (
+        "def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:\n"
+        '    """Idle readings, step durations, discovery durations, array sizes."""\n'
+    )
+    source = CALIBRATE.read_text(encoding="utf-8")
+    assert anchor in source
+    mutated = tmp_path / "calibrate.py"
+    mutated.write_text(
+        source.replace(
+            anchor,
+            anchor + '    emit(out, {"phase": "fast", "metric": "undeclared_new_sink", '
+            '"value": 1})\n',
+        ),
+        encoding="utf-8",
+    )
+    assert _unclassified(_sinks(mutated)) == {
+        "calibrate.py::fast::fast/undeclared_new_sink"
+    }
+
+
+def _disposition_matches_producer(
+    disposition: dict[str, tuple[str, ...] | None], produced: set[str], name: str
+) -> None:
+    undeclared = sorted(produced - set(disposition))
+    assert not undeclared, (
+        f"the producer returns {undeclared} and {name} does not say what "
+        "becomes of them"
+    )
+    stale = sorted(set(disposition) - produced)
+    assert not stale, f"{name} names {stale}, which the producer no longer returns"
+
+
+def _carried_are_in_row(
+    disposition: dict[str, tuple[str, ...] | None], row: dict[str, Any], name: str
+) -> None:
+    for field, carried in sorted(disposition.items()):
+        if carried is None:
+            continue
+        missing = sorted(k for k in carried if k not in row)
+        assert not missing, (
+            f"{name} says {field!r} reaches the row as {missing}; the row really "
+            f"written has {sorted(row)}"
+        )
+
+
+def _dropped_state_why(
+    disposition: dict[str, tuple[str, ...] | None], reasons: dict[str, str], name: str
+) -> None:
+    dropped = {f for f, c in disposition.items() if c is None}
+    assert dropped == set(reasons), (
+        f"{name}: dropped {sorted(dropped)}, reasons for {sorted(reasons)}"
+    )
+    for field, why in reasons.items():
+        assert len(why) > 20, f"{name}: {field!r} dropped with {why!r}"
+
+
+@pytest.fixture(scope="module")
+def ollama_attempt() -> dict[str, Any]:
+    """The attempt record ``ollama.claim`` returns on success, from ``claim``.
+
+    Seams stubbed, body run -- the `claimed` fixture's idiom. The key set is
+    whatever `claim` builds today.
+    """
+    ollama: Any = _by_path(
+        "serving_ollama_load_sink", SERVING / "backends" / "ollama.py"
+    )
+    model = "qwen2.5-coder:1.5b"
+    ollama.release = lambda host: {"card_idle": True, "card_used_mib": 1}
+    ollama.contract.ssh = lambda *a, **k: "200"
+    ollama.contract.drop_page_cache = lambda host: None
+    ollama.contract.first_int = lambda *a, **k: ollama.IDLE_BEFORE_LOAD_MIB + 4000
+    ollama._resident = lambda host: [{"name": model, "size": 1000, "size_vram": 1000}]
+    ollama._digest = lambda base, m: "sha256:abc"
+    ollama._server = lambda host: {"instances": [{"pid": 1}]}
+    claimed: dict[str, Any] = ollama.claim("srv1", "http://srv1:11434", model)
+    assert claimed["verified"] is True and len(claimed["attempts"]) == 1
+    return claimed
+
+
+def test_the_load_sink_declares_a_disposition_for_every_field_an_attempt_carries(
+    calibrate: Any, ollama_attempt: dict[str, Any]
+) -> None:
+    """Before #324 the load row kept 3 of the attempt record's 21 keys."""
+    attempt = ollama_attempt["attempts"][-1]
+    _disposition_matches_producer(
+        calibrate.LOAD_ROW_DISPOSITION, set(attempt), "LOAD_ROW_DISPOSITION"
+    )
+    row = calibrate._load_row("srv1", "m", 0, 1.5, True, None, ollama_attempt)
+    _carried_are_in_row(calibrate.LOAD_ROW_DISPOSITION, row, "LOAD_ROW_DISPOSITION")
+    _dropped_state_why(
+        calibrate.LOAD_ROW_DISPOSITION,
+        calibrate.LOAD_ROW_DROPPED,
+        "LOAD_ROW_DISPOSITION",
+    )
+    # D6: does a second attempt ever rescue a first? Only answerable if the
+    # ordinal reaches the row.
+    assert row["attempt"] == len(ollama_attempt["attempts"]) == 1
+    assert row["model_sha256"] == "sha256:abc"
+    assert row["card_idle_before_load"] is True
+
+
+def test_a_failed_load_writes_no_attempt_ordinal(calibrate: Any) -> None:
+    row = calibrate._load_row("srv1", "m", 0, 1.5, False, "RefusedError: x", {})
+    assert row["attempt"] is None and row["ok"] is False
+
+
+class _SleepVllm:
+    PORT = 8000
+
+    def __init__(self, claimed: dict[str, Any]) -> None:
+        self.claimed = claimed
+
+    def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+        return dict(self.claimed)
+
+    def release(self, host: str) -> None:
+        pass
+
+
+class _SleepOllama:
+    def release(self, host: str) -> None:
+        pass
+
+
+@pytest.fixture
+def sleep_rows(
+    calibrate: Any, claimed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> list[dict[str, Any]]:
+    """What ``sleep_state`` writes for one host, both arms, every seam stubbed."""
+    rows: list[dict[str, Any]] = []
+    cards = iter([11109, 189, 11000] * 2)
+    backends = {"vllm": _SleepVllm(claimed), "ollama": _SleepOllama()}
+    monkeypatch.setattr(calibrate.contract, "load_backend", lambda n: backends[n])
+    monkeypatch.setattr(
+        calibrate.contract, "get_json", lambda *a, **k: {"is_sleeping": True}
+    )
+    monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
+    monkeypatch.setattr(calibrate, "_card_mib", lambda host: next(cards))
+    monkeypatch.setattr(
+        calibrate, "_post", lambda *a, **k: {"status": 200, "seconds": 0.1}
+    )
+    monkeypatch.setattr(calibrate.time, "sleep", lambda s: None)
+    monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
+    calibrate.sleep_state(Path("unused.jsonl"), ["srv2"])
+    assert [r["arm"] for r in rows] == ["control_no_flag", "enabled"]
+    return rows
+
+
+def test_the_sleep_launch_timing_reaches_the_row(
+    calibrate: Any, claimed: dict[str, Any], sleep_rows: list[dict[str, Any]]
+) -> None:
+    """A1 one function down: `sleep_state` discarded `vllm.claim`'s return, so
+    the three sleep-arm launches that came up on 2026-08-19/20 recorded no
+    `start_seconds`."""
+    row = sleep_rows[1]
+    assert row["start_seconds"] == 108.7
+    assert row["digest_seconds"] == 34.2
+    assert row["failed"] is False and row["actually_freed"] is True
+    produced = set(claimed) | {
+        "sleep_call",
+        "wake_call",
+        "is_sleeping_before",
+        "is_sleeping_after",
+    }
+    _disposition_matches_producer(
+        calibrate.SLEEP_ROW_DISPOSITION, produced, "SLEEP_ROW_DISPOSITION"
+    )
+    for each in sleep_rows:
+        _carried_are_in_row(
+            calibrate.SLEEP_ROW_DISPOSITION, each, "SLEEP_ROW_DISPOSITION"
+        )
+    _dropped_state_why(
+        calibrate.SLEEP_ROW_DISPOSITION,
+        calibrate.SLEEP_ROW_DROPPED,
+        "SLEEP_ROW_DISPOSITION",
+    )
+    # Carried whole, not summarised: the documents are the evidence.
+    assert row["is_sleeping_after"] == {"is_sleeping": True}
+    assert row["sleep_call"] == {"status": 200, "seconds": 0.1}
+
+
+class _SurveyBackend:
+    """A backend whose every producer returns a distinct, findable document."""
+
+    NAME = "alpha"
+    PORT = 11434
+
+    def __init__(self, resident: list[str] | Exception) -> None:
+        self.resident = resident
+        self.returned: dict[str, Any] = {}
+
+    def probe(self, host: str) -> str:
+        return f"http://{host}:{self.PORT}"
+
+    def inventory(self, host: str, base: str) -> list[str]:
+        return ["m", "n"]
+
+    def readings(self, host: str) -> dict[str, Any]:
+        return {}
+
+    def release(self, host: str) -> dict[str, Any]:
+        return {"released": True}
+
+    def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+        claimed: dict[str, Any] = {
+            "backend": "alpha",
+            "verified": True,
+            "attempts": [{"attempt": 1}],
+        }
+        self.returned["claim"] = claimed
+        return claimed
+
+    def describe(self, *a: Any, **k: Any) -> dict[str, Any]:
+        described: dict[str, Any] = {
+            "capture": {"x": 1},
+            "declared_slots": {"value": 4, "provenance": "observed"},
+        }
+        self.returned["describe"] = described
+        return described
+
+    def residents(self, host: str) -> list[str]:
+        if isinstance(self.resident, Exception):
+            raise self.resident
+        resident = list(self.resident)
+        self.returned["residents"] = resident
+        return resident
+
+
+def _survey_row(
+    resident: list[str] | Exception,
+) -> tuple[dict[str, Any], _SurveyBackend, dict[str, Any]]:
+    runner: Any = _by_path("serving_run_survey_sink", RUN)
+    backend = _SurveyBackend(resident)
+    ramp = {"saturation": {"n": 4}, "levels": [1], "repeats": 2}
+    runner.contract.load_backend = lambda name: backend
+    runner.contract.snapshot = lambda host: {}
+    runner.contract.ramp = lambda *a, **k: dict(ramp)
+    rows: list[dict[str, Any]] = []
+    runner._journal = lambda path: rows.append
+    runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "models": [
+                {
+                    "label": "pair",
+                    "backend": "alpha",
+                    "id": "m",
+                    "coresident_with": ["n"],
+                    "concurrency": {"measure": True, "expect": 4},
+                }
+            ],
+        },
+        journal=Path("unused.jsonl"),
+    )
+    assert len(rows) == 1
+    return rows[0], backend, ramp
+
+
+def _at(row: dict[str, Any], dotted: str) -> Any:
+    node: Any = row
+    for part in dotted.split("."):
+        assert isinstance(node, dict) and part in node, (
+            f"{dotted}: {part!r} is not in "
+            f"{sorted(node) if isinstance(node, dict) else node!r}"
+        )
+        node = node[part]
+    return node
+
+
+def test_the_survey_sink_carries_each_producer_whole_or_says_what_it_picks() -> None:
+    row, backend, ramp = _survey_row(["n"])
+    runner: Any = sys.modules["serving_run_survey_sink"]
+    disposition = runner.SURVEY_ROW_DISPOSITION
+    # Every producer the row was built from is named, and named producers ran.
+    produced = set(backend.returned) | {"contract.ramp"}
+    assert set(disposition) == produced, (set(disposition), produced)
+    # Every named path is really in the row.
+    for paths in disposition.values():
+        for path in paths:
+            _at(row, path)
+    # Whole, not picked: the producer's document is the row's, unchanged.
+    assert row["claim"] == backend.returned["claim"]
+    assert row["description"] == backend.returned["describe"]
+    assert row["declared_slots"] == backend.returned["describe"]["declared_slots"]
+    assert {
+        k: v
+        for k, v in row["concurrency"].items()
+        if k not in ("expected", "matches_expected")
+    } == ramp
+    assert row["concurrency"]["matches_expected"] is True
+    assert row["coresidency_after"]["resident"] == ["n"]
+    assert row["coresidency_after"]["held"] is True and row["outcome"] == "ok"
+
+
+def test_the_survey_sink_records_a_residency_read_that_raised() -> None:
+    row, _, _ = _survey_row(RuntimeError("ssh died"))
+    assert row["coresidency_after_error"] == "ssh died"
+    assert row["coresidency_after"]["resident"] == []
+    assert row["outcome"] == "ramp_failed"
