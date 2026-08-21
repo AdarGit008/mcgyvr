@@ -92,8 +92,65 @@ def _stamp() -> dict[str, Any]:
     return STAMP
 
 
+#: The identity block per (host, engine), read once each (#326). The hardware
+#: half is per host; `engine`/`serving_build` per (host, engine).
+IDENTITY: dict[tuple[str, str | None], dict[str, Any]] = {}
+
+
+def identify(host: str, engine: str | None) -> dict[str, Any]:
+    """``{"identity": {...}, "identity_refusals": {...}}`` for a row.
+
+    **#326.** The campaign's 16 ramp and sleep rows named the machine by
+    `host` alone: no card, no driver, no compute capability, no engine build
+    -- the 0.32.4 / 0.32.5 split ADR-0027 records as the prior instance of
+    exactly this gap. One block on every row, ADR-0027's shape: a read the
+    host did not answer is ``null`` with the command it ran beside it.
+    """
+    key = (host, engine)
+    if key in IDENTITY:
+        return _identity_block(IDENTITY[key])
+    if (host, None) not in IDENTITY:
+        hardware = contract.hardware(host)
+        IDENTITY[(host, None)] = {
+            "identity": {**hardware["identity"], "engine": None, "serving_build": None},
+            "refusals": {
+                **hardware["refusals"],
+                "serving_build": "the row names no engine",
+            },
+        }
+    if engine is None:
+        return _identity_block(IDENTITY[(host, None)])
+    hardware = IDENTITY[(host, None)]
+    build = contract.load_backend(engine).build(host)
+    block = {
+        "identity": {
+            **hardware["identity"],
+            "engine": engine,
+            "serving_build": build.get("serving_build"),
+        },
+        "refusals": {
+            k: v for k, v in hardware["refusals"].items() if k != "serving_build"
+        },
+    }
+    if build.get("serving_build") is None:
+        block["refusals"]["serving_build"] = build.get("refused") or "unanswered"
+    IDENTITY[key] = block
+    return _identity_block(block)
+
+
+def _identity_block(block: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "identity": dict(block["identity"]),
+        "identity_refusals": dict(block["refusals"]),
+    }
+
+
 def emit(out: Path, row: dict[str, Any]) -> None:
     """One sample, appended and put on the disk. Written now, not at the end.
+
+    **The identity block is merged here too (#326)**, from the row's own
+    `host` and `engine`, cached per pair. A row without a host -- the phase
+    row -- describes no machine and carries none.
 
     **Stamped here, at the sink (#325).** Every row carries the commit, the
     harness digest, the argv and the run's start, under
@@ -112,7 +169,8 @@ def emit(out: Path, row: dict[str, Any]) -> None:
         # Heal a torn tail before appending — see the note above.
         if _ends_mid_line(out):
             handle.write("\n")
-        handle.write(json.dumps({**_stamp(), **row}) + "\n")
+        identity = identify(row["host"], row.get("engine")) if row.get("host") else {}
+        handle.write(json.dumps({**_stamp(), **identity, **row}) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
 
@@ -277,6 +335,7 @@ def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
                         "phase": "fast",
                         "metric": "discovery_seconds",
                         "host": host,
+                        "engine": "ollama",
                         "endpoint": name,
                         "model": model,
                         "value": round(time.monotonic() - began, 3),
@@ -290,6 +349,7 @@ def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
                     "phase": "fast",
                     "metric": "capture_show_seconds",
                     "host": host,
+                    "engine": "ollama",
                     "model": model,
                     "value": round(time.monotonic() - began, 3),
                     "bytes": len(json.dumps(show)) if show else 0,
@@ -302,6 +362,7 @@ def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
                         "phase": "fast",
                         "metric": "array_length",
                         "host": host,
+                        "engine": "ollama",
                         "model": model,
                         "key": key,
                         "value": length,
@@ -326,7 +387,10 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                     claimed = ollama.claim(host, base, model)
                     ok, why = True, None
                 except Exception as error:
-                    claimed, ok, why = {}, False, f"{type(error).__name__}: {error}"
+                    # #326: a refused load keeps its trail. `RefusedError`
+                    # carries every attempt; any other exception carries none.
+                    claimed = {"attempts": list(getattr(error, "attempts", []))}
+                    ok, why = False, f"{type(error).__name__}: {error}"
                 seconds = round(time.monotonic() - began, 3)
                 row = _load_row(host, model, index, seconds, ok, why, claimed)
                 row["started_at"], row["ended_at"] = started_at, contract.now()
@@ -338,6 +402,7 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                             "phase": "load",
                             "metric": "vram_fraction",
                             "host": host,
+                            "engine": "ollama",
                             "model": model,
                             "index": index,
                             "value": row["vram_fraction"],
@@ -418,7 +483,7 @@ def ramp(
                     continue
                 started_at = contract.now()
                 try:
-                    ollama.claim(host, base, model)
+                    loaded = ollama.claim(host, base, model)
                 except Exception as error:
                     emit(
                         out,
@@ -442,6 +507,9 @@ def ramp(
                     None,
                     tokens,
                     declared=ollama_declared,
+                    # #326: the weights this curve was read on, from the
+                    # claim this phase used to discard.
+                    pins={"model_sha256": _attempt_of(loaded).get("model_sha256")},
                 )
 
         # vLLM: launch at each configured width, ramp at each token count.
@@ -545,7 +613,15 @@ def _widths(
             # after the campaign that was commissioned to measure it. The
             # MARKERS guard passed the whole time: it asserts that vllm.py
             # contains the string "start_seconds", which it does.
-            claimed = vllm.claim(host, f"http://{host}:{vllm.PORT}", model, serve)
+            # #326: pinned when the model has a pin, so a checkpoint that
+            # moved under the campaign refuses rather than measuring quietly.
+            claimed = vllm.claim(
+                host,
+                f"http://{host}:{vllm.PORT}",
+                model,
+                serve,
+                _expected_weights(model),
+            )
             # **DE-F, and this is the whole of E5's vLLM half.** `launched_width`
             # was only reachable from `describe`, whose only caller is the
             # survey — and the campaign config has no vLLM entries at all. So
@@ -553,7 +629,10 @@ def _widths(
             # unverified against the host, which is the state E5 was revised to
             # leave behind. Read here, where the server was just launched.
             declared = vllm.declared_slots(serve, host)
-            emit(out, _launch_row(host, model, width, claimed))
+            pins = _serving_pins(vllm, f"http://{host}:{vllm.PORT}", claimed)
+            row = _launch_row(host, model, width, claimed)
+            row.update(pins)
+            emit(out, row)
         except Exception as error:
             emit(
                 out,
@@ -561,8 +640,13 @@ def _widths(
                     "phase": "ramp",
                     "engine": "vllm",
                     "host": host,
+                    "model": model,
                     "width": width,
                     "error": str(error)[:200],
+                    # #326: what the refusal was judged against, as data.
+                    "weights_sha256_expected": (_expected_weights(model) or {}).get(
+                        "weights_sha256"
+                    ),
                     "started_at": started_at,
                     "ended_at": contract.now(),
                 },
@@ -614,6 +698,7 @@ def _widths(
                 width,
                 tokens,
                 declared,
+                pins=pins,
             )
 
 
@@ -757,8 +842,9 @@ def sleep_state(
                 # sleep-arm launches that came up on 2026-08-19/20 recorded no
                 # `start_seconds`. Assigned and merged, under the same
                 # disposition the launch row is held to.
-                claimed = vllm.claim(host, base, model, serve)
+                claimed = vllm.claim(host, base, model, serve, _expected_weights(model))
                 row.update(_claim_fields(claimed))
+                row.update(_serving_pins(vllm, base, claimed))
                 row["awake_mib"] = _card_mib(host)
                 row["is_sleeping_before"] = contract.get_json(
                     contract.url(base, "/is_sleeping")
@@ -820,6 +906,10 @@ def sleep_state(
                 )
             except Exception as error:
                 row["refused"] = f"{type(error).__name__}: {error}"
+                row.setdefault(
+                    "weights_sha256_expected",
+                    (_expected_weights(model) or {}).get("weights_sha256"),
+                )
             finally:
                 vllm.release(host)
             row["ended_at"] = contract.now()
@@ -890,10 +980,11 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "backend": ("engine",),
     "model": ("model",),
     "verified": ("verified",),
+    # `checks` is a dict of dicts; its own keys are disposed one level down in
+    # :data:`LAUNCH_CHECKS_DISPOSITION` and `checks.weights` one further in
+    # :data:`LAUNCH_WEIGHTS_DISPOSITION` (#326). This tuple is the union of
+    # what those two carry, so a reader of this table sees the whole row.
     "checks": (
-        # #325: the claim's span, `checks.started_at`/`ended_at`, carried
-        # under the claim's name so a sink with a wider unit (the sleep arm)
-        # can hold its own `started_at` beside it.
         "claim_started_at",
         "claim_ended_at",
         "start_seconds",
@@ -903,14 +994,86 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "gpu_used_mib",
         "allocation_present",
         "served_models",
+        "engine_config",
+        "weights_sha256_expected",
         "weights_sha256",
         "digest_seconds",
+        "digest_bytes",
+        "digest_tensors",
+        "digest_error",
     ),
     "declarations_ignored": ("declarations_ignored",),
 }
 
 #: Why a field in :data:`LAUNCH_ROW_DISPOSITION` is not carried.
 LAUNCH_ROW_DROPPED: dict[str, str] = {}
+
+#: Every key of ``claim()["checks"]``, disposed (#326). Before this the nested
+#: keys were covered by the word "checks" and three of them -- the running
+#: engine config, the pin the launch was judged against, and the digest's
+#: byte count -- reached no row.
+LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    # #325: the claim's span, under the claim's name so a sink with a wider
+    # unit (the sleep arm) can hold its own `started_at` beside it.
+    "started_at": ("claim_started_at",),
+    "ended_at": ("claim_ended_at",),
+    "started": ("start_seconds", "launcher", "restarted", "reason"),
+    "gpu_used_mib": ("gpu_used_mib",),
+    "allocation_present": ("allocation_present",),
+    "served_models": ("served_models",),
+    "engine_config": ("engine_config",),
+    "weights": (
+        "weights_sha256",
+        "digest_seconds",
+        "digest_bytes",
+        "digest_tensors",
+        "digest_error",
+    ),
+    "weights_sha256_expected": ("weights_sha256_expected",),
+    "ok": None,
+}
+
+LAUNCH_CHECKS_DROPPED: dict[str, str] = {
+    "ok": (
+        "the claim reaches this sink only on its success path, where `ok` is "
+        "True by construction; `verified` on the row is the same fact."
+    ),
+}
+
+#: Every key of ``checks.weights`` -- what ``vllm.weights_sha256`` returns --
+#: disposed (#326). `bytes` beside `digest_seconds` makes every launch one
+#: point on DIGEST_TIMEOUT_S's curve, which D6 asked for and no row held.
+LAUNCH_WEIGHTS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    "weights_sha256": ("weights_sha256",),
+    "digest_seconds": ("digest_seconds",),
+    "bytes": ("digest_bytes",),
+    "tensors": ("digest_tensors",),
+    "error": ("digest_error",),
+    "snapshot": None,
+    "shards": None,
+    "mtime": None,
+    "method": None,
+}
+
+LAUNCH_WEIGHTS_DROPPED: dict[str, str] = {
+    "snapshot": (
+        "a path on the serving host (scrubbed, it still names a cache "
+        "layout); the digest identifies the checkpoint and the path does not."
+    ),
+    "shards": (
+        "the shard file names; they are a property of how the checkpoint was "
+        "packaged, and the digest is over every shard's bytes regardless."
+    ),
+    "mtime": (
+        "a moment on the host's disk; whether the bytes moved is what the "
+        "digest says, and a copied checkpoint has a new mtime and the same "
+        "digest."
+    ),
+    "method": (
+        "prose, identical on every row, a constant in vllm.weights_sha256's "
+        "own source where a reader can cite it by line."
+    ),
+}
 
 
 #: What becomes of what a sleep cell's producers return. The claim half is the
@@ -942,6 +1105,9 @@ LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # every attempt, so the two are named apart.
     "started_at": ("attempt_started_at",),
     "ended_at": ("attempt_ended_at",),
+    # #326: the attempt's own cost. `attempts`, `attempt_outcomes` and
+    # `rescued_by_retry` on the row are derived from the whole trail.
+    "seconds": ("attempt_seconds",),
     "card_idle_before_load": ("card_idle_before_load",),
     "card_used_mib_before_load": ("card_used_mib_before_load",),
     "card_used_mib_after_load": ("card_used_mib_after_load",),
@@ -1008,19 +1174,31 @@ def _load_row(
 ) -> dict[str, Any]:
     """One ollama load, timed, with the placement the attempt record saw."""
     attempts = claimed.get("attempts") or []
-    attempt = attempts[-1] if attempts else {}
+    attempt = _attempt_of(claimed)
+    outcomes = [bool(each.get("ok")) for each in attempts]
     return {
         "phase": "load",
         "metric": "load_seconds",
         "host": host,
+        "engine": "ollama",
         "model": model,
         "index": index,
         "value": seconds,
         "ok": ok,
         "why": why,
         "attempt": attempt.get("attempt"),
+        # #326: the whole trail, counted. LOAD_ATTEMPTS's cost side: did a
+        # second attempt ever rescue a first, and what did each cost.
+        "attempts": len(attempts) or None,
+        "attempt_outcomes": outcomes or None,
+        "rescued_by_retry": (
+            None
+            if not attempts
+            else len(attempts) > 1 and outcomes[-1] and not all(outcomes[:-1])
+        ),
         "attempt_started_at": attempt.get("started_at"),
         "attempt_ended_at": attempt.get("ended_at"),
+        "attempt_seconds": attempt.get("seconds"),
         "card_idle_before_load": attempt.get("card_idle_before_load"),
         "card_used_mib_before_load": attempt.get("card_used_mib_before_load"),
         "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
@@ -1077,6 +1255,11 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
         "verified": claimed.get("verified"),
         "claim_started_at": checks.get("started_at"),
         "claim_ended_at": checks.get("ended_at"),
+        "engine_config": checks.get("engine_config"),
+        "weights_sha256_expected": checks.get("weights_sha256_expected"),
+        "digest_bytes": weights.get("bytes"),
+        "digest_tensors": weights.get("tensors"),
+        "digest_error": weights.get("error"),
         # The four D6 asked for, at the only moment anything can answer them.
         "start_seconds": started.get("start_seconds"),
         "launcher": started.get("launcher"),
@@ -1091,6 +1274,52 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _attempt_of(claimed: dict[str, Any]) -> dict[str, Any]:
+    """The attempt record a claim return (or a refusal's trail) rests on."""
+    attempts = claimed.get("attempts") or []
+    return dict(attempts[-1]) if attempts else {}
+
+
+#: The only pins in the tree: the survey config's `expect` blocks.
+PINS_CONFIG = HERE / "configs" / "srv-full.json"
+
+
+def _expected_weights(model: str, config: Path = PINS_CONFIG) -> dict[str, Any] | None:
+    """The `expect` block pinning ``model``, or ``None`` when nothing pins it.
+
+    **#326.** The vLLM arm hashes its checkpoint on every launch and the
+    calibration passed no pin, so a checkpoint that moved under the campaign
+    would have measured quietly. The survey config already holds the pins;
+    looked up there rather than copied, so there is one place a pin lives.
+    """
+    try:
+        entries = json.loads(config.read_text(encoding="utf-8")).get("models") or []
+    except (OSError, json.JSONDecodeError):
+        return None
+    for entry in entries:
+        if entry.get("id") == model and entry.get("expect"):
+            return dict(entry["expect"])
+    return None
+
+
+def _serving_pins(
+    vllm: types.ModuleType, base: str, claimed: dict[str, Any]
+) -> dict[str, Any]:
+    """What a vLLM row ran on: the weights digest and the serving-config pin.
+
+    #326: read once per launch, put on the launch row and every ramp row it
+    serves. `serving_config` refuses outside VLLM_SERVER_DEV_MODE=1, and the
+    refusal is carried rather than a blank.
+    """
+    weights = (claimed.get("checks") or {}).get("weights") or {}
+    pinned = vllm.serving_config(base)
+    return {
+        "weights_sha256": weights.get("weights_sha256"),
+        "serving_semantic_sha256": pinned.get("serving_semantic_sha256"),
+        "serving_semantic_refused": pinned.get("refused"),
+    }
+
+
 def _one_ramp(
     out: Path,
     base: str,
@@ -1100,8 +1329,13 @@ def _one_ramp(
     width: int | None,
     tokens: int,
     declared: dict[str, Any] | None = None,
+    pins: dict[str, Any] | None = None,
 ) -> None:
-    """One ramp, every level recorded so thresholds can be re-derived later."""
+    """One ramp, every level recorded so thresholds can be re-derived later.
+
+    ``pins`` (#326) is what the curve was read on -- the vLLM weights and
+    serving-config digests, or ollama's `model_sha256` -- carried as given.
+    """
     original = contract.RAMP_TOKENS
     contract.RAMP_TOKENS = tokens
     started_at = contract.now()
@@ -1128,42 +1362,41 @@ def _one_ramp(
     ended_at = contract.now()
     readings = result.get("readings") or {}
     saturated = result.get("saturation") or {}
-    emit(
-        out,
-        {
-            "phase": "ramp",
-            "metric": "ramp",
-            "engine": engine,
-            "host": host,
-            "model": model,
-            "configured_width": width,
-            # #325: the curve on a timeline. `levels[].wall_s` sums to what
-            # the requests took; this is when the ramp ran, so the phase's
-            # remaining minutes can be attributed to the seams between rows.
-            "started_at": started_at,
-            "ended_at": ended_at,
-            # D1: what the server SAYS, beside what the curve did, each with
-            # its provenance. `configured_width` above is what this run asked
-            # for; this is what the host reports it is running.
-            "declared_slots": declared,
-            "tokens": tokens,
-            "saturation_n": saturated.get("n"),
-            "saturation_refused": saturated.get("refused"),
-            "ramp_tokens": saturated.get("ramp_tokens"),
-            "plateau_fraction": saturated.get("plateau_fraction"),
-            "levels_dropped": saturated.get("levels_dropped"),
-            "throughput_plateau_n": readings.get("throughput_plateau_n"),
-            "latency_plateau_n": readings.get("latency_plateau_n"),
-            "max_speedup_vs_n1": readings.get("max_speedup_vs_n1"),
-            "levels": result.get("levels"),
-            # The three fields the sink dropped for a whole campaign. See
-            # RAMP_ROW_DISPOSITION: `repeat_spread` is the only error bar any
-            # speedup figure in this file will ever have.
-            "speedup_vs_n1": result.get("speedup_vs_n1"),
-            "repeats": result.get("repeats"),
-            "repeat_spread": result.get("repeat_spread"),
-        },
-    )
+    row = {
+        "phase": "ramp",
+        "metric": "ramp",
+        "engine": engine,
+        "host": host,
+        "model": model,
+        "configured_width": width,
+        # #325: the curve on a timeline. `levels[].wall_s` sums to what
+        # the requests took; this is when the ramp ran, so the phase's
+        # remaining minutes can be attributed to the seams between rows.
+        "started_at": started_at,
+        "ended_at": ended_at,
+        # D1: what the server SAYS, beside what the curve did, each with
+        # its provenance. `configured_width` above is what this run asked
+        # for; this is what the host reports it is running.
+        "declared_slots": declared,
+        "tokens": tokens,
+        "saturation_n": saturated.get("n"),
+        "saturation_refused": saturated.get("refused"),
+        "ramp_tokens": saturated.get("ramp_tokens"),
+        "plateau_fraction": saturated.get("plateau_fraction"),
+        "levels_dropped": saturated.get("levels_dropped"),
+        "throughput_plateau_n": readings.get("throughput_plateau_n"),
+        "latency_plateau_n": readings.get("latency_plateau_n"),
+        "max_speedup_vs_n1": readings.get("max_speedup_vs_n1"),
+        "levels": result.get("levels"),
+        # The three fields the sink dropped for a whole campaign. See
+        # RAMP_ROW_DISPOSITION: `repeat_spread` is the only error bar any
+        # speedup figure in this file will ever have.
+        "speedup_vs_n1": result.get("speedup_vs_n1"),
+        "repeats": result.get("repeats"),
+        "repeat_spread": result.get("repeat_spread"),
+    }
+    row.update(pins or {})
+    emit(out, row)
     print(
         f"  {host}/{engine} width={width} tokens={tokens} -> saturation_n "
         f"{saturated.get('n')} speedup {readings.get('max_speedup_vs_n1')}"

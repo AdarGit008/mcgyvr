@@ -504,9 +504,21 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
     try:
         result = json.loads((raw or "").strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
-        result = {
-            "error": f"the digest script returned nothing usable: {raw!r}",
-        }
+        # #326: `contract.ssh` answers None for a timeout and for every other
+        # failure alike, so the timeout is derived from the clock this
+        # function already reads. A digest that ran out of time is a point on
+        # DIGEST_TIMEOUT_S's curve, not a blank.
+        if raw is None and digest_seconds >= DIGEST_TIMEOUT_S:
+            result = {
+                "error": (
+                    f"the digest did not finish inside DIGEST_TIMEOUT_S = "
+                    f"{DIGEST_TIMEOUT_S:.0f} s"
+                )
+            }
+        else:
+            result = {
+                "error": f"the digest script returned nothing usable: {raw!r}",
+            }
     # Scrubbed before it is returned. `snapshot` is
     # `$HF_HOME/hub/models--…/snapshots/<hash>`, i.e. a home-directory path that
     # names a user — precisely what the redactor exists for — and this is
@@ -690,6 +702,36 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             "serve": serve,
         }
     )
+
+
+def build(host: str) -> dict[str, Any]:
+    """This engine's version on ``host``, for the identity block (#326).
+
+    ``GET /version`` on a running server; a server that is not up answers
+    nothing, and then the pip package or the container tag is asked. Each
+    is named, so a ``null`` says which reads were tried.
+    """
+    answered = contract.get_json(
+        contract.url(f"http://{host}:{PORT}", "/version"), timeout=10.0
+    )
+    if isinstance(answered, dict) and answered.get("version"):
+        return {"serving_build": f"vllm {answered['version']}", "refused": None}
+    command = (
+        "vllm --version 2>/dev/null || "
+        "python3 -c 'import vllm; print(vllm.__version__)' "
+        f"2>/dev/null || (docker images -q {CONTAINER_IMAGE} >/dev/null 2>&1 "
+        f"&& echo {CONTAINER_IMAGE})"
+    )
+    raw = contract.ssh(host, command)
+    if raw:
+        return {
+            "serving_build": f"vllm {raw.strip().splitlines()[-1]}",
+            "refused": None,
+        }
+    return {
+        "serving_build": None,
+        "refused": f"GET /version on port {PORT} answered nothing, then: {command}",
+    }
 
 
 def launched_width(host: str) -> dict[str, Any]:

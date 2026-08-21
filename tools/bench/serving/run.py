@@ -454,6 +454,9 @@ def run(
                         "stage": "claim",
                         "kind": type(error).__name__,
                         "prose": str(error),
+                        # #326: the trail the refusal was decided on, as
+                        # data -- every attempt, with its own `ok` and cost.
+                        "attempts": list(getattr(error, "attempts", [])),
                     },
                     "refused_stage": "claim",
                     "refused_kind": type(error).__name__,

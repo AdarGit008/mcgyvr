@@ -45,6 +45,7 @@ import json
 import re
 import shlex
 import sys
+import time
 import types
 from pathlib import Path
 from typing import Any
@@ -172,6 +173,16 @@ def readings(host: str) -> dict[str, Any]:
         }
         for name, command in reads.items()
     }
+
+
+def build(host: str) -> dict[str, Any]:
+    """This engine's version on ``host``, for the identity block (#326)."""
+    command = "ollama --version 2>/dev/null || true"
+    raw = contract.ssh(host, command)
+    match = re.search(r"(\d+\.\d+\.\d+\S*)", raw or "")
+    if match:
+        return {"serving_build": f"ollama {match.group(1)}", "refused": None}
+    return {"serving_build": None, "refused": f"no version in the output of: {command}"}
 
 
 def release(host: str) -> dict[str, Any]:
@@ -335,6 +346,7 @@ def claim(
         # #325: each attempt on a timeline. The release is inside the span
         # because it is this attempt's doing -- the card is cleared FOR it.
         attempt_started_at = contract.now()
+        attempt_began = time.monotonic()
         released = release(host)
         # Loaded AFTER the release, so the neighbours are this attempt's doing
         # and not a leftover — and before the model under test, so the card is
@@ -435,6 +447,8 @@ def claim(
         check["card_used_mib_after_load"] = card_now
         # The last read of the attempt; the verdict below is arithmetic.
         check["ended_at"] = contract.now()
+        # #326: the attempt's own cost, so LOAD_ATTEMPTS has a price per try.
+        check["seconds"] = round(time.monotonic() - attempt_began, 3)
         # **DE-E: `None` is not evidence of agreement.** The pre-load gate is
         # `card_idle_before_load is True` precisely because a failed reading is
         # not a clean card; this one was `card_now is not None and ...`, so a
@@ -523,6 +537,7 @@ def claim(
         # stopping there would have reproduced the very defect they were added
         # to fix — a reason recoverable only by regex over prose.
         reasons=reasons or ["unknown"],
+        attempts=trail,
     )
 
 

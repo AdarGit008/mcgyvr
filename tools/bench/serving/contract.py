@@ -193,9 +193,20 @@ class RefusedError(NotCleanError):
     Subclasses :exc:`NotCleanError` so every existing handler is unchanged.
     """
 
-    def __init__(self, message: str, reasons: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        reasons: list[str] | None = None,
+        attempts: list[dict[str, Any]] | None = None,
+    ) -> None:
         super().__init__(message)
         self.reasons = reasons or []
+        # #326: the trail the refusal was decided on, as data. Before this a
+        # refused load left no attempt record anywhere -- `run.py` recorded
+        # the reasons and the load row recorded nothing -- so the cost side
+        # of LOAD_ATTEMPTS (does a second attempt ever rescue a first?) was
+        # unanswerable from either sink.
+        self.attempts = attempts or []
 
 
 # --- the clock, and the tree that ran (#325) ---------------------------------
@@ -439,6 +450,51 @@ def snapshot(host: str) -> dict[str, Any]:
         None if out["gpu_used_mib"] is None else out["gpu_used_mib"] <= IDLE_GPU_MIB
     )
     return out
+
+
+#: The one hardware read the identity block is built from (#326). One
+#: `nvidia-smi` line: name, total memory, driver, compute capability.
+HARDWARE_COMMAND = (
+    "nvidia-smi --query-gpu=name,memory.total,driver_version,compute_cap "
+    "--format=csv,noheader"
+)
+
+#: Identity fields no run can answer today, each with the reason (ADR-0027 D2:
+#: null plus a reason, never a blank and never a number copied from prose).
+HARDWARE_UNANSWERABLE: dict[str, str] = {
+    "memory_bandwidth_gb_s": (
+        "not measured by any run: the 21.8 / 13.3 GB/s figures in ADR-0024:40 "
+        "and records/evidence/calibration-2026-08-19/README.md were taken "
+        "pre-XMP and never re-taken (step0-gaps.md:202); a run that wants "
+        "the number declares it in its #322 header and measures it"
+    ),
+}
+
+
+def hardware(host: str) -> dict[str, Any]:
+    """The card, once per host: ``{"identity": {...}, "refusals": {...}}``.
+
+    A field the host did not answer is ``null`` in ``identity`` and its
+    command is in ``refusals`` under the same name, the shape
+    :func:`snapshot` already uses per reading.
+    """
+    fields = ("gpu_name", "gpu_total_mib", "driver_version", "compute_capability")
+    raw = ssh(host, HARDWARE_COMMAND)
+    parts = [p.strip() for p in (raw or "").split(",")] if raw else []
+    identity: dict[str, Any] = dict.fromkeys(fields)
+    refusals: dict[str, str] = {}
+    if len(parts) == 4:
+        identity["gpu_name"] = parts[0]
+        identity["gpu_total_mib"] = first_int(parts[1])
+        identity["driver_version"] = parts[2]
+        identity["compute_capability"] = parts[3]
+    for field in fields:
+        if identity[field] is None:
+            refusals[field] = HARDWARE_COMMAND
+    for field, why in HARDWARE_UNANSWERABLE.items():
+        identity[field] = None
+        refusals[field] = why
+    return {"identity": identity, "refusals": refusals}
 
 
 def drop_page_cache(host: str) -> dict[str, Any]:

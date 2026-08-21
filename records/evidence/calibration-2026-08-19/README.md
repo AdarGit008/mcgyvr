@@ -653,6 +653,8 @@ predict a capture's shape.
 | `DIGEST_TIMEOUT_S` | 1800 s | one point: 5.57 GB in 34 s (srv2, docker) | no distribution, no scaling against size |
 | `LOAD_ATTEMPTS` | 2 | refusals cost 91–145 s, being two full clear-load cycles | whether a second attempt ever rescues a first |
 | `RAMP_REPEATS` | 2 | — | the discarded repeat is never written down |
+| `DIGEST_TIMEOUT_S` *(appended 2026-08-21, #326)* | 1800 s | every launch row now carries `digest_bytes` beside `digest_seconds`, and a timed-out digest is a recorded point with `digest_error` naming the constant | the distribution accrues from the next run; check: `tests/test_sink_conformance.py::test_the_digest_duration_arrives_with_the_bytes_it_hashed` |
+| `LOAD_ATTEMPTS` *(appended 2026-08-21, #326)* | 2 | every attempt carries `ok` and `seconds`; the load row carries `attempts`, `attempt_outcomes`, `rescued_by_retry`; a refusal keeps its whole trail in both sinks | whether a second attempt ever rescues a first is now countable; check: `tests/test_serving.py::test_a_load_that_fails_once_and_succeeds_once_records_both_attempts` |
 
 **`RAMP_REPEATS` is not like the other three — it is coupled to D2.**
 `contract.py:325` runs each level twice and keeps the better:

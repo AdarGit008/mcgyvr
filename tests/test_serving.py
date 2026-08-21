@@ -1049,10 +1049,13 @@ def _ollama_rig(
     card_before: int,
     card_after: int,
     resident: list[dict[str, Any]],
-    children: str = "4242 /usr/local/lib/ollama/llama-server --model "
+    children: str | list[str] = "4242 /usr/local/lib/ollama/llama-server --model "
     "/blobs/sha256-aaa --port 4242 -c 4096 -np 2",
 ) -> Any:
     """A fake ollama host: one card reading, one `/api/ps`, one child listing.
+
+    ``children`` may be a per-attempt sequence (#326): attempt *n* sees the
+    *n*-th listing, so a load that fails once and succeeds once is expressible.
 
     Loaded by path and patched on its OWN contract reference, because an earlier
     test clears the shared module slot and a fresh load holds a different module
@@ -1061,6 +1064,7 @@ def _ollama_rig(
     ollama: Any = _by_path("gated_ollama", SERVING / "backends" / "ollama.py")
 
     reads: list[int] = []
+    listings = iter(children) if isinstance(children, list) else None
 
     def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
         if "memory.used" in command:
@@ -1081,7 +1085,7 @@ def _ollama_rig(
         # children, so these tests raised on `no_server_child` and would have
         # passed with the gate under test deleted.
         if "pgrep -af" in command:
-            return children
+            return next(listings) if listings is not None else str(children)
         if "http_code" in command:
             return "200"
         if "pgrep -c" in command:
@@ -1147,6 +1151,107 @@ def test_a_refusal_carries_its_reasons_as_data_not_prose(
     with pytest.raises(ollama.contract.RefusedError) as raised:
         ollama.claim("h", "http://h:11434", "m")
     assert raised.value.reasons == ["no_server_child"]
+
+
+def test_a_load_that_fails_once_and_succeeds_once_records_both_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The dogfood for `LOAD_ATTEMPTS = 2` (#326): does a second attempt ever
+    rescue a first, and what did each cost. Before this no test named the
+    constant and no sink kept more than the last attempt."""
+    good = (
+        "4242 /usr/local/lib/ollama/llama-server --model /blobs/sha256-aaa "
+        "--port 4242 -c 4096 -np 2"
+    )
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
+        children=["", good],
+    )
+    assert ollama.LOAD_ATTEMPTS == 2
+    claimed = ollama.claim("h", "http://h:11434", "m")
+    trail = claimed["attempts"]
+    assert [a["ok"] for a in trail] == [False, True]
+    assert [a["attempt"] for a in trail] == [1, 2]
+    for attempt in trail:
+        assert isinstance(attempt["seconds"], float) and attempt["seconds"] >= 0
+        assert attempt["started_at"] <= attempt["ended_at"]
+
+    calibrate: Any = _by_path("serving_calibrate_dogfood", SERVING / "calibrate.py")
+    row = calibrate._load_row("h", "m", 0, 3.0, True, None, claimed)
+    assert row["attempts"] == 2
+    assert row["attempt_outcomes"] == [False, True]
+    assert row["rescued_by_retry"] is True
+    assert row["attempt"] == 2 and row["attempt_seconds"] == trail[-1]["seconds"]
+    # A first-try success is not a rescue.
+    first = calibrate._load_row("h", "m", 0, 3.0, True, None, {"attempts": trail[-1:]})
+    assert first["attempts"] == 1 and first["rescued_by_retry"] is False
+
+
+def test_a_refused_claim_carries_its_attempt_trail_as_data(
+    runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`RefusedError.attempts` is the whole trail, and both sinks keep it."""
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
+        children="",
+    )
+    with pytest.raises(ollama.contract.RefusedError) as raised:
+        ollama.claim("h", "http://h:11434", "m")
+    trail = raised.value.attempts
+    assert len(trail) == ollama.LOAD_ATTEMPTS
+    assert [a["ok"] for a in trail] == [False, False]
+    assert all("seconds" in a for a in trail)
+
+    # The load row: the trail, counted and judged.
+    calibrate: Any = _by_path("serving_calibrate_refusal", SERVING / "calibrate.py")
+    row = calibrate._load_row(
+        "h", "m", 0, 5.0, False, "RefusedError: x", {"attempts": list(trail)}
+    )
+    assert row["attempts"] == 2 and row["attempt_outcomes"] == [False, False]
+    assert row["rescued_by_retry"] is False and row["attempt"] == 2
+
+    # The survey's refusal block, through the real `run`.
+    class Refusing:
+        NAME, PORT = "alpha", 11434
+
+        def probe(self, host: str) -> str:
+            return "http://h:11434"
+
+        def inventory(self, host: str, base: str) -> list[str]:
+            return ["m"]
+
+        def readings(self, host: str) -> dict[str, Any]:
+            return {}
+
+        def release(self, host: str) -> dict[str, Any]:
+            return {"released": True}
+
+        def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+            raise raised.value
+
+    monkeypatch.setattr(runner.contract, "load_backend", lambda name: Refusing())
+    monkeypatch.setattr(runner.contract, "snapshot", lambda host: {})
+    journal = tmp_path / "j.jsonl"
+    result = runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "models": [{"label": "x", "backend": "alpha", "id": "m"}],
+        },
+        journal=journal,
+    )
+    measured = result["hosts"]["h"]["measured"]["x"]
+    assert measured["outcome"] == "launch_failed"
+    assert measured["refusal"]["reasons"] == ["no_server_child"]
+    assert measured["refusal"]["attempts"] == trail
+    recorded = json.loads(journal.read_text().splitlines()[0])
+    assert recorded["refusal"]["attempts"] == trail
 
 
 def test_a_placement_key_the_backend_does_not_read_is_refused(
