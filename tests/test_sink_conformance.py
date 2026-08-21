@@ -344,7 +344,20 @@ def test_every_level_row_carries_the_load_of_both_machines(
         )
 
 
-def test_the_driver_load_is_three_figures_off_os_getloadavg(contract: Any) -> None:
+def test_the_driver_load_is_three_figures_off_os_getloadavg(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """And off `os.getloadavg`, which is the half the shape cannot show.
+
+    The rig fixtures stub `client_loadavg` to count reads, so this is the only
+    test that runs the real body -- and asserting its SHAPE alone passed on a
+    body returning a constant, which is #327's box 2 ("the driver's
+    `os.getloadavg()`") going unchecked. The sentinel is asserted first, then
+    the shape is read off the machine this actually runs on.
+    """
+    monkeypatch.setattr(contract.os, "getloadavg", lambda: (1.234, 2.345, 3.456))
+    assert contract.client_loadavg() == [1.23, 2.35, 3.46]
+    monkeypatch.undo()
     figures = contract.client_loadavg()
     assert isinstance(figures, list) and len(figures) == 3
     assert all(isinstance(figure, float) for figure in figures)
