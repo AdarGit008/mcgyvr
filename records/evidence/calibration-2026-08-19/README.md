@@ -1227,3 +1227,47 @@ quoted elsewhere.
 checks read the committed files, and the mutation sweep ran over copies of them.
 Implementing any fix the owner selects is its own commit, referenced from the
 K-line it closes, and removes one `xfail`.
+
+## Addendum, 2026-08-21 — the cross-rig claim is now a predicate that refuses (#329)
+
+Appended, not edited; the sentence it is about is left exactly as written at
+`:983-987`. "The gap is hardware, not configuration" was read off
+`d7-ramp.jsonl`, and **that file names neither.** Twelve rows of seventeen keys:
+no card, no driver, no launcher, no engine build, no weights digest, no engine
+config, and not one launch row. `grep -c -E "1660|3060|driver_version|launcher|v0\.26\.0|enforce-eager|engine_version|weights_sha256" d7-ramp.jsonl` prints `0`.
+The two cards do differ — a GTX 1660 SUPER (6144 MiB, driver 580.173.02) and an
+RTX 3060 (12288 MiB, 595.84), both read by the survey — and so do the two
+deployments: srv1 runs a pip `vllm serve` on torch 2.11.0+cu130, srv2 runs the
+`vllm/vllm-openai:v0.26.0` container (`step0-gaps.md:21`). Hardware may be the
+answer. Nothing in the journal the sentence rests on can tell it from the
+container image, and under ADR-0026 lens 3 that makes the claim worse than dead
+weight rather than wrong.
+
+**What #329 changed.** The cross-rig claim is now `cross_host_contrast(journal,
+model, width)`, a pure reader that returns the two hosts' speedups *only* when both
+launch rows carry the same `weights_sha256` and the same `identity.serving_build`
+and each names its card, and otherwise returns the field that refused it. Run
+against this directory's journal it returns `{"refused": "no launch row"}`.
+Two things it deliberately does not require: equal cards, because the cards
+differing is the hypothesis under test, and any decision about what the gap is.
+
+**Its checks.**
+`tests/test_cross_rig_claim.py::test_the_two_launchers_hand_the_engine_the_same_arguments`
+builds both launch command lines through `vllm._start` with the launcher forced
+and ssh stubbed, and holds them to the same engine arguments and the same
+environment once `PATH` is set aside — the flags on the two hosts really are
+identical, and that was an assumption about two strings nobody had compared
+until now.
+`::test_a_cross_host_contrast_refuses_when_identity_differs_or_is_missing` holds
+the refusals, and the accepting case beside them.
+`::test_the_2026_08_20_cross_rig_claim_holds_only_on_a_journal_with_identity_rows`
+reads the claim off this directory's journal and is
+`xfail(strict=True, reason="2026-08-21: owed — …")`: it is red because the
+journal carries no identity, not because 3.76 and 15.42 are in doubt. The rig
+arm of #329 writes one width-16 ramp and one launch row per host — about 19
+minutes, the only rig time any #286 child asks for — points the module's
+`CROSS_RIG_JOURNAL` at it, and takes the marker off in the same commit. A strict
+xfail that passes fails the suite, so the flip is a predicate rather than a
+promise.
+
+**No rig time was spent here**, and none of the three arms above can spend any.
