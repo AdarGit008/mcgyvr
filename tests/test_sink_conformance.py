@@ -475,7 +475,7 @@ RUN = SERVING / "run.py"
 #: what is discarded -- when the producer is a scalar, a literal row, or a
 #: remote server's document.
 SINK_DISPOSED: dict[str, str] = {
-    "calibrate.py::load::_load_row": "LOAD_ROW_DISPOSITION",
+    "calibrate.py::load::row": "LOAD_ROW_DISPOSITION",
     "calibrate.py::_widths::_launch_row": "LAUNCH_ROW_DISPOSITION",
     "calibrate.py::_one_ramp::ramp/ramp": "RAMP_ROW_DISPOSITION",
     # The unmeasured early write and the terminal write are the same row.
@@ -582,32 +582,54 @@ def _row_site(row: ast.expr) -> str:
     return ast.unparse(row)
 
 
+def _sink_name(func: ast.expr) -> str | None:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
 def _sinks(path: Path) -> dict[str, tuple[str, int]]:
     """Every `emit(out, row)` and `record(row)` in ``path``: key -> (func, line).
 
     The key is ``<file>::<function>::<site>``, with ``#n`` appended when the
-    same site label occurs more than once in one function.
+    same site label occurs more than once in one function. The whole tree is
+    walked -- methods, nested functions and module level included -- and a
+    call through an attribute (``calibrate.emit``) counts, so a sink cannot
+    hide from the census by where it is written. Module-level calls are
+    attributed to ``<module>``.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    enclosing: dict[ast.AST, str] = {}
+
+    def _label(node: ast.AST, owner: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            name = (
+                child.name
+                if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+                else owner
+            )
+            enclosing[child] = name
+            _label(child, name)
+
+    _label(tree, "<module>")
     found: list[tuple[str, str, int]] = []
-    for func in tree.body:
-        if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
             continue
-        for node in ast.walk(func):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
-                continue
-            if node.func.id == "emit" and len(node.args) >= 2:
-                row = node.args[1]
-            elif node.func.id == "record" and len(node.args) >= 1:
-                row = node.args[0]
-            else:
-                continue
-            site = _row_site(row)
-            found.append((func.name, site, node.lineno))
+        name = _sink_name(node.func)
+        if name == "emit" and len(node.args) >= 2:
+            row = node.args[1]
+        elif name == "record" and len(node.args) >= 1:
+            row = node.args[0]
+        else:
+            continue
+        found.append((enclosing[node], _row_site(row), node.lineno))
     counts = Counter((f, s) for f, s, _ in found)
     seen: Counter[tuple[str, str]] = Counter()
     keyed: dict[str, tuple[str, int]] = {}
-    for name, site, line in found:
+    for name, site, line in sorted(found, key=lambda t: t[2]):
         label = site
         if counts[(name, site)] > 1:
             seen[(name, site)] += 1
@@ -684,6 +706,28 @@ def test_a_sink_added_without_a_disposition_is_refused(tmp_path: Path) -> None:
     )
     assert _unclassified(_sinks(mutated)) == {
         "calibrate.py::fast::fast/undeclared_new_sink"
+    }
+
+
+def test_a_sink_cannot_hide_from_the_census(tmp_path: Path) -> None:
+    """A method, a nested def, an alias through an attribute, module level."""
+    hidden = tmp_path / "hidden.py"
+    hidden.write_text(
+        "class Journal:\n"
+        "    def write(self, out, row):\n"
+        '        emit(out, {"phase": "p", "metric": "in_a_method"})\n'
+        "def phase(out):\n"
+        "    def inner():\n"
+        '        emit(out, {"phase": "p", "metric": "in_a_nested_def"})\n'
+        '    calibrate.emit(out, {"phase": "p", "metric": "via_attribute"})\n'
+        'emit(None, {"phase": "p", "metric": "at_module_level"})\n',
+        encoding="utf-8",
+    )
+    assert set(_sinks(hidden)) == {
+        "hidden.py::write::p/in_a_method",
+        "hidden.py::inner::p/in_a_nested_def",
+        "hidden.py::phase::p/via_attribute",
+        "hidden.py::<module>::p/at_module_level",
     }
 
 
@@ -774,12 +818,15 @@ def test_a_failed_load_writes_no_attempt_ordinal(calibrate: Any) -> None:
 
 
 class _SleepVllm:
+    NAME = "vllm"
     PORT = 8000
 
     def __init__(self, claimed: dict[str, Any]) -> None:
         self.claimed = claimed
+        self.launches = 0
 
     def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
+        self.launches += 1
         return dict(self.claimed)
 
     def release(self, host: str) -> None:
@@ -791,50 +838,79 @@ class _SleepOllama:
         pass
 
 
+class _SleepRun:
+    """What ``sleep_state`` wrote, and every document its dict producers handed it.
+
+    The endpoint seams (``_post``, ``get_json``) return a fresh dict per call
+    and each is remembered, so the set of row keys that hold one of them is
+    read off the row by identity -- the producer key set comes from the sink's
+    behaviour, not from a literal in this file.
+    """
+
+    def __init__(self) -> None:
+        self.rows: list[dict[str, Any]] = []
+        self.documents: list[dict[str, Any]] = []
+        self.vllm: Any = None
+
+    def document(self, body: dict[str, Any]) -> dict[str, Any]:
+        self.documents.append(body)
+        return body
+
+    def keys_holding_a_document(self, row: dict[str, Any]) -> set[str]:
+        ids = {id(d) for d in self.documents}
+        return {k for k, v in row.items() if id(v) in ids}
+
+
 @pytest.fixture
-def sleep_rows(
+def sleep_run(
     calibrate: Any, claimed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> list[dict[str, Any]]:
-    """What ``sleep_state`` writes for one host, both arms, every seam stubbed."""
-    rows: list[dict[str, Any]] = []
-    cards = iter([11109, 189, 11000] * 2)
+) -> _SleepRun:
+    """One host, both arms, every seam stubbed."""
+    run = _SleepRun()
+    cards = iter([11109, 189, 11000] * 4)
     backends = {"vllm": _SleepVllm(claimed), "ollama": _SleepOllama()}
+    run.vllm = backends["vllm"]
     monkeypatch.setattr(calibrate.contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(
-        calibrate.contract, "get_json", lambda *a, **k: {"is_sleeping": True}
+        calibrate.contract,
+        "get_json",
+        lambda *a, **k: run.document({"is_sleeping": True}),
     )
     monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
     monkeypatch.setattr(calibrate, "_card_mib", lambda host: next(cards))
     monkeypatch.setattr(
-        calibrate, "_post", lambda *a, **k: {"status": 200, "seconds": 0.1}
+        calibrate,
+        "_post",
+        lambda *a, **k: run.document({"status": 200, "seconds": 0.1}),
     )
     monkeypatch.setattr(calibrate.time, "sleep", lambda s: None)
-    monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
+    monkeypatch.setattr(calibrate, "emit", lambda _out, row: run.rows.append(row))
     calibrate.sleep_state(Path("unused.jsonl"), ["srv2"])
-    assert [r["arm"] for r in rows] == ["control_no_flag", "enabled"]
-    return rows
+    assert [r["arm"] for r in run.rows] == ["control_no_flag", "enabled"]
+    return run
 
 
 def test_the_sleep_launch_timing_reaches_the_row(
-    calibrate: Any, claimed: dict[str, Any], sleep_rows: list[dict[str, Any]]
+    calibrate: Any, claimed: dict[str, Any], sleep_run: _SleepRun
 ) -> None:
     """A1 one function down: `sleep_state` discarded `vllm.claim`'s return, so
     the three sleep-arm launches that came up on 2026-08-19/20 recorded no
     `start_seconds`."""
-    row = sleep_rows[1]
+    row = sleep_run.rows[1]
     assert row["start_seconds"] == 108.7
     assert row["digest_seconds"] == 34.2
     assert row["failed"] is False and row["actually_freed"] is True
-    produced = set(claimed) | {
-        "sleep_call",
-        "wake_call",
-        "is_sleeping_before",
-        "is_sleeping_after",
-    }
+    # The claim's keys from the claim; the endpoint documents from where the
+    # sink actually put them. Four documents were handed over per arm and
+    # each must be on the row under its own key.
+    documents = sleep_run.keys_holding_a_document(row)
+    assert len(documents) == 4, documents
     _disposition_matches_producer(
-        calibrate.SLEEP_ROW_DISPOSITION, produced, "SLEEP_ROW_DISPOSITION"
+        calibrate.SLEEP_ROW_DISPOSITION,
+        set(claimed) | documents,
+        "SLEEP_ROW_DISPOSITION",
     )
-    for each in sleep_rows:
+    for each in sleep_run.rows:
         _carried_are_in_row(
             calibrate.SLEEP_ROW_DISPOSITION, each, "SLEEP_ROW_DISPOSITION"
         )
@@ -846,6 +922,29 @@ def test_the_sleep_launch_timing_reaches_the_row(
     # Carried whole, not summarised: the documents are the evidence.
     assert row["is_sleeping_after"] == {"is_sleeping": True}
     assert row["sleep_call"] == {"status": 200, "seconds": 0.1}
+
+
+def test_a_finished_sleep_cell_is_recognised_on_resume(
+    calibrate: Any, sleep_run: _SleepRun, tmp_path: Path
+) -> None:
+    """The row the sink writes must be the row the resume check looks for.
+
+    Found in review of #324: merging the claim's fields put `engine` on the
+    row, `key()` reads `engine`, and the done-lookup in `sleep_state` built
+    its probe without it -- so every finished sleep cell was re-launched on
+    `--resume` while refused cells (no claim, no `engine`) were skipped.
+    """
+    journal = tmp_path / "sleep.jsonl"
+    journal.write_text(
+        "".join(json.dumps(r) + "\n" for r in sleep_run.rows), encoding="utf-8"
+    )
+    done = calibrate.completed(journal)
+    launched_before = sleep_run.vllm.launches
+    calibrate.sleep_state(Path("unused.jsonl"), ["srv2"], done=done)
+    assert sleep_run.vllm.launches == launched_before, (
+        "a finished sleep cell was relaunched on resume: the key sleep_state "
+        "probes with does not match the row it writes"
+    )
 
 
 class _SurveyBackend:

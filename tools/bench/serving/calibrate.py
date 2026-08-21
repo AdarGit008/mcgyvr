@@ -300,9 +300,9 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                 except Exception as error:
                     claimed, ok, why = {}, False, f"{type(error).__name__}: {error}"
                 seconds = round(time.monotonic() - began, 3)
-                attempt = (claimed.get("attempts") or [{}])[-1]
-                emit(out, _load_row(host, model, index, seconds, ok, why, claimed))
-                if attempt.get("vram_fraction") is not None:
+                row = _load_row(host, model, index, seconds, ok, why, claimed)
+                emit(out, row)
+                if row["vram_fraction"] is not None:
                     emit(
                         out,
                         {
@@ -311,7 +311,7 @@ def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
                             "host": host,
                             "model": model,
                             "index": index,
-                            "value": attempt["vram_fraction"],
+                            "value": row["vram_fraction"],
                         },
                     )
 
@@ -677,9 +677,18 @@ def sleep_state(
             ("control_no_flag", ["--enforce-eager"]),
             ("enabled", ["--enforce-eager", "--enable-sleep-mode"]),
         ):
-            if key({"phase": "sleep", "host": host, "model": model, "arm": arm}) in (
-                done or set()
-            ):
+            # `engine` is in the key (DE-K), and since #324 the row carries it
+            # -- so the lookup must carry it too, or a finished cell is never
+            # recognised on --resume and vLLM is relaunched for every arm.
+            if key(
+                {
+                    "phase": "sleep",
+                    "host": host,
+                    "engine": vllm.NAME,
+                    "model": model,
+                    "arm": arm,
+                }
+            ) in (done or set()):
                 print(f"  {host}/{arm} — already done", flush=True)
                 continue
             serve = {
@@ -693,6 +702,7 @@ def sleep_state(
             row: dict[str, Any] = {
                 "phase": "sleep",
                 "metric": "sleep",
+                "engine": vllm.NAME,
                 "host": host,
                 "arm": arm,
                 "model": model,
@@ -877,7 +887,7 @@ SLEEP_ROW_DROPPED: dict[str, str] = {}
 #: so. Same contract as :data:`RAMP_ROW_DISPOSITION`.
 LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # D6's "does a second attempt ever rescue a first": the ordinal of the
-    # attempt that succeeded, which on a success is `len(attempts)`.
+    # attempt whose record this is (on a success, the one that succeeded).
     "attempt": ("attempt",),
     "card_idle_before_load": ("card_idle_before_load",),
     "card_used_mib_before_load": ("card_used_mib_before_load",),
@@ -955,7 +965,7 @@ def _load_row(
         "value": seconds,
         "ok": ok,
         "why": why,
-        "attempt": len(attempts) or None,
+        "attempt": attempt.get("attempt"),
         "card_idle_before_load": attempt.get("card_idle_before_load"),
         "card_used_mib_before_load": attempt.get("card_used_mib_before_load"),
         "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
@@ -982,14 +992,13 @@ def _launch_row(
     serves every token count at that width, so folding it in would repeat the
     same timing under several keys and invite someone to average them.
     """
-    fields = _claim_fields(claimed)
     return {
         "phase": "ramp",
         "metric": "launch",
         "host": host,
+        "model": claimed.get("model") or model,
         "configured_width": width,
-        **fields,
-        "model": fields["model"] or model,
+        **_claim_fields(claimed),
     }
 
 
@@ -998,13 +1007,14 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
 
     One function for both sinks that write a launch -- the width row and the
     sleep row -- so the disposition is true of each because it is the same code.
+    ``model`` is not here: each sink owns its own, so a claim return without
+    one cannot overwrite the identity the row's key is built from.
     """
     checks = claimed.get("checks") or {}
     started = checks.get("started") or {}
     weights = checks.get("weights") or {}
     return {
         "engine": claimed.get("backend"),
-        "model": claimed.get("model"),
         "verified": claimed.get("verified"),
         # The four D6 asked for, at the only moment anything can answer them.
         "start_seconds": started.get("start_seconds"),
