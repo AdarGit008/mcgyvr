@@ -1088,3 +1088,142 @@ row carries the card at the claim, beside `gpu_used_mib`.
 them; `LEVEL_ROW_DISPOSITION` in `calibrate.py` is their only guard) and
 `tests/test_serving.py::test_the_curve_reads_the_same_in_any_order_it_was_run`.
 No rig time: the first values are the re-run's to write and to read.
+
+## Conflicts recorded 2026-08-21 — six, re-derived at `d4d6b8c1` (#328)
+
+Appended, not edited. Session 6 counted six contradictions in this campaign's
+record (`records/sessions/lane/286/2026-08-20-131600-claude.md:151`) and left
+every one of them in prose. All six were re-derived from the files beside this
+README at `d4d6b8c1`: **four survive and two dissolve.** They are labelled
+**K1–K6** because C1–C6 above are this README's own findings and are not these.
+
+**Nothing read any of them until now.** `grep -rl xfail tests` found nothing,
+and the only guards over these journals were the disposition tables beside the
+sinks (#324), which account for the *fields* of a row and say nothing about the
+*values* inside one — which is why the session record says of K3 that it "would
+not be caught today".
+
+Each K is now a check in `tests/test_calibration_conflicts.py`, under ADR-0037:
+a finding is a test with an expected state; a finding the owner has not ruled on
+keeps its check as a dated `xfail(strict=True)`; the record names the check.
+Four are `owed` and carry the question the investigation must answer. Two are
+green, and their job is to keep a re-derived non-finding from being re-filed.
+
+**The checks read the newest campaign, not this one.** Every one resolves its
+evidence to the newest `records/evidence/calibration-*` directory. The files
+beside this README are frozen history and can never turn green, so a check
+pinned to them would be an `xfail` that outlives its own finding and can never
+XPASS. Pointed at the newest campaign, each `owed` reason is a question put to
+the **next** run, and the run that answers it flips the marker.
+
+**Two checks read wider than #328 filed them,** and are noted below: K5 covers
+both engines rather than ollama alone (227 pairs, not 27), and K6 covers every
+figure-bearing ramp row in this directory's journals (36) rather than the twelve
+of `d7-ramp.jsonl`. Both verdicts are unchanged by the widening.
+
+**Shown to reject.** 25 mutations were applied to a copy of this evidence and
+the six checks run against it. Each of the four survivors turns green when its
+defect is repaired in the copy — which is what `strict` is for — and stays red
+under a partial repair: one sampler field left disagreeing, `n_ctx_total`
+present but carrying the per-slot window, `holder` present and `null`, a version
+on one host's rows only. Each green check goes red under four independent
+breakages, and refuses a population it would pass vacuously. Two mutations prove
+the campaign resolution in both directions: a newer campaign with the four
+defects repaired turns all six green while these files stay as they are, and
+repairing *these* files while a defective newer campaign sits beside them
+changes nothing. 25 of 25.
+
+### K1 — the sampler pin is not the layer any request ran under
+
+`d7-survey.json`, `hosts[].measured[].description.serving_config.semantic`
+against `…server.instances[].slots[].params`. `serving_config` digests
+`/props`'s `default_generation_settings`, which is llama-server's own default
+set, while every request this project dispatches goes through ollama's
+per-request parameters (where a `Modelfile`'s `parameters` enter). The two
+layers disagree on **17 of 17 served slots**: `top_p`, `min_p` and
+`repeat_penalty` on all 17, `temperature` on 4, `top_k` on 1 — under a digest
+quoted as the pin that makes the cells comparable.
+
+- check: `tests/test_calibration_conflicts.py::test_the_sampler_pin_is_the_layer_the_request_ran_under` — red, 17/17
+- decision: owed — which layer is `serving_semantic_sha256` a pin of: llama-server's defaults, or the params a request ran under?
+
+### K2 — the launched context total is recoverable by arithmetic and unnamed
+
+`d7-survey.json`, `…server.instances[].command_line` against the same semantic
+block. `-c` is the total window and `-np` splits it into slots; `serving_config`
+parses both and then overwrites `n_ctx` with the per-slot window off `/props`,
+so the total survives only as a product. It holds on **19 of 19** children, and
+**6 of 19** were launched at 8192 rather than 4096 — `OLLAMA_NUM_PARALLEL=2` in
+srv1's unit (`d7-survey.json:342`), nothing in srv2's (`:21963`). That is a
+host-configuration difference sitting under a figure this README reads as
+hardware, and the text above still calls context "uniform at 4096".
+
+- check: `tests/test_calibration_conflicts.py::test_the_launched_context_total_has_a_name_in_the_semantic_block` — red, 19/19 carry no `n_ctx_total`
+- decision: owed — is the width split inherited or intended, and does a cross-host figure refuse it, carry it, or equalise the hosts first? (feeds #329)
+
+### K3 — a yield finds the card held, and does not say by whom
+
+`d7-survey.json`, `hosts[].measured[].yielded.vllm`. `release()` stops this
+engine's own processes and then reads the whole card, deliberately keeping "I
+released mine" apart from "the card is empty". The vLLM yield runs before ollama
+evicts its previous model, so **15 of 17** cells recorded `card_idle: false`
+against a residue matching the previous cell's post-load reading to within 14
+MiB, and `card_used_mib_before_load` is 1 on 17 of 17. The reading is correct
+and unattributable: nothing in the row says whose memory it is, though the same
+`release()` call could name it from `/api/ps` or
+`nvidia-smi --query-compute-apps`. Moving the read to after eviction is
+instrument placement and is not this record's.
+
+- check: `tests/test_calibration_conflicts.py::test_a_yield_row_that_finds_the_card_held_names_the_holder` — red, 15/15
+- decision: owed — does the yield row name what holds the card?
+
+### K4 — `endpoint_props: false` is the write flag. Dissolves
+
+`d7-survey.json`, `…instances[].props`. Filed as a payload fetched *from*
+`/props` that says the props endpoint is off, on 19 of 19 instances. It is
+llama.cpp's **write** flag: its server README (`tools/server/README.md`, fetched
+2026-08-21) documents `--props` as "enable changing global properties via POST
+/props (default: disabled)" and says of `GET /props` that "By default, it is
+read-only". The harness only ever issues that GET, and a search of
+`tools/bench/serving` for a POST or a `curl -d` to `/props` on 2026-08-21 found
+none — so the flag describes writes nobody makes, and `fingerprint` classing it
+operational is correct. The check holds the property that dissolves it: wherever
+the flag is false, the payload beside it is nonetheless complete.
+
+- check: `tests/test_calibration_conflicts.py::test_a_false_endpoint_props_beside_a_captured_props_payload_is_the_write_flag` — green, 19/19
+- decision: dissolved 2026-08-21 — not a contradiction; the check keeps it from being re-filed and goes red if a capture ever does come back empty.
+
+### K5 — 2.52× and 1.45× are the same server at different token counts. Dissolves
+
+`samples.jsonl` and `d7-ramp.jsonl`, `phase: ramp`. Filed as a knee of 12 at
+2.52× against a `saturation_n` of 2 at 1.45× for srv1/ollama/1.5B. They were
+measured at 32 and at 475 completion tokens; the same file reads 1.48 and 1.45
+at 512, D3 retired the 32-token ramp, and the section above already explains why
+a 32-token ramp reads a knee on a one-slot server. The check is the general form
+of that lesson rather than the instance, and it is **read wider than filed**:
+over both engines, because the vLLM matrix quotes 1.0 against 3.76 for one model
+at one token count and what separates them is `configured_width`. Every pair of
+figures for one host, engine and model that disagrees by more than 10% differs
+in a declared condition — 227 pairs, 187 of them disagreeing, 0 unattributable.
+
+- check: `tests/test_calibration_conflicts.py::test_two_ramp_rows_that_disagree_differ_in_a_declared_condition` — green, 187 disagreeing pairs all attributable
+- decision: dissolved 2026-08-21 — the 32-token rows are superseded, not contradictory; a figure that cannot be told from its neighbour is what the check now refuses.
+
+### K6 — the two hosts ran different ollama builds and no figure says so
+
+`d7-survey.json:346` and `:21967` against every ramp row in `samples.jsonl` and
+`d7-ramp.jsonl`. srv1 ran ollama 0.32.4 and srv2 ran 0.32.5. The survey read
+both, the split was known before launch
+(`records/sessions/lane/286/2026-08-18-220000-claude.md:13`), and this README
+quotes the two ollama arms side by side — while **0 of 36** figure-bearing ramp
+rows carry a version. The version is recoverable only by joining a figure to the
+survey document that happens to sit beside it, and not at all once the figure is
+quoted elsewhere.
+
+- check: `tests/test_calibration_conflicts.py::test_a_cross_host_figure_carries_the_engine_version_on_each_host` — red, 36/36
+- decision: owed — what moved between 0.32.4 and 0.32.5 in scheduling or placement, and does a cross-host row carry the version or refuse the split? (feeds #329)
+
+**No rig time.** Nothing here opened an ssh connection or ran `launch.py`; the
+checks read the committed files, and the mutation sweep ran over copies of them.
+Implementing any fix the owner selects is its own commit, referenced from the
+K-line it closes, and removes one `xfail`.
