@@ -484,6 +484,14 @@ NOT_A_FIGURE = {
         "and states what each one can and cannot say about itself; it states no "
         "pass rate and describes no outcome, so there is no mode to declare"
     ),
+    "tools/bench/headers.py": (
+        "the run headers (#330, the half of #322 that is not the gate). It "
+        "lists what each run is FOR — the question, the arms, the cost and its "
+        "source — and counts how many headers carry a run block against the "
+        "review point. It reads no run directory and no row, states no rate, "
+        "and describes no outcome; the one number it prints is a count of "
+        "files"
+    ),
     "tools/bench/serving/run.py": (
         "the serving survey's orchestrator (#286 lane). It records what is on "
         "the machines and how they are configured — models held, endpoints "

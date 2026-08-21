@@ -1,0 +1,68 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-19-d7-campaign",
+  "declared": "2026-08-21",
+  "retroactive": true,
+  "question": "Do the eight serving constants the harness rests on survive contact with both rigs — and does srv2's kv_cache_max_concurrency of 5.314 bind saturation before --max-num-seqs does, which srv1 could not falsify because a 1.5B AWQ had headroom at every width up to 16?",
+  "run": {
+    "started": "2026-08-19T19:31",
+    "ended": "2026-08-20T04:43",
+    "wall": "9 h 12 m against an 11.5 h estimate",
+    "driver": "tools/bench/serving/launch.py (CAMPAIGN, three phases)",
+    "phases": [
+      "sleep (D7 item 5) — 4/4 cells, 1141 s",
+      "survey (D7 items 1, 3, 4) — 17/17 cells, zero refusals, 4 h 53 m",
+      "ramp (D7 items 2, 6) — 12/12 cells, zero errors, 14404 s"
+    ],
+    "cells": 33,
+    "failures": 0,
+    "evidence": "records/evidence/calibration-2026-08-19/"
+  },
+  "arms": [
+    "ollama survey over 17 models — 5 on srv1, 12 on srv2 — placement, digests and serving config per cell",
+    "vLLM five-width ramp (1, 2, 4, 8, 16) at 475 completion tokens on both rigs",
+    "sleep state on both rigs, with and without --enable-sleep-mode"
+  ],
+  "hosts": {
+    "srv1": "the full survey, the five-width matrix and the D6 instrumentation; a 6144 MiB GTX 1660 SUPER cannot hold the five large models",
+    "srv2": "a superset, not a different campaign: all of srv1's plus MoE against dense, intended co-residency, sleep state, the five previously-refused placements, and the 5.314 prediction against a declared 16"
+  },
+  "cost": {
+    "source": "records/evidence/calibration-2026-08-19/d7-campaign.log",
+    "estimated": "11.5 h",
+    "actual": "9 h 12 m",
+    "rig_minutes_available": 1324,
+    "rig_minutes_used": 662,
+    "utilisation": "50% by construction — the phases are sequential, so exactly one rig ever works",
+    "budget": "none: the owner imposed no time or token limit"
+  },
+  "could_have_carried": [
+    "The four D6 constants (START_TIMEOUT_S, DIGEST_TIMEOUT_S, LOAD_ATTEMPTS, RAMP_REPEATS) were commissioned onto this run and not instrumented; every launch and every digest was a free point on a curve that no longer exists.",
+    "A per-unit timestamp on every journal row, which would have cost nothing and would have made 8,185 s of the ramp phase attributable rather than a remainder (#325).",
+    "The identity of the machine each row ran on — card, driver, engine build, weights digest (#326) — read once per host at no measurable cost."
+  ],
+  "left_on_table": {
+    "second_rig": "srv1 finished at 21:12 and idled the rest of the campaign at 1378 MiB, 0% GPU: 662 of 1324 rig-minutes unused. Making the phases concurrent is not free — the sleep and yield paths assume one engine holds the card at a time — and was not attempted.",
+    "price": {
+      "unknown": true,
+      "searched": [
+        "tools/bench/rate-card.json — bench/rate-card/1, seconds per task per run for the bench arms; it prices tasks, not rig minutes",
+        "records/evidence/calibration-2026-08-19/d7-campaign.log — wall clock per phase, no cost",
+        "tools/power/ and data/capability-table.json — no serving cost model in either"
+      ],
+      "note": "No serving rate card exists. What an idle rig-minute is worth is unpriced, so 'half the campaign was idle' is a fact without a number attached to it."
+    }
+  },
+  "prerequisites": [
+    "step 0 readiness on both rigs (records/evidence/calibration-2026-08-19/step0-readiness.md)",
+    "the 17-model roster settled by the owner 2026-08-19",
+    "every model digest verified live during step 0.2, so a campaign reading could be compared against a measured number rather than an intuition"
+  ],
+  "void_if": [
+    "a checkpoint moves under the campaign — it had no weights pin at the time, which is why #326 added one",
+    "the two hosts run different engine builds without the rows saying so — they did: ollama 0.32.4 on srv1 and 0.32.5 on srv2 (#328 K6)",
+    "a cell runs at a sampler or a context the record does not carry — four cells ran at a temperature the pin does not describe (#328 K1, K2)"
+  ],
+  "answered_by": "records/evidence/calibration-2026-08-19/README.md — 'Addendum, 2026-08-20 — the campaign ran, and the four owed blocks are closed'",
+  "notes": "Written retroactively on 2026-08-21 as #330's first header, from the campaign's own log and evidence README; nothing here is recovered from memory. Its intent survived in three places and none of them was a record: prose _doc keys in tools/bench/serving/configs/d7-campaign.json, a three-tuple of shell commands in launch.py, and the dated evidence directory that would have taken the questions with it. That is the gap this record type exists to close."
+}

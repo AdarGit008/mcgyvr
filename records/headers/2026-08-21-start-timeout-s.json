@@ -1,0 +1,18 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-start-timeout-s",
+  "declared": "2026-08-21",
+  "question": "How long does a clean vLLM launch actually take, and is START_TIMEOUT_S = 900 s a bound on that distribution or a number nobody has measured?",
+  "cost": {
+    "unknown": true,
+    "searched": [
+      "records/evidence/calibration-2026-08-19/README.md:652 — 15 clean launches in C6, none timed",
+      "records/evidence/calibration-2026-08-19/d7-ramp.jsonl — no launch row exists in it at all",
+      "tools/bench/serving/backends/vllm.py — start_seconds is computed on every launch"
+    ]
+  },
+  "prerequisites": [
+    "a run that writes a launch row per launch, which #324/#326 landed after this campaign"
+  ],
+  "notes": "D6 item, records/evidence/calibration-2026-08-19/README.md:652 and :1003-1004. The two measured points on record are 33 s (srv1) and 109 s (srv2) for a 1.5B, in a code comment rather than a journal. The constant costs nothing to instrument on any run that launches vLLM, which is why it was parked here rather than given a run of its own."
+}

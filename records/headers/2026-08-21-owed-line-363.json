@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-owed-line-363",
+  "declared": "2026-08-21",
+  "question": "The vLLM matrix's three: withdraw BATCHING_SPEEDUP (and does the ramp need an engine gate at all, given ollama's width is readable and only vLLM's max_num_seqs is unaskable?), name and set the plateau cutoff instead of inheriting a 0.95 function default, and set RAMP_TOKENS.",
+  "answered_by": "D1, D2 (PLATEAU_FRACTION = 0.92) and D3",
+  "notes": "records/evidence/calibration-2026-08-19/README.md:363, closed at :924. All 12 cells carry plateau_fraction 0.92, and saturation_n tracked the configured width exactly on every cell that was not refused."
+}

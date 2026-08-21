@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-issue-325",
+  "declared": "2026-08-21",
+  "question": "Where did 8,185 s of a 14,404 s ramp phase go, and what does each row say about when it ran?",
+  "answered_by": "#325",
+  "notes": "A pointer, not a copy. The sibling issue is the record of truth for its instruments and its conflicts; this header exists so the question is greppable outside the dated evidence directory and outside the tracker. Restating the list here would create a second copy to keep true."
+}
