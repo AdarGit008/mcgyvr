@@ -396,6 +396,46 @@ def test_a_saturation_point_that_misses_its_expectation_is_flagged(
     assert measured["matches_expected"] is False
 
 
+def test_the_survey_ramp_names_the_host_its_levels_are_read_on(
+    runner: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#327: the per-level card and load are read over ssh to the rig, and
+    ``contract.ramp`` only knows which rig if the survey tells it. A ramp
+    called without ``host`` writes every level's state as null with the
+    command it never ran -- a silent loss on the one runner a config reaches.
+    """
+    _stub(runner, monkeypatch)
+    calls: list[dict[str, Any]] = []
+
+    def ramp(
+        base: str, model: str, levels: Any = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        calls.append({"base": base, "levels": levels, **kwargs})
+        return {"saturation": {"n": 4, "refused": None}, "levels": []}
+
+    monkeypatch.setattr(runner.contract, "ramp", ramp)
+    runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "collect": {"concurrency": True},
+            "models": [
+                {
+                    "label": "a",
+                    "backend": "alpha",
+                    "id": "m",
+                    "concurrency": {"measure": True, "levels": [1, 2]},
+                }
+            ],
+        }
+    )
+    assert calls and calls[0].get("host") == "h", (
+        f"run.py called contract.ramp with {calls}; without host= the level "
+        "reader has no rig to ask"
+    )
+    assert calls[0]["levels"] == (1, 2)
+
+
 # --- the shared pieces ------------------------------------------------------
 
 
@@ -501,6 +541,62 @@ def test_the_width_is_recovered_where_the_server_batches(contract: Any) -> None:
     # WHY the agreement rule was wrong: on a 16-slot server the two plateaus
     # differ by design, because a bigger batch is slower per request.
     assert contract.readings(vllm16)["latency_plateau_n"] == 8
+
+
+def test_the_curve_reads_the_same_in_any_order_it_was_run(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#327. ``ramp()`` took ``rows[0]`` as the n=1 baseline and the plateau
+    scans returned the first row in list order, so one synthetic curve that
+    saturates at 4 read ``saturation_n`` 4 offered ascending and 24 offered
+    descending. The readers now see the rows sorted by ``n`` once, repeats
+    kept in the order they ran; the order offered is a condition on the row,
+    not a term in the reading.
+    """
+    throughput = {1: 100.0, 2: 200.0, 3: 300.0, 4: 400.0}
+
+    def level(_base: str, _model: str, n: int, reader: Any = None) -> dict[str, Any]:
+        return {
+            "n": n,
+            "wall_s": 1.0,
+            "ok": n,
+            "counted": n,
+            "errors": 0,
+            "error_kinds": [],
+            "completion_tokens_total": 475 * n,
+            "tokens_per_s": throughput.get(n, 400.0),
+            "latency_mean_s": 1.0 if n <= 4 else n / 4,
+            "latency_max_s": 1.0,
+            "card": {},
+            "ambient": {},
+        }
+
+    monkeypatch.setattr(contract, "_level", level, raising=True)
+    read = ("saturation", "readings", "speedup_vs_n1", "repeat_spread")
+
+    def run(**kwargs: Any) -> dict[str, Any]:
+        result: dict[str, Any] = contract.ramp("x", "m", reader=lambda: None, **kwargs)
+        return result
+
+    ascending = run()
+    assert ascending["saturation"]["n"] == 4, "the synthetic curve saturates at 4"
+    assert ascending["levels_run"] == list(contract.RAMP_LEVELS)
+    for kwargs in ({"order": "descending"}, {"order": "shuffled", "seed": 7}):
+        other = run(**kwargs)
+        for key in read:
+            assert other[key] == ascending[key], (
+                f"{key} reads {other[key]!r} offered {kwargs}, "
+                f"{ascending[key]!r} offered ascending: the order the levels "
+                "ran in reached the reading"
+            )
+        assert [row["n"] for row in other["levels"]] == sorted(contract.RAMP_LEVELS)
+        assert other["levels_run"] != ascending["levels_run"]
+    assert run(order="descending")["levels_run"] == sorted(
+        contract.RAMP_LEVELS, reverse=True
+    )
+    once, twice = run(order="shuffled", seed=7), run(order="shuffled", seed=7)
+    assert once["levels_run"] == twice["levels_run"], "seed=7 is one sequence"
+    assert once["level_seed"] == 7 and once["level_order"] == "shuffled"
 
 
 def test_a_base_url_ending_in_v1_is_not_doubled(contract: Any) -> None:

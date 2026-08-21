@@ -375,6 +375,9 @@ def claim(
 
     gpu = contract.ssh(host, "nvidia-smi --query-gpu=memory.used --format=csv,noheader")
     allocated = contract.first_int(gpu)
+    # #327: the card's state at the claim, beside its memory -- the point the
+    # ramp that follows starts from. Null + the command when it did not answer.
+    card = contract.card_state(contract.ssh(host, contract.CARD_STATE_COMMAND))
     config = _running_config(base)
     served = inventory(host, base)
     digest = weights_sha256(host, model)
@@ -384,6 +387,7 @@ def claim(
         "ended_at": contract.now(),
         "started": started,
         "gpu_used_mib": allocated,
+        "card": card,
         "allocation_present": (allocated or 0) >= MIN_ALLOCATION_MIB,
         "served_models": served,
         "engine_config": config,

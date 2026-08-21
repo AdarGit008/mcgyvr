@@ -35,6 +35,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+import time
 import types
 from collections import Counter
 from pathlib import Path
@@ -65,33 +66,77 @@ def contract(calibrate: Any) -> Any:
     return calibrate.contract
 
 
-def _synthetic_level(_base: str, _model: str, n: int) -> dict[str, Any]:
-    """A level row shaped like the real one, with no server behind it.
+#: What the level reader's one ssh prints on a rig (#327): the card line as
+#: `nvidia-smi --format=csv,noheader,nounits` prints it (srv1, 2026-08-21,
+#: with the throttle mask changed to the SW power cap), then `/proc/loadavg`.
+CARD_LINE = "71, 180.50, 1695, 0x0000000000000004"
+LOAD_LINE = "1.23 0.98 0.77 3/512 40123"
+LEVEL_STATE_STDOUT = f"{CARD_LINE}\n{LOAD_LINE}"
 
-    Patched over ``contract._level`` so :func:`contract.ramp` runs its own body.
-    The point is to obtain the producer's key set **from the producer**, never
-    from a literal in this file — a hand-copied expectation is the same class of
-    defect these tests exist to catch, one file further out.
+
+class _Rig:
+    """A server with nothing behind it, and the per-level reader beside it.
+
+    ``one`` is patched over ``contract._one`` so :func:`contract._level` runs
+    its own body -- threads, wall clock, the state read at the end -- and
+    ``read`` is the seam ``contract.ramp`` takes. The point is to obtain the
+    producer's key set **from the producer**, never from a literal in this
+    file: the fixture this replaced was a hand-copied level row, and a field
+    added to ``_level`` in a scratch copy passed every test here.
+
+    ``seen`` records how many completions had finished when each read was
+    taken, which is how "read at the level's end" is asserted. Each
+    completion takes a moment before it lands: a read taken after the
+    threads were started but before they were joined then sees none of
+    them, which is what makes that mutation visible (it was green without
+    the delay, because a stub that returns at once finishes inside
+    ``Thread.start``). ``client`` stands in for ``os.getloadavg`` and counts
+    its reads, so one driver-side read copied onto every row is visible too.
+    ``ssh`` answers as the rig does, and records which host was asked.
     """
-    return {
-        "n": n,
-        "wall_s": 1.0,
-        "ok": n,
-        "counted": n,
-        "errors": 0,
-        "error_kinds": [],
-        "completion_tokens_total": 100 * n,
-        "tokens_per_s": 100.0 * n,
-        "latency_mean_s": 1.0,
-        "latency_max_s": 1.0,
-    }
+
+    def __init__(self, answer: str | None = LEVEL_STATE_STDOUT) -> None:
+        self.answer = answer
+        self.completions = 0
+        self.seen: list[int] = []
+        self.client_reads = 0
+        self.hosts: list[str] = []
+
+    def one(
+        self, _base: str, _model: str, out: list[dict[str, Any]], lock: Any, *_: Any
+    ) -> None:
+        time.sleep(0.02)
+        with lock:
+            self.completions += 1
+            out.append({"latency_s": 1.0, "completion_tokens": 100, "prompt_tokens": 8})
+
+    def read(self) -> str | None:
+        self.seen.append(self.completions)
+        return self.answer
+
+    def client(self) -> list[float]:
+        self.client_reads += 1
+        return [float(self.client_reads), 0.5, 0.25]
+
+    def ssh(self, host: str, command: str, timeout: float | None = None) -> str | None:
+        self.hosts.append(host)
+        return self.read() if "temperature.gpu" in command else "1 MiB"
 
 
 @pytest.fixture
-def produced(contract: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+def rig_for_ramp(contract: Any, monkeypatch: pytest.MonkeyPatch) -> _Rig:
+    rig = _Rig()
+    monkeypatch.setattr(contract, "_one", rig.one, raising=True)
+    monkeypatch.setattr(contract, "client_loadavg", rig.client, raising=True)
+    return rig
+
+
+@pytest.fixture
+def produced(contract: Any, rig_for_ramp: _Rig) -> dict[str, Any]:
     """What ``contract.ramp`` actually returns, computed by ``contract.ramp``."""
-    monkeypatch.setattr(contract, "_level", _synthetic_level, raising=True)
-    produced: dict[str, Any] = contract.ramp("http://stub", "stub-model", levels=(1, 2))
+    produced: dict[str, Any] = contract.ramp(
+        "http://stub", "stub-model", levels=(1, 2), reader=rig_for_ramp.read
+    )
     return produced
 
 
@@ -99,12 +144,21 @@ def produced(contract: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 def written(
     calibrate: Any,
     contract: Any,
-    produced: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Any]:
-    """The row ``_one_ramp`` writes, given that exact producer output."""
+    """The row ``_one_ramp`` writes, with ``contract.ramp`` run for real.
+
+    The ramp used to be stubbed here with the ``produced`` fixture's output,
+    and a ``_one_ramp`` that forgot to pass ``host`` to the ramp stayed green
+    while every level row of a real campaign would have carried a null card.
+    Now the one seam below ``ramp`` is ssh, stubbed as the rig, and the rig
+    records which host it was asked for.
+    """
     rows: list[dict[str, Any]] = []
-    monkeypatch.setattr(contract, "ramp", lambda *a, **k: produced, raising=True)
+    rig = _Rig()
+    monkeypatch.setattr(contract, "_one", rig.one, raising=True)
+    monkeypatch.setattr(contract, "client_loadavg", rig.client, raising=True)
+    monkeypatch.setattr(contract, "ssh", rig.ssh, raising=True)
     monkeypatch.setattr(
         calibrate, "emit", lambda _out, row: rows.append(row), raising=True
     )
@@ -119,6 +173,9 @@ def written(
         declared={"value": 4, "provenance": "observed"},
     )
     assert len(rows) == 1, "one ramp writes exactly one row"
+    assert set(rig.hosts) == {"stub-host"}, (
+        f"the level reader asked {set(rig.hosts)}; _one_ramp was given stub-host"
+    )
     return rows[0]
 
 
@@ -204,6 +261,395 @@ def test_the_repeat_spread_reaches_the_ramp_row(written: dict[str, Any]) -> None
         "the ramp row carries no repeat_spread, so every max_speedup_vs_n1 in "
         "the journal is a point estimate with no error bar and no way to "
         "recover one."
+    )
+
+
+# --- #327: what the card and both machines were doing, on every level ---
+
+
+def _level_rows(ramp: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every level row a ramp result holds: the kept ones and every repeat."""
+    return list(ramp["levels"]) + [row for group in ramp["repeats"] for row in group]
+
+
+CARD_PARSED = {
+    "temperature_c": 71,
+    "power_w": 180.5,
+    "sm_clock_mhz": 1695,
+    "throttle_reasons": "0x0000000000000004",
+    "why": None,
+}
+
+
+def test_every_level_row_carries_the_card_state_it_ran_under(
+    contract: Any, rig_for_ramp: _Rig, produced: dict[str, Any], written: dict[str, Any]
+) -> None:
+    """Every ``nvidia-smi`` under tools/bench/serving/ asked for ``memory.used``;
+    none asked what the silicon was doing. The width-16 gap between the rigs
+    (96% against 23% of linear) was attributed to hardware on rows that could
+    not tell a slower card from one throttling by its fifth width.
+
+    The read is taken at the level's END -- after its ``n`` requests came
+    back -- which is when a throttle shows, and it reaches both the kept row
+    and every repeat, in the producer's result and in the row the sink writes.
+    """
+    for row in _level_rows(produced):
+        assert row["card"] == CARD_PARSED, (
+            f"level n={row['n']} carries card={row.get('card')!r}; the rig "
+            f"answered {CARD_LINE!r}"
+        )
+    # levels=(1, 2), RAMP_REPEATS=2: the warm-up's one completion is read by
+    # nobody; then each recorded level is read once its own requests are in.
+    assert rig_for_ramp.seen == [2, 3, 5, 7], (
+        f"the reader saw {rig_for_ramp.seen} completions done at each read; "
+        "a read taken before the level's requests returned measures the "
+        "previous level's card"
+    )
+    for row in _level_rows(written):
+        assert row["card"] == CARD_PARSED, (
+            f"the written row's level n={row['n']} lost the card: {row.get('card')!r}"
+        )
+
+
+def test_every_level_row_carries_the_load_of_both_machines(
+    produced: dict[str, Any], written: dict[str, Any]
+) -> None:
+    """``wall_s`` is read off the driver's clock and the tokens come off the
+    rig; E14 (launch.py) puts client-side contention at 12-21% and the
+    2026-08-18 record measured 1%, and no row carried either machine's load.
+    """
+    for row in _level_rows(produced) + _level_rows(written):
+        ambient = row["ambient"]
+        assert ambient["host_loadavg"] == [1.23, 0.98, 0.77], (
+            f"level n={row['n']}: host_loadavg={ambient.get('host_loadavg')!r} "
+            f"from {LOAD_LINE!r}"
+        )
+        client = ambient["client_loadavg"]
+        assert isinstance(client, list) and len(client) == 3, (
+            f"level n={row['n']}: client_loadavg={client!r}; os.getloadavg() "
+            "answers three figures on the machine the clock is on"
+        )
+        assert all(isinstance(figure, float) for figure in client)
+        assert ambient["why"] is None
+    # One driver-side read PER LEVEL, not one per ramp copied onto every row:
+    # the rig's stub counts its reads into the first figure.
+    for result in (produced, written):
+        firsts = [
+            row["ambient"]["client_loadavg"][0]
+            for group in result["repeats"]
+            for row in group
+        ]
+        assert firsts == sorted(firsts) and len(set(firsts)) == len(firsts), (
+            f"client_loadavg reads {firsts}: every recorded level reads its own"
+        )
+
+
+def test_the_driver_load_is_three_figures_off_os_getloadavg(contract: Any) -> None:
+    figures = contract.client_loadavg()
+    assert isinstance(figures, list) and len(figures) == 3
+    assert all(isinstance(figure, float) for figure in figures)
+    assert figures == [round(figure, 2) for figure in figures]
+
+
+def test_a_card_or_ambient_read_that_failed_is_null_with_a_reason(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``snapshot``'s rule (``gpu_idle`` is None when the card did not answer,
+    never False) applied per level and per field: a seam returning ``None``
+    yields ``null`` plus a ``why`` naming the command -- never ``0``, never an
+    absent key. Three ways the read can fail, each leaving what DID answer.
+    """
+    rig = _Rig(answer=None)
+    monkeypatch.setattr(contract, "_one", rig.one, raising=True)
+    nothing = contract.ramp("http://stub", "m", levels=(1, 2), reader=rig.read)
+    for row in _level_rows(nothing):
+        card = row["card"]
+        assert set(card) == set(contract.CARD_FIELDS) | {"why"}
+        assert all(card[field] is None for field in contract.CARD_FIELDS), card
+        assert card["why"] == contract.LEVEL_STATE_COMMAND
+        assert 0 not in card.values() and 0.0 not in card.values()
+        ambient = row["ambient"]
+        assert ambient["host_loadavg"] is None
+        assert contract.LEVEL_STATE_COMMAND in ambient["why"]
+        assert ambient["client_loadavg"] is not None, (
+            "the rig not answering says nothing about the driver's own load"
+        )
+
+    # nvidia-smi failed, /proc/loadavg did not: the card is null, the load is
+    # not. `nvidia-smi` reports its failures on STDOUT, in prose, and `ssh`
+    # returns stdout whatever the exit code; the prose must not be taken for
+    # the load line, nor the load line for the card.
+    for answer in (
+        LOAD_LINE,
+        f"No devices were found\n{LOAD_LINE}",
+        f"Failed to initialize NVML: Driver/library version mismatch\n\n{LOAD_LINE}",
+        f"NVIDIA-SMI has failed because it couldn't communicate with the "
+        f"NVIDIA driver. Make sure that the latest NVIDIA driver is installed "
+        f"and running.\n{LOAD_LINE}",
+    ):
+        half = contract.ramp("http://stub", "m", levels=(1,), reader=_Rig(answer).read)
+        for row in _level_rows(half):
+            assert row["card"]["why"] == contract.LEVEL_STATE_COMMAND, answer
+            assert row["card"]["temperature_c"] is None, answer
+            assert row["ambient"]["host_loadavg"] == [1.23, 0.98, 0.77], answer
+            assert row["ambient"]["why"] is None, answer
+
+    # One field the driver prints as "[N/A]", through the ramp: that field
+    # null, the others kept, the why naming the command -- on the row.
+    na = contract.ramp(
+        "http://stub",
+        "m",
+        levels=(1,),
+        reader=lambda: f"71, [N/A], 1695, 0x0000000000000004\n{LOAD_LINE}",
+    )
+    for row in _level_rows(na):
+        assert row["card"]["power_w"] is None and row["card"]["temperature_c"] == 71
+        assert row["card"]["why"] == contract.LEVEL_STATE_COMMAND
+        assert 0 not in row["card"].values() and 0.0 not in row["card"].values()
+
+    partial = contract.card_state("71, [N/A], 1695, 0x0000000000000004")
+    assert partial["power_w"] is None and partial["temperature_c"] == 71
+    assert partial["why"] == contract.CARD_STATE_COMMAND
+
+    # The driver's own read failing is named as its own thing.
+    monkeypatch.setattr(contract, "client_loadavg", lambda: None, raising=True)
+    no_client = contract.ramp("http://stub", "m", levels=(1,), reader=_Rig().read)
+    for row in _level_rows(no_client):
+        assert row["ambient"]["client_loadavg"] is None
+        assert row["ambient"]["why"] == contract.CLIENT_LOADAVG_COMMAND
+        assert row["ambient"]["host_loadavg"] == [1.23, 0.98, 0.77]
+
+    # No host and no reader: nothing is asked -- no ssh, no driver read -- and
+    # every row says so with the commands that were not run.
+    asked: list[str] = []
+    monkeypatch.setattr(contract, "ssh", lambda h, c, timeout=None: asked.append(c))
+    hostless = contract.ramp("http://stub", "m", levels=(1,))
+    assert asked == []
+    for row in _level_rows(hostless):
+        assert row["card"]["why"] == contract.LEVEL_STATE_COMMAND
+        assert contract.CLIENT_LOADAVG_COMMAND in row["ambient"]["why"]
+
+
+def test_one_ssh_per_recorded_level_carries_card_and_load_together(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The read costs one round trip per recorded level and not one per field:
+    the card query and ``/proc/loadavg`` travel in one command. The discarded
+    warm-up reads nothing. The reader's docstring states the cost in the terms
+    the record measures -- calls times ``ssh_step_seconds`` -- and fixes no
+    budget; the next run's record prices it against its own durations.
+    """
+    commands: list[str] = []
+
+    def ssh(host: str, command: str, timeout: float | None = None) -> str:
+        commands.append(command)
+        return LEVEL_STATE_STDOUT
+
+    monkeypatch.setattr(contract, "ssh", ssh, raising=True)
+    monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
+    reads: list[str] = []
+    reader = contract.read_level_state
+
+    def counted(host: str) -> str | None:
+        reads.append(host)
+        answer: str | None = reader(host)
+        return answer
+
+    monkeypatch.setattr(contract, "read_level_state", counted, raising=True)
+    levels = (1, 2, 3)
+    result = contract.ramp("http://stub", "m", levels, host="rig")
+    assert reads == ["rig"] * (len(levels) * contract.RAMP_REPEATS), (
+        "every recorded level reads through read_level_state -- the function "
+        "whose docstring prices the read -- and nothing else does"
+    )
+    assert len(commands) == len(levels) * contract.RAMP_REPEATS, (
+        f"{len(commands)} ssh calls for {len(levels)} levels x "
+        f"{contract.RAMP_REPEATS} repeats; the warm-up must read nothing and "
+        "no level may read twice"
+    )
+    assert set(commands) == {contract.LEVEL_STATE_COMMAND}
+    assert contract.CARD_STATE_QUERY in contract.LEVEL_STATE_COMMAND
+    assert "/proc/loadavg" in contract.LEVEL_STATE_COMMAND
+    for row in _level_rows(result):
+        assert row["card"] == CARD_PARSED and row["ambient"]["why"] is None
+
+    doc = reader.__doc__ or ""
+    for term in ("RAMP_REPEATS", "ssh_step_seconds", "README.md:20", "README.md:554"):
+        assert term in doc, f"the reader's docstring does not price itself by {term}"
+
+
+def test_the_level_sink_declares_a_disposition_for_every_field_a_level_produces(
+    calibrate: Any, contract: Any, rig_for_ramp: _Rig, written: dict[str, Any]
+) -> None:
+    """The ``emit()`` census (#324) enumerates sinks; a level row is a value
+    inside one, so no census reaches it, and the fixture this file used to
+    carry was a literal of ``_level``'s shape -- a key added to ``_level`` in
+    a scratch copy passed 14 tests. The key set here comes from running
+    ``_level`` itself, with the completion stubbed, and the table is held to
+    it both ways and to the row really written.
+    """
+    level = contract._level("http://stub", "m", 2, reader=rig_for_ramp.read)
+    name = "LEVEL_ROW_DISPOSITION"
+    _disposition_matches_producer(calibrate.LEVEL_ROW_DISPOSITION, set(level), name)
+    _dropped_state_why(
+        calibrate.LEVEL_ROW_DISPOSITION, calibrate.LEVEL_ROW_DROPPED, name
+    )
+    rows = _level_rows(written)
+    assert rows, "the written ramp row carries no level rows at all"
+    for row in rows:
+        _carried_are_in_row(calibrate.LEVEL_ROW_DISPOSITION, row, name)
+
+
+def test_the_order_the_levels_ran_in_reaches_the_ramp_row(
+    calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The order is a measurement condition -- width 16 at n=24 was the last
+    cell of every host's block, with the most load behind it -- and no row
+    said so. ``levels`` on the row is sorted; ``levels_run`` is what was
+    offered, in the order it was offered, with the order's name and seed.
+    Asserted against the row the sink writes, not against a literal.
+    """
+    rows: list[dict[str, Any]] = []
+    monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
+    monkeypatch.setattr(contract, "ssh", lambda *a, **k: LEVEL_STATE_STDOUT)
+    monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
+    for order, seed in (("descending", None), ("shuffled", 7)):
+        calibrate._one_ramp(
+            Path("unused.jsonl"),
+            "http://stub",
+            "m",
+            "rig",
+            "vllm",
+            4,
+            475,
+            order=order,
+            seed=seed,
+        )
+    offered = contract.RAMP_LEVELS
+    descending, shuffled = rows
+    assert descending["levels_run"] == sorted(offered, reverse=True)
+    assert descending["level_order"] == "descending"
+    assert descending["level_seed"] is None
+    assert shuffled["levels_run"] == list(contract.order_levels(offered, "shuffled", 7))
+    assert shuffled["levels_run"] != sorted(offered)
+    assert shuffled["level_order"] == "shuffled"
+    assert shuffled["level_seed"] == 7
+    for row in rows:
+        assert [level["n"] for level in row["levels"]] == sorted(offered), (
+            "the curve the plateau is read from must be sorted whichever order ran"
+        )
+        assert [group[0]["n"] for group in row["repeats"]] == sorted(offered)
+
+
+def test_a_shuffle_without_a_seed_draws_one_and_writes_it(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shuffle nobody can reproduce is not a condition; the seed is drawn by
+    ``ramp`` when none is given, so the row can carry it."""
+    monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
+    result = contract.ramp(
+        "http://stub", "m", levels=(1, 2, 3), reader=_Rig().read, order="shuffled"
+    )
+    assert isinstance(result["level_seed"], int)
+    replay = contract.order_levels((1, 2, 3), "shuffled", result["level_seed"])
+    assert list(replay) == result["levels_run"]
+    with pytest.raises(ValueError):
+        contract.ramp(
+            "http://stub", "m", levels=(1,), reader=_Rig().read, order="random"
+        )
+
+
+def test_the_order_flag_reaches_every_ramp_the_phase_runs(
+    calibrate: Any,
+    contract: Any,
+    claimed: dict[str, Any],
+    ollama_attempt: dict[str, Any],
+    rig: _Host,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """``--level-order``/``--level-seed`` travel ``main`` -> ``ramp`` ->
+    ``_widths`` / the ollama call -> ``_one_ramp`` -> ``contract.ramp``. A
+    kwarg dropped at any of those seams runs every ramp ascending while the
+    row says so honestly -- the re-run's condition silently not applied.
+    Driven from the command line, through the real ``emit``, to the rows.
+    """
+    ollama: Any = _by_path("serving_ollama_order", SERVING / "backends" / "ollama.py")
+    vllm: Any = _by_path("serving_vllm_order", SERVING / "backends" / "vllm.py")
+    for module in (ollama, vllm):
+        monkeypatch.setattr(module, "release", lambda host: {"card_idle": True})
+    monkeypatch.setattr(ollama, "probe", lambda host: "http://h:11434")
+    monkeypatch.setattr(ollama, "inventory", lambda host, base: ["m"])
+    monkeypatch.setattr(ollama, "claim", lambda *a, **k: dict(ollama_attempt))
+    monkeypatch.setattr(ollama, "slots_now", lambda host: {"value": 2})
+    monkeypatch.setattr(vllm, "claim", lambda *a, **k: dict(claimed))
+    monkeypatch.setattr(vllm, "declared_slots", lambda serve, host: {"value": 1})
+    monkeypatch.setattr(vllm, "serving_config", lambda base: {"refused": "stub"})
+    backends = {"ollama": ollama, "vllm": vllm}
+    monkeypatch.setattr(contract, "load_backend", lambda n: backends[n])
+    monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
+    monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
+    out = tmp_path / "ramp.jsonl"
+    assert (
+        calibrate.main(
+            [
+                "--phase",
+                "ramp",
+                "--hosts",
+                "h",
+                "--out",
+                str(out),
+                "--widths",
+                "1",
+                "--tokens",
+                "475",
+                "--level-order",
+                "shuffled",
+                "--level-seed",
+                "7",
+            ]
+        )
+        == 0
+    )
+    ramps = [row for row in _rows(out) if row.get("metric") == "ramp"]
+    assert {row["engine"] for row in ramps} == {"ollama", "vllm"}, ramps
+    expected = list(contract.order_levels(contract.RAMP_LEVELS, "shuffled", 7))
+    for row in ramps:
+        assert row["level_order"] == "shuffled", row["engine"]
+        assert row["level_seed"] == 7, row["engine"]
+        assert row["levels_run"] == expected, row["engine"]
+        assert [level["n"] for level in row["levels"]] == sorted(contract.RAMP_LEVELS)
+
+
+def test_a_ramp_that_raised_keeps_the_order_it_was_running(
+    calibrate: Any, contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A timeout at high n is D4's expected failure, and a shuffled ramp that
+    died there could not be replayed if its seed had been drawn inside the
+    ramp and lost with it. The seed is drawn before the ramp; the error row
+    carries the sequence, its order and its seed."""
+    rows: list[dict[str, Any]] = []
+    monkeypatch.setattr(calibrate, "emit", lambda _out, row: rows.append(row))
+
+    def dies(*a: Any, **k: Any) -> dict[str, Any]:
+        raise TimeoutError("level n=24 ran out of budget")
+
+    monkeypatch.setattr(contract, "ramp", dies)
+    calibrate._one_ramp(
+        Path("unused.jsonl"),
+        "http://stub",
+        "m",
+        "rig",
+        "vllm",
+        4,
+        475,
+        order="shuffled",
+    )
+    (row,) = rows
+    assert "error" in row and row["level_order"] == "shuffled"
+    assert isinstance(row["level_seed"], int)
+    assert row["levels_run"] == list(
+        contract.order_levels(contract.RAMP_LEVELS, "shuffled", row["level_seed"])
     )
 
 
@@ -317,6 +763,8 @@ def claimed() -> dict[str, Any]:
         # producer's -- a hand-written dict here was the defect one file out.
         if "MCGYVR_EOF" in command:
             return json.dumps(DIGEST_OUTPUT)
+        if "temperature.gpu" in command:
+            return CARD_LINE
         return "4916 MiB"
 
     # The contract module is shared with every other test; patched for the
@@ -374,6 +822,45 @@ def test_the_launch_timing_reaches_the_row(
         "digest_seconds is DIGEST_TIMEOUT_S's only calibration point and it "
         "must survive to the row for the same reason."
     )
+
+
+def test_the_card_state_before_launch_reaches_the_launch_row(
+    calibrate: Any, claimed: dict[str, Any]
+) -> None:
+    """#327: ``vllm.claim`` reads the card beside ``gpu_used_mib`` -- the state
+    every level of the ramp that follows is measured against -- and it arrives
+    on the launch row under ``LAUNCH_ROW_DISPOSITION["checks"]``, so the
+    both-direction test over that table holds it there.
+    """
+    assert claimed["checks"]["card"] == CARD_PARSED, (
+        f"claim read the card as {claimed['checks'].get('card')!r} from {CARD_LINE!r}"
+    )
+    row = calibrate._launch_row("srv2", "m", 16, claimed)
+    assert row["card"] == CARD_PARSED, (
+        f"the launch row carries card={row.get('card')!r}; the claim read it"
+    )
+    assert "card" in calibrate.LAUNCH_ROW_DISPOSITION["checks"]
+
+    # The `claimed` fixture forces the restart branch. A server that was
+    # already serving the configuration is a launch row too, and it reads
+    # the same card -- not a null with no why.
+    vllm: Any = _by_path("serving_vllm_serving", SERVING / "backends" / "vllm.py")
+    model = "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"
+    vllm._running_config = lambda *a, **k: {"model": model, "max_seq_len": 8192}
+    vllm._start = lambda *a, **k: pytest.fail("already serving: no restart")
+    vllm.inventory = lambda *a, **k: [model]
+    vllm._DIGEST_CACHE.clear()
+
+    def ssh(host: str, command: str, timeout: float | None = None) -> str:
+        if "MCGYVR_EOF" in command:
+            return json.dumps(DIGEST_OUTPUT)
+        return CARD_LINE if "temperature.gpu" in command else "4916 MiB"
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(vllm.contract, "ssh", ssh)
+        serving = vllm.claim("srv2", "http://srv2:8000", model, {}, None)
+    assert serving["checks"]["started"]["restarted"] is False
+    assert serving["checks"]["card"] == CARD_PARSED
 
 
 def test_every_carried_launch_field_names_a_key_that_is_really_in_the_row(

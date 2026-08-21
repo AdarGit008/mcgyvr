@@ -505,6 +505,8 @@ def run(
                         base,
                         str(spec["id"]),
                         tuple(concurrency.get("levels") or contract.RAMP_LEVELS),
+                        # #327: where the per-level card and load are read.
+                        host=host,
                     )
                     # D1: what the curve did, and what the server said, are
                     # two quantities. `saturation_n` is measured here; the

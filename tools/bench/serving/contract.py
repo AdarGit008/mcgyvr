@@ -55,12 +55,15 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import os
+import random
 import subprocess
 import sys
 import threading
 import time
 import types
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +78,12 @@ RAMP_LEVELS: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16, 24)
 #: Each level runs twice and the better throughput is kept: one level can be
 #: spoiled by an unlucky scheduler moment, and the knee is read off a curve.
 RAMP_REPEATS = 2
+
+#: The orders a ramp may offer its levels in (#327). The readers sort by ``n``
+#: before reading, so the curve is the same whichever was run; the order is
+#: written on the row so a card that warmed across the ramp can be told from
+#: one that did not.
+RAMP_ORDERS: tuple[str, ...] = ("ascending", "descending", "shuffled")
 
 #: Tokens per request, capped so every request is the SAME amount of work.
 #:
@@ -497,6 +506,162 @@ def hardware(host: str) -> dict[str, Any]:
     return {"identity": identity, "refusals": refusals}
 
 
+#: The card's state (#327): what the silicon was doing, read at the end of
+#: every recorded ramp level and once at a vLLM claim. One `nvidia-smi` line,
+#: units stripped so the fields parse as numbers; the throttle mask is kept as
+#: the hex the driver prints (NVML's clocksThrottleReasons bits: ``0x1`` idle,
+#: ``0x4`` the SW power cap, ``0x8`` HW slowdown, ``0x20`` SW thermal,
+#: ``0x40`` HW thermal) and decoded by the reader, not here.
+CARD_STATE_QUERY = "temperature.gpu,power.draw,clocks.sm,clocks_throttle_reasons.active"
+#: `timeout 10`: an `nvidia-smi` that hangs on a wedged driver would otherwise
+#: hold every recorded level for `STEP_TIMEOUT_S`, and the load average behind
+#: the `;` would never be read. No run has shown that hang; the bound is cheap.
+CARD_STATE_COMMAND = (
+    f"timeout 10 nvidia-smi --query-gpu={CARD_STATE_QUERY} "
+    "--format=csv,noheader,nounits"
+)
+CARD_FIELDS: tuple[str, ...] = (
+    "temperature_c",
+    "power_w",
+    "sm_clock_mhz",
+    "throttle_reasons",
+)
+
+#: The level reader's one ssh: the card line, then the rig's load average, as
+#: two commands so a failed `nvidia-smi` still leaves the load on the record.
+LEVEL_STATE_COMMAND = f"{CARD_STATE_COMMAND}; cat /proc/loadavg"
+
+#: What the driver-side read is called in a ``why``: the load on the machine
+#: whose clock ``wall_s`` comes from, which is this one, not the rig.
+CLIENT_LOADAVG_COMMAND = "os.getloadavg()"
+
+
+def _float(text: str | None) -> float | None:
+    """``text`` as a float, or ``None`` — `nvidia-smi` prints "[N/A]"."""
+    try:
+        return float((text or "").strip())
+    except ValueError:
+        return None
+
+
+def _int(text: str | None) -> int | None:
+    """``text`` as an integer, or ``None`` -- whole numbers only, no "45 MiB"."""
+    figure = _float(text)
+    return None if figure is None or figure != int(figure) else int(figure)
+
+
+def card_state(raw: str | None, command: str = CARD_STATE_COMMAND) -> dict[str, Any]:
+    """One :data:`CARD_STATE_QUERY` line as the four card fields.
+
+    A field the card did not answer is ``null`` and ``why`` names the command
+    that was run — never ``0``, never an absent key (the rule
+    :func:`snapshot` applies to ``gpu_idle``, applied per field). ``why`` is
+    ``None`` when every field answered.
+    """
+    line = raw.strip().splitlines()[0] if raw and raw.strip() else ""
+    parts = [p.strip() for p in line.split(",")] if line else []
+    card: dict[str, Any] = dict.fromkeys(CARD_FIELDS)
+    if len(parts) == 4:
+        card["temperature_c"] = _int(parts[0])
+        card["power_w"] = _float(parts[1])
+        card["sm_clock_mhz"] = _int(parts[2])
+        card["throttle_reasons"] = parts[3] if parts[3].startswith("0x") else None
+    card["why"] = (
+        None if all(card[field] is not None for field in CARD_FIELDS) else command
+    )
+    return card
+
+
+def loadavg(line: str | None) -> list[float] | None:
+    """``/proc/loadavg``'s three figures, or ``None`` for anything else."""
+    parts = (line or "").split()
+    if len(parts) < 3:
+        return None
+    try:
+        return [float(part) for part in parts[:3]]
+    except ValueError:
+        return None
+
+
+def client_loadavg() -> list[float] | None:
+    """The driver's own load, the machine every ``wall_s`` is clocked on."""
+    try:
+        return [round(figure, 2) for figure in os.getloadavg()]
+    except OSError:
+        return None
+
+
+def level_state(raw: str | None, client: list[float] | None) -> dict[str, Any]:
+    """The two blocks a recorded level carries (#327), from one ssh's stdout.
+
+    ``card`` is the rig's silicon at the level's end; ``ambient`` is the load
+    on both machines -- the rig the tokens come from, and the driver whose
+    clock ``wall_s`` is read from (E14, ``launch.py``). Either block's ``why``
+    names what did not answer, and is ``None`` when everything did.
+    """
+    lines = [line for line in (raw or "").splitlines() if line.strip()]
+    card_line = next((line for line in lines if line.count(",") == 3), None)
+    # `nvidia-smi` reports its own failures on STDOUT ("No devices were
+    # found", "Failed to initialize NVML: ..."), comma-less and three words
+    # or more; `/proc/loadavg` is the LAST line and the only one that parses.
+    host_load = next(
+        (figures for figures in map(loadavg, reversed(lines)) if figures), None
+    )
+    failed = [
+        command
+        for reading, command in (
+            (host_load, LEVEL_STATE_COMMAND),
+            (client, CLIENT_LOADAVG_COMMAND),
+        )
+        if reading is None
+    ]
+    return {
+        "card": card_state(card_line, LEVEL_STATE_COMMAND),
+        "ambient": {
+            "host_loadavg": host_load,
+            "client_loadavg": client,
+            "why": " and ".join(failed) or None,
+        },
+    }
+
+
+def read_level_state(host: str) -> str | None:
+    """The level reader's one ssh (#327): card and load in one round trip.
+
+    Its cost is ``len(levels) * RAMP_REPEATS`` calls per ramp -- 18 at the
+    default matrix -- each one ``ssh_step_seconds`` (p50 0.956 s, p95 1.40 s
+    on 2026-08-19, records/evidence/calibration-2026-08-19/README.md:20),
+    against ramps of ~24 min on vLLM and ~8.1 min on ollama at 475 tokens
+    (README.md:554). The warm-up level reads nothing. No budget is fixed
+    here: the next run's record states what the calls cost beside the
+    durations they sat inside.
+    """
+    return ssh(host, LEVEL_STATE_COMMAND)
+
+
+def draw_seed(order: str, seed: int | None) -> int | None:
+    """The seed a ``shuffled`` order runs under: the one given, or one drawn
+    here so the row can carry it -- a shuffle nobody can reproduce is not a
+    measurement condition. Any other order has no seed."""
+    if order != "shuffled":
+        return None
+    return seed if seed is not None else random.SystemRandom().randrange(2**32)
+
+
+def order_levels(
+    levels: tuple[int, ...], order: str = "ascending", seed: int | None = None
+) -> tuple[int, ...]:
+    """The sequence a ramp offers its levels in (#327), from an order name."""
+    if order not in RAMP_ORDERS:
+        raise ValueError(f"{order!r} is not a ramp order; one of {RAMP_ORDERS}")
+    ordered = sorted(levels)
+    if order == "descending":
+        ordered.reverse()
+    elif order == "shuffled":
+        random.Random(seed).shuffle(ordered)
+    return tuple(ordered)
+
+
 def drop_page_cache(host: str) -> dict[str, Any]:
     """Make every load equally cold.
 
@@ -555,7 +720,14 @@ def get_json(target: str, timeout: float = 10.0) -> Any | None:
 
 
 def ramp(
-    base: str, model: str, levels: tuple[int, ...] = RAMP_LEVELS
+    base: str,
+    model: str,
+    levels: tuple[int, ...] = RAMP_LEVELS,
+    *,
+    host: str | None = None,
+    reader: Callable[[], str | None] | None = None,
+    order: str = "ascending",
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Effective batch width, by raising load until throughput stops rising.
 
@@ -577,7 +749,21 @@ def ramp(
     **This is an EXPERIMENT.** It spends tokens, fills the KV cache and warms the
     prefix cache — which is exactly why the per-run capture may not do it, and
     why concurrency is measured here once per configuration instead.
+
+    ``host`` is the rig the tokens come from; ``reader`` is the per-level seam
+    (#327), one call at the end of every recorded level, by default
+    :func:`read_level_state` on ``host`` and a read of nothing when there is no
+    host. ``order`` and ``seed`` say what sequence the levels were offered in;
+    the readers below sort by ``n`` first, so the curve is the same whichever
+    ran, and the row says which did.
     """
+    seed = draw_seed(order, seed)
+    levels_run = order_levels(levels, order, seed)
+    # No host and no reader: nothing is asked, and the rows say so with the
+    # command that was not run -- not a refusal dressed as a read.
+    read = reader
+    if read is None and host:
+        read = lambda: read_level_state(host)  # noqa: E731
     _level(base, model, 1)  # warm, and discard: a cold load would be charged
     # **D6/D7 item 7: keep every repeat.** `max` over repeats is what the curve
     # is read from, and that biases the PEAK — which is the denominator of
@@ -585,7 +771,15 @@ def ramp(
     # quantified, and it is quantifiable at **no rig time at all**, because the
     # losing repeat has already been paid for. Discarding it made the one
     # measurement that could settle it unrecoverable afterwards.
-    attempts = [[_level(base, model, n) for _ in range(RAMP_REPEATS)] for n in levels]
+    attempts = [
+        [_level(base, model, n, reader=read) for _ in range(RAMP_REPEATS)]
+        for n in levels_run
+    ]
+    # #327: every reader below -- the n=1 baseline, the plateau scans, the
+    # "measured to its end" check -- walks the list in order and assumed it
+    # was ascending. Sorted ONCE here, by `n`, repeats kept in the order they
+    # ran, so the same curve reads the same whichever order offered it.
+    attempts = sorted(attempts, key=lambda group: group[0]["n"])
     rows = [max(group, key=lambda row: row["tokens_per_s"] or 0) for group in attempts]
     # `or 1` silently turned every speedup into a raw tokens/second figure
     # whenever the n=1 level read zero — same column, different quantity, no
@@ -593,6 +787,12 @@ def ramp(
     first = rows[0]["tokens_per_s"]
     return {
         "levels": rows,
+        # #327: the order the levels were OFFERED in, as run, beside the sorted
+        # curve -- the only way to tell a card that warmed across the ramp
+        # from one that did not.
+        "levels_run": list(levels_run),
+        "level_order": order,
+        "level_seed": seed,
         "speedup_vs_n1": (
             None
             if not first
@@ -878,8 +1078,19 @@ def _latency_plateau(
     return int(longest[-1]["n"]) if len(longest) >= 2 else None
 
 
-def _level(base: str, model: str, n: int) -> dict[str, Any]:
-    """One level: ``n`` simultaneous completions, and what they cost."""
+def _level(
+    base: str,
+    model: str,
+    n: int,
+    reader: Callable[[], str | None] | None = None,
+) -> dict[str, Any]:
+    """One level: ``n`` simultaneous completions, what they cost, and the
+    state of both machines at its end (#327).
+
+    ``reader`` is the one ssh the level pays for; ``None`` reads nothing (the
+    warm-up), and the row then carries the state blocks as ``null`` with the
+    command they would have needed.
+    """
     out: list[dict[str, Any]] = []
     lock = threading.Lock()
     # The budget is the whole LEVEL's: every request is offered at once, so on a
@@ -903,6 +1114,12 @@ def _level(base: str, model: str, n: int) -> dict[str, Any]:
     counted = [row for row in good if row.get("completion_tokens") is not None]
     tokens = sum(row["completion_tokens"] for row in counted)
     latencies = [row["latency_s"] for row in good]
+    # Read at the level's END: the state the last token was produced under,
+    # after `n` requests' worth of load, which is what a throttle shows up as.
+    state = level_state(
+        reader() if reader is not None else None,
+        client_loadavg() if reader is not None else None,
+    )
     return {
         "n": n,
         "wall_s": round(wall, 3),
@@ -916,6 +1133,7 @@ def _level(base: str, model: str, n: int) -> dict[str, Any]:
             round(sum(latencies) / len(latencies), 3) if latencies else None
         ),
         "latency_max_s": round(max(latencies), 3) if latencies else None,
+        **state,
     }
 
 

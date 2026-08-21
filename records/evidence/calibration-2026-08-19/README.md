@@ -1051,3 +1051,40 @@ a finding of its own: the ramp phase's ollama load writes no row at all (the
 load phase's does), so its minutes are attributable only as a remainder; #326
 and #327 own whether that becomes a row. The 8,185.3 s above stays as
 derived, from the log; the next campaign's equivalent will be a sum of rows.
+
+## Addendum, 2026-08-21 — the width-16 gap was attributed to hardware by rows that could not see the card (#327)
+
+Appended, not edited. The D1/D2/D3 matrix above reads srv2 at 96% of linear
+and srv1 at 23% at width 16 and says "the gap is hardware, not configuration".
+The rows it rests on carry ten keys per level and none of them is the state of
+the card or of either machine: every `nvidia-smi` the harness ran asked for
+`memory.used`, the load average was read once per host by the survey and
+discarded by the `fast` step, and the order was fixed ascending on both axes —
+width 16 at n=24 was the last cell of every host's block, with the most load
+behind it. A card throttling by its fifth width and a slower card read the
+same on those rows. The attribution stands as written; what it rests on is
+now stated.
+
+**What #327 changed, so the next run can separate the two.** Every recorded
+level row carries `card` (`temperature_c`, `power_w`, `sm_clock_mhz`, the
+driver's `throttle_reasons` mask) read at the level's end, and `ambient`
+(`host_loadavg` from the rig's `/proc/loadavg`, `client_loadavg` from the
+driver whose clock `wall_s` comes from — E14 in `launch.py` puts client-side
+contention at 12–21%, the 2026-08-18 record at 1%, and no row carried either
+load). Both travel in one ssh per recorded level (18 per ramp at the default
+matrix, each one `ssh_step_seconds`: p50 0.956 s above); the discarded warm-up
+reads nothing; a read the host did not answer is `null` with the command
+beside it. `contract.ramp` sorts by `n` before any reader — offered descending,
+the same curve used to read `saturation_n` 24 instead of 4 — and the ramp row
+carries `levels_run`, `level_order` and `level_seed` so the order becomes a
+condition on the record rather than a term in the reading. The vLLM launch
+row carries the card at the claim, beside `gpu_used_mib`.
+
+**Its checks.** `tests/test_sink_conformance.py::test_every_level_row_carries_the_card_state_it_ran_under`,
+`::test_every_level_row_carries_the_load_of_both_machines`,
+`::test_one_ssh_per_recorded_level_carries_card_and_load_together`,
+`::test_the_level_sink_declares_a_disposition_for_every_field_a_level_produces`
+(the level rows are values inside a sink, so the #324 census never reaches
+them; `LEVEL_ROW_DISPOSITION` in `calibrate.py` is their only guard) and
+`tests/test_serving.py::test_the_curve_reads_the_same_in_any_order_it_was_run`.
+No rig time: the first values are the re-run's to write and to read.

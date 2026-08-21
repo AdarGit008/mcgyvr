@@ -415,8 +415,14 @@ def ramp(
     hosts: list[str],
     engines: tuple[str, ...] = ("ollama", "vllm"),
     done: set[tuple[Any, ...]] | None = None,
+    *,
+    order: str = "ascending",
+    seed: int | None = None,
 ) -> None:
-    """The concurrency matrix: configured width x token count, both engines."""
+    """The concurrency matrix: configured width x token count, both engines.
+
+    ``order``/``seed`` (#327): the sequence every ramp offers its levels in.
+    """
     done = done if done is not None else set()
     ollama = contract.load_backend("ollama")
     vllm = contract.load_backend("vllm")
@@ -510,6 +516,8 @@ def ramp(
                     # #326: the weights this curve was read on, from the
                     # claim this phase used to discard.
                     pins={"model_sha256": _attempt_of(loaded).get("model_sha256")},
+                    order=order,
+                    seed=seed,
                 )
 
         # vLLM: launch at each configured width, ramp at each token count.
@@ -545,7 +553,7 @@ def ramp(
         # phase-3 ramps. It bites between phases and at the end of the campaign
         # — which is precisely when the record says "both rigs left idle".
         try:
-            _widths(out, model, host, vllm, ollama, done)
+            _widths(out, model, host, vllm, ollama, done, order=order, seed=seed)
         finally:
             vllm.release(host)
 
@@ -557,6 +565,9 @@ def _widths(
     vllm: types.ModuleType,
     ollama: types.ModuleType,
     done: set[tuple[Any, ...]],
+    *,
+    order: str = "ascending",
+    seed: int | None = None,
 ) -> None:
     """Every configured width for one host, ramped at every token count."""
     for width in WIDTHS:
@@ -699,6 +710,8 @@ def _widths(
                 tokens,
                 declared,
                 pins=pins,
+                order=order,
+                seed=seed,
             )
 
 
@@ -924,6 +937,37 @@ def sleep_state(
             )
 
 
+#: What becomes of every key :func:`contract._level` produces, when this module
+#: writes one under ``levels`` and ``repeats`` of a ramp row (#327). The level
+#: rows are carried verbatim -- there is no flattening step between producer
+#: and journal -- which is exactly why nothing watched them: the ``emit()``
+#: census (#324) enumerates sinks, and a level row is not a sink, it is a value
+#: inside one. This table, and the test that compares it both ways against
+#: :func:`contract._level` run for real, is the only guard on that pair.
+LEVEL_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
+    "n": ("n",),
+    "wall_s": ("wall_s",),
+    "ok": ("ok",),
+    "counted": ("counted",),
+    "errors": ("errors",),
+    "error_kinds": ("error_kinds",),
+    "completion_tokens_total": ("completion_tokens_total",),
+    "tokens_per_s": ("tokens_per_s",),
+    "latency_mean_s": ("latency_mean_s",),
+    "latency_max_s": ("latency_max_s",),
+    # #327: the card at the level's end (temperature, power, SM clock, the
+    # throttle mask) and the load on both machines, each null + `why` when
+    # the read did not answer. Before this, the width-16 gap between the rigs
+    # (96% against 23% of linear) was attributed to hardware on rows that
+    # could not tell a slower card from a throttling one.
+    "card": ("card",),
+    "ambient": ("ambient",),
+}
+
+#: Why a field in :data:`LEVEL_ROW_DISPOSITION` is not carried. Every one is.
+LEVEL_ROW_DROPPED: dict[str, str] = {}
+
+
 #: What becomes of every key :func:`contract.ramp` returns, when this module
 #: writes a ramp row. A tuple names the row keys the field reaches; ``None``
 #: means the field is deliberately not carried and ``RAMP_ROW_DROPPED`` says
@@ -938,6 +982,11 @@ def sleep_state(
 #: reached a file. A guard over source text cannot catch a sink.
 RAMP_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "levels": ("levels",),
+    # #327: the sequence the levels were offered in, as run, and the order
+    # name and seed that produced it. `levels` above is sorted; this is not.
+    "levels_run": ("levels_run",),
+    "level_order": ("level_order",),
+    "level_seed": ("level_seed",),
     "saturation": (
         "saturation_n",
         "saturation_refused",
@@ -992,6 +1041,7 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "restarted",
         "reason",
         "gpu_used_mib",
+        "card",
         "allocation_present",
         "served_models",
         "engine_config",
@@ -1019,6 +1069,9 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "ended_at": ("claim_ended_at",),
     "started": ("start_seconds", "launcher", "restarted", "reason"),
     "gpu_used_mib": ("gpu_used_mib",),
+    # #327: the card's state at the claim, read beside `gpu_used_mib` -- the
+    # point every level of the ramp that follows is measured against.
+    "card": ("card",),
     "allocation_present": ("allocation_present",),
     "served_models": ("served_models",),
     "engine_config": ("engine_config",),
@@ -1266,6 +1319,7 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
         "restarted": started.get("restarted"),
         "reason": started.get("reason"),
         "gpu_used_mib": checks.get("gpu_used_mib"),
+        "card": checks.get("card"),
         "allocation_present": checks.get("allocation_present"),
         "served_models": checks.get("served_models"),
         "weights_sha256": weights.get("weights_sha256"),
@@ -1330,17 +1384,25 @@ def _one_ramp(
     tokens: int,
     declared: dict[str, Any] | None = None,
     pins: dict[str, Any] | None = None,
+    order: str = "ascending",
+    seed: int | None = None,
 ) -> None:
     """One ramp, every level recorded so thresholds can be re-derived later.
 
     ``pins`` (#326) is what the curve was read on -- the vLLM weights and
     serving-config digests, or ollama's `model_sha256` -- carried as given.
+    ``order``/``seed`` (#327) are the sequence the levels are offered in;
+    ``host`` is also where the per-level card and load are read from.
     """
     original = contract.RAMP_TOKENS
     contract.RAMP_TOKENS = tokens
+    # Drawn HERE, not inside the ramp: a ramp that dies at its fourth level
+    # (a timeout at high n is D4's expected failure) must still say what
+    # sequence it was running, or the failure cannot be replayed.
+    seed = contract.draw_seed(order, seed)
     started_at = contract.now()
     try:
-        result = contract.ramp(base, model)
+        result = contract.ramp(base, model, host=host, order=order, seed=seed)
     except Exception as error:
         emit(
             out,
@@ -1352,6 +1414,11 @@ def _one_ramp(
                 "width": width,
                 "tokens": tokens,
                 "error": str(error)[:200],
+                "levels_run": list(
+                    contract.order_levels(contract.RAMP_LEVELS, order, seed)
+                ),
+                "level_order": order,
+                "level_seed": seed,
                 "started_at": started_at,
                 "ended_at": contract.now(),
             },
@@ -1388,6 +1455,10 @@ def _one_ramp(
         "latency_plateau_n": readings.get("latency_plateau_n"),
         "max_speedup_vs_n1": readings.get("max_speedup_vs_n1"),
         "levels": result.get("levels"),
+        # #327: what order those levels were run in; `levels` is sorted.
+        "levels_run": result.get("levels_run"),
+        "level_order": result.get("level_order"),
+        "level_seed": result.get("level_seed"),
         # The three fields the sink dropped for a whole campaign. See
         # RAMP_ROW_DISPOSITION: `repeat_spread` is the only error bar any
         # speedup figure in this file will ever have.
@@ -1502,6 +1573,24 @@ def main(argv: list[str] | None = None) -> int:
         help=f"ramp phase: vLLM launch widths. Default {WIDTHS}.",
     )
     parser.add_argument(
+        "--level-order",
+        choices=contract.RAMP_ORDERS,
+        default="ascending",
+        help=(
+            "ramp phase: the sequence each ramp offers its levels in (#327). "
+            "The curve is read sorted whichever is run; the row says which was. "
+            "Not part of a cell's resume identity: --resume with a different "
+            "order skips cells already recorded under the old one."
+        ),
+    )
+    parser.add_argument(
+        "--level-seed",
+        type=int,
+        default=None,
+        help="ramp phase: the seed a shuffled order is drawn from; drawn and "
+        "recorded when absent",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help=(
@@ -1555,12 +1644,18 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.widths:
             WIDTHS = tuple(int(w.strip()) for w in args.widths.split(",") if w.strip())
-        print(f"ramp: widths={WIDTHS} tokens={TOKEN_COUNTS}", flush=True)
+        print(
+            f"ramp: widths={WIDTHS} tokens={TOKEN_COUNTS} "
+            f"order={args.level_order} seed={args.level_seed}",
+            flush=True,
+        )
         ramp(
             args.out,
             hosts,
             tuple(e.strip() for e in args.engines.split(",")),
             done,
+            order=args.level_order,
+            seed=args.level_seed,
         )
     # #325: the phase's duration is a ROW, not only a print. The print went
     # to a log that no reader of the journal holds, and the journal could not
