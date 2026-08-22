@@ -1370,3 +1370,207 @@ the global constant it replaced was 0.8. No document connects them.
 
 - decision: owed — is 0.85 this project's choice or local-ai's, and does an OOM
   fix taken on a 12 GB card apply unchanged to a 6 GB one?
+
+## Rulings recorded 2026-08-22 — eight, from the owner in one pass
+
+Appended, append-only, beside `## Conflicts recorded 2026-08-21` (K1–K6),
+`## Conflicts recorded 2026-08-22` (K7–K9) and `## Conflict recorded
+2026-08-22 (second)` (K10, which has its own heading). **None of those blocks
+is edited.** Their `- decision: owed —` lines are the state at the time they were
+written and stay that way; this block is where the answers live, and each
+ruling names the check it moves. `grep -c ': owed — '` on
+`tests/test_calibration_conflicts.py` printed 8 before this block and prints 0
+after it, which is #328's last definition-of-done box.
+
+Zero rig time was spent here. Nothing in this block is a measurement.
+
+**Two checks were rewritten by their own ruling and one was repointed.** A
+ruling that makes a check unpassable is not honoured by leaving the check
+standing — K7 asserted geometry *equality* and the ruling permits difference;
+K8 asserted a floor of two models per engine and the ruling abolishes the
+quantity. Both were rewritten in the ruling's commit, and both are still red,
+for the reason the ruling creates rather than the one it removed. K6 was
+repointed from a field name nothing writes. See ADR-0037's 2026-08-22
+amendment, which also adds the third reason grammar the last item below uses.
+
+---
+
+**K1 — the pin is the sampler the request ran under.**
+`tests/test_calibration_conflicts.py::test_the_sampler_pin_is_the_layer_the_request_ran_under`
+- decision: 2026-08-22, owner — the pin is the layer the request ran under.
+  llama-server's `/props` defaults are **recorded beside it and not digested**.
+  The digest's **sampler half** is one constant set — `temperature 0.8, top_k
+  40, top_p 0.95, min_p 0.05, repeat_penalty 1.0` — across all 17 served slots
+  (11 distinct models over 19 served children), while the slots those cells ran
+  disagree with it on `top_p`, `min_p` and `repeat_penalty` 17 of 17, on
+  `temperature` on 4 and on `top_k` on 1. A sampler pin that cannot tell those
+  apart cannot decide whether two cells are comparable, which is
+  `serving_semantic_sha256`'s only job. (Re-derived 2026-08-22 by running the
+  check's own helpers over `d7-survey.json`. The whole digest is not identical
+  across cells — only this half is, which is the half the ruling moves.)
+- code owed: #336 (`backends/ollama.py:741-742`; the pin must also name which
+  request layer it took — the ramp sends `temperature: 0.0`, the describe probe
+  sends no sampler at all)
+
+**K2 — record, never equalise.**
+`tests/test_calibration_conflicts.py::test_the_launched_context_total_has_a_name_in_the_semantic_block`
+- decision: 2026-08-22, owner — the launched total gets its own name, and a
+  cross-host contrast **carries** the difference rather than the hosts being
+  pinned to match. Equalising was rejected: it fights the no-caps rule (the
+  hardware is the limit) and would still leave the total unnamed.
+- code owed: #336 (`CONTEXT_TOTAL_KEY` is already declared in the check;
+  `fingerprint.SEMANTIC` is not)
+
+**K3 — a yield that finds the card held names the holder.**
+`tests/test_calibration_conflicts.py::test_a_yield_row_that_finds_the_card_held_names_the_holder`
+- decision: 2026-08-22, owner — yes. `release()` names the holder from
+  `/api/ps` and the card's process list. vLLM's want of a residents equivalent
+  is a **stated refusal**, not a null.
+- code owed: #336. Note the run contract already depends on this: its
+  co-residency pre-state is a card that "already holds a **named** neighbour"
+  (`docs/run-contract-2026-08-22.md:78`), which cannot be asserted while no row
+  says whose memory it is.
+
+**K6 — the row carries the build; repointed to the name the tree writes.**
+`tests/test_calibration_conflicts.py::test_a_cross_host_figure_carries_the_engine_version_on_each_host`
+- decision: 2026-08-22, owner — a cross-host row **carries** the build and does
+  not refuse the split. The "what moved between 0.32.4 and 0.32.5" half is dead
+  — both rigs are one build since 2026-08-22 — and the recording half is live.
+- repointed: the check asked every row for `engine_version`, which appears
+  nowhere in `tools/` or `src/` and never did. `calibrate.py:115,129` builds an
+  `identity` block carrying **`serving_build`** with a sibling `refusals` entry.
+  The check now reads `identity.serving_build` and the test's *name* is kept,
+  because #328's definition of done quotes it. A check a correct run cannot
+  satisfy is a typo with a marker on it, not a finding — which is why this
+  needed the owner rather than a session's judgement.
+- **owed: a run, not code.** `calibrate.emit()` merges the identity block into
+  every row that carries a `host` (`calibrate.py:172`) and has since #326
+  landed on 2026-08-21 — so the ramp sink already emits `serving_build`. The
+  reason `grep -ro serving_build *.jsonl` in this directory is empty is that
+  these journals were written on 2026-08-19 and **predate the sink**. This
+  entry first said "the ramp sink does not emit it", which was wrong; corrected
+  before this block was committed, and #336's K6 box restated to match, so
+  nobody ticks a box that is already satisfied. What K6 needs is a post-#326
+  campaign on disk.
+
+**K7 — a cross-host figure may rest on children launched differently.**
+`tests/test_calibration_conflicts.py::test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry`
+- decision: 2026-08-22, owner — yes, **provided the difference is recorded and
+  declared on the contrast that reads the two rows**. Same ruling as K2, asked
+  of the population that actually bears a cross-host claim.
+- rewritten: the check asserted equality, which the ruling permits to fail
+  forever. It now asserts that both hosts' launched total is on the record for
+  every model a cross-host figure could rest on. It fails independently of K2:
+  a campaign naming the total for single-host children and omitting it for the
+  shared ones passes K2 by a wide margin and fails here.
+- the second clause is elsewhere: the ignore list is ADR-0038 D4's contrast
+  record, checked in `tests/test_run_contract.py`, because an ignore is a
+  property of the claim and the claim is built at reading time.
+- code owed: #336 for the recording; #335 for the contrast
+
+**K8 — two hosts are two one-armed cells, not one contrast.**
+`tests/test_calibration_conflicts.py::test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine`
+- decision: 2026-08-22, owner — **there is no such number.** Cross-host
+  equivalence is never claimed; srv1 and srv2 are not one instrument at any
+  population, and ollama and vLLM are never equivalent either. The owner's own
+  framing, quoted verbatim from the ruling, typing and all:
+
+  > we run a check to see how much can we 1.5B models can we put on each
+  > machine = 2 one armed cells -> we can use them if we create the second arm
+  > -> the second arm is runnig the same amount of 1.5B models with one config
+  > different, e.g. context.arm1!=context.arm2. that way we can use data we get
+  > from testing capability to measure.
+
+  So a **capability** cell's comparison is built by adding a second arm against
+  it — typically on the same machine, differing in exactly one declared
+  parameter. This is ADR-0038 D5's one-armed cell made concrete, and it is why
+  a capability measurement is reusable as a contrast nobody planned.
+- **scope, stated because the first draft of this entry over-read it:** the
+  ruling denies cross-host *equivalence*, not cross-machine *comparison*.
+  ADR-0038 **D1** withdrew the rigs' roles and **D2** says a cross-machine
+  question authorises its own run — *"which machine serves the 1.5B faster"* is
+  D2's own example — and both were Accepted the same day as this ruling. A
+  cross-machine contrast therefore stays available and carries what it ignored
+  on D4's record, which is K7's ruling above. What is denied is treating the
+  two hosts as interchangeable instruments, which is what a models-per-engine
+  floor was quietly building toward.
+- rewritten: `MIN_CROSS_HOST_MODELS` is retired — a floor presumes a count at
+  which two hosts become one instrument, and the ruling says there is none. The
+  check now asks that every model this campaign read on more than one host is
+  stored as a standalone cell per host, in the shape D5 defines. Red today
+  because the campaign holds journals, not cells.
+- deliberately not asserted: per-model cell naming. #335 has not defined the
+  convention and this check does not own it.
+- code owed: #335
+
+**K9 — every host declares the settings that decide residency.**
+`tests/test_calibration_conflicts.py::test_both_hosts_declare_the_settings_that_decide_residency`
+- decision: 2026-08-22, owner — every host declares them. An engine default
+  inherited in silence is **not** a declaration.
+- state: both rigs were declared live on 2026-08-22, so the check goes green on
+  the next campaign's survey without further code. **This is not the same as
+  closed.** The rig state is asserted in prose only: `0.32.15` and the three
+  settings on srv2 appear nowhere in this tree except a session record and
+  ADR-0038's Context, no capture shows them, and nothing in the repository sets
+  or asserts them. It
+  can regress between campaigns and nothing here would notice — an unfiled gap,
+  named on purpose so it is not re-derived.
+
+**K10 — 0.85 is local-ai's, and it is not kept on a citation.**
+`tests/test_calibration_conflicts.py::test_a_serving_constant_this_project_did_not_choose_names_its_source`
+- decision: 2026-08-22, owner — the value is **measured on both rigs**, and the
+  entry then names that measurement as its origin. Keeping 0.85 with a source
+  note was offered and declined.
+- measurement owed: #337. It carries the two sites this check reads
+  (`configs/srv-full.json:34,:60`) and the three it cannot see —
+  `calibrate.py:596`, `calibrate.py:833`, and `backends/vllm.py:599`, the
+  fallback default that runs whenever a config omits the key. It also carries
+  the consequence: `gpu_memory_utilization` is in `fingerprint.SEMANTIC`
+  (`fingerprint.py:182`), so the measured value **re-baselines the serving
+  pin** — which is why it is ordered before the campaign re-run, not after.
+
+---
+
+**The ninth marker is not the owner's.**
+`tests/test_cross_rig_claim.py::test_the_2026_08_20_cross_rig_claim_holds_only_on_a_journal_with_identity_rows`
+asks whether the width-16 gap is hardware or configuration. No ruling settles
+that: the journal names no card, no engine build and no weights on any row, so
+the answer is not in the tree. Reworded from `owed —` to **`measurement owed —`**
+under ADR-0037's 2026-08-22 amendment, which added the third grammar for
+exactly this: a reason now says *who* owes a finding — the owner, the keyboard,
+or the rigs — and `grep ': owed — '` answers one question only.
+
+The three markers in `tests/test_run_contract.py` were reworded the other way,
+to `decided —`. Their own text said *"ADR-0038 D3/D4/D5 **is decided** and
+unimplemented"*: the owner had ruled, ADR-0038 was Accepted the same day, and
+what was owed was #335's harness code. A finding whose decision lives in
+another record is `decided`, and the reason names the record.
+
+**One correction to the 2026-08-22 session record.** It states that
+`max_speedup_vs_n1` is null on every survey cell, and rejected a peer agent's
+srv2 range of 1.02–1.10 on that basis. That is true of the **top-level** key
+only — it is null on 17 of 17. The nested
+`concurrency.saturation.max_speedup_vs_n1` is populated on all 17, and **srv2's
+eleven cells run 1.02–1.10 exactly**, which is the rejected range. The peer was
+reading a real population.
+
+Every figure below names its population, because the paragraph's own point is
+that a quoted number does not. All re-derived 2026-08-22 from `d7-survey.json`
+and this directory's `*.jsonl`:
+
+| population | n | range |
+|---|---|---|
+| survey nested, srv2 | 11 | 1.02–1.10 |
+| survey nested, srv1 | 6 | 1.03–1.59 |
+| survey nested, all | 17 | 1.02–1.59 |
+| ramp journals, srv1 | 27 | 1.00–4.16 |
+| ramp journals, srv2 | 9 | 1.02–15.42 |
+| ramp journals, all | 36 | 1.00–15.42 |
+
+Two live speedup populations exist in this campaign, they do not mean the same
+thing, and **nothing on a quoted figure says which one it came from.** Recorded
+here rather than fixed: it is a defect in what a figure carries, and it belongs
+to whichever check claims it, not to this block. (The first draft of this
+paragraph quoted "ramp journals 1.09–2.27, survey 1.02–1.10" — both srv2-only
+subsets presented as whole populations, which is the very defect the paragraph
+names. Corrected before this block was committed.)

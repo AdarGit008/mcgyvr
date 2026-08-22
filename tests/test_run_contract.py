@@ -107,9 +107,10 @@ def test_no_host_is_barred_from_a_cross_host_contrast() -> None:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — ADR-0038 D3 is decided and unimplemented. No "
-        "module compares two cells' parameters, so nothing can refuse on an "
-        "unremarked difference. See docs/run-contract-2026-08-22.md section 5"
+        "2026-08-22: decided — ADR-0038 D3, Accepted; the decision is made "
+        "and the code is owed on #335. No module compares two cells' "
+        "parameters, so nothing can refuse on an unremarked difference. See "
+        "docs/run-contract-2026-08-22.md section 5"
     ),
 )
 def test_a_contrast_refuses_when_any_unremarked_parameter_differs() -> None:
@@ -133,9 +134,10 @@ def test_a_contrast_refuses_when_any_unremarked_parameter_differs() -> None:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — ADR-0038 D4 is decided and unimplemented. There is "
-        "no contrast record, so an ignored difference has nowhere to live "
-        "except the cell it must not touch"
+        "2026-08-22: decided — ADR-0038 D4, Accepted; the decision is made "
+        "and the code is owed on #335. There is no contrast record, so an "
+        "ignored difference has nowhere to live except the cell it must not "
+        "touch — which is also where K7's ruling puts the geometry difference"
     ),
 )
 def test_an_ignored_difference_is_named_on_the_contrast_and_not_on_the_cell() -> None:
@@ -161,9 +163,10 @@ def test_an_ignored_difference_is_named_on_the_contrast_and_not_on_the_cell() ->
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — ADR-0038 D5 is decided and unimplemented. A cell "
-        "is not yet a standalone record, so there is nothing a later contrast "
-        "could take up as its second arm"
+        "2026-08-22: decided — ADR-0038 D5, Accepted; the decision is made "
+        "and the code is owed on #335. A cell is not yet a standalone record, "
+        "so there is nothing a later contrast could take up as its second arm "
+        "— which is what K8's ruling makes the only shape a comparison has"
     ),
 )
 def test_a_one_armed_cell_is_stored_and_checked_like_any_other() -> None:

@@ -149,3 +149,52 @@ was fixed in `8a20a4cb`. 8 of 8.
 - `tests/test_decisions.py::test_each_number_is_claimed_once_and_titles_agree` — this record's
   header and number.
 - The sink census (rule 5) is #324 and names its check there.
+
+## Amendment — 2026-08-22 (#328, owner ruling): rule 2 grows a third grammar, `measurement owed`
+
+Rule 2 named two reason grammars and both are about the owner: `owed — <the
+question>` while they have not ruled, `decided — <the decision>` once they
+have. Clearing lane/286's owed set surfaced a third state the two words cannot
+express.
+
+**The instance.** `tests/test_cross_rig_claim.py::test_the_2026_08_20_cross_rig_claim_holds_only_on_a_journal_with_identity_rows`
+asks whether the width-16 gap between the rigs is hardware or configuration.
+No ruling settles that. The journal it was read off names no card, no engine
+build and no weights on any row, so the answer is not in the tree and cannot be
+reasoned to — #329's rig arm writes one width-16 ramp and one launch row per
+host, and the answer arrives with the journal. Under the two-word grammar the
+marker read `owed —`, which says *the owner owes a decision*, and so it was
+put in front of the owner every session as one.
+
+**The third grammar.** `measurement owed — <what a rig run must answer>`, dated
+like the others. A reason now says **who** owes the finding: the owner, the
+keyboard, or the rigs. `grep ': owed — '` answers exactly one question — what
+is waiting on the owner — which is what #328's definition of done greps for,
+and what made the mislabel visible in the first place.
+
+**Not a third state: a decision recorded somewhere else.** The same sweep found
+three markers in `tests/test_run_contract.py` reading `owed — ADR-0038 D3/D4/D5
+is decided and unimplemented`. Their own text refutes their word. The owner had
+ruled — ADR-0038 was Accepted the same day — and what was owed was #335's
+harness code. Those are reworded to `decided —` naming the implementing issue,
+not to `measurement owed`. A finding whose decision lives in another record is
+`decided`, and the record it lives in is named in the reason.
+
+**A marker may be repointed when the field it names is not the field the tree
+writes.** K6 asked every ramp row for `engine_version`; nothing emits that key
+and nothing ever did — the emitted name is `identity.serving_build`
+(`tools/bench/serving/calibrate.py`). A check that cannot be satisfied by a
+correct run is not a live finding, it is a typo with a marker on it. Repointing
+it is an edit to the check, recorded in the append-only block that names the
+check, and it changes the wording of the issue that introduced it — which is
+why it carries the owner's sign-off rather than a session's judgement.
+
+**Enforcement is unchanged and needs no code.**
+`tests/test_finding_is_a_check.py::test_every_xfail_in_the_suite_is_strict_and_carries_a_dated_reason`
+asserts `strict=True` and an ISO-date prefix (`_DATED`); it never parsed the
+word after the date, so the third grammar costs nothing to admit. That the
+grammar is unenforced is the honest state: it is a convention the greps rely
+on, and the day a grep is wired into a definition of done is the day it earns a
+check.
+
+Rules 1, 3, 4 and 5 are unchanged.

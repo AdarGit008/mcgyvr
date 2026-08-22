@@ -1,4 +1,4 @@
-"""Nine recorded conflicts, and the check each one becomes.
+"""Ten recorded conflicts, and the check each one becomes.
 
 Session 6 read the D7 campaign's evidence and counted six contradictions
 between what the record claims and what the files under
@@ -17,20 +17,39 @@ ADR-0037 (#323) is the rule this file is the first real member of:
 * Rule 2 — a finding the owner has not ruled on keeps its check, marked
   ``xfail(strict=True, reason=...)`` with a dated reason: the ISO date, then
   ``owed — <the question>`` while the owner has not ruled and
-  ``decided — <the decision>`` once they have. Four of the six are owed.
-  ``strict`` is what keeps them live: a campaign that fixes one turns XPASS
-  and fails the suite until the marker comes off.
+  ``decided — <the decision>`` once they have. **All eight are decided as of
+  2026-08-22** — the owner ruled the whole set in one pass, so #328's closing
+  grep for the owed grammar prints 0 against this file and every marker here
+  now records a decision rather than a question. (That grep is a literal
+  string search, so this paragraph states the pattern rather than quoting it:
+  a docstring that spelled it out would be its own counter-example.)
+  ``strict`` is what keeps them live: a campaign that fixes one turns XPASS and
+  fails the suite until the marker comes off. **Seven of the eight** can only be
+  turned green by a run — they resolve against the newest campaign directory.
+  K10 is the exception: it reads ``tools/bench/serving/configs/``, so a prose
+  edit alone flips the check while the measurement its ruling calls for is
+  still owed on #337. The check and the finding are not the same thing there,
+  and that gap is K10's own defect rather than the ruling's.
 * Rule 3 — the append-only record names its check. The block ``## Conflicts
-  recorded 2026-08-21`` in the campaign README carries K1-K6, each naming the
-  test below that reads it.
+  recorded 2026-08-21`` in the campaign README carries K1-K6, ``## Conflicts
+  recorded 2026-08-22`` carries K7-K9, ``## Conflict recorded 2026-08-22
+  (second)`` carries K10 alone, and ``## Rulings recorded 2026-08-22`` carries
+  the owner's eight decisions — each naming the test below that reads it. Two
+  of the ten checks (K7, K8) were rewritten by their own ruling and K6 was
+  repointed; the rulings block says so, and the earlier blocks are not edited.
 
 The two that dissolve stay as green checks rather than as a deleted paragraph:
 their job is to keep a re-derived non-finding from being re-filed, and to go
 red if a later campaign turns either into a real one.
 
-**The population is the newest campaign, not this one.** Every check resolves
-its evidence through :func:`campaign` — the newest ``calibration-*`` directory
-under ``records/evidence/``. The 2026-08-19 files are frozen history and can
+**The population is the newest campaign, not this one.** Every check but K10
+resolves its evidence through :func:`campaign` — the newest ``calibration-*``
+directory under ``records/evidence/``. (K10 reads the repository's own serving
+configs instead, because the constant it is about lives there and not in any
+run. Corrected 2026-08-22: this paragraph said "every check" from the day K10
+landed, and K10 never called :func:`campaign`.)
+
+The 2026-08-19 files are frozen history and can
 never turn green, so a check pinned to them would be an ``xfail`` that outlives
 its own finding and can never XPASS. Pointed at the newest campaign, each of
 these is a question put to the NEXT run, which is what every "owed" reason
@@ -94,6 +113,14 @@ TOLERANCE = 1e-6
 #: total" would pass on any single-slot host, where the per-slot window IS the
 #: total; this one asks for the name.
 CONTEXT_TOTAL_KEY = "n_ctx_total"
+
+#: The name the tree writes for the engine build a row ran on. K6 was filed
+#: against ``engine_version``, which appears nowhere in ``tools/`` or ``src/``
+#: and never did; ``calibrate.py`` builds an ``identity`` block carrying this
+#: name instead (with a sibling ``refusals`` entry when the host will not
+#: answer). Repointed 2026-08-22 on the owner's ruling — a check that a correct
+#: run cannot satisfy is a typo with a marker on it, not a finding.
+BUILD_KEY = "serving_build"
 
 #: Two ramp figures for the same host, engine and model may disagree only if
 #: one of these differs. Both are conditions the harness CHOSE and wrote down,
@@ -283,9 +310,9 @@ def _served_slots(directory: Path) -> int:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="2026-08-21: owed — which layer is serving_semantic_sha256 a pin "
-    "of: llama-server's defaults, or the params a request ran under (where a "
-    "Modelfile's parameters enter)?",
+    reason="2026-08-22: decided — the pin is the sampler the request ran "
+    "under; llama-server's /props defaults are recorded beside it and not "
+    "digested (owner). Code owed on #336.",
 )
 def test_the_sampler_pin_is_the_layer_the_request_ran_under() -> None:
     """K1 — the pinned sampler is not the sampler any request ran under.
@@ -343,9 +370,9 @@ def _contexts(directory: Path) -> list[Context]:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="2026-08-21: owed — is the width split inherited or intended, and "
-    "does a cross-host figure refuse it, carry it, or equalise the hosts "
-    "first?",
+    reason="2026-08-22: decided — record, never equalise: the launched total "
+    "gets its own name and a cross-host contrast carries the difference, "
+    "rather than the hosts being pinned to match (owner). Code owed on #336.",
 )
 def test_the_launched_context_total_has_a_name_in_the_semantic_block() -> None:
     """K2 — the launched window is recoverable by arithmetic and unnamed.
@@ -404,7 +431,9 @@ def _yields(directory: Path) -> list[Yielded]:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="2026-08-21: owed — does the yield row name what holds the card?",
+    reason="2026-08-22: decided — yes; release() names the holder from "
+    "/api/ps and the card's process list, and vLLM's want of an equivalent is "
+    "a stated refusal rather than a null (owner). Code owed on #336.",
 )
 def test_a_yield_row_that_finds_the_card_held_names_the_holder() -> None:
     """K3 — a yield reads the card, records a stranger, and does not say who.
@@ -551,9 +580,11 @@ def test_two_ramp_rows_that_disagree_differ_in_a_declared_condition() -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="2026-08-21: owed — what moved between ollama 0.32.4 and 0.32.5 in "
-    "scheduling or placement, and does a cross-host row carry the version or "
-    "refuse the split?",
+    reason="2026-08-22: decided — the row carries the build; it does not "
+    "refuse the split. Repointed from engine_version, which nothing in the "
+    "tree writes, to serving_build (owner). NOT code: calibrate.emit() has "
+    "merged the identity block into every hosted row since #326; the "
+    "2026-08-19 journals predate it, so what is owed is a post-#326 campaign.",
 )
 def test_a_cross_host_figure_carries_the_engine_version_on_each_host() -> None:
     """K6 — the hosts ran different ollama builds and no figure says so.
@@ -574,11 +605,11 @@ def test_a_cross_host_figure_carries_the_engine_version_on_each_host() -> None:
     unversioned = [
         (figure.journal, figure.host, figure.engine, figure.model)
         for figure in figures
-        if not figure.row.get("engine_version")
+        if not (figure.row.get("identity") or {}).get(BUILD_KEY)
     ]
     assert not unversioned, (
         f"{len(unversioned)} of {len(figures)} ramp figures across "
-        f"{sorted(hosts)} carry no engine_version: {unversioned}"
+        f"{sorted(hosts)} carry no identity.{BUILD_KEY}: {unversioned}"
     )
 
 
@@ -629,48 +660,82 @@ def _geometry_by_model(directory: Path) -> dict[str, dict[str, tuple[int, int]]]
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — is a cross-host figure allowed to rest on children "
-        "the two hosts launched differently? On 2026-08-19, 5 of the 6 models "
-        "served on both hosts ran at 8192x2 on srv1 and 4096x1 on srv2"
+        "2026-08-22: decided — yes, provided the difference is recorded and "
+        "declared on the contrast that reads the two rows; equalising the "
+        "hosts was rejected (owner). Code owed on #336, the contrast on #335"
     ),
 )
 def test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry() -> None:
-    """K7 — the same model, two hosts, two different windows.
+    """K7 — a cross-host figure may rest on children launched differently.
 
-    Verified live on 2026-08-22: the two rigs agree on ``-c 4096 -np 1`` and on
-    a byte-identical resident footprint for ``qwen2.5-coder:1.5b`` once
-    ``OLLAMA_NUM_PARALLEL`` is declared as ``1`` on both. **That is one model,
-    one context and one width** — a single point, and a single point is not an
-    agreement. This check is the same question asked of every model the
-    campaign serves on both hosts.
+    Filed as an equality check. **Ruled 2026-08-22 (owner): record, never
+    equalise.** A cross-host figure MAY rest on children the two hosts launched
+    differently, provided the difference is recorded and declared on the
+    contrast that reads the two rows. Pinning the rigs to match was rejected —
+    it fights the no-caps rule (the hardware is the limit) and would still
+    leave the launched total unnamed.
 
-    K2 names the split as a total the semantic block never carries. This is the
-    other half: the split is not a recording defect, it is a condition under
-    which two hosts' numbers were compared as if it were absent.
+    So this no longer asks for equality; asking for it after that ruling would
+    make the check unpassable by construction. It asks instead that both hosts'
+    geometry is ON THE RECORD for every model a cross-host figure could rest
+    on: the launched total under its own name, not recoverable only by
+    multiplying two other fields.
+
+    That is K2's obligation narrowed to the population that actually bears a
+    cross-host claim. It is **not** independent of K2 and does not pretend to
+    be: K7's children are a subset of K2's and its predicate is K2's second
+    assertion restricted to them, so K7 cannot be red while K2 is green. What
+    it adds is the population — when K2 goes green partially, the message here
+    names the (model, host) children a cross-host figure would have rested on,
+    which K2's whole-campaign count does not. The independence claim first
+    written here was wrong and is corrected in the campaign README's rulings
+    block.
+
+    The ruling's second clause — the difference is declared on the contrast's
+    ignore list — is ADR-0038 D4's contrast record and is checked in
+    ``tests/test_run_contract.py``, not here. An ignore is a property of the
+    claim, and the claim is built at reading time, so it cannot be a property
+    of either cell.
+
+    The test's name is kept because #328's definition of done quotes it.
     """
-    table = _geometry_by_model(campaign())
+    directory = campaign()
+    table = _geometry_by_model(directory)
     shared = {model: hosts for model, hosts in table.items() if len(hosts) > 1}
     assert shared, (
         "no model was served on more than one host, so nothing in this "
         "campaign supports a cross-host comparison at all"
     )
-    disagreeing = {
-        model: hosts for model, hosts in shared.items() if len(set(hosts.values())) > 1
-    }
-    assert not disagreeing, (
-        f"{len(disagreeing)} of {len(shared)} models served on both hosts were "
-        f"launched with different (context, slots): {disagreeing}"
+    recorded: dict[tuple[str, str], bool] = {}
+    for context in _contexts(directory):
+        key = (context.host, context.model)
+        # AND, not last-wins: one (host, model) can have several served
+        # children — a co-resident cell has two — and a later one carrying the
+        # total must not mask an earlier one that does not.
+        recorded[key] = recorded.get(key, True) and (context.total == context.launched)
+    unrecorded = sorted(
+        (model, host, geometry)
+        for model, hosts in shared.items()
+        for host, geometry in hosts.items()
+        if not recorded.get((host, model))
+    )
+    assert not unrecorded, (
+        f"{len(unrecorded)} of {sum(len(h) for h in shared.values())} "
+        f"(model, host) children bearing a cross-host figure carry no "
+        f"{CONTEXT_TOTAL_KEY!r}: the window each host launched is recoverable "
+        f"only by multiplying two other fields, so a reader comparing the two "
+        f"cannot see that they differ: {unrecorded}"
     )
 
 
 # --------------------------------------------------------------------------
-# K8 — how wide the cross-host evidence actually is
+# K8 — two hosts are two one-armed cells (filed as: how wide is the evidence)
 # --------------------------------------------------------------------------
 
-#: Two models per engine is the smallest population in which an agreement can
-#: fail to hold. One is a coincidence with no room to be contradicted; this is
-#: the floor, not a target.
-MIN_CROSS_HOST_MODELS = 2
+#: Retired 2026-08-22 by the owner's ruling on K8. A floor on models-per-engine
+#: presumes there is a count at which two hosts become one instrument. There is
+#: not: cross-host equivalence is never claimed, so no number was the answer and
+#: the question was the defect. What replaces it is the storage shape below.
 
 
 def _cross_host_models(directory: Path) -> dict[str, set[str]]:
@@ -689,38 +754,89 @@ def _cross_host_models(directory: Path) -> dict[str, set[str]]:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — how many models must agree across hosts before an "
-        "engine is called equivalent? On 2026-08-19 exactly one model per "
-        "engine carried a figure on both hosts, so every cross-host claim "
-        "rests on a single point"
+        "2026-08-22: decided — there is no such number. Cross-host equivalence "
+        "is never claimed and ollama and vLLM are never equivalent; a "
+        "capability cell is one-armed, and its comparison is a second arm on "
+        "the SAME machine differing in exactly one declared parameter (owner). "
+        "The cell shape is owed on #335"
     ),
 )
 def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> None:
-    """K8 — an equal footprint is not an equal throughput.
+    """K8 — two hosts are two one-armed cells, not one contrast.
 
-    ``size_vram`` agreeing to the byte on two hosts says the engines allocated
-    the same thing; it says nothing about what they then did with it, and the
-    2026-08-20 cross-rig claim is about speed, not memory. The campaign's own
-    figures are the population: on 2026-08-19, 36 figure-bearing ramp rows
-    yielded exactly one model per engine present on both hosts —
-    ``qwen2.5-coder:1.5b`` for ollama and the 1.5B AWQ for vLLM, which is the
-    very model the ``23% vs 96%`` claim quotes.
+    Filed as "how wide is the cross-host evidence", on the true observation
+    that ``size_vram`` agreeing to the byte says the engines allocated the same
+    thing and nothing about what they then did with it, and that on 2026-08-19
+    exactly one model per engine carried a figure on both hosts.
 
-    A single shared model cannot distinguish "the engines agree" from "these
-    two runs agreed"; :data:`MIN_CROSS_HOST_MODELS` is the smallest population
-    in which the first can fail.
+    **Ruled 2026-08-22 (owner): the question has no number.** Cross-host
+    EQUIVALENCE is never claimed — srv1 and srv2 are not one instrument at any
+    population — and ollama and vLLM are never equivalent either.
+
+    Read the scope exactly. This does not forbid a cross-machine comparison:
+    ADR-0038 D1 withdrew the rigs' roles and D2 says a cross-machine question
+    authorises its own run ("which machine serves the 1.5B faster"), and both
+    were Accepted the same day as this ruling. What is denied is the claim that
+    the two hosts are interchangeable instruments, which is the claim a
+    models-per-engine floor was quietly building toward. A cross-machine
+    contrast stays available and carries what it ignored, on D4's record —
+    which is also K7's ruling.
+
+    What the ruling adds is the shape underneath. Two hosts produce two
+    **one-armed cells**: "how many 1.5B models fit on this card" answers itself
+    on each machine and needs no second arm to be a record. A *capability*
+    cell's comparison is then built by adding a second arm against it —
+    typically on the same machine, differing in exactly one declared parameter,
+    the same count of models at a different context. That is what makes a
+    capability measurement reusable as a contrast nobody planned, and it is why
+    the storage shape matters more than the population size.
+
+    So the check is not a floor. It asks that every (host, model) reading this
+    campaign took for a model seen on more than one host is stored as a
+    standalone cell, in the one-directory-per-cell shape ADR-0038 D5 defines,
+    so a later contrast can take one up as an arm. Red today because the
+    campaign writes journals and not cells — the same absence
+    ``tests/test_run_contract.py`` names for D5, asked here of the specific
+    readings a cross-host claim was read off.
+
+    Cell **naming** is deliberately not asserted: #335 has not defined the
+    convention, so the cell is matched on the ``host`` and ``model`` inside its
+    own ``run.json`` (the contract makes that file "the terminal record — the
+    row, provenance, identity, pre-state, post-state",
+    ``docs/run-contract-2026-08-22.md:26``). If #335 nests the row under a key,
+    this reader moves with it; if #335 also moves ramp rows out of the
+    campaign's top level, :func:`_figures` stops finding them and this check
+    must be repointed rather than left to refuse.
+
+    The test's name is kept because #328's definition of done quotes it.
     """
-    per_engine = _cross_host_models(campaign())
+    directory = campaign()
+    per_engine = _cross_host_models(directory)
     assert per_engine, "no ramp figures at all, so no cross-host evidence exists"
-    thin = {
-        engine: sorted(models)
-        for engine, models in per_engine.items()
-        if len(models) < MIN_CROSS_HOST_MODELS
+    cross_host = {
+        (figure.host, figure.model)
+        for figure in _figures(directory)
+        if figure.model in per_engine.get(figure.engine, set())
     }
-    assert not thin, (
-        f"{len(thin)} of {len(per_engine)} engines carry fewer than "
-        f"{MIN_CROSS_HOST_MODELS} models with a figure on both hosts, so their "
-        f"cross-host agreement is one point wide: {thin}"
+    assert cross_host, (
+        f"no model in {directory.name} carries a figure on more than one host, "
+        "so this campaign produced no reading to store as a standalone cell"
+    )
+    stored = set()
+    for path in sorted(directory.glob("*/run.json")):
+        try:
+            cell = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue  # an unreadable cell is not a cell; K-checks do not repair
+        if isinstance(cell, dict):
+            stored.add((str(cell.get("host")), str(cell.get("model"))))
+    missing = sorted(cross_host - stored)
+    assert not missing, (
+        f"{len(missing)} of {len(cross_host)} (host, model) readings bearing a "
+        f"cross-host claim in {directory.name} have no standalone cell naming "
+        "them: the campaign holds journals, not the one-directory-per-cell "
+        "records ADR-0038 D5 makes a contrast's arms out of, so nothing here "
+        f"can be taken up as an arm later: {missing}"
     )
 
 
@@ -756,10 +872,11 @@ def _declared_settings(directory: Path) -> dict[str, set[str]]:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — must every host declare the settings that decide "
-        "residency, or may one inherit the engine's default? On 2026-08-19 "
-        "srv1 declared all three and srv2 declared none, under two different "
-        "engine versions"
+        "2026-08-22: decided — every host declares them; an engine default "
+        "inherited in silence is not a declaration (owner). Both rigs were "
+        "declared live on 2026-08-22, so this goes green on the next "
+        "campaign's survey — nothing in this repo sets or asserts them, which "
+        "is how it regresses"
     ),
 )
 def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
@@ -837,10 +954,10 @@ def _knob_sites(directory: Path = CONFIGS) -> list[tuple[str, str, Any, str]]:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "2026-08-22: owed — is 0.85 this project's choice or local-ai's, and "
-        "does an OOM fix taken on a 12 GB card apply unchanged to a 6 GB one? "
-        "Traced 2026-08-22 to local-ai AGENTS.md:126-127, 'reduced from doc "
-        "values to avoid CUDA OOM', bundled with two other changes"
+        "2026-08-22: decided — local-ai's, not this project's, and it is not "
+        "kept on a citation: the value is measured on BOTH rigs and the entry "
+        "then names that measurement as its origin (owner). Measurement owed "
+        "on #337, which also carries the three copies this check cannot see"
     ),
 )
 def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> None:

@@ -365,9 +365,12 @@ def test_a_cross_host_contrast_refuses_when_identity_differs_or_is_missing(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="2026-08-21: owed — is the width-16 gap hardware or configuration? "
-    "The journal it was read off names no card, engine build or weights on any "
-    "row, so nothing recorded can tell the two apart (#329).",
+    reason="2026-08-22: measurement owed — is the width-16 gap hardware or "
+    "configuration? No ruling settles it: the journal it was read off names no "
+    "card, engine build or weights on any row, so the answer is not in the "
+    "tree and arrives with #329's rig arm. Reworded from 'owed' under "
+    "ADR-0037's 2026-08-22 amendment, which added this third grammar so a grep "
+    "says who owes a finding — the owner, the keyboard, or the rigs.",
 )
 # The name #329 gives this check is one character past the line limit and is
 # quoted in the issue's definition of done, so the limit yields, not the name.
