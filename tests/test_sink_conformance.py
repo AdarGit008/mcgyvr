@@ -34,6 +34,7 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 import time
 import types
@@ -1736,6 +1737,110 @@ def test_the_digests_move_when_a_harness_byte_or_an_underscore_key_is_edited(
     assert contract.provenance()["harness_sha256"] == before, "derived files are out"
     (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 476\n")
     assert contract.provenance()["harness_sha256"] != before
+
+
+def _git_in(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.email=t@t.io", "-c", "user.name=t", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_tree_dirty_answers_about_the_harness_and_not_about_the_runs_own_output(
+    contract: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#334: `tree_dirty` asked `git status` about the whole working tree.
+
+    A run writes its journal into `records/` *while it runs*, so every row of
+    every future run would have read `tree_dirty: true` caused by nothing but
+    its own output -- a field true on every real run, which states no property
+    (ADR-0026 lens 3). The D7 evidence does not show it only because those rows
+    predate #325 and carry no provenance block at all.
+
+    Both directions, because a check that cannot be shown to reject is the
+    MARKERS table again: the run's own output must not move it, and one byte
+    under the declared surface must.
+    """
+    contract._product()  # loaded from the real tree before REPO is moved
+    harness = tmp_path / "tools" / "bench" / "serving"
+    harness.mkdir(parents=True)
+    (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 475\n")
+    (tmp_path / "records").mkdir()
+    (tmp_path / "records" / ".gitkeep").write_bytes(b"")
+    _git_in(tmp_path, "init", "-q", "-b", "main")
+    _git_in(tmp_path, "add", "-A")
+    _git_in(tmp_path, "commit", "-q", "-m", "base")
+    monkeypatch.setattr(contract, "REPO", tmp_path)
+    assert contract.provenance()["tree_dirty"] is False, "committed harness is clean"
+
+    # What a run does to its own tree: the journal, then the survey document.
+    (tmp_path / "records" / "d7-ramp.jsonl").write_text('{"metric": "ramp"}\n')
+    (tmp_path / "survey.out.json").write_text("{}\n")
+    clean = contract.provenance()
+    assert clean["tree_dirty"] is False, "#334: a run's own output is not the harness"
+    unscoped = contract._git("status", "--porcelain", "--untracked-files=all")
+    assert unscoped is not None and unscoped.strip(), (
+        "the question that shipped would have said true here, which is the defect"
+    )
+
+    # One byte under the declared surface, and both halves of the pair move.
+    (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 476\n")
+    dirty = contract.provenance()
+    assert dirty["tree_dirty"] is True
+    assert dirty["harness_sha256"] != clean["harness_sha256"], (
+        "`tree_dirty` and `harness_sha256` answer about one surface"
+    )
+
+    # An untracked file *inside* the surface counts: it is code that ran.
+    (harness / "contract.py").write_bytes(b"RAMP_TOKENS = 475\n")
+    assert contract.provenance()["tree_dirty"] is False
+    (harness / "patch.py").write_bytes(b"# applied by hand on the rig\n")
+    assert contract.provenance()["tree_dirty"] is True
+
+
+def test_the_surface_provenance_declares_is_the_surface_it_reads(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`PROVENANCE_SURFACE` is not documentation beside the computation, it is
+    the computation's input: a narrowed declaration narrows the pathspec, so
+    the two cannot be edited apart. `commit` is absent from the table and its
+    `rev-parse` carries no pathspec -- `HEAD` is the repository's."""
+    assert set(contract.PROVENANCE_SURFACE) <= set(contract.PROVENANCE_DISPOSITION)
+    seen: list[tuple[str, ...]] = []
+
+    def spy(*args: str) -> str | None:
+        seen.append(args)
+        return "abc123\n" if args[0] == "rev-parse" else ""
+
+    monkeypatch.setattr(contract, "_git", spy)
+    monkeypatch.setattr(
+        contract,
+        "PROVENANCE_SURFACE",
+        dict.fromkeys(
+            ("tree_dirty", "harness_sha256"), ("tools/bench/serving/contract.py",)
+        ),
+    )
+    narrowed = contract.provenance()
+    status = [args for args in seen if args[0] == "status"]
+    assert len(status) == 1, seen
+    assert status[0][status[0].index("--") + 1 :] == (
+        "tools/bench/serving/contract.py",
+    ), "the pathspec is the declaration's, verbatim"
+    assert [args for args in seen if args[0] == "rev-parse" and "--" not in args], (
+        "`commit` is asked unscoped"
+    )
+
+    # The digest half reads the same table, so narrowing one field's surface
+    # does not leave the other half hashing the wide one.
+    product = contract._product()
+    assert narrowed["harness_sha256"] == product.digest(
+        contract.REPO, ("tools/bench/serving/contract.py",)
+    )
+    assert narrowed["harness_sha256"] != product.digest(
+        contract.REPO, contract.HARNESS_SURFACE
+    )
 
 
 def _span_ordered(row: dict[str, Any]) -> None:

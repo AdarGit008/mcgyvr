@@ -270,6 +270,28 @@ PROVENANCE_DISPOSITION: dict[str, tuple[str, ...]] = {
     "run_started_at": ("run_started_at",),
 }
 
+#: The files each tree-reading provenance field answers about. :func:`provenance`
+#: reads its pathspec and its digest surface from here and states neither
+#: itself, so the disposition above and the computation below cannot drift
+#: apart from the surface they describe.
+#:
+#: ``tree_dirty`` and ``harness_sha256`` are one claim in two halves -- *these
+#: bytes ran*, and *a commit names them* -- so they answer about one surface or
+#: they can disagree about which tree they mean. #334: ``tree_dirty`` was
+#: computed over the whole working tree, which a run turns ``true`` by writing
+#: its own journal under ``records/``, so every row of every future run would
+#: have read ``true`` because of its own output. A field that is ``true`` on
+#: every real run states no property (ADR-0026 lens 3), and it is the coarse
+#: half of the pair that breaks, because the digest is exact.
+#:
+#: ``commit`` is deliberately absent: ``HEAD`` is the repository's, not a
+#: surface's, and scoping it would be a different claim rather than a narrower
+#: one.
+PROVENANCE_SURFACE: dict[str, tuple[str, ...]] = {
+    "tree_dirty": HARNESS_SURFACE,
+    "harness_sha256": HARNESS_SURFACE,
+}
+
 
 def _git(*args: str) -> str | None:
     try:
@@ -305,13 +327,17 @@ def provenance(
 ) -> dict[str, Any]:
     """What ran, from where, starting when -- stamped onto every row.
 
-    ``commit`` is ``HEAD`` and ``tree_dirty`` says whether that names this
-    tree; a SHA on a dirty tree is worse than none (``product.py``), so the two
-    travel together and ``harness_sha256`` is over the files that actually
-    ran -- ``product.digest``'s own algorithm over :data:`HARNESS_SURFACE`,
-    reused rather than rebuilt. No git at all is recorded as such, beside
-    ``commit: null``, rather than raised: a run on a box without git is still
-    a run whose rows deserve a clock.
+    ``commit`` is ``HEAD`` and ``tree_dirty`` says whether that names the code
+    that ran -- **the harness surface, not the working tree**
+    (:data:`PROVENANCE_SURFACE`, #334). A SHA on a dirty tree is worse than
+    none (``product.py``), so the two travel together, and ``harness_sha256``
+    is over that same surface -- ``product.digest``'s own algorithm, reused
+    rather than rebuilt. A surface entry that has gone missing is silent to
+    ``git status`` (a pathspec matching nothing exits 0) and raises in
+    ``product.surface_files``, so the pair refuses rather than reading clean.
+    No git at all is recorded as such, beside ``commit: null``, rather than
+    raised: a run on a box without git is still a run whose rows deserve a
+    clock.
 
     ``config_sha256`` is over the bytes the survey read (``run.py`` has a config
     file; ``calibrate.py`` has none and carries ``argv``, which both do).
@@ -319,13 +345,19 @@ def provenance(
     callers make the moment the run begins.
     """
     head = _git("rev-parse", "HEAD")
-    status = _git("status", "--porcelain", "--untracked-files=all")
+    status = _git(
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        *PROVENANCE_SURFACE["tree_dirty"],
+    )
     reason = None if head else "git rev-parse HEAD failed: no git, or not a repository"
     return {
         "commit": head.strip() if head else None,
         "commit_unknown_reason": reason,
         "tree_dirty": None if status is None else bool(status.strip()),
-        "harness_sha256": _product().digest(REPO, HARNESS_SURFACE),
+        "harness_sha256": _product().digest(REPO, PROVENANCE_SURFACE["harness_sha256"]),
         "config_sha256": (
             None if config_bytes is None else hashlib.sha256(config_bytes).hexdigest()
         ),
