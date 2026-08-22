@@ -1322,3 +1322,51 @@ Each check reads the **newest** `calibration-*` directory, so all three are
 questions put to the re-run rather than verdicts on frozen files. Each was
 shown to reject: K7 and K9 turn green on a repaired copy of the evidence, K8
 turns green once a second model per engine carries a figure on both hosts.
+
+## Conflict recorded 2026-08-22 (second) — a constant this project did not choose
+
+**K10 — `gpu_memory_utilization = 0.85`.**
+`tests/test_calibration_conflicts.py::test_a_serving_constant_this_project_did_not_choose_names_its_source`
+
+Traced 2026-08-22 after the value was noticed to carry no comment at any of its
+five sites (`configs/srv-full.json:34`, `:60`; `calibrate.py:596`, `:833`;
+`backends/vllm.py:599`) while the line beside one of them carries a full
+justification for `--enforce-eager`.
+
+**It was copied, not decided.** The value was read off a *running* srv1 on
+2026-08-18 — `tests/test_bench_observed.py:172` is a fixture captured from a
+server this repo did not start — roughly seven hours before it entered any
+config here, and it existed in the local-ai repo by 2026-08-10. The three
+commits that wrote it (`d07d45c5`, `ccae4424`, `e8ea2648`) never mention it;
+the first has a ~1,500-word message about everything else.
+`backends/vllm.py:10` records it as an observation: "allocates a fraction of
+VRAM at startup — 0.85 or 0.90 on these rigs — and holds it".
+
+**The reason exists, in the other repo.** local-ai `AGENTS.md:126-127`:
+"reduced from doc values to avoid CUDA OOM", the original values being
+`--max-model-len 16384 --gpu-memory-utilization 0.90 --max-num-seqs 16`, which
+"caused CUDA OOM on the RTX 3060 12GB". Two things follow, and both are why
+this is a conflict rather than a closed question:
+
+1. The reduction bundled **three** changes, so the OOM is not attributed to
+   this knob alone.
+2. It was an OOM fix for **srv2's 12 GB card**. srv1 has a **6 GB** card and
+   carries the same value, unexamined.
+
+vLLM 0.26.0's own default is **0.92** on both builds (`vllm serve --help=all`,
+read 2026-08-22, byte-identical across the pip and container installs), so
+0.85 is a deliberate 7-point reduction no document here defends.
+
+An earlier reading of this session proposed that 0.85 was chosen in response to
+Finding 2c (`serving-surface-2026-08-18/README.md:124`), to leave co-residency
+headroom. **That is refuted by chronology**: 0.85 predates Finding 2c, and the
+value Finding 2c observed was 0.90. Recorded here because the inference was
+plausible and someone will make it again.
+
+The `min_vram_fraction: 0.85` that was removed from the 7B entry is a different
+quantity — a floor on the fraction of an *ollama model's own bytes* resident,
+against a cap on the *card's VRAM vLLM preallocates*. Opposite direction, and
+the global constant it replaced was 0.8. No document connects them.
+
+- decision: owed — is 0.85 this project's choice or local-ai's, and does an OOM
+  fix taken on a 12 GB card apply unchanged to a 6 GB one?

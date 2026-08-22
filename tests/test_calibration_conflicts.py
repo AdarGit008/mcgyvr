@@ -788,3 +788,98 @@ def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
         f"{len(incomplete)} of {len(declared)} hosts leave a residency setting "
         f"to the engine's default, unrecorded: {incomplete}"
     )
+
+
+# --------------------------------------------------------------------------
+# K10 — a constant this project did not choose
+# --------------------------------------------------------------------------
+
+#: The serving knobs whose value changes what a measurement means, and which
+#: therefore have to be this project's choice or say whose they are. Kept
+#: deliberately short: the rule is expensive to satisfy and is worth paying
+#: only where an inherited number would silently move a figure.
+ACCOUNTABLE_KNOBS = ("gpu_memory_utilization",)
+
+#: Substrings that make a note a PROVENANCE note rather than a description.
+#: A note saying what the knob does is not a note saying where its value came
+#: from, and only the second one answers "did we choose this?".
+_PROVENANCE_MARKERS = ("chosen", "origin", "inherited", "read off", "because", "source")
+
+CONFIGS = REPO / "tools" / "bench" / "serving" / "configs"
+
+
+def _knob_sites(directory: Path = CONFIGS) -> list[tuple[str, str, Any, str]]:
+    """``(file, label, value, the entry's prose)`` for every accountable knob."""
+    sites = []
+    for path in sorted(directory.glob("*.json")):
+        document = _payload(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            continue
+        for entry in document.get("models") or []:
+            if not isinstance(entry, dict):
+                continue
+            serve = entry.get("serve")
+            if not isinstance(serve, dict):
+                continue
+            prose = " ".join(
+                str(value)
+                for key, value in entry.items()
+                if key.startswith("_") or key == "notes"
+            )
+            for knob in ACCOUNTABLE_KNOBS:
+                if knob in serve:
+                    sites.append(
+                        (path.name, str(entry.get("label")), serve[knob], prose)
+                    )
+    return sites
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "2026-08-22: owed — is 0.85 this project's choice or local-ai's, and "
+        "does an OOM fix taken on a 12 GB card apply unchanged to a 6 GB one? "
+        "Traced 2026-08-22 to local-ai AGENTS.md:126-127, 'reduced from doc "
+        "values to avoid CUDA OOM', bundled with two other changes"
+    ),
+)
+def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> None:
+    """K10 — ``gpu_memory_utilization = 0.85`` was copied, not decided.
+
+    Traced on 2026-08-22. The value was read off a **running** srv1 on
+    2026-08-18 (``tests/test_bench_observed.py:172``, a fixture captured from
+    a server this repo did not start) roughly seven hours before it entered
+    any config here, and it existed in the local-ai repo by 2026-08-10. The
+    three commits that wrote it into the five sites -- ``d07d45c5``,
+    ``ccae4424``, ``e8ea2648`` -- never mention it. ``backends/vllm.py:10``
+    records it as an observation: "allocates a fraction of VRAM at startup --
+    0.85 or 0.90 on these rigs -- and holds it".
+
+    The reason exists, in the other repo: local-ai reduced 0.90 to 0.85 to
+    stop a CUDA OOM on **srv2's 12 GB RTX 3060**, bundled with two other
+    changes (context 16384 to 8192, width 16 to 8), so the OOM is not
+    attributed to this knob alone. srv1 has a **6 GB** card and the same
+    value is applied there, unexamined.
+
+    vLLM 0.26.0's own default is 0.92 on both builds, so this is a deliberate
+    7-point reduction that no document here defends.
+
+    The rule this check states is narrow: a knob that moves what a
+    measurement MEANS is either this project's choice or says whose it is.
+    An entry may satisfy it by naming the origin in its prose; it may not
+    satisfy it by describing what the knob does.
+    """
+    sites = _knob_sites()
+    assert sites, (
+        f"no config under {CONFIGS} declares any of {ACCOUNTABLE_KNOBS}, so "
+        "this check reads nothing and would pass vacuously"
+    )
+    unattributed = [
+        (file, label, value)
+        for file, label, value, prose in sites
+        if not any(marker in prose.lower() for marker in _PROVENANCE_MARKERS)
+    ]
+    assert not unattributed, (
+        f"{len(unattributed)} of {len(sites)} serving constants carry no note "
+        f"naming where the value came from: {unattributed}"
+    )
