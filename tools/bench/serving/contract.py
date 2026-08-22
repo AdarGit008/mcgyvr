@@ -456,6 +456,59 @@ def ssh(host: str, command: str, timeout: float = STEP_TIMEOUT_S) -> str | None:
     return proc.stdout.strip() or None
 
 
+#: Which processes hold this card, and how much of it each one holds. Declared
+#: rather than inlined because it now has two readers: :func:`snapshot`, which
+#: records the line, and ``vllm.placements``, which computes from it. The
+#: run contract's own warning was that this tree keeps minting idle readings —
+#: this string appeared once, in `snapshot`, and nothing in the tree consumed
+#: it. A second inline copy is how the two would come to mean different things.
+COMPUTE_APPS_COMMAND = (
+    "nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader"
+)
+
+#: Printed after the reading so an EMPTY card can be told from a card that was
+#: never read. :func:`ssh` returns ``None`` for empty stdout, which collapses
+#: "no process holds this card" into "the host did not answer" — the same
+#: direction :func:`snapshot` refuses for ``gpu_idle`` below, one reading over.
+COMPUTE_APPS_END = "__compute_apps_end__"
+
+#: What a caller that must tell those two apart runs. :func:`snapshot` keeps
+#: the bare command, because its row records stdout verbatim.
+#:
+#: **``&&``, not ``;``.** A missing or failing ``nvidia-smi`` writes to stderr
+#: and prints nothing on stdout, so a ``;`` would print the sentinel anyway and
+#: the parser would read the card as EMPTY — the very collapse the sentinel is
+#: here to prevent, restored by the separator. Conjunction costs nothing: the
+#: query exits 0 when no process holds the card.
+COMPUTE_APPS_PROBE = f"{COMPUTE_APPS_COMMAND} && echo {COMPUTE_APPS_END}"
+
+
+def compute_apps(raw: str | None) -> list[dict[str, Any]] | None:
+    """:data:`COMPUTE_APPS_PROBE`'s output as one row per process on the card.
+
+    ``[{"pid": 1133972, "card_mib": 3126}, ...]``, in the order the driver
+    reported them. ``None`` — never ``[]`` — when the sentinel is absent, which
+    is the read not completing: an unreachable host, a missing ``nvidia-smi``,
+    a timeout. ``[]`` is a card that answered and holds nothing.
+
+    A row whose memory the driver would not state (``[N/A]`` under MIG, or
+    without the permission to attribute another user's process) keeps its pid
+    and carries ``card_mib: None``. A pid that is not an integer is dropped:
+    it is not a process, it is a header or an error line.
+    """
+    if raw is None or COMPUTE_APPS_END not in raw:
+        return None
+    rows: list[dict[str, Any]] = []
+    for line in raw.splitlines():
+        if COMPUTE_APPS_END in line:
+            break
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 2 or not parts[0].isdigit():
+            continue
+        rows.append({"pid": int(parts[0]), "card_mib": first_int(parts[1])})
+    return rows
+
+
 def snapshot(host: str) -> dict[str, Any]:
     """What the machine is right now. **Read-only — starts and stops nothing.**
 
@@ -467,8 +520,7 @@ def snapshot(host: str) -> dict[str, Any]:
         "gpu_memory": "nvidia-smi --query-gpu=memory.used --format=csv,noheader",
         "gpu_total": "nvidia-smi --query-gpu=name,memory.total,driver_version "
         "--format=csv,noheader",
-        "gpu_compute_apps": "nvidia-smi --query-compute-apps=pid,used_memory "
-        "--format=csv,noheader",
+        "gpu_compute_apps": COMPUTE_APPS_COMMAND,
         "memory": "free -m | head -2",
         "load_average": "cat /proc/loadavg",
         "top_cpu": "ps -eo pcpu,rss,args --sort=-pcpu | head -4",

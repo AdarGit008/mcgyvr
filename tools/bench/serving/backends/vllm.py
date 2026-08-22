@@ -206,6 +206,241 @@ def inventory(host: str, base: str) -> list[str]:
     return [str(row.get("id")) for row in rows if isinstance(row, dict)]
 
 
+#: What the process holding the card is called. vLLM renames its GPU worker
+#: with ``setproctitle``, so the process ``nvidia-smi`` attributes the memory to
+#: has a command line of exactly this — **no model, no flags, nothing to join
+#: on**. Measured on both rigs 2026-08-22, and it is why the reading below walks
+#: to the parent instead of matching the pid's own line.
+ENGINE_CORE = "VLLM::EngineCore"
+
+#: The process read this backend takes to attribute the card. Narrow on purpose:
+#: a full ``ps -eo args`` dump is the densest credential surface on the host, and
+#: only this engine's own processes can be attributed to a model here anyway.
+#:
+#: **The brackets are load-bearing**, for the reason :func:`release`'s patterns
+#: carry them: without them the pattern matches the shell running the pattern,
+#: and this read would report a process that is this read.
+PROCESS_TREE_COMMAND = (
+    "ps -eo pid=,ppid=,args= | "
+    "grep -E '[V]LLM::EngineCore|[v]llm serve|[v]llm[.]entrypoints' || true"
+)
+
+#: How far up the parent chain a compute-app pid is followed. Measured: the
+#: model is on the **immediate** parent in both deployment shapes, so this is
+#: slack, not a search — three hops and then the answer is ``None``.
+_OWNER_HOPS = 3
+
+
+def _process_tree(raw: str | None) -> dict[int, dict[str, Any]]:
+    """:data:`PROCESS_TREE_COMMAND`'s output as ``{pid: {"ppid", "args"}}``.
+
+    A pure parser over what the host printed, so the join it feeds is testable
+    against the lines the rigs really produced (ADR-0016) rather than against a
+    shape imagined for it.
+    """
+    tree: dict[int, dict[str, Any]] = {}
+    for line in (raw or "").splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        tree[int(parts[0])] = {
+            "ppid": int(parts[1]),
+            "args": parts[2] if len(parts) > 2 else "",
+        }
+    return tree
+
+
+def _served_name(args: str) -> str | None:
+    """The model a ``vllm`` command line serves, under the name it answers to.
+
+    ``--served-model-name`` first, because that — not the checkpoint path — is
+    what ``/v1/models`` returns, and this name is joined against that list. Then
+    ``--model``, the ``api_server`` shape. Then the positional of ``vllm serve
+    <model>``, which is what both rigs run:
+
+    - srv1, installed with pip:  ``/usr/bin/python3 ~/.local/bin/vllm serve Qwen/…``
+    - srv2, inside the container: ``/usr/bin/python3 /usr/local/bin/vllm serve Qwen/…``
+
+    Measured 2026-08-22. The two deployment shapes differ only in the path to
+    the ``vllm`` binary, which is why one join covers both.
+    """
+    try:
+        tokens = shlex.split(args)
+    except ValueError:
+        tokens = args.split()
+    for flag in ("--served-model-name", "--model"):
+        for index, token in enumerate(tokens):
+            if token == flag and index + 1 < len(tokens):
+                return tokens[index + 1]
+            if token.startswith(f"{flag}="):
+                return token.split("=", 1)[1]
+    for index in range(1, len(tokens) - 1):
+        previous = os.path.basename(tokens[index - 1])
+        if tokens[index] == "serve" and previous.startswith("vllm"):
+            candidate = tokens[index + 1]
+            return None if candidate.startswith("-") else candidate
+    return None
+
+
+def _owner(pid: int, tree: dict[int, dict[str, Any]]) -> str | None:
+    """The model the process holding the card is serving, or ``None``.
+
+    ``None`` is the answer whenever the chain runs out, the parent has exited,
+    or the line names no model — a pid this engine cannot attribute is not this
+    engine's, and it is never *guessed* to be. The llama-server that shares the
+    card in a co-residency cell arrives here and leaves as ``None``: naming it
+    would be this backend claiming about another engine's model, which is the
+    one thing this module must not do.
+    """
+    seen: set[int] = set()
+    current = pid
+    for _ in range(_OWNER_HOPS + 1):
+        row = tree.get(current)
+        if row is None or current in seen:
+            return None
+        seen.add(current)
+        found = _served_name(row["args"])
+        if found is not None:
+            return found
+        current = row["ppid"]
+    return None
+
+
+def residents(host: str) -> list[str]:
+    """The models this engine is serving here — its half of a shared card.
+
+    A scheduler-shaped engine answers this from its own list of loaded models.
+    This engine has no such list: it is **one process per model**, and
+    ``/v1/models`` is a served-model list belonging to the process that answers
+    it. So "resident" here means "being served by a vLLM server on this host",
+    which is the same question and not the same reading.
+
+    Public, and shaped like the other backend's ``residents``, because ``run.py``
+    calls it on every backend after a ramp (BL-6). Until #345 only one backend
+    defined it, so a vLLM co-residency cell recorded an ``AttributeError`` as
+    its evidence.
+
+    **It answers about this engine only, and so does the other backend's.** A
+    neighbour served by the other engine is missing from both lists, so a
+    cross-engine cell's post-ramp verdict read ``held: false``. That is #343 and
+    #346's layer, not this one's, and it is stated here so the gap is read as
+    filed rather than as fixed.
+    """
+    base = probe(host)
+    return [] if base is None else inventory(host, base)
+
+
+def placements(host: str) -> list[dict[str, Any]]:
+    """Where every process on this card sits, as far as this engine can say.
+
+    **The fraction has no analogue here, and that is a decision, not a gap**
+    (ADR-0040). An engine that loads through llama.cpp can report
+    ``size_vram / size`` because it *spills*: a model can be 6.8% on the card
+    and answer ``200`` anyway. vLLM cannot —
+    ``requested = ceil(total * util)`` with a hard ``free >= requested``
+    precondition means it takes its whole allocation or refuses to start — so
+    there is no denominator to divide by. Every row therefore carries
+    ``fraction: None`` **with the reason beside it**, rather than the ``1.0``
+    that would be true by this engine's contract and would invite a reader to
+    compare it against the other engine's ``0.068`` as though the two were one
+    measurement (ADR-0038 D4).
+
+    The absolute number is reported instead, in MiB, from the driver:
+
+    - srv1, pip, 2026-08-22: pid 1133972 (``VLLM::EngineCore``) **3126 MiB**,
+      its parent the ``vllm serve Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ`` line.
+    - srv2, docker, same day, same entry: pid 364842, **3174 MiB**.
+    - Co-resident on srv1 with a 1.5B served by the other engine: a second
+      holder, 1196 MiB, whose parent is that engine's server — reported as a
+      row this engine cannot name rather than dropped.
+
+    MiB and not bytes: ``nvidia-smi`` attributes per-process memory to the MiB,
+    so a byte count here would be precision nobody measured, and the tree
+    already records footprints in MiB (``srv-full.json``'s ``_footprint_mib``).
+
+    Raises rather than returning ``[]`` when the card's process list could not
+    be read at all: an empty list is a statement that the card holds nothing.
+    """
+    apps = contract.compute_apps(contract.ssh(host, contract.COMPUTE_APPS_PROBE))
+    if apps is None:
+        raise contract.NotCleanError(
+            f"the card's process list on {host} could not be read "
+            f"({contract.COMPUTE_APPS_COMMAND!r} printed nothing and no "
+            "sentinel), so where anything sits here is unknown. An empty list "
+            "would say the card is empty, which is a different fact."
+        )
+    tree = _process_tree(contract.ssh(host, PROCESS_TREE_COMMAND))
+    rows: list[dict[str, Any]] = []
+    named: set[str] = set()
+    for app in apps:
+        model = _owner(app["pid"], tree)
+        if model is not None:
+            named.add(model)
+        rows.append(
+            {
+                "name": model,
+                "pid": app["pid"],
+                "card_mib": app["card_mib"],
+                "fraction": None,
+                "fraction_refused": (
+                    "this engine allocates its whole budget or refuses to "
+                    "start, so a model is never partly on the card and there "
+                    "is no denominator (ADR-0040)"
+                ),
+                **(
+                    {}
+                    if model is not None
+                    else {
+                        "unnamed": (
+                            "no vllm command line on this host owns this pid, "
+                            "so it is a holder this engine cannot name — not a "
+                            "model of ours, and not guessed to be one"
+                        )
+                    }
+                ),
+            }
+        )
+    # A model that is being served but holds no row of the card is the other
+    # direction of the same silence: the server answered `/v1/models` and the
+    # driver attributed nothing to it. Recorded with `card_mib: None`, because
+    # absent is not zero.
+    for model in residents(host):
+        if model not in named:
+            rows.append(
+                {
+                    "name": model,
+                    "pid": None,
+                    "card_mib": None,
+                    "fraction": None,
+                    "fraction_refused": (
+                        "this engine allocates its whole budget or refuses to "
+                        "start, so a model is never partly on the card and "
+                        "there is no denominator (ADR-0040)"
+                    ),
+                    "unplaced": (
+                        "served by this engine and attributed no memory by the "
+                        "driver; the process holding the card for it was not "
+                        "found, which is unknown rather than zero"
+                    ),
+                }
+            )
+    return rows
+
+
+def _recorded_placements(host: str) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """:func:`placements`, as a pair a record can hold either way.
+
+    Recording, not gating: a reading that cannot be taken must never be the
+    reason a measurement does not happen, and `None` beside its reason is what
+    that looks like (ADR-0027 D2). Broad on purpose — every exception here is a
+    failure to observe, and there is no shape of it that should end a claim.
+    """
+    try:
+        return placements(host), None
+    except Exception as error:
+        return None, f"{type(error).__name__}: {error}"
+
+
 def readings(host: str) -> dict[str, Any]:
     """This engine's own footprint on the machine."""
     reads = {
@@ -385,6 +620,14 @@ def claim(
     card = contract.card_state(contract.ssh(host, contract.CARD_STATE_COMMAND))
     config = _running_config(base)
     served = inventory(host, base)
+    # **#345, the claim side.** The same question the other backend's `claim`
+    # asks of the card since #335: not "did it come up" but "what is on this card, and
+    # where". `allocation_present` above is a threshold over the card's TOTAL,
+    # so it says yes to a card whose memory belongs to somebody else. Recorded
+    # and never gated, for the campaign's own reason — a shared card is the
+    # frontier being mapped, and a claim that refused one would refuse its own
+    # question.
+    placed, placed_refused = _recorded_placements(host)
     digest = weights_sha256(host, model)
     wanted = expect.get("weights_sha256")
     check = {
@@ -398,6 +641,9 @@ def claim(
         "engine_config": config,
         "weights": digest,
         "weights_sha256_expected": wanted,
+        "resident_placements": placed,
+        # ADR-0027 D2: null carries the reason it is null, never a blank.
+        "resident_placements_refused": placed_refused,
     }
     check["ok"] = bool(
         model in served

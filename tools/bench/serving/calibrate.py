@@ -1045,6 +1045,8 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "allocation_present",
         "served_models",
         "engine_config",
+        "resident_placements",
+        "resident_placements_refused",
         "weights_sha256_expected",
         "weights_sha256",
         "digest_seconds",
@@ -1075,6 +1077,10 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "allocation_present": ("allocation_present",),
     "served_models": ("served_models",),
     "engine_config": ("engine_config",),
+    # #345 / ADR-0040. Two fields, not one: the reading, and the reason it is
+    # null when it could not be taken (ADR-0027 D2).
+    "resident_placements": ("resident_placements",),
+    "resident_placements_refused": ("resident_placements_refused",),
     "weights": (
         "weights_sha256",
         "digest_seconds",
@@ -1327,6 +1333,12 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
         "card": checks.get("card"),
         "allocation_present": checks.get("allocation_present"),
         "served_models": checks.get("served_models"),
+        # #345: where everything on the card sat at the claim, and the reason
+        # when the reading could not be taken. Carried for the reason the other
+        # engine's `resident_placements` is: a launch row holds one model by
+        # construction, so this is where an UNEXPECTED holder becomes readable.
+        "resident_placements": checks.get("resident_placements"),
+        "resident_placements_refused": checks.get("resident_placements_refused"),
         "weights_sha256": weights.get("weights_sha256"),
         "digest_seconds": weights.get("digest_seconds"),
         "declarations_ignored": claimed.get("declarations_ignored"),

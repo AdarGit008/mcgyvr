@@ -1470,6 +1470,286 @@ def test_a_resident_whose_row_carries_no_usable_size_is_named_without_a_fraction
     assert placed["neighbour"]["size_vram"] == 900
 
 
+# --- #345: the same question, asked of the engine that cannot spill ---------
+
+#: What `ps -eo pid=,ppid=,args= | grep -E '[V]LLM::EngineCore|[v]llm serve|…'`
+#: printed on srv1, 2026-08-22, with vLLM installed by pip. Verbatim, because a
+#: fixture captures what the parser reads (ADR-0016) — including the launcher's
+#: own `bash -c` line, which the grep matches too.
+_SRV1_TREE = (
+    "1133927       1 bash -c export VLLM_SERVER_DEV_MODE=1 "
+    "FLASHINFER_DISABLE_VERSION_CHECK=1; export PATH=$HOME/.local/bin:$PATH; "
+    "cd /tmp && nohup vllm serve Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ "
+    "--max-model-len 8192 --kv-cache-memory-bytes 1879048192 --max-num-seqs 8 "
+    "--port 8000 --enforce-eager > /tmp/vllm-345.log 2>&1 < /dev/null & disown; "
+    "echo launched\n"
+    "1133928 1133927 /usr/bin/python3 /home/adaramir/.local/bin/vllm serve "
+    "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --max-model-len 8192 "
+    "--kv-cache-memory-bytes 1879048192 --max-num-seqs 8 --port 8000 "
+    "--enforce-eager\n"
+    "1133972 1133928 VLLM::EngineCore\n"
+)
+
+#: The same read on srv2 the same day, where this engine runs in a container:
+#: no launcher line, the binary at a different path, and the leading spaces `ps`
+#: pads a narrower pid column with.
+_SRV2_TREE = (
+    " 364343  364313 /usr/bin/python3 /usr/local/bin/vllm serve "
+    "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --max-model-len 8192 "
+    "--kv-cache-memory-bytes 1879048192 --max-num-seqs 8 --port 8000 "
+    "--enforce-eager\n"
+    " 364842  364343 VLLM::EngineCore\n"
+)
+
+#: srv1's card with the vLLM entry and `qwen2.5-coder:1.5b` both on it, and
+#: srv2's with the vLLM entry alone. The sentinel is what the probe appends.
+_SRV1_APPS = "1133972, 3126 MiB\n1134308, 1196 MiB\n__compute_apps_end__\n"
+_SRV2_APPS = "364842, 3174 MiB\n__compute_apps_end__\n"
+
+_AWQ = "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"
+
+
+def _vllm_card(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    apps: str | None,
+    tree: str,
+    served: list[str],
+    name: str = "placement_vllm",
+) -> Any:
+    """The vLLM backend with one card and one process list under it."""
+    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+
+    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
+        if "--query-compute-apps" in command:
+            return apps
+        if command.startswith("ps -eo"):
+            return tree
+        return None
+
+    monkeypatch.setattr(vllm.contract, "ssh", _ssh)
+    monkeypatch.setattr(
+        vllm.contract,
+        "get_json",
+        lambda url, timeout=None: {"data": [{"id": model} for model in served]},
+    )
+    return vllm
+
+
+def test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0040 rules 1 and 2, on both rigs' real readings.
+
+    ollama reports `size_vram / size` because llama.cpp spills — 6.8% of a model
+    on the card, `load_http=200` beside it. vLLM cannot: `requested = ceil(total
+    * util)` behind a hard `free >= requested` precondition means it takes the
+    whole allocation or refuses to start, so there is no denominator and the
+    fraction is **refused with its reason**, never reported as the `1.0` that is
+    true by the engine's contract and would read as an ollama fraction of 1.0.
+
+    The MiB are the driver's own, measured 2026-08-22 on the declared serve
+    block of `srv-full.json`'s `q15-vllm-s8`: 3,126 on srv1, 3,174 on srv2.
+    """
+    for tree, apps, mib, rig in (
+        (_SRV1_TREE, _SRV1_APPS, 3126, "srv1"),
+        (_SRV2_TREE, _SRV2_APPS, 3174, "srv2"),
+    ):
+        vllm = _vllm_card(monkeypatch, apps=apps, tree=tree, served=[_AWQ])
+        rows = vllm.placements(rig)
+        mine = [row for row in rows if row["name"] == _AWQ]
+        assert len(mine) == 1, f"{rig} serves one model and holds one allocation"
+        assert mine[0]["card_mib"] == mib
+        # Present and null, not absent: an absent key would say this reading
+        # predates the contract, and this engine will never answer it.
+        assert "fraction" in mine[0] and mine[0]["fraction"] is None
+        assert mine[0]["fraction_refused"], "ADR-0027 D2: a null carries its reason"
+        assert not [row for row in rows if row["fraction"] == 1.0], (
+            "1.0 is true by this engine's contract and is the one value a "
+            "reader would compare against an ollama 0.068 (ADR-0038 D4)"
+        )
+
+
+def test_the_pid_that_holds_the_card_names_no_model_so_the_owner_is_the_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The measured fact the whole reading turns on.
+
+    vLLM renames its GPU worker with `setproctitle`, so the process the driver
+    attributes the memory to has a command line of exactly `VLLM::EngineCore` —
+    no model, no flags, nothing to join on. A reading assembled from that pid's
+    own line returns `None` on every rig and looks exactly like an empty card.
+    The model is on the immediate parent, in both deployment shapes: pip on
+    srv1, container on srv2, differing only in the path to the binary.
+    """
+    vllm = _vllm_card(monkeypatch, apps=_SRV1_APPS, tree=_SRV1_TREE, served=[_AWQ])
+    assert vllm._served_name(vllm.ENGINE_CORE) is None
+
+    for tree, pid in ((_SRV1_TREE, 1133972), (_SRV2_TREE, 364842)):
+        parsed = vllm._process_tree(tree)
+        assert parsed[pid]["args"] == vllm.ENGINE_CORE
+        assert vllm._owner(pid, parsed) == _AWQ
+
+    # And it is a join, not a guess: with the parent gone — it exited, or the
+    # narrowed `ps` read never matched it — the answer is None.
+    orphaned = {pid: row for pid, row in vllm._process_tree(_SRV2_TREE).items()}
+    del orphaned[364343]
+    assert vllm._owner(364842, orphaned) is None
+
+
+def test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0040 rule 3, against the co-residency reading that motivated it.
+
+    srv1 held both engines on 2026-08-22: 3,126 MiB attributed to vLLM's worker
+    and 1,196 MiB to a `llama-server` whose parent is `ollama serve`. Dropping
+    the second row would make a shared card look solo, which is the same silence
+    #335 found on the other engine. Naming it would be this module claiming
+    about a model another engine serves, which it must never do — so it is a
+    row with `name: null` and the reason beside it.
+    """
+    vllm = _vllm_card(monkeypatch, apps=_SRV1_APPS, tree=_SRV1_TREE, served=[_AWQ])
+    rows = vllm.placements("srv1")
+    stranger = [row for row in rows if row["pid"] == 1134308]
+    assert len(stranger) == 1, "the other engine's allocation is on this card"
+    assert stranger[0]["name"] is None and stranger[0]["card_mib"] == 1196
+    assert stranger[0]["unnamed"], "null, with the reason it is null"
+
+
+def test_a_served_model_the_driver_attributed_nothing_to_is_recorded_as_unplaced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0040 rule 4 — the other direction of the same silence.
+
+    The server answers `/v1/models` and the driver attributes no memory to it:
+    a worker still starting, or one whose process the narrowed read did not
+    match. Absent is not zero. Dropping the model would say it is not being
+    served; `card_mib: 0` would say it is on the card holding nothing.
+    """
+    vllm = _vllm_card(
+        monkeypatch,
+        apps="1134308, 1196 MiB\n__compute_apps_end__\n",
+        tree="",
+        served=[_AWQ],
+    )
+    rows = vllm.placements("srv1")
+    mine = [row for row in rows if row["name"] == _AWQ]
+    assert len(mine) == 1 and mine[0]["card_mib"] is None
+    assert mine[0]["pid"] is None and mine[0]["unplaced"]
+
+
+def test_an_unread_card_is_refused_and_never_an_empty_placement_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty card and a card nobody read are different answers.
+
+    `contract.ssh` returns `None` for empty stdout, so a host that did not
+    answer and a card holding nothing arrive identical — the same collapse
+    `snapshot` refuses for `gpu_idle` one reading over. The probe appends a
+    sentinel so the parser can tell them apart, and an unread card refuses
+    rather than reporting `[]`.
+    """
+    vllm = _vllm_card(monkeypatch, apps=None, tree="", served=[])
+    with pytest.raises(vllm.contract.NotCleanError, match="could not be read"):
+        vllm.placements("srv1")
+
+    assert vllm.contract.compute_apps(None) is None
+    assert vllm.contract.compute_apps("1133972, 3126 MiB\n") is None, (
+        "no sentinel is a read that did not complete, whatever it printed"
+    )
+    # And the sentinel is CONJOINED to the reading, not appended after it: a
+    # missing `nvidia-smi` writes to stderr and prints nothing, so under `;`
+    # the sentinel would arrive alone and the card would read as empty — the
+    # collapse the sentinel exists to prevent, reintroduced by the separator.
+    assert " && echo " in vllm.contract.COMPUTE_APPS_PROBE
+
+    idle = _vllm_card(
+        monkeypatch,
+        apps="__compute_apps_end__\n",
+        tree="",
+        served=[],
+        name="idle_vllm",
+    )
+    assert idle.placements("srv1") == []
+
+
+def test_a_vllm_claim_records_where_everything_on_the_card_sits_and_gates_on_none_of_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0040 rule 5, on the claim side, where #335 put the ollama half.
+
+    `allocation_present` is a threshold over the card's TOTAL, so it says yes to
+    a card whose memory belongs to somebody else. What the claim could not say
+    was *whose*. It says so now — and still returns `ok`, with another engine's
+    1,196 MiB sitting beside it, because a shared card is the frontier this
+    campaign maps and a claim that refused one would refuse its own question.
+    """
+    vllm = _vllm_card(
+        monkeypatch,
+        apps=_SRV1_APPS,
+        tree=_SRV1_TREE,
+        served=[_AWQ],
+        name="claim_vllm",
+    )
+    inner = vllm.contract.ssh
+
+    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
+        if "--query-gpu=memory.used" in command:
+            return "4326 MiB"
+        fell_through: str | None = inner(host, command, timeout)
+        return fell_through
+
+    monkeypatch.setattr(vllm.contract, "ssh", _ssh)
+    monkeypatch.setattr(vllm, "_running_config", lambda base: {"model": _AWQ})
+    monkeypatch.setattr(vllm, "_matches", lambda running, serve: True)
+    monkeypatch.setattr(vllm, "weights_sha256", lambda host, model: {})
+
+    claimed = vllm.claim("srv1", "http://srv1:8000", _AWQ)
+    placed = claimed["checks"]["resident_placements"]
+    assert {row["pid"] for row in placed} == {1133972, 1134308}
+    assert claimed["checks"]["resident_placements_refused"] is None
+    assert claimed["checks"]["ok"] is True, "recorded, never gated"
+
+
+def test_the_compute_apps_reading_is_declared_once_and_has_a_consumer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reading stops being minted-and-unwired, and cannot go back.
+
+    §3 of the run contract names three idle readings this tree computes and
+    never reads, and warns against adding a fourth. `gpu_compute_apps` was one
+    of them: a string that appeared once, inside `snapshot`, consumed by
+    nothing. It is now declared once and read twice — `snapshot` records the
+    line, `vllm.placements` computes from it — and a second inline copy is how
+    the two would come to mean different things.
+    """
+    launcher = _launcher()
+    contract_source = (SERVING / "contract.py").read_text(encoding="utf-8")
+    vllm_source = (SERVING / "backends" / "vllm.py").read_text(encoding="utf-8")
+    written = {
+        where: [
+            line
+            for line in launcher.code_lines(source)
+            if "--query-compute-apps" in line
+        ]
+        for where, source in (("contract", contract_source), ("vllm", vllm_source))
+    }
+    assert len(written["contract"]) == 1, f"declared once, found {written['contract']}"
+    assert written["vllm"] == [], "a consumer reads the declaration, never re-types it"
+    assert "COMPUTE_APPS_COMMAND = (" in contract_source
+    assert "COMPUTE_APPS_PROBE" in vllm_source, "and it has a consumer"
+
+    # And behaviourally, not only textually: the line `snapshot` records is the
+    # same string the placement reading runs, because it is the same object.
+    contract_module: Any = _by_path("wiring_contract", SERVING / "contract.py")
+    monkeypatch.setattr(contract_module, "ssh", lambda h, c, timeout=None: None)
+    monkeypatch.setattr(contract_module, "scrub", lambda value: value)
+    recorded = contract_module.snapshot("h")["readings"]["gpu_compute_apps"]
+    assert recorded["command"] == contract_module.COMPUTE_APPS_COMMAND
+    assert contract_module.COMPUTE_APPS_PROBE.startswith(recorded["command"])
+
+
 # --- the verify-then-launch step --------------------------------------------
 
 
