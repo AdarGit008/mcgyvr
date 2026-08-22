@@ -1403,6 +1403,73 @@ def test_co_residency_is_arranged_rather_than_merely_tolerated(
     assert raised.value.reasons == ["coresidency_not_arranged"]
 
 
+def test_the_placement_of_every_resident_is_recorded_not_only_the_model_under_test(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#335 box 5 — "it loaded" and "it fits" are different facts.
+
+    `_placement` ran for the model under test alone, so a co-residency cell
+    recorded that its neighbour was *listed* and never where the neighbour
+    *landed*. The campaign header's first `void_if` — "any cell records a
+    verdict without the placement of EVERY resident on it" — was therefore
+    unevaluable on every cell in the tree, including the sixty of the plan it
+    was written for.
+
+    The fraction here is srv1's, measured 2026-08-22: ollama answered
+    `load_http=200` with 93% of the model on the CPU, and the spilled model
+    still returned correct code. Nothing in the record said so.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[
+            {"name": "neighbour", "size": 1000, "size_vram": 68},
+            {"name": "m", "size": 1000, "size_vram": 1000},
+        ],
+    )
+    claimed = ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
+    attempt = claimed["attempts"][-1]
+    # The existing verdict, unchanged and still true: the neighbour is there.
+    assert attempt["coresidency_arranged"] is True
+    placed = {row["name"]: row for row in attempt["resident_placements"]}
+    assert set(placed) == {"m", "neighbour"}, (
+        "a placement for the model under test alone is the gap, not the fix"
+    )
+    assert placed["m"]["fraction"] == 1.0
+    assert placed["neighbour"]["fraction"] == 0.068
+    # Recorded, never gated. A spilled neighbour is the frontier this campaign
+    # exists to map; a claim that refused it would refuse its own question.
+    assert attempt["ok"] is True
+
+
+def test_a_resident_whose_row_carries_no_usable_size_is_named_without_a_fraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing fraction says "unknown", and must not say "on the card".
+
+    `_placed` returns `size`/`size_vram` and no `fraction` when either is not a
+    positive integer — the same shape `_placement` has always had for the model
+    under test. Asserted here because the whole-card view is the one a reader
+    scans for a number, and a `0.0` invented for an unreadable row would be a
+    measurement nobody took.
+    """
+    ollama = _ollama_rig(
+        monkeypatch,
+        card_before=10,
+        card_after=1200,
+        resident=[
+            {"name": "neighbour", "size": None, "size_vram": 900},
+            {"name": "m", "size": 1000, "size_vram": 1000},
+        ],
+    )
+    claimed = ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
+    attempt = claimed["attempts"][-1]
+    placed = {row["name"]: row for row in attempt["resident_placements"]}
+    assert "fraction" not in placed["neighbour"]
+    assert placed["neighbour"]["size_vram"] == 900
+
+
 # --- the verify-then-launch step --------------------------------------------
 
 
@@ -1886,6 +1953,97 @@ def test_a_lapsed_coresidency_is_counted_not_only_recorded(
     assert counted, "the lapse set row['refusal'] and was never counted"
     assert "coresidency lapsed" in counted[0]["why"]
     assert counted[0]["label"] == "a"
+
+
+def test_the_post_ramp_coresidency_verdict_says_where_each_neighbour_sat(
+    runner: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#335 box 5, on the AFTER side — `held` is a verdict on a name list.
+
+    The lapse check above catches a neighbour that LEFT. It cannot catch one
+    that stayed and spilled: an evicted neighbour disappears from the name
+    list, and a spilled one is still listed, under its own name, with its full
+    `size` beside a `size_vram` nobody read. So `coresidency_after.held` reads
+    `true` for a neighbour sitting 93% on the CPU — the same silent nothing at
+    the other end of the measurement.
+
+    Recorded and not gated, for the reason the claim-side record is: this
+    campaign is a map of where things land, and a run that refused a spill
+    would refuse its own result.
+    """
+    table = _stub(runner, monkeypatch)
+    monkeypatch.setattr(
+        table["alpha"], "residents", lambda host: ["m", "neighbour"], raising=False
+    )
+    monkeypatch.setattr(
+        table["alpha"],
+        "placements",
+        lambda host: [
+            {"name": "m", "size": 1000, "size_vram": 1000, "fraction": 1.0},
+            {"name": "neighbour", "size": 1000, "size_vram": 68, "fraction": 0.068},
+        ],
+        raising=False,
+    )
+    result = runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "collect": {},
+            "models": [
+                {
+                    "label": "a",
+                    "backend": "alpha",
+                    "id": "m",
+                    "family": "f",
+                    "coresident_with": ["neighbour"],
+                }
+            ],
+        }
+    )
+    after = result["hosts"]["h"]["measured"]["a"]["coresidency_after"]
+    assert after["held"] is True and after["missing"] == []
+    where = {row["name"]: row["fraction"] for row in after["placements"]}
+    assert where == {"m": 1.0, "neighbour": 0.068}, (
+        "the verdict is recorded beside where each resident actually sat, or "
+        "it is a claim about names"
+    )
+
+
+def test_a_backend_that_cannot_report_placement_writes_null_and_not_a_number(
+    runner: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Absent is not zero and it is not one.
+
+    Placement is a fact only an engine that reports it can state — `vllm.py`
+    has no `residents` at all today, let alone this. The field is present on
+    every row so a reader never has to ask whether it was looked for, and it is
+    `null` where it was not, because a default here would be a measurement
+    nobody took.
+    """
+    table = _stub(runner, monkeypatch)
+    monkeypatch.setattr(
+        table["alpha"], "residents", lambda host: ["m", "neighbour"], raising=False
+    )
+    assert not hasattr(table["alpha"], "placements")
+    result = runner.run(
+        {
+            "hosts": ["h"],
+            "backends": ["alpha"],
+            "collect": {},
+            "models": [
+                {
+                    "label": "a",
+                    "backend": "alpha",
+                    "id": "m",
+                    "family": "f",
+                    "coresident_with": ["neighbour"],
+                }
+            ],
+        }
+    )
+    after = result["hosts"]["h"]["measured"]["a"]["coresidency_after"]
+    assert after["held"] is True
+    assert after["placements"] is None
 
 
 def test_a_resumed_survey_still_reports_its_refusals(

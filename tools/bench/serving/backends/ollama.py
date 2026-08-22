@@ -296,7 +296,11 @@ def claim(
        gate that refuses by construction cannot express it. Entries default to
        sole residency, so nothing becomes laxer by accident.
     3. **Placement is recorded and compared to what the entry declared**
-       (``placement.expect``), not to a global constant — see D4 above.
+       (``placement.expect``), not to a global constant — see D4 above. It is
+       recorded for EVERY resident and not only for the model under test
+       (#335): a card is shared or it is not, and a neighbour named in
+       ``resident_names`` may be sitting 93% on the CPU. Recorded, never
+       gated — a spilled neighbour is the frontier this measures, not a fault.
     4. **The weights are the ones expected**, when the caller pinned a digest. A
        tag is mutable: the same name re-pulled tomorrow serves different bytes,
        and every other check here still passes.
@@ -393,6 +397,9 @@ def claim(
         )
         resident = _resident(host)
         placed = _placement(resident, model)
+        # #335 box 5: the same read, asked about the whole card. One `/api/ps`
+        # response, so this costs nothing beyond the arithmetic.
+        placements_now = _placements(resident)
         digest = _digest(base, model)
         wanted = expect.get("model_sha256")
         names = [row.get("name") for row in resident]
@@ -407,6 +414,11 @@ def claim(
             "card_used_mib_before_load": released.get("card_used_mib"),
             "load_http_status": loaded,
             "resident_names": names,
+            # The same population as `resident_names`, with the fact a name
+            # cannot carry. The campaign's first `void_if` — "any cell records
+            # a verdict without the placement of EVERY resident on it" — was
+            # unevaluable on every cell in the tree until this field existed.
+            "resident_placements": placements_now,
             "sole_resident": names == [model],
             "coresidency_allowed": coresident,
             "coresident_with": neighbours or None,
@@ -836,6 +848,19 @@ def _resident(host: str) -> list[dict[str, Any]]:
     return [row for row in rows if isinstance(row, dict)]
 
 
+def _placed(row: dict[str, Any]) -> dict[str, Any]:
+    """One ``/api/ps`` row's placement: how much of it is on the card.
+
+    Split out of :func:`_placement` so the same arithmetic answers about a
+    neighbour. It answered about one model for as long as it existed, and one
+    model is not what a shared card is.
+    """
+    size, vram = row.get("size"), row.get("size_vram")
+    if not isinstance(size, int) or not isinstance(vram, int) or size <= 0:
+        return {"size": size, "size_vram": vram}
+    return {"size": size, "size_vram": vram, "fraction": vram / size}
+
+
 def _placement(resident: list[dict[str, Any]], model: str) -> dict[str, Any]:
     """How much of ``model`` is on the card, as a fraction of its size."""
     # `name` OR `model`, like every other matcher against this engine's rows:
@@ -843,12 +868,42 @@ def _placement(resident: list[dict[str, Any]], model: str) -> dict[str, Any]:
     # through two full clear-load cycles before refusing with a message blaming
     # VRAM placement for a field-name mismatch.
     row = next((r for r in resident if model in (r.get("name"), r.get("model"))), None)
-    if row is None:
-        return {}
-    size, vram = row.get("size"), row.get("size_vram")
-    if not isinstance(size, int) or not isinstance(vram, int) or size <= 0:
-        return {"size": size, "size_vram": vram}
-    return {"size": size, "size_vram": vram, "fraction": vram / size}
+    return {} if row is None else _placed(row)
+
+
+def _placements(resident: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Where EVERY resident sits — the card's state, not one model's.
+
+    **#335 box 5.** `_placement` ran for the model under test alone, so a
+    co-residency cell recorded that its neighbour was *listed* and never where
+    the neighbour *landed*. Measured on srv1 2026-08-22: ollama returns
+    ``load_http=200`` with 93% of the model on the CPU. "It loaded" and "it
+    fits" are different facts, and only the first was written down.
+
+    ollama cannot report this about itself, and that is why it must be read
+    here: its pre-flight fit check is guarded by ``len(s.loaded) > 0`` — its
+    OWN models — so a foreign allocation is invisible to it and llama-server
+    auto-fits into whatever is left, silently.
+
+    Every resident, not only the declared neighbours: a stray third model is
+    exactly the reading that explains a fraction nobody predicted, and it is
+    free — the rows are already in the ``/api/ps`` response `claim` reads.
+    """
+    return [
+        {"name": row.get("name") or row.get("model"), **_placed(row)}
+        for row in resident
+    ]
+
+
+def placements(host: str) -> list[dict[str, Any]]:
+    """:func:`_placements` for a caller that holds only a host.
+
+    Public for the reason :func:`residents` is, and against the same defect one
+    step later: the orchestrator re-reads residency AFTER a ramp, and a name
+    list there says a neighbour is present without saying whether it is still
+    on the card.
+    """
+    return _placements(_resident(host))
 
 
 def _digest(base: str, model: str) -> str | None:

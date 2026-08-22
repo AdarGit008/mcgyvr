@@ -185,6 +185,31 @@ a check, not a paragraph.
 | 4 | **No label-uniqueness guard.** Two D7 entries share `"id": "qwen2.5-coder:3b"` and differ only by label, while the loop keys on `label or id`. | `run.py:300`; the only uniqueness test reads a different config (`tests/test_serving.py:607`) |
 | 5 | **`vllm.residents()` does not exist,** so a vLLM co-residency cell records an `AttributeError` as its evidence. | `run.py:564` calls it; only `ollama.py:647` defines it |
 
+**2026-08-22 — defect 1 is closed (#335).** `ollama._placements` computes the
+placement of every row `/api/ps` returns, `claim` records it on each attempt as
+`resident_placements`, and the survey's post-ramp verdict carries
+`coresidency_after.placements` beside the `held` it could not previously
+support — a neighbour that stayed and spilled is still listed by name, so the
+name list catches the neighbour that LEFT and nothing else. Both are recorded
+and neither is gated: a spilled neighbour is the frontier the campaign exists
+to map, and a claim that refused it would refuse its own question. The named
+checks are
+
+- `tests/test_serving.py::test_the_placement_of_every_resident_is_recorded_not_only_the_model_under_test`
+- `tests/test_serving.py::test_a_resident_whose_row_carries_no_usable_size_is_named_without_a_fraction`
+- `tests/test_serving.py::test_the_post_ramp_coresidency_verdict_says_where_each_neighbour_sat`
+- `tests/test_serving.py::test_a_backend_that_cannot_report_placement_writes_null_and_not_a_number`
+
+and the sink's own conformance check now reads the fraction through
+`SURVEY_ROW_DISPOSITION` and `LOAD_ROW_DISPOSITION`, so the field cannot be
+added to a producer and dropped by a sink.
+
+**Defect 5 is untouched and now bounds this one.** `vllm.residents()` still does
+not exist, so a vLLM cell's `coresidency_after.placements` is `null` — absent,
+which is deliberately not the same as "on the card". Every mixed-engine cell in
+the campaign still waits on it, and phase 0's vLLM arm records placement only
+for what ollama can see.
+
 ## 8. What this does not answer
 
 **Every cell is a cold start.** `contract.drop_page_cache` (`contract.py:665`)

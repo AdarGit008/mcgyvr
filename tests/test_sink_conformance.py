@@ -1548,6 +1548,17 @@ class _SurveyBackend:
         self.returned["residents"] = resident
         return resident
 
+    def placements(self, host: str) -> list[dict[str, Any]]:
+        """#335: where each of those names sits. A distinct document."""
+        if isinstance(self.resident, Exception):
+            raise self.resident
+        placed = [
+            {"name": name, "size": 1000, "size_vram": 68, "fraction": 0.068}
+            for name in self.resident
+        ]
+        self.returned["placements"] = placed
+        return placed
+
 
 def _survey_row(
     resident: list[str] | Exception, journal: Path | None = None
@@ -1637,6 +1648,10 @@ def test_the_survey_sink_carries_each_producer_whole_or_says_what_it_picks() -> 
     assert row["concurrency"]["matches_expected"] is True
     assert row["coresidency_after"]["resident"] == ["n"]
     assert row["coresidency_after"]["held"] is True and row["outcome"] == "ok"
+    # #335: the verdict and the placement it is silent about, side by side —
+    # `held` is True for a neighbour sitting 93% on the CPU, which is the whole
+    # reason the second field exists.
+    assert row["coresidency_after"]["placements"][0]["fraction"] == 0.068
 
 
 def test_the_survey_sink_records_a_residency_read_that_raised() -> None:

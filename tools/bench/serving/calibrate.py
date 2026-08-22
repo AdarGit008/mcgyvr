@@ -1166,6 +1166,10 @@ LOAD_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     "card_used_mib_after_load": ("card_used_mib_after_load",),
     "load_http_status": ("load_http_status",),
     "resident_names": ("resident_names",),
+    # #335: carried for the same reason `resident_names` is. A load-phase row
+    # holds one model by construction, so this is where an UNEXPECTED resident
+    # — the thing that would explain a fraction below 1.0 — becomes readable.
+    "resident_placements": ("resident_placements",),
     "sole_resident": ("sole_resident",),
     "size": ("size",),
     "size_vram": ("size_vram",),
@@ -1257,6 +1261,7 @@ def _load_row(
         "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
         "load_http_status": attempt.get("load_http_status"),
         "resident_names": attempt.get("resident_names"),
+        "resident_placements": attempt.get("resident_placements"),
         "sole_resident": attempt.get("sole_resident"),
         "size": attempt.get("size"),
         "size_vram": attempt.get("size_vram"),

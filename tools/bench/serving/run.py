@@ -182,6 +182,10 @@ SURVEY_ROW_DISPOSITION: dict[str, tuple[str, ...]] = {
         "coresidency_after.missing",
         "coresidency_after.held",
     ),
+    # #335: the same population as `residents`, carrying the fact a name
+    # cannot. `coresidency_placements_error` is written only when this read
+    # raised, and is checked on that path.
+    "placements": ("coresidency_after.placements",),
 }
 
 
@@ -565,9 +569,30 @@ def run(
                 except Exception as error:
                     still = []
                     row["coresidency_after_error"] = str(error)
+                # **#335 box 5, on the AFTER side.** `held` is a verdict about
+                # neighbours, and a name list cannot support one: a neighbour
+                # that spilled to the CPU is still listed under its name, with
+                # its full `size` beside a `size_vram` nobody read. So the same
+                # question the claim now asks of the card is asked again here,
+                # where the only other verdict about a neighbour is written.
+                #
+                # Its own producer and its own read, recorded beside the verdict
+                # rather than folded into it: a second read is a second moment,
+                # and the two are named apart for the reason the card's
+                # before/after readings are. Optional, because it is a fact only
+                # an engine that reports placement can state — a backend that
+                # cannot writes `null`, which is not the same as "on the card".
+                after_placements = None
+                reader = getattr(backend, "placements", None)
+                if reader is not None:
+                    try:
+                        after_placements = reader(host)
+                    except Exception as error:
+                        row["coresidency_placements_error"] = str(error)
                 missing = [m for m in wanted_neighbours if m not in still]
                 row["coresidency_after"] = {
                     "resident": still,
+                    "placements": after_placements,
                     "expected": wanted_neighbours,
                     "missing": missing,
                     "held": not missing,
