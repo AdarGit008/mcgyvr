@@ -1,0 +1,93 @@
+  srv1/control_no_flag: awake=4916 asleep=4914 freed=2 actually_freed=False endpoint_lied=True
+  srv1/enabled: awake=None asleep=None freed=None actually_freed=None endpoint_lied=None
+  srv2/control_no_flag: awake=10197 asleep=10177 freed=20 actually_freed=False endpoint_lied=True
+  srv2/enabled: awake=11109 asleep=189 freed=10920 actually_freed=True endpoint_lied=False
+sleep finished in 1141s -> records/evidence/calibration-2026-08-19/d7-sleep.jsonl
+journal: records/evidence/calibration-2026-08-19/d7-survey.json.jsonl
+[srv1] snapshot
+[srv1] qwen2.5-coder-1.5b (ollama) — yielding the card
+[srv1] qwen2.5-coder-1.5b — concurrency ramp
+[srv1] qwen2.5-coder-3b (ollama) — yielding the card
+[srv1] qwen2.5-coder-3b — concurrency ramp
+[srv1] qwen2.5-coder-7b (ollama) — yielding the card
+[srv1] qwen2.5-coder-7b — concurrency ramp
+[srv1] nemotron-3-nano-4b (ollama) — yielding the card
+[srv1] nemotron-3-nano-4b — concurrency ramp
+[srv1] llama3.2-3b (ollama) — yielding the card
+[srv1] llama3.2-3b — concurrency ramp
+[srv1] coresident-3b-beside-1.5b (ollama) — yielding the card
+[srv1] coresident-3b-beside-1.5b — concurrency ramp
+[srv2] snapshot
+[srv2] qwen2.5-coder-1.5b (ollama) — yielding the card
+[srv2] qwen2.5-coder-1.5b — concurrency ramp
+[srv2] qwen2.5-coder-3b (ollama) — yielding the card
+[srv2] qwen2.5-coder-3b — concurrency ramp
+[srv2] qwen2.5-coder-7b (ollama) — yielding the card
+[srv2] qwen2.5-coder-7b — concurrency ramp
+[srv2] nemotron-3-nano-4b (ollama) — yielding the card
+[srv2] nemotron-3-nano-4b — concurrency ramp
+[srv2] llama3.2-3b (ollama) — yielding the card
+[srv2] llama3.2-3b — concurrency ramp
+[srv2] qwen2.5-coder-14b (ollama) — yielding the card
+[srv2] qwen2.5-coder-14b — concurrency ramp
+[srv2] yi-coder-9b (ollama) — yielding the card
+[srv2] yi-coder-9b — concurrency ramp
+[srv2] deepseek-coder-v2-16b (ollama) — yielding the card
+[srv2] deepseek-coder-v2-16b — concurrency ramp
+[srv2] gpt-oss-20b (ollama) — yielding the card
+[srv2] gpt-oss-20b — concurrency ramp
+[srv2] qwen3-coder-30b (ollama) — yielding the card
+[srv2] qwen3-coder-30b — concurrency ramp
+[srv2] coresident-3b-beside-1.5b (ollama) — yielding the card
+[srv2] coresident-3b-beside-1.5b — concurrency ramp
+[srv1] final release of ollama: released=True card=1 MiB
+[srv1] final release of vllm: released=True card=1 MiB
+[srv2] final release of ollama: released=True card=1 MiB
+[srv2] final release of vllm: released=True card=1 MiB
+
+wrote records/evidence/calibration-2026-08-19/d7-survey.json (2186782 bytes)
+  srv1/qwen2.5-coder-1.5b: ok  saturation_n=2 @475tok  declared_slots=2 (observed)
+  srv1/qwen2.5-coder-3b: ok  saturation_n=2 @475tok  declared_slots=2 (observed)
+  srv1/qwen2.5-coder-7b: ok  saturation_n=2 @475tok  declared_slots=2 (observed)
+  srv1/nemotron-3-nano-4b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv1/llama3.2-3b: ok  saturation_n=2 @475tok  declared_slots=2 (observed)
+  srv1/coresident-3b-beside-1.5b: ok  saturation_n=2 @475tok  declared_slots=2 (observed)
+  srv2/qwen2.5-coder-1.5b: ok  saturation_n=2 @475tok  declared_slots=1 (observed)
+  srv2/qwen2.5-coder-3b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/qwen2.5-coder-7b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/nemotron-3-nano-4b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/llama3.2-3b: ok  saturation_n=2 @475tok  declared_slots=1 (observed)
+  srv2/qwen2.5-coder-14b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/yi-coder-9b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/deepseek-coder-v2-16b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/gpt-oss-20b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/qwen3-coder-30b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  srv2/coresident-3b-beside-1.5b: ok  saturation_n=1 @475tok  declared_slots=1 (observed)
+  family qwen2.5-coder-1.5b: identical manifest digest across all members  [2 of 2]
+  family qwen2.5-coder-3b: identical manifest digest across all members  [4 of 4]
+  family qwen2.5-coder-7b: identical manifest digest across all members  [2 of 2]
+  family nemotron-3-nano-4b: identical manifest digest across all members  [2 of 2]
+  family llama3.2-3b: identical manifest digest across all members  [2 of 2]
+  family qwen2.5-coder-14b: single member — nothing to compare  [1 of 1]
+  family yi-coder-9b: single member — nothing to compare  [1 of 1]
+  family deepseek-coder-v2-16b: single member — nothing to compare  [1 of 1]
+  family gpt-oss-20b: single member — nothing to compare  [1 of 1]
+  family qwen3-coder-30b: single member — nothing to compare  [1 of 1]
+ramp: widths=(1, 2, 4, 8, 16) tokens=(475,)
+  srv1/ollama width=None tokens=475 -> saturation_n 2 speedup 1.45
+  srv1/vllm width=1 tokens=475 -> saturation_n None speedup 1.0 REFUSED: peak throughput is 1.0x the single-request rate, at or below INFERRED_SATURATION_MIN_SPEEDUP (1.0) — a curve that never rises has no saturation point to find
+  srv1/vllm width=2 tokens=475 -> saturation_n None speedup 1.0 REFUSED: peak throughput is 1.0x the single-request rate, at or below INFERRED_SATURATION_MIN_SPEEDUP (1.0) — a curve that never rises has no saturation point to find
+  srv1/vllm width=4 tokens=475 -> saturation_n 4 speedup 1.23
+  srv1/vllm width=8 tokens=475 -> saturation_n 8 speedup 2.41
+  srv1/vllm width=16 tokens=475 -> saturation_n 16 speedup 3.76
+  srv2/ollama width=None tokens=475 -> saturation_n 2 speedup 1.1
+  srv2/vllm width=1 tokens=475 -> saturation_n 1 speedup 1.02
+  srv2/vllm width=2 tokens=475 -> saturation_n 2 speedup 1.97
+  srv2/vllm width=4 tokens=475 -> saturation_n 4 speedup 3.94
+  srv2/vllm width=8 tokens=475 -> saturation_n 8 speedup 7.84
+  srv2/vllm width=16 tokens=475 -> saturation_n 16 speedup 15.42
+ramp finished in 14404s -> records/evidence/calibration-2026-08-19/d7-ramp.jsonl
+[srv1] release ollama: released=True card=1 MiB
+[srv1] release vllm: released=True card=1 MiB
+[srv2] release ollama: released=True card=1 MiB
+[srv2] release vllm: released=True card=1 MiB

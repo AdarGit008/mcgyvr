@@ -5,6 +5,23 @@
 # committed as tools/bundle/worker.example.json.
 tools/bundle/worker.local.json
 *.log
+# ...except under records/evidence/, where a log is not build output but the
+# artefact a record cites. The D7 header's `cost.source` points at
+# `d7-campaign.log`, and `tests/test_run_headers.py` asserts the path exists —
+# which passed only on the machine that ran the campaign and was red in CI from
+# the day it landed (#330, 2026-08-21; caught 2026-08-22). ADR-0026 lens 1:
+# record the unrecoverable. A campaign log that lives on one laptop is exactly
+# that, and a cited path nobody else can open is a citation in name only.
+!records/evidence/**/*.log
+# ...and one exception back the other way. `d7-campaign.aborted-run.log` is 282
+# bytes whose whole content is reproduced verbatim in
+# `d7-sleep.aborted-run.README.md`, which IS tracked, and two records state it
+# is untracked (that README's own `## The driver log, verbatim`, and the
+# 2026-08-19 session record). Nothing about it is unrecoverable, so tracking it
+# would duplicate a record rather than preserve one — and would make two
+# committed records wrong. Kept ignored, deliberately, so the exemption above
+# reads as "a cited log is evidence" and not "every log is".
+records/evidence/calibration-2026-08-19/d7-campaign.aborted-run.log
 __pycache__/
 *.pyc
 .pytest_cache/
