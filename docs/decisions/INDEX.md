@@ -29,7 +29,7 @@ Generated from the records' own headers. Regenerate: `make docs`; drift fails `m
 | [0021](0021-the-benchs-obligation-is-the-floor-unit.md) | the bench's obligation is the floor unit | Accepted | 2026-08-11 | 0019, 0017, 0018 | — |
 | [0022](0022-a-lever-is-never-a-difficulty-knob.md) | a lever is never a difficulty knob | Accepted | 2026-08-11 | 0018 | — |
 | [0023](0023-difficulty-is-behaviour-count.md) | difficulty is behaviour count, and it is calibrated from wisdom | Accepted | 2026-08-11 | — | — |
-| [0024](0024-comparable-measurements-come-from-one-rig-and-one-build.md) | comparable measurements come from one rig and one build | Accepted | 2026-08-11 | 0019 | — |
+| [0024](0024-comparable-measurements-come-from-one-rig-and-one-build.md) | comparable measurements come from one rig and one build | Accepted | 2026-08-11 | 0019 | 0038 |
 | [0025](0025-the-javascript-lint-bar-is-the-projects-and-it-mirrors-pythons.md) | the JavaScript lint bar is the project's, and it mirrors Python's | Accepted | 2026-08-13 | 0021 | 0026, 0034, 0035 |
 | [0026](0026-four-lenses-record-mutate-state-the-property-and-price-the-axes.md) | four lenses: record what is unrecoverable, mutate to discover, state the property, price the axes | Accepted | 2026-08-13 | 0024, 0025 | — |
 | [0027](0027-run-identity-is-one-block-and-an-unreadable-field-is-a-refusal.md) | run identity is one block, and an unreadable field is a refusal | Accepted | 2026-08-16 | 0024 | — |
@@ -43,3 +43,4 @@ Generated from the records' own headers. Regenerate: `make docs`; drift fails `m
 | [0035](0035-the-bar-is-recorded-as-content-and-there-is-one-acceptance-ceiling.md) | the bar is recorded as content, and there is one acceptance ceiling | Accepted | 2026-08-17 | 0025 | — |
 | [0036](0036-the-bare-word-bar-is-banned-adoption-bar-and-scoring-bar.md) | the bare word "bar" is banned: adoption-bar and scoring-bar name two decisions | Accepted | 2026-08-17 | — | — |
 | [0037](0037-a-finding-is-a-check-and-closing-without-fixing-is-a-dated-xfail.md) | a finding is a check, closing without fixing is a dated xfail, and the record names its check | Proposed | 2026-08-21 | — | — |
+| [0038](0038-a-machine-has-no-role-and-the-question-approves-its-own-scope.md) | a machine has no role, and the question approves its own scope | Proposed | 2026-08-22 | 0024 | — |

@@ -5,6 +5,13 @@ Supersedes: none
 Superseded-by: none
 Amends: ADR-0019 (a contrast's power assumes the arms differ in one thing; this
 names a second thing they were differing in)
+Amended-by: ADR-0038 (2026-08-22) — clauses 1 and 2 are withdrawn: a machine has
+no role, and the question approves its own scope. The reason those clauses
+existed is this record's own clause 3, which stands: the two rigs ran different
+builds and a role was how that was forbidden without detecting it. Both rigs
+now run one ollama build and one vLLM image, so the premise is gone and the
+roles forbade the cross-rig question the project is trying to answer. Clauses 3
+and 4 stand and the amending record relies on them
 Date: 2026-08-11
 
 ## Context
