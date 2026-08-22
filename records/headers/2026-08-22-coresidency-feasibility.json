@@ -1,0 +1,56 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-22-coresidency-feasibility",
+  "declared": "2026-08-22",
+  "retroactive": true,
+  "question": "Can a vLLM server and an ollama model share one card at all, on these two rigs, in both load orders, with both serving concurrently - and if the answer is yes, what memory declaration makes it so? The 60-cell co-residency plan filed the same morning assumed the answer without testing it, and named a value, gpu_memory_utilization 0.85, that nothing here had chosen.",
+  "arms": [
+    "feasibility: vLLM (Qwen2.5-Coder-1.5B-Instruct-AWQ, docker v0.26.0) and ollama (qwen2.5-coder:1.5b) on one card, both orders, on both rigs. Verdict is the ollama placement fraction, never the HTTP status.",
+    "the declaration: what gpu_memory_utilization 0.85 actually allocates on each card, against what the declared max_num_seqs can reach, and what a kv_cache_memory_bytes derived from the entry's own shape allocates instead.",
+    "contention: both engines generating simultaneously, three repeats each, solo against concurrent. Carried because the pair was already resident and the marginal cost was minutes.",
+    "the refusal boundary: a kv_cache_memory_bytes below one max_model_len sequence, to show the engine refuses rather than degrades."
+  ],
+  "hosts": ["srv1", "srv2"],
+  "cost": {
+    "cells": 14,
+    "wall_minutes": 95,
+    "estimate_note": "Not estimated in advance - this was an unplanned probe run at the owner's instruction ('sharing a card feasibility is something I want to see in code before deciding'), and the cost is recorded after the fact rather than predicted.",
+    "source": "this header's own run block"
+  },
+  "could_have_carried": [
+    "the same probe against the other four ollama models and the two other AWQ checkpoints, which would have produced the phase-0 footprint table the co-residency campaign now needs - not carried because the question was feasibility, and the roster is that campaign's phase 0",
+    "vLLM start_seconds per launch, which D6 has never calibrated START_TIMEOUT_S against; the launches happened and the durations were observed (33 s srv1, 100 s srv2 for the 1.5B) but were not journalled"
+  ],
+  "left_on_table": [
+    "Every model except the 1.5B pair. Feasibility needed one pair; the frontier needs the roster, and that is 2026-08-22-coresidency-matrix phase 0.",
+    "Repeats on the placement readings. Each fraction is n=1. A placement fraction is near-deterministic given what is on the card, unlike the contention rates, which were run n=3.",
+    "A like-for-like throughput comparison BETWEEN the engines: ollama's rate is its own eval_duration and vLLM's is curl wall-clock including prefill, so solo-against-concurrent within each engine is sound and engine-against-engine is not. Not fixed here because the question was whether contention exists, not how the engines rank."
+  ],
+  "prerequisites": [
+    "both rigs idle and reachable, verified before and after (1 MiB of 6144 and of 12288)",
+    "the ollama residency settings declared 2026-08-22 and held by tests/test_declared_host_state.py"
+  ],
+  "void_if": [
+    "a co-residency verdict is read from an HTTP status rather than a placement fraction - which is precisely what this run demonstrated is unsafe",
+    "the rigs are not returned to the state they were found in"
+  ],
+  "run": {
+    "started": "2026-08-22T16:40",
+    "ended": "2026-08-22T18:15",
+    "wall": "about 95 min, unestimated",
+    "driver": "by hand over ssh, using vllm._start's own docker launch shape so the finding transfers to the harness",
+    "phases": [
+      "feasibility - 4 cells (both rigs x both orders at util 0.30, plus prompting both engines): every cell fits, ollama fraction 1.000, vLLM health 200 throughout",
+      "the shipped 0.85 - 2 cells: srv2 fraction 0.495, srv1 fraction 0.068, both under ollama load_http=200",
+      "the declaration - 6 cells: kv_cache_memory_bytes at 8x8192x28672 and 16x8192x28672 on both rigs, plus 0.85 at seqs 16 on both for the comparison",
+      "contention - 2 cells x 3 repeats x (solo, concurrent) x 2 engines",
+      "the refusal boundary - 1 cell: 200,000,000 bytes, refused with the shortfall named"
+    ],
+    "cells": 14,
+    "failures": 0,
+    "rig_state_after": "both cards 1 MiB, no containers of this run, no resident models, declared ollama environment intact, probe scripts removed",
+    "evidence": "records/evidence/2026-08-22-coresidency-feasibility/"
+  },
+  "answered_by": "records/evidence/2026-08-22-coresidency-feasibility/README.md, and ADR-0039, which this run's figures are the whole basis of",
+  "notes": "Filed retroactively the same day, which is the honest record: the run was not planned and #322's gate does not exist yet, so nothing forced a header before it started. That is itself a data point for #322's field review - the first run since the gate was specified, and it produced its header afterwards because there was no mechanism to produce one before. The measurement half closes #337; the co-residency half withdrew and replaced 2026-08-22-coresidency-matrix."
+}

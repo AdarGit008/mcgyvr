@@ -918,7 +918,7 @@ def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
 #: therefore have to be this project's choice or say whose they are. Kept
 #: deliberately short: the rule is expensive to satisfy and is worth paying
 #: only where an inherited number would silently move a figure.
-ACCOUNTABLE_KNOBS = ("gpu_memory_utilization",)
+ACCOUNTABLE_KNOBS = ("gpu_memory_utilization", "kv_cache_memory_bytes")
 
 #: Substrings that make a note a PROVENANCE note rather than a description.
 #: A note saying what the knob does is not a note saying where its value came
@@ -954,15 +954,6 @@ def _knob_sites(directory: Path = CONFIGS) -> list[tuple[str, str, Any, str]]:
     return sites
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-22: decided — local-ai's, not this project's, and it is not "
-        "kept on a citation: the value is measured on BOTH rigs and the entry "
-        "then names that measurement as its origin (owner). Measurement owed "
-        "on #337, which also carries the three copies this check cannot see"
-    ),
-)
 def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> None:
     """K10 — ``gpu_memory_utilization = 0.85`` was copied, not decided.
 
@@ -988,6 +979,28 @@ def test_a_serving_constant_this_project_did_not_choose_names_its_source() -> No
     measurement MEANS is either this project's choice or says whose it is.
     An entry may satisfy it by naming the origin in its prose; it may not
     satisfy it by describing what the knob does.
+
+    **Repointed 2026-08-22 (owner sign-off, ADR-0037's amendment).** ADR-0039
+    withdrew ``gpu_memory_utilization`` from every config in this tree, so the
+    field this check named stopped existing and the check began failing on its
+    own vacuity guard — asserting nothing about any value, which the amendment
+    calls a typo with a marker on it rather than a live finding. The successor
+    field is ``kv_cache_memory_bytes`` and the rule above is unchanged: it is
+    the *accountability* of a serving constant that is being checked, not the
+    spelling of one knob. The guard is why this was visible at all; it fired
+    the moment the field disappeared, which is the fifth instance on this lane
+    of a check whose result came from where it was run rather than what it
+    asserts, and the first that an existing guard caught rather than a person.
+
+    **The finding is closed by measurement, not by the rename.** #337's
+    question — did we choose this number? — is answered: the declared bytes
+    follow from the entry's own ``max_num_seqs * max_model_len *
+    bytes_per_token``, and the footprint each declaration produces was measured
+    on both cards on 2026-08-22 (ADR-0039). The three copies this check could
+    not see are down to two: ``vllm.py``'s fallback is deleted, and
+    ``calibrate.py``'s two inline serve blocks are held by
+    ``tests/test_serving_memory_declaration.py::test_the_calibration_probes_declare_bytes_too``,
+    parked there against #329 rather than invisible here.
     """
     sites = _knob_sites()
     assert sites, (

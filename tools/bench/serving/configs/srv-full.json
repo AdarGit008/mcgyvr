@@ -28,6 +28,7 @@
       "backend": "vllm",
       "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
       "family": "qwen2.5-coder-1.5b",
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. It is derived from this entry's own max_num_seqs x max_model_len x bytes_per_token, and the footprint it produces was measured on both rigs 2026-08-22 (ADR-0039; evidence at records/evidence/2026-08-22-coresidency-feasibility/README.md). It replaces gpu_memory_utilization 0.85, which was read off a running srv1 on 2026-08-18 and originates in the local-ai repo as an OOM fix for srv2's 12 GB card, applied unexamined to srv1's 6 GB card.",
       "serve": {
         "max_model_len": 8192,
         "max_num_seqs": 8,
@@ -61,6 +62,7 @@
       "backend": "vllm",
       "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
       "family": "qwen2.5-coder-1.5b",
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. It is derived from this entry's own max_num_seqs x max_model_len x bytes_per_token, and the footprint it produces was measured on both rigs 2026-08-22 (ADR-0039; evidence at records/evidence/2026-08-22-coresidency-feasibility/README.md). It replaces gpu_memory_utilization 0.85, which was read off a running srv1 on 2026-08-18 and originates in the local-ai repo as an OOM fix for srv2's 12 GB card, applied unexamined to srv1's 6 GB card.",
       "serve": {
         "max_model_len": 8192,
         "max_num_seqs": 16,
