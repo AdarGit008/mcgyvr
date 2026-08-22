@@ -204,11 +204,47 @@ and the sink's own conformance check now reads the fraction through
 `SURVEY_ROW_DISPOSITION` and `LOAD_ROW_DISPOSITION`, so the field cannot be
 added to a producer and dropped by a sink.
 
-**Defect 5 is untouched and now bounds this one.** `vllm.residents()` still does
-not exist, so a vLLM cell's `coresidency_after.placements` is `null` — absent,
-which is deliberately not the same as "on the card". Every mixed-engine cell in
-the campaign still waits on it, and phase 0's vLLM arm records placement only
-for what ollama can see.
+**2026-08-23 — defect 5 is closed (#345, ADR-0040).** `vllm.residents()` and
+`vllm.placements()` exist, so `run.py:568` no longer records an `AttributeError`
+as a vLLM cell's evidence, and phase 0's vLLM arm — 3 cells on srv1, 4 on srv2 —
+can run.
+
+**The fraction is refused, not computed.** ollama reports `size_vram / size`
+because llama.cpp spills; vLLM takes its whole allocation or refuses to start,
+so there is no denominator. Every vLLM placement row carries `fraction: null`
+with its reason and the MiB the driver attributes to the process — never the
+`1.0` that is true by this engine's contract and would be read beside an ollama
+`0.068` as one measurement (ADR-0038 D4). **The frontier therefore carries two
+kinds of cell by construction**, and a contrast across them states which it used.
+
+The join had to be measured. vLLM renames its GPU worker with `setproctitle`, so
+the process `nvidia-smi` attributes the memory to has a command line of exactly
+`VLLM::EngineCore` — no model on it. The model is on the immediate parent, in
+both deployment shapes (pip on srv1, container on srv2, differing only in the
+path to the binary). Measured on both rigs 2026-08-22 at the declared serve
+block of `q15-vllm-s8`: 3,126 MiB on srv1 against a 3,130 MiB card, 3,174 MiB on
+srv2 against 3,183 MiB — **a per-process figure is not the card**, and the two
+are recorded as two fields. The named checks are
+
+- `tests/test_serving.py::test_a_vllm_placement_reports_the_card_it_holds_and_refuses_the_fraction`
+- `tests/test_serving.py::test_the_pid_that_holds_the_card_names_no_model_so_the_owner_is_the_parent`
+- `tests/test_serving.py::test_a_card_holder_this_engine_cannot_name_is_a_row_and_not_a_silence`
+- `tests/test_serving.py::test_a_served_model_the_driver_attributed_nothing_to_is_recorded_as_unplaced`
+- `tests/test_serving.py::test_an_unread_card_is_refused_and_never_an_empty_placement_list`
+- `tests/test_serving.py::test_a_vllm_claim_records_where_everything_on_the_card_sits_and_gates_on_none_of_it`
+- `tests/test_serving.py::test_the_compute_apps_reading_is_declared_once_and_has_a_consumer`
+
+**§3's warning is honoured by subtraction.** `gpu_compute_apps` was one of the
+three readings this tree minted and never read; it is now declared once as
+`contract.COMPUTE_APPS_COMMAND` and read by two callers — `snapshot`, which
+records the line, and `vllm.placements`, which computes from it. **Two idle
+readings remain**: `snapshot()["gpu_idle"]` and the `release()` return that
+`vllm._start` discards.
+
+**What defect 5's closure does NOT buy.** `residents()` answers about its own
+engine on both backends, so a neighbour served by the other engine is absent
+from both lists and a mixed-engine cell still reads `held: false` after its ramp.
+That is #343, #344 and #346.
 
 **2026-08-22 — the cross-engine harness changes are filed.** They were carried
 as prose in this lane's records and are now four issues, each with its evidence
