@@ -42,5 +42,5 @@ Generated from the records' own headers. Regenerate: `make docs`; drift fails `m
 | [0034](0034-a-rung-that-cannot-say-what-bar-it-applied-is-a-refusal.md) | a rung that cannot say what bar it applied is a refusal, and an absent tool is not | Accepted | 2026-08-16 | 0025 | — |
 | [0035](0035-the-bar-is-recorded-as-content-and-there-is-one-acceptance-ceiling.md) | the bar is recorded as content, and there is one acceptance ceiling | Accepted | 2026-08-17 | 0025 | — |
 | [0036](0036-the-bare-word-bar-is-banned-adoption-bar-and-scoring-bar.md) | the bare word "bar" is banned: adoption-bar and scoring-bar name two decisions | Accepted | 2026-08-17 | — | — |
-| [0037](0037-a-finding-is-a-check-and-closing-without-fixing-is-a-dated-xfail.md) | a finding is a check, closing without fixing is a dated xfail, and the record names its check | Proposed | 2026-08-21 | — | — |
-| [0038](0038-a-machine-has-no-role-and-the-question-approves-its-own-scope.md) | a machine has no role, and the question approves its own scope | Proposed | 2026-08-22 | 0024 | — |
+| [0037](0037-a-finding-is-a-check-and-closing-without-fixing-is-a-dated-xfail.md) | a finding is a check, closing without fixing is a dated xfail, and the record names its check | Accepted | 2026-08-21 | — | — |
+| [0038](0038-a-machine-has-no-role-and-the-question-approves-its-own-scope.md) | a machine has no role, and the question approves its own scope | Accepted | 2026-08-22 | 0024 | — |

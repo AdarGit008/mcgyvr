@@ -1,6 +1,6 @@
 # ADR-0037 — a finding is a check, closing without fixing is a dated xfail, and the record names its check
 
-Status: Proposed
+Status: Accepted
 Supersedes: none
 Superseded-by: none
 Amends: none — no prior decision changes; this record names a mechanism the
@@ -67,8 +67,12 @@ was fixed in `8a20a4cb`. 8 of 8.
 
 ## Decision
 
-> **PROPOSED (2026-08-21); accepted in principle by the owner 2026-08-20,
-> written after the mechanism was proved on bucket A.**
+> **DECIDED (2026-08-22, owner).** Accepted in principle 2026-08-20 and
+> written 2026-08-21 after the mechanism was proved on bucket A; ruled
+> 2026-08-22, on the day rule 3 refused ADR-0038 for naming four checks the
+> suite did not hold. The rule was enforced against the next record written
+> under it before it was ratified, which is the strongest evidence available
+> that it is a mechanism rather than a preference.
 >
 > 1. **A finding is a check, not a paragraph.** A finding about the system
 >    becomes a named test with an expected state. Red means the defect is

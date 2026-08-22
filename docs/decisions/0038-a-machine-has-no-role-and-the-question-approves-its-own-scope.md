@@ -1,6 +1,6 @@
 # ADR-0038 — a machine has no role, and the question approves its own scope
 
-Status: Proposed
+Status: Accepted
 Supersedes: none
 Superseded-by: none
 Amends: ADR-0024 — clauses 1 and 2 are withdrawn. Clauses 3 and 4 stand and are
