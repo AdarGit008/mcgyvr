@@ -1271,3 +1271,54 @@ xfail that passes fails the suite, so the flip is a predicate rather than a
 promise.
 
 **No rig time was spent here**, and none of the three arms above can spend any.
+
+## Conflicts recorded 2026-08-22 — three, from a live verification
+
+Appended, append-only, beside `## Conflicts recorded 2026-08-21`. That block's
+K1–K6 are unchanged and its count of six is a count of itself; the file now
+names nine checks across two dated blocks.
+
+On 2026-08-22 the two rigs were read live and `OLLAMA_NUM_PARALLEL` was
+declared as `1` on both (srv1 had `2` in a drop-in; srv2 had it unset and the
+engine had chosen `1`). With that pinned, srv1 (ollama **0.32.4**) and srv2
+(ollama **0.32.5**) launched `qwen2.5-coder:1.5b` at an identical `-c 4096
+-np 1` and reported a byte-identical `size_vram` of `1166236712`. The engines
+agree at that point. K7–K9 are the three ways that agreement could still be
+wrong, each as a check rather than a caveat.
+
+**K7 — the same model, two hosts, two windows.**
+`tests/test_calibration_conflicts.py::test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry`
+Evidence: `d7-survey.json`. Of the 6 models served on both hosts on
+2026-08-19, **5 ran at `8192x2` on srv1 and `4096x1` on srv2** — the geometry
+K2 names as a total the semantic block never carries, here as a condition two
+hosts' numbers were compared under as if it were absent.
+- decision: owed — is a cross-host figure allowed to rest on children the two
+  hosts launched differently?
+
+**K8 — an equal footprint is not an equal throughput.**
+`tests/test_calibration_conflicts.py::test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine`
+Evidence: all `*.jsonl`. Of 36 figure-bearing ramp rows, **exactly one model
+per engine carries a figure on both hosts** — `qwen2.5-coder:1.5b` for ollama
+and `Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ` for vLLM, which is the model the
+`23% vs 96%` claim quotes. One shared model cannot separate "the engines
+agree" from "these two runs agreed"; `MIN_CROSS_HOST_MODELS = 2` is the
+smallest population in which the first can fail.
+- decision: owed — how many models must agree across hosts before an engine is
+  called equivalent?
+
+**K9 — residency declared on one host, inherited on the other.**
+`tests/test_calibration_conflicts.py::test_both_hosts_declare_the_settings_that_decide_residency`
+Evidence: `d7-survey.json`, `hosts.<host>.present.ollama.readings.service_environment`.
+srv1 declared all three of `OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_LOADED_MODELS`,
+`OLLAMA_KEEP_ALIVE`; **srv2 declared none**. The last two decide whether a
+model stays on the card and whether a second may join it — what the
+co-residency cells measure. An inherited value is picked by an engine, the two
+hosts do not run the same engine version (K6), and the picked value appears
+nowhere in the evidence.
+- decision: owed — must every host declare the settings that decide residency,
+  or may one inherit the engine's default?
+
+Each check reads the **newest** `calibration-*` directory, so all three are
+questions put to the re-run rather than verdicts on frozen files. Each was
+shown to reject: K7 and K9 turn green on a repaired copy of the evidence, K8
+turns green once a second model per engine carries a figure on both hosts.

@@ -1,0 +1,43 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-22-cpu-offload",
+  "declared": "2026-08-22",
+  "question": "What does GPU compute cost when weights stream from host RAM over PCIe instead of sitting in VRAM, and is there an offload fraction where a model that does not fit is still worth serving?",
+  "arms": [
+    "--cpu-offload-gb 0 - the control, and vLLM's own default. Every figure this project has was taken here.",
+    "--cpu-offload-gb > 0 on a model that does NOT fit the card, swept upward until it serves. srv1's 6144 MiB is the interesting host: it is the one where the question is real rather than hypothetical.",
+    "the same model fully resident on srv2's 12288 MiB, as the ceiling the offloaded arm is measured against - so the answer is a fraction of achievable, not a bare tok/s"
+  ],
+  "hosts": ["srv1", "srv2"],
+  "cost": {
+    "estimate_minutes": {
+      "unknown": true,
+      "searched": [
+        "records/evidence/calibration-2026-08-19/README.md - has per-cell ramp and launch timings, all for fully-resident models",
+        "tools/bench/rate-card.json - prices bench tasks in seconds, not serving",
+        "tools/power/ - answers required_n, not wall clock"
+      ],
+      "why": "no run in this repo has ever served a model that did not fit, so there is no measured basis for how long an offloaded load or ramp takes. The first cell of this run is what produces it."
+    },
+    "source": "no serving rate card exists; see searched above"
+  },
+  "could_have_carried": [
+    "DIGEST_TIMEOUT_S - an offloaded model is a large checkpoint, which is the case the 1800 s constant was picked for and never measured against",
+    "the spill question DE-G left open: every entry that declared a min_vram_fraction floor read exactly 1.0, so the floor has never gated anything on any entry"
+  ],
+  "left_on_table": [
+    "ollama's equivalent is not this knob: llama.cpp splits by LAYER (n_gpu_layers on the card, the rest executed by the CPU) rather than streaming weights to the GPU. Testing both would answer 'which degradation is cheaper', which is a different and larger question.",
+    "PCIe gen3 x16 is ~15.75 GB/s theoretical, which is BELOW srv1's measured 21.8 GB/s host RAM bandwidth and above srv2's 13.3 GB/s. So on srv1 the link binds and on srv2 the memory may - that asymmetry is not an arm here and would need its own run."
+  ],
+  "prerequisites": [
+    "a vLLM model entry larger than srv1's 6144 MiB - the only vLLM entry in tools/bench/serving/configs/srv-full.json is the 1.5B AWQ, which fits everywhere and cannot produce the condition",
+    "docker vLLM on both rigs - done 2026-08-22, image sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52 identical on srv1 and srv2",
+    "pcie.link.gen.current read UNDER LOAD, not at idle"
+  ],
+  "void_if": [
+    "the PCIe link is not recorded at the moment of measurement. Read 2026-08-22 at idle, both rigs report gen 1 of a gen 3 maximum at x16 of x16 - the cards downclock the link when idle, so an idle reading describes nothing about a run and a run that records only the idle value has measured an unknown link.",
+    "the two rigs' links differ at load and the figures are compared anyway",
+    "the offloaded arm is compared against a fully-resident arm on a DIFFERENT card without saying so - srv1 is Turing CC 7.5 and srv2 is Ampere CC 8.6"
+  ],
+  "notes": "Filed 2026-08-22 at the owner's instruction, after establishing that 'spilled to CPU' and 'in RAM' are not alternatives: a CPU-executed layer's weights are in system RAM by definition. The thing worth testing is the other shape - GPU compute reading weights across PCIe - which vLLM exposes as --cpu-offload-gb and defaults to 0. Confirmed identical at 0 on both builds by diffing `vllm serve --help=all`: 275 flags, 223 defaults, zero differences."
+}

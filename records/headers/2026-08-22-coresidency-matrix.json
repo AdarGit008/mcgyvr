@@ -1,0 +1,42 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-22-coresidency-matrix",
+  "declared": "2026-08-22",
+  "question": "Does every pair of models <=7B behave the same when they share a card - across load order, engine, family, concurrency and parallelism - or does the single ordered pair D7 measured generalise to nothing?",
+  "arms": [
+    "co-residency, ollama beside ollama: ordered pairs of the 5 models <=7B held by BOTH rigs (qwen2.5-coder:1.5b 1.17G resident, qwen2.5-coder:3b ~2.3G, llama3.2:3b 2.55G, nemotron-3-nano:4b ~3.4G, qwen2.5-coder:7b ~5.7G). 5x4 = 20 ordered pairs per rig. ORDER IS AN ARM, not a nuisance: Finding 2c (serving-surface-2026-08-18/README.md:124) established placement is decided at load time and is STICKY, so (A then B) and (B then A) are different measurements.",
+    "cross-engine: the vLLM 1.5B AWQ beside each of the 5 ollama models, both orders - 10 per rig. This is the arm D7 never ran; its only co-residency cell was ollama beside ollama.",
+    "cross-family: carried by the pairs above rather than as a separate arm - the 5 models span 3 families (qwen2.5-coder, llama3.2, nemotron). Measured 2026-08-22 as possible on both rigs: llama3.2:3b and qwen2.5-coder:1.5b were both 100% on GPU together, 3722 MiB on srv1's 6144 and 3817 MiB on srv2's 12288.",
+    "concurrency and parallelability: a ramp per cell with the neighbour up, so the question is what a resident neighbour costs the width curve - not what the width curve is alone, which D7 already has."
+  ],
+  "hosts": ["srv1", "srv2"],
+  "cost": {
+    "cells": 60,
+    "estimate_minutes": 1782,
+    "estimate_note": "30 cells per rig. srv1 at 13.7 min/cell and srv2 at 25.9 min/cell, from D7's survey phase (82 min / 6 cells and 285 min / 11 cells), multiplied by 1.5 because a co-residency cell carries two loads and a ramp where a survey cell carried one. Wall clock is the same number, not half: E14 refuses a second driver, so exactly one rig ever runs.",
+    "source": "records/evidence/calibration-2026-08-19/README.md",
+    "comparison": "D7 was 662 minutes. This is about 2.7x D7."
+  },
+  "could_have_carried": [
+    "the four D6 constants (START_TIMEOUT_S, DIGEST_TIMEOUT_S, LOAD_ATTEMPTS, RAMP_REPEATS) - every cell here is a load and a ramp, which is what measures all four",
+    "K7 (same model, both hosts, same geometry) and K9 (both hosts declare the residency settings) close on this campaign's evidence if it runs after 2026-08-22's rig changes",
+    "#329's cross-rig arm - the width-16 vLLM ramp per rig, ~19 min, if the vLLM cells here are launched through the same path"
+  ],
+  "left_on_table": [
+    "Unordered pairs instead of ordered would halve this to ~15 h, but load order IS the mechanism Finding 2c named, so dropping it measures the one thing already known and not the thing in question.",
+    "srv1 cannot hold 4 of the 10 unordered pairs (any pair with the 7B, and llama3.2:3b + nemotron-3-nano:4b at ~5.95G against 6144 MiB). Those cells are kept, not dropped: a refusal at load is cheap and is itself the placement datum.",
+    "Running both rigs at once is blocked by E14, not by the roster - launch.py refuses a second driver because one client timing two conversations degraded 12-21%.",
+    "Models >7B are out of scope by the question, so srv2's 8 larger models sit idle through all of it."
+  ],
+  "prerequisites": [
+    "#322's gate, since this run must declare intent through it",
+    "the ollama settings declared on both rigs 2026-08-22: NUM_PARALLEL=0, MAX_LOADED_MODELS=0, KEEP_ALIVE=-1. MAX_LOADED_MODELS=0 is what permits any of this; srv1 previously capped at 3.",
+    "a vLLM gpu_memory_utilization low enough that an ollama model can land beside it - 0.85 has no recorded rationale and Finding 2c showed 0.90 pushed the neighbour to CPU"
+  ],
+  "void_if": [
+    "any cell's neighbour lands on CPU without the row saying so - Finding 2c's failure is silent, and size_vram 0.08 GB looked like a successful load",
+    "the two rigs' ollama versions still differ (srv1 0.32.4, srv2 0.32.5) and a cross-host difference is read as hardware - this is K6",
+    "load order is not recorded per cell"
+  ],
+  "notes": "Filed 2026-08-22 at the owner's instruction: 'test all possible combinations of models <=7B - co-residency, cross engine, cross family, concurrency, parallelability'. The inventory and every resident figure marked measured were read off the rigs that day; the ones marked ~ are scaled from disk size by the 1.17/0.986 and 2.55/2.0 ratios actually observed, and are estimates, not readings."
+}

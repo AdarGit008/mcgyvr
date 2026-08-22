@@ -1,4 +1,4 @@
-"""Six recorded conflicts, and the check each one becomes.
+"""Nine recorded conflicts, and the check each one becomes.
 
 Session 6 read the D7 campaign's evidence and counted six contradictions
 between what the record claims and what the files under
@@ -35,6 +35,18 @@ never turn green, so a check pinned to them would be an ``xfail`` that outlives
 its own finding and can never XPASS. Pointed at the newest campaign, each of
 these is a question put to the NEXT run, which is what every "owed" reason
 asks, and the run that answers it flips the marker.
+
+**K7-K9 were added on 2026-08-22 and were not part of #328's six.** They are
+the honest limits of a live verification run that day: with
+``OLLAMA_NUM_PARALLEL`` declared as ``1`` on both rigs, srv1 (ollama 0.32.4)
+and srv2 (ollama 0.32.5) launched ``qwen2.5-coder:1.5b`` at an identical
+``-c 4096 -np 1`` and held a byte-identical ``size_vram``. That is one model,
+one context, one width, and it says nothing about throughput -- so rather than
+record the limits as a caveat in prose, each became the check that would catch
+it: K7 asks the geometry question of every model served on both hosts, K8 asks
+how wide the cross-host population is before an engine is called equivalent,
+and K9 asks whether both hosts declare the settings that decide residency
+instead of inheriting them from two different engine versions.
 
 Two checks read wider than the issue that filed them (#328 quotes the narrower
 population; the K-lines in the README say so):
@@ -567,4 +579,212 @@ def test_a_cross_host_figure_carries_the_engine_version_on_each_host() -> None:
     assert not unversioned, (
         f"{len(unversioned)} of {len(figures)} ramp figures across "
         f"{sorted(hosts)} carry no engine_version: {unversioned}"
+    )
+
+
+# --------------------------------------------------------------------------
+# K7 — the geometry a model was launched with, across hosts
+# --------------------------------------------------------------------------
+
+
+class Geometry(NamedTuple):
+    """One served child's launch geometry, as its own command line states it."""
+
+    host: str
+    model: str
+    context: int
+    slots: int
+
+
+def _geometries(directory: Path) -> list[Geometry]:
+    """Every served child whose command line states both ``-c`` and ``-np``.
+
+    A child that states neither is not a geometry and is not a counter-example:
+    the population is what the campaign can be held to, not what it omitted.
+    """
+    found = []
+    for child in _served(directory):
+        context = _LAUNCHED_CONTEXT.search(child.command_line)
+        slots = _LAUNCHED_SLOTS.search(child.command_line)
+        if context and slots:
+            found.append(
+                Geometry(
+                    host=child.host,
+                    model=child.model,
+                    context=int(context.group(1)),
+                    slots=int(slots.group(1)),
+                )
+            )
+    return found
+
+
+def _geometry_by_model(directory: Path) -> dict[str, dict[str, tuple[int, int]]]:
+    """``model -> host -> (context, slots)``, for models served on any host."""
+    table: dict[str, dict[str, tuple[int, int]]] = {}
+    for entry in _geometries(directory):
+        table.setdefault(entry.model, {})[entry.host] = (entry.context, entry.slots)
+    return table
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "2026-08-22: owed — is a cross-host figure allowed to rest on children "
+        "the two hosts launched differently? On 2026-08-19, 5 of the 6 models "
+        "served on both hosts ran at 8192x2 on srv1 and 4096x1 on srv2"
+    ),
+)
+def test_a_model_served_on_both_hosts_was_launched_with_the_same_geometry() -> None:
+    """K7 — the same model, two hosts, two different windows.
+
+    Verified live on 2026-08-22: the two rigs agree on ``-c 4096 -np 1`` and on
+    a byte-identical resident footprint for ``qwen2.5-coder:1.5b`` once
+    ``OLLAMA_NUM_PARALLEL`` is declared as ``1`` on both. **That is one model,
+    one context and one width** — a single point, and a single point is not an
+    agreement. This check is the same question asked of every model the
+    campaign serves on both hosts.
+
+    K2 names the split as a total the semantic block never carries. This is the
+    other half: the split is not a recording defect, it is a condition under
+    which two hosts' numbers were compared as if it were absent.
+    """
+    table = _geometry_by_model(campaign())
+    shared = {model: hosts for model, hosts in table.items() if len(hosts) > 1}
+    assert shared, (
+        "no model was served on more than one host, so nothing in this "
+        "campaign supports a cross-host comparison at all"
+    )
+    disagreeing = {
+        model: hosts for model, hosts in shared.items() if len(set(hosts.values())) > 1
+    }
+    assert not disagreeing, (
+        f"{len(disagreeing)} of {len(shared)} models served on both hosts were "
+        f"launched with different (context, slots): {disagreeing}"
+    )
+
+
+# --------------------------------------------------------------------------
+# K8 — how wide the cross-host evidence actually is
+# --------------------------------------------------------------------------
+
+#: Two models per engine is the smallest population in which an agreement can
+#: fail to hold. One is a coincidence with no room to be contradicted; this is
+#: the floor, not a target.
+MIN_CROSS_HOST_MODELS = 2
+
+
+def _cross_host_models(directory: Path) -> dict[str, set[str]]:
+    """``engine -> the models carrying a figure on more than one host``."""
+    seen: dict[str, dict[str, set[str]]] = {}
+    for figure in _figures(directory):
+        seen.setdefault(figure.engine, {}).setdefault(figure.model, set()).add(
+            figure.host
+        )
+    return {
+        engine: {model for model, hosts in models.items() if len(hosts) > 1}
+        for engine, models in seen.items()
+    }
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "2026-08-22: owed — how many models must agree across hosts before an "
+        "engine is called equivalent? On 2026-08-19 exactly one model per "
+        "engine carried a figure on both hosts, so every cross-host claim "
+        "rests on a single point"
+    ),
+)
+def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> None:
+    """K8 — an equal footprint is not an equal throughput.
+
+    ``size_vram`` agreeing to the byte on two hosts says the engines allocated
+    the same thing; it says nothing about what they then did with it, and the
+    2026-08-20 cross-rig claim is about speed, not memory. The campaign's own
+    figures are the population: on 2026-08-19, 36 figure-bearing ramp rows
+    yielded exactly one model per engine present on both hosts —
+    ``qwen2.5-coder:1.5b`` for ollama and the 1.5B AWQ for vLLM, which is the
+    very model the ``23% vs 96%`` claim quotes.
+
+    A single shared model cannot distinguish "the engines agree" from "these
+    two runs agreed"; :data:`MIN_CROSS_HOST_MODELS` is the smallest population
+    in which the first can fail.
+    """
+    per_engine = _cross_host_models(campaign())
+    assert per_engine, "no ramp figures at all, so no cross-host evidence exists"
+    thin = {
+        engine: sorted(models)
+        for engine, models in per_engine.items()
+        if len(models) < MIN_CROSS_HOST_MODELS
+    }
+    assert not thin, (
+        f"{len(thin)} of {len(per_engine)} engines carry fewer than "
+        f"{MIN_CROSS_HOST_MODELS} models with a figure on both hosts, so their "
+        f"cross-host agreement is one point wide: {thin}"
+    )
+
+
+# --------------------------------------------------------------------------
+# K9 — the co-residency settings, declared on one host and defaulted on the other
+# --------------------------------------------------------------------------
+
+#: The ollama settings that decide whether a model stays resident and whether a
+#: second one may join it — which is what the co-residency cells measure. A
+#: value the engine chose is not a value the run declared: it moves with the
+#: engine version, and the two hosts do not run the same version.
+CORESIDENCY_SETTINGS = (
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_MAX_LOADED_MODELS",
+    "OLLAMA_KEEP_ALIVE",
+)
+
+_ENVIRONMENT_SETTING = re.compile(r"(OLLAMA_[A-Z_]+)=(\S+)")
+
+
+def _declared_settings(directory: Path) -> dict[str, set[str]]:
+    """``host -> the OLLAMA_* settings its unit declares``, as captured."""
+    declared = {}
+    for host, body in _survey(directory)["hosts"].items():
+        readings = ((body.get("present") or {}).get("ollama") or {}).get(
+            "readings"
+        ) or {}
+        stdout = (readings.get("service_environment") or {}).get("stdout") or ""
+        declared[host] = {name for name, _ in _ENVIRONMENT_SETTING.findall(stdout)}
+    return declared
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "2026-08-22: owed — must every host declare the settings that decide "
+        "residency, or may one inherit the engine's default? On 2026-08-19 "
+        "srv1 declared all three and srv2 declared none, under two different "
+        "engine versions"
+    ),
+)
+def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
+    """K9 — one host declares residency, the other inherits it.
+
+    ``OLLAMA_MAX_LOADED_MODELS`` and ``OLLAMA_KEEP_ALIVE`` decide whether a
+    model stays on the card and whether a second may join it, which is exactly
+    what the co-residency cells measure. On 2026-08-19 srv1 declared all three
+    of :data:`CORESIDENCY_SETTINGS` and srv2 declared none.
+
+    An undeclared setting is not a known one. The engine picks it, the engines
+    are not the same version on the two hosts (K6), and the value it picks is
+    not recorded anywhere in the evidence — so "both hosts ran the default"
+    is an assumption the campaign cannot check against its own files. Declaring
+    it costs one line per host and turns the assumption into a reading.
+    """
+    declared = _declared_settings(campaign())
+    assert declared, "no host captured its ollama service environment"
+    wanted = set(CORESIDENCY_SETTINGS)
+    incomplete = {
+        host: sorted(wanted - names)
+        for host, names in declared.items()
+        if wanted - names
+    }
+    assert not incomplete, (
+        f"{len(incomplete)} of {len(declared)} hosts leave a residency setting "
+        f"to the engine's default, unrecorded: {incomplete}"
     )
