@@ -210,6 +210,18 @@ which is deliberately not the same as "on the card". Every mixed-engine cell in
 the campaign still waits on it, and phase 0's vLLM arm records placement only
 for what ollama can see.
 
+**2026-08-22 — the cross-engine harness changes are filed.** They were carried
+as prose in this lane's records and are now four issues, each with its evidence
+verified in the tree: **#343** (`run.py:353-358` releases every other backend
+with no per-cell opt-out), **#344** (`ollama.py:486` gates on
+`card_idle_before_load is True`, so a declared shared card is refused by
+construction), **#345** (defect 5 — and the reporting shape is a decision, not a
+stub: vLLM never spills, so `size_vram / size` has no analogue for it), **#346**
+(`ollama.py:361-378` is the only neighbour loader and it can only speak ollama,
+in the wrong layer). Build order **#345 → #343 → #344 → #346**; #345 pays off
+alone, because it unblocks phase 0's vLLM arm. Feasibility is not in question —
+cross-engine co-residency was demonstrated by hand on both rigs 2026-08-22.
+
 ## 8. What this does not answer
 
 **Every cell is a cold start.** `contract.drop_page_cache` (`contract.py:665`)
