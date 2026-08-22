@@ -7,9 +7,14 @@ it, and who else wants the card is the orchestrator's decision, never this
 module's.
 
 **This engine claims the card for the life of the process, not per model.** It
-allocates a fraction of VRAM at startup — 0.85 or 0.90 on these rigs — and holds
-it whether or not a request is in flight. So :func:`claim` is not "load a model"
-but "be running, with these serving parameters, and prove it": an *empty* card
+allocates its whole budget at startup — weights, then KV cache filling the rest —
+and holds it whether or not a request is in flight. Since ADR-0039 that budget
+is declared in **bytes of KV cache** (:func:`_memory_args`) rather than as a
+fraction of the card, because ``requested = total_memory * util`` means one
+fraction is a different KV cache on every card it is carried to.
+
+So :func:`claim` is not "load a model" but "be running, with these serving
+parameters, and prove it": an *empty* card
 means the server died, which is the opposite sense from an engine that loads
 per request. That asymmetry is why cleanup is parameterised by which engine is
 under test rather than applied uniformly — an earlier uniform version stopped
@@ -576,6 +581,55 @@ def launcher(host: str) -> str:
     return "none"
 
 
+#: The two ways an entry may state the memory it wants. **Exclusive, and
+#: neither is defaulted** (ADR-0039). This engine's own arithmetic is
+#: ``requested = total_memory * gpu_memory_utilization`` with a hard
+#: ``free >= requested`` precondition (``vllm/v1/worker/utils.py``), so a
+#: fraction is a statement about a *card*: 1,792 MiB of KV cache is 0.565 on
+#: srv1 and 0.273 on srv2, and one number cannot be right for both. Bytes are a
+#: property of the model and travel.
+MEMORY_FIELDS: tuple[str, ...] = ("kv_cache_memory_bytes", "gpu_memory_utilization")
+
+
+def _memory_args(serve: dict[str, Any]) -> list[str]:
+    """The KV-cache declaration as CLI arguments, or a refusal (ADR-0039).
+
+    **There is no default.** This read ``serve.get("gpu_memory_utilization",
+    0.85)``, and that fallback is how a number nobody chose -- traced to
+    local-ai's OOM fix for a 12 GB card, applied unchanged to a 6 GB one --
+    reached five sites and every vLLM figure this project holds. Measured
+    2026-08-22 at ``max_num_seqs 8``: 0.85 buys 131,104 KV tokens on srv1 and
+    322,304 on srv2 where the declaration can reach 65,536, so the entry paid
+    for 2.0x and 4.9x what it could use and left a neighbour 93% on the CPU.
+
+    **Both fields together is a refusal, not a precedence rule.** vLLM's own
+    precedence is that ``kv_cache_memory_bytes`` silently ignores
+    ``gpu_memory_utilization``; honouring that here would let a config state a
+    fraction, have it discarded, and read as though it had been applied -- a
+    config that believes it declared something it did not, which is the shape
+    ``claim``'s ``expect``/``placement`` guards above already refuse.
+    """
+    declared = [field for field in MEMORY_FIELDS if serve.get(field) is not None]
+    if len(declared) > 1:
+        raise contract.NotCleanError(
+            f"serve declares {sorted(declared)} together. They are exclusive: "
+            "vLLM ignores gpu_memory_utilization whenever kv_cache_memory_bytes "
+            "is set, so carrying both records a fraction that never applied. "
+            "Declare one (ADR-0039). Nothing was measured."
+        )
+    if not declared:
+        raise contract.NotCleanError(
+            "serve declares neither kv_cache_memory_bytes nor "
+            "gpu_memory_utilization, and there is no default (ADR-0039 rule 3). "
+            "Bytes are max_num_seqs * max_model_len * bytes_per_token and are "
+            "the same on every card; a fraction is a statement about one card "
+            "and says which and why. Nothing was measured."
+        )
+    if declared[0] == "kv_cache_memory_bytes":
+        return ["--kv-cache-memory-bytes", str(int(serve["kv_cache_memory_bytes"]))]
+    return ["--gpu-memory-utilization", str(serve["gpu_memory_utilization"])]
+
+
 def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     """Launch the server with ``serve``, and wait for it to answer.
 
@@ -595,8 +649,7 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     args = [
         "--max-model-len",
         str(serve.get("max_model_len", 8192)),
-        "--gpu-memory-utilization",
-        str(serve.get("gpu_memory_utilization", 0.85)),
+        *_memory_args(serve),
         "--max-num-seqs",
         str(serve.get("max_num_seqs", 8)),
         "--port",

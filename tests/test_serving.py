@@ -806,7 +806,13 @@ def test_an_unusable_environment_variable_name_is_refused(
     # load builds a different `NotCleanError` class object and an identity check
     # against the fixture's copy would miss it.
     with pytest.raises(backend.contract.NotCleanError, match="not a usable environ"):
-        backend._start("h", "m", {"env": {"A; touch /tmp/x; B": "1"}})
+        backend._start(
+            "h",
+            "m",
+            # ADR-0039: `serve` must declare its KV cache or `_start` refuses
+            # before it reaches the env names this test is about.
+            {"kv_cache_memory_bytes": 1879048192, "env": {"A; touch /tmp/x; B": "1"}},
+        )
 
 
 @pytest.mark.parametrize("name", BACKENDS)
@@ -879,7 +885,13 @@ def test_no_host_reading_reaches_disk_unredacted(
             "ollama_readings": ollama.readings("h"),
             "ollama_server": ollama._server("h"),
             "vllm_readings": vllm.readings("h"),
-            "vllm_launch": vllm._start("h", "m", {"env": {"HF_TOKEN": token}}),
+            "vllm_launch": vllm._start(
+                "h",
+                "m",
+                # ADR-0039: declared so `_start` reaches the launch record this
+                # test reads; the value is irrelevant to redaction.
+                {"kv_cache_memory_bytes": 1879048192, "env": {"HF_TOKEN": token}},
+            ),
             # The three vLLM host-derived returns the first version of this
             # test did not reach: the digest carries a home-directory snapshot
             # path, and both config readers parse `/server_info`'s repr, which

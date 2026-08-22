@@ -31,7 +31,14 @@
       "serve": {
         "max_model_len": 8192,
         "max_num_seqs": 8,
-        "gpu_memory_utilization": 0.85,
+        "kv_cache_memory_bytes": 1879048192,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "_footprint_mib": {
+          "srv1": 3130,
+          "srv2": 3183
+        },
+        "_footprint_note": "MEASURED on the cards 2026-08-22, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Under the withdrawn gpu_memory_utilization 0.85 the same entry took 4916 MiB on srv1 and 10197 MiB on srv2 while reaching the same 65,536 KV tokens.",
         "flags": [
           "--enforce-eager"
         ],
@@ -57,7 +64,14 @@
       "serve": {
         "max_model_len": 8192,
         "max_num_seqs": 16,
-        "gpu_memory_utilization": 0.85,
+        "kv_cache_memory_bytes": 3758096384,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "_footprint_mib": {
+          "srv1": 4986,
+          "srv2": 5041
+        },
+        "_footprint_note": "MEASURED on the cards 2026-08-22, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Under the withdrawn gpu_memory_utilization 0.85 the same entry took 4956 MiB on srv1 and 10219 MiB on srv2 while reaching the same 131,072 KV tokens.",
         "flags": [
           "--enforce-eager"
         ],

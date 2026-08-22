@@ -44,3 +44,4 @@ Generated from the records' own headers. Regenerate: `make docs`; drift fails `m
 | [0036](0036-the-bare-word-bar-is-banned-adoption-bar-and-scoring-bar.md) | the bare word "bar" is banned: adoption-bar and scoring-bar name two decisions | Accepted | 2026-08-17 | — | — |
 | [0037](0037-a-finding-is-a-check-and-closing-without-fixing-is-a-dated-xfail.md) | a finding is a check, closing without fixing is a dated xfail, and the record names its check | Accepted | 2026-08-21 | — | — |
 | [0038](0038-a-machine-has-no-role-and-the-question-approves-its-own-scope.md) | a machine has no role, and the question approves its own scope | Accepted | 2026-08-22 | 0024 | — |
+| [0039](0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md) | a serving memory declaration is bytes, not a fraction of the card | Accepted | 2026-08-22 | — | — |

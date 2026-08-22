@@ -2,41 +2,56 @@
   "record": "run-header/1",
   "id": "2026-08-22-coresidency-matrix",
   "declared": "2026-08-22",
-  "question": "Does every pair of models <=7B behave the same when they share a card - across load order, engine, family, concurrency and parallelism - or does the single ordered pair D7 measured generalise to nothing?",
+  "question": "What co-residency configurations are POSSIBLE on each card? For every multiset of models a card could hold - across engines, across families, in multiplicity, and across a transition that swaps one member out - does every member land fully on the GPU, or does something spill, or is it refused? The output is a frontier: the boundary between the configurations that fit and the ones that do not, with the placement of every resident recorded on every cell. This campaign answers WHAT IS POSSIBLE. It measures no throughput and no latency by design; what to measure is decided afterwards, from the frontier, and is a separate campaign.",
   "arms": [
-    "co-residency, ollama beside ollama: ordered pairs of the 5 models <=7B held by BOTH rigs (qwen2.5-coder:1.5b 1.17G resident, qwen2.5-coder:3b ~2.3G, llama3.2:3b 2.55G, nemotron-3-nano:4b ~3.4G, qwen2.5-coder:7b ~5.7G). 5x4 = 20 ordered pairs per rig. ORDER IS AN ARM, not a nuisance: Finding 2c (serving-surface-2026-08-18/README.md:124) established placement is decided at load time and is STICKY, so (A then B) and (B then A) are different measurements.",
-    "cross-engine: the vLLM 1.5B AWQ beside each of the 5 ollama models, both orders - 10 per rig. This is the arm D7 never ran; its only co-residency cell was ollama beside ollama.",
-    "cross-family: carried by the pairs above rather than as a separate arm - the 5 models span 3 families (qwen2.5-coder, llama3.2, nemotron). Measured 2026-08-22 as possible on both rigs: llama3.2:3b and qwen2.5-coder:1.5b were both 100% on GPU together, 3722 MiB on srv1's 6144 and 3817 MiB on srv2's 12288.",
-    "concurrency and parallelability: a ramp per cell with the neighbour up, so the question is what a resident neighbour costs the width curve - not what the width curve is alone, which D7 already has."
+    "phase 0 - FOOTPRINT. Every (rig, engine, model) loaded alone, recording measured resident MiB, size, size_vram and fraction. This is the weight table every later phase is predicted from, and it is the ONLY phase whose cell list is knowable before the campaign starts. It also answers, per model rather than for the one model ADR-0039 measured, what a vLLM entry's declared kv_cache_memory_bytes costs on each card.",
+    "phase 1 - PAIRS. Ordered pairs whose phase-0 footprints sum inside the card, PLUS the pairs the arithmetic says will not fit. A frontier is located by testing both sides of it: a campaign that only runs the pairs predicted to fit measures its own prediction and learns nothing about where the boundary is. Order is kept because Finding 2c established that placement is decided at load time and is sticky (serving-surface-2026-08-18/README.md:124), so (A then B) and (B then A) are two configurations.",
+    "phase 2 - MULTIPLICITY. n copies of one model, n rising until it spills or is refused. This is engine-dependent and the dependency is itself the finding: with OLLAMA_MAX_LOADED_MODELS=0 a second load of the same tag may reuse the existing runner, in which case 'the same model twice' is not expressible through this engine and that IS the answer for it; vLLM on a second port is unambiguously two instances holding two budgets. Both are recorded, and neither is assumed.",
+    "phase 3 - SETS. Multisets of size 3 and above, and mixed multiplicities of the x*model_1 + y*model_2 form, built greedily from the smallest measured footprints upward until the card refuses. Bounded by the phase-0 weights, not by a list written in advance.",
+    "phase 4 - TRANSITIONS. (A, B) resident; unload B; load C in its place. Does C land fully in the VRAM B released, and does A's placement survive the transition? This is the only phase in which fragmentation or a stale allocation can appear, and no other phase can show it. It is also the configuration a serving tier actually runs in, where every other phase is a cold start.",
+    "phase 5 - THE IMPOSSIBLE, WITH ITS NUMBER. srv2's models above 8 GB (deepseek-coder-v2:16b, gpt-oss:20b, qwen3:30b-a3b, qwen3-coder:30b, nemotron-3-nano:30b-a3b-iq2, qwen3-coder-next-ud:q3_K_XL) and srv1's 7b, which cannot share a card with anything. 'All possible combinations' includes the ones that are not: a recorded solo fraction and a refusal reason is a result, and the MoE models are where a fraction is least predictable from file size."
   ],
   "hosts": ["srv1", "srv2"],
   "cost": {
-    "cells": 60,
-    "estimate_minutes": 1782,
-    "estimate_note": "30 cells per rig. srv1 at 13.7 min/cell and srv2 at 25.9 min/cell, from D7's survey phase (82 min / 6 cells and 285 min / 11 cells), multiplied by 1.5 because a co-residency cell carries two loads and a ramp where a survey cell carried one. Wall clock is the same number, not half: E14 refuses a second driver, so exactly one rig ever runs.",
-    "source": "records/evidence/calibration-2026-08-19/README.md",
-    "comparison": "D7 was 662 minutes. This is about 2.7x D7."
+    "cells_phase_0": 25,
+    "estimate_minutes_phase_0": 60,
+    "estimate_note": "Phase 0 is 8 cells on srv1 (5 ollama models, 3 vLLM-servable AWQ checkpoints in the HF cache; the Nemotron FP8 checkpoint is excluded because srv1 is compute capability 7.5 and FP8 needs 8.9) and 17 on srv2 (13 ollama, 4 AWQ). An ollama solo load plus a placement read is about 60 s for the small models and several minutes for the 18-36 GB ones; a vLLM launch measured 33 s (srv1) and 100 s (srv2) for the 1.5B and rises with weights. 60 minutes is the arithmetic on those rates, not a measurement.",
+    "cells_beyond_phase_0": {
+      "unknown": true,
+      "searched": [
+        "the phase-0 footprint table, which does not exist yet - and it is what bounds every later phase",
+        "records/evidence/calibration-2026-08-19/README.md, which holds solo survey figures but not resident MiB per model",
+        "the ollama /api/tags disk sizes on both rigs, which are NOT footprints: qwen2.5-coder:1.5b is 0.99 GB on disk and 1,196 MiB resident, and the ratio is not constant across quantizations"
+      ],
+      "why": "The number of fitting multisets is a knapsack over measured weights against 6,144 and 12,288 MiB. It is unbounded as a formula and small as a fact, and phase 0 is what turns one into the other. Declaring a cell count now would be inventing the answer this campaign exists to find."
+    },
+    "source": "records/evidence/calibration-2026-08-19/README.md and the 2026-08-22 feasibility probe recorded in this lane's session record",
+    "comparison": "The withdrawn 60-cell plan estimated 1,782 minutes. This phase 0 is 60. The difference is not efficiency: it is that a feasibility cell is a load and a placement read, and a measurement cell is a load and a ramp."
   },
   "could_have_carried": [
-    "the four D6 constants (START_TIMEOUT_S, DIGEST_TIMEOUT_S, LOAD_ATTEMPTS, RAMP_REPEATS) - every cell here is a load and a ramp, which is what measures all four",
-    "K7 (same model, both hosts, same geometry) and K9 (both hosts declare the residency settings) close on this campaign's evidence if it runs after 2026-08-22's rig changes",
-    "#329's cross-rig arm - the width-16 vLLM ramp per rig, ~19 min, if the vLLM cells here are launched through the same path"
+    "#337's per-rig question for EVERY model rather than the one ADR-0039 measured: phase 0 is exactly the measurement #337 asks for, repeated across the roster",
+    "the load-time points D6's START_TIMEOUT_S has never been calibrated against - every phase-0 cell is a cold load and costs nothing extra to time",
+    "K7's geometry question, if each phase-0 cell records the context and parallelism the engine actually launched with",
+    "the placement fraction of every MoE model on srv2, which no campaign has yet recorded and which file size does not predict"
   ],
   "left_on_table": [
-    "Unordered pairs instead of ordered would halve this to ~15 h, but load order IS the mechanism Finding 2c named, so dropping it measures the one thing already known and not the thing in question.",
-    "srv1 cannot hold 4 of the 10 unordered pairs (any pair with the 7B, and llama3.2:3b + nemotron-3-nano:4b at ~5.95G against 6144 MiB). Those cells are kept, not dropped: a refusal at load is cheap and is itself the placement datum.",
-    "Running both rigs at once is blocked by E14, not by the roster - launch.py refuses a second driver because one client timing two conversations degraded 12-21%.",
-    "Models >7B are out of scope by the question, so srv2's 8 larger models sit idle through all of it."
+    "THROUGHPUT, deliberately and in full. Measured 2026-08-22 on the 1.5B pair with both engines generating at once: contention costs ollama 3.8x on srv1 (156.3 -> 41.5 tok/s) and 1.40x on srv2 (197.0 -> 141.0), while vLLM loses 1.33x and 1.01x. A 2.7x difference between the two rigs means a co-residency throughput result is per-rig and is a campaign of its own - and it needs this frontier first, to know which configurations are even worth timing.",
+    "Unordered pairs would halve phase 1, and are refused for phase 1 for the reason the withdrawn plan gave correctly: load order is the mechanism Finding 2c named. Phases 3 and 4 do not carry order for every member, because a set of five has 120 orders and the frontier does not need them; where order matters there it is a phase-4 transition instead.",
+    "Repeats. Every cell is n=1. A placement fraction is a near-deterministic function of what is on the card, unlike a rate, and the campaign that needs repeats is the throughput one that follows.",
+    "srv1 cannot hold most pairs involving its 7b, and those cells are KEPT rather than dropped: a refusal at load is cheap and the refusal reason is the datum."
   ],
   "prerequisites": [
-    "#322's gate, since this run must declare intent through it",
-    "the ollama settings declared on both rigs 2026-08-22: NUM_PARALLEL=0, MAX_LOADED_MODELS=0, KEEP_ALIVE=-1. MAX_LOADED_MODELS=0 is what permits any of this; srv1 previously capped at 3.",
-    "a vLLM gpu_memory_utilization low enough that an ollama model can land beside it - 0.85 has no recorded rationale and Finding 2c showed 0.90 pushed the neighbour to CPU"
+    "#335's neighbour placement: every resident's size_vram and fraction on every cell. Without it this campaign cannot answer its own question - measured 2026-08-22, ollama returns load_http=200 with 93% of the model on the CPU, so 'it loaded' and 'it fits' are different facts and only one of them is currently recorded.",
+    "ADR-0039: every vLLM entry declares kv_cache_memory_bytes, not gpu_memory_utilization. Done for srv-full.json 2026-08-22. Under a fraction the neighbour's room is a different number on each card and a co-residency cell is not reproducible across rigs.",
+    "the cross-engine harness changes, for every mixed-engine cell in phases 1, 3 and 4: run.py's exclusion loop has no per-cell opt-out, ollama.claim gates on card_idle_before_load is True, vllm.py has no residents(), and claim's neighbour loop can only load through ollama. Feasibility itself is NOT blocked on these - it was demonstrated by hand on both rigs 2026-08-22 - only the harness is.",
+    "#322's gate, since this run declares its intent through it",
+    "the ollama residency settings declared on both rigs 2026-08-22 (NUM_PARALLEL=0, MAX_LOADED_MODELS=0, KEEP_ALIVE=-1), held by tests/test_declared_host_state.py. MAX_LOADED_MODELS=0 is what permits phases 1-4 at all."
   ],
   "void_if": [
-    "any cell's neighbour lands on CPU without the row saying so - Finding 2c's failure is silent, and size_vram 0.08 GB looked like a successful load",
-    "the two rigs' ollama versions still differ (srv1 0.32.4, srv2 0.32.5) and a cross-host difference is read as hardware - this is K6",
-    "load order is not recorded per cell"
+    "any cell records a verdict without the placement of EVERY resident on it. 'Fits' asserted from an HTTP status is the exact failure this campaign exists to map: measured on srv1 2026-08-22, load_http=200 with fraction 0.068.",
+    "any vLLM cell is launched under a gpu_memory_utilization rather than a declared byte size, because the neighbour's room is then a different number on each rig and the two hosts' frontiers are not comparable (ADR-0039)",
+    "a configuration is recorded as refused without the engine's structured reason - a refusal counted without its reason cannot be told from a harness bug",
+    "load order is not recorded per cell in phases 1 and 4"
   ],
-  "notes": "Filed 2026-08-22 at the owner's instruction: 'test all possible combinations of models <=7B - co-residency, cross engine, cross family, concurrency, parallelability'. The inventory and every resident figure marked measured were read off the rigs that day; the ones marked ~ are scaled from disk size by the 1.17/0.986 and 2.55/2.0 ratios actually observed, and are estimates, not readings."
+  "notes": "REWRITTEN 2026-08-22 at the owner's instruction, replacing a 60-cell measurement plan filed the same day. The question changed in kind: 'what does co-residency cost' became 'what co-residency is possible', and cost is deferred until the frontier says which configurations exist. The withdrawn plan was also wrong three ways, all verified in-tree: 20 of its 60 cells could not run (run.py:351 releases every other backend with no opt-out, ollama.py:474 requires card_idle_before_load is True, vllm.py has no residents()) and would have produced a valid SOLO vLLM curve under a co-residency label; its order arm was half-real because the harness only ever ramps the model loaded second; and its cost was about 3.5x over. A fourth defect was found while rewriting and is the reason phase 0 exists: the neighbour's placement is never computed anywhere in the tree, so the plan's own first void_if was unevaluable on all 60 cells, not only on the cross-engine ones. Its void_if on ollama version skew (srv1 0.32.4, srv2 0.32.5) is retired: both rigs run 0.32.15 as of 2026-08-22, declared and checked. The inventory figures marked measured were read off the rigs; nothing here is scaled from disk size, because the 2026-08-22 probe showed disk size does not predict resident MiB."
 }
