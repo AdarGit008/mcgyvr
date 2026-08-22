@@ -1574,3 +1574,56 @@ to whichever check claims it, not to this block. (The first draft of this
 paragraph quoted "ramp journals 1.09–2.27, survey 1.02–1.10" — both srv2-only
 subsets presented as whole populations, which is the very defect the paragraph
 names. Corrected before this block was committed.)
+
+## Correction — 2026-08-22 (#328), appended: K9's gap is closed, not merely named
+
+The `## Rulings recorded 2026-08-22` block above records K9 as ruled and then
+names an **unfiled gap**: *"nothing in the repository sets or asserts them. It
+can regress between campaigns and nothing here would notice."* The owner's
+answer to that, the same day, was to close it now.
+
+It is closed as data plus a check, which is ADR-0037 rule 1 applied to the gap
+itself rather than to a campaign finding:
+
+- **`tools/bench/serving/configs/hosts.json`** — the declared host state. The
+  three residency settings with the value each must hold (`OLLAMA_NUM_PARALLEL=0`,
+  `OLLAMA_MAX_LOADED_MODELS=0`, `OLLAMA_KEEP_ALIVE=-1`) and the reason for each,
+  the declared ollama build (`0.32.15`), the unit-file content a host must
+  carry, and — named rather than left silent — the two things it deliberately
+  does **not** declare: the vLLM image digest, which the session record elided
+  to `sha256:ffb2d59b…` so the full value exists only on the hosts, and
+  `gpu_memory_utilization`, which #337 is measuring rather than inheriting.
+- **`tests/test_declared_host_state.py`** — four green checks over the
+  declaration (it covers every residency setting, every setting states a value
+  *and* why, the omissions are named, plus a canary that shows the reason check
+  rejecting) and two strict xfails that hold the newest campaign's survey to it.
+
+**The half K9 could not see.** K9 asks whether a setting's *name* appears in the
+unit. The new check asks whether it appears **set to the declared value** — so a
+rig that quietly restored `OLLAMA_KEEP_ALIVE=5m` would satisfy K9 and put a
+clock back over the co-residency cells. Demonstrated before landing: red on the
+2026-08-19 survey (6 of 6 pairs wrong, both hosts on the wrong build), green on
+a survey matching the declaration, and red again when a single host reverts one
+setting or drifts one build.
+
+**Two consequences, stated rather than discovered later.**
+
+1. `hosts.json` sits under `contract.HARNESS_SURFACE`, so it **moves the serving
+   pin**. That is where it belongs — a declaration of required host state
+   outside the pinned harness is the drift it exists to stop — and it lands
+   before the campaign re-run, alongside #337's measured
+   `gpu_memory_utilization`, so the re-run banks one pin rather than three.
+2. Applying the state is still a host action. The repository states the unit
+   content and checks the result; it does not write to a rig's unit files, and a
+   setter that could silently disagree with this file would be the same drift
+   wearing a different hat.
+
+**A defect found in the closing work, recorded because it is the failure mode
+this project keeps meeting.** The new module's `campaign()` was first written
+as `def campaign(evidence: Path = EVIDENCE)`. A default argument is evaluated at
+import, so pointing the module at a mutated copy of the evidence did nothing and
+the sweep meant to demonstrate the two checks green could not move them — they
+were red against the real directory the whole time and looked correct. It is the
+exact seam `tests/test_calibration_conflicts.campaign` documents keeping open,
+and it was caught only because the demonstration was actually run rather than
+assumed. Fixed to resolve at call time before either check landed.

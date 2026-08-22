@@ -875,8 +875,11 @@ def _declared_settings(directory: Path) -> dict[str, set[str]]:
         "2026-08-22: decided — every host declares them; an engine default "
         "inherited in silence is not a declaration (owner). Both rigs were "
         "declared live on 2026-08-22, so this goes green on the next "
-        "campaign's survey — nothing in this repo sets or asserts them, which "
-        "is how it regresses"
+        "campaign's survey. The regression risk this reason first named — "
+        "nothing in the repo stating or asserting the values — is closed by "
+        "tools/bench/serving/configs/hosts.json and "
+        "tests/test_declared_host_state.py, which check the VALUE where this "
+        "checks the name"
     ),
 )
 def test_both_hosts_declare_the_settings_that_decide_residency() -> None:
