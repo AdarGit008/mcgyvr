@@ -381,7 +381,7 @@ def test_the_overhead_constant_is_derived_from_the_residue_and_not_chosen(
 
     assert min(residues.values()) >= 300, residues
     assert (
-        vllm.NON_KV_OVERHEAD_MIB == max(residues.values()) + vllm.ALLOCATOR_BLOCK_MIB
+        max(residues.values()) + vllm.ALLOCATOR_BLOCK_MIB == vllm.NON_KV_OVERHEAD_MIB
     ), (
         f"the residues are {residues}; the constant is derived as the largest "
         f"of them plus one {vllm.ALLOCATOR_BLOCK_MIB} MiB block, and "

@@ -897,7 +897,7 @@ ALLOCATOR_BLOCK_MIB = 256
 #:     srv2 / 14B        len 1024   card 11,479   residue  337 MiB
 #:     srv2 / Qwen3-4B   len 7168   card 11,101   residue  477 MiB
 #:
-#: So the residue is 337–477 MiB and does not track model size — it tracks the
+#: So the residue is 337-477 MiB and does not track model size — it tracks the
 #: KV cache, which is what the block padding is on. **477 + 256 = 733**: the
 #: largest residue any cell has produced, plus the block it must be able to
 #: take on top of it. Both halves are readings.
