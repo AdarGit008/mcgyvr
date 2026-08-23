@@ -89,6 +89,7 @@ from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from mcgyvr.gate.preflight import check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
@@ -230,6 +231,54 @@ def _bench_observed() -> types.ModuleType:
 
 
 observed_module = _bench_observed()
+
+
+#: The card, read once per task while the sweep runs (#348). Beside `run.json`
+#: rather than inside it: `run.json` must stay small enough that a human diffs
+#: two of them, and this is a time series. Appended and fsynced per sample, the
+#: run contract's own shape for a journal — a dead process leaves what it had.
+CARD_SAMPLES_FILE = "card.jsonl"
+
+
+def _card_sampler(endpoint: str, out) -> object | None:
+    """The per-task card reader, or ``None`` when there is no host to read.
+
+    **Why the scored path reads the card at all.** Every reading that describes
+    the machine already existed as a declared constant, and the only caller was
+    the serving *calibration* runner — so a sweep that thermally throttled for
+    an hour recorded slower `latency_s` and nothing that said why. The run
+    contract's §3 states the principle ("a strange number months later can be
+    traced to a throttling card instead of guessed at", ADR-0026 lens 1); this
+    is where it is implemented for the instrument that ships the numbers.
+
+    **Per task, not on a timer.** A task is the unit rows are grouped by, the
+    reading costs one ssh against a task that takes minutes, and a timer would
+    buy no resolution at this cadence while adding a thread to a process that
+    drives a rig over ssh.
+
+    Absent host, absent sampler — a hosted endpoint has no card to read, and
+    that is an ordinary state rather than a degraded one.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = sys.modules.get("serving_pin")
+        if module is None:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["serving_pin"] = module
+            spec.loader.exec_module(module)
+        host = urlsplit(endpoint).hostname or ""
+        if not host or host in ("localhost", "127.0.0.1"):
+            return None
+        return module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+    except Exception:
+        # Same promise `_host_block` makes: a recording must never be the
+        # reason a sweep produces no rows. Unlike that one there is nothing to
+        # record the failure ON yet — the file this would write is the file
+        # that did not open — so the absence IS the record.
+        return None
 
 
 def _host_block(endpoint: str) -> dict[str, object]:
@@ -1755,6 +1804,7 @@ def main() -> int:
         file=sys.stderr,
     )
     plan = draw_plan(args.draws, args.sampled_temperature)
+    sampler = _card_sampler(worker.endpoint, args.out)
 
     aborted = None
     dead_streak = 0
@@ -1763,6 +1813,10 @@ def main() -> int:
         rows_path.open("a", encoding="utf-8") as handle,
     ):
         for task in tasks:
+            # Before the task's draws, so a reading is never taken while this
+            # process is blocked on the endpoint it is asking about.
+            if sampler is not None:
+                sampler.sample(task.id, datetime.now(UTC).isoformat(timespec="seconds"))
             rows = measure_task(
                 task,
                 runner,

@@ -40,6 +40,8 @@ owner's under ADR-0027 D7 and belongs in its own change.
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import re
 import socket
 import sys
@@ -281,6 +283,139 @@ def width(
 #: the key is present on every host block rather than only on the ones that
 #: could answer. An absent key means the record predates the contract; this is
 #: a refusal, and it says so.
+#: What a sweep reads off the card, composed from the constants that already
+#: declare each part rather than from a fourth copy of ``nvidia-smi`` (#348).
+#: One ssh, three readings: the card's own state, which processes hold it and
+#: how much each holds, and the machine's load.
+#:
+#: **Semicolons BETWEEN the sections and ``&&`` inside them.** The separator
+#: between sections is `;` for the reason ``LEVEL_STATE_COMMAND`` gives — one
+#: failing reading must not take the others down with it — and the separator
+#: before each sentinel is `&&` for the reason ``COMPUTE_APPS_PROBE`` gives: a
+#: query that printed nothing on stdout would otherwise have its sentinel
+#: printed anyway, and an UNREAD card would parse as an empty one.
+SWEEP_CARD_END = "__sweep_card_end__"
+SWEEP_PROBE = (
+    f"{contract.CARD_STATE_COMMAND} && echo {SWEEP_CARD_END}; "
+    f"{contract.COMPUTE_APPS_PROBE}; "
+    "cat /proc/loadavg"
+)
+
+#: How many consecutive failed readings before the sampler stops taking them.
+#:
+#: **The recorder must not be able to damage the run it is recording.** A
+#: reading costs one ssh — measured p50 0.956 s and p95 1.40 s
+#: (records/evidence/calibration-2026-08-19/README.md:20) — and an ssh to a host
+#: that has GONE AWAY costs its ``ConnectTimeout`` instead, 15 s, every single
+#: time. Over a several-hundred-task sweep that is hours of a measurement run
+#: spent learning one fact repeatedly. Three is small enough that a sweep never
+#: pays much for a dead host and large enough that one dropped packet does not
+#: end the sampling.
+SWEEP_GIVE_UP_AFTER = 3
+
+
+def sweep_reading(raw: str | None) -> dict[str, Any]:
+    """:data:`SWEEP_PROBE`'s output, sliced by sentinel and parsed by section.
+
+    **Sliced explicitly rather than by the shape of a line.** Handing the whole
+    reading to each parser happens to work today — a card line has four
+    comma-separated fields and ``compute_apps`` drops anything that is not two
+    — but that is a guard doing a second job by luck, and the day a driver adds
+    a column it stops being luck. Every section is delimited, and a section
+    whose delimiter is missing is a section that did not complete.
+
+    Three states per reading, as everywhere else (ADR-0027 D2): a value, or
+    ``null`` **with a reason**, never a zero standing in for an unknown. In
+    particular ``placements: null`` is "the card was not read" and ``[]`` is
+    "the card answered and holds nothing" — the distinction the sentinel in
+    ``COMPUTE_APPS_PROBE`` exists to preserve, carried through to here.
+    """
+    if raw is None:
+        return {
+            "card": contract.card_state(None, SWEEP_PROBE),
+            "placements": None,
+            "host_loadavg": None,
+            "refused": "the reading did not come back: the host did not answer",
+        }
+    head, seen_card, rest = raw.partition(SWEEP_CARD_END)
+    lines = [line for line in raw.splitlines() if line.strip()]
+    return {
+        # Without its sentinel the card section did not complete, and `head`
+        # would then be the whole reading — so it is not offered to the parser.
+        "card": contract.card_state(head if seen_card else None, SWEEP_PROBE),
+        "placements": contract.compute_apps(rest if seen_card else raw),
+        "host_loadavg": contract.loadavg(lines[-1] if lines else None),
+    }
+
+
+class CardSampler:
+    """One reading of the card per unit of work, and a rule for when to stop.
+
+    **Nothing reads what this writes** — the same discipline as the `observed`
+    block, and stated here for the same reason: it is comprehensive precisely
+    because nothing is admitted from it, and a later lane wiring a guard to a
+    throttle mask would silently turn a fact about a cell into a refusal of it.
+    Whether a throttled card should refuse a measurement is a real question and
+    it is a different one, with a different owner.
+
+    The sampler holds state because giving up is stateful. It is deliberately
+    not a thread: at one reading per task the extra resolution a timer would buy
+    is nil, and a background thread inside a process that drives a rig over ssh
+    is a concurrency question nobody needs to answer for it.
+    """
+
+    def __init__(
+        self, host: str, path: Path, give_up_after: int = SWEEP_GIVE_UP_AFTER
+    ) -> None:
+        self.host = host
+        self.path = path
+        self.give_up_after = give_up_after
+        self.consecutive_failures = 0
+        self.stopped: str | None = None
+        self.taken = 0
+
+    def sample(self, label: str, at: str) -> dict[str, Any] | None:
+        """Append one reading, or ``None`` once this sampler has given up.
+
+        ``at`` is passed in rather than read here so the row's clock is the
+        run's clock, and so a test can state the instant instead of racing it.
+
+        Never raises. A sampler that could end a sweep would be worse than no
+        sampler: the run is the thing being protected, and this is a recording.
+        """
+        if self.stopped is not None or not self.host:
+            return None
+        try:
+            reading = sweep_reading(contract.ssh(self.host, SWEEP_PROBE))
+        except Exception as error:  # pragma: no cover - defence, not a path
+            reading = {
+                "card": contract.card_state(None, SWEEP_PROBE),
+                "placements": None,
+                "host_loadavg": None,
+                "refused": f"the reading raised: {type(error).__name__}: {error}",
+            }
+        row = {"at": at, "label": label, "host": self.host, **reading}
+
+        answered = reading["card"].get("why") is None
+        self.consecutive_failures = 0 if answered else self.consecutive_failures + 1
+        if self.consecutive_failures >= self.give_up_after:
+            self.stopped = (
+                f"{self.consecutive_failures} consecutive readings did not "
+                f"answer, so sampling stopped after {self.taken + 1} of them "
+                "rather than spending an ssh timeout per task on a host that "
+                "has gone away. The samples before this one stand"
+            )
+            row["sampling_stopped"] = self.stopped
+
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        self.taken += 1
+        return row
+
+
 #: The ways a host block can hold no readings. **They were one value — `{}` —
 #: and that is #349**: "there is no machine to log into", "the dispatch address
 #: is loopback so it names whatever box resolved it", "the name did not resolve"
