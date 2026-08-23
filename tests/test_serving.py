@@ -1768,6 +1768,41 @@ def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
     assert launcher.check("test") == []
 
 
+def test_a_dry_run_is_reported_to_but_not_refused_by_a_live_driver(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """E14 protects a rig from a second CLAIMANT, and a dry run claims nothing.
+
+    Found by this file failing for a reason unrelated to what it asserts: a
+    campaign was running on this client, so `--dry-run` — which prints the
+    driver text and returns — was refused by a guard about throughput
+    contention, and the check about shell constructs reported on the state of
+    the machine instead. That is the shape this lane keeps meeting: a check
+    that fails because of WHEN it ran rather than what it asserts.
+
+    The fact is still printed on a dry run, because suppressing it would trade
+    one silent failure for another. Only the refusal is scoped.
+    """
+    launcher = _launcher()
+    monkeypatch.setattr(
+        launcher, "already_running", lambda: ["705744 python run.py --config x"]
+    )
+
+    assert (
+        launcher.main(
+            ["--campaign", "--dry-run", "--log", str(tmp_path / "unused.log")]
+        )
+        == 0
+    )
+    dry = capsys.readouterr().out
+    assert "705744" in dry, "the operator must still be told a driver is up"
+    assert "REFUSED" not in dry
+
+    # And the refusal is intact on the path it protects: a real launch.
+    assert launcher.main(["--campaign", "--log", str(tmp_path / "unused.log")]) == 1
+    assert "REFUSED" in capsys.readouterr().out
+
+
 def test_an_interrupted_driver_lets_go_of_the_rigs(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

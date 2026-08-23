@@ -403,9 +403,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"verified {len(MARKERS)} markers present and {len(WITHDRAWN)} absent")
 
     # E14, checked rather than assumed.
+    #
+    # **Reported on a dry run, refused only on a real one.** The guard protects
+    # a rig from a second CLAIMANT, and a dry run claims nothing: it prints the
+    # driver text and returns. Refusing it made a check about contention decide
+    # the outcome of a check about shell constructs — the shape this lane keeps
+    # meeting, a check that fails because of WHEN it ran rather than what it
+    # asserts. It also made the driver unpreviewable during a campaign, which is
+    # exactly when the next one is being written. The fact is still printed, so
+    # nothing is hidden; only the refusal is scoped to what it protects.
     running = already_running()
     if running:
-        print("REFUSED — a campaign driver is already running on this client:")
+        print(
+            "REFUSED — a campaign driver is already running on this client:"
+            if not args.dry_run
+            else "NOTE — a campaign driver is already running on this client:"
+        )
         for line in running:
             print(f"  {line}")
         print(
@@ -413,7 +426,8 @@ def main(argv: list[str] | None = None) -> int:
             "requests with THIS machine's clock, so a second driver would put "
             "its own contention inside the throughput curve."
         )
-        return 1
+        if not args.dry_run:
+            return 1
 
     # **The stop sentinel.** The phases used to be `;`-joined, and that is the
     # one thing the interrupt path could not survive. `pkill -P $CHILD` and
