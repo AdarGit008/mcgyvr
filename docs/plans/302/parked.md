@@ -47,3 +47,32 @@ Growth buys: the one resolving stratum 8.5→6.7pp (1.27x); three function-imple
 newly resolve at ~3.9pp; six strata never resolve at 400. It waits on three things the trunk
 will produce: measured per-lever psi at r2, the #271 wall decision applied, and a lever-class
 adoption-bar conversation. Growing earlier is spending authoring effort on unmeasurable cells.
+
+## Bench hardening — multi-model residency (4)
+
+**Owner ruling, 2026-08-23.** The bench stands up first. Around 90% of the measurements this
+instrument owes — levers, configs, the four commissioning cells — are one model, one engine, one
+family on a card. Multi-model, cross-family and cross-engine residency is bench *hardening*, and
+hardening is post-bench and post-trunk. Whatever can be tested quickly now stays; the rest parks
+here. This is a re-prioritisation, not a judgement: the four issues below are confirmed defects
+with their evidence in the tree, and none of them is withdrawn.
+
+**Stays, and needs nothing new.** Phase 0 of `records/headers/2026-08-22-coresidency-matrix.json`
+— every (rig, engine, model) loaded **alone**, recording the measured footprint in the shape its
+engine can state. 25 cells, ~60 min, single-model by construction, so it clears none of the four
+gates below and does not need to. #345 landed 2026-08-23 (ADR-0040) and unblocked its vLLM arm.
+Phase 5 is arithmetic over that footprint table, not extra cells.
+
+**Parked.** Phases 1 (ordered pairs), 2 (multiplicity), 3 (sets) and 4 (transitions), and the
+harness work that exists only to serve them: **#343** (`run.py:353-358` releases every other
+backend with no per-cell opt-out) · **#344** (`ollama.py:486` gates on `card_idle_before_load is
+True`, so a declared shared card is refused by construction) · **#346** (`ollama.py:361-378` is
+the only neighbour loader and can only speak ollama, in the wrong layer) · **#347** (vLLM's
+launch precondition is `free >= ceil(total × util)` at its default 0.92 — 5,160 MiB demanded on
+srv1's 6,144 MiB card against a 3,126 MiB real footprint, so a vLLM cell cannot load second
+there).
+
+**Two of the four are not about cross-engine at all**, and they return the moment multiplicity
+does rather than the moment mixed engines do: #344 fires on a second *ollama* model loading onto
+a card its sibling already holds, and #347 fires on a second *vLLM* instance on a second port.
+Parking multi-model parks them; a narrower "no cross-engine" ruling would not have.

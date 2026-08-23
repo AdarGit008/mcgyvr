@@ -258,6 +258,26 @@ in the wrong layer). Build order **#345 → #343 → #344 → #346**; #345 pays 
 alone, because it unblocks phase 0's vLLM arm. Feasibility is not in question —
 cross-engine co-residency was demonstrated by hand on both rigs 2026-08-22.
 
+**2026-08-23 — #343, #344 and #346 are PARKED, and so is the build order above.**
+Owner ruling: the bench stands up first. Around 90% of the measurements this
+instrument owes — levers, configs, the four commissioning cells — put one model,
+one engine and one family on a card, and multi-model residency is bench
+*hardening*, which is post-bench and post-trunk. The three issues stay open with
+their evidence intact; what moved is when they are built, not whether they are
+real. Recorded in `docs/plans/302/parked.md` and in a dated block on
+`records/headers/2026-08-22-coresidency-matrix.json`.
+
+**What survives the parking is the whole of what phase 0 needs, which is
+nothing.** A solo load onto an idle card clears every gate the three issues name,
+so the footprint table — the one output every later phase is predicted from — is
+runnable today on both rigs.
+
+**And two of the four are not about mixed engines.** `#344`'s gate fires on a
+second *ollama* model loading onto a card its sibling already holds, and `#347`'s
+precondition fires on a second *vLLM* instance on a second port. A ruling that
+had named cross-engine alone would have left both standing; parking multi-model
+is what actually retires them for now.
+
 ## 8. What this does not answer
 
 **Every cell is a cold start.** `contract.drop_page_cache` (`contract.py:665`)
