@@ -111,6 +111,11 @@ never wired. The pre-state check must **consume** these, not add a fourth.
 Four clauses, in check order: no process of ours; no container of ours; no
 model resident; the card back to its declared floor.
 
+**The second clause is narrowed to *running*** — the correction at the end of
+this section, dated 2026-08-23 (#352). The sentence above is left exactly as it
+was written; this pointer is beside it so a reader who acts on the list does not
+have to reach the correction first.
+
 This clause exists **because of `keep_alive: -1`**. Both rigs now declare
 `OLLAMA_KEEP_ALIVE=-1` and `OLLAMA_MAX_LOADED_MODELS=0`, so ollama never evicts
 anything on its own. A cell that dies between loading a neighbour and tearing
@@ -136,6 +141,78 @@ duplicates the release the next cell's `claim` performs anyway. Measured, the
 per-cell fixed cost is ~45-50 s, so a 60-cell campaign spends ~48 min on
 overhead: **about 9%, not the 1% first estimated.** That is the price of the
 guarantee and it is worth stating rather than hiding.
+
+### Correction, 2026-08-23 — the container clause is narrowed to running, and the stopped one is recorded instead
+
+The clause list above says **no container of ours**. The reading that implements
+it is `docker ps --filter ancestor=<image>`, and bare `docker ps` lists
+**running** containers only. The phase-0 footprint campaign
+(`records/evidence/2026-08-23-phase0-footprint/`) ended with every post-state
+reading clean on both rigs — `card=1 MiB`, `compute_apps=[]`, no resident
+models, no vLLM process, zero containers counted — and srv2 nonetheless holding
+
+```
+mcgyvr-vllm   Exited (1)
+```
+
+Nothing was broken, and nothing has been: `_start` runs `docker rm -f
+mcgyvr-vllm` before every launch (`vllm.py:1218`), so a stopped container never
+blocks the next cell. What was wrong is narrower and is the shape this lane
+keeps meeting — **a clause stated a property and the check that implemented it
+read something smaller.** An operator shown `own_containers_remaining: 0`
+(`vllm.py:581`) who then finds `mcgyvr-vllm Exited (1)` on the box has been
+answered truthfully and not asked-truthfully.
+
+**Narrowed rather than widened — the owner's ruling, 2026-08-23.** The clause in
+force is **no container of ours is running**. A stopped container holds nothing
+this rule protects: no card, no port, no process, and no claim on the next cell,
+which removes it before it launches. Requiring its absence would have made the
+contract's cheapest guarantee turn on a state that costs nothing to leave behind.
+
+**Because it costs nothing and carries something, it is recorded instead of
+required absent.** `readings()` takes `docker ps -a` (`vllm.py:475`), so a
+container of ours that exited appears in the record with its status, and the
+`docker inspect` that follows recovers the argv it died on. The gate is
+untouched and stays running-only (`vllm.py:570`): the record sees more than the
+gate acts on, and that asymmetry is the answer rather than a leftover. The two
+other `docker ps` reads keep their running-only form for reasons of their own —
+`release()` stops only what is running (`vllm.py:530`), and the `max-num-seqs`
+read wants the live container's argv, where `-a` would answer with the width of
+the run that failed (`vllm.py:1361`).
+
+**A failed cell's container is removed at once, because its reason is read
+first.** The third question was whether a container that failed should survive
+until somebody has looked at it. It should not: a campaign runs unattended for
+hours, and a launch that depends on a human having been there is not a launch.
+What was missing was the other half. `_start` now reads the engine's own last
+`LAUNCH_LOG_LINES` lines on the failure path and carries them, scrubbed, in the
+refusal (`vllm.py:109`, `vllm.py:1109`, `vllm.py:1264`) — where before it named
+two places to go and look, both of which the next cell destroys. The campaign
+paid for that once, re-running a cell byte-identically to recover an engine
+refusal reason `docker rm -f` had already taken. **The pip rig lost it the same
+way and nobody had noticed**: the launch redirects `> /tmp/vllm-serving.log`, so
+the next cell truncates the previous cell's log rather than appending to it.
+Both launchers are read.
+
+The scrubbing claimed is the one every host reading here carries and not a
+stronger one — credential URLs, home-directory prefixes and the published token
+shapes. An arbitrary `KEY=value` an operator invented is redacted by nothing in
+this tree, and the check below says so rather than implying otherwise.
+
+**Checks**, all in `tests/test_serving.py`:
+
+- `test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate`
+- `test_canary_the_running_only_reading_calls_the_same_host_empty`
+- `test_the_width_read_off_a_container_ignores_the_one_that_exited`
+- `test_a_launch_that_never_became_ready_carries_the_log_the_next_cell_destroys`
+- `test_the_engine_log_is_read_only_where_it_is_about_to_be_lost`
+- `test_a_log_the_host_would_not_give_up_is_a_reason_and_not_a_silence`
+- `test_the_engine_log_goes_through_the_same_scrubber_as_every_other_reading`
+
+Seven mutants, one edit each — the record back to running-only, the gate widened
+instead, `-a` swept into the width read, the log not read, the log read on every
+launch, an unreadable log left silent, the tail written unscrubbed. **All seven
+were killed.**
 
 ## 5. The comparison check
 

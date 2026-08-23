@@ -101,6 +101,13 @@ PORT = 8000
 #: How long to wait for a server to become ready after being started.
 START_TIMEOUT_S = 900.0
 
+#: Lines of the engine's own log kept beside a launch that never became ready
+#: (#352). Enough to hold a vLLM traceback together with the line naming the
+#: allocation it died on: the three #354 refusals ran 24 to 31 lines from the
+#: first frame to `torch.OutOfMemoryError`. Fewer cuts the cause off the top,
+#: and this text is scrubbed and written to the record, so more is a wall.
+LAUNCH_LOG_LINES = 40
+
 #: How long a weights digest may take. Measured 7.3s per 1.61 GB, so this
 #: covers a checkpoint far larger than anything these rigs hold.
 DIGEST_TIMEOUT_S = 1800.0
@@ -442,10 +449,30 @@ def _recorded_placements(host: str) -> tuple[list[dict[str, Any]] | None, str | 
 
 
 def readings(host: str) -> dict[str, Any]:
-    """This engine's own footprint on the machine."""
+    """This engine's own footprint on the machine.
+
+    **`-a` here, and nowhere else in this module (#352).** The run contract's
+    post-state clause is "no container of ours is *running*" — narrowed
+    2026-08-23, because a stopped container of ours holds no card, no port and
+    no process, and :func:`_start` removes it before every launch. It is still
+    ours and still named, so a reading that could not see it answered an
+    operator with something true and not with what they asked: phase 0 ended
+    with every post-state reading clean and srv2 holding `mcgyvr-vllm
+    Exited (1)`.
+
+    It is recorded, not gated. The count :func:`release` returns stays
+    running-only, which is exactly what the narrowed clause claims — the record
+    sees more than the gate acts on, and that asymmetry is the point rather
+    than an oversight.
+
+    The other two `docker ps` calls in this module must NOT take `-a`:
+    :func:`release` stops only what is running, and :func:`declared_slots`
+    reads a width off the live container, where a stopped one would answer with
+    a stale one.
+    """
     reads = {
         "processes": "ps -eo args | grep -E '[v]llm (serve|.*api_server)' || true",
-        "containers": f"docker ps --filter ancestor={CONTAINER_IMAGE} "
+        "containers": f"docker ps -a --filter ancestor={CONTAINER_IMAGE} "
         "--format '{{.Names}} {{.Status}}' | head -5 || true",
     }
     out: dict[str, Any] = {
@@ -533,6 +560,13 @@ def release(host: str) -> dict[str, Any]:
     )
     boxes = run(
         "own_containers",
+        # **Running only, deliberately (#352).** `released` is the orchestrator's
+        # exclusion gate, and what it must decide is whether anything of ours
+        # still holds the card. A stopped container holds none of it, and
+        # `_start` removes it before the next launch either way. The post-state
+        # clause was narrowed to match this reading rather than the reading
+        # widened to match the clause; :func:`readings` takes `-a` so the
+        # stopped one is still in the record.
         f"docker ps --filter ancestor={CONTAINER_IMAGE} -q 2>/dev/null | wc -l "
         "|| echo 0",
     )
@@ -1072,6 +1106,49 @@ def _ways_out(serve: dict[str, Any], budget_mib: int) -> str:
     )
 
 
+def _launch_log(host: str, how: str) -> str:
+    """The engine's own last words, read before anything removes them (#352).
+
+    **The decision this implements.** A failed cell's container is removed at
+    once — :func:`_start` still opens with `docker rm -f mcgyvr-vllm`, which is
+    what makes the next launch reliable — *because its reason is read first*.
+    The alternative, keeping the container until somebody has looked, makes
+    every launch depend on a human having been there, and a campaign that runs
+    for five hours unattended is exactly where that fails.
+
+    **The old answer cost a re-run.** The 2026-08-23 footprint campaign had to
+    run a cell byte-identically a second time to recover an engine refusal
+    reason, because the next cell's `docker rm -f` had already destroyed the
+    container holding it. The refusal below had told the operator to read
+    `docker logs mcgyvr-vllm`, which by then named nothing.
+
+    **The pip rig loses it the same way**, and that had not been noticed: the
+    launch redirects `> /tmp/vllm-serving.log`, so the next cell truncates the
+    previous cell's log rather than appending to it. Both launchers are read
+    here for that reason.
+
+    Never raises. :func:`contract.ssh` answers `None` for a host it could not
+    reach, and a log that could not be read must not replace a refusal that was
+    already true — the launch failed either way, and that is what is reported.
+    """
+    command = (
+        f"docker logs --tail {LAUNCH_LOG_LINES} mcgyvr-vllm 2>&1"
+        if how == "docker"
+        else f"tail -n {LAUNCH_LOG_LINES} /tmp/vllm-serving.log 2>/dev/null"
+    )
+    raw = contract.ssh(host, command)
+    if raw is None:
+        return "<the host did not answer, so the engine's own log was not read>"
+    # Scrubbed through the one scrubber, because this text reaches the log and
+    # the run record through the exception message, and a vLLM traceback quotes
+    # the argv and the paths beneath it. What that catches is credential URLs,
+    # home-directory prefixes and the published token shapes — not an arbitrary
+    # `KEY=value` an operator invented, which no reading in this tree redacts
+    # either. Stated rather than implied: this is the same guarantee every other
+    # host reading here carries, and not a stronger one.
+    return str(contract.scrub(raw))
+
+
 def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     """Launch the server with ``serve``, and wait for it to answer.
 
@@ -1177,6 +1254,14 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     # server that never came up was measured against anyway — the exact shape of
     # failure the rest of this module exists to prevent.
     if (ready or "").split()[:1] != ["ready"]:
+        # **Read before it is destroyed (#352).** Taken here, on the failure
+        # path, and not left as an instruction to the reader: the next cell of
+        # this campaign opens with `docker rm -f mcgyvr-vllm` on the docker rig
+        # and truncates `/tmp/vllm-serving.log` on the pip rig, so by the time
+        # anybody follows an instruction to go and look, the thing to look at
+        # is gone. That is not hypothetical — a cell was re-run byte-identically
+        # on 2026-08-23 to recover a reason this call would have kept.
+        tail = _launch_log(host, how)
         raise contract.NotCleanError(
             f"vllm on {host} did not reach health with an allocation inside "
             # SCRUBBED. Host output carries credentials — a systemd
@@ -1185,10 +1270,11 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             # field. The first version of this interpolated it raw.
             f"{START_TIMEOUT_S:.0f}s: {contract.scrub(ready)!r}. Launcher was "
             f"{how!r}. Nothing "
-            "was measured. Check /tmp/vllm-serving.log on the host (pip) or "
-            "`docker logs mcgyvr-vllm` (docker); the known causes here are a "
-            "cold weights download inside the start budget and a KV cache that "
-            "will not fit the card at the requested max_model_len."
+            "was measured. The known causes here are a cold weights download "
+            "inside the start budget and a KV cache that will not fit the card "
+            "at the requested max_model_len. The engine's own last "
+            f"{LAUNCH_LOG_LINES} log lines, read on the failure and before the "
+            f"next launch removes them: {tail!r}"
         )
     # The recorded command contains the exported environment VALUES — the very
     # thing an `env` block is used to pass a key through — so what is written

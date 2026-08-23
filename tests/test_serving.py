@@ -2435,3 +2435,311 @@ def test_an_entry_key_the_survey_reads_nowhere_is_refused(
                 ],
             }
         )
+
+
+# --- #352: the post-state container clause, narrowed and then recorded -------
+#
+# The run contract's second post-state clause read "no container of ours", and
+# the reading beneath it was `docker ps`, which lists RUNNING containers only.
+# Phase 0 ended with every post-state reading clean and srv2 holding
+# `mcgyvr-vllm  Exited (1)`: the clause asserted a property wider than the one
+# it tested. The clause is narrowed to "running" — owner's ruling, 2026-08-23,
+# `docs/run-contract-2026-08-22.md` §4 — and the stopped container is recorded
+# instead of required absent, because it is where a failed launch's reason
+# lives. The checks below hold both halves against the commands the module
+# actually sends, not against its source text.
+
+#: srv2's leftover, in the shape `docker ps -a` printed it on 2026-08-23.
+_STOPPED_CONTAINER = "mcgyvr-vllm Exited (1) 4 hours ago"
+
+#: The last line of a vLLM launch that died allocating KV cache — the #354
+#: refusal reason that had to be recovered by re-running a cell, because the
+#: next cell's `docker rm -f` destroyed the container holding it.
+_OOM_TAIL = (
+    "ERROR [core.py:770] EngineCore failed to start.\n"
+    "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB\n"
+)
+
+
+def _vllm_stopped_box(
+    monkeypatch: pytest.MonkeyPatch, name: str = "stopped_vllm"
+) -> tuple[Any, Any, list[str]]:
+    """The backend on a host whose only container of ours has exited.
+
+    The fake host is the discriminator, and that is deliberate: it answers the
+    `-a` reading with the exited container and every running-only reading with
+    nothing, which is what docker does. A fixture that answered both the same
+    way would let a check pass on a string rather than on a behaviour.
+    """
+    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+    sent: list[str] = []
+
+    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
+        sent.append(command)
+        if "docker ps" in command:
+            if " -a " in command:
+                return _STOPPED_CONTAINER
+            return "0" if "wc -l" in command else ""
+        if command.startswith("docker inspect"):
+            return '["--max-num-seqs", "8"] ["VLLM_SERVER_DEV_MODE=1"]'
+        if "pgrep" in command:
+            return "0"
+        if "nvidia-smi" in command:
+            return "1"
+        return ""
+
+    monkeypatch.setattr(vllm.contract, "ssh", _ssh)
+    return vllm, _ssh, sent
+
+
+def test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#352's two halves, on one host, in one check because they are one ruling.
+
+    The record must see it: a container named `mcgyvr-vllm` sitting `Exited (1)`
+    on the box is ours, and an operator told `own_containers_remaining: 0` who
+    then finds it has been answered truthfully and not asked-truthfully.
+
+    The gate must not act on it: `released` is the orchestrator's only exclusion
+    gate, and what it decides is whether anything of ours still holds the card.
+    A stopped container holds none of it. Widening the gate instead would have
+    made the contract's cheapest guarantee turn on a state that costs nothing.
+    """
+    vllm, _, _sent = _vllm_stopped_box(monkeypatch)
+
+    record = vllm.readings("h")["containers"]["stdout"]
+    assert "mcgyvr-vllm" in record and "Exited" in record, (
+        "the record cannot see a container of ours that exited — the exact "
+        "state phase 0 left on srv2 and reported as clean"
+    )
+
+    released = vllm.release("h")
+    assert released["own_containers_remaining"] == 0
+    assert released["released"] is True, (
+        "a stopped container held the gate shut: the clause was narrowed to "
+        "running, not the gate widened to match the clause"
+    )
+
+
+def test_canary_the_running_only_reading_calls_the_same_host_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shown to reject — the check above passes because of `-a` and nothing else.
+
+    Asserting that `readings` contains the string `-a` would confirm the
+    thermometer was installed (`tests/test_sink_conformance.py:11-18`). This
+    puts the pre-fix question to the same host and shows the answer differs:
+    without `-a` the exited container reads as absent, which is the defect
+    itself rather than a difference in phrasing.
+    """
+    vllm, ssh, sent = _vllm_stopped_box(monkeypatch, name="canary_stopped_vllm")
+    vllm.readings("h")
+    listings = [c for c in sent if c.startswith("docker ps") and "--format" in c]
+    assert len(listings) == 1, sent
+    assert " -a " in listings[0]
+    assert ssh("h", listings[0].replace("docker ps -a ", "docker ps ")) == "", (
+        "this host answers the running-only reading the same way, so the check "
+        "above would still pass with the fix reverted"
+    )
+
+
+def test_the_width_read_off_a_container_ignores_the_one_that_exited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`-a` belongs in the record and in exactly one place in this module.
+
+    `launched_width` reads `--max-num-seqs` off a container's own argv, and
+    `docker ps -a` lists the newest first — so a sweep that added `-a` here too
+    would answer with the width of the run that FAILED, which is the one number
+    this reading exists to get right. It answers `None` with its source instead,
+    which is ADR-0027 D2's shape: a reading that was not taken says so.
+    """
+    vllm, _, sent = _vllm_stopped_box(monkeypatch, name="width_stopped_vllm")
+    width = vllm.launched_width("h")
+    assert width == {"value": None, "source": None}, width
+    container_reads = [c for c in sent if c.startswith("docker ps")]
+    assert container_reads and not any(" -a " in c for c in container_reads), (
+        "the width reading took `-a` and would answer off the exited container"
+    )
+
+
+def _vllm_launch(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    binary: str,
+    image: str,
+    log: str | None,
+    ready: str = "timeout code=000 mib=0",
+    name: str = "launch_vllm",
+) -> tuple[Any, list[str]]:
+    """The backend on a host where a launch never becomes ready."""
+    vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
+    sent: list[str] = []
+
+    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
+        sent.append(command)
+        if "command -v vllm" in command:
+            return binary
+        if "docker images -q" in command:
+            return image
+        if command.startswith("docker logs") or command.startswith("tail -n"):
+            return log
+        # Before the bare `nvidia-smi` branch: the readiness loop calls
+        # nvidia-smi inside itself, so a fixture ordered the other way answers
+        # the loop with a card reading and never returns `ready` at all.
+        if command.startswith("for i in $(seq"):
+            return ready
+        if "memory.total" in command:
+            return "6144, 1024"
+        if "nvidia-smi" in command:
+            return "1024"
+        if "pgrep" in command:
+            return "0"
+        if "docker ps" in command:
+            return "0" if "wc -l" in command else ""
+        return "launched"
+
+    monkeypatch.setattr(vllm.contract, "ssh", _ssh)
+    return vllm, sent
+
+
+@pytest.mark.parametrize(
+    ("binary", "image", "how", "read"),
+    [
+        ("/usr/local/bin/vllm", "", "pip", "tail -n 40 /tmp/vllm-serving.log"),
+        ("", "sha256:c0ffee", "docker", "docker logs --tail 40 mcgyvr-vllm"),
+    ],
+)
+def test_a_launch_that_never_became_ready_carries_the_log_the_next_cell_destroys(
+    monkeypatch: pytest.MonkeyPatch, binary: str, image: str, how: str, read: str
+) -> None:
+    """#352's third box, and the one that cost rig time.
+
+    The refusal used to tell the reader to go and look at `docker logs
+    mcgyvr-vllm` or `/tmp/vllm-serving.log`. Both are gone by the time anybody
+    does: the next cell opens with `docker rm -f mcgyvr-vllm` on the container
+    rig, and the pip launch redirects `> /tmp/vllm-serving.log`, which truncates
+    the previous cell's rather than appending to it. The 2026-08-23 campaign ran
+    a cell byte-identically a second time to recover a reason this call keeps.
+
+    Both launchers, because the pip rig loses it the same way and that had not
+    been noticed — the instruction named two places and neither survived.
+    """
+    vllm, sent = _vllm_launch(
+        monkeypatch,
+        binary=binary,
+        image=image,
+        log=_OOM_TAIL,
+        name=f"launch_{how}_vllm",
+    )
+    with pytest.raises(vllm.contract.NotCleanError) as raised:
+        vllm._start(
+            "h",
+            "m",
+            # A fraction rather than bytes, so #354's pre-check has nothing
+            # to weigh and this stays a test about the launch failing.
+            {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
+        )
+
+    message = str(raised.value)
+    assert "torch.OutOfMemoryError" in message, (
+        "the refusal names where to look instead of carrying what was there"
+    )
+    assert repr(how) in message, "the refusal does not say which launcher ran"
+    assert any(c.startswith(read) for c in sent), f"{read!r} was never read: {sent}"
+
+
+def test_the_engine_log_is_read_only_where_it_is_about_to_be_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A launch that came up pays no ssh for a log nobody will read.
+
+    The reading is on the failure path because that is the only path where
+    something is about to be destroyed. Put at the end of every launch it would
+    be one more round trip per cell against a file that will still be there.
+    """
+    vllm, sent = _vllm_launch(
+        monkeypatch,
+        binary="/usr/local/bin/vllm",
+        image="",
+        log=_OOM_TAIL,
+        ready="ready",
+        name="ready_launch_vllm",
+    )
+    started = vllm._start(
+        "h",
+        "m",
+        # A fraction rather than bytes, so #354's pre-check has nothing
+        # to weigh and this stays a test about the launch failing.
+        {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
+    )
+    assert started["restarted"] is True
+    assert not [c for c in sent if c.startswith(("docker logs", "tail -n"))], sent
+
+
+def test_a_log_the_host_would_not_give_up_is_a_reason_and_not_a_silence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0027 D2 on the failure path: the refusal survives the reading failing.
+
+    `contract.ssh` answers `None` for a host it could not reach, and a host that
+    will not answer is exactly where a launch fails. A reading that could not be
+    taken must not replace the refusal that was already true — the launch failed
+    either way, and that is what is reported.
+    """
+    vllm, _ = _vllm_launch(
+        monkeypatch,
+        binary="/usr/local/bin/vllm",
+        image="",
+        log=None,
+        name="mute_launch_vllm",
+    )
+    with pytest.raises(vllm.contract.NotCleanError) as raised:
+        vllm._start(
+            "h",
+            "m",
+            # A fraction rather than bytes, so #354's pre-check has nothing
+            # to weigh and this stays a test about the launch failing.
+            {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
+        )
+    message = str(raised.value)
+    assert "did not reach health" in message, "the refusal lost its own reason"
+    assert "the engine's own log was not read" in message, (
+        "an unread log is a silence in the record rather than a stated gap"
+    )
+
+
+def test_the_engine_log_goes_through_the_same_scrubber_as_every_other_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This text reaches the run record through the exception message.
+
+    A vLLM traceback quotes the argv and the paths beneath it, which is where
+    the home directory naming a user and a published token shape both sit. The
+    guarantee claimed is the one every host reading here carries and not a
+    stronger one: an arbitrary `KEY=value` an operator invented is redacted by
+    nothing in this tree, and this check does not pretend otherwise.
+    """
+    vllm, _ = _vllm_launch(
+        monkeypatch,
+        binary="/usr/local/bin/vllm",
+        image="",
+        log=(
+            "loading /home/adaramir/.cache/huggingface/blob\n"
+            "--api-key sk-abcdefghijklmnopqrstuvwx\n"
+        ),
+        name="scrub_launch_vllm",
+    )
+    with pytest.raises(vllm.contract.NotCleanError) as raised:
+        vllm._start(
+            "h",
+            "m",
+            # A fraction rather than bytes, so #354's pre-check has nothing
+            # to weigh and this stays a test about the launch failing.
+            {"max_model_len": 2048, "max_num_seqs": 8, "gpu_memory_utilization": 0.5},
+        )
+    message = str(raised.value)
+    assert "sk-abcdefghijklmnopqrstuvwx" not in message
+    assert "/home/adaramir" not in message
+    assert "redacted" in message, "the tail reached the record without a scrub"
