@@ -216,9 +216,23 @@ observed_module = _bench_observed()
 def _host_block(endpoint: str) -> dict[str, object]:
     """What the serving MACHINE says, when it can be reached.
 
-    Empty when it cannot — a hosted endpoint has no host, and a run from a
-    machine without keys records what the endpoint said and nothing more. Never
-    raises: a capture must not be the reason a sweep produces no rows.
+    **Never raises**: a capture must not be the reason a sweep produces no rows.
+    That promise is kept and is not the same thing as swallowing what went
+    wrong — until #349 the `except` returned a bare `{}`, which is also what
+    `pin.host_block` returned for three unrelated states of its own, so "the
+    probe broke" and "there was nothing to probe" arrived as one value. Now the
+    exception reaches the record.
+
+    Scrubbed for the reason `observed.write`'s own except path is: an exception
+    message is server-derived text, it routinely carries the URL that failed,
+    and that URL may carry a credential.
+
+    **This function is byte-identical in the other rig**, and is held so by
+    `tests/test_bench_observed.py::test_the_two_rigs_read_the_host_the_same_way`.
+    It cannot move into `observed` — that module gathers no host readings by
+    design, which is what lets it work unchanged against an endpoint nobody can
+    log into — and it cannot import `pin`'s vocabulary here, because the case it
+    is reporting includes `pin` itself failing to load.
     """
     try:
         spec = importlib.util.spec_from_file_location(
@@ -231,8 +245,19 @@ def _host_block(endpoint: str) -> dict[str, object]:
             sys.modules["serving_pin"] = module
             spec.loader.exec_module(module)
         return dict(module.host_block(endpoint))
-    except Exception:
-        return {}
+    except Exception as error:
+        why = (
+            f"the host probe raised: {type(error).__name__}: {error}. Recorded "
+            "rather than raised, and recorded rather than dropped: a probe that "
+            "broke must not read as a machine there was nothing to read"
+        )
+        return observed_module.scrub(
+            {
+                "reason": "probe_failed",
+                "refused": why,
+                "width": {"value": None, "source": None, "refused": why},
+            }
+        )
 
 
 # The Python arm's conditions are the measured bundles themselves, not a copy of

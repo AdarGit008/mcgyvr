@@ -281,6 +281,45 @@ def width(
 #: the key is present on every host block rather than only on the ones that
 #: could answer. An absent key means the record predates the contract; this is
 #: a refusal, and it says so.
+#: The ways a host block can hold no readings. **They were one value — `{}` —
+#: and that is #349**: "there is no machine to log into", "the dispatch address
+#: is loopback so it names whatever box resolved it", "the name did not resolve"
+#: and "the probe raised" arrived identical, so a reading that BROKE could not
+#: be told from one that was never available. This module refuses that same
+#: collapse twice elsewhere on purpose — `gpu_idle`'s "`None` is NOT idle" and
+#: the compute-apps probe's `&&`-not-`;` sentinel, both so that an unread card
+#: cannot parse as an empty one — and did it here anyway.
+#:
+#: `PROBE_FAILED` is raised on the RUNNER's side of the import, which is the one
+#: place this module cannot reach: if `pin.py` itself will not load, nothing
+#: here runs to say so. It is named here so the vocabulary is closed and one
+#: `git grep` finds every arm of it.
+NO_HOSTNAME = "no_hostname"
+LOOPBACK = "loopback"
+UNRESOLVABLE = "unresolvable"
+PROBE_FAILED = "probe_failed"
+
+
+def unread(reason: str, why: str, **extra: Any) -> dict[str, Any]:
+    """A host block with no readings in it, saying WHICH of the ways it is one.
+
+    ``refused`` carries the sentence and ``reason`` the code, the pair ADR-0027
+    D2 asks for: a value, or ``null`` **with a reason**, never a silent empty.
+    An absent block still means the record predates the contract, and that is
+    now the only thing it means.
+
+    ``width`` is present on every arm so the shape does not fork. A consumer
+    reaching for it must not have to know which failure produced the block it
+    is reaching into — that is how a reader comes to write ``or 0``.
+    """
+    return {
+        "reason": reason,
+        "refused": why,
+        "width": {"value": None, "source": None, "refused": why},
+        **extra,
+    }
+
+
 NO_PROCESS_WIDTH: dict[str, Any] = {
     "value": None,
     "source": None,
@@ -291,10 +330,16 @@ NO_PROCESS_WIDTH: dict[str, Any] = {
 def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
     """Everything the serving MACHINE will say, plus what binds it to this run.
 
-    Returns ``{}`` when the host cannot be reached, which is an ordinary state:
-    a hosted endpoint has no host to log into, and a run from a machine without
-    keys records what the endpoint said and nothing more. The absence is visible
-    in the record rather than mistaken for a clean reading.
+    **Never returns a bare ``{}``** (#349). Holding no readings is an ordinary
+    state — a run from a machine without keys records what the endpoint said and
+    nothing more — but it is FOUR ordinary states, and they were one value. See
+    :func:`unread`: each arm carries its own ``reason`` and its own sentence, so
+    a reading that broke can be told from one that was never available.
+
+    A hosted endpoint that RESOLVES is not one of them, and was mistaken for one
+    when this was written up: it produces a full block whose ``machine.held`` is
+    ``False`` and whose ``why`` says the dispatch address is not this host's.
+    That is a stronger record than an empty one and it was already correct.
 
     ``host`` defaults to the endpoint's own hostname, which is right whenever
     the dispatch URL names the serving machine — and :func:`same_machine` is the
@@ -302,11 +347,28 @@ def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
     """
 
     host = host or (urlsplit(endpoint).hostname or "")
-    if not host or host in ("localhost", "127.0.0.1"):
-        return {}
+    if not host:
+        return unread(
+            NO_HOSTNAME,
+            f"no hostname in {endpoint!r}, so there is no machine to read. "
+            "This is a statement about the dispatch URL, not about a rig",
+        )
+    if host in ("localhost", "127.0.0.1"):
+        return unread(
+            LOOPBACK,
+            f"the dispatch address {host!r} is loopback, so it names whatever "
+            "box resolved it rather than a machine these readings could be "
+            "bound to. `same_machine` cannot refute a claim it cannot address",
+        )
     machine = same_machine(host, endpoint)
     if machine.get("held") is None and not machine.get("endpoint_resolves_to"):
-        return {}
+        return unread(
+            UNRESOLVABLE,
+            "the endpoint could not be resolved to an address, so nothing "
+            f"read off {host!r} could be tied to the server that answered: "
+            + str(machine.get("why") or "no reason given"),
+            machine=machine,
+        )
 
     found: dict[str, Any] = {}
     for name, pattern in _ENGINES:

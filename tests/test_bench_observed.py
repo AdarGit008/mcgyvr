@@ -11,6 +11,7 @@ because nobody admitted it.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import subprocess
@@ -1092,3 +1093,176 @@ def test_both_runners_pass_the_width_they_dispatched_at(rig: str) -> None:
     """
     source = (REPO / rig).read_text(encoding="utf-8")
     assert "dispatch_max_parallel=worker.as_endpoint().max_parallel" in source
+
+
+# --------------------------------------------------------------------------
+# #349: an empty host block meant four different things.
+#
+# "There is no machine to log into", "the dispatch address is loopback", "the
+# name did not resolve" and "the probe raised" all arrived as `{}`. The last of
+# those is a BROKEN reading and the first three are ordinary absences, so the
+# one value a reader could not act on was the one that mattered most. The same
+# collapse the harness refuses on purpose at `gpu_idle` and at the compute-apps
+# sentinel, so that an unread card cannot parse as an empty one.
+# --------------------------------------------------------------------------
+
+
+def test_an_endpoint_with_no_hostname_says_so_rather_than_reading_empty(
+    pin: Any,
+) -> None:
+    block = pin.host_block("not-a-url")
+    assert block["reason"] == pin.NO_HOSTNAME
+    assert "no hostname" in block["refused"]
+
+
+def test_a_loopback_endpoint_is_its_own_reason_not_an_absent_host(
+    pin: Any,
+) -> None:
+    """Loopback names whatever box resolved it, which is a different fact.
+
+    `same_machine` cannot refute a claim it cannot address, and that is worth
+    saying out loud: the readings may be perfectly good and simply unbindable.
+    """
+    block = pin.host_block("http://localhost:11434")
+    assert block["reason"] == pin.LOOPBACK
+    assert "loopback" in block["refused"]
+
+
+def test_a_name_that_will_not_resolve_carries_the_resolver_s_own_reason(
+    pin: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refusal that drops the cause underneath it is a refusal twice over."""
+    monkeypatch.setattr(
+        pin,
+        "same_machine",
+        lambda host, endpoint: {"held": None, "why": "srv9 did not resolve: no DNS"},
+        raising=True,
+    )
+    block = pin.host_block("http://srv9:11434")
+    assert block["reason"] == pin.UNRESOLVABLE
+    assert "no DNS" in block["refused"]
+    assert block["machine"]["held"] is None
+
+
+def test_a_probe_that_raises_reaches_the_record_instead_of_the_floor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `except` keeps its promise never to raise, and stops swallowing.
+
+    A sweep must never fail because a capture did. That is not the same thing
+    as a broken probe being indistinguishable from a machine there was nothing
+    to read, which is what a bare `{}` made it.
+    """
+    breadth = _by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
+
+    def explode(endpoint: str) -> dict[str, Any]:
+        raise RuntimeError("pin.py would not import")
+
+    monkeypatch.setattr(breadth, "_bench_observed", lambda: None, raising=False)
+    module = types.SimpleNamespace(host_block=explode)
+    monkeypatch.setitem(sys.modules, "serving_pin", module)
+    block = breadth._host_block("http://srv1:11434")
+    assert block["reason"] == "probe_failed"
+    assert "RuntimeError" in str(block["refused"])
+    assert "would not import" in str(block["refused"])
+
+
+def test_every_way_of_holding_no_readings_is_told_apart_from_the_others(
+    pin: Any,
+) -> None:
+    """The property, stated once: four states, four values, no collisions.
+
+    Written as a set comparison rather than four assertions because the defect
+    was not any one arm being wrong — it was two arms being EQUAL.
+    """
+    reasons = {
+        pin.host_block("not-a-url")["reason"],
+        pin.host_block("http://localhost:11434")["reason"],
+        pin.unread(pin.UNRESOLVABLE, "x")["reason"],
+        "probe_failed",
+    }
+    assert len(reasons) == 4
+    assert reasons == {
+        pin.NO_HOSTNAME,
+        pin.LOOPBACK,
+        pin.UNRESOLVABLE,
+        pin.PROBE_FAILED,
+    }
+
+
+def test_a_block_that_holds_no_readings_still_carries_the_width_key(
+    pin: Any, observed: Any
+) -> None:
+    """The shape must not fork by failure mode.
+
+    A consumer reaching for the width should not have to know which of the four
+    produced the block it is reaching into — that is how a reader comes to
+    write `or 0` and put a number nobody measured on disk.
+    """
+    for block in (
+        pin.host_block("not-a-url"),
+        pin.host_block("http://localhost:11434"),
+        pin.unread(pin.UNRESOLVABLE, "the name did not resolve"),
+    ):
+        assert "width" in block, "the key must be there before anyone reaches"
+        resolved = observed.resolve(block, 1)
+        served = resolved[observed.SERVED_WIDTH]
+        assert served["value"] is None
+        # The block's OWN reason, not the generic one `resolve` falls back to
+        # when no host block was captured at all. Asserting merely that SOME
+        # refusal is present passes on the fallback, which is how dropping the
+        # key from `unread` survived this check the first time it was swept.
+        assert served[observed.identity.REFUSALS] == block["refused"]
+
+
+def test_a_hosted_endpoint_that_resolves_is_not_one_of_the_empty_states(
+    pin: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Corrects the claim #349 was filed on, which named it as a fourth `{}`.
+
+    Measured: an endpoint whose name resolves goes past all three early
+    returns and produces a full block whose `machine.held` is False and whose
+    `why` says the dispatch address is not this host's. That is a stronger
+    record than an empty one, and it was already correct before this change.
+    """
+    monkeypatch.setattr(
+        pin,
+        "same_machine",
+        lambda host, endpoint: {
+            "held": False,
+            "endpoint_resolves_to": ["192.0.2.1"],
+            "why": "the dispatch address is NOT among this host's addresses",
+        },
+        raising=True,
+    )
+    monkeypatch.setattr(
+        pin, "instance", lambda host, pattern: {"present": False}, raising=True
+    )
+    block = pin.host_block("http://192.0.2.1:11434")
+    assert "reason" not in block
+    assert block["machine"]["held"] is False
+
+
+def test_the_two_rigs_read_the_host_the_same_way() -> None:
+    """`_host_block` is duplicated in both rigs, and nothing held it identical.
+
+    It cannot move into `observed`: that module gathers no host readings by
+    design, which is what lets it work unchanged against an endpoint nobody can
+    log into. And it cannot import `pin`'s vocabulary, because one of the cases
+    it reports is `pin` itself failing to load. So the copies stay, and this is
+    what stops them from drifting into two different answers to one question.
+
+    Compared as parsed code rather than as text: a comment may differ between
+    the two files, and behaviour may not.
+    """
+    parsed = []
+    for rig in ("tools/breadth/measure.py", "tools/bundle/measure.py"):
+        tree = ast.parse((REPO / rig).read_text(encoding="utf-8"))
+        found = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_host_block"
+        ]
+        assert len(found) == 1, rig
+        parsed.append(ast.unparse(found[0]))
+    assert parsed[0] == parsed[1]
