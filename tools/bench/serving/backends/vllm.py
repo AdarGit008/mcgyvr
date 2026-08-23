@@ -876,26 +876,39 @@ def _memory_args(serve: dict[str, Any]) -> list[str]:
     return ["--gpu-memory-utilization", str(serve["gpu_memory_utilization"])]
 
 
+#: One vLLM allocation block. All three refusals of 2026-08-23 died on the same
+#: sentence — *"Tried to allocate 256.00 MiB"* — so a declaration that leaves
+#: less than one block spare does not launch, whatever the rest of the sum says.
+ALLOCATOR_BLOCK_MIB = 256
+
 #: What a vLLM process holds on this card BESIDES its weights and the KV cache
-#: it declares. Four terms, each measured, none of them chosen:
+#: it declares, plus the one block it must still be able to take.
 #:
-#: * **470 MiB** driver and CUDA context — the gap between what ``nvidia-smi``
-#:   calls free on an empty card and the total the engine can see. srv1 reads
-#:   6,143 free and the engine says *"Initial free memory 5.54 GiB"*; srv2 reads
-#:   12,287 and the engine says 11.52 GiB. 470 and 491 MiB; the smaller is taken
-#:   because over-stating this term is what refuses a cell that would have run.
-#: * **133 MiB** peak activation and **51 MiB** non-torch — ADR-0039's table,
-#:   measured on both rigs 2026-08-22 and stable across all eight rows there.
-#: * **256 MiB** one allocator block. The three refusals of 2026-08-23 all died
-#:   on the same sentence — *"Tried to allocate 256.00 MiB"* — so a declaration
-#:   that leaves less than one block spare does not launch.
+#: **Measured, as a residue, not assembled from terms.** The first version of
+#: this constant added up ADR-0039's parts — 470 MiB driver and CUDA context,
+#: 133 MiB peak activation, 51 MiB non-torch, one 256 MiB block — and got 910.
+#: That sum double-counts: ``nvidia-smi``'s view of the card already contains
+#: the driver's reserve and the process's context, so those terms were being
+#: charged twice. The refit campaign of 2026-08-23 measured the residue
+#: directly, as ``card_mib_after_load - weights - declared_kv``, on three cells
+#: spanning 2.5 and 9.38 GiB of weights and 1.5 to 7.9 GiB of KV cache:
 #:
-#: Validated against phase 0's seven vLLM cells (2026-08-23): the measurements
-#: admit any value between **511 and 1,793 MiB** without changing a single
-#: verdict, and this sits near the middle of that window rather than at an edge.
-#: A constant with a window that narrow on either side would be a fitted number;
-#: this one is not.
-NON_KV_OVERHEAD_MIB = 910
+#:     srv1 / Qwen3-4B   len 2048   card  5,222   residue  358 MiB
+#:     srv2 / 14B        len 1024   card 11,479   residue  337 MiB
+#:     srv2 / Qwen3-4B   len 7168   card 11,101   residue  477 MiB
+#:
+#: So the residue is 337–477 MiB and does not track model size — it tracks the
+#: KV cache, which is what the block padding is on. **477 + 256 = 733**: the
+#: largest residue any cell has produced, plus the block it must be able to
+#: take on top of it. Both halves are readings.
+#:
+#: Ten vLLM cells now bear on it — phase 0's seven and the refit's three — and
+#: they admit any value from **511 to 1,145 MiB** without changing a verdict.
+#: 733 is not chosen inside that window; it is derived, and it lands there. The
+#: check re-derives both the value and the window from the two campaigns' own
+#: tables, so a cell with a larger residue fails it rather than quietly making
+#: the constant wrong.
+NON_KV_OVERHEAD_MIB = 733
 
 
 def _mib(byte_count: float) -> int:

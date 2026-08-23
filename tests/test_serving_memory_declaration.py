@@ -187,6 +187,7 @@ def test_the_calibration_probes_declare_bytes_too() -> None:
 # footprints that let a pre-check exist at all.
 
 PHASE0 = REPO / "records" / "evidence" / "2026-08-23-phase0-footprint"
+REFIT = REPO / "records" / "evidence" / "2026-08-23-phase0-refit"
 
 #: Free on an EMPTY card: nameplate minus the 1 MiB both rigs read at rest, as
 #: `footprints.csv`'s `card_mib_before` column records for all 25 cells.
@@ -205,6 +206,13 @@ PHASE0_WEIGHTS_BYTES = {
 #: eight of its rows on both rigs. Used only to solve for the two rigs' non-KV,
 #: non-weights residue below.
 WEIGHTS_1_5B_MIB = 1126
+
+#: Each rig's non-weights, non-KV residue as phase 0's 1.5B rows give it:
+#: `footprint - kv - weights`. Used only to DERIVE the weights of the 3B and 7B
+#: cells, whose own weights line was never captured -- those two set the
+#: phase-0 half of the ceiling and nothing else. The refit measures the residue
+#: directly and does not need this.
+PHASE0_RESIDUE_MIB = {"srv1": 3130 - 1792 - 1126, "srv2": 3183 - 1792 - 1126}
 
 
 def _phase0_cells() -> list[dict[str, Any]]:
@@ -300,54 +308,129 @@ def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(vllm: Any) -> 
             assert "Nothing was measured" in refused
 
 
-def test_the_overhead_constant_sits_inside_the_window_the_measurements_allow(
+def _refit_cells() -> list[dict[str, Any]]:
+    """The three cells phase 0 could not measure, re-declared so they fit.
+
+    Same models, same cards, a shorter `max_model_len` — the owner's choice of
+    2026-08-23 between the two ways out. They are the only cells in the tree
+    that show what a vLLM process holds BESIDES weights and KV at more than one
+    model size, which is what makes the residue below a measurement.
+    """
+    import csv as _csv
+
+    config = json.loads((REFIT / "config.json").read_text(encoding="utf-8"))
+    serves = {
+        (entry["hosts"][0], entry["id"]): entry["serve"] for entry in config["models"]
+    }
+    rows = _csv.DictReader(
+        (REFIT / "footprints.csv").read_text(encoding="utf-8").splitlines()
+    )
+    return [
+        {
+            "host": row["host"],
+            "model": row["model"],
+            "serve": serves[(row["host"], row["model"])],
+            "footprint_mib": int(row["card_mib_after_load"]),
+        }
+        for row in rows
+        if row["engine"] == "vllm" and row["outcome"] == "ok"
+    ]
+
+
+def test_the_refit_measured_all_three_cells_phase_0_could_not() -> None:
+    """#354's last box: the footprint table is complete rather than 22 of 25.
+
+    Three cells, all `ok`. If this shrinks, every figure derived from the
+    residue below is derived from fewer cells than it claims.
+    """
+    cells = _refit_cells()
+    assert len(cells) == 3, f"the refit measured 3 cells, parsed {len(cells)}"
+    assert {(c["host"], c["model"].split("/")[-1]) for c in cells} == {
+        ("srv1", "Qwen3-4B-AWQ"),
+        ("srv2", "Qwen3-4B-AWQ"),
+        ("srv2", "Qwen2.5-Coder-14B-Instruct-AWQ"),
+    }
+
+
+def test_the_overhead_constant_is_derived_from_the_residue_and_not_chosen(
     vllm: Any,
 ) -> None:
-    """910 MiB is not fitted to the data: the data allows 511 to 1,793.
+    """733 MiB is a reading plus a block, and the check re-derives both.
 
-    A constant chosen to sit just inside a boundary is a constant that will move
-    the next time anything is measured. This derives both edges from phase 0 and
-    asserts the value sits between them with room on each side, so the check
-    fails if a later cell narrows the window rather than only if the number
-    changes.
+    The first version of this constant was 910, assembled from ADR-0039's terms
+    — driver context, activation, non-torch, one allocator block. That sum
+    double-counts: `nvidia-smi`'s card figure already contains the driver's
+    reserve and the process's own context, so two of the four terms were being
+    charged twice, and it over-predicted every one of the three refit
+    footprints by 433 to 573 MiB. Assembling a constant from parts is what let
+    that go unnoticed; measuring the whole residue is what caught it.
 
-    * The **lower** edge is set by the refusals: the residue must be large
-      enough that srv2's Qwen3-4B -- which missed by one 256 MiB block -- is
-      refused. `free - weights - kv` there is 511 MiB.
-    * The **upper** edge is set by the cells that loaded, whose weights are
-      DERIVED rather than measured: `footprint - kv - residue`, where the
-      residue is solved from each rig's 1.5B row. srv1's 3B is the tightest at
-      1,793 MiB. Derived, and labelled derived, because vLLM's weights line was
-      captured only for the cells that failed.
+    The residue is `card_mib_after_load - weights - declared_kv`, and the
+    constant is the largest one seen plus the block a launch must still be able
+    to take. Both halves are re-read here, so a cell with a larger residue
+    fails this rather than silently making the constant wrong.
     """
-    cells = {(c["host"], c["model"]): c for c in _phase0_cells()}
-    residue = {}
-    for host in ("srv1", "srv2"):
-        cell = cells[(host, "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ")]
-        kv_mib = cell["serve"]["kv_cache_memory_bytes"] // 1024**2
-        residue[host] = cell["footprint_mib"] - kv_mib - WEIGHTS_1_5B_MIB
+    residues = {}
+    for cell in _refit_cells():
+        serve = cell["serve"]
+        weights = vllm._mib(serve["weights_bytes"])
+        kv = vllm._mib(serve["kv_cache_memory_bytes"])
+        residues[f"{cell['host']}/{cell['model']}"] = (
+            cell["footprint_mib"] - weights - kv
+        )
 
-    lower, upper = [], []
-    for (host, model), cell in cells.items():
-        kv_mib = cell["serve"]["kv_cache_memory_bytes"] // 1024**2
-        free = PHASE0_FREE_MIB[host]
-        if cell["loaded"]:
-            weights = cell["footprint_mib"] - kv_mib - residue[host]
-            upper.append(free - weights - kv_mib)
-        else:
-            weights = PHASE0_WEIGHTS_BYTES[model] // 1024**2
-            lower.append(free - weights - kv_mib)
-
-    floor, ceiling = max(lower), min(upper)
-    assert (floor, ceiling) == (511, 1793), (
-        f"the window phase 0 allows moved to ({floor}, {ceiling}); the constant "
-        "and its docstring are derived from (511, 1793) and both must be re-read"
+    assert min(residues.values()) >= 300, residues
+    assert (
+        vllm.NON_KV_OVERHEAD_MIB == max(residues.values()) + vllm.ALLOCATOR_BLOCK_MIB
+    ), (
+        f"the residues are {residues}; the constant is derived as the largest "
+        f"of them plus one {vllm.ALLOCATOR_BLOCK_MIB} MiB block, and "
+        f"{vllm.NON_KV_OVERHEAD_MIB} is not that"
     )
-    assert floor < vllm.NON_KV_OVERHEAD_MIB < ceiling
-    # Room on each side, so this is a choice inside a window rather than a fit
-    # to its edge. 910 sits 399 above the floor and 883 below the ceiling.
-    assert vllm.NON_KV_OVERHEAD_MIB - floor > 200
-    assert ceiling - vllm.NON_KV_OVERHEAD_MIB > 200
+
+
+def test_the_constant_lands_inside_the_window_every_measured_cell_allows(
+    vllm: Any,
+) -> None:
+    """Ten cells, one interval, and the derived value has to land in it.
+
+    * The **floor** is set by the cells that must be REFUSED: the residue has to
+      be large enough that srv2's Qwen3-4B at the campaign's original
+      declaration — which missed by exactly one allocator block — does not
+      launch. `free - weights - kv` there is 511 MiB.
+    * The **ceiling** is set by every cell that must be ADMITTED, and the
+      tightest is the refit's 14B at 1,145 MiB. Phase 0 alone allowed up to
+      1,793; measuring three more cells narrowed it, which is the direction
+      evidence is supposed to move a bound.
+
+    The window is a consequence of the verdicts, not a target: nothing here
+    tunes the constant to sit inside it. If a future cell narrows the window
+    past the derived value, this fails and the two have to be reconciled
+    against the cards rather than against each other.
+    """
+    free = PHASE0_FREE_MIB
+    floor, ceiling = [], []
+    for cell in _phase0_cells():
+        kv = vllm._mib(cell["serve"]["kv_cache_memory_bytes"])
+        if cell["loaded"]:
+            residue = cell["footprint_mib"] - kv - PHASE0_RESIDUE_MIB[cell["host"]]
+            ceiling.append(free[cell["host"]] - residue - kv)
+        else:
+            weights = vllm._mib(PHASE0_WEIGHTS_BYTES[cell["model"]])
+            floor.append(free[cell["host"]] - weights - kv)
+    for cell in _refit_cells():
+        serve = cell["serve"]
+        ceiling.append(
+            free[cell["host"]]
+            - vllm._mib(serve["weights_bytes"])
+            - vllm._mib(serve["kv_cache_memory_bytes"])
+        )
+
+    assert (max(floor), min(ceiling)) == (511, 1145), (
+        f"the window moved to ({max(floor)}, {min(ceiling)}); the constant's "
+        "docstring and ADR-0039's amendment both quote it and must be re-read"
+    )
+    assert max(floor) < vllm.NON_KV_OVERHEAD_MIB < min(ceiling)
 
 
 def test_the_refusal_names_both_ways_out_and_takes_neither(vllm: Any) -> None:
@@ -372,12 +455,12 @@ def test_the_refusal_names_both_ways_out_and_takes_neither(vllm: Any) -> None:
     message = str(raised.value)
     assert json.dumps(serve, sort_keys=True) == before, "the refusal edited the entry"
 
-    for term in ("weights 2,560 MiB", "declared KV 9,216 MiB", "910 MiB", "6,143 MiB"):
+    for term in ("weights 2,560 MiB", "declared KV 9,216 MiB", "733 MiB", "6,143 MiB"):
         assert term in message, f"the arithmetic does not name {term!r}"
-    assert "Short by 6,543 MiB" in message
+    assert "Short by 6,366 MiB" in message
     # Both ways out, with a figure each, and no instruction to take either.
     assert "max_num_seqs 2 at the declared max_model_len 8,192" in message
-    assert "max_model_len 2,376 at the declared max_num_seqs 8" in message
+    assert "max_model_len 2,533 at the declared max_num_seqs 8" in message
     assert "picks neither" in message
 
 

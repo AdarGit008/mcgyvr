@@ -250,6 +250,46 @@ This buys no throughput and changes no measurement. It converts a three-minute
 engine crash into a millisecond of arithmetic, over figures that already existed
 the moment phase 0 finished.
 
+### Correction, 2026-08-23 — the residue is measured, and 910 was a sum that double-counted
+
+The block above first recorded `NON_KV_OVERHEAD_MIB = 910`, assembled from four
+terms: 470 MiB driver and CUDA context, 133 MiB peak activation, 51 MiB
+non-torch, one 256 MiB allocator block. **That sum double-counts.**
+`nvidia-smi`'s card figure — which is what every footprint in this project is
+read from — already contains the driver's reserve and the process's own CUDA
+context, so two of the four terms were charged twice.
+
+The refit campaign (`records/evidence/2026-08-23-phase0-refit/`) ran the three
+cells and measured the residue directly, as
+`card_mib_after_load − weights − declared_kv`:
+
+| cell | declaration | card | residue |
+|---|---|---|---|
+| srv1 / `Qwen3-4B-AWQ` | seqs 8 × len 2,048 | 5,222 MiB | 358 MiB |
+| srv2 / `Qwen2.5-Coder-14B-AWQ` | seqs 8 × len 1,024 | 11,479 MiB | 337 MiB |
+| srv2 / `Qwen3-4B-AWQ` | seqs 8 × len 7,168 | 11,101 MiB | 477 MiB |
+
+337 to 477 MiB, against the 910 the sum predicted — it over-stated every one of
+the three footprints by 433 to 573 MiB. The residue also does **not** track
+model size: the 14B, with 9.38 GiB of weights, holds the *least* of the three.
+It tracks the KV cache, which is what the block padding sits on.
+
+**The constant is now 733 = 477 + 256** — the largest residue any cell has
+produced, plus the block a launch must still be able to take. Both halves are
+readings, and the check re-derives both from the campaigns' own tables rather
+than restating them, so a cell with a larger residue fails rather than quietly
+making the constant wrong.
+
+**The window narrows with it.** Phase 0's seven cells allowed 511–1,793 MiB;
+with the refit's three the interval is **511–1,145**, the ceiling set by the
+14B. Evidence moved a bound in the direction evidence is supposed to move one.
+733 is not chosen inside that window — it is derived, and it lands there.
+
+Assembling a constant from parts is what let the double-count go unnoticed for
+one commit; measuring the whole residue is what caught it. The pre-check's
+verdicts are unchanged on all ten cells either way, which is why this is a
+correction to a derivation rather than to a decision.
+
 ## Checks
 
 - `tests/test_serving_memory_declaration.py::test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape`
@@ -260,8 +300,13 @@ the moment phase 0 finished.
   — rule 2's second half.
 - `tests/test_serving_memory_declaration.py::test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell`
   — rule 6, over all seven of phase 0's vLLM cells: four admitted, three refused.
-- `tests/test_serving_memory_declaration.py::test_the_overhead_constant_sits_inside_the_window_the_measurements_allow`
-  — the 511–1,793 MiB window, derived from the campaign rather than restated.
+- `tests/test_serving_memory_declaration.py::test_the_overhead_constant_is_derived_from_the_residue_and_not_chosen`
+  — the constant is the largest measured residue plus one allocator block, both
+  re-read from the refit table.
+- `tests/test_serving_memory_declaration.py::test_the_constant_lands_inside_the_window_every_measured_cell_allows`
+  — the 511–1,145 MiB window over all ten cells, derived rather than restated.
+- `tests/test_serving_memory_declaration.py::test_the_refit_measured_all_three_cells_phase_0_could_not`
+  — the footprint table is complete: 25 of 25.
 - `tests/test_serving_memory_declaration.py::test_the_refusal_names_both_ways_out_and_takes_neither`
   — rule 6's second half, including that the entry is not edited.
 - `tests/test_serving_memory_declaration.py::test_a_declaration_is_checked_after_the_release_and_before_the_launch`

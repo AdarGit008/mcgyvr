@@ -1,0 +1,4 @@
+host,engine,model,card_mib_before,card_mib_after_load,process_mib,size,size_vram,fraction,fraction_refused_reason,outcome,refusal_reason
+srv1,vllm,thewimo/Qwen3-4B-AWQ,1,5222,5218,,,,"this engine allocates its whole budget or refuses to start, so a model is never partly on the card and there is no denominator (ADR-0040)",ok,
+srv2,vllm,Qwen/Qwen2.5-Coder-14B-Instruct-AWQ,11101,11479,11470,,,,"this engine allocates its whole budget or refuses to start, so a model is never partly on the card and there is no denominator (ADR-0040)",ok,
+srv2,vllm,thewimo/Qwen3-4B-AWQ,1,11101,11092,,,,"this engine allocates its whole budget or refuses to start, so a model is never partly on the card and there is no denominator (ADR-0040)",ok,
