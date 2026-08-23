@@ -170,9 +170,25 @@ which removes it before it launches. Requiring its absence would have made the
 contract's cheapest guarantee turn on a state that costs nothing to leave behind.
 
 **Because it costs nothing and carries something, it is recorded instead of
-required absent.** `readings()` takes `docker ps -a` (`vllm.py:475`), so a
-container of ours that exited appears in the record with its status, and the
-`docker inspect` that follows recovers the argv it died on. The gate is
+required absent.** `readings()` takes `docker ps -a` (`vllm.py:475`), so an
+exited container built from this engine's image appears in the record with its
+status, and the `docker inspect` that follows recovers the argv it died on —
+demonstrated the moment `-a` went in: srv2's `mcgyvr-vllm` gave back the refit
+cell's whole argument list, `--kv-cache-memory-bytes 1610612736` included.
+
+**Three corrections the first live reading forced, and they are why this is
+worth writing down.** (1) **srv1 was in the same state** — it holds
+`vllm-nemotron-4b Exited (1) 13 days ago`. The issue named srv2 alone because
+srv2 was where somebody happened to look. (2) **srv2 holds four, not one**, and
+only one of the four is ours: the `ancestor=` filter selects by image, and
+`mcgyvr-vllm` is the only name `_start` gives a container. The count beside it
+is nonetheless called `own_containers_remaining`, which is the same defect one
+level down and is **#355**, filed rather than fixed here. (3) **The `Exited (1)` this
+issue was filed on no longer exists.** srv2's `mcgyvr-vllm` now reads
+`Exited (0) About an hour ago` — the refit campaign's last cell replaced it. The
+evidence a defect was filed on was destroyed by the mechanism the defect
+describes, one cell later, which is the argument for the log capture below
+stated by the machine rather than by us. The gate is
 untouched and stays running-only (`vllm.py:570`): the record sees more than the
 gate acts on, and that asymmetry is the answer rather than a leftover. The two
 other `docker ps` reads keep their running-only form for reasons of their own —

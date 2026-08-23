@@ -453,12 +453,21 @@ def readings(host: str) -> dict[str, Any]:
 
     **`-a` here, and nowhere else in this module (#352).** The run contract's
     post-state clause is "no container of ours is *running*" — narrowed
-    2026-08-23, because a stopped container of ours holds no card, no port and
-    no process, and :func:`_start` removes it before every launch. It is still
-    ours and still named, so a reading that could not see it answered an
+    2026-08-23, because a stopped container holds no card, no port and no
+    process, and :func:`_start` removes it before every launch. It is still
+    there and still named, so a reading that could not see it answered an
     operator with something true and not with what they asked: phase 0 ended
     with every post-state reading clean and srv2 holding `mcgyvr-vllm
     Exited (1)`.
+
+    **What this listing holds is every container built from this engine's
+    image**, not every container this project created. The filter is
+    `ancestor=`, and `mcgyvr-vllm` is the only name :func:`_start` gives a
+    container of ours. Measured 2026-08-23 the moment `-a` went in: srv1 holds
+    `vllm-nemotron-4b Exited (1) 13 days ago` — so **srv1 was in the same state
+    the issue attributed to srv2 alone** — and srv2 holds four, of which one is
+    ours. That the count beside this is named `own_containers_remaining` is a
+    separate defect and is **#355**, filed rather than fixed here.
 
     It is recorded, not gated. The count :func:`release` returns stays
     running-only, which is exactly what the narrowed clause claims — the record
