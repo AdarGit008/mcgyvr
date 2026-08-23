@@ -1266,3 +1266,263 @@ def test_the_two_rigs_read_the_host_the_same_way() -> None:
         assert len(found) == 1, rig
         parsed.append(ast.unparse(found[0]))
     assert parsed[0] == parsed[1]
+
+
+# --- #353: the third term, measured on one engine and refused on the other ---
+#
+# `dispatch_max_parallel` bounds the realised batch only if this run was the
+# sole client, and nothing established that. It does now, on vLLM: the server's
+# own `vllm:request_success_total`, read at open and at close. Measured on srv1
+# 2026-08-23 against vllm 0.26.0 — five `/v1/completions` moved it by exactly
+# five, and `/health`, `/metrics`, `/ping`, `/v1/models`, three kinds of failed
+# request and two full `capture()` passes moved it by none. On ollama there is
+# no counter to difference and the field refuses with where the answer would be.
+
+#: srv1's own `/metrics`, cut to the series under test and to two label sets of
+#: the one that is summed. The zero-valued reasons are kept because they are
+#: what a real body carries: vLLM emits every `finished_reason` from the start.
+_METRICS_AT_OPEN = """\
+# HELP vllm:num_requests_running Number of requests in model execution batches.
+# TYPE vllm:num_requests_running gauge
+vllm:num_requests_running{engine="0",model_name="m"} 0.0
+# HELP vllm:request_success_total Count of successfully processed requests.
+# TYPE vllm:request_success_total counter
+vllm:request_success_total{engine="0",finished_reason="stop",model_name="m"} 3.0
+vllm:request_success_total{engine="0",finished_reason="length",model_name="m"} 1.0
+vllm:request_success_total{engine="0",finished_reason="abort",model_name="m"} 0.0
+# HELP http_requests_total Total HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{handler="/v1/models",method="GET",status="2xx"} 4.0
+"""
+
+_METRICS_AT_CLOSE = _METRICS_AT_OPEN.replace(
+    'finished_reason="stop",model_name="m"} 3.0',
+    'finished_reason="stop",model_name="m"} 9.0',
+).replace(
+    'finished_reason="abort",model_name="m"} 0.0',
+    'finished_reason="abort",model_name="m"} 2.0',
+)
+
+
+def _vllm_block(metrics: str | None) -> dict[str, Any]:
+    """A capture the way `capture()` returns one, cut to what #353 reads."""
+    native: dict[str, Any] = {"models": {"data": []}}
+    if metrics is not None:
+        native["metrics"] = metrics
+    return {
+        "endpoint": "http://srv1:8000",
+        "model": "m",
+        "engine": "vllm",
+        "native": native,
+    }
+
+
+def _write_pair(
+    observed: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    at_open: dict[str, Any],
+    at_close: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Both captures through the real `write`, returning the file it wrote."""
+    blocks = [at_open] if at_close is None else [at_open, at_close]
+    monkeypatch.setattr(
+        observed,
+        "capture",
+        lambda endpoint, model, timeout=0.0: blocks.pop(0),
+        raising=True,
+    )
+    for when in (observed.AT_OPEN, observed.AT_CLOSE)[: 1 if at_close is None else 2]:
+        observed.write(
+            tmp_path, "http://srv1:8000", "m", when=when, dispatch_max_parallel=1
+        )
+    written: dict[str, Any] = json.loads(
+        (tmp_path / observed.OBSERVED_FILE).read_text(encoding="utf-8")
+    )
+    return written
+
+
+def test_the_server_counter_states_what_the_server_finished_in_the_window(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The measurement, end to end, through the writer the runners call.
+
+    4 at open and 12 at close is a delta of 8 — and 8 is what the SERVER did,
+    not what this run did. The subtraction that makes it foreign traffic needs
+    the run's own dispatched rows, which live in `run.json` beside this file and
+    are deliberately not passed here (that would touch both runner call sites,
+    which are SURFACE). What is recorded is the term nobody else can supply.
+    """
+    written = _write_pair(
+        observed,
+        tmp_path,
+        monkeypatch,
+        at_open=_vllm_block(_METRICS_AT_OPEN),
+        at_close=_vllm_block(_METRICS_AT_CLOSE),
+    )
+    closed = written[observed.CAPTURES][observed.AT_CLOSE][observed.RESOLVED_SOURCE]
+    term = closed[observed.SERVER_COMPLETIONS]
+    assert term["at_open"] == 4.0 and term["at_close"] == 12.0
+    assert term["value"] == 8.0
+    assert term["counter"] == observed.VLLM_COMPLETIONS_SERIES
+    assert term["window"] == f"{observed.AT_OPEN} to {observed.AT_CLOSE}"
+
+
+def test_the_counter_is_summed_over_every_reason_a_request_can_end_for(
+    observed: Any,
+) -> None:
+    """One line of this series is a fraction of the count, never the count.
+
+    vLLM emits `vllm:request_success_total` once per `finished_reason` — stop,
+    length, abort, error, repetition on the 0.26.0 build. Reading the first
+    line, or the `stop` line, would undercount every run that ever hit a
+    length cap, and undercounting foreign traffic is the direction that turns
+    a contaminated run into a clean-looking one.
+    """
+    assert (
+        observed._counter_total(_METRICS_AT_OPEN, "vllm:request_success_total") == 4.0
+    )
+    assert (
+        observed._counter_total(_METRICS_AT_CLOSE, "vllm:request_success_total") == 12.0
+    )
+
+
+def test_a_series_whose_name_merely_starts_the_same_is_not_added_in(
+    observed: Any,
+) -> None:
+    """`startswith` over a metric name is a bug waiting for a longer name.
+
+    Prometheus names nest by convention — a `_bytes` or `_seconds` sibling of
+    any counter is an ordinary thing for a build to add — and summing one into
+    the other would inflate the window silently, which reads as foreign traffic
+    that was never there.
+    """
+    body = (
+        'vllm:request_success_total{finished_reason="stop"} 2.0\n'
+        'vllm:request_success_total_bytes{finished_reason="stop"} 999.0\n'
+    )
+    assert observed._counter_total(body, "vllm:request_success_total") == 2.0
+
+
+def test_an_engine_with_no_counter_refuses_and_names_where_the_answer_would_be(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ollama, and the reason is a fact about the ENGINE rather than about us.
+
+    Measured on srv1 2026-08-23: ollama answers 404 on `/metrics`, its
+    `llama-server` child answers 501 there naming `--metrics`, and the child's
+    own `/props` reports `endpoint_metrics: false`. The refusal has to carry
+    that, because "no route" and "we did not look" are the two states this
+    field exists to keep apart.
+    """
+    written = _write_pair(
+        observed,
+        tmp_path,
+        monkeypatch,
+        at_open={"engine": "ollama", "native": {}},
+        at_close={"engine": "ollama", "native": {}},
+    )
+    closed = written[observed.CAPTURES][observed.AT_CLOSE][observed.RESOLVED_SOURCE]
+    term = closed[observed.SERVER_COMPLETIONS]
+    assert term["value"] is None
+    reason = term[observed.identity.REFUSALS]
+    for named in ("--metrics", "endpoint_metrics", "llama-server", "id_task"):
+        assert named in reason, f"the refusal does not name {named!r}"
+
+
+def test_an_open_capture_keeps_its_reading_and_says_it_cannot_difference_yet(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The near edge of the window is the reading taken then, not one taken now.
+
+    A run whose file holds only an open capture did not finish, and this is what
+    that looks like: a number, and a refusal that says what is missing is the
+    other edge rather than the counter.
+    """
+    written = _write_pair(
+        observed, tmp_path, monkeypatch, at_open=_vllm_block(_METRICS_AT_OPEN)
+    )
+    opened = written[observed.CAPTURES][observed.AT_OPEN][observed.RESOLVED_SOURCE]
+    term = opened[observed.SERVER_COMPLETIONS]
+    assert term["value"] is None
+    assert term["reading"] == 4.0
+    assert "nothing to difference against" in term[observed.identity.REFUSALS]
+
+
+def test_a_counter_that_was_not_read_is_never_a_counter_reading_zero(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole failure mode of this issue, in the one place it can enter.
+
+    A vLLM whose `/metrics` did not come back must not resolve to a delta of
+    zero, which reads as measured sole-clientness. `_counter_total` answers
+    `None` for an absent body and for a body without the series, and both are
+    refusals here.
+    """
+    written = _write_pair(
+        observed,
+        tmp_path,
+        monkeypatch,
+        at_open=_vllm_block(None),
+        at_close=_vllm_block('vllm:num_requests_running{engine="0"} 0.0\n'),
+    )
+    for when in (observed.AT_OPEN, observed.AT_CLOSE):
+        term = written[observed.CAPTURES][when][observed.RESOLVED_SOURCE][
+            observed.SERVER_COMPLETIONS
+        ]
+        assert term["value"] is None, when
+        assert observed.identity.REFUSALS in term, when
+    assert observed._counter_total(None, "vllm:request_success_total") is None
+    assert observed._counter_total("", "vllm:request_success_total") is None
+
+
+def test_the_third_term_is_a_count_or_a_refusal_and_never_a_verdict(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`sole_client: true` because nothing was detected is what must not exist.
+
+    The field is named for what it holds — a count in a window — and carries no
+    boolean anywhere in it, on either engine, in either capture. A reader who
+    wants the verdict does the subtraction the note spells out, against a term
+    this module does not have.
+    """
+    for block in (_vllm_block(_METRICS_AT_CLOSE), {"engine": "ollama", "native": {}}):
+        written = _write_pair(
+            observed,
+            tmp_path / str(id(block)),
+            monkeypatch,
+            at_open=dict(block),
+            at_close=dict(block),
+        )
+        for when in (observed.AT_OPEN, observed.AT_CLOSE):
+            resolved = written[observed.CAPTURES][when][observed.RESOLVED_SOURCE]
+            term = resolved[observed.SERVER_COMPLETIONS]
+            assert not any(isinstance(v, bool) for v in term.values()), term
+            assert "sole_client" not in json.dumps(resolved)
+
+
+def test_a_window_with_no_near_edge_refuses_instead_of_reading_zero(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The asymmetric case, and the one a mutant found nothing guarding.
+
+    A server that was unreachable at open and answered at close leaves a close
+    reading with nothing to subtract. The tempting value is the close reading
+    itself, or zero; both are numbers nobody measured. A window needs two
+    edges, and a run that has only one is a run that did not finish the way
+    this block assumes.
+    """
+    written = _write_pair(
+        observed,
+        tmp_path,
+        monkeypatch,
+        at_open=_vllm_block(None),
+        at_close=_vllm_block(_METRICS_AT_CLOSE),
+    )
+    term = written[observed.CAPTURES][observed.AT_CLOSE][observed.RESOLVED_SOURCE][
+        observed.SERVER_COMPLETIONS
+    ]
+    assert term["value"] is None
+    assert term["reading"] == 12.0, "the close reading is kept, it is just not a delta"
+    assert "no near edge" in term[observed.identity.REFUSALS]

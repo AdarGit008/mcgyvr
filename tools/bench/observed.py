@@ -261,6 +261,37 @@ RESOLVED_SOURCE = "resolved"
 SERVED_WIDTH = "served_width"
 DISPATCH_MAX_PARALLEL = "dispatch_max_parallel"
 
+#: The third term (#353), and it is named for what it holds rather than for the
+#: conclusion it supports. `dispatch_max_parallel` bounds the realised batch
+#: only if this run was the sole client; this is how many requests the SERVER
+#: finished between the open and close captures, from the server's own counter.
+#: Subtract the run's own dispatched rows and the remainder is foreign traffic.
+#: **Never a boolean.** A field reading `sole_client: true` because nothing was
+#: detected is the exact failure this issue exists to avoid.
+SERVER_COMPLETIONS = "server_completions_in_window"
+
+#: The series that answers it on vLLM, and the label it is summed over.
+#: **Measured on srv1, 2026-08-23, against vllm 0.26.0 (`b1` pip launcher):**
+#: five `/v1/completions` moved it by exactly five; `/health`, `/metrics`,
+#: `/ping` and `/v1/models` moved it by none; a request that failed at the API
+#: layer (404 unknown model, 400 over-long prompt, 400 malformed body) moved it
+#: by none while moving `http_requests_total` by one each; and two full
+#: :func:`capture` passes moved it by none while moving `http_requests_total`
+#: by exactly seven each. **The reading does not perturb the counter it reads**,
+#: so the arithmetic needs no correction term for the harness's own traffic.
+#:
+#: Summed over `finished_reason`, whose values on this build are `stop`,
+#: `length`, `abort`, `error` and `repetition` — a request that reached the
+#: engine and ended for any reason is counted once.
+VLLM_COMPLETIONS_SERIES = "vllm:request_success_total"
+
+#: The broader view, kept for the refusal to cite rather than read here. It
+#: counts instrumented HTTP including `/v1/models` and every 4xx, and excludes
+#: `/health`, `/metrics` and `/ping`. A foreign client that only listed models
+#: shows here and not in the counter above, which is correct for the batching
+#: question: a request that never reached the engine never entered a batch.
+VLLM_HTTP_SERIES = "http_requests_total"
+
 #: Whether the host readings provably describe THIS run's server (serving/pin).
 PIN = "pin"
 
@@ -648,7 +679,151 @@ def _identify(native: dict[str, Any]) -> str:
     return UNREACHABLE
 
 
-def resolve(host: dict[str, Any], dispatch_max_parallel: int | None) -> dict[str, Any]:
+def _counter_total(metrics: Any, series: str) -> float | None:
+    """One Prometheus counter, summed over every label set it carries.
+
+    Summed rather than read: `vllm:request_success_total` is emitted once per
+    `finished_reason`, so any single line is a fraction of the count. Returns
+    `None` — never `0.0` — when the body is absent or carries no such series,
+    because a counter that was not read and a counter reading zero are the two
+    things this whole block exists to keep apart.
+
+    Text, not JSON. `/metrics` is Prometheus exposition format and is captured
+    raw for exactly this reason (`_capture_served`); a body that has been
+    through a JSON parser is not one this can read.
+    """
+    if not isinstance(metrics, str):
+        return None
+    total: float | None = None
+    for line in metrics.split("\n"):
+        if not line.startswith(series) or line.startswith("#"):
+            continue
+        head, _, value = line.rpartition(" ")
+        # `series` must match a whole metric name, not a prefix of a longer one:
+        # `vllm:request_success_total` and a hypothetical
+        # `vllm:request_success_total_bytes` would otherwise be added together.
+        if head[len(series) :][:1] not in ("", "{"):
+            continue
+        try:
+            total = (total or 0.0) + float(value)
+        except ValueError:
+            continue
+    return total
+
+
+#: What a refusal says on the engine that has no route at all. **Measured on
+#: srv1, 2026-08-23**, and it is a statement about the ENGINE rather than about
+#: this reading: ollama serves no `/metrics` on 11434 (404, both rigs), and its
+#: child `llama-server` answers `501 {"message": "This server does not support
+#: metrics endpoint. Start it with `--metrics`"}` while its own `/props`
+#: reports `endpoint_metrics: false`. ollama spawns that child and does not
+#: pass the flag, so the endpoint is off by ollama's choice, not by absence.
+#:
+#: `/slots` was the other candidate and is **refuted**: `id_task` is monotonic
+#: but its increment per request is neither 1 nor stable — measured 5.0, 7.0,
+#: 7.0 and 5.67 for identically shaped requests on one server, one model — so
+#: it detects that work happened and cannot count what happened.
+OLLAMA_NO_COUNTER = (
+    "this engine serves no request counter to difference: ollama answers 404 "
+    "on /metrics and its llama-server child answers 501 there, naming the "
+    "flag that would enable it (--metrics), which ollama does not pass when it "
+    "spawns the child; the child's /props reports endpoint_metrics false. Its "
+    "/slots id_task is monotonic but increments by neither 1 nor a stable "
+    "number per request (measured 5.0, 7.0, 7.0, 5.67 on srv1 2026-08-23), so "
+    "it cannot be turned into a count. The answer would be at llama-server's "
+    "own /metrics on 127.0.0.1, reachable with host access, if ollama were "
+    "started with a child argument this project does not control"
+)
+
+
+def _server_completions(
+    native: dict[str, Any] | None,
+    opened: dict[str, Any] | None,
+    when: str,
+) -> dict[str, Any]:
+    """How many requests the SERVER finished between the two captures (#353).
+
+    **Recorded, not concluded.** The value is the server's own counter delta.
+    Foreign traffic is that minus the rows this run dispatched, and the
+    subtraction is deliberately NOT done here: the dispatched-row count is a
+    property of the runner, it is not passed to this module, and passing it
+    would touch both runner call sites, which are SURFACE. It is in `run.json`
+    beside this file, so a reader has both terms and the arithmetic is written
+    down in the note. **Zero difference is measured sole-clientness; anything
+    else names how much else the server served.**
+
+    Three states, not two (ADR-0027 D2 applied to a claim rather than to a
+    reading): a number is *measured*; a refusal on an engine with no counter is
+    *looked in a way that cannot see*; a refusal at the open capture is *not
+    looked yet*. None of them is a boolean.
+    """
+    engine = (native or {}).get(ENGINE)
+    if engine == OLLAMA:
+        return {"value": None, identity.REFUSALS: OLLAMA_NO_COUNTER}
+
+    def counter(capture: dict[str, Any] | None) -> float | None:
+        return _counter_total(
+            ((capture or {}).get(NATIVE) or {}).get("metrics"),
+            VLLM_COMPLETIONS_SERIES,
+        )
+
+    reading = counter(native)
+    if reading is None:
+        return {
+            "value": None,
+            identity.REFUSALS: (
+                f"the capture holds no {VLLM_COMPLETIONS_SERIES} to read: "
+                f"the engine answered as {engine!r} and either served no "
+                "/metrics body or serves a build without that series. A "
+                "counter that was not read is not a counter reading zero"
+            ),
+        }
+
+    if when != AT_CLOSE:
+        return {
+            "value": None,
+            "counter": VLLM_COMPLETIONS_SERIES,
+            "reading": reading,
+            identity.REFUSALS: (
+                "an open capture has nothing to difference against; the "
+                "reading it took is kept here so the close capture can"
+            ),
+        }
+
+    before = counter((opened or {}).get(NATIVE_SOURCE))
+    if before is None:
+        return {
+            "value": None,
+            "counter": VLLM_COMPLETIONS_SERIES,
+            "reading": reading,
+            identity.REFUSALS: (
+                "the open capture carries no reading of this counter, so the "
+                "window has no near edge. A run whose file holds only a close "
+                "capture did not finish the way this block assumes"
+            ),
+        }
+    return {
+        "value": reading - before,
+        "counter": VLLM_COMPLETIONS_SERIES,
+        "at_open": before,
+        "at_close": reading,
+        # The window is named by the two captures rather than stamped with an
+        # instant: they ARE its edges, and `run.json`'s provenance beside this
+        # file already carries the clock (#325). A second timestamp here would
+        # be a third thing to keep in agreement with those two.
+        "window": f"{AT_OPEN} to {AT_CLOSE}",
+        "source": "the server's own counter, read twice",
+    }
+
+
+def resolve(
+    host: dict[str, Any],
+    dispatch_max_parallel: int | None,
+    *,
+    native: dict[str, Any] | None = None,
+    opened: dict[str, Any] | None = None,
+    when: str = AT_OPEN,
+) -> dict[str, Any]:
     """The two batching facts that decide whether a re-run can reproduce.
 
     **Why this block exists.** ``concurrency`` in :data:`PROBE_SET` is refused on
@@ -674,8 +849,13 @@ def resolve(host: dict[str, Any], dispatch_max_parallel: int | None) -> dict[str
     * Neither field alone establishes reproducibility, and a width above 1 does
       not refute it: the run may still have been serial in fact.
 
-    Sole-clientness is the third term, it is the one no reading here can state,
-    and it is deliberately absent rather than approximated.
+    Sole-clientness is the third term, and **as of #353 one engine can state
+    it and the other cannot** — which is why it is a recorded measurement with
+    a window rather than a boolean. On vLLM,
+    ``server_completions_in_window`` is the server's own count of requests it
+    finished between the two captures; subtract the rows this run dispatched
+    and the remainder is foreign traffic. On ollama there is no counter to
+    difference and the field refuses, naming where the answer would be.
 
     **The dispatch side is passed in, never read from a constant here.** It is a
     property of the endpoint the runner actually built (ADR-0027 D4: computed,
@@ -705,13 +885,20 @@ def resolve(host: dict[str, Any], dispatch_max_parallel: int | None) -> dict[str
     return {
         SERVED_WIDTH: served,
         DISPATCH_MAX_PARALLEL: dispatch,
+        SERVER_COMPLETIONS: _server_completions(native, opened, when),
         "note": (
-            "two bounds on the realised batch, never substituted for one "
+            "three terms on the realised batch, never substituted for one "
             "another. A served_width of 1 licenses 'the batch was 1'; a "
             "dispatch_max_parallel of 1 does not, because it bounds the batch "
-            "only if this run was the sole client and nothing here establishes "
-            "that. Sole-clientness is the third term and no reading in this "
-            "tree can state it. Nothing compares this block (ADR-0027 D7)"
+            "only if this run was the sole client. server_completions_in_window "
+            "is what settles that, and it is a count rather than a verdict: it "
+            "is the server's own tally of requests finished between the open "
+            "and close captures, so FOREIGN traffic is that value minus the "
+            "rows this run dispatched (in run.json beside this file), and zero "
+            "is measured sole-clientness. Where the engine serves no counter "
+            "the field refuses and names where the answer would be, which is a "
+            "fact about reach and not about the run. Nothing compares this "
+            "block (ADR-0027 D7)"
         ),
     }
 
@@ -799,7 +986,17 @@ def write(
     captures[when] = {
         NATIVE_SOURCE: block,
         HOST_SOURCE: host or {},
-        RESOLVED_SOURCE: resolve(host or {}, dispatch_max_parallel),
+        RESOLVED_SOURCE: resolve(
+            host or {},
+            dispatch_max_parallel,
+            native=block,
+            # The capture already on disk, which at close is the open one. It
+            # is read from `existing` rather than re-probed: the near edge of
+            # the window is the reading that was taken then, and taking it
+            # again now would measure a different moment.
+            opened=(existing.get(CAPTURES) or {}).get(AT_OPEN),
+            when=when,
+        ),
     }
     path.write_text(json.dumps({CAPTURES: captures}, indent=2) + "\n", encoding="utf-8")
     return path
