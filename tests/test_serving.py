@@ -801,6 +801,10 @@ def test_an_unusable_environment_variable_name_is_refused(
         backend.contract, "ssh", lambda host, command, timeout=None: "launched"
     )
     monkeypatch.setattr(backend, "release", lambda host: {})
+    # #354: the card is stubbed like everything else here, so the pre-launch fit
+    # check has no reading to work with and would refuse first. It is exercised
+    # in tests/test_serving_memory_declaration.py; this test is about env names.
+    monkeypatch.setattr(backend, "free_mib", lambda host: 12287)
     # The backend's OWN contract, not the fixture's: an earlier test clears the
     # shared module slot to prove each backend loads alone, so a later fresh
     # load builds a different `NotCleanError` class object and an identity check
@@ -811,7 +815,14 @@ def test_an_unusable_environment_variable_name_is_refused(
             "m",
             # ADR-0039: `serve` must declare its KV cache or `_start` refuses
             # before it reaches the env names this test is about.
-            {"kv_cache_memory_bytes": 1879048192, "env": {"A; touch /tmp/x; B": "1"}},
+            {
+                "kv_cache_memory_bytes": 1879048192,
+                # #354: an entry that declares bytes also declares the
+                # weights they are weighed against, or the fit check refuses
+                # before it reaches the env names.
+                "weights_bytes": 1181116006,
+                "env": {"A; touch /tmp/x; B": "1"},
+            },
         )
 
 
@@ -875,6 +886,10 @@ def test_no_host_reading_reaches_disk_unredacted(
     for module in (contract, ollama.contract, vllm.contract):
         monkeypatch.setattr(module, "ssh", _ssh)
     monkeypatch.setattr(vllm, "launcher", lambda host: "pip")
+    # #354: `_ssh` leaks on purpose and answers nothing numeric, so the card
+    # reading the fit check needs is absent and it would refuse before `_start`
+    # returns the launch record this test inspects.
+    monkeypatch.setattr(vllm, "free_mib", lambda host: 12287)
     monkeypatch.setattr(
         vllm.contract, "get_json", lambda url, timeout=None: {"vllm_config": leak}
     )
@@ -890,7 +905,11 @@ def test_no_host_reading_reaches_disk_unredacted(
                 "m",
                 # ADR-0039: declared so `_start` reaches the launch record this
                 # test reads; the value is irrelevant to redaction.
-                {"kv_cache_memory_bytes": 1879048192, "env": {"HF_TOKEN": token}},
+                {
+                    "kv_cache_memory_bytes": 1879048192,
+                    "weights_bytes": 1181116006,  # #354
+                    "env": {"HF_TOKEN": token},
+                },
             ),
             # The three vLLM host-derived returns the first version of this
             # test did not reach: the digest carries a home-directory snapshot

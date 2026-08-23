@@ -173,6 +173,83 @@ would edit what those cells say they ran under.
   declared footprint match the declaration, which is what makes a neighbour's
   room a number rather than a hope.
 
+## Amendment, 2026-08-23 — a byte declaration travels, and travelling is not fitting (#354)
+
+**The rule above is unchanged.** Nothing in the Decision is withdrawn, corrected
+or narrowed. What is added is its reach, which the record did not state and the
+rigs then found.
+
+Phase 0 of the footprint campaign
+(`records/evidence/2026-08-23-phase0-footprint/`) ran 25 cells. Three refused,
+all three vLLM, all three on an **empty** card, all three
+`torch.OutOfMemoryError` inside `_allocate_kv_cache`:
+
+| cell | card | free at start | declared KV | weights |
+|---|---|---|---|---|
+| srv1 / `thewimo/Qwen3-4B-AWQ` | 6,144 MiB | 5.54 GiB | 9.0 GiB | 2.5 GiB |
+| srv2 / `thewimo/Qwen3-4B-AWQ` | 12,288 MiB | 11.52 GiB | 9.0 GiB | 2.5 GiB |
+| srv2 / `Qwen2.5-Coder-14B-AWQ` | 12,288 MiB | 11.52 GiB | 12.0 GiB | 9.38 GiB |
+
+**Each declaration is arithmetically correct.** Qwen3-4B's own `config.json` on
+the rig gives 36 layers, 8 KV heads, 128 head_dim, bfloat16, so
+36 × 8 × 128 × 2 × 2 = **147,456 B/token**, and 65,536 tokens of it is
+**exactly** the declared 9,663,676,416. The 14B comes out at 196,608 B/token and
+exactly its declared 12,884,901,888 by the same route. Rule 2 was applied
+correctly in every case and produced a number these cards cannot hold.
+
+Why it took a campaign to find: **every vLLM figure this project held came from
+the 1.5B**, whose geometry is 28 layers × **2** KV heads — four times narrower
+per layer than Qwen3-4B's. The rule was validated on the one model whose
+declaration happened to fit everywhere it was carried, and "bytes travel across
+cards" was read as though travelling and fitting were the same property. They
+are not: bytes are a property of the *model*, and whether they fit is a property
+of the *card*. Rule 2 settles the first and says nothing about the second, which
+is correct — and left the second unowned.
+
+### What this adds
+
+**Rule 6.** A vLLM entry's declared KV cache is checked against the card it
+targets **before the launch**, and an entry that cannot fit is refused with the
+arithmetic in the message: the declared bytes, the weights, the card's free
+memory, and the shortfall. The refusal names the two declarations that *would*
+fit — a narrower `max_num_seqs`, or a shorter `max_model_len`, each with its
+figure — and **takes neither**, because which one to give up is the entry's
+decision and a launcher that chose silently is how a run comes to measure a
+configuration nobody declared.
+
+**Rule 7.** The weights are a per-model constant recorded with its derivation,
+exactly as `bytes_per_token` is under rule 2 — `weights_bytes` with a
+`_weights_bytes_note` quoting the engine's own `Model loading took X GiB` line.
+An entry that declares KV bytes and gives the check nothing to weigh them
+against is refused. Rule 4's distinction is kept and is what makes the check
+cheap: a host with a **measured** `_footprint_mib` is judged on that figure and
+not on the prediction, because a footprint the card produced needs no model of
+why it fits.
+
+`NON_KV_OVERHEAD_MIB = 910` is what a vLLM process holds besides weights and KV:
+470 MiB driver and CUDA context (the gap between `nvidia-smi`'s free and the
+engine's own "Initial free memory" — 470 on srv1, 491 on srv2, the smaller taken
+because over-stating this term refuses cells that would have run), 133 MiB peak
+activation and 51 MiB non-torch from the table above, and one 256 MiB allocator
+block, which is the size all three refusals died trying to allocate. Phase 0's
+seven vLLM cells admit **any value from 511 to 1,793 MiB** without changing a
+verdict; 910 sits inside that window with room on both sides, and the check
+below fails if a later measurement narrows it rather than only if the number
+moves.
+
+### What this does not claim
+
+The 3B and 7B cells' weights are **derived**, not measured — `footprint − KV −
+residue`, with the residue solved from each rig's 1.5B row — because vLLM's
+weights line was captured only for the cells that failed. They set the window's
+upper edge and nothing else. A campaign that captures the weights line on every
+vLLM start would replace the derivation with a reading; nothing here depends on
+it beyond that edge.
+
+This buys no throughput and changes no measurement. It converts a three-minute
+engine crash into a millisecond of arithmetic, over figures that already existed
+the moment phase 0 finished.
+
 ## Checks
 
 - `tests/test_serving_memory_declaration.py::test_a_vllm_entry_declares_bytes_and_the_bytes_match_its_own_shape`
@@ -181,5 +258,15 @@ would edit what those cells say they ran under.
   — rules 1 and 3, against `vllm._start`'s argument builder.
 - `tests/test_serving_memory_declaration.py::test_every_declared_model_records_how_its_bytes_per_token_was_derived`
   — rule 2's second half.
+- `tests/test_serving_memory_declaration.py::test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell`
+  — rule 6, over all seven of phase 0's vLLM cells: four admitted, three refused.
+- `tests/test_serving_memory_declaration.py::test_the_overhead_constant_sits_inside_the_window_the_measurements_allow`
+  — the 511–1,793 MiB window, derived from the campaign rather than restated.
+- `tests/test_serving_memory_declaration.py::test_the_refusal_names_both_ways_out_and_takes_neither`
+  — rule 6's second half, including that the entry is not edited.
+- `tests/test_serving_memory_declaration.py::test_a_declaration_is_checked_after_the_release_and_before_the_launch`
+  — the call site's two neighbours, which are the whole of its value.
+- `tests/test_serving_memory_declaration.py::test_every_vllm_entry_can_be_checked_against_a_card`
+  — rule 7, over every vLLM entry in every serving config.
 - `tests/test_decisions.py::test_each_number_is_claimed_once_and_titles_agree`
   — this record's header and number.

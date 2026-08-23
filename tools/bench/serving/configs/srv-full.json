@@ -35,6 +35,8 @@
         "kv_cache_memory_bytes": 1879048192,
         "bytes_per_token": 28672,
         "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "weights_bytes": 1181116006,
+        "_weights_bytes_note": "1.1 GiB, MEASURED -- vLLM's own `Model loading took 1.1 GiB` line, the figure ADR-0039 records as stable across all eight rows of its table on both rigs 2026-08-22. Read before the KV cache is touched, so it is the weights and nothing else. #354 uses it to refuse a declaration this card cannot hold BEFORE the launch; it is only consulted for a host with no measured `_footprint_mib`, because an observed footprint needs no model of why it fits.",
         "_footprint_mib": {
           "srv1": 3130,
           "srv2": 3183
@@ -69,6 +71,8 @@
         "kv_cache_memory_bytes": 3758096384,
         "bytes_per_token": 28672,
         "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "weights_bytes": 1181116006,
+        "_weights_bytes_note": "1.1 GiB, MEASURED -- vLLM's own `Model loading took 1.1 GiB` line, the figure ADR-0039 records as stable across all eight rows of its table on both rigs 2026-08-22. Read before the KV cache is touched, so it is the weights and nothing else. #354 uses it to refuse a declaration this card cannot hold BEFORE the launch; it is only consulted for a host with no measured `_footprint_mib`, because an observed footprint needs no model of why it fits.",
         "_footprint_mib": {
           "srv1": 4986,
           "srv2": 5041

@@ -172,3 +172,266 @@ def test_the_calibration_probes_declare_bytes_too() -> None:
     assert "gpu_memory_utilization" not in source, (
         "calibrate.py still builds a serve block around a fraction"
     )
+
+
+# --- #354: a declaration the card cannot hold -------------------------------
+#
+# ADR-0039's rule is `max_num_seqs x max_model_len x bytes_per_token`, and the
+# three cells that refused on 2026-08-23 each computed it EXACTLY right. What
+# was missing is that a byte declaration travels across cards and travelling is
+# not the same as fitting: every vLLM figure this project held came from the
+# 1.5B, 28 layers x 2 KV heads, and Qwen3-4B is 36 x 8 -- four times wider per
+# layer. Nothing refused the configuration until vLLM did, three minutes and one
+# cell later. These checks are static and cost no rig time; their content is
+# phase 0's own 25-cell campaign, which produced both the failures and the
+# footprints that let a pre-check exist at all.
+
+PHASE0 = REPO / "records" / "evidence" / "2026-08-23-phase0-footprint"
+
+#: Free on an EMPTY card: nameplate minus the 1 MiB both rigs read at rest, as
+#: `footprints.csv`'s `card_mib_before` column records for all 25 cells.
+PHASE0_FREE_MIB = {"srv1": 6144 - 1, "srv2": 12288 - 1}
+
+#: The weights, in bytes, for the three cells that never reached a footprint --
+#: from the engine's OWN words in `engine-refusals/`, the `Model loading took
+#: X GiB` line it prints before it touches the KV cache. Qwen3-4B reported 2.5
+#: GiB on both rigs independently, which is why one figure serves two cells.
+PHASE0_WEIGHTS_BYTES = {
+    "thewimo/Qwen3-4B-AWQ": int(2.5 * 1024**3),
+    "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ": int(9.38 * 1024**3),
+}
+
+#: The 1.5B's weights, measured, from ADR-0039's table -- stable across all
+#: eight of its rows on both rigs. Used only to solve for the two rigs' non-KV,
+#: non-weights residue below.
+WEIGHTS_1_5B_MIB = 1126
+
+
+def _phase0_cells() -> list[dict[str, Any]]:
+    """Phase 0's seven vLLM cells: the declaration it ran, and what the card did.
+
+    Read from the campaign's own config and its parsed CSV rather than typed
+    here, so a check about a measurement cannot drift from the measurement.
+    """
+    config = json.loads((PHASE0 / "config.json").read_text(encoding="utf-8"))
+    serves = {
+        (entry["hosts"][0], entry["id"]): entry["serve"]
+        for entry in config["models"]
+        if entry.get("backend") == "vllm"
+    }
+    cells: list[dict[str, Any]] = []
+    for line in (
+        (PHASE0 / "footprints.csv").read_text(encoding="utf-8").splitlines()[1:]
+    ):
+        # `csv` rather than split(","): the refusal column contains commas.
+        import csv as _csv
+
+        row = next(_csv.reader([line]))
+        if row[1] != "vllm":
+            continue
+        host, model = row[0], row[2]
+        cells.append(
+            {
+                "host": host,
+                "model": model,
+                "serve": serves[(host, model)],
+                "loaded": row[10] == "ok",
+                "footprint_mib": int(row[4]) if row[4] else None,
+            }
+        )
+    return cells
+
+
+def test_the_phase0_cells_are_all_seven_and_three_of_them_refused() -> None:
+    """The fixture above is the campaign, not a sample of it.
+
+    Without this, a parse that silently dropped rows would make every check
+    below pass over whatever survived -- the shape session 22's own mutation
+    sweep caught twice, a check asserting a property it never exercised.
+    """
+    cells = _phase0_cells()
+    assert len(cells) == 7, f"phase 0 ran 7 vLLM cells, parsed {len(cells)}"
+    refused = [c for c in cells if not c["loaded"]]
+    assert len(refused) == 3, f"3 cells refused, parsed {len(refused)}"
+    assert {(c["host"], c["model"].split("/")[-1]) for c in refused} == {
+        ("srv1", "Qwen3-4B-AWQ"),
+        ("srv2", "Qwen3-4B-AWQ"),
+        ("srv2", "Qwen2.5-Coder-14B-Instruct-AWQ"),
+    }
+
+
+def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(vllm: Any) -> None:
+    """Seven cells, seven verdicts, and the rule must match the card on all of them.
+
+    This is the check with the content. A pre-check that refused everything
+    would be safe and useless; one that refused nothing is what shipped. The
+    campaign is both controls at once -- four cells that loaded and must be
+    admitted, three that died in `_allocate_kv_cache` and must be refused --
+    and it is the only evidence in the tree that can separate them.
+
+    A cell that loaded is judged on its MEASURED footprint, because a footprint
+    the card produced needs no model of why it fits. A cell that never loaded
+    has no footprint by definition, so it is judged on the predicted path: its
+    weights, from the engine's own log, plus its declared KV, plus the residue.
+    """
+    for cell in _phase0_cells():
+        serve = dict(cell["serve"])
+        if cell["loaded"]:
+            serve["_footprint_mib"] = {cell["host"]: cell["footprint_mib"]}
+        else:
+            serve["weights_bytes"] = PHASE0_WEIGHTS_BYTES[cell["model"]]
+        where = f"{cell['host']} / {cell['model']}"
+        try:
+            vllm.declaration_fits(
+                cell["host"], cell["model"], serve, PHASE0_FREE_MIB[cell["host"]]
+            )
+            refused = None
+        except Exception as error:  # NotCleanError, by path-import
+            refused = str(error)
+        if cell["loaded"]:
+            assert refused is None, (
+                f"{where} loaded on the card, and the rule refused it: {refused}"
+            )
+        else:
+            assert refused is not None, (
+                f"{where} died in _allocate_kv_cache on an empty card, and the "
+                "rule admitted it -- which is the defect #354 exists to close"
+            )
+            assert "Nothing was measured" in refused
+
+
+def test_the_overhead_constant_sits_inside_the_window_the_measurements_allow(
+    vllm: Any,
+) -> None:
+    """910 MiB is not fitted to the data: the data allows 511 to 1,793.
+
+    A constant chosen to sit just inside a boundary is a constant that will move
+    the next time anything is measured. This derives both edges from phase 0 and
+    asserts the value sits between them with room on each side, so the check
+    fails if a later cell narrows the window rather than only if the number
+    changes.
+
+    * The **lower** edge is set by the refusals: the residue must be large
+      enough that srv2's Qwen3-4B -- which missed by one 256 MiB block -- is
+      refused. `free - weights - kv` there is 511 MiB.
+    * The **upper** edge is set by the cells that loaded, whose weights are
+      DERIVED rather than measured: `footprint - kv - residue`, where the
+      residue is solved from each rig's 1.5B row. srv1's 3B is the tightest at
+      1,793 MiB. Derived, and labelled derived, because vLLM's weights line was
+      captured only for the cells that failed.
+    """
+    cells = {(c["host"], c["model"]): c for c in _phase0_cells()}
+    residue = {}
+    for host in ("srv1", "srv2"):
+        cell = cells[(host, "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ")]
+        kv_mib = cell["serve"]["kv_cache_memory_bytes"] // 1024**2
+        residue[host] = cell["footprint_mib"] - kv_mib - WEIGHTS_1_5B_MIB
+
+    lower, upper = [], []
+    for (host, model), cell in cells.items():
+        kv_mib = cell["serve"]["kv_cache_memory_bytes"] // 1024**2
+        free = PHASE0_FREE_MIB[host]
+        if cell["loaded"]:
+            weights = cell["footprint_mib"] - kv_mib - residue[host]
+            upper.append(free - weights - kv_mib)
+        else:
+            weights = PHASE0_WEIGHTS_BYTES[model] // 1024**2
+            lower.append(free - weights - kv_mib)
+
+    floor, ceiling = max(lower), min(upper)
+    assert (floor, ceiling) == (511, 1793), (
+        f"the window phase 0 allows moved to ({floor}, {ceiling}); the constant "
+        "and its docstring are derived from (511, 1793) and both must be re-read"
+    )
+    assert floor < vllm.NON_KV_OVERHEAD_MIB < ceiling
+    # Room on each side, so this is a choice inside a window rather than a fit
+    # to its edge. 910 sits 399 above the floor and 883 below the ceiling.
+    assert vllm.NON_KV_OVERHEAD_MIB - floor > 200
+    assert ceiling - vllm.NON_KV_OVERHEAD_MIB > 200
+
+
+def test_the_refusal_names_both_ways_out_and_takes_neither(vllm: Any) -> None:
+    """It prints the two figures that would fit and applies neither of them.
+
+    Naming one is how a run comes to measure a configuration nobody chose --
+    the same failure `_memory_args` already refuses when an entry declares both
+    memory fields and vLLM silently keeps one. The entry is not mutated either:
+    a launcher that repaired the config in place would leave the record saying
+    one thing and the run doing another.
+    """
+    serve = {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 9663676416,
+        "bytes_per_token": 147456,
+        "weights_bytes": int(2.5 * 1024**3),
+    }
+    before = json.dumps(serve, sort_keys=True)
+    with pytest.raises(Exception) as raised:
+        vllm.declaration_fits("srv1", "thewimo/Qwen3-4B-AWQ", serve, 6143)
+    message = str(raised.value)
+    assert json.dumps(serve, sort_keys=True) == before, "the refusal edited the entry"
+
+    for term in ("weights 2,560 MiB", "declared KV 9,216 MiB", "910 MiB", "6,143 MiB"):
+        assert term in message, f"the arithmetic does not name {term!r}"
+    assert "Short by 6,543 MiB" in message
+    # Both ways out, with a figure each, and no instruction to take either.
+    assert "max_num_seqs 2 at the declared max_model_len 8,192" in message
+    assert "max_model_len 2,376 at the declared max_num_seqs 8" in message
+    assert "picks neither" in message
+
+
+def test_a_declaration_is_checked_after_the_release_and_before_the_launch(
+    vllm: Any,
+) -> None:
+    """Order, not existence: both neighbours of the call site are the point.
+
+    AFTER `release`, because the free memory a declaration is measured against
+    is the memory it will get, and the previous engine has not let go until
+    then -- checking first would refuse a fitting cell whose card was still
+    held. BEFORE the argument list, because the whole value of the check is not
+    spending the launch. A check that ran at either edge would pass a test that
+    only asserted it was called.
+    """
+    source = (SERVING / "backends" / "vllm.py").read_text(encoding="utf-8")
+    body = source[source.index("def _start(") :]
+    body = body[: body.index("\n    args = [")]
+    assert "release(host)" in body, "the fit check is no longer inside _start"
+    assert body.index("release(host)") < body.index("declaration_fits("), (
+        "declaration_fits runs before release(host): it would read the free "
+        "memory of a card the previous engine is still holding"
+    )
+    # And the two commands that actually start a server both come after it.
+    start = source[source.index("def _start(") :]
+    start = start[: start.index("\ndef ", 1)]
+    at = start.index("declaration_fits(host")
+    for launch in ("nohup vllm serve", "docker run -d --name mcgyvr-vllm"):
+        assert at < start.index(launch), (
+            f"{launch!r} is built before the declaration is checked, so the "
+            "refusal would come after the rig time it exists to save"
+        )
+
+
+def test_every_vllm_entry_can_be_checked_against_a_card() -> None:
+    """An entry that declares bytes must give the pre-check something to work with.
+
+    Either a measured `_footprint_mib` for the host it targets, or
+    `weights_bytes` with a note showing where the figure came from -- ADR-0039
+    rule 2's idiom, which makes a model whose constant is unrecorded a refusal
+    rather than a guess. Without one of the two, `declaration_fits` refuses and
+    the entry is undispatchable, so this fails at check time instead of on a rig.
+    """
+    for path, entry in _vllm_entries():
+        serve = entry["serve"]
+        if serve.get("kv_cache_memory_bytes") is None:
+            continue
+        where = f"{path.name}:{entry.get('label', entry.get('id'))}"
+        assert serve.get("weights_bytes") or serve.get("_footprint_mib"), (
+            f"{where} declares KV bytes and gives the pre-check nothing to "
+            "weigh them against (#354)"
+        )
+        if serve.get("weights_bytes"):
+            note = serve.get("_weights_bytes_note", "")
+            assert "MEASURED" in note and "Model loading took" in note, (
+                f"{where}: the note does not show where weights_bytes came from"
+            )

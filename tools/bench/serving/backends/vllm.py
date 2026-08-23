@@ -876,6 +876,189 @@ def _memory_args(serve: dict[str, Any]) -> list[str]:
     return ["--gpu-memory-utilization", str(serve["gpu_memory_utilization"])]
 
 
+#: What a vLLM process holds on this card BESIDES its weights and the KV cache
+#: it declares. Four terms, each measured, none of them chosen:
+#:
+#: * **470 MiB** driver and CUDA context — the gap between what ``nvidia-smi``
+#:   calls free on an empty card and the total the engine can see. srv1 reads
+#:   6,143 free and the engine says *"Initial free memory 5.54 GiB"*; srv2 reads
+#:   12,287 and the engine says 11.52 GiB. 470 and 491 MiB; the smaller is taken
+#:   because over-stating this term is what refuses a cell that would have run.
+#: * **133 MiB** peak activation and **51 MiB** non-torch — ADR-0039's table,
+#:   measured on both rigs 2026-08-22 and stable across all eight rows there.
+#: * **256 MiB** one allocator block. The three refusals of 2026-08-23 all died
+#:   on the same sentence — *"Tried to allocate 256.00 MiB"* — so a declaration
+#:   that leaves less than one block spare does not launch.
+#:
+#: Validated against phase 0's seven vLLM cells (2026-08-23): the measurements
+#: admit any value between **511 and 1,793 MiB** without changing a single
+#: verdict, and this sits near the middle of that window rather than at an edge.
+#: A constant with a window that narrow on either side would be a fitted number;
+#: this one is not.
+NON_KV_OVERHEAD_MIB = 910
+
+
+def _mib(byte_count: float) -> int:
+    """Bytes as whole MiB, rounded up — a partial block is a held block."""
+    return int(-(-byte_count // (1024 * 1024)))
+
+
+def free_mib(host: str) -> int | None:
+    """How much card this host has free right now, or ``None`` if it did not say.
+
+    Total minus used rather than a ``memory.free`` query, so the two figures the
+    arithmetic quotes come off one line and cannot describe two moments. ``None``
+    when the card did not answer — never ``0``, which would read as a full card
+    and refuse every declaration on a host whose driver was merely wedged.
+    """
+    line = contract.ssh(
+        host,
+        "nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits",
+    )
+    parts = (
+        [p.strip() for p in (line or "").strip().splitlines()[:1][0].split(",")]
+        if (line and line.strip())
+        else []
+    )
+    if len(parts) != 2:
+        return None
+    total, used = contract.first_int(parts[0]), contract.first_int(parts[1])
+    return None if total is None or used is None else total - used
+
+
+def declaration_fits(
+    host: str, model: str, serve: dict[str, Any], free_mib: int | None
+) -> None:
+    """Refuse a KV declaration this card cannot hold — before the launch.
+
+    **#354.** ADR-0039's rule is
+    ``max_num_seqs x max_model_len x bytes_per_token``, and it is right: three
+    cells of the 2026-08-23 footprint campaign refused on an *empty* card with
+    ``torch.OutOfMemoryError`` inside ``_allocate_kv_cache``, and in every one
+    of the three the declared figure was **exactly** what the entry's own shape
+    computes. Qwen3-4B is 36 layers x 8 KV heads x 128 x 2 x 2 = 147,456 B/token
+    and 65,536 tokens of it is 9,663,676,416 bytes, which is 9.0 GiB on a card
+    that holds 6.0. The rule is arithmetically correct and produces a
+    declaration these cards cannot hold, because every vLLM figure this project
+    had came from the 1.5B, whose KV geometry is four times narrower per layer.
+
+    Nothing refused it until vLLM did, **three minutes and one cell later**, in
+    a message about a number the entry had computed correctly. This is the same
+    arithmetic, run in milliseconds, against figures that already exist.
+
+    **Two sources, and the measured one wins.** An entry that has already loaded
+    on this host carries ``_footprint_mib`` — what the card said the process
+    took — and that is a fact, not a prediction: a footprint that was observed
+    to fit needs no model of why. Only an entry with no measurement for this
+    host is predicted, from its declared weights plus its declared KV plus
+    :data:`NON_KV_OVERHEAD_MIB`. The refusal says which of the two it used, so a
+    reader is never left to guess whether a number was seen or computed.
+
+    **A fraction is not checked here** (ADR-0039 rule 5 keeps one legal for a
+    run whose question *is* the fraction). Under ``gpu_memory_utilization`` this
+    engine enforces its own ``free >= total x util`` precondition before it
+    allocates anything, so the failure is already immediate and already names
+    the card. It is the byte declaration that skips profiling and finds out
+    late.
+
+    Raises ``NotCleanError``; returns ``None`` when the declaration fits or when
+    there is nothing here to check.
+    """
+    kv_bytes = serve.get("kv_cache_memory_bytes")
+    if kv_bytes is None:
+        return
+    if free_mib is None:
+        raise contract.NotCleanError(
+            f"{model} on {host}: the card did not answer how much memory is "
+            "free, so a declaration of "
+            f"{int(kv_bytes):,} B of KV cache cannot be checked against it. "
+            "Refused rather than launched: this engine skips memory profiling "
+            "under a byte declaration, so an unchecked one is found out by "
+            "torch.OutOfMemoryError minutes later (#354). Nothing was measured."
+        )
+
+    kv_mib = _mib(int(kv_bytes))
+    measured = (serve.get("_footprint_mib") or {}).get(host)
+    if measured is not None:
+        required_mib, weights_mib, how = int(measured), None, "measured"
+    else:
+        weights = serve.get("weights_bytes")
+        if weights is None:
+            raise contract.NotCleanError(
+                f"{model} on {host}: the entry declares "
+                f"{int(kv_bytes):,} B of KV cache and neither a measured "
+                f"`_footprint_mib` for {host} nor a `weights_bytes`, so nothing "
+                "here can say whether the card can hold it. Declare the "
+                "weights with a note showing where the figure came from — this "
+                "engine prints `Model loading took X GiB` on every start "
+                "(ADR-0039 rule 2's idiom, extended to weights by #354). "
+                "Nothing was measured."
+            )
+        weights_mib = _mib(int(weights))
+        required_mib = weights_mib + kv_mib + NON_KV_OVERHEAD_MIB
+        how = "predicted"
+
+    if required_mib <= free_mib:
+        return
+
+    if how == "measured":
+        raise contract.NotCleanError(
+            f"{model} on {host}: this entry took {required_mib:,} MiB on this "
+            f"card when it was measured, and {free_mib:,} MiB is free now — "
+            f"{required_mib - free_mib:,} MiB short. The declaration is "
+            f"{int(kv_bytes):,} B of KV cache. Refused before the launch "
+            "(#354). Nothing was measured."
+        )
+
+    assert weights_mib is not None
+    budget_mib = free_mib - weights_mib - NON_KV_OVERHEAD_MIB
+    ways_out = _ways_out(serve, budget_mib)
+    raise contract.NotCleanError(
+        f"{model} on {host}: the declaration does not fit this card. "
+        f"weights {weights_mib:,} MiB + declared KV {kv_mib:,} MiB + "
+        f"{NON_KV_OVERHEAD_MIB:,} MiB the process holds besides them "
+        f"= {required_mib:,} MiB, and the card has {free_mib:,} MiB free. "
+        f"Short by {required_mib - free_mib:,} MiB. "
+        f"{ways_out} "
+        "This picks neither: which one to give up is the entry's decision, and "
+        "a launcher that quietly chose would have the run measure a "
+        "configuration nobody declared (ADR-0039 rule 2, #354). "
+        "Nothing was measured."
+    )
+
+
+def _ways_out(serve: dict[str, Any], budget_mib: int) -> str:
+    """The two declarations that would fit, each with its figure.
+
+    ``max_num_seqs`` and ``max_model_len`` enter the requirement as a product,
+    so either one alone can be brought under the budget and both land on the
+    same number of KV tokens. They are named together and neither is applied.
+    """
+    per_token = serve.get("bytes_per_token")
+    seqs = serve.get("max_num_seqs")
+    length = serve.get("max_model_len")
+    if budget_mib <= 0:
+        return (
+            "No KV declaration fits: the weights alone leave nothing on this "
+            "card, so a shorter context or a narrower batch does not help and "
+            "the model does not belong on this host."
+        )
+    if not (per_token and seqs and length):
+        return (
+            "The two ways out cannot be costed here: the entry does not "
+            "declare bytes_per_token, max_num_seqs and max_model_len, which "
+            "are what turn a budget back into a shape."
+        )
+    tokens = (budget_mib * 1024 * 1024) // int(per_token)
+    return (
+        f"{budget_mib:,} MiB is {tokens:,} KV tokens at this model's "
+        f"{int(per_token):,} B/token, which is either "
+        f"max_num_seqs {tokens // int(length)} at the declared "
+        f"max_model_len {int(length):,}, or max_model_len "
+        f"{tokens // int(seqs):,} at the declared max_num_seqs {int(seqs)}."
+    )
+
+
 def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     """Launch the server with ``serve``, and wait for it to answer.
 
@@ -892,6 +1075,14 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             f"{host} has neither a vllm binary nor the {CONTAINER_IMAGE} image, "
             "so this engine cannot be started here. Nothing was measured."
         )
+    # **#354, and it sits HERE for two reasons.** After `release`, because the
+    # free memory a declaration is checked against is the memory it will
+    # actually get, and the card is not clear until the previous engine has let
+    # go. And inside `_start` rather than in `claim`, because `claim`'s other
+    # branch is a server already up on this configuration: that one has proved
+    # it fits by running, and checking it would read the free memory of a card
+    # the process itself is holding and refuse a cell that is serving.
+    declaration_fits(host, model, serve, free_mib(host))
     args = [
         "--max-model-len",
         str(serve.get("max_model_len", 8192)),
