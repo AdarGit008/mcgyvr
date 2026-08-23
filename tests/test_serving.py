@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 import types
 from pathlib import Path
@@ -2461,25 +2462,57 @@ _OOM_TAIL = (
 )
 
 
+#: srv2's four, exactly as `docker ps -a` printed them on 2026-08-23. **Two
+#: tags, one image id** (`ffb2d59b1c05` for both `:latest` and `:v0.26.0`,
+#: measured on both rigs), and exactly one of the four is ours.
+_SRV2_ALL = (
+    "mcgyvr-vllm vllm/vllm-openai:v0.26.0 Exited (0) 2 hours ago",
+    "vllm-7b-coder vllm/vllm-openai:v0.26.0 Exited (0) 5 days ago",
+    "vllm-nemotron-30b vllm/vllm-openai:latest Exited (0) 12 days ago",
+    "vllm-nemotron-4b vllm/vllm-openai:latest Exited (1) 13 days ago",
+)
+
+
 def _vllm_stopped_box(
-    monkeypatch: pytest.MonkeyPatch, name: str = "stopped_vllm"
+    monkeypatch: pytest.MonkeyPatch,
+    name: str = "stopped_vllm",
+    *,
+    running: tuple[str, ...] = (),
 ) -> tuple[Any, Any, list[str]]:
-    """The backend on a host whose only container of ours has exited.
+    """The backend on srv2's box: four containers of this engine, none running.
 
     The fake host is the discriminator, and that is deliberate: it answers the
-    `-a` reading with the exited container and every running-only reading with
-    nothing, which is what docker does. A fixture that answered both the same
-    way would let a check pass on a string rather than on a behaviour.
+    `-a` reading with the exited containers and every running-only reading with
+    whatever ``running`` says, which is what docker does. A fixture that
+    answered both the same way would let a check pass on a string rather than
+    on a behaviour.
+
+    ``running`` is `name\timage` lines, the shape the gate's own reading asks
+    for, so a foreign container can be put on the box without inventing one
+    that is also ours.
     """
     vllm: Any = _by_path(name, SERVING / "backends" / "vllm.py")
     sent: list[str] = []
+
+    def _grep(lines: tuple[str, ...], command: str) -> str:
+        """The `| grep <pattern>` the command carries, applied like a host would.
+
+        Without this the fake answers with rows the real pipeline would have
+        filtered out, and a check that a container of an unrelated image is not
+        counted would be testing the fixture rather than the reading.
+        """
+        found = re.search(r"\| grep '?([^'\s|]+)'?", command)
+        pattern = found.group(1) if found else ""
+        return "\n".join(line for line in lines if pattern in line)
 
     def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
         sent.append(command)
         if "docker ps" in command:
             if " -a " in command:
-                return _STOPPED_CONTAINER
-            return "0" if "wc -l" in command else ""
+                return _grep(_SRV2_ALL, command)
+            if "--filter ancestor" in command:
+                return "0" if "wc -l" in command else ""
+            return _grep(running, command)
         if command.startswith("docker inspect"):
             return '["--max-num-seqs", "8"] ["VLLM_SERVER_DEV_MODE=1"]'
         if "pgrep" in command:
@@ -2498,8 +2531,8 @@ def test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate(
     """#352's two halves, on one host, in one check because they are one ruling.
 
     The record must see it: a container named `mcgyvr-vllm` sitting `Exited (1)`
-    on the box is ours, and an operator told `own_containers_remaining: 0` who
-    then finds it has been answered truthfully and not asked-truthfully.
+    on the box is ours, and an operator told `engine_containers_remaining: 0`
+    who then finds it has been answered truthfully and not asked-truthfully.
 
     The gate must not act on it: `released` is the orchestrator's only exclusion
     gate, and what it decides is whether anything of ours still holds the card.
@@ -2515,7 +2548,8 @@ def test_a_stopped_container_of_ours_is_in_the_record_and_out_of_the_gate(
     )
 
     released = vllm.release("h")
-    assert released["own_containers_remaining"] == 0
+    assert released["engine_containers_remaining"] == 0
+    assert released["our_containers_remaining"] == 0
     assert released["released"] is True, (
         "a stopped container held the gate shut: the clause was narrowed to "
         "running, not the gate widened to match the clause"
@@ -2743,3 +2777,169 @@ def test_the_engine_log_goes_through_the_same_scrubber_as_every_other_reading(
     assert "sk-abcdefghijklmnopqrstuvwx" not in message
     assert "/home/adaramir" not in message
     assert "redacted" in message, "the tail reached the record without a scrub"
+
+
+# --- #355: "ours" is a name, the gate's scope is the engine, and they differ --
+#
+# The container readings filter on `--filter ancestor=<pinned tag>`, and the
+# count derived from them was called `own_containers_remaining`. On srv2 that
+# reading returns four containers of which one is ours. The process arm had the
+# identical defect one level down: `pgrep` for this engine's patterns matches
+# any `vllm serve` on the host, and it too was called `own_`. Both are the right
+# SCOPE for an exclusion gate — anything of this engine that is up holds the
+# card — and both were making a claim about ownership that they never tested.
+
+
+def test_a_stranger_of_this_engine_shuts_the_gate_and_is_not_counted_as_ours(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The two numbers that were one number, on the box where they differ.
+
+    A foreign container of this engine holds the card we are about to measure
+    on, so it must shut the gate — that is E8's finding and it is unchanged.
+    What changes is that the record no longer calls it ours. `released` false
+    with `our_containers_remaining: 0` is a complete sentence: something of this
+    engine is up, and it is not something we started, so we may neither measure
+    behind it nor clear it away.
+    """
+    vllm, _, _sent = _vllm_stopped_box(
+        monkeypatch,
+        name="stranger_vllm",
+        running=("vllm-7b-coder\tvllm/vllm-openai:v0.26.0",),
+    )
+    released = vllm.release("h")
+    assert released["engine_containers_remaining"] == 1
+    assert released["our_containers_remaining"] == 0
+    assert released["released"] is False, (
+        "a live container of this engine let the next entry be measured behind it"
+    )
+    assert released["engine_containers"] == [
+        {"name": "vllm-7b-coder", "image": "vllm/vllm-openai:v0.26.0", "ours": False}
+    ], "the record does not show WHICH container shut the gate"
+
+
+def test_release_stops_the_container_this_module_started_and_no_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The defect with teeth: it stopped by image, so it stopped strangers.
+
+    The filtered list went to `xargs -r docker stop`. On srv2 that list is four
+    containers, one of them ours. A cell never repairs a machine it found wrong
+    (run contract §4), and killing another user's server is further from repair
+    than anything that clause was written about — it is not cleanup, it is an
+    outage somebody else has to explain.
+    """
+    vllm, _, sent = _vllm_stopped_box(
+        monkeypatch,
+        name="stopper_vllm",
+        running=(
+            "mcgyvr-vllm\tvllm/vllm-openai:v0.26.0",
+            "vllm-7b-coder\tvllm/vllm-openai:v0.26.0",
+        ),
+    )
+    vllm.release("h")
+    stops = [c for c in sent if "docker stop" in c]
+    assert len(stops) == 1, stops
+    assert vllm.CONTAINER_NAME in stops[0]
+    assert "vllm-7b-coder" not in stops[0]
+    assert "xargs" not in stops[0], (
+        "the stop is driven by a list again, and a list of this engine's "
+        "containers is not a list of ours"
+    )
+
+
+def test_the_other_tag_is_seen_because_the_repository_is_matched_not_the_pin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#355 box 4, and it is measured rather than reasoned.
+
+    `--filter ancestor=<tag>` matches by resolved image ID. On both rigs
+    2026-08-23 `:latest` and `:v0.26.0` are the same id, `ffb2d59b1c05`, so the
+    pinned filter returned the `:latest` containers too and the two filters gave
+    byte-identical sets. **That is E8's coincidence, still live.** Pull a newer
+    `:latest` and every container of it goes invisible while `released` keeps
+    reporting True — the exact failure E8 was written against, arriving from the
+    other direction. Matching the repository does not depend on the ids agreeing.
+    """
+    vllm, _, _sent = _vllm_stopped_box(
+        monkeypatch,
+        name="othertag_vllm",
+        running=("vllm-nemotron-30b\tvllm/vllm-openai:latest",),
+    )
+    released = vllm.release("h")
+    assert released["engine_containers_remaining"] == 1, (
+        "a container of this engine under another tag is invisible to the gate"
+    )
+    assert released["engine_containers"][0]["image"].endswith(":latest")
+    assert released["released"] is False
+
+
+def test_a_container_of_an_unrelated_image_is_not_counted_and_that_is_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The stated limit, asserted so it stays stated rather than assumed.
+
+    A vLLM served from an image with another name — a local build, a fork, a
+    mirror — is not matched by a repository string and would still hold the
+    card. It is out of this reading's reach by construction, not by oversight.
+    Where it shows is `card_used_mib`, which is recorded beside `released` and
+    deliberately not part of it: consulting the card here made a backend that
+    holds nothing report failure whenever another engine held the card, and
+    refused the very engine it was about to measure.
+    """
+    vllm, _, _sent = _vllm_stopped_box(
+        monkeypatch,
+        name="unrelated_vllm",
+        running=("someones-vllm\tghcr.io/someone/vllm-fork:v1",),
+    )
+    released = vllm.release("h")
+    assert released["engine_containers_remaining"] == 0
+    assert released["released"] is True
+    # And the card is where such a server is visible at all.
+    assert "card_used_mib" in released and "card_idle" in released
+
+
+def test_canary_ours_is_told_from_a_stranger_by_the_one_thing_that_differs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shown to reject: same image, same repository, different name.
+
+    Nothing else separates them. `_start` gives its container one name and
+    every other container of this engine on the box was named by somebody else,
+    so the name is the whole of the classification — a check that passed on the
+    image would pass on a stranger too.
+    """
+    vllm, _, _sent = _vllm_stopped_box(monkeypatch, name="canary355_vllm")
+    rows = vllm._classify_containers(
+        f"{vllm.CONTAINER_NAME}\t{vllm.CONTAINER_IMAGE}\n"
+        f"vllm-7b-coder\t{vllm.CONTAINER_IMAGE}\n"
+    )
+    assert [row["ours"] for row in rows] == [True, False]
+    assert len({row["image"] for row in rows}) == 1, (
+        "the two rows differ by image, so this canary proves nothing about names"
+    )
+    assert vllm._classify_containers(None) == []
+    assert vllm._classify_containers("no tab in this line") == []
+
+
+@pytest.mark.parametrize("backend", ["vllm", "ollama"])
+def test_neither_backend_still_calls_a_scope_reading_an_ownership_one(
+    monkeypatch: pytest.MonkeyPatch, backend: str
+) -> None:
+    """The rename, on both arms, because both were the same false claim.
+
+    ollama's is not narrowable and is renamed rather than fixed: ollama spawns
+    the `llama-server` child, chooses its port at load time and gives it no name
+    this project sets, so nothing on the host distinguishes a child we caused
+    from one we did not. Saying `engine_` is the whole of what can be true there.
+    """
+    if backend == "vllm":
+        module, _, _sent = _vllm_stopped_box(monkeypatch, name="renamed_vllm")
+    else:
+        module = _ollama_rig(
+            monkeypatch, card_before=1, card_after=1, resident=[], children=""
+        )
+    released = module.release("h")
+    assert "own_processes_remaining" not in released
+    assert "own_containers_remaining" not in released
+    assert "engine_processes_remaining" in released

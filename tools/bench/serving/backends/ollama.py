@@ -239,7 +239,14 @@ def release(host: str) -> dict[str, Any]:
     # refused the very engine it was about to measure. With the shipped config
     # that meant the third entry was refused on every host while the family
     # verdict quietly reported "2 of 3".
-    mine = run("own_processes", "pgrep -c '[l]lama-server' 2>/dev/null || echo 0")
+    # **#355, and the name is the whole of the change here.** This counts every
+    # `llama-server` on the host, ours and anybody's, which is the right scope
+    # for an exclusion gate — a stranger's child holds the same card — and is
+    # not what `own_` claimed. There is no narrower reading available on this
+    # engine either: ollama spawns the child, chooses its port at load time and
+    # gives it no name we set, so nothing on the host distinguishes a child this
+    # project caused from one it did not. Renamed rather than narrowed.
+    mine = run("engine_processes", "pgrep -c '[l]lama-server' 2>/dev/null || echo 0")
     remaining = contract.first_int(mine)
     # **DE-L.** The kill's own read-back was echoed into `steps` and parsed by
     # nothing, so a `sudo -n` failure on the pkill was invisible in the flag —
@@ -254,7 +261,7 @@ def release(host: str) -> dict[str, Any]:
         "backend": NAME,
         "steps": steps,
         "gpu_used_mib": used,
-        "own_processes_remaining": remaining,
+        "engine_processes_remaining": remaining,
         "children_after_kill": after_kill,
         "kill_was_effective": None if after_kill is None else after_kill == 0,
         "released": remaining == 0,

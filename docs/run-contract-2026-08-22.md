@@ -183,7 +183,7 @@ srv2 was where somebody happened to look. (2) **srv2 holds four, not one**, and
 only one of the four is ours: the `ancestor=` filter selects by image, and
 `mcgyvr-vllm` is the only name `_start` gives a container. The count beside it
 is nonetheless called `own_containers_remaining`, which is the same defect one
-level down and is **#355**, filed rather than fixed here. (3) **The `Exited (1)` this
+level down and is **#355**, fixed in the correction below. (3) **The `Exited (1)` this
 issue was filed on no longer exists.** srv2's `mcgyvr-vllm` now reads
 `Exited (0) About an hour ago` — the refit campaign's last cell replaced it. The
 evidence a defect was filed on was destroyed by the mechanism the defect
@@ -229,6 +229,70 @@ Seven mutants, one edit each — the record back to running-only, the gate widen
 instead, `-a` swept into the width read, the log not read, the log read on every
 launch, an unreadable log left silent, the tail written unscrubbed. **All seven
 were killed.**
+
+### Correction, 2026-08-23 (second) — "ours" was never what the reading tested (#355)
+
+The block above says the count beside the container reading is called
+`own_containers_remaining`, and files that as #355. It is fixed here, and the
+fix turned out to be larger than the name.
+
+**The reading was never about ownership, and neither was the one beside it.**
+`--filter ancestor=` selects by image; `pgrep -cf '[v]llm serve|…'` selects by
+process pattern. Both match anything of this engine on the host, ours or a
+stranger's, and both were called `own_`. That is the right SCOPE for an
+exclusion gate — anything of this engine that is up holds the card the next
+entry would be measured on, which is E8's finding and is unchanged — and it is
+not ownership. Renamed to `engine_processes_remaining` and
+`engine_containers_remaining` on both backends (`vllm.py:649`,
+`ollama.py:264`), with `our_containers_remaining` beside them
+(`vllm.py:653`) for the one thing that is genuinely ours: the single container
+name `_start` assigns, `mcgyvr-vllm` (`vllm.py:922`).
+
+ollama's is renamed rather than narrowed, and the reason is a fact about that
+engine: it spawns the `llama-server` child, chooses its port at load time and
+gives it no name this project sets, so **nothing on the host distinguishes a
+child we caused from one we did not.** `engine_` is the whole of what can be
+true there.
+
+**The defect with teeth was not the name.** The release step fed the
+image-filtered list to `xargs -r docker stop`. On srv2 that list is four
+containers, one of them ours — so a release would have stopped three servers
+belonging to somebody else. A cell never repairs a machine it found wrong (§4
+above), and killing another user's server is further from repair than anything
+that clause was written about. Release now stops exactly `mcgyvr-vllm`
+(`vllm.py:585`); what is up and not ours shuts the gate instead, which is the
+correct answer to finding a machine in a state we did not create.
+
+**The tag pin does not do what the reading needs, and E8 said so first.**
+`--filter ancestor=<tag>` matches by resolved image **ID**. Measured on both
+rigs 2026-08-23: `:latest` and `:v0.26.0` are both `ffb2d59b1c05`, so the pinned
+filter returned the `:latest` containers too and the two filters gave
+byte-identical sets. E8 recorded that coincidence in 2026-08-19 and pinned the
+tag to fix a different failure; the coincidence is still live and still
+load-bearing. Pull a newer `:latest` and every container of it goes invisible
+while `released` keeps reporting True — E8's exact failure arriving from the
+other direction. The readings now match the **repository** (`vllm.py:489`,
+`vllm.py:630`), which does not depend on two ids agreeing.
+
+**The stated limit.** A vLLM served from an image with another name — a local
+build, a fork, a mirror — is not matched by a repository string and would still
+hold the card. It is out of reach of a name-and-repository reading by
+construction. Where such a server shows is `card_used_mib`, recorded beside
+`released` and deliberately not part of it, because consulting the card there
+made a backend holding nothing report failure whenever another engine held the
+card and refused the very engine it was about to measure.
+
+Verified live on both rigs after the change: `engine_containers_remaining: 0`,
+`our_containers_remaining: 0`, `released: true`, card 1 MiB, with srv1's one and
+srv2's four stopped containers in the record and their image tags beside them.
+
+**Checks:** `tests/test_serving.py::test_a_stranger_of_this_engine_shuts_the_gate_and_is_not_counted_as_ours`
+· `…::test_release_stops_the_container_this_module_started_and_no_other`
+· `…::test_the_other_tag_is_seen_because_the_repository_is_matched_not_the_pin`
+· `…::test_a_container_of_an_unrelated_image_is_not_counted_and_that_is_the_limit`
+· `…::test_canary_ours_is_told_from_a_stranger_by_the_one_thing_that_differs`
+· `…::test_neither_backend_still_calls_a_scope_reading_an_ownership_one`.
+Seven mutants, one edit each; all seven killed.
 
 ## 5. The comparison check
 

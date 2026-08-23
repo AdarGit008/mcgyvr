@@ -466,8 +466,9 @@ def readings(host: str) -> dict[str, Any]:
     container of ours. Measured 2026-08-23 the moment `-a` went in: srv1 holds
     `vllm-nemotron-4b Exited (1) 13 days ago` — so **srv1 was in the same state
     the issue attributed to srv2 alone** — and srv2 holds four, of which one is
-    ours. That the count beside this is named `own_containers_remaining` is a
-    separate defect and is **#355**, filed rather than fixed here.
+    ours. **#355 renamed the count beside this**: it is
+    `engine_containers_remaining`, because that is what it counts, and
+    `our_containers_remaining` is the one that is about ownership.
 
     It is recorded, not gated. The count :func:`release` returns stays
     running-only, which is exactly what the narrowed clause claims — the record
@@ -481,8 +482,13 @@ def readings(host: str) -> dict[str, Any]:
     """
     reads = {
         "processes": "ps -eo args | grep -E '[v]llm (serve|.*api_server)' || true",
-        "containers": f"docker ps -a --filter ancestor={CONTAINER_IMAGE} "
-        "--format '{{.Names}} {{.Status}}' | head -5 || true",
+        # Matched on the repository rather than the pinned tag, for the reason
+        # :data:`CONTAINER_REPOSITORY` records (#355): `--filter ancestor=` is
+        # an image-ID match, and it sees the other tag only while the two ids
+        # agree. `head -10`, not 5: srv2 already holds four.
+        "containers": "docker ps -a --format "
+        "'{{.Names}} {{.Image}} {{.Status}}' 2>/dev/null "
+        f"| grep {shlex.quote(CONTAINER_REPOSITORY + ':')} | head -10 || true",
     }
     out: dict[str, Any] = {
         name: {
@@ -502,6 +508,39 @@ def readings(host: str) -> dict[str, Any]:
             "stdout": contract.scrub(contract.ssh(host, command)),
         }
     return out
+
+
+def _classify_containers(listing: str | None) -> list[dict[str, Any]]:
+    """`name\timage` lines as rows, with the one that is ours marked (#355).
+
+    Parsed here rather than counted in the shell for two reasons. The record
+    has to show a reader WHICH containers the gate counted — "two" is not an
+    answer an operator can act on — and the one container that is ours has to
+    be tellable from the ones that are not, by the only thing that
+    distinguishes them: the name :func:`_start` assigns.
+
+    **Stated limit.** A container started from a bare image ID prints that ID
+    as its image, and no repository string appears in the line, so it is not
+    matched. So is a vLLM served from an image with another name entirely — a
+    local build, a fork, a mirror. Neither is detectable from a name and a
+    repository, and both would hold the card. The card reading beside this
+    (`card_used_mib`) is where such a server shows up, and it is deliberately
+    not part of `released` — see the comment above `engine_processes`, which
+    is the defect that rule exists to prevent.
+    """
+    rows: list[dict[str, Any]] = []
+    for line in (listing or "").splitlines():
+        name, tab, image = line.partition("\t")
+        if not tab or not name.strip():
+            continue
+        rows.append(
+            {
+                "name": name.strip(),
+                "image": image.strip(),
+                "ours": name.strip() == CONTAINER_NAME,
+            }
+        )
+    return rows
 
 
 def release(host: str) -> dict[str, Any]:
@@ -534,10 +573,16 @@ def release(host: str) -> dict[str, Any]:
     # the ONLY exclusion gate, so the campaign would have measured the next
     # engine behind a live allocation of ours, with nothing in the record
     # looking wrong.
+    #
+    # **#355: it stopped by IMAGE, and stopped strangers.** The filtered list
+    # went to `xargs -r docker stop`, and on srv2 that list is four containers
+    # of which one is ours. A cell never repairs a machine it found wrong (run
+    # contract §4) — and killing another user's server is further from repair
+    # than anything that clause was written about. What we started is what we
+    # stop, and :data:`CONTAINER_NAME` is the whole of what we started.
     run(
-        "stop_containers",
-        f"docker ps --filter ancestor={CONTAINER_IMAGE} "
-        "--format '{{.Names}}' | xargs -r docker stop >/dev/null 2>&1; true",
+        "stop_container",
+        f"docker stop {shlex.quote(CONTAINER_NAME)} >/dev/null 2>&1; true",
     )
     run(
         "kill_processes",
@@ -556,7 +601,7 @@ def release(host: str) -> dict[str, Any]:
     # count alone read 0 on the docker rig no matter what the container was
     # doing — `released: True` on a card we had not freed. Both are counted.
     mine = run(
-        "own_processes",
+        "engine_processes",
         # **BL-B: `-f`.** Without it `pgrep` matches the process NAME, which can
         # never contain a space, so this counted 0 against a live
         # `vllm serve …` every time — verified at 0 where `pgrep -cf` returns 2.
@@ -568,27 +613,48 @@ def release(host: str) -> dict[str, Any]:
         "2>/dev/null || echo 0; } | head -1",
     )
     boxes = run(
-        "own_containers",
+        "engine_containers",
         # **Running only, deliberately (#352).** `released` is the orchestrator's
-        # exclusion gate, and what it must decide is whether anything of ours
-        # still holds the card. A stopped container holds none of it, and
+        # exclusion gate, and what it must decide is whether anything of this
+        # engine still holds the card. A stopped container holds none of it, and
         # `_start` removes it before the next launch either way. The post-state
         # clause was narrowed to match this reading rather than the reading
         # widened to match the clause; :func:`readings` takes `-a` so the
         # stopped one is still in the record.
-        f"docker ps --filter ancestor={CONTAINER_IMAGE} -q 2>/dev/null | wc -l "
-        "|| echo 0",
+        #
+        # **Matched on the repository, not on the pinned tag (#355)**, for the
+        # reason :data:`CONTAINER_REPOSITORY` records: `--filter ancestor=` is
+        # an image-ID match that sees `:latest` only while the two ids agree.
+        # Names and images both, because the gate counts one thing and the
+        # record has to show a reader which containers it counted.
+        "docker ps --format '{{.Names}}\t{{.Image}}' 2>/dev/null "
+        f"| grep {shlex.quote(CONTAINER_REPOSITORY + ':')} | head -20 || true",
     )
     remaining = contract.first_int(mine)
-    containers = contract.first_int(boxes)
+    engine_containers = _classify_containers(boxes)
+    containers = len(engine_containers)
     used = contract.first_int(gpu)
     return {
         "backend": NAME,
         "steps": steps,
         "gpu_used_mib": used,
-        "own_processes_remaining": remaining,
-        "own_containers_remaining": containers,
-        "released": remaining == 0 and (containers or 0) == 0,
+        # **Renamed from `own_*` (#355), because neither reading was ever about
+        # ownership.** The process count is a `pgrep` for this engine's three
+        # patterns and matches any `vllm serve` on the host, ours or not; the
+        # container count matches this engine's repository the same way. Both
+        # are the right scope for an exclusion gate — anything of this engine
+        # that is up holds the card we are about to measure on — and both were
+        # called `own_`, which is a different and false claim.
+        "engine_processes_remaining": remaining,
+        "engine_containers_remaining": containers,
+        # What is genuinely ours, recorded beside it and gating nothing: the
+        # one container name :func:`_start` assigns. On srv2 the two numbers
+        # differ, which is the whole of #355.
+        "our_containers_remaining": sum(
+            1 for row in engine_containers if row["name"] == CONTAINER_NAME
+        ),
+        "engine_containers": engine_containers,
+        "released": remaining == 0 and containers == 0,
         # A reading of the CARD, kept separate from the statement about this
         # backend: a backend holding nothing must not report failure because
         # another engine holds the card.
@@ -847,6 +913,27 @@ def weights_sha256(host: str, model: str) -> dict[str, Any]:
 #: `latest`, because "the version that was current when it was pulled" is not a
 #: version anybody can look up later.
 CONTAINER_IMAGE = "vllm/vllm-openai:v0.26.0"
+
+#: **The one name this module ever gives a container, and what "ours" means
+#: (#355).** :func:`_start` creates exactly one container and calls it this.
+#: Everything else built from the same image belongs to somebody else, and the
+#: rigs hold four such: `vllm-7b-coder`, `vllm-nemotron-30b` and
+#: `vllm-nemotron-4b`, none of them started here.
+CONTAINER_NAME = "mcgyvr-vllm"
+
+#: The repository, tag stripped, and it is what the readings match on rather
+#: than :data:`CONTAINER_IMAGE` (#355).
+#:
+#: **`--filter ancestor=<tag>` matches by resolved image ID, not by tag.**
+#: Measured on both rigs 2026-08-23: `:latest` and `:v0.26.0` are both
+#: `ffb2d59b1c05`, so the pinned filter returns the `:latest` containers too and
+#: the two filters return byte-identical sets. That is E8's coincidence, still
+#: live and still load-bearing — pull a newer `:latest` and every container of
+#: it becomes invisible to a filter pinned to the old tag, while `released`
+#: keeps reporting True. E8 pinned the tag to stop a bare repo name resolving
+#: somewhere unintended; the pin cannot also survive the ids diverging, and
+#: matching the repository is what does.
+CONTAINER_REPOSITORY = CONTAINER_IMAGE.split(":")[0]
 
 #: Where the weights cache is mounted inside the container.
 CONTAINER_CACHE = "/root/.cache/huggingface"
