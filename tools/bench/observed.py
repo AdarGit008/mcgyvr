@@ -55,8 +55,16 @@ string, and never a plausible substitute:
     concurrency), so ``verified`` never means "reproduces" and a run that did not
     record its concurrency cannot be read on even that weaker signal. Neither
     native call reports it — it is the server's own ``OLLAMA_NUM_PARALLEL``,
-    which ollama does not expose — so it refuses, and the refusal is itself the
-    fact a later reader needs.
+    which ollama does not expose — so it refuses here, and the refusal is a true
+    statement about the surface it is about.
+
+    **It is not the last word on the field.** The refusal names where the answer
+    is, and a run with host access reads it there: see :func:`resolve` and the
+    ``resolved`` source, which carries the served width beside the width this
+    run dispatched at, and states what the pair does and does not license. The
+    number never enters the block labelled ``native``, because a host reading
+    sitting under that label would destroy the one distinction this file's
+    sources exist to make.
 
 ``seed``
     **Observed, never set.** Greedy bypasses the sampler RNG, so no dispatch in
@@ -237,6 +245,21 @@ AT_CLOSE = "at_close"
 #: measured true on these rigs — and diverge behind a proxy or a load balancer.
 NATIVE_SOURCE = "native"
 HOST_SOURCE = "host"
+
+#: The third source: neither what the endpoint said nor what the machine said,
+#: but what the two together settle. Kept apart from both, because a value that
+#: arrived from the host must never sit inside the block labelled `native` — a
+#: reader has to be able to tell which kind of evidence a number is, and that
+#: separation is the whole reason this file has sources at all.
+RESOLVED_SOURCE = "resolved"
+
+#: The two facts about batching, under the names they are recorded by. **Two
+#: fields, never one, and never substituted for one another** — the shape
+#: ADR-0040 settled when a per-process figure and a card total were tempting to
+#: collapse. `served_width` is a ceiling the SERVER was started with;
+#: `dispatch_max_parallel` is how many requests THIS run had in flight.
+SERVED_WIDTH = "served_width"
+DISPATCH_MAX_PARALLEL = "dispatch_max_parallel"
 
 #: Whether the host readings provably describe THIS run's server (serving/pin).
 PIN = "pin"
@@ -625,6 +648,74 @@ def _identify(native: dict[str, Any]) -> str:
     return UNREACHABLE
 
 
+def resolve(host: dict[str, Any], dispatch_max_parallel: int | None) -> dict[str, Any]:
+    """The two batching facts that decide whether a re-run can reproduce.
+
+    **Why this block exists.** ``concurrency`` in :data:`PROBE_SET` is refused on
+    both engines above, and both refusals are correct: the width is on no
+    network surface either serves. The ollama refusal ends by naming where the
+    answer *is* — "obtainable only with access to the serving host
+    (``tools/bench/serving/``)" — and the ``host`` block written beside it in
+    this same file is produced by exactly that module, with exactly that access.
+    So the record held the number and the field declared for it read ``null``.
+    This is where the two meet, and the native refusal stays exactly as it was,
+    because it remains a true statement about the surface it is about.
+
+    **What the pair does and does not license.** They are bounds on the realised
+    batch, and the realised batch is what determines reproducibility:
+
+    * ``served_width`` of 1 licenses "the batch was 1". A server that cannot
+      batch does not batch, whatever else was on it.
+    * ``dispatch_max_parallel`` of 1 does **not**. It says this run had one
+      request in flight, which bounds the batch only if this run was the sole
+      client — and nothing in this tree establishes that. Another client on the
+      same server batches with it, breaks greedy determinism, and leaves no
+      trace.
+    * Neither field alone establishes reproducibility, and a width above 1 does
+      not refute it: the run may still have been serial in fact.
+
+    Sole-clientness is the third term, it is the one no reading here can state,
+    and it is deliberately absent rather than approximated.
+
+    **The dispatch side is passed in, never read from a constant here.** It is a
+    property of the endpoint the runner actually built (ADR-0027 D4: computed,
+    never typed); a literal in this module would describe a dispatcher it cannot
+    see and would keep agreeing after that dispatcher changed.
+    """
+    reading = (host or {}).get("width") or {}
+    served: dict[str, Any] = {"value": reading.get("value")}
+    if reading.get("source"):
+        served["source"] = reading["source"]
+    if served["value"] is None:
+        served[identity.REFUSALS] = reading.get("refused") or (
+            "no host block was captured, so the one place this number is "
+            "readable was not read; the native surface does not carry it"
+        )
+
+    dispatch: dict[str, Any] = {"value": dispatch_max_parallel}
+    if dispatch_max_parallel is None:
+        dispatch[identity.REFUSALS] = (
+            "the runner did not pass the width it dispatched at; it is a "
+            "property of the endpoint that runner built and cannot be "
+            "recovered from anything this module can reach"
+        )
+    else:
+        dispatch["source"] = "the endpoint the runner dispatched through"
+
+    return {
+        SERVED_WIDTH: served,
+        DISPATCH_MAX_PARALLEL: dispatch,
+        "note": (
+            "two bounds on the realised batch, never substituted for one "
+            "another. A served_width of 1 licenses 'the batch was 1'; a "
+            "dispatch_max_parallel of 1 does not, because it bounds the batch "
+            "only if this run was the sole client and nothing here establishes "
+            "that. Sole-clientness is the third term and no reading in this "
+            "tree can state it. Nothing compares this block (ADR-0027 D7)"
+        ),
+    }
+
+
 def write(
     out: Path,
     endpoint: str,
@@ -632,6 +723,7 @@ def write(
     *,
     when: str = AT_OPEN,
     host: dict[str, Any] | None = None,
+    dispatch_max_parallel: int | None = None,
     timeout: float = CAPTURE_TIMEOUT_S,
 ) -> Path | None:
     """Add a capture to :data:`OBSERVED_FILE` beside ``run.json``.
@@ -704,7 +796,11 @@ def write(
     # can log into. Host-side readings are a different kind of evidence and are
     # labelled as such, so a later reader can always tell which is which.
     captures = dict(existing.get(CAPTURES) or {})
-    captures[when] = {NATIVE_SOURCE: block, HOST_SOURCE: host or {}}
+    captures[when] = {
+        NATIVE_SOURCE: block,
+        HOST_SOURCE: host or {},
+        RESOLVED_SOURCE: resolve(host or {}, dispatch_max_parallel),
+    }
     path.write_text(json.dumps({CAPTURES: captures}, indent=2) + "\n", encoding="utf-8")
     return path
 

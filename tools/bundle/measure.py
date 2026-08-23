@@ -805,6 +805,13 @@ def record_run(
         worker.model,
         when=observed_module.AT_OPEN,
         host=_host_block(worker.endpoint),
+        # The width this run DISPATCHED at, read off the endpoint the
+        # runner was built from rather than typed here (ADR-0027 D4).
+        # It is the second of `resolve`'s two bounds on the realised
+        # batch, and it is the half no probe can recover: the server
+        # cannot see how many requests a client chose to keep in
+        # flight, so if this site does not say it, nothing does.
+        dispatch_max_parallel=worker.as_endpoint().max_parallel,
     )
 
 

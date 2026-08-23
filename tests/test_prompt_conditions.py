@@ -178,10 +178,28 @@ class _Protocol:
 
 
 @dataclass(frozen=True)
+class _Endpoint:
+    """The one field `record_run` reads off the endpoint the runner is built from.
+
+    Not a hard-coded 1 at the write site: `max_parallel` is the width this run
+    DISPATCHED at (#350), and it is the half of the batching pair no probe can
+    recover, because a server cannot see how many requests a client chose to
+    keep in flight. The production `Worker.as_endpoint` is where the real value
+    is set; this stub carries the attribute so the fake stays a stand-in for the
+    interface `record_run` actually uses rather than for a smaller one.
+    """
+
+    max_parallel: int = 1
+
+
+@dataclass(frozen=True)
 class _Worker:
     endpoint: str = "http://rig:11434"
     model: str = "qwen2.5-coder:3b"
     protocol: _Protocol = _Protocol()
+
+    def as_endpoint(self) -> _Endpoint:
+        return _Endpoint()
 
 
 def _write_run(out: Path, condition: str) -> dict[str, object]:

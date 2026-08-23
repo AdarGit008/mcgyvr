@@ -900,3 +900,195 @@ def test_the_long_timeout_is_spent_only_on_the_call_that_earned_it(
         for url, timeout in seen
         if url != "http://srv2:11434/api/show"
     )
+
+
+# --------------------------------------------------------------------------
+# #350: the width the record already held, and the width only the client knows.
+#
+# `concurrency` in PROBE_SET is refused on both engines, correctly — it is on no
+# network surface either serves. The ollama refusal ends by naming where the
+# answer is, `tools/bench/serving/`, and the `host` block written beside it in
+# the same file is produced by that module with that access. These checks hold
+# the meeting point: the number reaches the record, the native refusal is left
+# exactly as it was, and the two bounds on the realised batch stay two fields.
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def pin() -> Any:
+    return _by_path("serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py")
+
+
+def test_the_served_width_is_read_off_the_host_config(pin: Any) -> None:
+    """`-np` reaches the record under a name that does not name an engine."""
+    reading = pin.width("ollama", "srv1", {"semantic": {"n_parallel": 2}}, None)
+    assert reading["value"] == 2
+    assert reading["source"] == "host:n_parallel"
+    assert "refused" not in reading
+
+
+def test_two_host_sources_that_disagree_about_the_width_are_refused(
+    pin: Any,
+) -> None:
+    """The flag and the slot count must agree; resolving them would pick one.
+
+    `vllm.declared_slots` already applies this rule to its own pair. A width is
+    a fact about the running server, and two contradictory readings of it mean
+    the thing being described is not what one of them describes.
+    """
+    reading = pin.width(
+        "ollama", "srv1", {"semantic": {"n_parallel": 2, "total_slots": 1}}, None
+    )
+    assert reading["value"] is None
+    assert "2" in reading["refused"] and "1" in reading["refused"]
+
+
+def test_a_config_with_no_width_refuses_with_the_config_s_own_reason(
+    pin: Any,
+) -> None:
+    """A refusal that drops the cause underneath it is a refusal twice over."""
+    reading = pin.width("ollama", "srv1", {"refused": "no model is resident"}, None)
+    assert reading["value"] is None
+    assert "no model is resident" in reading["refused"]
+
+
+def test_the_vllm_width_comes_from_the_launcher_read_not_from_the_wire(
+    pin: Any,
+) -> None:
+    """`--max-num-seqs` is in argv or in the container's Cmd, and nowhere else.
+
+    A server launched at 8 reports `kv_cache_max_concurrency` 16.004, so the
+    lookalike moves opposite to the flag and is never substituted. This asserts
+    the value arrives from `launched_width` and carries where it was found.
+    """
+
+    class _Backend:
+        @staticmethod
+        def launched_width(host: str) -> dict[str, Any]:
+            return {"value": 8, "source": "process"}
+
+    reading = pin.width("vllm", "srv1", {}, _Backend)
+    assert reading == {"value": 8, "source": "host:process"}
+
+
+def test_a_vllm_host_that_will_not_say_its_width_refuses_with_a_reason(
+    pin: Any,
+) -> None:
+    class _Backend:
+        @staticmethod
+        def launched_width(host: str) -> dict[str, Any]:
+            return {"value": None, "source": None}
+
+    reading = pin.width("vllm", "srv1", {}, _Backend)
+    assert reading["value"] is None
+    assert "max-num-seqs" in reading["refused"]
+
+
+def test_a_host_with_no_serving_process_still_carries_the_width_key(
+    pin: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An ABSENT key means the record predates the contract (ADR-0027 D2).
+
+    The no-process path returns early, and that early return is exactly where a
+    key quietly stops being written for one branch of one engine.
+    """
+    monkeypatch.setattr(
+        pin, "same_machine", lambda host, endpoint: {"held": True}, raising=True
+    )
+    monkeypatch.setattr(
+        pin, "instance", lambda host, pattern: {"present": False}, raising=True
+    )
+    block = pin.host_block("http://srv1:11434")
+    assert block["width"]["value"] is None
+    assert block["width"]["refused"]
+
+
+def test_the_served_width_reaches_the_record_the_native_block_refused(
+    observed: Any,
+) -> None:
+    """The number the record already held, in the field declared for it."""
+    resolved = observed.resolve({"width": {"value": 2, "source": "host:n_parallel"}}, 1)
+    assert resolved[observed.SERVED_WIDTH]["value"] == 2
+    assert resolved[observed.DISPATCH_MAX_PARALLEL]["value"] == 1
+
+
+def test_the_two_widths_are_two_fields_and_neither_stands_in_for_the_other(
+    observed: Any,
+) -> None:
+    """A server width of 4 dispatched at 1 must read as 4 and 1, never as one.
+
+    This is ADR-0040's rule carried across: a per-process figure is not the
+    card, and the width a server was started at is not the width a client used.
+    """
+    resolved = observed.resolve({"width": {"value": 4, "source": "host:n_parallel"}}, 1)
+    assert resolved[observed.SERVED_WIDTH]["value"] == 4
+    assert resolved[observed.DISPATCH_MAX_PARALLEL]["value"] == 1
+    assert observed.SERVED_WIDTH != observed.DISPATCH_MAX_PARALLEL
+
+
+def test_no_host_block_leaves_the_served_width_null_with_a_reason(
+    observed: Any,
+) -> None:
+    resolved = observed.resolve({}, 1)
+    served = resolved[observed.SERVED_WIDTH]
+    assert served["value"] is None
+    assert served[observed.identity.REFUSALS]
+
+
+def test_a_runner_that_passes_no_dispatch_width_is_recorded_as_a_refusal(
+    observed: Any,
+) -> None:
+    """Not a zero and not a one. The default must not look like a measurement."""
+    resolved = observed.resolve({"width": {"value": 2}}, None)
+    dispatch = resolved[observed.DISPATCH_MAX_PARALLEL]
+    assert dispatch["value"] is None
+    assert dispatch[observed.identity.REFUSALS]
+
+
+def test_the_resolved_block_never_writes_into_the_native_block(
+    observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A host reading under the `native` label destroys the file's one axis.
+
+    The sources exist so a reader can tell what kind of evidence a number is.
+    A width that arrived over ssh must not appear inside the block that means
+    "what the endpoint said about itself".
+    """
+    monkeypatch.setattr(
+        observed,
+        "capture",
+        lambda endpoint, model, timeout=0.0: {
+            "endpoint": endpoint,
+            "model": model,
+            "concurrency": None,
+            observed.identity.REFUSALS: {"concurrency": "not on any endpoint"},
+        },
+        raising=True,
+    )
+    observed.write(
+        tmp_path,
+        "http://srv1:11434",
+        "m",
+        host={"width": {"value": 2, "source": "host:n_parallel"}},
+        dispatch_max_parallel=1,
+    )
+    written = json.loads((tmp_path / observed.OBSERVED_FILE).read_text())
+    capture = written[observed.CAPTURES][observed.AT_OPEN]
+    native = capture[observed.NATIVE_SOURCE]
+    assert native["concurrency"] is None
+    assert native[observed.identity.REFUSALS]["concurrency"]
+    assert capture[observed.RESOLVED_SOURCE][observed.SERVED_WIDTH]["value"] == 2
+
+
+@pytest.mark.parametrize("rig", ["tools/breadth/measure.py", "tools/bundle/measure.py"])
+def test_both_runners_pass_the_width_they_dispatched_at(rig: str) -> None:
+    """The one half of the pair no probe can recover.
+
+    A server cannot see how many requests a client chose to keep in flight, so
+    if the call site does not say it, nothing does — and the field would read
+    `null` on every run while the runner knew the answer the whole time. Held
+    against the source rather than a captured file because that is where it
+    would be dropped.
+    """
+    source = (REPO / rig).read_text(encoding="utf-8")
+    assert "dispatch_max_parallel=worker.as_endpoint().max_parallel" in source

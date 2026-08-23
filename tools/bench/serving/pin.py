@@ -198,6 +198,96 @@ _ENGINES: tuple[tuple[str, str], ...] = (
 )
 
 
+#: Where this engine states the batch width it was started with, in the parsed
+#: serving config. `n_parallel` is the `-np` the child was launched with;
+#: `total_slots` is what that child then reports on its own `/props`. Both are
+#: classified **semantic** by `fingerprint.py`, under its own comment "batching
+#: and caching — decide whether a re-run reproduces at all".
+OLLAMA_WIDTH_FIELDS: tuple[str, ...] = ("n_parallel", "total_slots")
+
+
+def width(
+    engine: str, host: str, config: dict[str, Any], backend: types.ModuleType
+) -> dict[str, Any]:
+    """The batch width the running server was started with, as a HOST reading.
+
+    **This is the field the capture module refuses**, and that refusal is right
+    about what it refuses: the width is on no network surface either engine
+    serves — searched exhaustively on both rigs, across every parameterless GET
+    in one engine's own route table and every endpoint the other answers. Its
+    own last clause says the answer is "obtainable only with access to the
+    serving host", and this module is the half with that access. So the number
+    exists, it is a host fact, and it belongs beside the other host facts rather
+    than nowhere.
+
+    Normalised across engines deliberately. A reader asking "how wide was the
+    server" should not have to know that one engine calls it ``-np`` on a child
+    process and the other ``--max-num-seqs`` in its own argv; the ``source``
+    field is where that difference is kept.
+
+    ``value`` is ``None`` **with a reason** rather than absent (ADR-0027 D2).
+    **Two sources that disagree are refused, not resolved** — the same rule
+    ``vllm.declared_slots`` already applies to its own pair, and for the same
+    reason: picking one would be picking which of two contradictory facts about
+    the running server to believe.
+    """
+    if engine == "vllm":
+        reading = backend.launched_width(host)
+        if reading.get("value") is None:
+            return {
+                "value": None,
+                "source": None,
+                "refused": (
+                    "neither the serving process's argv nor the container's "
+                    "Config.Cmd carried --max-num-seqs on this host, and no "
+                    "endpoint this engine serves carries it either"
+                ),
+            }
+        return {"value": reading["value"], "source": f"host:{reading['source']}"}
+
+    semantic = (config or {}).get("semantic") or {}
+    found = {
+        name: semantic[name]
+        for name in OLLAMA_WIDTH_FIELDS
+        if isinstance(semantic.get(name), int) and not isinstance(semantic[name], bool)
+    }
+    if not found:
+        refusal = (config or {}).get("refused")
+        return {
+            "value": None,
+            "source": None,
+            "refused": (
+                "the serving config carried neither "
+                + " nor ".join(OLLAMA_WIDTH_FIELDS)
+                + (f", because {refusal}" if refusal else "")
+            ),
+        }
+    if len(set(found.values())) > 1:
+        return {
+            "value": None,
+            "source": None,
+            "refused": (
+                f"the host states two different widths, {found} — the flag the "
+                "child was launched with and the slot count that child reports "
+                "must agree, and resolving them here would pick which of two "
+                "contradictory facts to believe"
+            ),
+        }
+    name = next(iter(found))
+    return {"value": found[name], "source": f"host:{name}"}
+
+
+#: The shape :func:`width` returns when no serving process was found at all, so
+#: the key is present on every host block rather than only on the ones that
+#: could answer. An absent key means the record predates the contract; this is
+#: a refusal, and it says so.
+NO_PROCESS_WIDTH: dict[str, Any] = {
+    "value": None,
+    "source": None,
+    "refused": "no serving process of a known engine is running on this host",
+}
+
+
 def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
     """Everything the serving MACHINE will say, plus what binds it to this run.
 
@@ -225,11 +315,20 @@ def host_block(endpoint: str, host: str = "") -> dict[str, Any]:
             found = {"engine": name, "instance": reading}
             break
     if not found:
-        return {"machine": machine, "instance": {"present": False}}
+        return {
+            "machine": machine,
+            "instance": {"present": False},
+            "width": dict(NO_PROCESS_WIDTH),
+        }
 
     backend = contract.load_backend(found["engine"])
     if found["engine"] == "ollama":
         config = backend.serving_config(backend._server(host))
     else:
         config = backend.serving_config(f"http://{host}:{backend.PORT}")
-    return {**found, "machine": machine, "fingerprint": config}
+    return {
+        **found,
+        "machine": machine,
+        "fingerprint": config,
+        "width": width(found["engine"], host, config, backend),
+    }
