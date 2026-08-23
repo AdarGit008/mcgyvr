@@ -1272,6 +1272,41 @@ promise.
 
 **No rig time was spent here**, and none of the three arms above can spend any.
 
+**The rig arm ran on 2026-08-23, and the marker is off.**
+`records/evidence/2026-08-23-cross-rig/` holds one width-16 vLLM ramp and one
+launch row per host, **both launched through the `v0.26.0` container** — srv1
+included, which had only ever been launched from its pip install. The contrast
+is returned rather than refused: the two launch rows carry the same weights
+digest (`047d5b14…`), the same `serving_build` (`vllm 0.26.0`) and each names
+its card.
+
+| | 2026-08-19, launcher detected | 2026-08-23, launcher declared docker |
+|---|---|---|
+| srv1 speedup at width 16 | 3.76 (pip) | **3.82** (container) |
+| srv2 speedup at width 16 | 15.42 (container) | **15.41** (container) |
+| srv1 `saturation_n` / `latency_plateau_n` | 16 / 8 | 16 / 8 |
+| srv2 `saturation_n` / `latency_plateau_n` | 16 / 16 | 16 / 16 |
+
+**The launcher is out of the contrast, and it was not the answer.** srv1 moved
+by 0.06 on a gap of about 11.6, and every level of its curve reproduced within
+noise (10.708 → 10.908 s at n=1, 45.466 → 45.593 s at n=16). The sentence at
+`:983-987` survives the one alternative explanation that could be removed
+without buying hardware.
+
+**What is still not separated, and the record should not be read as if it were.**
+The two rigs differ in card *and* driver together — a GTX 1660 SUPER on
+580.173.02 against an RTX 3060 on 595.84 — and the container does not pin the
+driver: inside srv2's container `nvidia-smi` reports the host's 595.84. So
+"hardware" is now a claim the record can support as *not configuration*, and it
+remains one no run in this tree can decompose further.
+
+**Two figures the arm produced on the way.** srv1's first container launch:
+**83.5 s**, against the 33 s its pip launch measured — a 2.5x start-time cost
+for the same engine on the same card, and the first `START_TIMEOUT_S` point
+srv1 has ever contributed on the container arm (srv2's was 93.1 s here, 109 s
+in D7). And the weights digest ran inside the image on both hosts for the first
+time: 7.5 s on srv1, 10.4 s on srv2.
+
 ## Conflicts recorded 2026-08-22 — three, from a live verification
 
 Appended, append-only, beside `## Conflicts recorded 2026-08-21`. That block's

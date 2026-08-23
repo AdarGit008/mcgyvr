@@ -939,6 +939,53 @@ CONTAINER_REPOSITORY = CONTAINER_IMAGE.split(":")[0]
 CONTAINER_CACHE = "/root/.cache/huggingface"
 
 
+#: The probe that answers whether a host can serve through each launcher. The
+#: SAME command decides a detection and verifies a declaration, so a declared
+#: launcher is held to exactly the bar a detected one had to clear.
+LAUNCHER_PROBES: dict[str, str] = {
+    "pip": "command -v vllm 2>/dev/null || true",
+    "docker": f"docker images -q {CONTAINER_IMAGE} 2>/dev/null || true",
+}
+
+#: Hosts whose launcher this RUN declares, ``{host: how}`` — empty unless a
+#: caller declared one, so detection is still what happens by default.
+#:
+#: **#329.** Detection is right for a rig that has one launcher and wrong for a
+#: contrast. srv1 has both now (docker 29.1.3 and the same `v0.26.0` image
+#: digest srv2 pulls, recorded 2026-08-22), and detection returns `pip` for it
+#: whenever `vllm` answers on PATH — so a cross-rig ramp compared a pip engine
+#: against a container one with no field saying so. `serving_build` does not
+#: catch it: both answer `vllm 0.26.0`, because the version string is the
+#: package's and not the build's. A run that wants the launcher OUT of its
+#: contrast has to be able to say which one both hosts use.
+#:
+#: Declared, not configured: the docstring below is still right that a config
+#: which states a machine's property can state it wrongly. This is why a
+#: declaration is VERIFIED against the host and refused when the host cannot
+#: serve it, and why the row records that the launcher was declared.
+DECLARED_LAUNCHERS: dict[str, str] = {}
+
+
+def declare_launcher(host: str, how: str | None) -> None:
+    """Declare (or with ``None``, un-declare) how ``host`` launches vllm.
+
+    Nothing is checked here: the host is reached at
+    :func:`launcher`, once, where a detection would have reached it anyway.
+    Declaring costs no extra ssh.
+    """
+    if how is None:
+        DECLARED_LAUNCHERS.pop(host, None)
+        return
+    if how not in LAUNCHER_PROBES:
+        raise contract.NotCleanError(
+            f"{how!r} is not a launcher. This engine is deployed as "
+            f"{' or '.join(sorted(LAUNCHER_PROBES))} and a run may declare "
+            "either; a name outside that set would be detected as `none` and "
+            "read as a machine that cannot serve, which is a different fact."
+        )
+    DECLARED_LAUNCHERS[host] = how
+
+
 def launcher(host: str) -> str:
     """How this engine is deployed here: ``pip``, ``docker``, or ``none``.
 
@@ -949,11 +996,26 @@ def launcher(host: str) -> str:
     weights digest, which needs torch to read a checkpoint. Detected rather than
     configured, because it is a property of the machine and a config that had to
     state it would be a config that could state it wrongly.
+
+    A run may DECLARE one (:func:`declare_launcher`) when the launcher is part
+    of what it is holding fixed. The declaration is verified with the probe
+    detection uses and refused when the host cannot honour it, so the config
+    that states it wrongly is caught by the machine rather than believed.
     """
-    if contract.ssh(host, "command -v vllm 2>/dev/null || true"):
-        return "pip"
-    if contract.ssh(host, f"docker images -q {CONTAINER_IMAGE} 2>/dev/null || true"):
-        return "docker"
+    declared = DECLARED_LAUNCHERS.get(host)
+    if declared is not None:
+        if contract.ssh(host, LAUNCHER_PROBES[declared]):
+            return declared
+        raise contract.NotCleanError(
+            f"{host} was declared to launch vllm through {declared!r} and does "
+            f"not answer {LAUNCHER_PROBES[declared]!r}. Nothing was measured. A "
+            "declared launcher is not a preference to fall back from: falling "
+            "back would run the contrast on the launcher the declaration exists "
+            "to exclude, and record the fallback nowhere a reader looks."
+        )
+    for how, probe in LAUNCHER_PROBES.items():
+        if contract.ssh(host, probe):
+            return how
     return "none"
 
 
@@ -1379,6 +1441,13 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         {
             "restarted": True,
             "launcher": how,
+            # **#329.** Whether that launcher was the machine's answer or the
+            # run's. Detection and declaration produce the same string, and a
+            # reader of a cross-host contrast needs to know which one the two
+            # hosts agreeing came from: two detections that happen to agree are
+            # a fact about the rigs, one declaration honoured twice is a fact
+            # about the run.
+            "launcher_declared": host in DECLARED_LAUNCHERS,
             "command": command,
             "launched": launched,
             "ready": ready,

@@ -1,0 +1,49 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-23-cross-rig-claim",
+  "declared": "2026-08-23",
+  "question": "The 2026-08-19 campaign read srv2 at 15.42x of a single stream at width 16 and srv1 at 3.76x, and the evidence README concluded 'the gap is hardware, not configuration' (records/evidence/calibration-2026-08-19/README.md:983-987). The journal it was read off names no card, no driver, no launcher, no engine build and no weights digest, and holds no launch row at all, so nothing recorded can say which of the two it was. This run re-takes that one cell with its conditions on the record and the launcher held fixed, and asks: does the gap survive a contrast whose two sides are declared comparable? It does NOT ask what the gap is made of. Card and driver remain confounded with each other by construction - the two rigs are a GTX 1660 SUPER on driver 580.173.02 and an RTX 3060 on 595.84 - and separating those needs hardware this project does not have.",
+  "arms": [
+    "srv1, one vLLM width-16 ramp at 475 tokens, launcher DECLARED docker.",
+    "srv2, the same cell, launcher DECLARED docker.",
+    "Sequential, one rig at a time, per E14: a second claimant on either rig makes both readings a measurement of contention. The declaration is what puts srv1 on the container arm at all - vllm.launcher returns `pip` for any host answering `command -v vllm`, and srv1 answers it - and it is verified against the host rather than believed, so a rig that cannot honour it refuses instead of quietly running the arm this contrast exists to exclude."
+  ],
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "cost": {
+    "estimate_minutes": 25,
+    "estimate_note": "From the D7 journal's own timings: the width-16 levels sum to 357 s on srv1 and 140 s on srv2, each level the better of two attempts (contract.py:75,414-415) so doubled, plus launches. The launches are the term that moved: 33 s was measured for srv1's PIP launch and this run launches srv1 through the container, which is unmeasured there - srv2's container launch measured 109 s. 19 minutes was the estimate at filing under the pip arm; 25 is that number with srv1's launch priced at srv2's container rate rather than its own pip one, and the real figure is one of this run's own results.",
+    "source": "records/evidence/calibration-2026-08-19/d7-ramp.jsonl and vllm.py:680-681"
+  },
+  "could_have_carried": [
+    "The first START_TIMEOUT_S point for a CONTAINER launch on srv1. D6 has never had one: srv1 has only ever been launched through pip, and the container arm on a 6 GB Turing card is exactly where a start budget is most likely to be wrong.",
+    "The first digest timing for the container digest path on srv1 - weights_sha256 runs torch inside the image when the launcher is docker, and srv1 has always hashed with host torch.",
+    "The card-state readings #327 added at every recorded level (temperature, power, sm clock, throttle mask) on both rigs at width 16, which is the level a thermal explanation for srv1's 3.76x would show up at.",
+    "srv1's own answer to whether the container's kernels differ from its pip build's at run time. The declared surfaces were already compared at zero rig cost on 2026-08-22 - `vllm serve --help=all` on both builds: 275 flags, 223 defaults, zero differences - so what is left is the compiled half, and only a run can read it."
+  ],
+  "left_on_table": [
+    "The pip arm on srv1, deliberately. A third cell (~12 min) would price the launcher directly instead of merely removing it, and the owner's decision was to remove it: this run's question is whether the gap survives a clean contrast, not what the launcher is worth. The seam that makes the third cell possible is landed and unused, so the price of asking later is rig time and no code.",
+    "The driver difference, which the container does not pin. Inside srv2's container nvidia-smi reports the HOST's 595.84, and srv1's host is 580.173.02. The image pins the CUDA userspace, torch and the kernels; the driver survives it. This run records both and separates neither.",
+    "Repeats beyond the better-of-two each level already takes. A 4x gap does not need a confidence interval to be read as real, and this run is about whether the comparison is admissible, not about its precision.",
+    "Every width but 16. The claim was made at width 16 and the contrast re-takes the cell the sentence was read off, rather than a curve.",
+    "The KV budget's card-relativity, checked before this run and found not to bind. The ramp declares gpu_memory_utilization 0.85, which is 5,222 MiB on srv1 and 10,444 on srv2 - exactly the card-relative declaration ADR-0039 rules against - so it was worth asking whether srv1's 3.76x is a KV budget rather than a card. It is not: D7 predicted srv1 would bind at kv_cache_max_concurrency 5.314 and BOTH rigs measured saturation_n of exactly 16, their configured width (README.md:975-990), so the budget never limited concurrency on either. The fraction is kept for that reason and because changing it would stop this being a re-take of the cell the sentence was read off."
+  ],
+  "prerequisites": [
+    "#326's identity block: every row carries gpu_name, gpu_total_mib, driver_version, compute_capability and serving_build, and launch rows carry weights_sha256. Landed - it is what cross_host_contrast reads, and without it this run produces another journal that cannot answer.",
+    "#327's card state at every recorded level. Landed.",
+    "#329 boxes 1-4: the two launchers proved to build identical engine arguments, cross_host_contrast, and the strict xfail that is this run's own flip. Landed 2026-08-22 in dd4f1ab9.",
+    "The declared-launcher seam, landed in this lane immediately before this run. Detection could not put srv1 on the container arm, and serving_build would not have caught the mismatch: pip and docker both answer `vllm 0.26.0`, because that string is the package's version and not the build's.",
+    "docker on srv1, recorded 2026-08-22: Docker 29.1.3, NVIDIA Container Toolkit 1.19.1, and vllm/vllm-openai:v0.26.0 pulled at digest sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52 - identical to srv2's. Turing works under it: torch 2.11.0+cu130 inside the container reports sm_75 in get_arch_list().",
+    "#322's gate, through which this header is filed before the run starts."
+  ],
+  "void_if": [
+    "Either launch row is missing gpu_name or serving_build, or their weights_sha256 differ. That is cross_host_contrast's own refusal and the whole point of re-taking the cell: a journal that cannot say what it ran on is what this run replaces.",
+    "launcher_declared is not true on both launch rows. A row that says `docker` because the host happened to detect that way, on a host that has both, is the confound wearing the answer's clothes.",
+    "Either rig carries a second claimant during its cell. E14's rule, and at width 16 a neighbour's traffic is measured as this cell's saturation.",
+    "The image digest on either rig is not the one named above. A tag is not a pin; the two hosts running v0.26.0 from different digests would restate the defect this run exists to remove, one level down.",
+    "The contrast is read as an answer to what the gap is. Card and driver move together across these two rigs and this run does not separate them."
+  ],
+  "notes": "Filed for #329's rig arm, the last open box on that issue and the only rig time any #286 child asks for. The owner's decision on 2026-08-23 was docker on both rather than reproducing the campaign's detected pip/docker split. The arm's flip is a predicate rather than a judgement: tests/test_cross_rig_claim.py holds a strict xfail over the claim read through cross_host_contrast, so pointing CROSS_RIG_JOURNAL at this run's journal turns the marker into a failure unless the contrast returns, and the marker comes off in the same commit that earns it."
+}

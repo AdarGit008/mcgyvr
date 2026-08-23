@@ -1038,6 +1038,7 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "claim_ended_at",
         "start_seconds",
         "launcher",
+        "launcher_declared",
         "restarted",
         "reason",
         "gpu_used_mib",
@@ -1069,7 +1070,13 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # unit (the sleep arm) can hold its own `started_at` beside it.
     "started_at": ("claim_started_at",),
     "ended_at": ("claim_ended_at",),
-    "started": ("start_seconds", "launcher", "restarted", "reason"),
+    "started": (
+        "start_seconds",
+        "launcher",
+        "launcher_declared",
+        "restarted",
+        "reason",
+    ),
     "gpu_used_mib": ("gpu_used_mib",),
     # #327: the card's state at the claim, read beside `gpu_used_mib` -- the
     # point every level of the ramp that follows is measured against.
@@ -1327,6 +1334,8 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
         # The four D6 asked for, at the only moment anything can answer them.
         "start_seconds": started.get("start_seconds"),
         "launcher": started.get("launcher"),
+        # #329: detected, or declared by the run and verified against the host.
+        "launcher_declared": started.get("launcher_declared"),
         "restarted": started.get("restarted"),
         "reason": started.get("reason"),
         "gpu_used_mib": checks.get("gpu_used_mib"),
@@ -1607,6 +1616,23 @@ def main(argv: list[str] | None = None) -> int:
         help="ramp phase: the seed a shuffled order is drawn from; drawn and "
         "recorded when absent",
     )
+    # **#329.** Not a preference and not a default: a run that compares two
+    # hosts declares the launcher it holds fixed, and a run that does not pass
+    # this still gets detection. `vllm.launcher` verifies the declaration
+    # against the host and refuses rather than falling back, and the launch row
+    # records that the launcher was declared rather than detected.
+    parser.add_argument(
+        "--launcher",
+        choices=("detect", "pip", "docker"),
+        default="detect",
+        help=(
+            "vLLM only: declare how every --hosts entry launches the engine, "
+            "instead of detecting it per host. Detection returns `pip` on any "
+            "host with `vllm` on PATH, so a host that has both cannot be put "
+            "on the container arm without this. Refused if a host cannot "
+            "honour it."
+        ),
+    )
     parser.add_argument(
         "--resume",
         action="store_true",
@@ -1624,6 +1650,11 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     hosts = [h.strip() for h in args.hosts.split(",") if h.strip()]
+    if args.launcher != "detect":
+        vllm_backend = contract.load_backend("vllm")
+        for host in hosts:
+            vllm_backend.declare_launcher(host, args.launcher)
+        print(f"launcher declared: {args.launcher} on {', '.join(hosts)}", flush=True)
     # #325: stamped once, when the run begins; `emit` puts it on every row.
     global STAMP
     STAMP = contract.provenance(argv=list(argv) if argv is not None else sys.argv[1:])
