@@ -1,0 +1,36 @@
+{
+  "_doc": "ONE cell, re-run for one reason: to capture the ENGINE's structured refusal reason for srv2-vllm-qwen3-4b-awq. On the main run this cell refused, and the next vLLM cell's `docker rm -f mcgyvr-vllm` destroyed the container whose logs carried vLLM's own words. The campaign's third void_if is that a refusal recorded without the engine's structured reason cannot be told from a harness bug, so the reason is re-obtained rather than left blank. The declaration, the model and the host are BYTE-IDENTICAL to the main config's entry; nothing was tuned to make it load.",
+  "_main_run": "records/evidence/2026-08-23-phase0-footprint/config.json",
+  "_row_of_record": "the main journal's row stands; this run's journal is kept apart so it cannot be mistaken for a second measurement of the same cell",
+  "hosts": [
+    "srv2"
+  ],
+  "collect": {
+    "host_config": false,
+    "concurrency": false
+  },
+  "models": [
+    {
+      "label": "srv2-vllm-qwen3-4b-awq",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "vllm/Qwen3-4B-AWQ",
+      "hosts": [
+        "srv2"
+      ],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 9663676416,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      }
+    }
+  ]
+}

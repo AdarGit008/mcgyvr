@@ -1,0 +1,276 @@
+{
+  "_doc": "PHASE 0 ONLY of the co-residency campaign declared in records/headers/2026-08-22-coresidency-matrix.json (arms[0]). Every (rig, engine, model) loaded ALONE, recording the measured resident footprint in the shape its engine can state (ADR-0040). No pairs, no co-residency, no throughput, no latency, no concurrency ramps.",
+  "_intent_header": "records/headers/2026-08-22-coresidency-matrix.json",
+  "_ramp_off": "collect.concurrency is false, so run.py:506's gate (collect.concurrency AND the entry's concurrency.measure) is never satisfied and every ramp is skipped. A cell is a load plus reads. No entry declares `concurrency` at all, so no entry claims a measurement this run does not take.",
+  "_roster_provenance": "Enumerated LIVE on 2026-08-23: ollama /api/tags on each rig, and ~/.cache/huggingface/hub on each rig for AWQ checkpoints. srv1 = 5 ollama + 3 AWQ; srv2 = 13 ollama + 4 AWQ; 25 cells. srv1's models--nvidia--NVIDIA-Nemotron-3-Nano-4B-FP8 is excluded twice over: srv1 is compute capability 7.5 and FP8 needs 8.9, and that cache entry holds no snapshot (12K, no config.json).",
+  "_ordering": "Within each host the engines ALTERNATE where both are present. run.py's exclusion loop releases only the OTHER backends, so a vLLM cell following a vLLM cell would read its `card before` while the previous vLLM server still held the card (vllm._start releases its own server later, inside the claim). Alternating keeps every recorded before-reading a reading of an empty card. Largest models last, so a cheap cell is never lost behind an expensive one.",
+  "_vllm_declaration": "ONE serving geometry across the whole arm - max_model_len 8192, max_num_seqs 8 - with kv_cache_memory_bytes derived per model as max_num_seqs * max_model_len * bytes_per_token (ADR-0039; never gpu_memory_utilization, which is the header's second void_if). bytes_per_token = num_hidden_layers * num_key_value_heads * head_dim * 2 (K and V) * 2 (fp16), read off each checkpoint's own config.json on the rig. A declaration that does not fit the card is a REFUSAL and a row, not a cell to be re-tuned until it loads.",
+  "_expect_note": "ollama entries pin model_sha256, read off each rig's own /api/tags on 2026-08-23. vLLM entries pin nothing: weights_sha256 is computed and recorded by the claim either way, and a pin whose value was measured on the other rig would cost a footprint reading to test an identity this phase is not asking about.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": false
+  },
+  "models": [
+    {
+      "label": "srv1-ollama-qwen2.5-coder-1.5b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:1.5b",
+      "family": "ollama/qwen2.5-coder:1.5b",
+      "hosts": ["srv1"],
+      "expect": {"model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"}
+    },
+    {
+      "label": "srv1-vllm-qwen2.5-coder-1.5b-awq",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "hosts": ["srv1"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 1879048192,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv1-ollama-qwen2.5-coder-3b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:3b",
+      "family": "ollama/qwen2.5-coder:3b",
+      "hosts": ["srv1"],
+      "expect": {"model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225"}
+    },
+    {
+      "label": "srv1-vllm-qwen2.5-coder-3b-awq",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-3B-Instruct-AWQ",
+      "hosts": ["srv1"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 2415919104,
+        "bytes_per_token": 36864,
+        "_bytes_per_token_note": "36 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 36,864 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv1-ollama-llama3.2-3b",
+      "backend": "ollama",
+      "id": "llama3.2:3b",
+      "family": "ollama/llama3.2:3b",
+      "hosts": ["srv1"],
+      "expect": {"model_sha256": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72"}
+    },
+    {
+      "label": "srv1-vllm-qwen3-4b-awq",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "vllm/Qwen3-4B-AWQ",
+      "hosts": ["srv1"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 9663676416,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token. This checkpoint's config.json states torch_dtype bfloat16.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv1-ollama-nemotron-3-nano-4b",
+      "backend": "ollama",
+      "id": "nemotron-3-nano:4b",
+      "family": "ollama/nemotron-3-nano:4b",
+      "hosts": ["srv1"],
+      "expect": {"model_sha256": "6cc467f054393a55e98a74098abde0c762ffb6d1d8cd64becf30458f38886197"}
+    },
+    {
+      "label": "srv1-ollama-qwen2.5-coder-7b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:7b",
+      "family": "ollama/qwen2.5-coder:7b",
+      "hosts": ["srv1"],
+      "expect": {"model_sha256": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364"}
+    },
+
+    {
+      "label": "srv2-ollama-qwen2.5-coder-1.5b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:1.5b",
+      "family": "ollama/qwen2.5-coder:1.5b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"}
+    },
+    {
+      "label": "srv2-vllm-qwen2.5-coder-1.5b-awq",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "hosts": ["srv2"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 1879048192,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv2-ollama-qwen2.5-coder-3b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:3b",
+      "family": "ollama/qwen2.5-coder:3b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225"}
+    },
+    {
+      "label": "srv2-vllm-qwen3-4b-awq",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "vllm/Qwen3-4B-AWQ",
+      "hosts": ["srv2"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 9663676416,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv2-ollama-llama3.2-3b",
+      "backend": "ollama",
+      "id": "llama3.2:3b",
+      "family": "ollama/llama3.2:3b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72"}
+    },
+    {
+      "label": "srv2-vllm-qwen2.5-coder-7b-awq",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "hosts": ["srv2"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 3758096384,
+        "bytes_per_token": 57344,
+        "_bytes_per_token_note": "28 layers x 4 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 57,344 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv2-ollama-nemotron-3-nano-4b",
+      "backend": "ollama",
+      "id": "nemotron-3-nano:4b",
+      "family": "ollama/nemotron-3-nano:4b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "6cc467f054393a55e98a74098abde0c762ffb6d1d8cd64becf30458f38886197"}
+    },
+    {
+      "label": "srv2-vllm-qwen2.5-coder-14b-awq",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-14B-Instruct-AWQ",
+      "hosts": ["srv2"],
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 12884901888,
+        "bytes_per_token": 196608,
+        "_bytes_per_token_note": "48 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 196,608 B/token.",
+        "flags": ["--enforce-eager"],
+        "env": {"FLASHINFER_DISABLE_VERSION_CHECK": "1"}
+      }
+    },
+    {
+      "label": "srv2-ollama-qwen2.5-coder-7b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:7b",
+      "family": "ollama/qwen2.5-coder:7b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364"}
+    },
+    {
+      "label": "srv2-ollama-yi-coder-9b",
+      "backend": "ollama",
+      "id": "yi-coder:9b",
+      "family": "ollama/yi-coder:9b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "39c63e7675d7a5c44f71c142c269ab95951170a80971c946e216d3ef575791e6"}
+    },
+    {
+      "label": "srv2-ollama-deepseek-coder-v2-16b",
+      "backend": "ollama",
+      "id": "deepseek-coder-v2:16b",
+      "family": "ollama/deepseek-coder-v2:16b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "63fb193b3a9b4322a18e8c6b250ca2e70a5ff531e962dbf95ba089b2566f2fa5"}
+    },
+    {
+      "label": "srv2-ollama-qwen2.5-coder-14b",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:14b",
+      "family": "ollama/qwen2.5-coder:14b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "9ec8897f747e246e970bc5cfdda85d22f1123dc2e3d34978a010a75968716849"}
+    },
+    {
+      "label": "srv2-ollama-gpt-oss-20b",
+      "backend": "ollama",
+      "id": "gpt-oss:20b",
+      "family": "ollama/gpt-oss:20b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7"}
+    },
+    {
+      "label": "srv2-ollama-qwen3-30b-a3b",
+      "backend": "ollama",
+      "id": "qwen3:30b-a3b",
+      "family": "ollama/qwen3:30b-a3b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "ad815644918f0eaab341c12b67837cc6dd4562342cdaf118f83d5d554cb37226"}
+    },
+    {
+      "label": "srv2-ollama-qwen3-coder-30b",
+      "backend": "ollama",
+      "id": "qwen3-coder:30b",
+      "family": "ollama/qwen3-coder:30b",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca"}
+    },
+    {
+      "label": "srv2-ollama-nemotron-3-nano-30b-a3b-iq2",
+      "backend": "ollama",
+      "id": "nemotron-3-nano:30b-a3b-iq2",
+      "family": "ollama/nemotron-3-nano:30b-a3b-iq2",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "200fc79ae2f68d3b0b59ad8deb3dc9586c8faeaacd619dc6bf14665cdce72681"}
+    },
+    {
+      "label": "srv2-ollama-qwen3-coder-next-ud-q3_K_XL",
+      "backend": "ollama",
+      "id": "qwen3-coder-next-ud:q3_K_XL",
+      "family": "ollama/qwen3-coder-next-ud:q3_K_XL",
+      "hosts": ["srv2"],
+      "expect": {"model_sha256": "499a5d0084fe5fbfbee936c43c3493517de0c4bb4c26684f701e1be86b8fd1c8"}
+    }
+  ]
+}

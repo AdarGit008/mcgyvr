@@ -1,0 +1,14 @@
+journal: records/evidence/2026-08-23-phase0-footprint/cells-rerun-srv2-qwen3-4b.jsonl
+[srv2] snapshot
+[srv2] srv2-vllm-qwen3-4b-awq (vllm) — yielding the card
+[srv2] srv2-vllm-qwen3-4b-awq REFUSED: vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.
+[srv2] final release of ollama: released=True card=1 MiB
+[srv2] final release of vllm: released=True card=1 MiB
+
+wrote records/evidence/2026-08-23-phase0-footprint/survey-rerun-srv2-qwen3-4b.json (8523 bytes)
+  srv2/srv2-vllm-qwen3-4b-awq: REFUSED
+  family vllm/Qwen3-4B-AWQ: no member was measured  [0 of 1]
+[srv1] release ollama: released=True card=1 MiB
+[srv1] release vllm: released=True card=1 MiB
+[srv2] release ollama: released=True card=1 MiB
+[srv2] release vllm: released=True card=1 MiB

@@ -1,0 +1,215 @@
+{
+ "config": {
+  "_doc": "ONE cell, re-run for one reason: to capture the ENGINE's structured refusal reason for srv2-vllm-qwen3-4b-awq. On the main run this cell refused, and the next vLLM cell's `docker rm -f mcgyvr-vllm` destroyed the container whose logs carried vLLM's own words. The campaign's third void_if is that a refusal recorded without the engine's structured reason cannot be told from a harness bug, so the reason is re-obtained rather than left blank. The declaration, the model and the host are BYTE-IDENTICAL to the main config's entry; nothing was tuned to make it load.",
+  "_main_run": "records/evidence/2026-08-23-phase0-footprint/config.json",
+  "_row_of_record": "the main journal's row stands; this run's journal is kept apart so it cannot be mistaken for a second measurement of the same cell",
+  "hosts": [
+   "srv2"
+  ],
+  "collect": {
+   "host_config": false,
+   "concurrency": false
+  },
+  "models": [
+   {
+    "label": "srv2-vllm-qwen3-4b-awq",
+    "backend": "vllm",
+    "id": "thewimo/Qwen3-4B-AWQ",
+    "family": "vllm/Qwen3-4B-AWQ",
+    "hosts": [
+     "srv2"
+    ],
+    "serve": {
+     "max_model_len": 8192,
+     "max_num_seqs": 8,
+     "kv_cache_memory_bytes": 9663676416,
+     "bytes_per_token": 147456,
+     "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token.",
+     "flags": [
+      "--enforce-eager"
+     ],
+     "env": {
+      "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+     }
+    }
+   }
+  ]
+ },
+ "hosts": {
+  "srv2": {
+   "snapshot": {
+    "host": "srv2",
+    "readings": {
+     "gpu_memory": {
+      "command": "nvidia-smi --query-gpu=memory.used --format=csv,noheader",
+      "stdout": "1 MiB"
+     },
+     "gpu_total": {
+      "command": "nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader",
+      "stdout": "NVIDIA GeForce RTX 3060, 12288 MiB, 595.84"
+     },
+     "gpu_compute_apps": {
+      "command": "nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader",
+      "stdout": null
+     },
+     "memory": {
+      "command": "free -m | head -2",
+      "stdout": "total        used        free      shared  buff/cache   available\nMem:           30998        1290        1065           0       28956       29708"
+     },
+     "load_average": {
+      "command": "cat /proc/loadavg",
+      "stdout": "0.17 0.45 0.41 1/414 408517"
+     },
+     "top_cpu": {
+      "command": "ps -eo pcpu,rss,args --sort=-pcpu | head -4",
+      "stdout": "%CPU   RSS COMMAND\n 2.4 12132 sshd-session: adaramir [priv]\n 1.5 13064 /usr/lib/systemd/systemd --user\n 0.4 46812 /usr/libexec/fwupd/fwupd"
+     },
+     "listening": {
+      "command": "ss -ltn 2>/dev/null | head -20",
+      "stdout": "State  Recv-Q Send-Q               Local Address:Port  Peer Address:Port\nLISTEN 0      4096                  100.69.72.51:45602      0.0.0.0:*   \nLISTEN 0      4096                       0.0.0.0:22         0.0.0.0:*   \nLISTEN 0      4096                    127.0.0.54:53         0.0.0.0:*   \nLISTEN 0      4096                 127.0.0.53%lo:53         0.0.0.0:*   \nLISTEN 0      4096                          [::]:22            [::]:*   \nLISTEN 0      4096   [fd7a:115c:a1e0::d73b:4834]:58075         [::]:*   \nLISTEN 0      4096                             *:11434            *:*"
+     }
+    },
+    "gpu_used_mib": 1,
+    "gpu_idle": true
+   },
+   "present": {
+    "ollama": {
+     "base": "http://srv2:11434",
+     "reachable": true,
+     "inventory": [
+      "llama3.2:3b",
+      "nemotron-3-nano:30b-a3b-iq2",
+      "nemotron-3-nano:4b",
+      "qwen3-coder-next-ud:q3_K_XL",
+      "qwen3-coder:30b",
+      "gpt-oss:20b",
+      "qwen2.5-coder:1.5b",
+      "deepseek-coder-v2:16b",
+      "qwen3:30b-a3b",
+      "yi-coder:9b",
+      "qwen2.5-coder:14b",
+      "qwen2.5-coder:7b",
+      "qwen2.5-coder:3b"
+     ],
+     "readings": {}
+    },
+    "vllm": {
+     "base": null,
+     "reachable": false,
+     "inventory": [],
+     "readings": {}
+    }
+   },
+   "measured": {
+    "srv2-vllm-qwen3-4b-awq": {
+     "backend": "vllm",
+     "model": "thewimo/Qwen3-4B-AWQ",
+     "family": "vllm/Qwen3-4B-AWQ",
+     "verified": false,
+     "outcome": "launch_failed",
+     "refusal": {
+      "reasons": [
+       "unknown"
+      ],
+      "stage": "claim",
+      "kind": "NotCleanError",
+      "prose": "vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.",
+      "attempts": []
+     },
+     "refused_stage": "claim",
+     "refused_kind": "NotCleanError",
+     "refused": "vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.",
+     "yielded": {
+      "ollama": {
+       "backend": "ollama",
+       "steps": [
+        {
+         "step": "unload_resident",
+         "command": "curl -s -m 10 http://127.0.0.1:11434/api/ps | python3 -c \"import json,sys;print(' '.join(m['name'] for m in json.load(sys.stdin).get('models',[])))\" | tr ' ' '\\n' | while read -r m; do [ -n \"$m\" ] && curl -s -m 30 -X POST http://127.0.0.1:11434/api/generate -d \"{\\\"model\\\":\\\"$m\\\",\\\"keep_alive\\\":0}\" -o /dev/null; done; true",
+         "stdout": null
+        },
+        {
+         "step": "kill_servers",
+         "command": "sudo -n pkill -f '[l]lama-server' 2>/dev/null; sleep 4; echo \"remaining=$(pgrep -c '[l]lama-server' 2>/dev/null || echo 0)\"",
+         "stdout": "remaining=0\n0"
+        },
+        {
+         "step": "restart_service",
+         "command": "sudo -n systemctl restart ollama 2>/dev/null && echo restarted || echo '(no passwordless sudo \u2014 the card may not fully clear)'",
+         "stdout": "restarted"
+        },
+        {
+         "step": "settle",
+         "command": "sleep 8; echo settled",
+         "stdout": "settled"
+        },
+        {
+         "step": "gpu_memory",
+         "command": "nvidia-smi --query-gpu=memory.used --format=csv,noheader",
+         "stdout": "1 MiB"
+        },
+        {
+         "step": "own_processes",
+         "command": "pgrep -c '[l]lama-server' 2>/dev/null || echo 0",
+         "stdout": "0\n0"
+        }
+       ],
+       "gpu_used_mib": 1,
+       "own_processes_remaining": 0,
+       "children_after_kill": 0,
+       "kill_was_effective": true,
+       "released": true,
+       "card_used_mib": 1,
+       "card_idle": true
+      }
+     },
+     "started_at": "2026-08-23T06:53:25.916+00:00",
+     "ended_at": "2026-08-23T07:01:36.804+00:00"
+    }
+   }
+  }
+ },
+ "families": {
+  "vllm/Qwen3-4B-AWQ": {
+   "members": [],
+   "refused": [
+    {
+     "host": "srv2",
+     "label": "srv2-vllm-qwen3-4b-awq"
+    }
+   ],
+   "declared": 1,
+   "denominator": "0 of 1",
+   "verdict": "no member was measured"
+  }
+ },
+ "refusals": [
+  {
+   "host": "srv2",
+   "label": "srv2-vllm-qwen3-4b-awq",
+   "backend": "vllm",
+   "why": "vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.",
+   "stage": "claim"
+  }
+ ],
+ "run": {
+  "commit": "6ea86bb2ee0ddba38439a49dac041505906207fd",
+  "commit_unknown_reason": null,
+  "tree_dirty": true,
+  "harness_sha256": "a4e1916a0a55efb6adb57053f8d601db1f64461a90a233eb70a6ef88b0d1c07c",
+  "config_sha256": "a15417efb1ea9f30ca2c584d5287f1a4f51574f31c9e0d50949ff5c0d282ebc9",
+  "argv": [
+   "--config",
+   "records/evidence/2026-08-23-phase0-footprint/config-rerun-srv2-qwen3-4b.json",
+   "--out",
+   "records/evidence/2026-08-23-phase0-footprint/survey-rerun-srv2-qwen3-4b.json",
+   "--journal",
+   "records/evidence/2026-08-23-phase0-footprint/cells-rerun-srv2-qwen3-4b.jsonl"
+  ],
+  "run_started_at": "2026-08-23T06:53:16.494+00:00",
+  "metric": "phase",
+  "started_at": "2026-08-23T06:53:16.494+00:00",
+  "ended_at": "2026-08-23T07:01:36.807+00:00",
+  "seconds": 500.313
+ }
+}
