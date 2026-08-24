@@ -18,7 +18,7 @@ estimate, because rule-driven skips and the 180 s level cap never bound.
 | `ghcr.io/ggml-org/llama.cpp:full-cuda-b10481` (B2-4 only) | — | `sha256:f960e6dad3c3a98d4e25e85b62517664fd6c73f8590812d4fedf1178c87a75eb` |
 | `openmmlab/lmdeploy:v0.16.0-cu12.8` | `sha256:0fd7426f76331c3bed844db290ba838a01f3b2e00dcb254a6de83a86c0649576` | same digest |
 
-Rig facts are from `srv1/run.json` and `srv2/run.json` (`rig_facts`). Intent
+Rig facts are from `srv1/runner-run.json` and `srv2/runner-run.json` (`rig_facts`). Intent
 header: `records/headers/2026-08-24-engine-default-r2.json` (the `run` block
 was added when this record was written). Runner: `runner.py` in this
 directory, sha256 `f8dcc5f2d7a9cb6d2820796022f790a00dbe677b876c5ce8c2220d7d865fc1d7`;
@@ -28,7 +28,7 @@ cells `cells.json`, sha256 `e118d3d1…ea44e5`; repo head `8557694b`. Spec:
 Python function that merges two sorted lists."), `num_ctx` 1024, 475 requested
 tokens, temperature 0, 180 s level cap, cap fraction counted at ≥ 470 tokens.
 
-**The runner was invoked more than once per rig, and only the last `run.json`
+**The runner was invoked more than once per rig, and only the last `runner-run.json`
 per rig survives** (each run overwrites it). Every run is in `rows.jsonl` and
 the rig log:
 
@@ -36,9 +36,9 @@ the rig log:
 |---|---|---|---|
 | srv1 | 20:18:20–20:29:41 | A1-1, A1-2, C1-1, E1-1 ran; B1-1, D1-*, R1 skipped "rule (e)1" | the control bar was mis-set (CORRECTIONS 20:33) |
 | srv1 | 20:30:50–20:36:56 (`--only B1-1,D1-*,R1`) | B1-1 ran; D1-1 and D1-2 refused, D1-3/D1-4/D1-5 skipped by rule (d)3; R1 re-took B1-1 | LMDeploy launch died on the incomplete snapshot (CORRECTIONS 20:38) |
-| srv1 | 20:37:53–20:59:31 (`--only D1-1,D1-2,D1-3,D1-4,D1-5,R1`) | all five D1 cells ran on the corrected launch; R1 skipped ("no completed cell has a level at n=32" — the re-take only looks inside its own run) | this is the surviving `srv1/run.json` |
+| srv1 | 20:37:53–20:59:31 (`--only D1-1,D1-2,D1-3,D1-4,D1-5,R1`) | all five D1 cells ran on the corrected launch; R1 skipped ("no completed cell has a level at n=32" — the re-take only looks inside its own run) | this is the surviving `srv1/runner-run.json` |
 | srv2 | 20:18:22–20:50:47 | A2-1..5, E2-1, E2-2, B2-1, B2-2, B2-4, B2-5, D2-1, D2-4, D2-5, D2-6 ran; B2-3 skipped by rule (b)4; D2-2, D2-7, D2-3, D2-8 refused; R2 re-took E2-1 | 7B and 3B snapshots incomplete on srv2 too (CORRECTIONS 20:47) |
-| srv2 | 20:51:11–20:58:43 (`--only D2-2,D2-3,D2-7,D2-8,R2`) | all four ran on the corrected launch; R2 skipped (same runner quirk) | this is the surviving `srv2/run.json` |
+| srv2 | 20:51:11–20:58:43 (`--only D2-2,D2-3,D2-7,D2-8,R2`) | all four ran on the corrected launch; R2 skipped (same runner quirk) | this is the surviving `srv2/runner-run.json` |
 
 ## The question and the answer
 
@@ -287,7 +287,7 @@ Both rigs' final restore rows (`kind=restore`, `after: END`):
 - srv2 20:58:40 — `env_readback: "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434"`, `restored: true`, `api_ready: true`.
 
 The same readback appears after every intermediate run's END (srv1 20:29:39,
-20:36:53; srv2 20:50:44). `run.json` `post_state`: GPU memory used 1 MiB on
+20:36:53; srv2 20:50:44). `runner-run.json` `post_state`: GPU memory used 1 MiB on
 both cards; `ollama ps` empty; `docker ps -a` holds only the pre-existing
 exited strangers (`mcgyvr-vllm`, `vllm-nemotron-4b`, and on srv2
 `vllm-7b-coder`, `vllm-nemotron-30b`) — no `sweep-*` container; every

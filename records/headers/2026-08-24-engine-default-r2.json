@@ -32,7 +32,7 @@
   ],
   "prerequisites": [
     "passwordless sudo on both rigs (verified 2026-08-24)",
-    "images pulled and digests recorded in run.json at run start: llama.cpp server-cuda-b10481 (both), full-cuda-b10481 (srv2), lmdeploy v0.16.0-cu12.8 (both), vllm v0.26.0 (both)",
+    "images pulled and digests recorded in runner-run.json at run start: llama.cpp server-cuda-b10481 (both), full-cuda-b10481 (srv2), lmdeploy v0.16.0-cu12.8 (both), vllm v0.26.0 (both)",
     "no stranger container running (exited vllm-7b-coder / vllm-nemotron-* / mcgyvr-vllm are never touched)",
     "the ollama drop-in is parallel.conf and OLLAMA_HOST lives in tailscale.conf, so the three-line rewrite is safe (F1)",
     "the 3B AWQ snapshot on srv2 (D2-3 / D2-8 are skipped with reason if absent)"
@@ -48,7 +48,7 @@
     "started": "2026-08-24T20:18",
     "ended": "2026-08-24T20:59",
     "wall": "41 min against a 200 min estimate; rigs concurrent (srv1 20:18-20:59, srv2 20:18-20:58), no level hit the 180 s cap",
-    "driver": "runner.py (sha256 f8dcc5f2d7a9cb6d2820796022f790a00dbe677b876c5ce8c2220d7d865fc1d7, copied into the evidence directory), invoked three times on srv1 and twice on srv2; only the last run.json per rig survives, every run is in rows.jsonl and the rig log",
+    "driver": "runner.py (sha256 f8dcc5f2d7a9cb6d2820796022f790a00dbe677b876c5ce8c2220d7d865fc1d7, copied into the evidence directory), invoked three times on srv1 and twice on srv2; only the last runner-run.json per rig survives, every run is in rows.jsonl and the rig log",
     "phases": [
       "srv1 20:18-20:29: blocks (a), (c), (e) ran; (b), (d), R1 skipped on a mis-set control bar (CORRECTIONS 20:33)",
       "srv1 20:30-20:36 (--only): B1-1 ran, LMDeploy refused on an incomplete snapshot, R1 re-took B1-1",

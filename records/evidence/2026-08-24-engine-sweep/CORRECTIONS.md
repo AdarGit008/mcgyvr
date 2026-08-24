@@ -36,3 +36,11 @@ D2-2 (7B) exited after ~9 s on both launch variants under the unpatched runner s
 was too narrow — only srv2's 1.5B snapshot is complete. D2-7 (7B), D2-3 and D2-8 (3B, rsynced from srv1) fail the
 same way. Those rows are KEPT as refusals; the same cells plus R2 are appended by a `--only` re-run on the
 corrected launch, started automatically when srv2's first run exits.
+
+## 2026-08-24 21:35 — `srv1/run.json` and `srv2/run.json` renamed to `runner-run.json`
+
+`tests/test_run_contract.py::test_a_one_armed_cell_is_stored_and_checked_like_any_other` is an `xfail(strict)`
+whose only assertion is `records/evidence/*/*/run.json` existing — the one-directory-per-cell shape the run
+contract defines and nothing has produced yet (#335). The runner's per-rig summaries matched that glob by name
+alone and turned the xfail into an XPASS on CI (`c69e62c7`, push and pull_request rows). They are runner
+summaries, not cell records, so they are renamed out of the reserved name; contents unchanged.
