@@ -594,11 +594,23 @@ def _widths(
             "max_model_len": 8192,
             "max_num_seqs": width,
             "gpu_memory_utilization": 0.85,
-            # `--enforce-eager` is MANDATORY on srv1 (compute capability
-            # 7.5, no CUDA graphs) and is kept on srv2 as well: item 2 is a
-            # cross-host replication, and graphs on one host but not the
-            # other would be an uncontrolled difference sitting inside the
-            # comparison the item exists to make.
+            # **`--enforce-eager` is NOT mandatory on srv1, and this comment
+            # said it was from 2026-08-19 to 2026-08-24.** The claim was never
+            # a measured refusal: vLLM's `docs/features/README.md:66` lists
+            # CUDA graph as supported on Turing and no capability gate on graph
+            # capture exists in the 0.26.0 source. Measured on the rigs
+            # (`records/evidence/2026-08-24-config-sweep/`): dropping the flag
+            # is worth 0.1% on srv1 -- the card the belief was about -- and
+            # **5.02x on srv2**, where nobody ever claimed it was needed,
+            # including at a single stream (181.7 tok/s at n=1 against 36.2).
+            #
+            # It is KEPT here regardless, and the reason is the second half of
+            # the original comment, which was right: item 2 is a cross-host
+            # replication, and graphs on one host but not the other would be an
+            # uncontrolled difference inside the comparison. What changes is
+            # that this is now a deliberate, priced handicap on BOTH rigs
+            # rather than a constraint one of them imposes -- so no figure this
+            # function produces may be read as either rig's throughput.
             "flags": ["--enforce-eager"],
             # **E10, 2026-08-19: `CUDA_HOME` is dropped, not repaired.**
             # It was `"$HOME/.local/lib/python3.14/site-packages/nvidia/

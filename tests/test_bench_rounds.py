@@ -513,6 +513,12 @@ NOT_A_FIGURE = {
         "semantic and operational — and reads no run directory, no row and no "
         "rate. It states nothing about outcomes at all"
     ),
+    "tools/bench/serving/sweep.py": (
+        "the configuration sweep (#357). It reports serving throughput in "
+        "tokens per second per engine configuration, not a bench pass rate: no "
+        "task is scored, no verdict is produced, and there is no tier "
+        "attribution to declare"
+    ),
     "tools/bench/serving/calibrate.py": (
         "the constants campaign (#286 lane). It measures the thresholds and "
         "timeouts `serving/` was built on — array sizes, load durations, VRAM "

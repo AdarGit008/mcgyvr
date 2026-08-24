@@ -1300,6 +1300,73 @@ driver: inside srv2's container `nvidia-smi` reports the host's 595.84. So
 "hardware" is now a claim the record can support as *not configuration*, and it
 remains one no run in this tree can decompose further.
 
+## Correction appended 2026-08-24 — "Partial batches cost a full batch-time" is srv1-only
+
+The section at `:332-345` concludes from the dips that they are "scheduler
+behaviour rather than noise". **The observation is real; the attribution is
+not.** Every row of the matrix it is derived from (`samples.jsonl`, 15 rows) is
+**srv1**. srv2's own five-width matrix in `d7-ramp.jsonl` reads 1.95-1.97x at
+n=2 with no dip at any width, and the 2026-08-24 sweep confirms srv2's decode
+step is flat from batch 1 to batch 16 (27.6 to 28.7 ms, +3.7%).
+
+So "n=2 is slower than n=1 at every single width" is a property of **srv1**, not
+of vLLM's scheduler. Its cause is named in the block below: the unquantized
+lm_head GEMM, which costs 1.77 ms at batch 1 and 50.8 ms at every batch from 2
+to 32 on srv1 and is flat on srv2. A fixed per-step cost that appears only when
+the batch is not 1 produces exactly the dips this section describes, on one card
+and not the other.
+
+The n=12-against-width-8 and n=6-against-width-4 observations are a second,
+smaller step of the same kind, and are also srv1-only.
+
+## Correction appended 2026-08-24 — the contrast compared two misconfigured servers
+
+The sentence at `:983-987` and the addendum above both survive as far as they
+go: the deployment is not the explanation, and the launcher was worth 0.06 of a
+gap of 11.6. **What neither of them can survive is that both servers were
+configured to a fraction of what they can do.**
+
+A 106-cell configuration sweep over 20 axes on both rigs
+(`records/evidence/2026-08-24-config-sweep/`) reads:
+
+| | srv1 | srv2 |
+|---|---|---|
+| this campaign's configuration | 164.3 tok/s | 518.2 tok/s |
+| best configuration measured | **293.6** | **6,445.1** |
+| | 1.79x | **12.4x** |
+
+**The gap is 22x, not 3.2x**, and the campaign's own numbers were a reading of
+two misconfigurations rather than of two machines.
+
+**`--enforce-eager` is the largest term and it was never required.** This
+directory's justification for it — "mandatory on srv1's compute capability 7.5",
+repeated at `calibrate.py:597` and `step0-gaps.md:197` — is an assertion no run
+in this tree ever tested. vLLM's `docs/features/README.md:66` lists CUDA graph
+as supported on Turing and no capability gate on graph capture exists in the
+0.26.0 source. Measured: the flag is worth **0.1% on srv1**, the card the claim
+was about, and **5.02x on srv2**, where nobody claimed it was needed — including
+at a single stream (181.7 tok/s at n=1 against 36.2), so it is not a batching
+effect. The belief was attached to the wrong rig and taxed the other one for the
+life of the campaign.
+
+**What still stands, and is now better supported.** srv1 responds to exactly one
+axis of twenty; twenty-five cells across compile, graphs, performance mode,
+scheduler, dtype, KV dtype, kernels and scheduling all land inside a 2.8% band,
+and only concurrency moves it — to 293, where four context lengths agree to four
+significant figures. srv1 is also *refused* `bfloat16` and all three fp8 KV
+dtypes by compute capability, and fp8 KV is what produced srv2's best cell. So
+srv1 is genuinely the weaker rig. **The size of the difference this campaign
+reported, however, is a property of how both were run.**
+
+**The mechanism behind srv1's N=2 cliff, which this campaign left open.**
+`Qwen2.5-Coder` ties its word embeddings, so lm_head is unquantized fp16 and
+runs through cuBLAS every decode step. A microbenchmark of that one GEMM on both
+cards (`2026-08-24-config-sweep/README.md`, and the lm_head figures in the
+2026-08-23 lane record) steps 28.7x between M=1 and M=2 on srv1 and is flat on
+srv2 — an excess of 49.06 ms against the 49.79 ms the live run shows. The card's
+TU116 die carries no tensor cores. That is hardware; which model, and therefore
+whether its lm_head is tied, is configuration.
+
 **Two figures the arm produced on the way.** srv1's first container launch:
 **83.5 s**, against the 33 s its pip launch measured — a 2.5x start-time cost
 for the same engine on the same card, and the first `START_TIMEOUT_S` point

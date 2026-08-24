@@ -249,3 +249,26 @@ never shut down after the phase-3 ramps. It was **left up deliberately through
 0.1** (decision E1) because it made every vLLM endpoint check above testable at
 depth 0 without starting anything, and it is torn down in 0.2.3. srv2 was genuinely
 idle.
+
+
+## Correction appended 2026-08-24 — gap 10's parenthesis
+
+Gap 10 reads "no CUDA graphs (`--enforce-eager` is mandatory)". **The
+parenthesis is wrong and the rest of the gap is right.**
+
+`--enforce-eager` was never mandatory on srv1. The claim appears here and at
+`calibrate.py:597` and was an assertion in both places -- no run in this tree
+ever recorded vLLM declining to capture graphs on compute capability 7.5, and
+vLLM's own `docs/features/README.md:66` lists CUDA graph as supported on Turing.
+Measured 2026-08-24 (`records/evidence/2026-08-24-config-sweep/`): dropping the
+flag is worth **0.1% on srv1** and **5.02x on srv2**.
+
+The rest of gap 10 stands and is now better supported. srv1's vLLM really does
+take no FA2 (`TRITON_ATTN` is the only backend it is offered), really does fall
+back to PyTorch sampling, and really does carry a ~4x penalty against ollama on
+the same box. The 106-cell sweep adds the mechanism: `Qwen2.5-Coder` ties its
+word embeddings, so lm_head is unquantized fp16 through cuBLAS, and that one
+GEMM steps 28.7x between batch 1 and batch 2 on a TU116 die with no tensor
+cores. srv1 is also refused `bfloat16` and all three fp8 KV dtypes by compute
+capability, which is a real and permanent handicap -- fp8 KV is what produced
+srv2's best cell.
