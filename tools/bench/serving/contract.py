@@ -70,13 +70,79 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 
-#: Offered-concurrency levels. The top is above any plausible batch width on
-#: these rigs, so the server's own limit bounds the curve rather than this
-#: number; the low end is dense, because that is where the knee sits.
+#: Offered-concurrency levels: the KNEE ladder. Dense at the low end, because
+#: that is where a narrow server's knee sits, and it is the default for a
+#: survey entry that declares no ladder of its own.
+#:
+#: **#356, 2026-08-24: the top of this ladder is NOT above every plausible
+#: width, and it never was.** The sentence that used to stand here said the
+#: server's own limit bounds the curve rather than this number. Measured on
+#: 2026-08-24 (`records/evidence/2026-08-24-config-sweep/`): with
+#: `--max-num-seqs 256` and CUDA graphs on, srv1 peaks at n=128 and srv2 at
+#: n=256, and n=384 was offered on srv2 and read lower than 256. A ladder that
+#: stops at 24 cannot see either ceiling. It was never wrong for the D7 width
+#: matrices, whose widest server was configured at 16 -- and that is the
+#: point: the right top is a function of the width the server was launched
+#: with, not a constant. :func:`ladder` is that function; this tuple is its
+#: base and stays the survey default because a roster entry that has not
+#: declared a width (ollama reports `total_slots = 1` for every model) has no
+#: business being offered 384 queued requests -- on srv2's deep-spill models a
+#: single level of 24 already costs 6-9 minutes per repeat
+#: (`configs/d7-campaign.json`, E13).
 RAMP_LEVELS: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16, 24)
+
+#: The knee ladder's continuation, in the same ~1.5x steps, for a server whose
+#: configured width is past 16. Ends where both rigs' measured maxima end
+#: (#356): 256 is the widest anything here has been launched at, and 384 is
+#: the level that showed it was the top on srv2.
+RAMP_LADDER_EXTENSION: tuple[int, ...] = (32, 48, 64, 96, 128, 192, 256, 384)
+
+
+def ladder(width: int | None) -> tuple[int, ...]:
+    """The levels to offer a server launched at ``width`` slots (#356).
+
+    The knee ladder, continued by :data:`RAMP_LADDER_EXTENSION` until the
+    first level at or past ``1.5 * width``, so the curve is measured past the
+    point where the scheduler stops admitting -- the BL-4 rule that a curve is
+    measured to its END or refused needs a level beyond the limit to be
+    offered at all. A width of 16 or less, or no declared width, gets exactly
+    :data:`RAMP_LEVELS`, which keeps every D7 row re-takeable as the cell it
+    was.
+
+    Measured 2026-08-24: a width-256 server peaks at 128 (srv1) and 256
+    (srv2), and 384 -- this ladder's top for that width -- read below 256 on
+    the rig that reached it, which is what "measured to its end" looks like.
+
+    **What the wider ladder costs**, from the same sweep's wall-clocks at one
+    repeat: srv1's levels 32..384 sum to roughly 33 minutes, so a two-repeat
+    ramp at width 256 is about an hour on srv1 and about ten minutes on srv2.
+    That is the price of seeing the ceiling and it is paid only by a server
+    configured wide enough to have one.
+    """
+    if not width or width <= RAMP_LEVELS[-1] / 1.5:
+        return RAMP_LEVELS
+    levels = list(RAMP_LEVELS)
+    for level in RAMP_LADDER_EXTENSION:
+        levels.append(level)
+        if level >= 1.5 * width:
+            break
+    return tuple(levels)
+
 
 #: Each level runs twice and the better throughput is kept: one level can be
 #: spoiled by an unlucky scheduler moment, and the knee is read off a curve.
+#:
+#: **#356, 2026-08-24: a variance guard, not a rate-derived number, and the
+#: only spread on record is eager.** The D7 journal holds no losing repeat
+#: (the `repeats` field landed after it ran), so the first `repeat_spread`
+#: rows are 2026-08-23's cross-rig ramp, taken WITH `--enforce-eager`: the
+#: second attempt won 4 of 9 levels on each rig, and max/min per level was at
+#: most 1.015 on srv1 and 1.072 on srv2. That 7% is inside the 8% margin
+#: :data:`PLATEAU_FRACTION` leaves, which is why `max` over two is kept: one
+#: unlucky repeat at one level would move the saturation read. No spread has
+#: been measured with graphs on -- the sweep ran one repeat -- so this is
+#: invariant by construction (it does not read a rate) and unmeasured in the
+#: new regime, and both halves of that are the record.
 RAMP_REPEATS = 2
 
 #: The orders a ramp may offer its levels in (#327). The readers sort by ``n``
@@ -103,6 +169,18 @@ RAMP_ORDERS: tuple[str, ...] = ("ascending", "descending", "shuffled")
 #: ``completion_tokens`` counts reasoning tokens, so 475 buys roughly a third of
 #: that in visible text. Throughput is still throughput; the quantity simply is
 #: not comparable to a non-reasoning model's visible-token rate.
+#:
+#: **#356, 2026-08-24: re-derived with CUDA graphs on, and it survives.**
+#: D3's matrix was taken under `--enforce-eager`, worth 5.02x on srv2, so the
+#: rate its overhead argument was made against was 5x low there. Measured
+#: at 128/256/475/1024 tokens on both rigs
+#: (`records/evidence/2026-08-24-ramp-tokens/`): at a single stream 475
+#: reads 97% (srv1) / 95% (srv2) of the 1024-token rate and 128 reads 81% /
+#: 77%. The per-request overhead is not fixed in seconds -- 0.79 s on srv1,
+#: 0.22 s on srv2 -- so its share of a 475-token reply is 6.9% / 8.3% on
+#: both rigs, and a budget chosen against a share survives the rate moving.
+#: Past the knee, 1024 reads 6-10% BELOW 475: a longer sequence is more KV to
+#: attend over per step, a different regime rather than a better reading.
 RAMP_TOKENS = 475
 
 #: Long enough that no reply ends early. Unequal replies are what sank the
@@ -125,6 +203,16 @@ RAMP_PROMPT = (
 #: **D2, 2026-08-19.** 0.92 rather than the previous inline 0.95: at 0.95 a
 #: curve that is still creeping upward by a percent or two per level reads its
 #: saturation point later than the hardware reaches it.
+#:
+#: **#356, 2026-08-24: re-read on curves that are not 5x depressed.** The 104
+#: launched cells of `records/evidence/2026-08-24-config-sweep/` -- 68 with
+#: `--enforce-eager`, 36 with graphs on -- were read at 0.90, 0.92 and 0.95.
+#: 0.92 and 0.95 agree on every one of the 104; 0.90 disagrees on two srv2
+#: graph cells (`g-1.5B-seqs384`: 128 against 256). The plateau this defines
+#: is the same object with graphs on. One caveat the sweep cannot remove: its
+#: ladder is powers of two, so a knee between levels is invisible to it where
+#: D7's dense low end would see it -- the agreement is at the sweep's
+#: resolution.
 PLATEAU_FRACTION = 0.92
 
 #: Informational only — reported beside the latency plateau, never a gate.
@@ -150,6 +238,15 @@ LATENCY_TOLERANCE = 0.10
 #: At 1.0 it excludes exactly the degenerate case: a curve whose peak never
 #: exceeds its own single-request rate has no rise, so nothing about it can be
 #: called a saturation point.
+#:
+#: **#356, 2026-08-24: the boundary is far from every graphs-on curve.** D7
+#: showed 0.02 separating "excluded" from "valid" (srv1 width 1 at 1.00
+#: against srv2's 1.02, `calibration-2026-08-19/README.md:996-1000`) -- both
+#: were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
+#: speedup over n=1 is 3.39 (srv1, eager) and 3.61 (srv1, graphs); srv2's
+#: lowest is 7.5. Nothing is within a factor of three of the floor, so the
+#: constant excludes nothing in the new regime and its sensitivity stays a
+#: width-1 property, which no re-derivation of the number moves.
 INFERRED_SATURATION_MIN_SPEEDUP = 1.0
 
 #: The floor aggregate rate a level is given time to achieve, in tokens/second.
@@ -166,9 +263,22 @@ INFERRED_SATURATION_MIN_SPEEDUP = 1.0
 #:
 #: 4 tok/s is deliberately below anything measured on these rigs: the cap exists
 #: to bound a hung request, not to score a slow one.
+#:
+#: **#356, 2026-08-24: checked against the wider ladder, where it could bind.**
+#: The 2026-08-24 sweep offered up to n=384; at n=256 on srv1 a single stream
+#: ran 0.79 tok/s, which is BELOW this floor per stream -- and the floor is an
+#: aggregate: the level's budget is ``n * RAMP_TOKENS / 4 + 90``, 30,490 s at
+#: n=256, against a measured level wall of 413 s. Across all 104 launched
+#: cells the slowest request used 14.9% of its budget (srv1, n=2,
+#: `linear-triton`). A rate 5x higher makes the cap looser still; the
+#: direction of the misconfiguration runs away from this constant.
 RAMP_FLOOR_TOKENS_PER_S = 4.0
 
 #: Added to every per-request budget, for connection setup and prefill.
+#: **#356:** the prompt is short and identical, prefill is milliseconds on
+#: either rig, and the first graph replay is paid by the discarded warm-up
+#: request in :func:`ramp`, not by a timed level. Invariant to the serving
+#: configuration by construction.
 RAMP_TIMEOUT_BASE_S = 90.0
 
 #: A card holding less than this is idle: a few hundred MiB is display and
@@ -178,7 +288,97 @@ IDLE_GPU_MIB = 500
 #: How long a cleanup or reading step may take. Generous on purpose — at 30s a
 #: step timed out on a box thrashing with a 36 GB model in page cache and
 #: returned nothing, and a cleanup step that fails SILENTLY is worse than none.
+#: **#356:** bounds ssh steps -- `nvidia-smi`, `docker rm`, `pgrep`, a page
+#: cache drop -- none of which runs inside the engine or reads its rate.
+#: Invariant to the serving configuration by construction.
 STEP_TIMEOUT_S = 180.0
+
+#: Where every number above came from (#356). A constant can be pinned by a
+#: marker in `launch.py` while the run behind it is void, and nothing said so:
+#: the D7 campaign's every ramp ran under `--enforce-eager`, worth 5.02x on
+#: srv2, and the constants it produced kept governing the next campaign.
+#: This table is the fix. Each entry names the run a constant was derived
+#: from or re-read against, the date, and whether it was **derived** from
+#: that run's curves or is **invariant** to the serving configuration for a
+#: stated reason. `tests/test_serving.py` refuses a numeric constant in this
+#: module with no entry, an entry naming no run on disk, and an entry naming
+#: a constant that does not exist.
+PROVENANCE: dict[str, dict[str, str]] = {
+    "RAMP_LEVELS": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "knee ladder kept as the survey default; ladder() extends it "
+        "to 384 for a width past 16, because both rigs' maxima sit at 128-256",
+    },
+    "RAMP_LADDER_EXTENSION": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "ends at 384, the level that read below 256 on srv2",
+    },
+    "RAMP_REPEATS": {
+        "run": "records/evidence/2026-08-23-cross-rig",
+        "date": "2026-08-24",
+        "kind": "invariant",
+        "note": "reads no rate; the only spread on record is eager, max/min "
+        "1.015 srv1 / 1.072 srv2, second attempt won 4 of 9 levels each",
+    },
+    "RAMP_TOKENS": {
+        "run": "records/evidence/2026-08-24-ramp-tokens",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "re-measured with graphs on at 128/256/475/1024 tokens on "
+        "both rigs; see that directory's README for the reading",
+    },
+    "PLATEAU_FRACTION": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "0.92 and 0.95 agree on all 104 launched cells, eager or not; "
+        "0.90 differs on two",
+    },
+    "LATENCY_TOLERANCE": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "invariant",
+        "note": "informational, never a gate; nothing downstream reads it",
+    },
+    "INFERRED_SATURATION_MIN_SPEEDUP": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "lowest graphs-on max speedup is 3.61; the 0.02 boundary case "
+        "is a width-1 property and no graphs-on cell is within 3x of it",
+    },
+    "RAMP_FLOOR_TOKENS_PER_S": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "derived",
+        "note": "slowest request used 14.9% of its budget across 104 cells "
+        "and a ladder to 384; a faster rig loosens it further",
+    },
+    "RAMP_TIMEOUT_BASE_S": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "invariant",
+        "note": "short identical prompt; the first graph replay is the "
+        "discarded warm-up's",
+    },
+    "IDLE_GPU_MIB": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "invariant",
+        "note": "a released card reads 1 MiB on both rigs after every one of "
+        "140 cells; the engine's configuration does not touch an idle card",
+    },
+    "STEP_TIMEOUT_S": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-24",
+        "kind": "invariant",
+        "note": "bounds ssh steps outside the engine",
+    },
+}
 
 
 class NotCleanError(RuntimeError):

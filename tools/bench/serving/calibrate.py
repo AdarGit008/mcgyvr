@@ -1440,7 +1440,11 @@ def _one_ramp(
     seed = contract.draw_seed(order, seed)
     started_at = contract.now()
     try:
-        result = contract.ramp(base, model, host=host, order=order, seed=seed)
+        # #356: the ladder follows the configured width, so a server launched
+        # at 256 is measured past its ceiling instead of stopping at 24.
+        result = contract.ramp(
+            base, model, contract.ladder(width), host=host, order=order, seed=seed
+        )
     except Exception as error:
         emit(
             out,
@@ -1453,7 +1457,7 @@ def _one_ramp(
                 "tokens": tokens,
                 "error": str(error)[:200],
                 "levels_run": list(
-                    contract.order_levels(contract.RAMP_LEVELS, order, seed)
+                    contract.order_levels(contract.ladder(width), order, seed)
                 ),
                 "level_order": order,
                 "level_seed": seed,

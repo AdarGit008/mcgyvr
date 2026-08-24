@@ -2943,3 +2943,131 @@ def test_neither_backend_still_calls_a_scope_reading_an_ownership_one(
     assert "own_processes_remaining" not in released
     assert "own_containers_remaining" not in released
     assert "engine_processes_remaining" in released
+
+
+# --------------------------------------------------------------------------
+# #356 — every constant names the run behind it, and the ladder follows the
+# configured width
+# --------------------------------------------------------------------------
+
+_PROVENANCE_KINDS = ("derived", "invariant")
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _numeric_constants(contract: Any) -> dict[str, Any]:
+    """Every module-level number the serving contract ships.
+
+    Upper-case names holding an int, a float, or a tuple of ints -- the shape
+    every calibration constant has. Strings (commands, prompts, a query) are
+    not numbers a campaign derives, and paths are not constants.
+    """
+    found = {}
+    for name, value in vars(contract).items():
+        if not name.isupper() or name.startswith("_") or isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)) or (
+            isinstance(value, tuple)
+            and value
+            and all(isinstance(v, int) for v in value)
+        ):
+            found[name] = value
+    return found
+
+
+def _provenance_defects(contract: Any) -> list[str]:
+    """What is wrong with the provenance table, as sentences; empty is clean."""
+    constants = _numeric_constants(contract)
+    table = contract.PROVENANCE
+    defects = [
+        f"{name} = {constants[name]!r} has no PROVENANCE entry"
+        for name in constants
+        if name not in table
+    ]
+    defects += [
+        f"PROVENANCE names {name}, which is not a constant"
+        for name in table
+        if name not in constants
+    ]
+    for name, entry in table.items():
+        run = REPO / str(entry.get("run", ""))
+        if (
+            not entry.get("run")
+            or not run.is_dir()
+            or not (run / "README.md").is_file()
+        ):
+            defects.append(
+                f"{name}: run {entry.get('run')!r} is not an evidence "
+                "directory with a README"
+            )
+        if not _DATE.match(str(entry.get("date", ""))):
+            defects.append(f"{name}: date {entry.get('date')!r} is not YYYY-MM-DD")
+        if entry.get("kind") not in _PROVENANCE_KINDS:
+            defects.append(
+                f"{name}: kind {entry.get('kind')!r} is not one of {_PROVENANCE_KINDS}"
+            )
+        if not str(entry.get("note", "")).strip():
+            defects.append(f"{name}: no note")
+    return defects
+
+
+def test_every_serving_constant_names_the_run_behind_it(contract: Any) -> None:
+    """#356 — a number pinned by a marker while the run behind it is void.
+
+    The D7 campaign ran every ramp with `--enforce-eager`, measured 2026-08-24
+    at 5.02x on srv2, and the constants read off its curves were pinned by
+    `launch.py:MARKERS` -- which certify that a string is present, not that
+    the measurement behind it stands. This check makes the run part of the
+    constant: every numeric constant in `contract.py` names the evidence
+    directory it was derived from or re-read against, with a date, a kind,
+    and a note; the directory must exist and carry a README. A constant this
+    check cannot see (a string, a path) is not a calibration.
+    """
+    constants = _numeric_constants(contract)
+    assert len(constants) >= 10, (
+        f"the check reads too few constants to mean anything: {sorted(constants)}"
+    )
+    assert not _provenance_defects(contract), "\n".join(_provenance_defects(contract))
+
+
+def test_the_provenance_check_is_shown_to_reject(
+    contract: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three mutants: a constant with no entry, a run that is not on disk, an
+    entry with no constant. A check that cannot fail is a MARKERS table."""
+    monkeypatch.setattr(contract, "NEW_FLOOR_TOKENS_PER_S", 3.0, raising=False)
+    assert any("NEW_FLOOR_TOKENS_PER_S" in d for d in _provenance_defects(contract))
+    monkeypatch.delattr(contract, "NEW_FLOOR_TOKENS_PER_S")
+
+    table = dict(contract.PROVENANCE)
+    table["RAMP_TOKENS"] = dict(table["RAMP_TOKENS"], run="records/evidence/never-ran")
+    monkeypatch.setattr(contract, "PROVENANCE", table)
+    assert any("never-ran" in d for d in _provenance_defects(contract))
+
+    table = dict(contract.PROVENANCE)
+    table["GHOST"] = dict(table["RAMP_TOKENS"])
+    monkeypatch.setattr(contract, "PROVENANCE", table)
+    assert any(
+        "GHOST" in d and "not a constant" in d for d in _provenance_defects(contract)
+    )
+
+
+def test_the_ladder_follows_the_configured_width(contract: Any) -> None:
+    """#356 — RAMP_LEVELS topped out at 24 while both rigs' maxima sit at
+    128-256. The knee ladder stays the default for an undeclared or narrow
+    width, so every D7 row is re-takeable as the cell it was; a wider server
+    is offered levels past 1.5x its width, so the curve is measured past the
+    scheduler's limit rather than stopping under it."""
+    knee = contract.RAMP_LEVELS
+    assert contract.ladder(None) == knee
+    assert contract.ladder(1) == knee
+    assert contract.ladder(16) == knee, (
+        "the D7 widths must read the ladder they were measured on"
+    )
+    for width in (24, 32, 64, 128, 256):
+        levels = contract.ladder(width)
+        assert levels[: len(knee)] == knee
+        assert list(levels) == sorted(set(levels)), levels
+        assert levels[-1] >= 1.5 * width, (width, levels)
+        assert levels[-2] < 1.5 * width, f"one level past the limit, not more: {levels}"
+    assert contract.ladder(256)[-1] == 384 == contract.RAMP_LADDER_EXTENSION[-1]
+    assert 128 in contract.ladder(128) and 256 in contract.ladder(256)

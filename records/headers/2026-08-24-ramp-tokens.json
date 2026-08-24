@@ -1,0 +1,36 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-24-ramp-tokens",
+  "declared": "2026-08-24",
+  "question": "RAMP_TOKENS = 475 (contract.py, D3) was chosen as an interpolation between the 128- and 512-token columns of a calibration matrix taken with --enforce-eager, on the argument that at 128 tokens the per-request fixed costs are a large share of the reply. The 2026-08-24 sweep showed that flag was worth 5.02x on srv2, so the rate that argument was made against was 5x low there. Does the token budget still buy a throughput reading rather than an overhead reading when the per-request rate is what the rigs actually do with CUDA graphs on? Measured as: aggregate tok/s at n = 1, 16, 64, 128 for per-request budgets of 128, 256, 475 and 1024 tokens, on each rig's best-measured 1.5B configuration with max-model-len raised to 2048 so the 1024-token column fits. If 475 reads within a few percent of 1024 at every level, the budget is long enough under the new rate and D3 survives the re-derivation; if it does not, the constant moves and this run says to what.",
+  "arms": [
+    "srv1, container vLLM 0.26.0, Qwen2.5-Coder-1.5B-Instruct-AWQ, --gpu-memory-utilization 0.85 --max-model-len 2048 --max-num-seqs 256, no --enforce-eager; four cells, one per token budget, one repeat per level.",
+    "srv2, the same with --kv-cache-dtype fp8 (the flag that produced its best cell; refused by compute capability on srv1).",
+    "Both rigs concurrently: each rig is the sole client of its own server (E14 is about a second claimant on ONE rig), and the client is this workstation, which the sweep already showed is not the bottleneck at these rates."
+  ],
+  "hosts": ["srv1", "srv2"],
+  "cost": {
+    "estimate_minutes": 45,
+    "estimate_note": "srv1 is the long pole: four launches at ~120 s each with graphs on, plus levels whose wall is n*tokens/agg_tok_s -- the 1024-token column at n=128 alone is ~7 minutes at 296 tok/s. srv2 finishes in ~15 minutes.",
+    "source": "records/evidence/2026-08-24-config-sweep/ launch and level wall-clocks"
+  },
+  "could_have_carried": [
+    "Four more graphs-on START_TIMEOUT_S points per rig, at --max-model-len 2048 rather than the sweep's 512-1024.",
+    "The n=1 fixed-cost share directly: latency at 128 tokens against latency at 1024 is two points on a line whose intercept is the per-request overhead."
+  ],
+  "left_on_table": [
+    "Repeats. One repeat per level, so this cannot speak to RAMP_REPEATS; the cross-rig ramp's repeat_spread is the only spread on record and it is eager.",
+    "The knee ladder's dense low end. Levels are 1/16/64/128; a plateau read off these is at powers-of-two resolution.",
+    "Any model but the 1.5B, and any prompt but the sweep's short one."
+  ],
+  "prerequisites": [
+    "tools/bench/serving/sweep.py with a per-cell `tokens` field (added in this lane for this run; the level's `tokens` was the level TOTAL and could not carry the per-request cap).",
+    "Both rigs idle at 1 MiB with no container of ours running -- confirmed before launch."
+  ],
+  "void_if": [
+    "Either rig's launch refuses (a refused cell is written with its log and the column is missing, not zero).",
+    "A level records an error: sweep.py breaks the ramp at the first failed level, so a 1024-token cell that OOMs at n=128 has three levels, not four, and the README must say so.",
+    "A second client appears on either rig during a cell."
+  ],
+  "notes": "Filed for #356, the RAMP_TOKENS box. sweep.py is in NOT_A_FIGURE (it states a throughput rate, not a pass rate) and still has no tests; this run does not change that."
+}

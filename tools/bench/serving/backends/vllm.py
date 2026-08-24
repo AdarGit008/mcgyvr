@@ -99,6 +99,18 @@ NAME = "vllm"
 PORT = 8000
 
 #: How long to wait for a server to become ready after being started.
+#:
+#: **#356, 2026-08-24: every launch timed before this date was an
+#: underestimate, and the number still holds.** `--enforce-eager` skips CUDA
+#: graph capture, so the 33 s (srv1 pip) / 109 s (srv2 container) points D6
+#: collected were launches of a server that never captured. The 2026-08-24
+#: sweep (`records/evidence/2026-08-24-config-sweep/`, container on both
+#: rigs, clock started after `docker run -d` returned with the image already
+#: present) measured 36 graphs-on launches of the 1.5B, the Qwen3-4B and the
+#: 7B: median 122 s on both rigs, maximum 153 s (srv1) and 145 s (srv2),
+#: against an eager median of 81-84 s. Capture costs roughly 40 s here. 900 s
+#: is 5.9x the slowest graphs-on launch measured; a cold page cache and a 14B
+#: are not in that set, and this budget is what leaves room for them.
 START_TIMEOUT_S = 900.0
 
 #: Lines of the engine's own log kept beside a launch that never became ready
@@ -110,6 +122,16 @@ LAUNCH_LOG_LINES = 40
 
 #: How long a weights digest may take. Measured 7.3s per 1.61 GB, so this
 #: covers a checkpoint far larger than anything these rigs hold.
+#:
+#: **#356, 2026-08-24: invariant to the serving configuration, confirmed
+#: rather than assumed.** #356 listed this beside the other engine's
+#: `LOAD_ATTEMPTS` as that engine's; it is not -- it lives here -- but the
+#: reason it is untouched by `--enforce-eager` is the same shape: the digest
+#: is a separate process over the checkpoint files (`_DIGEST_SCRIPT`), it
+#: never starts an engine and no serve flag reaches it. Its only timed points
+#: are 7.3 s (host
+#: torch, 2026-08-19) and 7.5 s / 10.4 s inside the image on srv1 / srv2
+#: (`records/evidence/2026-08-23-cross-rig/`), all far under this budget.
 DIGEST_TIMEOUT_S = 1800.0
 
 #: Hashed on the serving host, because the checkpoint is there and the client

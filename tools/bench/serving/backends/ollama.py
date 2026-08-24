@@ -120,6 +120,15 @@ IDLE_BEFORE_LOAD_MIB = contract.IDLE_GPU_MIB
 #: How many times the whole clear-load-verify cycle is retried. The load is not
 #: retried alone: what fails is a dirty card, and reloading onto one reproduces
 #: the failure.
+#:
+#: **#356, 2026-08-24: invariant to the other engine's misconfiguration,
+#: confirmed rather than assumed.** `--enforce-eager` is not a flag this engine
+#: has, and nothing here launches the engine it belongs to; the D7 survey's 17
+#: claims
+#: (`records/evidence/calibration-2026-08-19/d7-survey.json`, every
+#: `claim.attempts` trail) all loaded on attempt 1 with `card_idle_before_load`
+#: true, so the second attempt has never been exercised and its rescue rate is
+#: still unmeasured -- what is measured is that it has cost nothing.
 LOAD_ATTEMPTS = 2
 
 #: A model may take this long to become resident. Generous because the point is

@@ -1729,3 +1729,47 @@ were red against the real directory the whole time and looked correct. It is the
 exact seam `tests/test_calibration_conflicts.campaign` documents keeping open,
 and it was caught only because the demonstration was actually run rather than
 assumed. Fixed to resolve at call time before either check landed.
+
+## Correction appended 2026-08-24 (second) — which of this campaign's constants survive (#356)
+
+The block above voids the throughput columns. This one is about the residue: the
+constants read off those curves and wired into `contract.py`, pinned by markers in
+`launch.py`, and inherited by any rebuild. Each was either re-derived against a
+measurement taken with the configuration declared, or is recorded as invariant with
+the reason. "Still looks right" was not an admissible outcome (ADR-0026 lens 3).
+The provenance now travels with the constants: `contract.PROVENANCE` names the run
+behind every numeric constant in that module, and
+`tests/test_serving.py::test_every_serving_constant_names_the_run_behind_it`
+refuses one without an entry, an entry naming no evidence directory on disk, and an
+entry naming no constant.
+
+**The instrument.** `records/evidence/2026-08-24-config-sweep/` — 140 cells, 104
+launched, 68 with `--enforce-eager` and 36 with CUDA graphs on, ladder to 384 —
+read through this directory's own readers (`_throughput_plateau`, `_max_speedup`,
+`_latency_plateau`) at the shipped constants and their neighbours. Plus one run
+filed for this review, `records/evidence/2026-08-24-ramp-tokens/`, for the one
+constant the sweep could not vary.
+
+| constant | value | outcome | what the graphs-on data says |
+|---|---|---|---|
+| `RAMP_LEVELS` | (1…24) | **survives as the survey default; superseded as the width-matrix ladder** | both rigs' maxima sit at 128 (srv1) / 256 (srv2) with `--max-num-seqs 256`; 384 read below 256. `contract.ladder(width)` now continues the knee ladder to one level past 1.5× the configured width (`RAMP_LADDER_EXTENSION`, to 384); `calibrate.py --phase ramp` uses it. Width ≤ 16 — every D7 row — gets the old ladder, so those cells remain re-takeable. Cost stated in the docstring: ~1 h per two-repeat ramp at width 256 on srv1, ~10 min on srv2. |
+| `RAMP_REPEATS` | 2 | **invariant, unmeasured with graphs** | reads no rate. The only `repeat_spread` on record is 2026-08-23's cross-rig ramp (eager): second attempt won 4 of 9 levels on each rig, max/min ≤ 1.015 srv1 / 1.072 srv2. This journal holds no losing repeat — the field landed after it ran. |
+| `RAMP_TOKENS` | 475 | **survives** | re-measured at 128/256/475/1024 tokens on both rigs with graphs on (`2026-08-24-ramp-tokens/`). At n=1, 475 reads 97% (srv1) / 95% (srv2) of the 1024 rate; 128 reads 81% / 77%. The per-request overhead scaled with the rig (0.79 s → 0.22 s), so its share at 475 is 6.9% / 8.3% on both — the D3 argument was about a share, and the share survived the rate being corrected. Past the knee 1024 reads 6-10% below 475: longer is a different regime, not a better reading. |
+| `PLATEAU_FRACTION` | 0.92 | **survives** | 0.92 and 0.95 agree on all 104 launched cells; 0.90 differs on two srv2 graph cells. Caveat: the sweep's ladder is powers of two, so this is agreement at that resolution. |
+| `INFERRED_SATURATION_MIN_SPEEDUP` | 1.0 | **survives** | lowest max-speedup with graphs on is 3.61 (srv1), 7.5 (srv2). The 0.02 boundary case at `:996-1000` is a width-1 property; nothing in the new regime is within 3× of the floor. |
+| `LATENCY_TOLERANCE` | 0.10 | invariant | informational; nothing downstream reads it. |
+| `RAMP_FLOOR_TOKENS_PER_S` / `RAMP_TIMEOUT_BASE_S` | 4.0 / 90 | **survive** | slowest request across 104 cells used 14.9% of its budget (srv1, n=2). At n=256 on srv1 a stream ran 0.79 tok/s — below the floor per stream — and the floor is aggregate: budget 30,490 s against a 413 s level. A 5× faster rig loosens it. |
+| `STEP_TIMEOUT_S` / `IDLE_GPU_MIB` | 180 / 500 | invariant | ssh steps outside the engine; every released card read 1 MiB after all 140 cells. |
+| `START_TIMEOUT_S` (`vllm.py`) | 900 | **survives, and every prior point was an underestimate** | eager skips graph capture. Graphs-on container launches: median 122 s both rigs, max 153 s (srv1) / 145 s (srv2), against eager medians of 81–84 s — capture is ~40 s here. 900 is 5.9× the slowest measured; a cold cache and the 14B are not in the set. The D6 points at `:1002` (33 s pip srv1, 109 s srv2) stand as eager launches. |
+| `DIGEST_TIMEOUT_S` (`vllm.py`) | 1800 | invariant, confirmed | #356 listed it as the other engine's; it is vLLM's, and the digest is a separate process no serve flag reaches. Points: 7.3 s host torch; 7.5 / 10.4 s in-image (2026-08-23). |
+| `LOAD_ATTEMPTS` (`ollama.py`) | 2 | invariant, confirmed | not that engine's flag; all 17 `claim.attempts` trails in `d7-survey.json` loaded on attempt 1 with the card idle, so the second attempt has never been exercised — its cost is measured at zero, its rescue rate is not measured. |
+
+**Markers.** No constant's value moved, so no existing marker string changed.
+Three markers were added: `def ladder(`, `PROVENANCE: dict[str, dict[str, str]]`,
+and `contract.ladder(width)` in `calibrate.py`.
+
+**What this does not do.** It does not re-run the campaign, decide the knob surface
+(#357) or put the resolved configuration into the identity key (#358). The
+`calibrate.py` serve dict at `:594-602` still carries `--enforce-eager`; removing it
+is the rebuild's decision, and the rebuild now inherits constants with their runs
+named rather than constants with a marker.

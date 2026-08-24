@@ -49,7 +49,8 @@ Usage::
 
     python3 tools/bench/serving/sweep.py <host> <model> <matrix.json> <out.jsonl>
 
-where `matrix.json` is a list of `{"id", "axis", "flags", "cap", "levels"}`.
+where `matrix.json` is a list of `{"id", "axis", "flags", "cap", "levels",
+"tokens"}` -- `tokens` is the per-request budget, default 475 (#356).
 """
 
 import json
@@ -232,8 +233,14 @@ def main():
         rec["launch"] = st
         if st.get("ok"):
             rec["resolved"] = resolved(host)
-            global LEVELS
+            global LEVELS, TOKENS
             LEVELS = cell.get("levels", [1, 2, 4, 8, 16, 32, 64, 128])
+            # #356: a cell may set its own per-request budget, so the budget
+            # itself can be an axis. Recorded on the row, because a level's
+            # `tokens` is the level's TOTAL and does not say what each
+            # request was capped at.
+            TOKENS = cell.get("tokens", 475)
+            rec["tokens_per_request"] = TOKENS
             rec["levels"] = ramp(host, cell.get("cap", max(LEVELS)))
             best = max(
                 (lv for lv in rec["levels"] if "agg_tok_s" in lv),

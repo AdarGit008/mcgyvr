@@ -60,6 +60,21 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "tools/bench/serving/contract.py",
+        "def ladder(",
+        "#356 — the ladder follows the configured width past 24",
+    ),
+    (
+        "tools/bench/serving/contract.py",
+        "PROVENANCE: dict[str, dict[str, str]]",
+        "#356 — every constant names the run behind it",
+    ),
+    (
+        "tools/bench/serving/calibrate.py",
+        "contract.ladder(width)",
+        "#356 — the width matrices are measured past their ceiling",
+    ),
+    (
+        "tools/bench/serving/contract.py",
         '"ramp_repeats": RAMP_REPEATS',
         "D8 — every derived number ships with its parameters",
     ),
