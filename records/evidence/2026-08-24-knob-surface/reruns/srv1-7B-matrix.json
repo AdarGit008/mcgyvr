@@ -1,0 +1,67 @@
+[
+ {
+  "id": "srv1-7B-len512-util0.95-noeager",
+  "axis": "rerun-untied-lm_head",
+  "flags": [
+   "--max-model-len",
+   "512",
+   "--gpu-memory-utilization",
+   "0.95",
+   "--max-num-seqs",
+   "32"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "srv1-7B-len512-util0.90-noeager",
+  "axis": "rerun-untied-lm_head",
+  "flags": [
+   "--max-model-len",
+   "512",
+   "--gpu-memory-utilization",
+   "0.90",
+   "--max-num-seqs",
+   "32"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "srv1-7B-len512-util0.85-noeager",
+  "axis": "rerun-untied-lm_head",
+  "flags": [
+   "--max-model-len",
+   "512",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "32"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "srv1-7B-len512-util0.95-eager",
+  "axis": "rerun-untied-lm_head",
+  "flags": [
+   "--max-model-len",
+   "512",
+   "--gpu-memory-utilization",
+   "0.95",
+   "--max-num-seqs",
+   "32",
+   "--enforce-eager"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ }
+]

@@ -3,16 +3,22 @@
  "issue": 357,
  "engine": "vllm",
  "image": "vllm/vllm-openai:v0.26.0",
- "evidence": "records/evidence/2026-08-24-config-sweep",
+ "evidence": [
+  "records/evidence/2026-08-24-config-sweep",
+  "records/evidence/2026-08-24-knob-surface/reruns"
+ ],
  "files": [
-  "srv1-1.5B-stage2.jsonl",
-  "srv1-1.5B.jsonl",
-  "srv1-7B.jsonl",
-  "srv2-1.5B-ceiling.jsonl",
-  "srv2-1.5B-stage2.jsonl",
-  "srv2-1.5B.jsonl",
-  "srv2-7B.jsonl",
-  "srv2-q3-4B.jsonl"
+  "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
+  "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+  "2026-08-24-config-sweep/srv1-7B.jsonl",
+  "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+  "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
+  "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+  "2026-08-24-config-sweep/srv2-7B.jsonl",
+  "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
+  "reruns/srv1-1.5B.jsonl",
+  "reruns/srv1-7B.jsonl",
+  "reruns/srv2-1.5B.jsonl"
  ],
  "states": {
   "accepted": "launched: /health answered with the weights on the card",
@@ -22,9 +28,11 @@
   "untried": "declared by the engine, carried by no cell"
  },
  "declared": {
-  "captured": false,
-  "command": "docker run --rm --gpus all --entrypoint vllm vllm/vllm-openai:v0.26.0 serve --help=all",
-  "why_not_yet": "The parser needs a GPU host to print help at all -- VllmConfig is constructed while printing and infers the device",
+  "captured": true,
+  "digest": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52",
+  "count": 275,
+  "with_default": 250,
+  "file": "declared-vllm-ffb2d59b1c05.json",
   "tried": [
    "--async-scheduling",
    "--attention-backend",
@@ -48,12 +56,263 @@
    "--ubatch-size",
    "--watermark"
   ],
-  "untried": {
-   "unknown": true,
-   "searched": [
-    "declared-vllm-*.json beside this surface"
-   ]
-  }
+  "untried": [
+   "--additional-config",
+   "--aggregate-engine-logging",
+   "--all2all-backend",
+   "--allow-credentials",
+   "--allow-deprecated-quantization",
+   "--allowed-headers",
+   "--allowed-local-media-path",
+   "--allowed-media-domains",
+   "--allowed-methods",
+   "--allowed-origins",
+   "--api-key",
+   "--api-server-count",
+   "--attention-config",
+   "--calculate-kv-scales",
+   "--chat-template",
+   "--chat-template-content-format",
+   "--code-revision",
+   "--collect-detailed-traces",
+   "--compilation-config",
+   "--config",
+   "--config-format",
+   "--convert",
+   "--cp-kv-cache-interleave-size",
+   "--cpu-distributed-timeout-seconds",
+   "--cpu-offload-gb",
+   "--cpu-offload-params",
+   "--cudagraph-capture-sizes",
+   "--cudagraph-metrics",
+   "--data-parallel-address",
+   "--data-parallel-backend",
+   "--data-parallel-external-lb",
+   "--data-parallel-hybrid-lb",
+   "--data-parallel-multi-port-external-lb",
+   "--data-parallel-rank",
+   "--data-parallel-rpc-port",
+   "--data-parallel-size",
+   "--data-parallel-size-local",
+   "--data-parallel-start-rank",
+   "--data-parallel-supervisor-port",
+   "--dbo-decode-token-threshold",
+   "--dbo-prefill-token-threshold",
+   "--dcp-comm-backend",
+   "--dcp-kv-cache-interleave-size",
+   "--decode-context-parallel-size",
+   "--default-chat-template-kwargs",
+   "--default-mm-loras",
+   "--device-ids",
+   "--diffusion-config",
+   "--disable-access-log-for-endpoints",
+   "--disable-chunked-mm-input",
+   "--disable-custom-all-reduce",
+   "--disable-fastapi-docs",
+   "--disable-hybrid-kv-cache-manager",
+   "--disable-log-stats",
+   "--disable-nccl-for-dp-synchronization",
+   "--disable-sliding-window",
+   "--disable-uvicorn-access-log",
+   "--distributed-executor-backend",
+   "--distributed-timeout-seconds",
+   "--download-dir",
+   "--dp-supervisor-probe-failure-threshold",
+   "--dp-supervisor-probe-interval-s",
+   "--dp-supervisor-probe-timeout-s",
+   "--ec-transfer-config",
+   "--enable-auto-tool-choice",
+   "--enable-bf16x3-router-gemm",
+   "--enable-cumem-allocator",
+   "--enable-dbo",
+   "--enable-elastic-ep",
+   "--enable-ep-weight-filter",
+   "--enable-eplb",
+   "--enable-expert-parallel",
+   "--enable-flash-late-interaction",
+   "--enable-flashinfer-autotune",
+   "--enable-force-include-usage",
+   "--enable-layerwise-nvtx-tracing",
+   "--enable-log-deltas",
+   "--enable-log-outputs",
+   "--enable-log-requests",
+   "--enable-logging-iteration-details",
+   "--enable-lora",
+   "--enable-mamba-cache-stochastic-rounding",
+   "--enable-mfu-metrics",
+   "--enable-mixed-moe-lora-format",
+   "--enable-mm-embeds",
+   "--enable-moe-shared-loras",
+   "--enable-offline-docs",
+   "--enable-per-request-metrics",
+   "--enable-prompt-embeds",
+   "--enable-prompt-tokens-details",
+   "--enable-request-id-headers",
+   "--enable-return-routed-experts",
+   "--enable-server-load-tracking",
+   "--enable-sleep-mode",
+   "--enable-ssl-refresh",
+   "--enable-tokenizer-info-endpoint",
+   "--enable-tower-connector-lora",
+   "--eplb-config",
+   "--exclude-tools-when-tool-choice-none",
+   "--expert-placement-strategy",
+   "--fail-on-environ-validation",
+   "--fingerprint-mode",
+   "--fingerprint-value",
+   "--fully-sharded-loras",
+   "--gdn-prefill-backend",
+   "--generation-config",
+   "--grpc",
+   "--h11-max-header-count",
+   "--h11-max-incomplete-event-size",
+   "--headless",
+   "--help",
+   "--hf-config-path",
+   "--hf-overrides",
+   "--hf-token",
+   "--host",
+   "--ignore-patterns",
+   "--interleave-mm-strings",
+   "--io-processor-plugin",
+   "--ir-op-priority",
+   "--jit-monitor-mode",
+   "--jit-monitor-verbose",
+   "--kernel-config",
+   "--kv-cache-dtype-skip-layers",
+   "--kv-cache-memory-bytes",
+   "--kv-cache-metrics",
+   "--kv-cache-metrics-sample",
+   "--kv-events-config",
+   "--kv-offloading-backend",
+   "--kv-offloading-size",
+   "--kv-sharing-fast-prefill",
+   "--kv-transfer-config",
+   "--language-model-only",
+   "--limit-mm-per-prompt",
+   "--load-format",
+   "--log-config-file",
+   "--log-error-stack",
+   "--logits-processors",
+   "--logprobs-mode",
+   "--long-prefill-token-threshold",
+   "--lora-dtype",
+   "--lora-modules",
+   "--lora-target-modules",
+   "--mamba-backend",
+   "--mamba-block-size",
+   "--mamba-cache-dtype",
+   "--mamba-cache-mode",
+   "--mamba-cache-philox-rounds",
+   "--mamba-ssm-cache-dtype",
+   "--master-addr",
+   "--master-port",
+   "--max-cpu-loras",
+   "--max-cudagraph-capture-size",
+   "--max-log-len",
+   "--max-logprobs",
+   "--max-long-partial-prefills",
+   "--max-lora-rank",
+   "--max-loras",
+   "--max-num-partial-prefills",
+   "--max-num-scheduled-tokens",
+   "--max-parallel-loading-workers",
+   "--media-io-kwargs",
+   "--middleware",
+   "--mm-encoder-attn-backend",
+   "--mm-encoder-attn-dtype",
+   "--mm-encoder-fp8-scale-path",
+   "--mm-encoder-fp8-scale-save-margin",
+   "--mm-encoder-fp8-scale-save-path",
+   "--mm-encoder-only",
+   "--mm-encoder-tp-mode",
+   "--mm-ipc-gpu-memory-gb",
+   "--mm-processor-cache-gb",
+   "--mm-processor-cache-type",
+   "--mm-processor-kwargs",
+   "--mm-shm-cache-max-object-size-mb",
+   "--mm-tensor-ipc",
+   "--model",
+   "--model-class-overrides",
+   "--model-impl",
+   "--model-loader-extra-config",
+   "--moe-backend",
+   "--nnodes",
+   "--node-rank",
+   "--num-gpu-blocks-override",
+   "--numa-bind",
+   "--numa-bind-cpus",
+   "--numa-bind-nodes",
+   "--offload-backend",
+   "--offload-group-size",
+   "--offload-num-in-group",
+   "--offload-params",
+   "--offload-prefetch-step",
+   "--otlp-traces-endpoint",
+   "--override-attention-dtype",
+   "--override-generation-config",
+   "--pipeline-parallel-size",
+   "--pooler-config",
+   "--port",
+   "--prefill-context-parallel-size",
+   "--prefill-schedule-interval",
+   "--prefix-caching-hash-algo",
+   "--prefix-match-unit",
+   "--profiler-config",
+   "--pt-load-map-location",
+   "--quantization",
+   "--quantization-config",
+   "--ray-workers-use-nsight",
+   "--reasoning-config",
+   "--reasoning-parser",
+   "--reasoning-parser-plugin",
+   "--renderer-num-workers",
+   "--response-role",
+   "--return-tokens-as-token-ids",
+   "--revision",
+   "--root-path",
+   "--runner",
+   "--safetensors-load-strategy",
+   "--safetensors-prefetch-block-size",
+   "--safetensors-prefetch-num-threads",
+   "--scheduler-cls",
+   "--scheduler-reserve-full-isl",
+   "--scheduling-policy",
+   "--seed",
+   "--served-model-name",
+   "--show-hidden-metrics-for-version",
+   "--shutdown-timeout",
+   "--skip-mm-profiling",
+   "--skip-tokenizer-init",
+   "--spec-method",
+   "--spec-model",
+   "--spec-tokens",
+   "--specialize-active-lora",
+   "--ssl-ca-certs",
+   "--ssl-cert-reqs",
+   "--ssl-certfile",
+   "--ssl-ciphers",
+   "--ssl-keyfile",
+   "--structured-outputs-config",
+   "--tensor-parallel-size",
+   "--tokenizer",
+   "--tokenizer-mode",
+   "--tokenizer-revision",
+   "--tokens-only",
+   "--tool-call-parser",
+   "--tool-parser-plugin",
+   "--tool-server",
+   "--trust-remote-code",
+   "--trust-request-chat-template",
+   "--uds",
+   "--use-fp64-gumbel",
+   "--use-tqdm-on-load",
+   "--uvicorn-log-level",
+   "--video-pruning-rate",
+   "--weight-transfer-config",
+   "--worker-cls",
+   "--worker-extension-cls"
+  ]
  },
  "accepted": [
   {
@@ -63,9 +322,10 @@
    "counts": {
     "accepted": 41,
     "refused_reason_lost": 12,
-    "refused": 2,
+    "refused": 14,
     "harness_defect": 3
    },
+   "lost_reasons_outstanding": [],
    "cells": [
     {
      "cell": "s2-noeager-len1024-seqs128",
@@ -79,7 +339,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len1024-seqs128"
      }
     },
@@ -95,7 +355,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len1024-seqs256"
      }
     },
@@ -112,7 +372,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "s2-noeager-len1024-seqs512"
      }
     },
@@ -128,7 +392,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len512-seqs256"
      }
     },
@@ -145,7 +409,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-noeager-opt3-len1024-seqs256"
      }
     },
@@ -163,7 +427,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-kvfp8-len1024-seqs256"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "s2-noeager-kvfp8-len1024-seqs256"
      }
     },
@@ -180,7 +448,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-noeager-perfthr-len1024-seqs256"
      }
     },
@@ -197,7 +465,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-3"
      }
     },
@@ -214,7 +482,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-5"
      }
     },
@@ -231,7 +499,7 @@
      "reason": "ImportError: Arctic Inference is required for suffix decoding. Install via `pip install arctic-inference==0.1.1`.",
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-spec-suffix-3"
      }
     },
@@ -248,7 +516,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-3-seqs256"
      }
     },
@@ -265,7 +533,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "baseline"
      }
     },
@@ -281,7 +549,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "no-eager"
      }
     },
@@ -299,7 +567,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "perf-throughput"
      }
     },
@@ -317,7 +585,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "perf-interactivity"
      }
     },
@@ -334,7 +602,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "perf-throughput-no-eager"
      }
     },
@@ -351,7 +619,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "opt-level-3"
      }
     },
@@ -369,7 +637,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "opt-level-0"
      }
     },
@@ -387,7 +655,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "async-sched-on"
      }
     },
@@ -405,7 +673,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "async-sched-off"
      }
     },
@@ -423,7 +691,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "dtype-float16"
      }
     },
@@ -442,7 +710,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "dtype-bfloat16"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "dtype-bfloat16"
      }
     },
@@ -461,7 +733,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "kv-fp8"
      }
     },
@@ -480,7 +756,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e5m2"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "kv-fp8_e5m2"
      }
     },
@@ -499,7 +779,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e4m3"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "kv-fp8_e4m3"
      }
     },
@@ -517,7 +801,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "kv-int8_per_token_head"
      }
     },
@@ -534,7 +818,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len8192-seqs32"
      }
     },
@@ -551,7 +835,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len8192-seqs64"
      }
     },
@@ -568,7 +852,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len4096-seqs64"
      }
     },
@@ -585,7 +869,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len4096-seqs128"
      }
     },
@@ -602,7 +886,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len2048-seqs128"
      }
     },
@@ -619,7 +903,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len1024-seqs128"
      }
     },
@@ -636,7 +920,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "len512-seqs128"
      }
     },
@@ -653,7 +937,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "util-0.90"
      }
     },
@@ -670,7 +954,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "util-0.95"
      }
     },
@@ -688,7 +972,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "batched-tokens-2048"
      }
     },
@@ -706,7 +990,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "batched-tokens-8192"
      }
     },
@@ -724,7 +1008,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "batched-tokens-16384"
      }
     },
@@ -742,7 +1026,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "block-size-32"
      }
     },
@@ -760,7 +1044,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "no-prefix-caching"
      }
     },
@@ -778,7 +1062,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "no-chunked-prefill"
      }
     },
@@ -796,7 +1080,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "cascade-attn-on"
      }
     },
@@ -814,7 +1098,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "stream-interval-10"
      }
     },
@@ -832,7 +1116,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "watermark-0.1"
      }
     },
@@ -850,7 +1134,7 @@
      "reason": "Assertion failed, Microbatching currently only supports the deepep_low_latency, deepep_high_throughput, and nixl_ep all2all backends. allgather_reducescatter is not supported. To fix use --all2all-backend=deepep_low_latency, --all2all-backend=deepep_high_throughput, or --all2all-backend=nixl_ep and install the matching kernels. [type=assertion_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs]",
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "ubatch-2"
      }
     },
@@ -868,7 +1152,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "attn-TRITON_ATTN"
      }
     },
@@ -886,7 +1170,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "attn-FLEX_ATTENTION"
      }
     },
@@ -905,7 +1189,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "attn-FLASH_ATTN"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "attn-FLASH_ATTN"
      }
     },
@@ -924,7 +1212,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "attn-FLASHINFER"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "attn-FLASHINFER"
      }
     },
@@ -942,7 +1234,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "linear-marlin"
      }
     },
@@ -961,7 +1253,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-exllama"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "linear-exllama"
      }
     },
@@ -979,7 +1275,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "linear-triton"
      }
     },
@@ -998,7 +1294,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-torch"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "linear-torch"
      }
     },
@@ -1017,7 +1317,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-machete"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "linear-machete"
      }
     },
@@ -1036,7 +1340,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-cutlass"
+     },
+     "rerun": {
+      "file": "reruns/srv1-1.5B.jsonl",
       "cell": "linear-cutlass"
      }
     },
@@ -1057,7 +1365,7 @@
      "record_holds": "{\"method\": \"ngram\", \"num_speculative_tokens\": 3, \"prompt_lookup_max\": 4, \"prompt_lookup_min\": 2}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "spec-ngram-3"
      }
     },
@@ -1078,7 +1386,7 @@
      "record_holds": "{\"method\": \"ngram\", \"num_speculative_tokens\": 5, \"prompt_lookup_max\": 8, \"prompt_lookup_min\": 2}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "spec-ngram-5"
      }
     },
@@ -1099,8 +1407,269 @@
      "record_holds": "{\"method\": \"suffix\", \"num_speculative_tokens\": 3}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv1-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
       "cell": "spec-suffix-3"
+     }
+    },
+    {
+     "cell": "s2-noeager-len1024-seqs512",
+     "axis": "rerun-combined",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "512"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 150.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 145.88 MiB is free. Process 1362951 has 5.46 GiB memory in use. Of the allocated memory 4.86 GiB is allocated by PyTorch, with 92.00 MiB allocated in private pools (e.g., CUDA Graphs), and 77.91 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     }
+    },
+    {
+     "cell": "s2-noeager-kvfp8-len1024-seqs256",
+     "axis": "rerun-combined",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "256",
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "ValueError: FP8 KV cache is not supported by the Triton attention backend on NVIDIA GeForce GTX 1660 SUPER (compute capability 7.5); native FP8 (fp8e4nv) requires SM89+. Re-run with --kv-cache-dtype float16.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "s2-noeager-kvfp8-len1024-seqs256"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-kvfp8-len1024-seqs256"
+     }
+    },
+    {
+     "cell": "dtype-bfloat16",
+     "axis": "rerun-dtype",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--dtype": "bfloat16"
+     },
+     "state": "refused",
+     "reason": "ValueError: Bfloat16 is only supported on GPUs with compute capability of at least 8.0. Your NVIDIA GeForce GTX 1660 SUPER GPU has compute capability 7.5. You can use float16 instead by explicitly setting the `dtype` flag in CLI, for example: --dtype=half.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "dtype-bfloat16"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "dtype-bfloat16"
+     }
+    },
+    {
+     "cell": "kv-fp8",
+     "axis": "rerun-kv-dtype",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "ValueError: FP8 KV cache is not supported by the Triton attention backend on NVIDIA GeForce GTX 1660 SUPER (compute capability 7.5); native FP8 (fp8e4nv) requires SM89+. Re-run with --kv-cache-dtype float16.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "kv-fp8"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8"
+     }
+    },
+    {
+     "cell": "kv-fp8_e5m2",
+     "axis": "rerun-kv-dtype",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--kv-cache-dtype": "fp8_e5m2"
+     },
+     "state": "refused",
+     "reason": "ValueError: FP8 KV cache is not supported by the Triton attention backend on NVIDIA GeForce GTX 1660 SUPER (compute capability 7.5); native FP8 (fp8e4nv) requires SM89+. Re-run with --kv-cache-dtype float16.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e5m2"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e5m2"
+     }
+    },
+    {
+     "cell": "kv-fp8_e4m3",
+     "axis": "rerun-kv-dtype",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--kv-cache-dtype": "fp8_e4m3"
+     },
+     "state": "refused",
+     "reason": "ValueError: FP8 KV cache is not supported by the Triton attention backend on NVIDIA GeForce GTX 1660 SUPER (compute capability 7.5); native FP8 (fp8e4nv) requires SM89+. Re-run with --kv-cache-dtype float16.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e4m3"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "kv-fp8_e4m3"
+     }
+    },
+    {
+     "cell": "attn-FLASH_ATTN",
+     "axis": "rerun-attention-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--attention-backend": "FLASH_ATTN"
+     },
+     "state": "refused",
+     "reason": "ValueError: Selected backend AttentionBackendEnum.FLASH_ATTN is not valid for this configuration. Reason: ['compute capability not supported']",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "attn-FLASH_ATTN"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "attn-FLASH_ATTN"
+     }
+    },
+    {
+     "cell": "attn-FLASHINFER",
+     "axis": "rerun-attention-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--attention-backend": "FLASHINFER"
+     },
+     "state": "refused",
+     "reason": "ValueError: Selected backend AttentionBackendEnum.FLASHINFER is not valid for this configuration. Reason: ['compute capability not supported']",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "attn-FLASHINFER"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "attn-FLASHINFER"
+     }
+    },
+    {
+     "cell": "linear-exllama",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "exllama"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: ExllamaLinearKernel cannot implement due to: Quant type (uint4) not supported by Exllama, supported types are: [ScalarType.uint4b8, ScalarType.uint8b128] [rank0]:[W824 18:16:45.444450642 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "linear-exllama"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-exllama"
+     }
+    },
+    {
+     "cell": "linear-torch",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "torch"
+     },
+     "state": "refused",
+     "reason": "ValueError: --linear-backend=torch was requested but no 'torch' kernel exists for mixed-precision layers.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "linear-torch"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-torch"
+     }
+    },
+    {
+     "cell": "linear-machete",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "machete"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: MacheteLinearKernel requires capability 90, current compute  capability is 75 [rank0]:[W824 18:18:28.698359643 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "linear-machete"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-machete"
+     }
+    },
+    {
+     "cell": "linear-cutlass",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "cutlass"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: CutlassW4A8LinearKernel requires capability 90, current compute  capability is 75 [rank0]:[W824 18:19:20.090827963 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-1.5B.jsonl",
+      "cell": "linear-cutlass"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
+      "cell": "linear-cutlass"
      }
     }
    ]
@@ -1110,8 +1679,10 @@
    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
    "engine": "vllm",
    "counts": {
-    "refused_reason_lost": 4
+    "refused_reason_lost": 4,
+    "refused": 4
    },
+   "lost_reasons_outstanding": [],
    "cells": [
     {
      "cell": "srv1-7B-len512-util0.95-noeager",
@@ -1126,7 +1697,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-noeager"
+     },
+     "rerun": {
+      "file": "reruns/srv1-7B.jsonl",
       "cell": "srv1-7B-len512-util0.95-noeager"
      }
     },
@@ -1143,7 +1718,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.90-noeager"
+     },
+     "rerun": {
+      "file": "reruns/srv1-7B.jsonl",
       "cell": "srv1-7B-len512-util0.90-noeager"
      }
     },
@@ -1160,7 +1739,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.85-noeager"
+     },
+     "rerun": {
+      "file": "reruns/srv1-7B.jsonl",
       "cell": "srv1-7B-len512-util0.85-noeager"
      }
     },
@@ -1178,7 +1761,92 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv1-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-eager"
+     },
+     "rerun": {
+      "file": "reruns/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-eager"
+     }
+    },
+    {
+     "cell": "srv1-7B-len512-util0.95-noeager",
+     "axis": "rerun-untied-lm_head",
+     "flags": {
+      "--max-model-len": "512",
+      "--gpu-memory-utilization": "0.95",
+      "--max-num-seqs": "32"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 518.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 151.88 MiB is free. Process 1380688 has 5.46 GiB memory in use. Of the allocated memory 5.29 GiB is allocated by PyTorch, and 76.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-noeager"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-noeager"
+     }
+    },
+    {
+     "cell": "srv1-7B-len512-util0.90-noeager",
+     "axis": "rerun-untied-lm_head",
+     "flags": {
+      "--max-model-len": "512",
+      "--gpu-memory-utilization": "0.90",
+      "--max-num-seqs": "32"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 518.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 151.88 MiB is free. Process 1382185 has 5.46 GiB memory in use. Of the allocated memory 5.29 GiB is allocated by PyTorch, and 76.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.90-noeager"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.90-noeager"
+     }
+    },
+    {
+     "cell": "srv1-7B-len512-util0.85-noeager",
+     "axis": "rerun-untied-lm_head",
+     "flags": {
+      "--max-model-len": "512",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "32"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 518.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 151.88 MiB is free. Process 1383683 has 5.46 GiB memory in use. Of the allocated memory 5.29 GiB is allocated by PyTorch, and 76.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.85-noeager"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.85-noeager"
+     }
+    },
+    {
+     "cell": "srv1-7B-len512-util0.95-eager",
+     "axis": "rerun-untied-lm_head",
+     "flags": {
+      "--max-model-len": "512",
+      "--gpu-memory-utilization": "0.95",
+      "--max-num-seqs": "32",
+      "--enforce-eager": true
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 518.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 151.88 MiB is free. Process 1385182 has 5.46 GiB memory in use. Of the allocated memory 5.29 GiB is allocated by PyTorch, and 76.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv1-7B.jsonl",
+      "cell": "srv1-7B-len512-util0.95-eager"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv1-7B.jsonl",
       "cell": "srv1-7B-len512-util0.95-eager"
      }
     }
@@ -1191,9 +1859,10 @@
    "counts": {
     "refused_reason_lost": 10,
     "accepted": 51,
-    "refused": 2,
+    "refused": 12,
     "harness_defect": 3
    },
+   "lost_reasons_outstanding": [],
    "cells": [
     {
      "cell": "g-1.5B-kvfp8-seqs320",
@@ -1209,7 +1878,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs320"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "g-1.5B-kvfp8-seqs320"
      }
     },
@@ -1225,7 +1898,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
       "cell": "g-1.5B-seqs320"
      }
     },
@@ -1243,7 +1916,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs384"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "g-1.5B-kvfp8-seqs384"
      }
     },
@@ -1259,7 +1936,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
       "cell": "g-1.5B-seqs384"
      }
     },
@@ -1277,7 +1954,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs448"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "g-1.5B-kvfp8-seqs448"
      }
     },
@@ -1293,7 +1974,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
       "cell": "g-1.5B-seqs448"
      }
     },
@@ -1311,7 +1992,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs512"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "g-1.5B-kvfp8-seqs512"
      }
     },
@@ -1328,7 +2013,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-ceiling.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-seqs512"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "g-1.5B-seqs512"
      }
     },
@@ -1344,7 +2033,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len1024-seqs128"
      }
     },
@@ -1360,7 +2049,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len1024-seqs256"
      }
     },
@@ -1377,7 +2066,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "s2-noeager-len1024-seqs512"
      }
     },
@@ -1393,7 +2086,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-len512-seqs256"
      }
     },
@@ -1410,7 +2103,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-opt3-len1024-seqs256"
      }
     },
@@ -1427,7 +2120,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-kvfp8-len1024-seqs256"
      }
     },
@@ -1444,7 +2137,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-noeager-perfthr-len1024-seqs256"
      }
     },
@@ -1461,7 +2154,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-3"
      }
     },
@@ -1478,7 +2171,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-5"
      }
     },
@@ -1495,7 +2188,7 @@
      "reason": "ImportError: Arctic Inference is required for suffix decoding. Install via `pip install arctic-inference==0.1.1`.",
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-spec-suffix-3"
      }
     },
@@ -1512,7 +2205,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B-stage2.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
       "cell": "s2-spec-ngram-3-seqs256"
      }
     },
@@ -1529,7 +2222,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "baseline"
      }
     },
@@ -1545,7 +2238,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "no-eager"
      }
     },
@@ -1563,7 +2256,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "perf-throughput"
      }
     },
@@ -1581,7 +2274,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "perf-interactivity"
      }
     },
@@ -1598,7 +2291,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "perf-throughput-no-eager"
      }
     },
@@ -1615,7 +2308,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "opt-level-3"
      }
     },
@@ -1633,7 +2326,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "opt-level-0"
      }
     },
@@ -1651,7 +2344,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "async-sched-on"
      }
     },
@@ -1669,7 +2362,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "async-sched-off"
      }
     },
@@ -1687,7 +2380,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "dtype-float16"
      }
     },
@@ -1705,7 +2398,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "dtype-bfloat16"
      }
     },
@@ -1723,7 +2416,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "kv-fp8"
      }
     },
@@ -1741,7 +2434,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "kv-fp8_e5m2"
      }
     },
@@ -1759,7 +2452,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "kv-fp8_e4m3"
      }
     },
@@ -1777,7 +2470,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "kv-int8_per_token_head"
      }
     },
@@ -1794,7 +2487,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len8192-seqs32"
      }
     },
@@ -1811,7 +2504,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len8192-seqs64"
      }
     },
@@ -1828,7 +2521,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len4096-seqs64"
      }
     },
@@ -1845,7 +2538,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len4096-seqs128"
      }
     },
@@ -1862,7 +2555,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len2048-seqs128"
      }
     },
@@ -1879,7 +2572,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len1024-seqs128"
      }
     },
@@ -1896,7 +2589,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "len512-seqs128"
      }
     },
@@ -1913,7 +2606,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "util-0.90"
      }
     },
@@ -1930,7 +2623,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "util-0.95"
      }
     },
@@ -1948,7 +2641,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "batched-tokens-2048"
      }
     },
@@ -1966,7 +2659,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "batched-tokens-8192"
      }
     },
@@ -1984,7 +2677,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "batched-tokens-16384"
      }
     },
@@ -2002,7 +2695,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "block-size-32"
      }
     },
@@ -2020,7 +2713,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "no-prefix-caching"
      }
     },
@@ -2038,7 +2731,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "no-chunked-prefill"
      }
     },
@@ -2056,7 +2749,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "cascade-attn-on"
      }
     },
@@ -2074,7 +2767,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "stream-interval-10"
      }
     },
@@ -2092,7 +2785,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "watermark-0.1"
      }
     },
@@ -2110,7 +2803,7 @@
      "reason": "Assertion failed, Microbatching currently only supports the deepep_low_latency, deepep_high_throughput, and nixl_ep all2all backends. allgather_reducescatter is not supported. To fix use --all2all-backend=deepep_low_latency, --all2all-backend=deepep_high_throughput, or --all2all-backend=nixl_ep and install the matching kernels. [type=assertion_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs]",
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "ubatch-2"
      }
     },
@@ -2128,7 +2821,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "attn-TRITON_ATTN"
      }
     },
@@ -2146,7 +2839,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "attn-FLEX_ATTENTION"
      }
     },
@@ -2164,7 +2857,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "attn-FLASH_ATTN"
      }
     },
@@ -2182,7 +2875,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "attn-FLASHINFER"
      }
     },
@@ -2200,7 +2893,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "linear-marlin"
      }
     },
@@ -2219,7 +2912,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-exllama"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "linear-exllama"
      }
     },
@@ -2237,7 +2934,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "linear-triton"
      }
     },
@@ -2256,7 +2953,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-torch"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "linear-torch"
      }
     },
@@ -2275,7 +2976,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-machete"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "linear-machete"
      }
     },
@@ -2294,7 +2999,11 @@
      "reason_captured": false,
      "note": "the harness kept 25 log lines and the engine's cause scrolled past; a re-run with the full log is owed before this refusal can be attributed",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-cutlass"
+     },
+     "rerun": {
+      "file": "reruns/srv2-1.5B.jsonl",
       "cell": "linear-cutlass"
      }
     },
@@ -2315,7 +3024,7 @@
      "record_holds": "{\"method\": \"ngram\", \"num_speculative_tokens\": 3, \"prompt_lookup_max\": 4, \"prompt_lookup_min\": 2}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "spec-ngram-3"
      }
     },
@@ -2336,7 +3045,7 @@
      "record_holds": "{\"method\": \"ngram\", \"num_speculative_tokens\": 5, \"prompt_lookup_max\": 8, \"prompt_lookup_min\": 2}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "spec-ngram-5"
      }
     },
@@ -2357,8 +3066,220 @@
      "record_holds": "{\"method\": \"suffix\", \"num_speculative_tokens\": 3}",
      "note": "the engine refused a value it never received as recorded; this row is evidence about the harness, not the rig",
      "cite": {
-      "file": "srv2-1.5B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
       "cell": "spec-suffix-3"
+     }
+    },
+    {
+     "cell": "g-1.5B-kvfp8-seqs320",
+     "axis": "rerun-ceiling",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "320",
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 186.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 54.12 MiB is free. Including non-PyTorch memory, this process has 11.57 GiB memory in use. Of the allocated memory 10.94 GiB is allocated by PyTorch, with 74.00 MiB allocated in private pools (e.g., CUDA Graphs), and 91.44 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs320"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs320"
+     }
+    },
+    {
+     "cell": "g-1.5B-kvfp8-seqs384",
+     "axis": "rerun-ceiling",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "384",
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 224.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 50.12 MiB is free. Including non-PyTorch memory, this process has 11.57 GiB memory in use. Of the allocated memory 10.92 GiB is allocated by PyTorch, with 94.00 MiB allocated in private pools (e.g., CUDA Graphs), and 91.98 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs384"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs384"
+     }
+    },
+    {
+     "cell": "g-1.5B-kvfp8-seqs448",
+     "axis": "rerun-ceiling",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "448",
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 260.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 128.12 MiB is free. Including non-PyTorch memory, this process has 11.50 GiB memory in use. Of the allocated memory 10.81 GiB is allocated by PyTorch, with 90.00 MiB allocated in private pools (e.g., CUDA Graphs), and 115.84 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs448"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs448"
+     }
+    },
+    {
+     "cell": "g-1.5B-kvfp8-seqs512",
+     "axis": "rerun-ceiling",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "512",
+      "--kv-cache-dtype": "fp8"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 150.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 150.12 MiB is free. Including non-PyTorch memory, this process has 11.48 GiB memory in use. Of the allocated memory 10.77 GiB is allocated by PyTorch, with 92.00 MiB allocated in private pools (e.g., CUDA Graphs), and 122.04 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs512"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-kvfp8-seqs512"
+     }
+    },
+    {
+     "cell": "g-1.5B-seqs512",
+     "axis": "rerun-ceiling",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "512"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 298.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 280.12 MiB is free. Including non-PyTorch memory, this process has 11.35 GiB memory in use. Of the allocated memory 10.71 GiB is allocated by PyTorch, with 92.00 MiB allocated in private pools (e.g., CUDA Graphs), and 41.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "g-1.5B-seqs512"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
+      "cell": "g-1.5B-seqs512"
+     }
+    },
+    {
+     "cell": "s2-noeager-len1024-seqs512",
+     "axis": "rerun-combined",
+     "flags": {
+      "--gpu-memory-utilization": "0.85",
+      "--max-model-len": "1024",
+      "--max-num-seqs": "512"
+     },
+     "state": "refused",
+     "reason": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 298.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 280.12 MiB is free. Including non-PyTorch memory, this process has 11.35 GiB memory in use. Of the allocated memory 10.71 GiB is allocated by PyTorch, with 92.00 MiB allocated in private pools (e.g., CUDA Graphs), and 41.48 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
+      "cell": "s2-noeager-len1024-seqs512"
+     }
+    },
+    {
+     "cell": "linear-exllama",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "exllama"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: ExllamaLinearKernel cannot implement due to: Quant type (uint4) not supported by Exllama, supported types are: [ScalarType.uint4b8, ScalarType.uint8b128] [rank0]:[W824 18:20:35.202546112 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "linear-exllama"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-exllama"
+     }
+    },
+    {
+     "cell": "linear-torch",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "torch"
+     },
+     "state": "refused",
+     "reason": "ValueError: --linear-backend=torch was requested but no 'torch' kernel exists for mixed-precision layers.",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "linear-torch"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-torch"
+     }
+    },
+    {
+     "cell": "linear-machete",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "machete"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: MacheteLinearKernel requires capability 90, current compute  capability is 86 [rank0]:[W824 18:23:19.355345692 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "linear-machete"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-machete"
+     }
+    },
+    {
+     "cell": "linear-cutlass",
+     "axis": "rerun-linear-backend",
+     "flags": {
+      "--max-model-len": "8192",
+      "--gpu-memory-utilization": "0.85",
+      "--max-num-seqs": "16",
+      "--enforce-eager": true,
+      "--linear-backend": "cutlass"
+     },
+     "state": "refused",
+     "reason": "ValueError: Failed to find a kernel that can implement the WNA16 linear layer. Reasons: CutlassW4A8LinearKernel requires capability 90, current compute  capability is 86 [rank0]:[W824 18:24:41.334253492 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())",
+     "reason_captured": true,
+     "cite": {
+      "file": "reruns/srv2-1.5B.jsonl",
+      "cell": "linear-cutlass"
+     },
+     "rerun_of": {
+      "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
+      "cell": "linear-cutlass"
      }
     }
    ]
@@ -2370,6 +3291,7 @@
    "counts": {
     "accepted": 6
    },
+   "lost_reasons_outstanding": [],
    "cells": [
     {
      "cell": "g-7B-baseline",
@@ -2384,7 +3306,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-baseline"
      }
     },
@@ -2400,7 +3322,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-noeager-len1024-seqs16"
      }
     },
@@ -2416,7 +3338,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-noeager-len1024-seqs64"
      }
     },
@@ -2432,7 +3354,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-noeager-len1024-seqs128"
      }
     },
@@ -2448,7 +3370,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-noeager-len1024-seqs256"
      }
     },
@@ -2465,7 +3387,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-7B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
       "cell": "g-7B-noeager-kvfp8-len1024-seqs256"
      }
     }
@@ -2478,6 +3400,7 @@
    "counts": {
     "accepted": 6
    },
+   "lost_reasons_outstanding": [],
    "cells": [
     {
      "cell": "g-q3-4B-baseline",
@@ -2492,7 +3415,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-baseline"
      }
     },
@@ -2508,7 +3431,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-noeager-len1024-seqs16"
      }
     },
@@ -2524,7 +3447,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-noeager-len1024-seqs64"
      }
     },
@@ -2540,7 +3463,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-noeager-len1024-seqs128"
      }
     },
@@ -2556,7 +3479,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-noeager-len1024-seqs256"
      }
     },
@@ -2573,7 +3496,7 @@
      "reason": null,
      "reason_captured": true,
      "cite": {
-      "file": "srv2-q3-4B.jsonl",
+      "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
       "cell": "g-q3-4B-noeager-kvfp8-len1024-seqs256"
      }
     }
@@ -2634,11 +3557,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "async-sched-on"
       }
      ]
@@ -2691,11 +3614,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -2748,11 +3671,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       }
      ]
@@ -2805,11 +3728,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -2862,11 +3785,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "block-size-32"
       }
      ]
@@ -2919,11 +3842,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "dtype-float16"
       }
      ]
@@ -2975,11 +3898,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len1024-seqs128"
       }
      ]
@@ -3032,11 +3955,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-throughput-no-eager"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -3088,11 +4011,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       }
      ]
@@ -3144,11 +4067,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "util-0.90"
       }
      ]
@@ -3200,11 +4123,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "util-0.95"
       }
      ]
@@ -3256,11 +4179,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "util-0.90"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "util-0.95"
       }
      ]
@@ -3313,11 +4236,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "kv-int8_per_token_head"
       }
      ]
@@ -3370,11 +4293,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "linear-marlin"
       }
      ]
@@ -3427,11 +4350,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "linear-triton"
       }
      ]
@@ -3484,11 +4407,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "linear-marlin"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "linear-triton"
       }
      ]
@@ -3558,11 +4481,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len2048-seqs128"
       }
      ]
@@ -3632,11 +4555,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs128"
       }
      ]
@@ -3706,11 +4629,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -3767,11 +4690,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len512-seqs256"
       }
      ]
@@ -3841,11 +4764,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len2048-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs128"
       }
      ]
@@ -3915,11 +4838,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len2048-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -3989,11 +4912,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -4057,11 +4980,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs64"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -4114,11 +5037,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       }
      ]
@@ -4171,11 +5094,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -4228,11 +5151,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -4285,11 +5208,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       }
      ]
@@ -4342,11 +5265,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       }
      ]
@@ -4399,11 +5322,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -4454,11 +5377,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       }
      ]
@@ -4522,11 +5445,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs128"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len4096-seqs64"
       }
      ]
@@ -4578,11 +5501,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len8192-seqs32"
       }
      ]
@@ -4634,11 +5557,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -4696,11 +5619,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len8192-seqs32"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -4753,11 +5676,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "async-sched-off"
       }
      ]
@@ -4810,11 +5733,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "cascade-attn-on"
       }
      ]
@@ -4867,11 +5790,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-chunked-prefill"
       }
      ]
@@ -4924,11 +5847,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-prefix-caching"
       }
      ]
@@ -4981,11 +5904,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "opt-level-0"
       }
      ]
@@ -5043,11 +5966,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-opt3-len1024-seqs256"
       }
      ]
@@ -5099,11 +6022,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "opt-level-3"
       }
      ]
@@ -5156,11 +6079,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-interactivity"
       }
      ]
@@ -5218,11 +6141,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-perfthr-len1024-seqs256"
       }
      ]
@@ -5275,11 +6198,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -5331,11 +6254,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-throughput-no-eager"
       }
      ]
@@ -5388,11 +6311,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-interactivity"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -5450,11 +6373,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3-seqs256"
       }
      ]
@@ -5506,11 +6429,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3"
       }
      ]
@@ -5562,11 +6485,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-5"
       }
      ]
@@ -5618,11 +6541,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3"
       },
       {
-       "file": "srv1-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-5"
       }
      ]
@@ -5675,11 +6598,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "stream-interval-10"
       }
      ]
@@ -5732,11 +6655,11 @@
      },
      "cites": [
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv1-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv1-1.5B.jsonl",
        "cell": "watermark-0.1"
       }
      ]
@@ -5802,11 +6725,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "async-sched-on"
       }
      ]
@@ -5859,11 +6782,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASHINFER"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASH_ATTN"
       }
      ]
@@ -5916,11 +6839,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASHINFER"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       }
      ]
@@ -5973,11 +6896,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASHINFER"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -6030,11 +6953,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASH_ATTN"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       }
      ]
@@ -6087,11 +7010,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASH_ATTN"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -6144,11 +7067,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -6201,11 +7124,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASHINFER"
       }
      ]
@@ -6258,11 +7181,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLASH_ATTN"
       }
      ]
@@ -6315,11 +7238,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-FLEX_ATTENTION"
       }
      ]
@@ -6372,11 +7295,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "attn-TRITON_ATTN"
       }
      ]
@@ -6429,11 +7352,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "block-size-32"
       }
      ]
@@ -6486,11 +7409,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "dtype-bfloat16"
       }
      ]
@@ -6543,11 +7466,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "dtype-float16"
       }
      ]
@@ -6600,11 +7523,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "dtype-bfloat16"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "dtype-float16"
       }
      ]
@@ -6656,11 +7579,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len1024-seqs128"
       }
      ]
@@ -6713,11 +7636,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-throughput-no-eager"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -6769,11 +7692,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       }
      ]
@@ -6825,11 +7748,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "util-0.90"
       }
      ]
@@ -6881,11 +7804,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "util-0.95"
       }
      ]
@@ -6937,11 +7860,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "util-0.90"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "util-0.95"
       }
      ]
@@ -6999,11 +7922,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-kvfp8-len1024-seqs256"
       }
      ]
@@ -7056,11 +7979,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8"
       }
      ]
@@ -7113,11 +8036,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e4m3"
       }
      ]
@@ -7170,11 +8093,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e5m2"
       }
      ]
@@ -7227,11 +8150,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-int8_per_token_head"
       }
      ]
@@ -7284,11 +8207,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e4m3"
       }
      ]
@@ -7341,11 +8264,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e5m2"
       }
      ]
@@ -7398,11 +8321,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-int8_per_token_head"
       }
      ]
@@ -7455,11 +8378,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e4m3"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e5m2"
       }
      ]
@@ -7512,11 +8435,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e4m3"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-int8_per_token_head"
       }
      ]
@@ -7569,11 +8492,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-fp8_e5m2"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "kv-int8_per_token_head"
       }
      ]
@@ -7626,11 +8549,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "linear-marlin"
       }
      ]
@@ -7683,11 +8606,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "linear-triton"
       }
      ]
@@ -7740,11 +8663,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "linear-marlin"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "linear-triton"
       }
      ]
@@ -7814,11 +8737,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len2048-seqs128"
       }
      ]
@@ -7888,11 +8811,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs128"
       }
      ]
@@ -7962,11 +8885,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -8023,11 +8946,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len512-seqs256"
       }
      ]
@@ -8097,11 +9020,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len2048-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs128"
       }
      ]
@@ -8171,11 +9094,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len2048-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -8245,11 +9168,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len512-seqs128"
       }
      ]
@@ -8313,11 +9236,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs64"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -8370,11 +9293,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       }
      ]
@@ -8427,11 +9350,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -8484,11 +9407,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -8541,11 +9464,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-16384"
       }
      ]
@@ -8598,11 +9521,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-2048"
       }
      ]
@@ -8655,11 +9578,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "batched-tokens-8192"
       }
      ]
@@ -8710,11 +9633,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       }
      ]
@@ -8765,11 +9688,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs320"
       }
      ]
@@ -8820,11 +9743,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs384"
       }
      ]
@@ -8875,11 +9798,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs448"
       }
      ]
@@ -8943,11 +9866,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs128"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len4096-seqs64"
       }
      ]
@@ -8999,11 +9922,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len8192-seqs32"
       }
      ]
@@ -9055,11 +9978,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -9116,11 +10039,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs320"
       }
      ]
@@ -9177,11 +10100,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs384"
       }
      ]
@@ -9238,11 +10161,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs448"
       }
      ]
@@ -9300,11 +10223,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len8192-seqs32"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "len8192-seqs64"
       }
      ]
@@ -9361,11 +10284,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs320"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs384"
       }
      ]
@@ -9422,11 +10345,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs320"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs448"
       }
      ]
@@ -9489,11 +10412,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs384"
       },
       {
-       "file": "srv2-1.5B-ceiling.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-ceiling.jsonl",
        "cell": "g-1.5B-seqs448"
       }
      ]
@@ -9546,11 +10469,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "async-sched-off"
       }
      ]
@@ -9603,11 +10526,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "cascade-attn-on"
       }
      ]
@@ -9660,11 +10583,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-chunked-prefill"
       }
      ]
@@ -9717,11 +10640,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-prefix-caching"
       }
      ]
@@ -9774,11 +10697,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "opt-level-0"
       }
      ]
@@ -9836,11 +10759,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-opt3-len1024-seqs256"
       }
      ]
@@ -9892,11 +10815,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "opt-level-3"
       }
      ]
@@ -9949,11 +10872,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-interactivity"
       }
      ]
@@ -10011,11 +10934,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-perfthr-len1024-seqs256"
       }
      ]
@@ -10068,11 +10991,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -10124,11 +11047,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-throughput-no-eager"
       }
      ]
@@ -10181,11 +11104,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-interactivity"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "perf-throughput"
       }
      ]
@@ -10243,11 +11166,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3-seqs256"
       }
      ]
@@ -10299,11 +11222,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3"
       }
      ]
@@ -10355,11 +11278,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "no-eager"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-5"
       }
      ]
@@ -10411,11 +11334,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-3"
       },
       {
-       "file": "srv2-1.5B-stage2.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B-stage2.jsonl",
        "cell": "s2-spec-ngram-5"
       }
      ]
@@ -10468,11 +11391,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "stream-interval-10"
       }
      ]
@@ -10525,11 +11448,11 @@
      },
      "cites": [
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "baseline"
       },
       {
-       "file": "srv2-1.5B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-1.5B.jsonl",
        "cell": "watermark-0.1"
       }
      ]
@@ -10594,11 +11517,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-kvfp8-len1024-seqs256"
       }
      ]
@@ -10631,11 +11554,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs16"
       }
      ]
@@ -10686,11 +11609,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs256"
       }
      ]
@@ -10735,11 +11658,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs64"
       }
      ]
@@ -10772,11 +11695,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs16"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs256"
       }
      ]
@@ -10809,11 +11732,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs16"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs64"
       }
      ]
@@ -10858,11 +11781,11 @@
      },
      "cites": [
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-7B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-7B.jsonl",
        "cell": "g-7B-noeager-len1024-seqs64"
       }
      ]
@@ -10927,11 +11850,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-kvfp8-len1024-seqs256"
       }
      ]
@@ -10964,11 +11887,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs16"
       }
      ]
@@ -11019,11 +11942,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs256"
       }
      ]
@@ -11068,11 +11991,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs128"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs64"
       }
      ]
@@ -11105,11 +12028,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs16"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs256"
       }
      ]
@@ -11142,11 +12065,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs16"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs64"
       }
      ]
@@ -11191,11 +12114,11 @@
      },
      "cites": [
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs256"
       },
       {
-       "file": "srv2-q3-4B.jsonl",
+       "file": "2026-08-24-config-sweep/srv2-q3-4B.jsonl",
        "cell": "g-q3-4B-noeager-len1024-seqs64"
       }
      ]

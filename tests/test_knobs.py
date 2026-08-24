@@ -137,7 +137,7 @@ def test_four_kinds_of_absence_never_share_a_label(knobs: Any, tmp_path: Path) -
             }
         )
     )
-    surface = knobs.build(ev, out)
+    surface = knobs.build([ev], out)
     rows = {r["cell"]: r for r in surface["accepted"][0]["cells"]}
     assert rows["baseline"]["state"] == "accepted"
     assert rows["kv-fp8"]["state"] == "refused"
@@ -159,7 +159,7 @@ def test_untried_is_unknown_not_zero_until_the_declared_column_lands(
 ) -> None:
     ev = _evidence(tmp_path, [_cell("baseline", BASE, True, levels={1: 10.0})])
     out = tmp_path / "out"
-    surface = knobs.build(ev, out)
+    surface = knobs.build([ev], out)
     assert surface["declared"]["captured"] is False
     assert surface["declared"]["untried"]["unknown"] is True
     assert surface["declared"]["untried"]["searched"]
@@ -190,7 +190,7 @@ def test_a_contrast_states_the_regime_not_one_number(
             ),
         ],
     )
-    surface = knobs.build(ev, tmp_path / "out")
+    surface = knobs.build([ev], tmp_path / "out")
     contrasts = surface["effective"][0]["contrasts"]
     fp8 = [
         c
@@ -204,8 +204,8 @@ def test_a_contrast_states_the_regime_not_one_number(
     assert [(p["n"], p["ratio"]) for p in c["per_n"]] == [(16, 1.0), (256, 1.1)]
     assert c["largest_effect"] == {"n": 256, "ratio": 1.1}
     assert c["cites"] == [
-        {"file": "rigA-m.jsonl", "cell": "plain"},
-        {"file": "rigA-m.jsonl", "cell": "fp8"},
+        {"file": "evidence/rigA-m.jsonl", "cell": "plain"},
+        {"file": "evidence/rigA-m.jsonl", "cell": "fp8"},
     ]
     # `far` differs from `fp8` by one key and IS a contrast on --dtype; from
     # `plain` by two and is not.
@@ -285,9 +285,45 @@ def test_the_committed_surface_is_what_the_evidence_produces(
     out.mkdir()
     for declared in SURFACE.glob("declared-*.json"):
         (out / declared.name).write_text(declared.read_text())
-    rebuilt = knobs.build(SWEEP.relative_to(REPO), out)
+    evidence = [SWEEP.relative_to(REPO), (SURFACE / "reruns").relative_to(REPO)]
+    rebuilt = knobs.build(evidence, out)
     assert rebuilt == committed, "regenerate with knobs.py build; do not hand-edit"
     assert (out / "surface.md").read_text() == (SURFACE / "surface.md").read_text()
+
+
+def test_a_rerun_links_both_ways_and_clears_the_outstanding_list(
+    knobs: Any, tmp_path: Path
+) -> None:
+    first = tmp_path / "sweep"
+    first.mkdir()
+    (first / "rig.jsonl").write_text(
+        json.dumps(
+            _cell("kv-fp8", [*BASE, "--kv-cache-dtype", "fp8"], False, WRAPPER_LOG)
+        )
+        + "\n"
+        + json.dumps(_cell("dtype", [*BASE, "--dtype", "bfloat16"], False, WRAPPER_LOG))
+        + "\n"
+    )
+    again = tmp_path / "reruns"
+    again.mkdir()
+    (again / "rig.jsonl").write_text(
+        json.dumps(
+            _cell("kv-fp8", [*BASE, "--kv-cache-dtype", "fp8"], False, CAUSE_LOG)
+        )
+        + "\n"
+    )
+    block = knobs.build([first, again], tmp_path / "out")["accepted"][0]
+    rows = {(r["cite"]["file"], r["cell"]): r for r in block["cells"]}
+    old = rows[("sweep/rig.jsonl", "kv-fp8")]
+    new = rows[("reruns/rig.jsonl", "kv-fp8")]
+    # The old row keeps what was recorded and points forward; the new row
+    # carries the reason and points back.
+    assert old["state"] == "refused_reason_lost"
+    assert old["rerun"] == {"file": "reruns/rig.jsonl", "cell": "kv-fp8"}
+    assert new["state"] == "refused"
+    assert new["rerun_of"] == {"file": "sweep/rig.jsonl", "cell": "kv-fp8"}
+    # Only the cell nobody re-ran is still outstanding.
+    assert block["lost_reasons_outstanding"] == ["dtype"]
 
 
 def test_every_cell_cites_the_run_it_was_read_from(committed: dict[str, Any]) -> None:
@@ -323,14 +359,23 @@ def test_the_shell_split_cells_read_as_harness_defect_not_refused(
 def test_a_lost_reason_is_recorded_as_lost(committed: dict[str, Any]) -> None:
     by = {(b["host"], b["model"].split("/")[-1]): b for b in committed["accepted"]}
     srv1 = {
-        r["cell"]: r for r in by[("srv1", "Qwen2.5-Coder-1.5B-Instruct-AWQ")]["cells"]
+        (r["cite"]["file"], r["cell"]): r
+        for r in by[("srv1", "Qwen2.5-Coder-1.5B-Instruct-AWQ")]["cells"]
     }
-    assert srv1["kv-fp8"]["state"] == "refused_reason_lost"
-    assert srv1["kv-fp8"]["reason_captured"] is False
-    assert srv1["ubatch-2"]["state"] == "refused"
-    assert "Microbatching" in srv1["ubatch-2"]["reason"]
+    sweep, rerun = "2026-08-24-config-sweep/srv1-1.5B.jsonl", "reruns/srv1-1.5B.jsonl"
+    # The sweep's row stays what it was: a refusal nobody could attribute.
+    assert srv1[(sweep, "kv-fp8")]["state"] == "refused_reason_lost"
+    assert srv1[(sweep, "kv-fp8")]["reason_captured"] is False
+    assert srv1[(sweep, "kv-fp8")]["rerun"] == {"file": rerun, "cell": "kv-fp8"}
+    # The re-run carries the engine's own sentence, and it names the card.
+    assert srv1[(rerun, "kv-fp8")]["state"] == "refused"
+    assert "compute capability 7.5" in srv1[(rerun, "kv-fp8")]["reason"]
+    assert srv1[(sweep, "ubatch-2")]["state"] == "refused"
+    assert "Microbatching" in srv1[(sweep, "ubatch-2")]["reason"]
     lost = sum(b["counts"].get("refused_reason_lost", 0) for b in committed["accepted"])
     assert lost == 26, "the number the sweep's 25-line tail could not attribute"
+    # ...and every one of them has been re-run under the fixed harness.
+    assert all(b["lost_reasons_outstanding"] == [] for b in committed["accepted"])
 
 
 def test_the_regime_is_visible_in_the_committed_surface(

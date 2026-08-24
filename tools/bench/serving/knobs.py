@@ -52,7 +52,7 @@ evidence directory and refuses a difference.
 
 Usage::
 
-    python3 tools/bench/serving/knobs.py build <evidence-dir> <out-dir>
+    python3 tools/bench/serving/knobs.py build <out-dir> <evidence-dir>...
     python3 tools/bench/serving/knobs.py declared <host|local> <out-dir>
 """
 
@@ -279,9 +279,21 @@ def root_cause(log: str) -> tuple[str | None, bool]:
     """(reason, captured). The last reason-bearing line that is not the
     wrapper; if only the wrapper is there, the cause was lost."""
     lines = [_strip(x) for x in log.splitlines()]
-    for line in reversed(lines):
+    for i in range(len(lines) - 1, -1, -1):
+        line = lines[i]
         if not _REASON.search(line) or WRAPPER in line:
             continue
+        # A reason that ends in a colon continues on the lines below it
+        # (`Failed to find a kernel ... Reasons:` then one line per kernel).
+        # Keep those until the next traceback frame or blank line.
+        if line.endswith(":"):
+            tail = []
+            for more in lines[i + 1 : i + 8]:
+                if not more or more.startswith(("File ", "Traceback", "During ")):
+                    break
+                tail.append(more)
+            if tail:
+                line = line + " " + " ".join(tail)
         return line, True
     for line in reversed(lines):
         if WRAPPER in line:
@@ -404,19 +416,37 @@ def contrasts(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # build
 
 
-def load_records(evidence: Path) -> list[dict[str, Any]]:
+def load_records(evidence: list[Path]) -> list[dict[str, Any]]:
+    """Every record under every evidence directory, in directory order. A
+    record's `_file` is `<directory name>/<file>` so two directories holding
+    a file of the same name stay distinguishable in a citation."""
     records = []
-    for path in sorted(evidence.glob("*.jsonl")):
-        for line in path.read_text().splitlines():
-            if not line.strip():
-                continue
-            rec = json.loads(line)
-            rec["_file"] = path.name
-            records.append(rec)
+    for directory in evidence:
+        for path in sorted(directory.glob("*.jsonl")):
+            for line in path.read_text().splitlines():
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                rec["_file"] = f"{directory.name}/{path.name}"
+                records.append(rec)
     return records
 
 
-def build(evidence: Path, out_dir: Path) -> dict[str, Any]:
+def _link_reruns(rows: list[dict[str, Any]]) -> None:
+    """A later record with the same cell id is that cell's re-run. The
+    earlier row keeps its state -- it is what was recorded -- and gains
+    `rerun`, pointing at the later one; the later gains `rerun_of`. A
+    lost reason is *outstanding* only while its row has no re-run."""
+    seen: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        earlier = seen.get(row["cell"])
+        if earlier is not None:
+            earlier["rerun"] = dict(row["cite"])
+            row["rerun_of"] = dict(earlier["cite"])
+        seen[row["cell"]] = row
+
+
+def build(evidence: list[Path], out_dir: Path) -> dict[str, Any]:
     records = load_records(evidence)
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for rec in records:
@@ -425,7 +455,13 @@ def build(evidence: Path, out_dir: Path) -> dict[str, Any]:
     declared = load_declared(out_dir)
     tried = {k for r in records for k in assignments(r["flags"])}
     if declared:
-        untried = sorted(f["flag"] for f in declared["flags"] if f["flag"] not in tried)
+        # `--no-x` is argparse's alias for the boolean knob `--x`; a cell that
+        # carried the alias tried the knob.
+        untried = sorted(
+            f["flag"]
+            for f in declared["flags"]
+            if not tried & ({f["flag"]} | set(f.get("aliases") or []))
+        )
         declared_block: dict[str, Any] = {
             "captured": True,
             "digest": declared["digest"],
@@ -460,15 +496,22 @@ def build(evidence: Path, out_dir: Path) -> dict[str, Any]:
             row = classify(rec)
             row["cite"] = {"file": rec["_file"], "cell": rec["cell"]}
             rows.append(row)
+        _link_reruns(rows)
         counts: dict[str, int] = {}
         for row in rows:
             counts[row["state"]] = counts.get(row["state"], 0) + 1
+        outstanding = [
+            row["cell"]
+            for row in rows
+            if row["state"] == "refused_reason_lost" and "rerun" not in row
+        ]
         accepted.append(
             {
                 "host": host,
                 "model": model,
                 "engine": SERVING_ENGINE,
                 "counts": counts,
+                "lost_reasons_outstanding": outstanding,
                 "cells": rows,
             }
         )
@@ -486,7 +529,7 @@ def build(evidence: Path, out_dir: Path) -> dict[str, Any]:
         "issue": 357,
         "engine": SERVING_ENGINE,
         "image": IMAGE,
-        "evidence": str(evidence),
+        "evidence": [str(directory) for directory in evidence],
         "files": sorted({r["_file"] for r in records}),
         "states": {
             "accepted": "launched: /health answered with the weights on the card",
@@ -520,7 +563,8 @@ def render(surface: dict[str, Any]) -> str:
         f"# Knob surface — {surface['engine']} `{surface['image']}` (#357)",
         "",
         "Generated by `tools/bench/serving/knobs.py build` from "
-        f"`{surface['evidence']}`; do not edit. Files: "
+        + ", ".join(f"`{e}`" for e in surface["evidence"])
+        + "; do not edit. Files: "
         + ", ".join(f"`{f}`" for f in surface["files"])
         + ".",
         "",
@@ -549,11 +593,13 @@ def render(surface: dict[str, Any]) -> str:
     lines += ["", "## 2. Accepted", ""]
     for block in surface["accepted"]:
         counts = ", ".join(f"{k} {v}" for k, v in sorted(block["counts"].items()))
+        outstanding = block["lost_reasons_outstanding"]
         lines += [
-            f"### {block['host']} · {_short_model(block['model'])} — {counts}",
+            f"### {block['host']} · {_short_model(block['model'])} — {counts}; "
+            f"lost reasons outstanding {len(outstanding)}",
             "",
-            "| cell | state | reason | cite |",
-            "|---|---|---|---|",
+            "| cell | state | reason | cite | re-run |",
+            "|---|---|---|---|---|",
         ]
         for row in block["cells"]:
             reason = (row["reason"] or "").replace("|", "\\|")
@@ -561,9 +607,14 @@ def render(surface: dict[str, Any]) -> str:
                 reason = f"engine saw `{row['engine_saw']}`, record holds JSON"
             elif row["state"] == "accepted":
                 reason = ""
+            link = ""
+            if "rerun" in row:
+                link = f"→ `{row['rerun']['file']}`"
+            elif "rerun_of" in row:
+                link = f"re-run of `{row['rerun_of']['file']}`"
             lines.append(
                 f"| `{row['cell']}` | {row['state']} | {reason[:140]} | "
-                f"`{row['cite']['file']}` |"
+                f"`{row['cite']['file']}` | {link} |"
             )
         lines.append("")
     lines += ["## 3. Effective", ""]
@@ -592,8 +643,8 @@ def render(surface: dict[str, Any]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) == 4 and argv[1] == "build":
-        surface = build(Path(argv[2]), Path(argv[3]))
+    if len(argv) >= 4 and argv[1] == "build":
+        surface = build([Path(a) for a in argv[3:]], Path(argv[2]))
         for block in surface["accepted"]:
             print(block["host"], _short_model(block["model"]), block["counts"])
         return 0

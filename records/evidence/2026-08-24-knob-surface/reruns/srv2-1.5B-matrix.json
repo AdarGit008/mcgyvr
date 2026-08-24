@@ -1,0 +1,182 @@
+[
+ {
+  "id": "g-1.5B-kvfp8-seqs320",
+  "axis": "rerun-ceiling",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "320",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "g-1.5B-kvfp8-seqs384",
+  "axis": "rerun-ceiling",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "384",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "g-1.5B-kvfp8-seqs448",
+  "axis": "rerun-ceiling",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "448",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "g-1.5B-kvfp8-seqs512",
+  "axis": "rerun-ceiling",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "512",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "g-1.5B-seqs512",
+  "axis": "rerun-ceiling",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "512"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "s2-noeager-len1024-seqs512",
+  "axis": "rerun-combined",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "512"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-exllama",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "exllama"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-torch",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "torch"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-machete",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "machete"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-cutlass",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "cutlass"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ }
+]
