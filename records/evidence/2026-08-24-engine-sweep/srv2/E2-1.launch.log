@@ -1,0 +1,15 @@
+
+[1/1] srv2 E2-1  --gpu-memory-utilization 0.85 --max-model-len 1024 --max-num-seqs 256 --kv-cache-dtype fp8
+      n=1       180.6 tok/s  lat 2.63s
+      n=8      1251.3 tok/s  lat 2.78s
+      n=32     3673.1 tok/s  lat 3.80s
+      n=128    5694.9 tok/s  lat 10.38s
+      n=256    6452.2 tok/s  lat 18.50s
+      n=1       184.2 tok/s  lat 2.58s
+      n=8      1410.9 tok/s  lat 2.69s
+      n=32     3960.6 tok/s  lat 3.79s
+      n=128    5670.3 tok/s  lat 10.38s
+      n=256    6228.1 tok/s  lat 18.52s
+   -> MAX 6452.2 tok/s at n=256
+
+done; rig released

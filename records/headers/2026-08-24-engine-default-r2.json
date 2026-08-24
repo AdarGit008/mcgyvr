@@ -1,0 +1,67 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-24-engine-default-r2",
+  "declared": "2026-08-24",
+  "question": "For each rig and model tier, which engine and configuration produces the most completion tokens per second at the workload's concurrency (srv2 at n = 128, srv1 at n = 32) with the whole model on the card - and in particular, does ollama's never-varied slot count (OLLAMA_NUM_PARALLEL) close the gap to vLLM's 6,445 tok/s? Decision it feeds: the serving default per (rig, model) for the bench's r2 round - ollama at a chosen slot count, vLLM at yesterday's best cell, standalone llama-server, or LMDeploy. Rule: highest aggregate tok/s at the rig's headline n, tie broken by lower p50; a cell that spills weights to CPU or fails to launch is out. Tiers decided: 1.5B on both rigs, 7B on srv2.",
+  "arms": [
+    "ollama slots: OLLAMA_NUM_PARALLEL in the parallel.conf drop-in, srv2 1.5B {1, 8, 128}, srv2 7B {1, 32}, srv1 1.5B {1, 32}; srv1 adds the flash-attention-off contrast (block c) with num_batch held at 1024.",
+    "llama-server standalone (ghcr.io/ggml-org/llama.cpp:server-cuda-b10481): the #18030 reproduction, batch/ubatch and -kvu arms, plus llama-batched-bench as #18030's own instrument.",
+    "LMDeploy TurboMind (openmmlab/lmdeploy:v0.16.0-cu12.8): 8 srv2 cells and 5 srv1 cells over quant-policy, cache fraction, prefix caching and the 3B checkpoint, per the 2026-08-24 dig.",
+    "vLLM control: yesterday's best cell per rig re-taken through tools/bench/serving/sweep.py; must reproduce within 10% or the rig's remaining blocks stop.",
+    "No MoE tail: block (f) was removed by the owner on 2026-08-24."
+  ],
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "cost": {
+    "estimate_minutes": 200,
+    "estimate_note": "srv2: (a) 13 + (e) 10 + (b) 16 + (d) ~40 for 8 LMDeploy cells + re-take 5 + state/restore ~30 = ~115 expected; srv1: (a)+(c) 9 + (e) 6 + (b) 7 + (d) ~35 for 5 cells + re-take 4 + ~25 = ~85. Rigs concurrent, so the campaign's wall-clock is srv2's, ~2 h; worst case (every level at the 180 s cap, F7's bound) ~5 h.",
+    "source": "sweep-spec-2026-08-24.md section 6, block (f) removed, block (d) extended per the LMDeploy dig"
+  },
+  "could_have_carried": [
+    "srv1 7B under ollama (untied head contrast)",
+    "OLLAMA_KV_CACHE_TYPE=q8_0 on dense models",
+    "num_batch held against the automatic tier under ollama on srv2 (only the srv1 cells send num_batch)",
+    "the MoE tail (block f), removed by the owner"
+  ],
+  "left_on_table": [
+    "SGLang, ExLlama, MLC, TensorRT-LLM (rejected in the source map)",
+    "Qwen3.8 (no variant fits 12 GB, spec section 4g)",
+    "LMDeploy --quant-policy 4 and --max-prefill-token-num on srv1 (spares in the dig)"
+  ],
+  "prerequisites": [
+    "passwordless sudo on both rigs (verified 2026-08-24)",
+    "images pulled and digests recorded in run.json at run start: llama.cpp server-cuda-b10481 (both), full-cuda-b10481 (srv2), lmdeploy v0.16.0-cu12.8 (both), vllm v0.26.0 (both)",
+    "no stranger container running (exited vllm-7b-coder / vllm-nemotron-* / mcgyvr-vllm are never touched)",
+    "the ollama drop-in is parallel.conf and OLLAMA_HOST lives in tailscale.conf, so the three-line rewrite is safe (F1)",
+    "the 3B AWQ snapshot on srv2 (D2-3 / D2-8 are skipped with reason if absent)"
+  ],
+  "void_if": [
+    "a cell's post-state OLLAMA_* readback differs from the restore target OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+    "two claimants on one rig",
+    "a cross-rig figure is read without the #326 identity block",
+    "a vLLM control cell fails rule (e)1 and later blocks on that rig are read anyway"
+  ],
+  "notes": "Filed on 2026-08-24 with no run block (F5): headers.py names a run-less header for its declared date and refuses a run block without a readable started stamp, so run.started is left out rather than left empty. The run started 2026-08-24T20:18, the declared date, so the file keeps its name; the run block was added with the evidence README on 2026-08-24. Runner and cells live outside the repo in the session scratchpad (runner/).",
+  "run": {
+    "started": "2026-08-24T20:18",
+    "ended": "2026-08-24T20:59",
+    "wall": "41 min against a 200 min estimate; rigs concurrent (srv1 20:18-20:59, srv2 20:18-20:58), no level hit the 180 s cap",
+    "driver": "runner.py (sha256 f8dcc5f2d7a9cb6d2820796022f790a00dbe677b876c5ce8c2220d7d865fc1d7, copied into the evidence directory), invoked three times on srv1 and twice on srv2; only the last run.json per rig survives, every run is in rows.jsonl and the rig log",
+    "phases": [
+      "srv1 20:18-20:29: blocks (a), (c), (e) ran; (b), (d), R1 skipped on a mis-set control bar (CORRECTIONS 20:33)",
+      "srv1 20:30-20:36 (--only): B1-1 ran, LMDeploy refused on an incomplete snapshot, R1 re-took B1-1",
+      "srv1 20:37-20:59 (--only): the five LMDeploy cells ran on the corrected launch",
+      "srv2 20:18-20:50: every block; D2-2/D2-7/D2-3/D2-8 refused on incomplete 7B/3B snapshots; B2-3 skipped by rule (b)4; R2 re-took E2-1",
+      "srv2 20:51-20:58 (--only): the four refused LMDeploy cells ran on the corrected launch"
+    ],
+    "cells": 32,
+    "failures": 0,
+    "refusals_superseded": 6,
+    "controls": "srv1 E1-1 229.7 at n=32 vs 229.3-230.9 yesterday; srv2 E2-1 6452.2 at n=256 vs 6445.1 yesterday; both rigs in yesterday's state",
+    "answer": "srv1 1.5B: llama-server b10481, 32 slots (446.6 tok/s at n=32; ollama 32 slots 389.3; vLLM 229.7; LMDeploy 217.1). srv2 1.5B: vLLM at yesterday's cell (5694.9 at n=128, 6452.2 at n=256; LMDeploy 3855.3 / 4220.9; llama-server 1396.4; ollama 992.5). srv2 7B: vLLM 1604.7 vs LMDeploy 1567.9 at n=128. Ollama slots do not close the gap.",
+    "rig_state_after": "both cards 1 MiB, no sweep container, ollama ps empty, ollama environment readback equals the restore target on both rigs, hosts.json untouched",
+    "evidence": "records/evidence/2026-08-24-engine-sweep/"
+  }
+}

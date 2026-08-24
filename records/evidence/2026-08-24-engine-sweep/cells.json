@@ -1,0 +1,980 @@
+{
+ "spec": "sweep-spec-2026-08-24-v2.md (block (f) removed; block (d) extended per the LMDeploy dig w5tv87qn9; F1-F7 applied)",
+ "fixed": {
+  "prompt": "sweep.py PROMPT",
+  "tokens": 475,
+  "num_ctx": 1024,
+  "temperature": 0,
+  "level_cap_s": 180,
+  "cap_fraction_threshold": 470,
+  "ollama_restore_target": "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434"
+ },
+ "run_order_note": "each rig's list is independent; run both rigs concurrently in two processes; ollama block ends -> restore; docker engines stop ollama first and start it after; block (d) runs by model (spec v2 \u00a74) so one TM_GEMM_EXPORT serves the model's later cells",
+ "rigs": {
+  "srv2": [
+   {
+    "id": "A2-1",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv2",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 1,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     8
+    ],
+    "est_min": "2 / 7",
+    "purpose": "ollama slots: today's state, control (NUM_PARALLEL=1)",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "A2-2",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv2",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 8,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     8
+    ],
+    "est_min": "2 / 7",
+    "purpose": "ollama slots: N=8 (-b 1024 tier), same n=8 as A2-1 -> does the tier matter",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "A2-3",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv2",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 128,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     8,
+     32,
+     128
+    ],
+    "est_min": "3 / 13",
+    "purpose": "ollama slots: N=128 (-b 2048 tier; KV 128x28 MiB = 3.5 GiB), the headline ramp",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "A2-4",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv2",
+    "model": "qwen2.5-coder:7b",
+    "num_parallel": 1,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     8
+    ],
+    "est_min": "3 / 7",
+    "purpose": "ollama slots 7B: control N=1",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "A2-5",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv2",
+    "model": "qwen2.5-coder:7b",
+    "num_parallel": 32,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     8,
+     32
+    ],
+    "est_min": "3 / 10",
+    "purpose": "ollama slots 7B: N=32 (KV 1.75 GiB + 4.4 GiB weights)",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "E2-1",
+    "block": "e",
+    "engine": "vllm",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "vllm/vllm-openai:v0.26.0",
+    "flags": [
+     "--gpu-memory-utilization",
+     "0.85",
+     "--max-model-len",
+     "1024",
+     "--max-num-seqs",
+     "256",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "repeats": 2,
+    "est_min": "5 / 8",
+    "purpose": "vLLM control: yesterday's best 1.5B cell (s2-noeager-kvfp8-len1024-seqs256, 6445 tok/s at n=256), better-of-two; rule (e)1 needs >= 5800 at n=256",
+    "harness": "tools/bench/serving/sweep.py (container sweep-vllm, port 8000, /v1/completions ignore_eos, one fixed prompt)",
+    "sweep_py_invocation": "python3 /home/adaramir/claude/mcgyvr/tools/bench/serving/sweep.py <rig> Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ <out>/E2-1.matrix.json <out>/E2-1.vllm.jsonl",
+    "sweep_py_matrix": [
+     {
+      "id": "E2-1",
+      "axis": "control",
+      "flags": [
+       "--gpu-memory-utilization",
+       "0.85",
+       "--max-model-len",
+       "1024",
+       "--max-num-seqs",
+       "256",
+       "--kv-cache-dtype",
+       "fp8"
+      ],
+      "cap": 256,
+      "levels": [
+       1,
+       8,
+       32,
+       128,
+       256,
+       1,
+       8,
+       32,
+       128,
+       256
+      ]
+     }
+    ],
+    "control_min": {
+     "n": 256,
+     "agg_ge": 5800
+    },
+    "rig": "srv2"
+   },
+   {
+    "id": "E2-2",
+    "block": "e",
+    "engine": "vllm",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "image": "vllm/vllm-openai:v0.26.0",
+    "flags": [
+     "--gpu-memory-utilization",
+     "0.85",
+     "--max-model-len",
+     "1024",
+     "--max-num-seqs",
+     "256",
+     "--kv-cache-dtype",
+     "fp8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128
+    ],
+    "repeats": 1,
+    "est_min": "5 / 8",
+    "purpose": "vLLM control 7B: yesterday's best 7B flags (g-7B-noeager-kvfp8-len1024-seqs256, 1674 tok/s at n=256), one pass",
+    "harness": "tools/bench/serving/sweep.py (container sweep-vllm, port 8000, /v1/completions ignore_eos, one fixed prompt)",
+    "sweep_py_invocation": "python3 /home/adaramir/claude/mcgyvr/tools/bench/serving/sweep.py <rig> Qwen/Qwen2.5-Coder-7B-Instruct-AWQ <out>/E2-2.matrix.json <out>/E2-2.vllm.jsonl",
+    "sweep_py_matrix": [
+     {
+      "id": "E2-2",
+      "axis": "control",
+      "flags": [
+       "--gpu-memory-utilization",
+       "0.85",
+       "--max-model-len",
+       "1024",
+       "--max-num-seqs",
+       "256",
+       "--kv-cache-dtype",
+       "fp8"
+      ],
+      "cap": 128,
+      "levels": [
+       1,
+       8,
+       32,
+       128
+      ]
+     }
+    ],
+    "rig": "srv2"
+   },
+   {
+    "id": "B2-1",
+    "block": "b",
+    "engine": "llamacpp",
+    "model": "qwen2.5-coder:1.5b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+    "np": 128,
+    "launch_args": [
+     "-np",
+     "128",
+     "-c",
+     "131072",
+     "-no-kvu",
+     "-b",
+     "2048",
+     "-ub",
+     "2048",
+     "-ctk",
+     "f16",
+     "-ctv",
+     "f16",
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "--metrics",
+     "--slots",
+     "-sps",
+     "0",
+     "--no-context-shift"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128
+    ],
+    "est_min": "3 / 13",
+    "purpose": "llama-server standalone, ollama's N=128 config as it really is (-b 2048 -ub 2048 per F2/F4)",
+    "rig": "srv2"
+   },
+   {
+    "id": "B2-2",
+    "block": "b",
+    "engine": "llamacpp",
+    "model": "qwen2.5-coder:1.5b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+    "np": 128,
+    "launch_args": [
+     "-np",
+     "128",
+     "-c",
+     "131072",
+     "-no-kvu",
+     "-b",
+     "512",
+     "-ub",
+     "512",
+     "-ctk",
+     "f16",
+     "-ctv",
+     "f16",
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "--metrics",
+     "--slots",
+     "-sps",
+     "0",
+     "--no-context-shift"
+    ],
+    "levels": [
+     8,
+     32,
+     128
+    ],
+    "est_min": "3 / 13",
+    "purpose": "llama-server: small-ubatch arm (-b 512 -ub 512); B2-1 vs B2-2 = what the batch tier costs",
+    "rig": "srv2"
+   },
+   {
+    "id": "B2-3",
+    "block": "b",
+    "engine": "llamacpp",
+    "model": "qwen2.5-coder:1.5b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+    "np": 128,
+    "launch_args": [
+     "-np",
+     "128",
+     "-c",
+     "131072",
+     "-kvu",
+     "-b",
+     "2048",
+     "-ub",
+     "2048",
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "--metrics",
+     "--slots",
+     "-sps",
+     "0",
+     "--no-context-shift"
+    ],
+    "levels": [
+     128
+    ],
+    "est_min": "2 / 4",
+    "purpose": "llama-server: #18030's shared-prefix arm (-kvu, one prompt for all requests)",
+    "skip_if": {
+     "cell": "B2-1",
+     "n": 128,
+     "agg_ge": 1000,
+     "rule": "(b)4"
+    },
+    "rig": "srv2"
+   },
+   {
+    "id": "B2-4",
+    "block": "b",
+    "engine": "batched-bench",
+    "model": "qwen2.5-coder:1.5b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:full-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+    "launch_args": [
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "-c",
+     "34000",
+     "-b",
+     "2048",
+     "-ub",
+     "512",
+     "-npp",
+     "128",
+     "-pps",
+     "-ntg",
+     "128,256",
+     "-npl",
+     "1,2,4,8,16,32,64,128,256",
+     "-kvu"
+    ],
+    "levels": "its own table (S_TG per pl)",
+    "timeout_s": 600,
+    "est_min": "5 / 10",
+    "purpose": "llama-batched-bench: #18030's exact instrument; pl=256,tg=256 is silently skipped (needs 65664 > -c 34000) -- record as absent",
+    "rig": "srv2"
+   },
+   {
+    "id": "B2-5",
+    "block": "b",
+    "engine": "llamacpp",
+    "model": "qwen2.5-coder:7b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+    "np": 32,
+    "launch_args": [
+     "-np",
+     "32",
+     "-c",
+     "32768",
+     "-no-kvu",
+     "-b",
+     "1024",
+     "-ub",
+     "1024",
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "--metrics",
+     "--slots",
+     "-sps",
+     "0",
+     "--no-context-shift"
+    ],
+    "levels": [
+     1,
+     8,
+     32
+    ],
+    "est_min": "3 / 10",
+    "purpose": "llama-server 7B standalone, N=32, -b 1024 -ub 1024 (ollama's 32-slot tier, F4)",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-1",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~4.5 / 18",
+    "purpose": "LMDeploy 1.5B baseline (f16 KV), anchor for every one-knob contrast",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.8",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-4",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.8",
+     "--quant-policy",
+     "8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~4.5 / 18",
+    "purpose": "one knob: int8 KV kernel vs f16 where the pool does not bind",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.8 --quant-policy 8",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-5",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.5"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~4.5 / 18",
+    "purpose": "one knob: smaller pool (~177 sessions < 256; n=256 queues) -- expected null except at 256",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.5",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-6",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.8",
+     "--enable-prefix-caching"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~4.5 / 18",
+    "purpose": "one knob: prefix caching with one fixed prompt; decode throughput expected unchanged (null control)",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.8 --enable-prefix-caching",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-2",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.8",
+     "--quant-policy",
+     "8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128
+    ],
+    "est_min": "~5.5 / 16",
+    "purpose": "LMDeploy 7B baseline, int8 KV (f16 would not hold 128x1024)",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-7B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 128 --cache-max-entry-count 0.8 --quant-policy 8",
+    "fallback_launch_args": [
+     [
+      "--max-batch-size",
+      "64",
+      "--cache-max-entry-count",
+      "0.8"
+     ]
+    ],
+    "fallback_note": "rule (d)4: f16 KV + max-batch 64, a different config",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-7",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.8",
+     "--quant-policy",
+     "0"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128
+    ],
+    "est_min": "~5.5 / 16",
+    "purpose": "one knob on the 7B: f16 KV (~88 sessions < 128, n=128 queues) -- the capacity half of quant-policy 8",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-7B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 128 --cache-max-entry-count 0.8 --quant-policy 0",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-3",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~5 / 18",
+    "purpose": "LMDeploy 3B baseline mirroring D2-1 (~198 f16 sessions < 256: n=256 queues; the queueing is the result). Skipped with reason if the 3B snapshot is absent",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-3B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.8",
+    "rig": "srv2"
+   },
+   {
+    "id": "D2-8",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--max-batch-size",
+     "256",
+     "--cache-max-entry-count",
+     "0.8",
+     "--quant-policy",
+     "8"
+    ],
+    "levels": [
+     1,
+     8,
+     32,
+     128,
+     256
+    ],
+    "est_min": "~5 / 18",
+    "purpose": "3B + int8 KV (~384 sessions, n=256 fits); pairs with D2-3. Skipped with reason if the 3B snapshot is absent",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-3B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --max-batch-size 256 --cache-max-entry-count 0.8 --quant-policy 8",
+    "rig": "srv2"
+   },
+   {
+    "id": "R2",
+    "block": "retake",
+    "engine": "retake",
+    "model": null,
+    "headline_n": 128,
+    "levels": "the winner's",
+    "est_min": "5 / 10",
+    "purpose": "srv2 winner re-take: highest tok/s at n=128 (cap fraction >= 0.9) among completed cells, re-run better-of-two after the ollama restore",
+    "rig": "srv2"
+   }
+  ],
+  "srv1": [
+   {
+    "id": "A1-1",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv1",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 1,
+    "env_extra": [],
+    "request_options": {},
+    "levels": [
+     1,
+     2,
+     8
+    ],
+    "est_min": "3 / 10",
+    "purpose": "ollama slots: control N=1",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "A1-2",
+    "block": "a",
+    "engine": "ollama",
+    "rig": "srv1",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 32,
+    "env_extra": [],
+    "request_options": {
+     "num_batch": 1024
+    },
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "3 / 13",
+    "purpose": "ollama slots: N=32 (KV 0.9 GiB); num_batch 1024 sent so the batch is held against the automatic tier (F3); the n=1->2 step is the cliff test",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}"
+   },
+   {
+    "id": "C1-1",
+    "block": "c",
+    "engine": "ollama",
+    "rig": "srv1",
+    "model": "qwen2.5-coder:1.5b",
+    "num_parallel": 32,
+    "env_extra": [
+     "OLLAMA_FLASH_ATTENTION=0"
+    ],
+    "request_options": {
+     "num_batch": 1024
+    },
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "3 / 13",
+    "purpose": "the N>=2 cliff: A1-2 + OLLAMA_FLASH_ATTENTION=0 (journal must show --flash-attn off), num_batch 1024 held (F3)",
+    "drop_in": "/etc/systemd/system/ollama.service.d/parallel.conf",
+    "request": "POST /api/generate stream=false options={num_ctx:1024,num_predict:475,temperature:0,...}",
+    "requires": [
+     "A1-2"
+    ]
+   },
+   {
+    "id": "E1-1",
+    "block": "e",
+    "engine": "vllm",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "vllm/vllm-openai:v0.26.0",
+    "flags": [
+     "--gpu-memory-utilization",
+     "0.85",
+     "--max-model-len",
+     "1024",
+     "--max-num-seqs",
+     "64"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "repeats": 2,
+    "est_min": "6 / 9",
+    "purpose": "vLLM control srv1: yesterday's best (no-eager, seqs 64, f16 KV; ~295 tok/s ceiling), better-of-two; rule (e)1 needs >= 265 at n=32",
+    "harness": "tools/bench/serving/sweep.py (container sweep-vllm, port 8000, /v1/completions ignore_eos, one fixed prompt)",
+    "sweep_py_invocation": "python3 /home/adaramir/claude/mcgyvr/tools/bench/serving/sweep.py <rig> Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ <out>/E1-1.matrix.json <out>/E1-1.vllm.jsonl",
+    "sweep_py_matrix": [
+     {
+      "id": "E1-1",
+      "axis": "control",
+      "flags": [
+       "--gpu-memory-utilization",
+       "0.85",
+       "--max-model-len",
+       "1024",
+       "--max-num-seqs",
+       "64"
+      ],
+      "cap": 32,
+      "levels": [
+       1,
+       2,
+       8,
+       32,
+       1,
+       2,
+       8,
+       32
+      ]
+     }
+    ],
+    "control_min": {
+     "n": 32,
+     "agg_ge": 265
+    },
+    "rig": "srv1"
+   },
+   {
+    "id": "B1-1",
+    "block": "b",
+    "engine": "llamacpp",
+    "model": "qwen2.5-coder:1.5b GGUF Q4_K_M",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481",
+    "blobs_dir": "/usr/share/ollama/.ollama/models/blobs",
+    "blob": "sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104",
+    "np": 32,
+    "launch_args": [
+     "-np",
+     "32",
+     "-c",
+     "32768",
+     "-no-kvu",
+     "-b",
+     "1024",
+     "-ub",
+     "1024",
+     "-ngl",
+     "99",
+     "-fa",
+     "on",
+     "--metrics",
+     "--slots",
+     "-sps",
+     "0",
+     "--no-context-shift"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "7 / 15",
+    "purpose": "llama-server standalone srv1, -b 1024 -ub 1024 (ollama's 32-slot tier, F4); PTX JIT paid once via /var/tmp/cuda-cache; first start > 10 min aborts the cell, rule (b)3",
+    "extra_volumes": [
+     "/var/tmp/cuda-cache:/root/.nv"
+    ],
+    "env": {
+     "CUDA_CACHE_PATH": "/root/.nv/ComputeCache"
+    },
+    "ready_timeout_s": 600,
+    "rig": "srv1"
+   },
+   {
+    "id": "D1-1",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--dtype",
+     "float16",
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.5"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "~6.5 / 15",
+    "purpose": "LMDeploy 1.5B srv1 baseline; also whether the fp16 tied-head N=2 cliff carries to TurboMind (rule (d)3)",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --dtype float16 --max-batch-size 128 --cache-max-entry-count 0.5",
+    "fallback_launch_args": [
+     [
+      "--dtype",
+      "float16",
+      "--max-batch-size",
+      "128",
+      "--cache-max-entry-count",
+      "0.3"
+     ]
+    ],
+    "fallback_note": "rule (d)1: retry once at 0.3; a second failure ends srv1 LMDeploy",
+    "rig": "srv1"
+   },
+   {
+    "id": "D1-3",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--dtype",
+     "float16",
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.5",
+     "--quant-policy",
+     "8"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "~6.5 / 15",
+    "purpose": "one knob: int8 KV decoding kernel on sm75; pool not binding, so any delta is kernel cost on TU116",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --dtype float16 --max-batch-size 128 --cache-max-entry-count 0.5 --quant-policy 8",
+    "rig": "srv1"
+   },
+   {
+    "id": "D1-4",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--dtype",
+     "float16",
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.8"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "~6.5 / 15",
+    "purpose": "one knob: headroom probe -- does 0.8 launch on 6 GB; expected null on throughput -- a launch refusal at 0.8 is the result itself, not a retry and not a reason to skip other cells (rule (d)3)",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --dtype float16 --max-batch-size 128 --cache-max-entry-count 0.8",
+    "rig": "srv1",
+    "refusal_is_result": true
+   },
+   {
+    "id": "D1-2",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--dtype",
+     "float16",
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.5"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "~7.5 / 15",
+    "purpose": "LMDeploy 3B srv1 baseline; prediction: same cliff ~1.33x larger in ms",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-3B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --dtype float16 --max-batch-size 128 --cache-max-entry-count 0.5",
+    "fallback_launch_args": [
+     [
+      "--dtype",
+      "float16",
+      "--max-batch-size",
+      "128",
+      "--cache-max-entry-count",
+      "0.5",
+      "--max-prefill-token-num",
+      "1024"
+     ]
+    ],
+    "fallback_note": "dig: if it OOMs add --max-prefill-token-num 1024 and record the change",
+    "rig": "srv1"
+   },
+   {
+    "id": "D1-5",
+    "block": "d",
+    "engine": "lmdeploy",
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
+    "image": "openmmlab/lmdeploy:v0.16.0-cu12.8",
+    "launch_args": [
+     "--dtype",
+     "float16",
+     "--max-batch-size",
+     "128",
+     "--cache-max-entry-count",
+     "0.5",
+     "--quant-policy",
+     "8"
+    ],
+    "levels": [
+     1,
+     2,
+     8,
+     32
+    ],
+    "est_min": "~7.5 / 15",
+    "purpose": "3B int8-KV contrast (pool 38 -> ~74 sessions)",
+    "serve_line": "lmdeploy serve api_server Qwen/Qwen2.5-Coder-3B-Instruct-AWQ --backend turbomind --model-format awq --tp 1 --session-len 1024 --server-port 23333 --dtype float16 --max-batch-size 128 --cache-max-entry-count 0.5 --quant-policy 8",
+    "rig": "srv1"
+   },
+   {
+    "id": "R1",
+    "block": "retake",
+    "engine": "retake",
+    "model": null,
+    "headline_n": 32,
+    "levels": "the winner's",
+    "est_min": "4 / 8",
+    "purpose": "srv1 winner re-take: highest tok/s at n=32 (cap fraction >= 0.9), better-of-two after the ollama restore",
+    "rig": "srv1"
+   }
+  ]
+ }
+}

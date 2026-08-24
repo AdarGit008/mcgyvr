@@ -1,0 +1,6 @@
+ollama ps:
+NAME                ID              SIZE      PROCESSOR    CONTEXT    UNTIL   
+qwen2.5-coder:7b    dae161e27b0e    6.5 GB    100% GPU     1024       Forever
+
+child argv:
+/usr/local/lib/ollama/llama-server --model /usr/share/ollama/.ollama/models/blobs/sha256-60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463 --port 46655 --host 127.0.0.1 --no-webui --offline -c 32768 -np 32 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --context-shift --keep 4

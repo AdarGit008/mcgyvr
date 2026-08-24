@@ -1,0 +1,1 @@
+[{"id": "E1-1", "axis": "control", "flags": ["--gpu-memory-utilization", "0.85", "--max-model-len", "1024", "--max-num-seqs", "64"], "cap": 32, "levels": [1, 2, 8, 32, 1, 2, 8, 32]}]

@@ -1,0 +1,206 @@
+{
+  "cap_tokens": 470,
+  "cells_sha256": "e118d3d14d45bac32cb9770f5230dd8d90b1836970f758edbe8267c737ea44e5",
+  "dry_run": false,
+  "ended": "2026-08-24T20:59:29",
+  "levels_cap_s": 180.0,
+  "num_ctx": 1024,
+  "only": [
+    "D1-1",
+    "D1-2",
+    "D1-3",
+    "D1-4",
+    "D1-5",
+    "R1"
+  ],
+  "post_state": {
+    "card": {
+      "power_w": "16.44",
+      "sm_clock_mhz": "345",
+      "temperature_c": "57",
+      "throttle_reasons": "0x0000000000000001"
+    },
+    "compute_capability": "7.5",
+    "docker_ps_a": [
+      "mcgyvr-vllm\tExited (0) 25 hours ago\tvllm/vllm-openai:v0.26.0",
+      "vllm-nemotron-4b\tExited (1) 2 weeks ago\tvllm/vllm-openai:latest"
+    ],
+    "driver_version": "580.173.02",
+    "gpu_mem_used_mib": 1,
+    "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+    "gpu_total_mib": "6144",
+    "loadavg": "0.87 0.93 0.90 2/261 1360953",
+    "ollama_active": "active",
+    "ollama_env": "PATH=/home/adaramir/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+    "ollama_env_ollama_pairs": "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+    "ollama_ps": [
+      "NAME    ID    SIZE    PROCESSOR    CONTEXT    UNTIL "
+    ]
+  },
+  "prompt": "Write a Python function that merges two sorted lists.\n\n",
+  "repo_head": "8557694bedda9557d1b53efc77a8fd022d693f4d",
+  "result": {
+    "cells": {
+      "D1-1": {
+        "levels": [
+          [
+            1,
+            20.86
+          ],
+          [
+            2,
+            20.66
+          ],
+          [
+            8,
+            77.13
+          ],
+          [
+            32,
+            217.1
+          ]
+        ],
+        "reason": null,
+        "status": "ok"
+      },
+      "D1-2": {
+        "levels": [
+          [
+            1,
+            10.26
+          ],
+          [
+            2,
+            12.29
+          ],
+          [
+            8,
+            48.42
+          ],
+          [
+            32,
+            120.79
+          ]
+        ],
+        "reason": null,
+        "status": "ok"
+      },
+      "D1-3": {
+        "levels": [
+          [
+            1,
+            20.88
+          ],
+          [
+            2,
+            20.67
+          ],
+          [
+            8,
+            81.22
+          ],
+          [
+            32,
+            216.8
+          ]
+        ],
+        "reason": null,
+        "status": "ok"
+      },
+      "D1-4": {
+        "levels": [
+          [
+            1,
+            20.87
+          ],
+          [
+            2,
+            20.63
+          ],
+          [
+            8,
+            78.33
+          ],
+          [
+            32,
+            210.47
+          ]
+        ],
+        "reason": null,
+        "status": "ok"
+      },
+      "D1-5": {
+        "levels": [
+          [
+            1,
+            10.26
+          ],
+          [
+            2,
+            12.3
+          ],
+          [
+            8,
+            48.45
+          ],
+          [
+            32,
+            121.64
+          ]
+        ],
+        "reason": null,
+        "status": "ok"
+      },
+      "R1": {
+        "levels": [],
+        "reason": "no completed cell has a level at n=32",
+        "status": "skipped"
+      }
+    },
+    "final_restore": {
+      "api_ready": true,
+      "env_readback": "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+      "expected": "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+      "restored": true
+    },
+    "notes": [],
+    "post_state_violations": []
+  },
+  "rig": "srv1",
+  "rig_facts": {
+    "image_digests": {
+      "ghcr.io/ggml-org/llama.cpp:server-cuda-b10481": "ghcr.io/ggml-org/llama.cpp@sha256:b2497f8834f5ecb4e38530f6bf2734b8e0be107ff48e4720145911c86930f2ce",
+      "openmmlab/lmdeploy:v0.16.0-cu12.8": "openmmlab/lmdeploy@sha256:0fd7426f76331c3bed844db290ba838a01f3b2e00dcb254a6de83a86c0649576",
+      "vllm/vllm-openai:v0.26.0": "vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52"
+    },
+    "state": {
+      "card": {
+        "power_w": "16.20",
+        "sm_clock_mhz": "300",
+        "temperature_c": "51",
+        "throttle_reasons": "0x0000000000000001"
+      },
+      "compute_capability": "7.5",
+      "docker_ps_a": [
+        "mcgyvr-vllm\tExited (0) 25 hours ago\tvllm/vllm-openai:v0.26.0",
+        "vllm-nemotron-4b\tExited (1) 2 weeks ago\tvllm/vllm-openai:latest"
+      ],
+      "driver_version": "580.173.02",
+      "gpu_mem_used_mib": 1,
+      "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+      "gpu_total_mib": "6144",
+      "loadavg": "0.38 0.63 0.69 1/262 1351906",
+      "ollama_active": "active",
+      "ollama_env": "PATH=/home/adaramir/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+      "ollama_env_ollama_pairs": "OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434",
+      "ollama_ps": [
+        "NAME    ID    SIZE    PROCESSOR    CONTEXT    UNTIL "
+      ]
+    },
+    "versions": "ollama version is 0.32.15\nDocker version 29.1.3, build 29.1.3-0ubuntu4.1"
+  },
+  "runner_sha256": "f8dcc5f2d7a9cb6d2820796022f790a00dbe677b876c5ce8c2220d7d865fc1d7",
+  "spec": "sweep-spec-2026-08-24-v2.md (block (f) removed; block (d) extended per the LMDeploy dig w5tv87qn9; F1-F7 applied)",
+  "started": "2026-08-24T20:37:47",
+  "tokens": 475
+}

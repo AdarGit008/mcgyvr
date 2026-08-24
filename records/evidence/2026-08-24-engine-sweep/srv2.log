@@ -1,0 +1,143 @@
+20:18:22 run start srv2: 21 cells, cap 180.0s, out /home/adaramir/claude/mcgyvr/records/evidence/2026-08-24-engine-sweep/srv2
+20:18:22 === srv2 A2-1 [ollama] ollama slots: today's state, control (NUM_PARALLEL=1)
+20:18:59   A2-1 n=1    114.85 tok/s  p50 2.629s  cap_frac 0.0  fail 0
+20:19:14   A2-1 n=8    190.26 tok/s  p50 7.223s  cap_frac 0.0  fail 0
+20:19:16 === srv2 A2-2 [ollama] ollama slots: N=8 (-b 1024 tier), same n=8 as A2-1 -> does the tier matter
+20:19:44   A2-2 n=1    108.36 tok/s  p50 2.787s  cap_frac 0.0  fail 0
+20:19:51   A2-2 n=8    468.42 tok/s  p50 5.095s  cap_frac 0.0  fail 0
+20:19:53 === srv2 A2-3 [ollama] ollama slots: N=128 (-b 2048 tier; KV 128x28 MiB = 3.5 GiB), the headline ramp
+20:20:30   A2-3 n=1    107.57 tok/s  p50 2.807s  cap_frac 0.0  fail 0
+20:20:37   A2-3 n=8    446.01 tok/s  p50 5.247s  cap_frac 0.0  fail 0
+20:20:49   A2-3 n=32   1011.18 tok/s  p50 8.903s  cap_frac 0.0  fail 0
+20:21:28   A2-3 n=128  992.49 tok/s  p50 36.543s  cap_frac 0.0  fail 0
+20:21:31 === srv2 A2-4 [ollama] ollama slots 7B: control N=1
+20:22:21   A2-4 n=1    63.96 tok/s  p50 5.551s  cap_frac 0.0  fail 0
+20:23:06   A2-4 n=8    65.97 tok/s  p50 24.277s  cap_frac 0.0  fail 0
+20:23:10 === srv2 A2-5 [ollama] ollama slots 7B: N=32 (KV 1.75 GiB + 4.4 GiB weights)
+20:23:53   A2-5 n=1    63.89 tok/s  p50 5.556s  cap_frac 0.0  fail 0
+20:24:13   A2-5 n=8    159.78 tok/s  p50 16.887s  cap_frac 0.0  fail 0
+20:24:36   A2-5 n=32   637.75 tok/s  p50 18.784s  cap_frac 0.0  fail 0
+20:24:39 ollama block end -> restore
+20:24:58 restore ok on srv2: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:24:58 === srv2 E2-1 [vllm] vLLM control: yesterday's best 1.5B cell (s2-noeager-kvfp8-len1024-seqs256, 6445
+20:25:04 stopping ollama (docker engine cell)
+20:28:50   E2-1 n=1    184.2 tok/s (sweep.py, mean lat 2.577)
+20:28:50   E2-1 n=8    1410.9 tok/s (sweep.py, mean lat 2.685)
+20:28:50   E2-1 n=32   3960.6 tok/s (sweep.py, mean lat 3.79)
+20:28:50   E2-1 n=128  5694.9 tok/s (sweep.py, mean lat 10.377)
+20:28:50   E2-1 n=256  6452.2 tok/s (sweep.py, mean lat 18.504)
+20:28:53 === srv2 E2-2 [vllm] vLLM control 7B: yesterday's best 7B flags (g-7B-noeager-kvfp8-len1024-seqs256, 
+20:32:29   E2-2 n=1    64.9 tok/s (sweep.py, mean lat 7.322)
+20:32:29   E2-2 n=8    499.8 tok/s (sweep.py, mean lat 7.592)
+20:32:29   E2-2 n=32   1332.6 tok/s (sweep.py, mean lat 11.245)
+20:32:29   E2-2 n=128  1604.7 tok/s (sweep.py, mean lat 37.736)
+20:32:32 === srv2 B2-1 [llamacpp] llama-server standalone, ollama's N=128 config as it really is (-b 2048 -ub 2048
+20:32:37   launch: docker run --rm -d --pull=never --gpus all -p 8080:8080 -v /usr/share/ollama/.ollama/models/blobs:/models:ro  --name sweep-llamacpp ghcr.io/ggml-org/llama.cpp:s...
+20:32:56   B2-1 n=1    176.45 tok/s  p50 2.692s  cap_frac 1.0  fail 0
+20:33:05   B2-1 n=8    487.63 tok/s  p50 7.787s  cap_frac 1.0  fail 0
+20:33:20   B2-1 n=32   1203.82 tok/s  p50 12.293s  cap_frac 1.0  fail 0
+20:34:05   B2-1 n=128  1396.39 tok/s  p50 43.457s  cap_frac 1.0  fail 0
+20:34:11 === srv2 B2-2 [llamacpp] llama-server: small-ubatch arm (-b 512 -ub 512); B2-1 vs B2-2 = what the batch t
+20:34:16   launch: docker run --rm -d --pull=never --gpus all -p 8080:8080 -v /usr/share/ollama/.ollama/models/blobs:/models:ro  --name sweep-llamacpp ghcr.io/ggml-org/llama.cpp:s...
+20:34:38   B2-2 n=8    489.01 tok/s  p50 7.764s  cap_frac 1.0  fail 0
+20:34:52   B2-2 n=32   1239.64 tok/s  p50 12.235s  cap_frac 1.0  fail 0
+20:35:39   B2-2 n=128  1383.51 tok/s  p50 43.311s  cap_frac 1.0  fail 0
+20:35:45 === srv2 B2-3 [llamacpp] llama-server: #18030's shared-prefix arm (-kvu, one prompt for all requests)
+20:35:45   skipped: rule (b)4: B2-1 read 1396.39 >= 1000 at n=128
+20:35:45 === srv2 B2-4 [batched-bench] llama-batched-bench: #18030's exact instrument; pl=256,tg=256 is silently skippe
+20:35:49   run: docker run --rm --pull=never --gpus all -v /usr/share/ollama/.ollama/models/blobs:/models:ro --name sweep-llamacpp --entrypoint /app/llama-batched-bench ghcr.io...
+20:36:54 === srv2 B2-5 [llamacpp] llama-server 7B standalone, N=32, -b 1024 -ub 1024 (ollama's 32-slot tier, F4)
+20:36:59   launch: docker run --rm -d --pull=never --gpus all -p 8080:8080 -v /usr/share/ollama/.ollama/models/blobs:/models:ro  --name sweep-llamacpp ghcr.io/ggml-org/llama.cpp:s...
+20:37:26   B2-5 n=1    64.49 tok/s  p50 7.366s  cap_frac 1.0  fail 0
+20:37:50   B2-5 n=8    167.96 tok/s  p50 22.614s  cap_frac 1.0  fail 0
+20:38:13   B2-5 n=32   726.15 tok/s  p50 20.889s  cap_frac 1.0  fail 0
+20:38:18 === srv2 D2-1 [lmdeploy] LMDeploy 1.5B baseline (f16 KV), anchor for every one-knob contrast
+20:38:29   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:38:57   D2-1 n=1    191.71 tok/s  p50 1.826s  cap_frac 0.0  fail 0
+20:39:02   D2-1 n=8    1298.02 tok/s  p50 2.05s  cap_frac 0.0  fail 0
+20:39:08   D2-1 n=32   2682.43 tok/s  p50 3.688s  cap_frac 0.0  fail 0
+20:39:21   D2-1 n=128  3855.3 tok/s  p50 11.145s  cap_frac 0.0  fail 0
+20:39:45   D2-1 n=256  4029.0 tok/s  p50 21.264s  cap_frac 0.0  fail 0
+20:39:52 === srv2 D2-4 [lmdeploy] one knob: int8 KV kernel vs f16 where the pool does not bind
+20:40:00   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:40:23   D2-4 n=1    193.54 tok/s  p50 2.015s  cap_frac 0.0  fail 0
+20:40:33   D2-4 n=8    828.08 tok/s  p50 3.382s  cap_frac 0.0  fail 0
+20:40:52   D2-4 n=32   746.19 tok/s  p50 3.682s  cap_frac 0.0  fail 0
+20:41:08   D2-4 n=128  3847.24 tok/s  p50 12.011s  cap_frac 0.0  fail 0
+20:41:34   D2-4 n=256  4220.89 tok/s  p50 23.232s  cap_frac 0.0  fail 0
+20:41:40 === srv2 D2-5 [lmdeploy] one knob: smaller pool (~177 sessions < 256; n=256 queues) -- expected null exce
+20:41:49   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:42:12   D2-5 n=1    189.31 tok/s  p50 1.849s  cap_frac 0.0  fail 0
+20:42:16   D2-5 n=8    1332.57 tok/s  p50 2.082s  cap_frac 0.0  fail 0
+20:42:22   D2-5 n=32   2640.69 tok/s  p50 3.64s  cap_frac 0.0  fail 0
+20:42:36   D2-5 n=128  3833.26 tok/s  p50 11.258s  cap_frac 0.0  fail 0
+20:43:01   D2-5 n=256  4102.37 tok/s  p50 21.288s  cap_frac 0.0  fail 0
+20:43:09 === srv2 D2-6 [lmdeploy] one knob: prefix caching with one fixed prompt; decode throughput expected uncha
+20:43:17   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:43:39   D2-6 n=1    191.97 tok/s  p50 1.823s  cap_frac 0.0  fail 0
+20:43:43   D2-6 n=8    1317.51 tok/s  p50 2.021s  cap_frac 0.0  fail 0
+20:43:49   D2-6 n=32   2975.17 tok/s  p50 3.732s  cap_frac 0.0  fail 0
+20:44:03   D2-6 n=128  3614.65 tok/s  p50 11.608s  cap_frac 0.0  fail 0
+20:44:27   D2-6 n=256  4072.17 tok/s  p50 21.39s  cap_frac 0.0  fail 0
+20:44:34 === srv2 D2-2 [lmdeploy] LMDeploy 7B baseline, int8 KV (f16 would not hold 128x1024)
+20:44:43   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:44:54   launch variant 0 failed: container exited after 9.7s
+20:44:58   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:45:08   launch variant 1 failed: container exited after 9.0s
+20:45:16 === srv2 D2-7 [lmdeploy] one knob on the 7B: f16 KV (~88 sessions < 128, n=128 queues) -- the capacity ha
+20:45:24   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:45:35   launch variant 0 failed: container exited after 9.2s
+20:45:43 === srv2 D2-3 [lmdeploy] LMDeploy 3B baseline mirroring D2-1 (~198 f16 sessions < 256: n=256 queues; the 
+20:45:51   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:46:02   launch variant 0 failed: container exited after 8.8s
+20:46:09 === srv2 D2-8 [lmdeploy] 3B + int8 KV (~384 sessions, n=256 fits); pairs with D2-3. Skipped with reason i
+20:46:18   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:46:30   launch variant 0 failed: container exited after 9.5s
+20:46:37 docker-engine block end -> start ollama, re-read env (rule (b)5)
+20:46:39 starting ollama
+20:46:46 === srv2 R2 [retake] srv2 winner re-take: highest tok/s at n=128 (cap fraction >= 0.9) among complete
+20:46:47   re-take: winner at n=128 is E2-1 (5694.9 tok/s)
+20:46:47 === srv2 R2 [vllm] re-take of E2-1 (5694.9 tok/s at n=128), better-of-two
+20:46:50 stopping ollama (docker engine cell)
+20:50:28   R2 n=1    183.5 tok/s (sweep.py, mean lat 2.582)
+20:50:28   R2 n=8    1413.3 tok/s (sweep.py, mean lat 2.679)
+20:50:28   R2 n=32   3995.4 tok/s (sweep.py, mean lat 3.786)
+20:50:28   R2 n=128  5766.2 tok/s (sweep.py, mean lat 10.387)
+20:50:28   R2 n=256  6480.6 tok/s (sweep.py, mean lat 18.485)
+20:50:31 final restore + readback
+20:50:44 restore ok on srv2: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:50:47 run end srv2
+20:51:11 run start srv2: 21 cells, cap 180.0s, out /home/adaramir/claude/mcgyvr/records/evidence/2026-08-24-engine-sweep/srv2
+20:51:11 === srv2 D2-2 [lmdeploy] LMDeploy 7B baseline, int8 KV (f16 would not hold 128x1024)
+20:51:13 stopping ollama (docker engine cell)
+20:51:21   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:51:59   D2-2 n=1    64.68 tok/s  p50 5.767s  cap_frac 0.0  fail 0
+20:52:08   D2-2 n=8    433.78 tok/s  p50 6.091s  cap_frac 0.0  fail 0
+20:52:20   D2-2 n=32   1259.8 tok/s  p50 9.223s  cap_frac 0.0  fail 0
+20:52:54   D2-2 n=128  1567.93 tok/s  p50 31.585s  cap_frac 0.0  fail 0
+20:53:01 === srv2 D2-7 [lmdeploy] one knob on the 7B: f16 KV (~88 sessions < 128, n=128 queues) -- the capacity ha
+20:53:09   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:53:39   D2-7 n=1    65.9 tok/s  p50 5.554s  cap_frac 0.0  fail 0
+20:53:49   D2-7 n=8    422.89 tok/s  p50 5.941s  cap_frac 0.0  fail 0
+20:54:01   D2-7 n=32   1236.24 tok/s  p50 8.881s  cap_frac 0.0  fail 0
+20:54:33   D2-7 n=128  1532.96 tok/s  p50 30.437s  cap_frac 0.0  fail 0
+20:54:39 === srv2 D2-3 [lmdeploy] LMDeploy 3B baseline mirroring D2-1 (~198 f16 sessions < 256: n=256 queues; the 
+20:54:48   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:55:21   D2-3 n=1    122.33 tok/s  p50 3.074s  cap_frac 0.0  fail 0
+20:55:27   D2-3 n=8    835.3 tok/s  p50 3.428s  cap_frac 0.0  fail 0
+20:55:34   D2-3 n=32   2251.96 tok/s  p50 5.309s  cap_frac 0.0  fail 0
+20:55:53   D2-3 n=128  2963.33 tok/s  p50 16.084s  cap_frac 0.0  fail 0
+20:56:26   D2-3 n=256  3188.39 tok/s  p50 29.877s  cap_frac 0.0  fail 0
+20:56:32 === srv2 D2-8 [lmdeploy] 3B + int8 KV (~384 sessions, n=256 fits); pairs with D2-3. Skipped with reason i
+20:56:40   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:57:07   D2-8 n=1    121.67 tok/s  p50 3.09s  cap_frac 0.0  fail 0
+20:57:12   D2-8 n=8    895.19 tok/s  p50 3.346s  cap_frac 0.0  fail 0
+20:57:20   D2-8 n=32   2284.19 tok/s  p50 5.204s  cap_frac 0.0  fail 0
+20:57:38   D2-8 n=128  2984.08 tok/s  p50 15.53s  cap_frac 0.0  fail 0
+20:58:10   D2-8 n=256  3297.4 tok/s  p50 28.902s  cap_frac 0.0  fail 0
+20:58:17 docker-engine block end -> start ollama, re-read env (rule (b)5)
+20:58:19 starting ollama
+20:58:26 === srv2 R2 [retake] srv2 winner re-take: highest tok/s at n=128 (cap fraction >= 0.9) among complete
+20:58:30 final restore + readback
+20:58:40 restore ok on srv2: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:58:43 run end srv2
