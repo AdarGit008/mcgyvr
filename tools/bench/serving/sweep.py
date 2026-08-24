@@ -35,15 +35,19 @@ early the model chose to stop.
 
 Known defects, both demonstrated:
 
-1. **Only the last 25 log lines are kept on a refusal.** That is not enough to
-   reach a root cause: the srv1 7B refusals recorded a `RuntimeError: Engine core
-   initialization failed` and the actual `torch.OutOfMemoryError` had scrolled
-   past, so the cell had to be re-run by hand to learn why.
+1. **Only the last 25 log lines were kept on a refusal, until #357.** That was
+   not enough to reach a root cause: 26 of the 2026-08-24 sweep's 36 refusals
+   recorded a `RuntimeError: Engine core initialization failed` and the actual
+   cause had scrolled past, so `knobs.py` labels them `refused_reason_lost`
+   rather than attributing them. A refusal now keeps the whole log (capped at
+   `LOG_LINES`), and the record carries the image digest the cell ran on.
 2. **No tests.** This module has none. A prior version joined flags with a plain
    space and passed them through `ssh`, so `--speculative-config`'s JSON was
    word-split by the shell and three cells per rig were recorded as REFUSED when
    they were untested. Fixed with `shlex.quote` (see `launch`), and the stage-1
-   records that carry those false refusals are kept as they were written.
+   records that carry those false refusals are kept as they were written --
+   `knobs.py` reads them as `harness_defect`, by comparing the value the engine
+   quoted with the value the record holds.
 
 Usage::
 
@@ -67,6 +71,9 @@ NAME = "sweep-vllm"
 PORT = 8000
 TOKENS = 475  # same budget as every prior measurement
 LEVELS = [1, 2, 4, 8, 16, 32, 64, 128]
+#: Log lines kept on a refusal. 25 lost the cause 26 times in one sweep (#357);
+#: a vLLM startup log to the point of a refusal is a few hundred lines.
+LOG_LINES = 2000
 PROMPT = "Write a Python function that merges two sorted lists.\n\n"
 
 
@@ -90,6 +97,13 @@ def release(host):
             return True
         time.sleep(2)
     return False
+
+
+def digest(host):
+    out, code = ssh(
+        host, f"docker image inspect --format '{{{{index .RepoDigests 0}}}}' {IMAGE}"
+    )
+    return out if code == 0 and out else None
 
 
 def launch(host, model, flags):
@@ -117,6 +131,7 @@ def launch(host, model, flags):
                 "ok": True,
                 "start_seconds": round(time.time() - began, 1),
                 "command": cmd,
+                "image_digest": digest(host),
             }
         alive, _ = ssh(
             host,
@@ -124,16 +139,24 @@ def launch(host, model, flags):
             "2>/dev/null || echo gone",
         )
         if alive != "true":
-            log, _ = ssh(host, f"docker logs --tail 25 {NAME} 2>&1 | tail -25")
+            log, _ = ssh(host, f"docker logs --tail {LOG_LINES} {NAME} 2>&1")
             return {
                 "ok": False,
                 "reason": "container exited",
                 "log": log,
+                "log_lines_kept": LOG_LINES,
+                "image_digest": digest(host),
                 "start_seconds": round(time.time() - began, 1),
             }
         time.sleep(10)
-    log, _ = ssh(host, f"docker logs --tail 25 {NAME} 2>&1 | tail -25")
-    return {"ok": False, "reason": "timeout", "log": log}
+    log, _ = ssh(host, f"docker logs --tail {LOG_LINES} {NAME} 2>&1")
+    return {
+        "ok": False,
+        "reason": "timeout",
+        "log": log,
+        "log_lines_kept": LOG_LINES,
+        "image_digest": digest(host),
+    }
 
 
 def one_request(host):

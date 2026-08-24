@@ -519,6 +519,11 @@ NOT_A_FIGURE = {
         "task is scored, no verdict is produced, and there is no tier "
         "attribution to declare"
     ),
+    "tools/bench/serving/knobs.py": (
+        "the knob surface (#357): declared, accepted, effective. It reads the "
+        "sweep's records into a table of launch outcomes and single-flag "
+        "throughput ratios; no task is scored and no pass rate is stated"
+    ),
     "tools/bench/serving/calibrate.py": (
         "the constants campaign (#286 lane). It measures the thresholds and "
         "timeouts `serving/` was built on — array sizes, load durations, VRAM "
