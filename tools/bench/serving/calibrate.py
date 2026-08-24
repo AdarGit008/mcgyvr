@@ -652,7 +652,9 @@ def _widths(
             # unverified against the host, which is the state E5 was revised to
             # leave behind. Read here, where the server was just launched.
             declared = vllm.declared_slots(serve, host)
-            pins = _serving_pins(vllm, f"http://{host}:{vllm.PORT}", claimed)
+            pins = _serving_pins(
+                vllm, f"http://{host}:{vllm.PORT}", claimed, host, serve
+            )
             row = _launch_row(host, model, width, claimed)
             row.update(pins)
             emit(out, row)
@@ -721,7 +723,7 @@ def _widths(
                 width,
                 tokens,
                 declared,
-                pins=pins,
+                pins=_row_pins(pins),
                 order=order,
                 seed=seed,
             )
@@ -869,7 +871,7 @@ def sleep_state(
                 # disposition the launch row is held to.
                 claimed = vllm.claim(host, base, model, serve, _expected_weights(model))
                 row.update(_claim_fields(claimed))
-                row.update(_serving_pins(vllm, base, claimed))
+                row.update(_serving_pins(vllm, base, claimed, host, serve))
                 row["awake_mib"] = _card_mib(host)
                 row["is_sleeping_before"] = contract.get_json(
                     contract.url(base, "/is_sleeping")
@@ -1395,21 +1397,68 @@ def _expected_weights(model: str, config: Path = PINS_CONFIG) -> dict[str, Any] 
 
 
 def _serving_pins(
-    vllm: types.ModuleType, base: str, claimed: dict[str, Any]
+    vllm: types.ModuleType,
+    base: str,
+    claimed: dict[str, Any],
+    host: str | None = None,
+    serve: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """What a vLLM row ran on: the weights digest and the serving-config pin.
+    """What a vLLM row ran on: the weights digest and both serving pins.
 
     #326: read once per launch, put on the launch row and every ramp row it
     serves. `serving_config` refuses outside VLLM_SERVER_DEV_MODE=1, and the
     refusal is carried rather than a blank.
+
+    **#358 added the second pin, and the two are not interchangeable.**
+    `serving_semantic_sha256` digests what the engine was ASKED for — it was
+    byte-identical across the two rigs on 2026-08-24 while they ran different
+    attention backends and different samplers, because `/server_info` carries
+    neither. `serving_resolved_sha256` digests what the engine RESOLVED, and it
+    is the one in `identity.KEY`. The asked-for digest stays on the row: it is
+    the thing the resolved digest is contrasted against, and dropping it would
+    leave a disagreement with nothing to disagree with.
+
+    ``host`` is optional only so a caller that cannot reach the serving host
+    still gets the weights digest and the asked-for pin. Without it the resolved
+    block is a refusal naming the reason, never a blank — a row that could not
+    read the resolved config must not compare equal to one that could.
     """
     weights = (claimed.get("checks") or {}).get("weights") or {}
     pinned = vllm.serving_config(base)
-    return {
+    row: dict[str, Any] = {
         "weights_sha256": weights.get("weights_sha256"),
         "serving_semantic_sha256": pinned.get("serving_semantic_sha256"),
         "serving_semantic_refused": pinned.get("refused"),
     }
+    if host is None:
+        row["serving_resolved_sha256"] = None
+        row["serving_resolved"] = {
+            "refused": (
+                "the resolved configuration is read from the serving host's "
+                "startup log and this call named no host, so the kernels the "
+                "engine chose were not read"
+            )
+        }
+        return row
+    block = vllm.resolved_serving(host, base, serve)
+    row["serving_resolved_sha256"] = block.get("serving_resolved_sha256")
+    row["serving_resolved"] = block
+    return row
+
+
+def _row_pins(pins: dict[str, Any]) -> dict[str, Any]:
+    """``pins`` as carried by every ramp row: the digests, not the material.
+
+    The resolved block holds a verbatim engine sentence per field and would be
+    repeated on all eight levels of every ramp — the same paragraph eight times,
+    describing one launch. The launch row keeps it whole; the level rows keep
+    the digest, which is what a reader compares and what `identity.KEY` reads.
+
+    **The digest is kept even when it is null.** A level row that drops the
+    field entirely is a row that cannot say it failed to read the config, and
+    `require_comparable` distinguishes absent from null for exactly that reason.
+    """
+    return {k: v for k, v in pins.items() if k != "serving_resolved"}
 
 
 def _one_ramp(

@@ -1490,12 +1490,30 @@ def build(host: str) -> dict[str, Any]:
     ``GET /version`` on a running server; a server that is not up answers
     nothing, and then the pip package or the container tag is asked. Each
     is named, so a ``null`` says which reads were tried.
+
+    **The launcher is part of the build (#358).** ``GET /version`` returns the
+    PACKAGE's version, which is `0.26.0` from the pip install and `0.26.0` from
+    the container of the same release — so a contrast holding `serving_build`
+    equal across a pip host and a container host passed a gate that had checked
+    nothing. srv1 carries both launchers, which makes this a live confusion and
+    not a hypothetical one. #329 landed `launcher_declared` on the launch row;
+    the row is not where the gate reads, and this is.
+
+    A build string therefore names both, and two runs on the same version
+    through different launchers now differ here — which is the refusal ADR-0024
+    asks for. **It also means a record written before this change does not match
+    one written after**, on the same host and the same engine. That is a false
+    refusal, it is the safe direction, and it is stated rather than smoothed
+    over: re-read the older record under `allow_unfingerprinted`, or re-run it.
     """
     answered = contract.get_json(
         contract.url(f"http://{host}:{PORT}", "/version"), timeout=10.0
     )
     if isinstance(answered, dict) and answered.get("version"):
-        return {"serving_build": f"vllm {answered['version']}", "refused": None}
+        return {
+            "serving_build": f"vllm {answered['version']} via {launcher(host)}",
+            "refused": None,
+        }
     command = (
         "vllm --version 2>/dev/null || "
         "python3 -c 'import vllm; print(vllm.__version__)' "
@@ -1505,7 +1523,9 @@ def build(host: str) -> dict[str, Any]:
     raw = contract.ssh(host, command)
     if raw:
         return {
-            "serving_build": f"vllm {raw.strip().splitlines()[-1]}",
+            "serving_build": (
+                f"vllm {raw.strip().splitlines()[-1]} via {launcher(host)}"
+            ),
             "refused": None,
         }
     return {
@@ -1715,3 +1735,104 @@ def _number(raw: str) -> Any:
         return int(raw)
     except ValueError:
         return raw
+
+
+#: Where a launched server's startup log lives, per launcher. Both are written
+#: by :func:`_start` — the pip path redirects into the file, the docker path
+#: leaves it to the daemon — so this is a fact about our own launcher and not a
+#: guess about the host.
+RESOLVED_LOG_READS: dict[str, str] = {
+    "pip": "cat /tmp/vllm-serving.log 2>/dev/null || true",
+    "docker": f"docker logs {CONTAINER_NAME} 2>&1 || true",
+}
+
+
+def resolved_serving(
+    host: str, base: str, serve: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """What the engine RESOLVED on ``host``, read from a server that came up.
+
+    **#358, and the point is the reading site.** Every fact this repository holds
+    about resolved kernels was obtained from :func:`_start`'s failure path — the
+    log is read at one place, when a cell has already died — so the divergence
+    between the two rigs is documented only because cells OOM'd. A configuration
+    that serves perfectly is exactly the one nothing described. This is the
+    success-path reader.
+
+    Two sources, both required, because neither alone holds the fields:
+    ``/server_info`` carries the numerics and calls the kernels ``'auto'``; the
+    startup log names the kernels the engine actually chose. See
+    :data:`fingerprint.RESOLVED_READS`.
+
+    The ``asked`` side comes from this run's own ``serve`` dict, so a
+    disagreement is between what we dispatched and what came back — not between
+    two readings of the server.
+    """
+    serve = serve or {}
+    info = contract.get_json(
+        contract.url(base, "/server_info?config_format=json"), timeout=30.0
+    )
+    config = (info or {}).get("vllm_config") if isinstance(info, dict) else None
+    if not isinstance(config, dict):
+        # The bare endpoint answers the same config as a Python repr, which
+        # `serving_config` already parses. Falling back to it rather than
+        # refusing: a build that does not honour `config_format=json` still
+        # states its configuration, and the fields are reached by leaf name.
+        raw = (info or {}).get("vllm_config") if isinstance(info, dict) else None
+        if not isinstance(raw, str):
+            raw = None
+            answered = contract.get_json(
+                contract.url(base, "/server_info"), timeout=30.0
+            )
+            if isinstance(answered, dict) and isinstance(
+                answered.get("vllm_config"), str
+            ):
+                raw = answered["vllm_config"]
+        if raw is None:
+            return {
+                "serving_resolved_sha256": None,
+                "refused": (
+                    "/server_info answered no engine config in either format. It "
+                    "exists only under VLLM_SERVER_DEV_MODE=1 — measured 404 "
+                    "without it"
+                ),
+                "resolved": {},
+                "disagreements": [],
+            }
+        config = dict(
+            contract.scrub(fingerprint.parse_repr("Config(" + str(raw) + ")"))
+        )
+        config.pop("_type", None)
+
+    how = launcher(host)
+    read = RESOLVED_LOG_READS.get(how)
+    log = contract.ssh(host, read) if read else None
+    block = fingerprint.resolved(
+        log_lines=str(contract.scrub(log or "")).splitlines(),
+        config=config,
+        asked=_asked(serve),
+    )
+    block["launcher"] = how
+    block["log_read"] = read
+    return block
+
+
+def _asked(serve: dict[str, Any]) -> dict[str, Any]:
+    """This run's request, keyed by the flag or variable that carries it.
+
+    Flags arrive as a flat list (``["--dtype", "float16"]``), which is the shape
+    `_start` builds and the shape the sweep records, so a value is the token
+    after its name. A bare flag with no value — ``--enforce-eager`` — maps to
+    ``True``: it is asked-for-ness itself, and recording it as ``None`` would put
+    it in the same state as a flag nobody passed.
+    """
+    asked: dict[str, Any] = dict(serve.get("env") or {})
+    flags = list(serve.get("flags") or [])
+    for index, token in enumerate(flags):
+        if not token.startswith("--"):
+            continue
+        following = flags[index + 1] if index + 1 < len(flags) else None
+        asked[token] = (
+            True if following is None or following.startswith("--") else following
+        )
+    return asked

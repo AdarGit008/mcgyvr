@@ -1387,6 +1387,11 @@ class _SleepVllm:
     def serving_config(self, base: str) -> dict[str, Any]:
         return {"refused": "stub: no /server_info"}
 
+    def resolved_serving(
+        self, host: str, base: str, serve: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
+
 
 class _SleepOllama:
     def release(self, host: str) -> None:
@@ -2086,6 +2091,11 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
         def serving_config(self, base: str) -> dict[str, Any]:
             return {"refused": "stub"}
 
+        def resolved_serving(
+            self, host: str, base: str, serve: dict[str, Any] | None = None
+        ) -> dict[str, Any]:
+            return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
+
     class Ollama:
         def probe(self, host: str) -> str:
             return "http://h:11434"
@@ -2288,7 +2298,12 @@ def test_every_emitted_row_carries_the_identity_block(
             assert block["engine"] == row["engine"]
             assert (
                 block["serving_build"]
-                == {"ollama": "ollama 0.32.5", "vllm": "vllm 0.26.0"}[row["engine"]]
+                # #358: the vLLM build names its launcher. Two hosts of the same
+                # release through different launchers are two instruments, and
+                # the version string alone said they were one.
+                == {"ollama": "ollama 0.32.5", "vllm": "vllm 0.26.0 via pip"}[
+                    row["engine"]
+                ]
             )
         else:
             assert block["engine"] is None and block["serving_build"] is None
@@ -2415,6 +2430,11 @@ def test_the_calibration_claim_is_pinned_when_the_model_has_a_pin(
 
         def serving_config(self, base: str) -> dict[str, Any]:
             return {"refused": "stub"}
+
+        def resolved_serving(
+            self, host: str, base: str, serve: dict[str, Any] | None = None
+        ) -> dict[str, Any]:
+            return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
 
     class Ollama:
         def release(self, host: str) -> None:

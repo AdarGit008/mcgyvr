@@ -150,6 +150,14 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "serving_build",
         "template_sha256",
         "concurrency",
+        # **#358.** `serving_build` names the engine; this names what the engine
+        # RESOLVED. Both are needed and neither substitutes: measured on the two
+        # rigs 2026-08-24, one image digest and one identical argument list gave
+        # `vllm 0.26.0` on both hosts while one ran TRITON_ATTN with the torch
+        # sampler and the other FLASH_ATTN with FlashInfer. The digest is taken
+        # over `fingerprint.RESOLVED_READS` — the attention backend, the sampler
+        # path, the linear kernel, dtype, KV dtype and the two graph modes.
+        "serving_resolved_sha256",
     ),
     # What judged it. Five rung names are byte-identical across 328 ruff rules
     # and 66 eslint, so the bar is hashed as the RESOLVED rule list. `round` and
@@ -198,6 +206,22 @@ KEY: tuple[str, ...] = (
     "tasks_sha256",
     "round",
     "product_sha256",
+    # **#358, and it is admitted by qualification rather than by perturbation.**
+    # The paragraph above says the key does not widen because a field became
+    # writable, and that rule stands. This is not a new field of the run: it is
+    # `serving_build` measured properly. `serving_build` is a bound-key field
+    # (#276 corollary 3) admitted because two builds are two instruments — and
+    # the string it holds was demonstrated to be equal across two hosts running
+    # different kernels, so it discharges that argument for the engine's NAME
+    # and not for the instrument. A field that repairs a keyed field's stated
+    # justification enters beside it; making it wait on a perturbation run would
+    # leave the key admitting a claim its own evidence had refuted.
+    #
+    # **What it costs.** Every record written before this field existed carries
+    # no value for it, so a table mixing old and new rows refuses on absence —
+    # `allow_unfingerprinted=True` is how a reader takes an older record
+    # deliberately, and that waiver is exactly ADR-0027 D3's purpose.
+    "serving_resolved_sha256",
 )
 
 

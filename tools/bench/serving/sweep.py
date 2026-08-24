@@ -25,9 +25,16 @@ launch is a result, and on these rigs 36 of 140 cells were refusals.
 
 **Why the resolved config and not the requested one.** Identical flags resolve
 differently per card: srv1 gets `TRITON_ATTN` + torch sampler + `float16`, srv2
-gets `FLASH_ATTN` + FlashInfer + `bfloat16`, from the same image digest and the
-same arguments. `serving_build` cannot see it -- it reads `vllm 0.26.0` either
-way. #358 is the issue that puts this into `identity.KEY`.
+gets `FLASH_ATTN` + FlashInfer, from the same image digest and the same
+arguments. `serving_build` could not see it -- it read `vllm 0.26.0` either way.
+
+**#358 landed that reading in the production path.** `fingerprint.resolved`
+takes the same two sources this function scrapes, `identity.KEY` carries the
+digest, and `serving_build` now names its launcher. Read
+`records/evidence/2026-08-24-resolved-config/` for the pair of payloads the
+refusal is proven against. One correction to this module's earlier claim: on the
+1.5B AWQ both rigs resolve `torch.float16`, so the dtype is NOT part of that
+divergence -- the attention backend and the sampler are.
 
 **Every request is the same length**: `ignore_eos=True` with `max_tokens=475`,
 temperature 0, one fixed prompt, so a level's aggregate is not a function of how
@@ -222,10 +229,17 @@ def resolved(host):
             info["server_info"] = json.loads(r.read())
     except Exception as e:
         info["server_info_error"] = repr(e)[:200]
+    # **`FlashInfer top-p` and not `FlashInfer for top` (#358).** The narrower
+    # pattern matched srv2's success sentence and nothing on srv1, which read as
+    # srv1 having said nothing about its sampler. srv1 says:
+    # `FlashInfer top-p/top-k sampling unavailable: unsupported compute
+    # capability 7.5; falling back.` — the fallback AND its reason, in the
+    # engine's own words. A one-shape grep over a two-shape fact turns a stated
+    # cause into an absence, which is the #357 defect in miniature.
     log, _ = ssh(
         host,
         f"docker logs {NAME} 2>&1 | grep -E "
-        f"'attention backend|LinearMethod|FlashInfer for top|KV cache size|"
+        f"'attention backend|LinearMethod|FlashInfer top-p|KV cache size|"
         f"Maximum concurrency|Using FlashAttention|torch.compile|Capturing|"
         f"Available KV cache|GPU KV cache' | tail -20",
     )

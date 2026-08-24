@@ -64,6 +64,10 @@ def _cell(
         "model": "qwen2.5-coder:1.5b",
         "endpoint": "http://srv2:11434",
         "serving_build": "0.32.5",
+        # #358: keyed, so a cell that cannot answer it refuses rather than
+        # matching another silence. Present here for the same reason every other
+        # keyed field is — the incomplete cases delete from this one.
+        "serving_resolved_sha256": "75fd5838e399ca76",
         "protocol": "openai",
         "tier": "bench-py",
         "condition": condition,

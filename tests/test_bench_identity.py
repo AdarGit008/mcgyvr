@@ -49,6 +49,10 @@ def _manifest(**overrides: Any) -> dict[str, Any]:
         "model": "qwen2.5-coder:1.5b",
         "endpoint": "http://srv2:11434",
         "serving_build": "0.32.5",
+        # #358: the resolved kernels, digested. The fixture's value stands for
+        # srv2's real one — see `test_bench_resolved_config.py`, which runs the
+        # same digest over the two rigs' committed startup logs.
+        "serving_resolved_sha256": "75fd5838e399ca76",
         "protocol": "openai",
         "tier": "bench-py",
         "condition": "stock",
@@ -70,6 +74,9 @@ OTHER: dict[str, Any] = {
     "model": "qwen2.5-coder:7b",
     "endpoint": "http://srv1:11434",
     "serving_build": "0.32.4",
+    # srv1's, and the pair is the whole of #358 in two strings: identical flags,
+    # one image digest, two engines that resolved different kernels.
+    "serving_resolved_sha256": "5ac25112a6240434",
     "protocol": "ollama",
     "tier": "bench-ts",
     "greedy_temperature": 0.7,
