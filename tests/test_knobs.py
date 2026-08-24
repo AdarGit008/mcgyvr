@@ -66,7 +66,13 @@ SHELL_SPLIT_LOG = (
 )
 
 
-def _cell(cell: str, flags: list[str], ok: bool, log: str = "", **levels: Any) -> dict:
+def _cell(
+    cell: str,
+    flags: list[str],
+    ok: bool,
+    log: str = "",
+    levels: dict[int, float] | None = None,
+) -> dict[str, Any]:
     rec: dict[str, Any] = {
         "host": "rigA",
         "model": "m",
@@ -79,13 +85,12 @@ def _cell(cell: str, flags: list[str], ok: bool, log: str = "", **levels: Any) -
     }
     if ok:
         rec["levels"] = [
-            {"n": int(n), "agg_tok_s": v}
-            for n, v in sorted(levels.items(), key=lambda kv: int(kv[0]))
+            {"n": n, "agg_tok_s": v} for n, v in sorted((levels or {}).items())
         ]
     return rec
 
 
-def _evidence(tmp_path: Path, records: list[dict]) -> Path:
+def _evidence(tmp_path: Path, records: list[dict[str, Any]]) -> Path:
     ev = tmp_path / "evidence"
     ev.mkdir()
     (ev / "rigA-m.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
@@ -99,7 +104,7 @@ def test_four_kinds_of_absence_never_share_a_label(knobs: Any, tmp_path: Path) -
     ev = _evidence(
         tmp_path,
         [
-            _cell("baseline", BASE, True, **{"1": 10.0, "16": 100.0}),
+            _cell("baseline", BASE, True, levels={1: 10.0, 16: 100.0}),
             _cell("kv-fp8", [*BASE, "--kv-cache-dtype", "fp8"], False, CAUSE_LOG),
             _cell("dtype-bf16", [*BASE, "--dtype", "bfloat16"], False, WRAPPER_LOG),
             _cell(
@@ -152,7 +157,7 @@ def test_four_kinds_of_absence_never_share_a_label(knobs: Any, tmp_path: Path) -
 def test_untried_is_unknown_not_zero_until_the_declared_column_lands(
     knobs: Any, tmp_path: Path
 ) -> None:
-    ev = _evidence(tmp_path, [_cell("baseline", BASE, True, **{"1": 10.0})])
+    ev = _evidence(tmp_path, [_cell("baseline", BASE, True, levels={1: 10.0})])
     out = tmp_path / "out"
     surface = knobs.build(ev, out)
     assert surface["declared"]["captured"] is False
@@ -169,19 +174,19 @@ def test_a_contrast_states_the_regime_not_one_number(
     ev = _evidence(
         tmp_path,
         [
-            _cell("plain", ctx, True, **{"16": 1000.0, "256": 6000.0}),
+            _cell("plain", ctx, True, levels={16: 1000.0, 256: 6000.0}),
             _cell(
                 "fp8",
                 [*ctx, "--kv-cache-dtype", "fp8"],
                 True,
-                **{"16": 1000.0, "256": 6600.0},
+                levels={16: 1000.0, 256: 6600.0},
             ),
             # A cell two flags away is not a contrast with either.
             _cell(
                 "far",
                 [*ctx, "--kv-cache-dtype", "fp8", "--dtype", "half"],
                 True,
-                **{"16": 1.0},
+                levels={16: 1.0},
             ),
         ],
     )
@@ -269,7 +274,8 @@ group:
 
 @pytest.fixture(scope="module")
 def committed() -> dict[str, Any]:
-    return json.loads((SURFACE / "surface.json").read_text())
+    loaded: dict[str, Any] = json.loads((SURFACE / "surface.json").read_text())
+    return loaded
 
 
 def test_the_committed_surface_is_what_the_evidence_produces(

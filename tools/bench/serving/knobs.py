@@ -246,7 +246,8 @@ def load_declared(out_dir: Path) -> dict[str, Any] | None:
     files = sorted(out_dir.glob(f"declared-{SERVING_ENGINE}-*.json"))
     if not files:
         return None
-    return json.loads(files[-1].read_text())
+    loaded: dict[str, Any] = json.loads(files[-1].read_text())
+    return loaded
 
 
 # --------------------------------------------------------------------------
