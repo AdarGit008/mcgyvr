@@ -1,0 +1,98 @@
+{
+  "_doc": "One run of the serving survey. Keys are (host, backend, label); the same weights served by two engines are two instruments, so they are two entries. `family` is a CLAIM that they are the same model \u2014 the digests decide, and may refute it.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": true
+  },
+  "models": [
+    {
+      "label": "q15-ollama-srv1",
+      "backend": "ollama",
+      "id": "qwen2.5-coder:1.5b",
+      "family": "qwen2.5-coder-1.5b",
+      "_expect_note": "expect.model_sha256 pins the weights: a tag is mutable, and the same name re-pulled serves different bytes while every other check still passes. Obtained by running once without it and reading the digest off the description.",
+      "expect": {
+        "model_sha256": "d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668"
+      },
+      "concurrency": {
+        "measure": true,
+        "_expect_note": "No `expect`: this engine has no recoverable batch width. The throughput plateau alone returned 6 for two hosts configured one slot apart (-np 2 and -np 1), and there is no latency plateau at any width, so `knee` correctly reports None. An expectation here would be permanently unmeetable."
+      }
+    },
+    {
+      "label": "q15-vllm-s8",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "qwen2.5-coder-1.5b",
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. It is derived from this entry's own max_num_seqs x max_model_len x bytes_per_token, and the footprint it produces was measured on both rigs 2026-08-22 (ADR-0039; evidence at records/evidence/2026-08-22-coresidency-feasibility/README.md). It replaces gpu_memory_utilization 0.85, which was read off a running srv1 on 2026-08-18 and originates in the local-ai repo as an OOM fix for srv2's 12 GB card, applied unexamined to srv1's 6 GB card.",
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 1879048192,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "weights_bytes": 1181116006,
+        "_weights_bytes_note": "1.1 GiB, MEASURED -- vLLM's own `Model loading took 1.1 GiB` line, the figure ADR-0039 records as stable across all eight rows of its table on both rigs 2026-08-22. Read before the KV cache is touched, so it is the weights and nothing else. #354 uses it to refuse a declaration this card cannot hold BEFORE the launch; it is only consulted for a host with no measured `_footprint_mib`, because an observed footprint needs no model of why it fits.",
+        "_footprint_mib": {
+          "srv1": 3130,
+          "srv2": 3183
+        },
+        "_footprint_note": "MEASURED on the cards 2026-08-22, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Under the withdrawn gpu_memory_utilization 0.85 the same entry took 4916 MiB on srv1 and 10197 MiB on srv2 while reaching the same 65,536 KV tokens.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      },
+      "concurrency": {
+        "measure": true,
+        "expect": 8
+      },
+      "expect": {
+        "weights_sha256": "047d5b14da69a39eefe24f8bafa34278a336a08a93d757d70cd38c6b7c3d8c78"
+      },
+      "_expect_note": "sha256 over every tensor's bytes in the checkpoint, in sorted key order across all shards, computed on the serving host \u2014 this engine states no weights digest on any endpoint. Measured on srv1: 731 tensors, 1.61 GB, 5.1s. NOT comparable with another backend's digest, which is why the field is named apart."
+    },
+    {
+      "label": "q15-vllm-s16",
+      "_doc": "Same model, same backend, different batch width \u2014 a separate instrument, and the test that the ramp reads the FLAG rather than the hardware.",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ",
+      "family": "qwen2.5-coder-1.5b",
+      "_serve_origin": "ORIGIN of this value: chosen here, not inherited. It is derived from this entry's own max_num_seqs x max_model_len x bytes_per_token, and the footprint it produces was measured on both rigs 2026-08-22 (ADR-0039; evidence at records/evidence/2026-08-22-coresidency-feasibility/README.md). It replaces gpu_memory_utilization 0.85, which was read off a running srv1 on 2026-08-18 and originates in the local-ai repo as an OOM fix for srv2's 12 GB card, applied unexamined to srv1's 6 GB card.",
+      "serve": {
+        "max_model_len": 8192,
+        "max_num_seqs": 16,
+        "kv_cache_memory_bytes": 3758096384,
+        "bytes_per_token": 28672,
+        "_bytes_per_token_note": "28 layers x 2 KV heads x 128 head_dim x 2 (K and V) x 2 bytes (fp16) = 28,672 B/token. Confirmed against vLLM's own allocation on 2026-08-22: 3.5 GiB over 131,104 tokens is 28,665 B/token, the shortfall being block padding. ADR-0039.",
+        "weights_bytes": 1181116006,
+        "_weights_bytes_note": "1.1 GiB, MEASURED -- vLLM's own `Model loading took 1.1 GiB` line, the figure ADR-0039 records as stable across all eight rows of its table on both rigs 2026-08-22. Read before the KV cache is touched, so it is the weights and nothing else. #354 uses it to refuse a declaration this card cannot hold BEFORE the launch; it is only consulted for a host with no measured `_footprint_mib`, because an observed footprint needs no model of why it fits.",
+        "_footprint_mib": {
+          "srv1": 4986,
+          "srv2": 5041
+        },
+        "_footprint_note": "MEASURED on the cards 2026-08-22, not computed -- the arithmetic predicts the KV cache and only nvidia-smi says what the process took. Under the withdrawn gpu_memory_utilization 0.85 the same entry took 4956 MiB on srv1 and 10219 MiB on srv2 while reaching the same 131,072 KV tokens.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      },
+      "concurrency": {
+        "measure": true,
+        "expect": 16
+      },
+      "expect": {
+        "weights_sha256": "047d5b14da69a39eefe24f8bafa34278a336a08a93d757d70cd38c6b7c3d8c78"
+      },
+      "_expect_note": "sha256 over every tensor's bytes in the checkpoint, in sorted key order across all shards, computed on the serving host \u2014 this engine states no weights digest on any endpoint. Measured on srv1: 731 tensors, 1.61 GB, 5.1s. NOT comparable with another backend's digest, which is why the field is named apart."
+    }
+  ]
+}

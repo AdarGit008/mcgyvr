@@ -1,0 +1,10 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-ramp-repeats",
+  "declared": "2026-08-21",
+  "question": "What is the spread between a ramp's two repeats, and does RAMP_REPEATS = 2 buy anything the better-of-two already hides?",
+  "cost": {
+    "source": "records/evidence/calibration-2026-08-19/README.md:655 — no cost is recorded; the discarded repeat is never written down"
+  },
+  "notes": "D6 item, records/evidence/calibration-2026-08-19/README.md:655. contract.ramp keeps the better of two and repeat_spread was computed and dropped at the sink until bucket A fixed it (a1aaa21d). The measured srv2/7B spread of 1.119 is on record; nothing else is."
+}

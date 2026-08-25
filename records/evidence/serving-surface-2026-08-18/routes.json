@@ -1,0 +1,866 @@
+{
+ "srv1_dev_on": {
+  "base": "http://srv1:8000",
+  "declared_paths": [
+   "/abort_requests",
+   "/collective_rpc",
+   "/detokenize",
+   "/finish_weight_update",
+   "/generative_scoring",
+   "/get_world_size",
+   "/health",
+   "/inference/v1/generate",
+   "/init_weight_transfer_engine",
+   "/invocations",
+   "/is_paused",
+   "/is_scaling_elastic_ep",
+   "/is_sleeping",
+   "/load",
+   "/metrics",
+   "/pause",
+   "/ping",
+   "/reset_encoder_cache",
+   "/reset_mm_cache",
+   "/reset_prefix_cache",
+   "/resume",
+   "/scale_elastic_ep",
+   "/server_info",
+   "/sleep",
+   "/start_draft_weight_update",
+   "/start_weight_update",
+   "/tokenize",
+   "/update_weights",
+   "/v1/chat/completions",
+   "/v1/chat/completions/batch",
+   "/v1/chat/completions/derender",
+   "/v1/chat/completions/render",
+   "/v1/completions",
+   "/v1/completions/derender",
+   "/v1/completions/render",
+   "/v1/messages",
+   "/v1/messages/count_tokens",
+   "/v1/models",
+   "/v1/responses",
+   "/v1/responses/{response_id}",
+   "/v1/responses/{response_id}/cancel",
+   "/version",
+   "/wake_up"
+  ],
+  "get_probe": {
+   "/abort_requests": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/classify": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/collective_rpc": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/detokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/finish_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/generative_scoring": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/get_world_size": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/health": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/inference/v1/generate": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/init_weight_transfer_engine": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/invocations": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_paused": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/is_scaling_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_sleeping": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/load": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/metrics": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/openapi.json": {
+    "get_status": 200,
+    "in_openapi": false
+   },
+   "/pause": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/ping": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/pooling": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/reset_encoder_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/reset_mm_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/reset_prefix_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/resume": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/scale_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/server_info": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/sleep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/start_draft_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/start_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/start_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/stop_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/tokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/tokenizer_info": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weight_version": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weights": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/audio/transcriptions": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/audio/translations": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/chat/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/batch": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/embeddings": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/load_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/messages": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/messages/count_tokens": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/models": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/v1/realtime": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/responses": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/unload_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/embed": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/version": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/wake_up": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/weight_info": {
+    "get_status": 404,
+    "in_openapi": false
+   }
+  }
+ },
+ "srv1_dev_off": {
+  "base": "http://srv1:8000",
+  "declared_paths": [
+   "/detokenize",
+   "/generative_scoring",
+   "/health",
+   "/inference/v1/generate",
+   "/invocations",
+   "/is_scaling_elastic_ep",
+   "/load",
+   "/metrics",
+   "/ping",
+   "/scale_elastic_ep",
+   "/tokenize",
+   "/v1/chat/completions",
+   "/v1/chat/completions/batch",
+   "/v1/chat/completions/derender",
+   "/v1/chat/completions/render",
+   "/v1/completions",
+   "/v1/completions/derender",
+   "/v1/completions/render",
+   "/v1/messages",
+   "/v1/messages/count_tokens",
+   "/v1/models",
+   "/v1/responses",
+   "/v1/responses/{response_id}",
+   "/v1/responses/{response_id}/cancel",
+   "/version"
+  ],
+  "get_probe": {
+   "/abort_requests": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/classify": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/collective_rpc": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/detokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/finish_weight_update": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/generative_scoring": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/get_world_size": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/health": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/inference/v1/generate": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/init_weight_transfer_engine": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/invocations": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_paused": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/is_scaling_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_sleeping": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/load": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/metrics": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/openapi.json": {
+    "get_status": 200,
+    "in_openapi": false
+   },
+   "/pause": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/ping": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/pooling": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/reset_encoder_cache": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/reset_mm_cache": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/reset_prefix_cache": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/resume": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/scale_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/server_info": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/sleep": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/start_draft_weight_update": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/start_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/start_weight_update": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/stop_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/tokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/tokenizer_info": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weight_version": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weights": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/audio/transcriptions": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/audio/translations": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/chat/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/batch": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/embeddings": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/load_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/messages": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/messages/count_tokens": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/models": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/v1/realtime": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/responses": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/unload_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/embed": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/version": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/wake_up": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/weight_info": {
+    "get_status": 404,
+    "in_openapi": false
+   }
+  }
+ },
+ "srv2_dev_on": {
+  "base": "http://srv2:8000",
+  "declared_paths": [
+   "/abort_requests",
+   "/collective_rpc",
+   "/detokenize",
+   "/finish_weight_update",
+   "/generative_scoring",
+   "/get_world_size",
+   "/health",
+   "/inference/v1/generate",
+   "/init_weight_transfer_engine",
+   "/invocations",
+   "/is_paused",
+   "/is_scaling_elastic_ep",
+   "/is_sleeping",
+   "/load",
+   "/metrics",
+   "/pause",
+   "/ping",
+   "/reset_encoder_cache",
+   "/reset_mm_cache",
+   "/reset_prefix_cache",
+   "/resume",
+   "/scale_elastic_ep",
+   "/server_info",
+   "/sleep",
+   "/start_draft_weight_update",
+   "/start_weight_update",
+   "/tokenize",
+   "/update_weights",
+   "/v1/chat/completions",
+   "/v1/chat/completions/batch",
+   "/v1/chat/completions/derender",
+   "/v1/chat/completions/render",
+   "/v1/completions",
+   "/v1/completions/derender",
+   "/v1/completions/render",
+   "/v1/messages",
+   "/v1/messages/count_tokens",
+   "/v1/models",
+   "/v1/responses",
+   "/v1/responses/{response_id}",
+   "/v1/responses/{response_id}/cancel",
+   "/version",
+   "/wake_up"
+  ],
+  "get_probe": {
+   "/abort_requests": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/classify": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/collective_rpc": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/detokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/finish_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/generative_scoring": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/get_world_size": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/health": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/inference/v1/generate": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/init_weight_transfer_engine": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/invocations": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_paused": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/is_scaling_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/is_sleeping": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/load": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/metrics": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/openapi.json": {
+    "get_status": 200,
+    "in_openapi": false
+   },
+   "/pause": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/ping": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/pooling": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/reset_encoder_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/reset_mm_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/reset_prefix_cache": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/resume": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/scale_elastic_ep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/server_info": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/sleep": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/start_draft_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/start_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/start_weight_update": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/stop_profile": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/tokenize": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/tokenizer_info": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weight_version": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/update_weights": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/audio/transcriptions": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/audio/translations": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/chat/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/batch": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/chat/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/derender": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/completions/render": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/embeddings": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/load_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/messages": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/messages/count_tokens": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/models": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/v1/realtime": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/responses": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/v1/score": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v1/unload_lora_adapter": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/embed": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/v2/rerank": {
+    "get_status": 404,
+    "in_openapi": false
+   },
+   "/version": {
+    "get_status": 200,
+    "in_openapi": true
+   },
+   "/wake_up": {
+    "get_status": 405,
+    "in_openapi": true
+   },
+   "/weight_info": {
+    "get_status": 404,
+    "in_openapi": false
+   }
+  }
+ }
+}

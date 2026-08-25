@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-issue-326",
+  "declared": "2026-08-21",
+  "question": "What machine, engine build, checkpoint and card did each recorded row run on?",
+  "answered_by": "#326",
+  "notes": "A pointer, not a copy. The sibling issue is the record of truth for its instruments and its conflicts; this header exists so the question is greppable outside the dated evidence directory and outside the tracker. Restating the list here would create a second copy to keep true."
+}

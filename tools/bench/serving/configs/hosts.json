@@ -1,0 +1,43 @@
+{
+  "_doc": "The host state this project DECLARES, as data rather than as prose in a session record. Filed 2026-08-22 to close the gap the K9 ruling named: the settings that decide residency were declared live on both rigs, and nothing in this repository stated them, set them, or would notice them regressing. A value here is the required value; a survey that disagrees is a defect, and `tests/test_declared_host_state.py` is where it is caught. This file states what must be true; applying it is a host action (see `apply`), because this repository does not reach into a rig's unit files.",
+  "declared_on": "2026-08-22",
+  "source": "records/sessions/lane/286/2026-08-22-120000-claude.md:22-35 — the table of what each rig was and what both now are, and the owner's rule beneath it.",
+  "hosts": ["srv1", "srv2"],
+
+  "residency": {
+    "_doc": "The three ollama settings that decide whether a model stays on the card and whether a second may join it — which is exactly what the co-residency cells measure. The owner's rule is `no limits: the hardware is the limit; if it breaks, we fix mcgyvr`, so two of the three are `0` (no cap) and the third disables the clock. Declaring `no cap` is NOT the same as leaving the engine to choose: srv2's old values were whatever 0.32.5 picked, recorded nowhere, under a different engine version from srv1's. Value strings are compared literally against the unit's `Environment=` line, which is how a survey reports them.",
+    "OLLAMA_NUM_PARALLEL": {
+      "value": "0",
+      "why": "no cap on slots — the hardware is the limit (owner, 2026-08-22). srv1 previously declared `2`, which split its context 8192x2 while srv2 ran 4096x1; that split is K2 and K7."
+    },
+    "OLLAMA_MAX_LOADED_MODELS": {
+      "value": "0",
+      "why": "no cap on co-resident models (owner, 2026-08-22). srv1 previously declared `3`; srv2 declared nothing and the engine chose `0`."
+    },
+    "OLLAMA_KEEP_ALIVE": {
+      "value": "-1",
+      "why": "nothing is evicted by a clock (owner, 2026-08-22). Resolves to `2562047h47m16.854775807s` — max int64 — on both rigs. srv1 previously declared `5m`; srv2 declared nothing and the engine chose `5m0s`."
+    }
+  },
+
+  "engine": {
+    "ollama": {
+      "build": "0.32.15",
+      "why": "One build on both rigs. srv1 ran 0.32.4 and srv2 ran 0.32.5 through the 2026-08-19 campaign, and no ramp row said so — that is K6. After the eleven-version jump the byte-identical `size_vram` reading of 1166236712 for qwen2.5-coder:1.5b reproduced exactly on both."
+    }
+  },
+
+  "not_declared_here": {
+    "_doc": "Named so the omissions are not read as completeness — ADR-0026 lens 3.",
+    "vllm_image_digest": "Both rigs run the same docker vLLM image, recorded in the session record as `sha256:ffb2d59b…` — ELIDED there, so the full digest exists only on the hosts. It is not written here because a truncated digest that looks like a declaration is worse than no declaration. Recovering it is a host read.",
+    "gpu_memory_utilization": "#337 — the value is being measured on both rigs rather than inherited, so declaring the inherited one here would pin the number that issue exists to replace."
+  },
+
+  "apply": {
+    "_doc": "What a host must be set to. This repository states it and checks it; it does not apply it, because nothing here has write access to a rig's unit files and a setter that silently disagreed with this file would be the drift over again.",
+    "unit": "/etc/systemd/system/ollama.service.d/override.conf",
+    "content": "[Service]\nEnvironment=\"OLLAMA_NUM_PARALLEL=0\"\nEnvironment=\"OLLAMA_MAX_LOADED_MODELS=0\"\nEnvironment=\"OLLAMA_KEEP_ALIVE=-1\"\n",
+    "after": "systemctl daemon-reload && systemctl restart ollama",
+    "verify": "systemctl show ollama -p Environment — the reading the survey captures as `service_environment`."
+  }
+}

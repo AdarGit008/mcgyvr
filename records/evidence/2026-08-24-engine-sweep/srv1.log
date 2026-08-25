@@ -1,0 +1,118 @@
+20:18:20 run start srv1: 11 cells, cap 180.0s, out /home/adaramir/claude/mcgyvr/records/evidence/2026-08-24-engine-sweep/srv1
+20:18:20 === srv1 A1-1 [ollama] ollama slots: control N=1
+20:18:56   A1-1 n=1    140.39 tok/s  p50 2.301s  cap_frac 0.0  fail 0
+20:19:02   A1-1 n=2    148.38 tok/s  p50 3.313s  cap_frac 0.0  fail 0
+20:19:21   A1-1 n=8    153.46 tok/s  p50 9.556s  cap_frac 0.0  fail 0
+20:19:23 === srv1 A1-2 [ollama] ollama slots: N=32 (KV 0.9 GiB); num_batch 1024 sent so the batch is held agains
+20:19:57   A1-2 n=1    137.56 tok/s  p50 2.348s  cap_frac 0.0  fail 0
+20:20:01   A1-2 n=2    210.19 tok/s  p50 2.944s  cap_frac 0.0  fail 0
+20:20:10   A1-2 n=8    334.37 tok/s  p50 7.158s  cap_frac 0.0  fail 0
+20:20:38   A1-2 n=32   389.34 tok/s  p50 24.44s  cap_frac 0.0  fail 0
+20:20:40 === srv1 C1-1 [ollama] the N>=2 cliff: A1-2 + OLLAMA_FLASH_ATTENTION=0 (journal must show --flash-attn 
+20:21:24   C1-1 n=1    132.46 tok/s  p50 2.28s  cap_frac 0.0  fail 0
+20:21:29   C1-1 n=2    199.07 tok/s  p50 3.032s  cap_frac 0.0  fail 0
+20:21:41   C1-1 n=8    244.58 tok/s  p50 8.92s  cap_frac 0.0  fail 0
+20:22:11   C1-1 n=32   323.02 tok/s  p50 28.499s  cap_frac 0.0  fail 0
+20:22:15 ollama block end -> restore
+20:22:28 restore ok on srv1: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:22:28 === srv1 E1-1 [vllm] vLLM control srv1: yesterday's best (no-eager, seqs 64, f16 KV; ~295 tok/s ceili
+20:22:30 stopping ollama (docker engine cell)
+20:29:19   E1-1 n=1    44.2 tok/s (sweep.py, mean lat 10.743)
+20:29:19   E1-1 n=2    27.5 tok/s (sweep.py, mean lat 34.499)
+20:29:19   E1-1 n=8    107.0 tok/s (sweep.py, mean lat 35.435)
+20:29:19   E1-1 n=32   229.7 tok/s (sweep.py, mean lat 66.12)
+20:29:22 === srv1 B1-1 [llamacpp] llama-server standalone srv1, -b 1024 -ub 1024 (ollama's 32-slot tier, F4); PTX 
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 === srv1 D1-1 [lmdeploy] LMDeploy 1.5B srv1 baseline; also whether the fp16 tied-head N=2 cliff carries t
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 === srv1 D1-3 [lmdeploy] one knob: int8 KV decoding kernel on sm75; pool not binding, so any delta is ker
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 === srv1 D1-4 [lmdeploy] one knob: headroom probe -- does 0.8 launch on 6 GB; expected null on throughput
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 === srv1 D1-2 [lmdeploy] LMDeploy 3B srv1 baseline; prediction: same cliff ~1.33x larger in ms
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 === srv1 D1-5 [lmdeploy] 3B int8-KV contrast (pool 38 -> ~74 sessions)
+20:29:22   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:22 docker-engine block end -> start ollama, re-read env (rule (b)5)
+20:29:23 starting ollama
+20:29:30 === srv1 R1 [retake] srv1 winner re-take: highest tok/s at n=32 (cap fraction >= 0.9), better-of-two 
+20:29:30   skipped: rule (e)1: control E1-1 read 229.7 at n=32 < 265; rig state changed, remaining blocks stopped
+20:29:30 final restore + readback
+20:29:39 restore ok on srv1: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:29:41 run end srv1
+20:30:50 run start srv1: 11 cells, cap 180.0s, out /home/adaramir/claude/mcgyvr/records/evidence/2026-08-24-engine-sweep/srv1
+20:30:50 === srv1 B1-1 [llamacpp] llama-server standalone srv1, -b 1024 -ub 1024 (ollama's 32-slot tier, F4); PTX 
+20:30:54 stopping ollama (docker engine cell)
+20:30:59   launch: docker run --rm -d --pull=never --gpus all -p 8080:8080 -v /usr/share/ollama/.ollama/models/blobs:/models:ro -v /var/tmp/cuda-cache:/root/.nv -e CUDA_CACHE_PATH...
+20:32:01   B1-1 n=1    151.81 tok/s  p50 3.129s  cap_frac 1.0  fail 0
+20:32:07   B1-1 n=2    235.02 tok/s  p50 4.037s  cap_frac 1.0  fail 0
+20:32:19   B1-1 n=8    373.24 tok/s  p50 10.175s  cap_frac 1.0  fail 0
+20:32:55   B1-1 n=32   446.64 tok/s  p50 33.993s  cap_frac 1.0  fail 0
+20:33:01 === srv1 D1-1 [lmdeploy] LMDeploy 1.5B srv1 baseline; also whether the fp16 tied-head N=2 cliff carries t
+20:33:09   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:33:18   launch variant 0 failed: container exited after 8.4s
+20:33:22   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:33:32   launch variant 1 failed: container exited after 8.5s
+20:33:39 === srv1 D1-3 [lmdeploy] one knob: int8 KV decoding kernel on sm75; pool not binding, so any delta is ker
+20:33:39   skipped: rule (d)3: Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ did not load on srv1 earlier in the block
+20:33:39 === srv1 D1-4 [lmdeploy] one knob: headroom probe -- does 0.8 launch on 6 GB; expected null on throughput
+20:33:39   skipped: rule (d)3: Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ did not load on srv1 earlier in the block
+20:33:39 === srv1 D1-2 [lmdeploy] LMDeploy 3B srv1 baseline; prediction: same cliff ~1.33x larger in ms
+20:33:47   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:33:56   launch variant 0 failed: container exited after 8.7s
+20:34:01   launch: docker run --rm -d --pull=never --gpus all --ipc=host -p 23333:23333 -v /home/adaramir/.cache/huggingface:/root/.cache/huggingface -v /home/adaramir/sweep-2026-...
+20:34:11   launch variant 1 failed: container exited after 8.8s
+20:34:18 === srv1 D1-5 [lmdeploy] 3B int8-KV contrast (pool 38 -> ~74 sessions)
+20:34:18   skipped: rule (d)3: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ did not load on srv1 earlier in the block
+20:34:18 docker-engine block end -> start ollama, re-read env (rule (b)5)
+20:34:19 starting ollama
+20:34:26 === srv1 R1 [retake] srv1 winner re-take: highest tok/s at n=32 (cap fraction >= 0.9), better-of-two 
+20:34:27   re-take: winner at n=32 is B1-1 (446.64 tok/s)
+20:34:27 === srv1 R1 [llamacpp] re-take of B1-1 (446.64 tok/s at n=32), better-of-two
+20:34:30 stopping ollama (docker engine cell)
+20:34:34   launch: docker run --rm -d --pull=never --gpus all -p 8080:8080 -v /usr/share/ollama/.ollama/models/blobs:/models:ro -v /var/tmp/cuda-cache:/root/.nv -e CUDA_CACHE_PATH...
+20:34:55   R1 n=1    152.16 tok/s  p50 3.122s  cap_frac 1.0  fail 0
+20:35:05   R1 n=2    236.62 tok/s  p50 4.014s  cap_frac 1.0  fail 0
+20:35:28   R1 n=8    370.27 tok/s  p50 10.255s  cap_frac 1.0  fail 0
+20:36:38   R1 n=32   448.92 tok/s  p50 33.764s  cap_frac 1.0  fail 0
+20:36:42 final restore + readback
+20:36:53 restore ok on srv1: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:36:56 run end srv1
+20:37:53 run start srv1: 11 cells, cap 180.0s, out /home/adaramir/claude/mcgyvr/records/evidence/2026-08-24-engine-sweep/srv1
+20:37:53 === srv1 D1-1 [lmdeploy] LMDeploy 1.5B srv1 baseline; also whether the fp16 tied-head N=2 cliff carries t
+20:37:55 stopping ollama (docker engine cell)
+20:38:02   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no sna...
+20:39:00   D1-1 n=1    20.86 tok/s  p50 16.777s  cap_frac 0.0  fail 0
+20:39:33   D1-1 n=2    20.66 tok/s  p50 30.789s  cap_frac 0.0  fail 0
+20:40:10   D1-1 n=8    77.13 tok/s  p50 34.363s  cap_frac 0.0  fail 0
+20:41:04   D1-1 n=32   217.1 tok/s  p50 51.547s  cap_frac 0.0  fail 0
+20:41:10 === srv1 D1-3 [lmdeploy] one knob: int8 KV decoding kernel on sm75; pool not binding, so any delta is ker
+20:41:19   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no sna...
+20:42:15   D1-3 n=1    20.88 tok/s  p50 18.683s  cap_frac 0.0  fail 0
+20:42:55   D1-3 n=2    20.67 tok/s  p50 37.514s  cap_frac 0.0  fail 0
+20:43:35   D1-3 n=8    81.22 tok/s  p50 38.404s  cap_frac 0.0  fail 0
+20:44:34   D1-3 n=32   216.8 tok/s  p50 57.22s  cap_frac 0.0  fail 0
+20:44:40 === srv1 D1-4 [lmdeploy] one knob: headroom probe -- does 0.8 launch on 6 GB; expected null on throughput
+20:44:48   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no sna...
+20:45:40   D1-4 n=1    20.87 tok/s  p50 16.773s  cap_frac 0.0  fail 0
+20:46:11   D1-4 n=2    20.63 tok/s  p50 29.592s  cap_frac 0.0  fail 0
+20:46:48   D1-4 n=8    78.33 tok/s  p50 34.501s  cap_frac 0.0  fail 0
+20:47:42   D1-4 n=32   210.47 tok/s  p50 51.748s  cap_frac 0.0  fail 0
+20:47:49 === srv1 D1-2 [lmdeploy] LMDeploy 3B srv1 baseline; prediction: same cliff ~1.33x larger in ms
+20:47:57   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:49:41   D1-2 n=1    10.26 tok/s  p50 36.63s  cap_frac 0.0  fail 0
+20:50:44   D1-2 n=2    12.29 tok/s  p50 61.059s  cap_frac 0.0  fail 0
+20:51:48   D1-2 n=8    48.42 tok/s  p50 62.117s  cap_frac 0.0  fail 0
+20:53:30   D1-2 n=32   120.79 tok/s  p50 99.18s  cap_frac 0.0  fail 0
+20:53:35 === srv1 D1-5 [lmdeploy] 3B int8-KV contrast (pool 38 -> ~74 sessions)
+20:53:45   launch: SNAP=$(ls /home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ/snapshots 2>/dev/null | head -1); [ -n "$SNAP" ] || { echo 'no snaps...
+20:55:16   D1-5 n=1    10.26 tok/s  p50 36.631s  cap_frac 0.0  fail 0
+20:56:19   D1-5 n=2    12.3 tok/s  p50 61.034s  cap_frac 0.0  fail 0
+20:57:23   D1-5 n=8    48.45 tok/s  p50 62.059s  cap_frac 0.0  fail 0
+20:59:04   D1-5 n=32   121.64 tok/s  p50 98.89s  cap_frac 0.0  fail 0
+20:59:11 docker-engine block end -> start ollama, re-read env (rule (b)5)
+20:59:12 starting ollama
+20:59:18 === srv1 R1 [retake] srv1 winner re-take: highest tok/s at n=32 (cap fraction >= 0.9), better-of-two 
+20:59:20 final restore + readback
+20:59:28 restore ok on srv1: OLLAMA_NUM_PARALLEL=0 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_KEEP_ALIVE=-1 OLLAMA_HOST=0.0.0.0:11434
+20:59:31 run end srv1

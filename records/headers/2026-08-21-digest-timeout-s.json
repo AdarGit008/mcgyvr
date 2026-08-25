@@ -1,0 +1,17 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-digest-timeout-s",
+  "declared": "2026-08-21",
+  "question": "How does a weights digest scale with checkpoint size, and is DIGEST_TIMEOUT_S = 1800 s anywhere near the curve?",
+  "cost": {
+    "unknown": true,
+    "searched": [
+      "records/evidence/calibration-2026-08-19/README.md:653 — one point, 5.57 GB in 34 s on srv2 under docker",
+      "records/evidence/calibration-2026-08-19/d7-survey.json — digest_seconds is present per cell from #325 onward, and this campaign predates it"
+    ]
+  },
+  "prerequisites": [
+    "digest_seconds beside bytes on every digest, which vllm.weights_sha256 now returns"
+  ],
+  "notes": "D6 item, records/evidence/calibration-2026-08-19/README.md:653. One point is not a scaling curve, and the constant is 53x that point. Every campaign digest adds a point at no rig cost."
+}

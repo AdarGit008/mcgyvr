@@ -1,0 +1,87 @@
+{
+  "_doc": "The three vLLM cells phase 0 could not measure, re-declared so they fit and re-run. #354. Each refused on an EMPTY card with torch.OutOfMemoryError inside _allocate_kv_cache, and in each the declared KV bytes were exactly what the entry's own shape computes -- the rule was right and produced a figure the card cannot hold. THE DECLARATION HAS CHANGED, which is why this is a separate campaign and not a re-run of phase 0: max_num_seqs stays at the campaign's 8 and max_model_len is shortened until the entry fits, chosen by the owner 2026-08-23 over the other way out (holding 8192 and narrowing the width). Both reach the same KV bytes; they differ in what the server can then serve. The footprint these cells report is therefore the footprint OF THIS DECLARATION and is not comparable with phase 0's other vLLM rows.",
+  "_supersedes_nothing": "The phase-0 journal's three refused rows stand as measured. This campaign adds rows; it does not replace them, and neither table is the other's re-measurement.",
+  "_headroom": "Each entry was checked against vllm.declaration_fits before any rig time was spent, at the free memory both rigs read at rest (6,143 and 12,287 MiB). Slack after weights + KV + NON_KV_OVERHEAD_MIB: srv1/4B 369 MiB, srv2/4B 753 MiB, srv2/14B 235 MiB. The 14B's margin is under one 256 MiB allocator block and it is run at that declaration deliberately: if it refuses, the engine's own words say whether NON_KV_OVERHEAD_MIB needs a term that grows with the model, which is a fact worth one cell.",
+  "hosts": [
+    "srv1",
+    "srv2"
+  ],
+  "collect": {
+    "host_config": false,
+    "concurrency": false
+  },
+  "models": [
+    {
+      "label": "srv1-vllm-qwen3-4b-awq-len2048",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "vllm/Qwen3-4B-AWQ",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "max_model_len": 2048,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 2415919104,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token, read off the checkpoint's own config.json on srv1 2026-08-23. ADR-0039 rule 2.",
+        "weights_bytes": 2684354560,
+        "_weights_bytes_note": "2.5 GiB, MEASURED -- vLLM's own `Model loading took 2.5 GiB` line, reported independently on both rigs in the 2026-08-23 phase-0 refusals (records/evidence/2026-08-23-phase0-footprint/engine-refusals/). Read before the KV cache is touched, so it is the weights and nothing else.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      }
+    },
+    {
+      "label": "srv2-vllm-qwen3-4b-awq-len7168",
+      "backend": "vllm",
+      "id": "thewimo/Qwen3-4B-AWQ",
+      "family": "vllm/Qwen3-4B-AWQ",
+      "hosts": [
+        "srv2"
+      ],
+      "serve": {
+        "max_model_len": 7168,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 8455716864,
+        "bytes_per_token": 147456,
+        "_bytes_per_token_note": "36 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 147,456 B/token, read off the checkpoint's own config.json on srv1 2026-08-23. ADR-0039 rule 2.",
+        "weights_bytes": 2684354560,
+        "_weights_bytes_note": "2.5 GiB, MEASURED -- vLLM's own `Model loading took 2.5 GiB` line, reported independently on both rigs in the 2026-08-23 phase-0 refusals (records/evidence/2026-08-23-phase0-footprint/engine-refusals/). Read before the KV cache is touched, so it is the weights and nothing else.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      }
+    },
+    {
+      "label": "srv2-vllm-qwen2.5-coder-14b-awq-len1024",
+      "backend": "vllm",
+      "id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+      "family": "vllm/Qwen2.5-Coder-14B-AWQ",
+      "hosts": [
+        "srv2"
+      ],
+      "serve": {
+        "max_model_len": 1024,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 1610612736,
+        "bytes_per_token": 196608,
+        "_bytes_per_token_note": "48 layers x 8 KV heads x 128 head_dim x 2 (K and V) x 2 bytes = 196,608 B/token. ADR-0039 rule 2.",
+        "weights_bytes": 10071698309,
+        "_weights_bytes_note": "9.38 GiB, MEASURED -- vLLM's own `Model loading took 9.38 GiB` line, from records/evidence/2026-08-23-phase0-footprint/engine-refusals/srv2-vllm-qwen2.5-coder-14b-awq.docker-logs.txt.",
+        "flags": [
+          "--enforce-eager"
+        ],
+        "env": {
+          "FLASHINFER_DISABLE_VERSION_CHECK": "1"
+        }
+      }
+    }
+  ]
+}

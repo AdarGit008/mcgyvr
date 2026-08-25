@@ -1,0 +1,226 @@
+[
+ {
+  "id": "s2-noeager-len1024-seqs512",
+  "axis": "rerun-combined",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "512"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "s2-noeager-kvfp8-len1024-seqs256",
+  "axis": "rerun-combined",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "1024",
+   "--max-num-seqs",
+   "256",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "dtype-bfloat16",
+  "axis": "rerun-dtype",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--dtype",
+   "bfloat16"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "kv-fp8",
+  "axis": "rerun-kv-dtype",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--kv-cache-dtype",
+   "fp8"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "kv-fp8_e5m2",
+  "axis": "rerun-kv-dtype",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--kv-cache-dtype",
+   "fp8_e5m2"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "kv-fp8_e4m3",
+  "axis": "rerun-kv-dtype",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--kv-cache-dtype",
+   "fp8_e4m3"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "attn-FLASH_ATTN",
+  "axis": "rerun-attention-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--attention-backend",
+   "FLASH_ATTN"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "attn-FLASHINFER",
+  "axis": "rerun-attention-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--attention-backend",
+   "FLASHINFER"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-exllama",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "exllama"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-torch",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "torch"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-machete",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "machete"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ },
+ {
+  "id": "linear-cutlass",
+  "axis": "rerun-linear-backend",
+  "flags": [
+   "--max-model-len",
+   "8192",
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-num-seqs",
+   "16",
+   "--enforce-eager",
+   "--linear-backend",
+   "cutlass"
+  ],
+  "cap": 1,
+  "levels": [
+   1
+  ]
+ }
+]

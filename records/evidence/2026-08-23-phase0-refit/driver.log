@@ -1,0 +1,21 @@
+journal: records/evidence/2026-08-23-phase0-refit/cells.jsonl
+[srv1] snapshot
+[srv1] srv1-vllm-qwen3-4b-awq-len2048 (vllm) — yielding the card
+[srv2] snapshot
+[srv2] srv2-vllm-qwen3-4b-awq-len7168 (vllm) — yielding the card
+[srv2] srv2-vllm-qwen2.5-coder-14b-awq-len1024 (vllm) — yielding the card
+[srv1] final release of ollama: released=True card=5222 MiB
+[srv1] final release of vllm: released=True card=1 MiB
+[srv2] final release of ollama: released=True card=11479 MiB
+[srv2] final release of vllm: released=True card=1 MiB
+
+wrote records/evidence/2026-08-23-phase0-refit/survey.json (310715 bytes)
+  srv1/srv1-vllm-qwen3-4b-awq-len2048: ok  declared_slots=8 (observed)
+  srv2/srv2-vllm-qwen3-4b-awq-len7168: ok  declared_slots=8 (observed)
+  srv2/srv2-vllm-qwen2.5-coder-14b-awq-len1024: ok  declared_slots=8 (observed)
+  family vllm/Qwen3-4B-AWQ: identical checkpoint-tensor digest across all members  [2 of 2]
+  family vllm/Qwen2.5-Coder-14B-AWQ: single member — nothing to compare  [1 of 1]
+[srv1] release ollama: released=True card=1 MiB
+[srv1] release vllm: released=True card=1 MiB
+[srv2] release ollama: released=True card=1 MiB
+[srv2] release vllm: released=True card=1 MiB

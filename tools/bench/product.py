@@ -177,8 +177,13 @@ def _is_derived(path: Path) -> bool:
     return DERIVED_DIR in path.parts or path.suffix in DERIVED_SUFFIXES
 
 
-def surface_files(repo: Path = REPO) -> list[Path]:
+def surface_files(repo: Path = REPO, surface: tuple[str, ...] = SURFACE) -> list[Path]:
     """Every file in the declared surface, sorted by repo-relative path.
+
+    ``surface`` defaults to the product's. The serving harness pins itself with
+    the same shape over ``tools/bench/serving/`` (#325): it is not product, so
+    it is not in :data:`SURFACE`, and a second digest algorithm for it would be
+    a second thing to keep true. One algorithm, two declared surfaces.
 
     A declared entry that does not exist raises rather than contributing
     nothing: a rig file deleted or renamed would otherwise shrink the surface
@@ -193,7 +198,7 @@ def surface_files(repo: Path = REPO) -> list[Path]:
     because they are outputs of files already hashed here.
     """
     found: list[Path] = []
-    for entry in SURFACE:
+    for entry in surface:
         path = repo / entry
         if path.is_dir():
             found.extend(
@@ -210,19 +215,19 @@ def surface_files(repo: Path = REPO) -> list[Path]:
     return sorted(found, key=lambda p: p.relative_to(repo).as_posix())
 
 
-def _lines(repo: Path) -> Iterator[str]:
-    for path in surface_files(repo):
+def _lines(repo: Path, surface: tuple[str, ...] = SURFACE) -> Iterator[str]:
+    for path in surface_files(repo, surface):
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         yield f"{path.relative_to(repo).as_posix()} {digest}"
 
 
-def digest(repo: Path = REPO) -> str:
+def digest(repo: Path = REPO, surface: tuple[str, ...] = SURFACE) -> str:
     """The product revision: one digest over path-and-content of the surface.
 
     Paths are in the hashed text, not just contents, so a rename or a deletion
     moves the digest even when every byte of every surviving file is unchanged.
     """
-    body = "\n".join(_lines(repo)) + "\n"
+    body = "\n".join(_lines(repo, surface)) + "\n"
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 

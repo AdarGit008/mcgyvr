@@ -1,0 +1,13 @@
+
+[1/1] srv1 E1-1  --gpu-memory-utilization 0.85 --max-model-len 1024 --max-num-seqs 64
+      n=1        42.1 tok/s  lat 11.29s
+      n=2        27.3 tok/s  lat 34.76s
+      n=8       102.0 tok/s  lat 35.79s
+      n=32      229.7 tok/s  lat 66.12s
+      n=1        44.2 tok/s  lat 10.74s
+      n=2        27.5 tok/s  lat 34.50s
+      n=8       107.0 tok/s  lat 35.44s
+      n=32      229.1 tok/s  lat 66.20s
+   -> MAX 229.7 tok/s at n=32
+
+done; rig released

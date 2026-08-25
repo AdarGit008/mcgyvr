@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-owed-line-48",
+  "declared": "2026-08-21",
+  "question": "Elide `tensors` everywhere and rely on the digest, or keep it everywhere at about 60 KB per capture for the largest model? MAX_INLINE_ITEMS = 512 split the field down the middle of the model ladder, and consistency matters more than which side.",
+  "answered_by": "D5 — elide by name, with a 4096-item backstop; landed at tools/bench/observed.py (ELIDE_BY_NAME, MAX_INLINE_ITEMS = 4096) and proven by test, not by this campaign",
+  "notes": "records/evidence/calibration-2026-08-19/README.md:48, closed at :921. Filed as a header so the question survives the evidence directory it was asked in; the decision and its reasoning stay where they are and are not restated here."
+}

@@ -1,0 +1,10 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-load-attempts",
+  "declared": "2026-08-21",
+  "question": "Does a second load attempt ever rescue a first, or is LOAD_ATTEMPTS = 2 paying 91-145 s per refusal for nothing?",
+  "cost": {
+    "source": "records/evidence/calibration-2026-08-19/README.md:654 — a refusal costs 91-145 s, being two full clear-load cycles"
+  },
+  "notes": "D6 item, records/evidence/calibration-2026-08-19/README.md:654. The answer is one field on the attempt trail #326 landed: whether attempt 2 ever succeeded where attempt 1 failed. Until a run records it, the constant is a habit."
+}

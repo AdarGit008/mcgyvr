@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-owed-line-115",
+  "declared": "2026-08-21",
+  "question": "Record `placement: full | partial` with its fraction and stop refusing when the card was idle beforehand — which makes all 17 models measurable — or keep refusing and accept that srv2's five largest sit outside the instrument?",
+  "answered_by": "D4 — the gate is withdrawn; placement is declared and recorded, never refused. All 17 models measured, none refused.",
+  "notes": "records/evidence/calibration-2026-08-19/README.md:115, closed at :922. Every entry that DID declare a floor read exactly 1.0, so min_vram_fraction has never gated anything on any entry."
+}

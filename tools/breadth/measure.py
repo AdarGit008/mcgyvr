@@ -89,6 +89,7 @@ from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from mcgyvr.gate.preflight import check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
@@ -198,6 +199,134 @@ def _bench_identity() -> types.ModuleType:
 
 
 identity_module = _bench_identity()
+
+
+def _bench_observed() -> types.ModuleType:
+    """The `observed` block's writer (#286, ADR-0027 D7).
+
+    A sibling of the identity contract rather than part of it, because the two
+    blocks are opposite: that one is compared and must stay diffable, this one
+    is compared by nothing and must be comprehensive. Nothing in this file
+    reads what it writes.
+
+
+    Shared through the ``sys.modules`` slot with the other rig's copy, exactly
+    as ``_bench_identity`` above is and for the same reason: two loads would be
+    the five-lists problem one level down. It also has teeth in tests — a stub
+    installed on one rig's copy does not stop the other's ``record_run`` from
+    making real HTTP calls, which is how three breadth tests came to probe the
+    network while appearing to be offline.
+    """
+    cached = sys.modules.get("bench_observed")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "bench_observed", HERE.parent / "bench" / "observed.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+observed_module = _bench_observed()
+
+
+#: The card, read once per task while the sweep runs (#348). Beside `run.json`
+#: rather than inside it: `run.json` must stay small enough that a human diffs
+#: two of them, and this is a time series. Appended and fsynced per sample, the
+#: run contract's own shape for a journal — a dead process leaves what it had.
+CARD_SAMPLES_FILE = "card.jsonl"
+
+
+def _card_sampler(endpoint: str, out) -> object | None:
+    """The per-task card reader, or ``None`` when there is no host to read.
+
+    **Why the scored path reads the card at all.** Every reading that describes
+    the machine already existed as a declared constant, and the only caller was
+    the serving *calibration* runner — so a sweep that thermally throttled for
+    an hour recorded slower `latency_s` and nothing that said why. The run
+    contract's §3 states the principle ("a strange number months later can be
+    traced to a throttling card instead of guessed at", ADR-0026 lens 1); this
+    is where it is implemented for the instrument that ships the numbers.
+
+    **Per task, not on a timer.** A task is the unit rows are grouped by, the
+    reading costs one ssh against a task that takes minutes, and a timer would
+    buy no resolution at this cadence while adding a thread to a process that
+    drives a rig over ssh.
+
+    Absent host, absent sampler — a hosted endpoint has no card to read, and
+    that is an ordinary state rather than a degraded one.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = sys.modules.get("serving_pin")
+        if module is None:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["serving_pin"] = module
+            spec.loader.exec_module(module)
+        host = urlsplit(endpoint).hostname or ""
+        if not host or host in ("localhost", "127.0.0.1"):
+            return None
+        return module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+    except Exception:
+        # Same promise `_host_block` makes: a recording must never be the
+        # reason a sweep produces no rows. Unlike that one there is nothing to
+        # record the failure ON yet — the file this would write is the file
+        # that did not open — so the absence IS the record.
+        return None
+
+
+def _host_block(endpoint: str) -> dict[str, object]:
+    """What the serving MACHINE says, when it can be reached.
+
+    **Never raises**: a capture must not be the reason a sweep produces no rows.
+    That promise is kept and is not the same thing as swallowing what went
+    wrong — until #349 the `except` returned a bare `{}`, which is also what
+    `pin.host_block` returned for three unrelated states of its own, so "the
+    probe broke" and "there was nothing to probe" arrived as one value. Now the
+    exception reaches the record.
+
+    Scrubbed for the reason `observed.write`'s own except path is: an exception
+    message is server-derived text, it routinely carries the URL that failed,
+    and that URL may carry a credential.
+
+    **This function is byte-identical in the other rig**, and is held so by
+    `tests/test_bench_observed.py::test_the_two_rigs_read_the_host_the_same_way`.
+    It cannot move into `observed` — that module gathers no host readings by
+    design, which is what lets it work unchanged against an endpoint nobody can
+    log into — and it cannot import `pin`'s vocabulary here, because the case it
+    is reporting includes `pin` itself failing to load.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "serving_pin", REPO / "tools" / "bench" / "serving" / "pin.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = sys.modules.get("serving_pin")
+        if module is None:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["serving_pin"] = module
+            spec.loader.exec_module(module)
+        return dict(module.host_block(endpoint))
+    except Exception as error:
+        why = (
+            f"the host probe raised: {type(error).__name__}: {error}. Recorded "
+            "rather than raised, and recorded rather than dropped: a probe that "
+            "broke must not read as a machine there was nothing to read"
+        )
+        return observed_module.scrub(
+            {
+                "reason": "probe_failed",
+                "refused": why,
+                "width": {"value": None, "source": None, "refused": why},
+            }
+        )
+
 
 # The variables of this experiment, all held fixed within a run.
 #
@@ -1158,6 +1287,35 @@ def record_run(
         json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
         encoding="utf-8",
     )
+    # The second block (#286, ADR-0027 D7): everything the endpoint will answer
+    # about itself, beside the block that gets compared. Written here — on the
+    # branch that OPENS the directory — and not on the resume above, because it
+    # describes the server the rows were started against. A resume writes
+    # nothing: capturing again would restate rows this invocation did not
+    # measure, and a resume against a materially different server is refused by
+    # the keyed drift check above, which is where a refusal belongs. A directory
+    # opened before this contract existed therefore never gains one, which is
+    # the same "absent means predates the contract" reading D2 gives run.json.
+    #
+    # Nothing in this file reads what this writes.
+    observed_module.write(
+        out,
+        worker.endpoint,
+        worker.model,
+        when=observed_module.AT_OPEN,
+        # Gathered at OPEN as well as at close. Without both sides the pin's two
+        # comparison claims — same process, same config — have nothing to
+        # compare and are structurally unreachable, which is what the module
+        # exists to establish.
+        host=_host_block(worker.endpoint),
+        # The width this run DISPATCHED at, read off the endpoint the
+        # runner was built from rather than typed here (ADR-0027 D4).
+        # It is the second of `resolve`'s two bounds on the realised
+        # batch, and it is the half no probe can recover: the server
+        # cannot see how many requests a client chose to keep in
+        # flight, so if this site does not say it, nothing does.
+        dispatch_max_parallel=worker.as_endpoint().max_parallel,
+    )
 
 
 def first_pass_indices(
@@ -1646,6 +1804,7 @@ def main() -> int:
         file=sys.stderr,
     )
     plan = draw_plan(args.draws, args.sampled_temperature)
+    sampler = _card_sampler(worker.endpoint, args.out)
 
     aborted = None
     dead_streak = 0
@@ -1654,6 +1813,10 @@ def main() -> int:
         rows_path.open("a", encoding="utf-8") as handle,
     ):
         for task in tasks:
+            # Before the task's draws, so a reading is never taken while this
+            # process is blocked on the endpoint it is asking about.
+            if sampler is not None:
+                sampler.sample(task.id, datetime.now(UTC).isoformat(timespec="seconds"))
             rows = measure_task(
                 task,
                 runner,
@@ -1686,6 +1849,28 @@ def main() -> int:
             "resume will fill what is missing.",
             file=sys.stderr,
         )
+
+    # The SECOND capture (#286): taken now, with the model certainly resident.
+    # `context_length` reads `/api/ps`, which lists only loaded models, so the
+    # open capture — written before the first draw — could never answer it on a
+    # fresh directory. It also records what the endpoint looked like under the
+    # load this run just applied, which nothing else does. Written even on an
+    # aborted run: a directory with an open capture and no close one is a run
+    # that did not finish, and that is worth being able to see.
+    observed_module.write(
+        args.out,
+        worker.endpoint,
+        worker.model,
+        when=observed_module.AT_CLOSE,
+        host=_host_block(worker.endpoint),
+        # The width this run DISPATCHED at, read off the endpoint the
+        # runner was built from rather than typed here (ADR-0027 D4).
+        # It is the second of `resolve`'s two bounds on the realised
+        # batch, and it is the half no probe can recover: the server
+        # cannot see how many requests a client chose to keep in
+        # flight, so if this site does not say it, nothing does.
+        dispatch_max_parallel=worker.as_endpoint().max_parallel,
+    )
 
     missing = record_completeness(args.out)
     summary = summarise(rows_path)

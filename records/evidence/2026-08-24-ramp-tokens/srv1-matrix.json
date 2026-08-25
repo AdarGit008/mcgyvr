@@ -1,0 +1,78 @@
+[
+ {
+  "id": "tokens-128",
+  "axis": "tokens",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "2048",
+   "--max-num-seqs",
+   "256"
+  ],
+  "levels": [
+   1,
+   16,
+   64,
+   128
+  ],
+  "tokens": 128
+ },
+ {
+  "id": "tokens-256",
+  "axis": "tokens",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "2048",
+   "--max-num-seqs",
+   "256"
+  ],
+  "levels": [
+   1,
+   16,
+   64,
+   128
+  ],
+  "tokens": 256
+ },
+ {
+  "id": "tokens-475",
+  "axis": "tokens",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "2048",
+   "--max-num-seqs",
+   "256"
+  ],
+  "levels": [
+   1,
+   16,
+   64,
+   128
+  ],
+  "tokens": 475
+ },
+ {
+  "id": "tokens-1024",
+  "axis": "tokens",
+  "flags": [
+   "--gpu-memory-utilization",
+   "0.85",
+   "--max-model-len",
+   "2048",
+   "--max-num-seqs",
+   "256"
+  ],
+  "levels": [
+   1,
+   16,
+   64,
+   128
+  ],
+  "tokens": 1024
+ }
+]

@@ -1,0 +1,27 @@
+{
+ "_doc": "The ENGINE's own structured reason for each refused cell, read off the server's log on the rig. The harness records `reasons: ['unknown']` for a vLLM launch that never reached health, because the process it waited on died on the host and its exception was never on the wire; the campaign's third void_if is that a refusal without the engine's reason cannot be told from a harness bug, so it is read from the log instead. Nothing here was re-tuned to make a cell load.",
+ "_capture": "srv1 is a pip deployment and writes /tmp/vllm-serving.log; srv2 is a container and writes to `docker logs mcgyvr-vllm`. srv2's Qwen3-4B container was destroyed by the NEXT vLLM cell's `docker rm -f`, so that one cell was re-run byte-identically (config-rerun-srv2-qwen3-4b.json) purely to re-obtain the reason; it refused the same way.",
+ "cells": {
+  "srv1-vllm-qwen3-4b-awq": {
+   "source_file": "records/evidence/2026-08-23-phase0-footprint/engine-refusals/srv1-vllm-qwen3-4b-awq.vllm-serving.log",
+   "declared_kv": "Initial free memory 5.54 GiB, reserved 9.0 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+   "kv_tokens": "GPU KV cache size: 65,536 tokens",
+   "exception": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB. GPU 0 has a total capacity of 5.61 GiB of which 169.88 MiB is free. Including non-PyTorch memory, this process has 5.44 GiB memory in use. Of the allocated memory 5.27 GiB is allocated by PyTorch, and 66.46 MiB is reserved by PyTorch but unallocated.",
+   "terminal": "RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}"
+  },
+  "srv2-vllm-qwen3-4b-awq": {
+   "source_file": "records/evidence/2026-08-23-phase0-footprint/engine-refusals/srv2-vllm-qwen3-4b-awq.docker-logs.txt",
+   "declared_kv": "Initial free memory 11.52 GiB, reserved 9.0 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+   "kv_tokens": "GPU KV cache size: 65,536 tokens",
+   "exception": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 148.12 MiB is free. Including non-PyTorch memory, this process has 11.48 GiB memory in use. Of the allocated memory 11.27 GiB is allocated by PyTorch, and 60.52 MiB is reserved by PyTorch but unallocated.",
+   "terminal": "RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}"
+  },
+  "srv2-vllm-qwen2.5-coder-14b-awq": {
+   "source_file": "records/evidence/2026-08-23-phase0-footprint/engine-refusals/srv2-vllm-qwen2.5-coder-14b-awq.docker-logs.txt",
+   "declared_kv": "Initial free memory 11.52 GiB, reserved 12.0 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+   "kv_tokens": "GPU KV cache size: 65,536 tokens",
+   "exception": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 256.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 44.12 MiB is free. Including non-PyTorch memory, this process has 11.58 GiB memory in use. Of the allocated memory 11.40 GiB is allocated by PyTorch, and 33.13 MiB is reserved by PyTorch but unallocated.",
+   "terminal": "RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}"
+  }
+ }
+}

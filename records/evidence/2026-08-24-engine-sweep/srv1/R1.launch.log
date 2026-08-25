@@ -1,0 +1,15 @@
+warn: LLAMA_ARG_HOST environment variable is set, but will be overwritten by command line argument --host
+0.00.174.180 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.315.017 W srv  llama_server: -----------------
+0.00.315.020 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.315.020 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.315.020 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.315.020 W srv  llama_server: -----------------
+0.00.316.224 I srv    load_model: loading model '/models/sha256-29d8c98fa6b098e200069bfb88b9508dc3e85586d20cba59f8dda9a808165104'
+0.00.699.565 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.00.924.413 I cmn          init: llama threadpool init, n_threads = 6
+0.01.011.190 I srv    load_model: initializing, n_slots = 32, n_ctx_slot = 1024, kv_unified = 'false'
+0.01.015.744 I srv  llama_server: model loaded
+0.01.015.748 I srv  llama_server: listening on http://0.0.0.0:8080
+0.01.015.748 W srv  llama_server: NOTICE: server default port will be changed to :9931 in a future release
+0.01.015.748 W srv  llama_server:         ref: https://github.com/ggml-org/llama.cpp/pull/26508

@@ -1,0 +1,8 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-21-owed-line-150",
+  "declared": "2026-08-21",
+  "question": "RAMP_TOKENS is part of the measurement's definition rather than a tuning knob: fix the token count and carry it on every reported width, or move the BATCHING_SPEEDUP gate with it?",
+  "answered_by": "D3 (RAMP_TOKENS = 475) and D1 (BATCHING_SPEEDUP set to 1.0, renamed, confined to the inferred path)",
+  "notes": "records/evidence/calibration-2026-08-19/README.md:150, closed at :923. All 12 ramp cells ran at ramp_tokens 475 with zero levels dropped. #328's K5 is the same lesson as a check: a figure that cannot be told from its neighbour is the defect."
+}

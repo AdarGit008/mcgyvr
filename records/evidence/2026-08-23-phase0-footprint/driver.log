@@ -1,0 +1,84 @@
+journal: records/evidence/2026-08-23-phase0-footprint/cells.jsonl
+[srv1] snapshot
+[srv1] srv1-ollama-qwen2.5-coder-1.5b (ollama) — yielding the card
+[srv1] srv1-vllm-qwen2.5-coder-1.5b-awq (vllm) — yielding the card
+[srv1] srv1-ollama-qwen2.5-coder-3b (ollama) — yielding the card
+[srv1] srv1-vllm-qwen2.5-coder-3b-awq (vllm) — yielding the card
+[srv1] srv1-ollama-llama3.2-3b (ollama) — yielding the card
+[srv1] srv1-vllm-qwen3-4b-awq (vllm) — yielding the card
+[srv1] srv1-vllm-qwen3-4b-awq REFUSED: vllm on srv1 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'pip'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.
+[srv1] srv1-ollama-nemotron-3-nano-4b (ollama) — yielding the card
+[srv1] srv1-ollama-qwen2.5-coder-7b (ollama) — yielding the card
+[srv2] snapshot
+[srv2] srv2-ollama-qwen2.5-coder-1.5b (ollama) — yielding the card
+[srv2] srv2-vllm-qwen2.5-coder-1.5b-awq (vllm) — yielding the card
+[srv2] srv2-ollama-qwen2.5-coder-3b (ollama) — yielding the card
+[srv2] srv2-vllm-qwen3-4b-awq (vllm) — yielding the card
+[srv2] srv2-vllm-qwen3-4b-awq REFUSED: vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.
+[srv2] srv2-ollama-llama3.2-3b (ollama) — yielding the card
+[srv2] srv2-vllm-qwen2.5-coder-7b-awq (vllm) — yielding the card
+[srv2] srv2-ollama-nemotron-3-nano-4b (ollama) — yielding the card
+[srv2] srv2-vllm-qwen2.5-coder-14b-awq (vllm) — yielding the card
+[srv2] srv2-vllm-qwen2.5-coder-14b-awq REFUSED: vllm on srv2 did not reach health with an allocation inside 900s: 'timeout code=000 mib=1'. Launcher was 'docker'. Nothing was measured. Check /tmp/vllm-serving.log on the host (pip) or `docker logs mcgyvr-vllm` (docker); the known causes here are a cold weights download inside the start budget and a KV cache that will not fit the card at the requested max_model_len.
+[srv2] srv2-ollama-qwen2.5-coder-7b (ollama) — yielding the card
+[srv2] srv2-ollama-yi-coder-9b (ollama) — yielding the card
+[srv2] srv2-ollama-deepseek-coder-v2-16b (ollama) — yielding the card
+[srv2] srv2-ollama-qwen2.5-coder-14b (ollama) — yielding the card
+[srv2] srv2-ollama-gpt-oss-20b (ollama) — yielding the card
+[srv2] srv2-ollama-qwen3-30b-a3b (ollama) — yielding the card
+[srv2] srv2-ollama-qwen3-coder-30b (ollama) — yielding the card
+[srv2] srv2-ollama-nemotron-3-nano-30b-a3b-iq2 (ollama) — yielding the card
+[srv2] srv2-ollama-qwen3-coder-next-ud-q3_K_XL (ollama) — yielding the card
+[srv1] final release of ollama: released=True card=1 MiB
+[srv1] final release of vllm: released=True card=1 MiB
+[srv2] final release of ollama: released=True card=1 MiB
+[srv2] final release of vllm: released=True card=1 MiB
+
+wrote records/evidence/2026-08-23-phase0-footprint/survey.json (2622536 bytes)
+  srv1/srv1-ollama-qwen2.5-coder-1.5b: ok  declared_slots=1 (observed)
+  srv1/srv1-vllm-qwen2.5-coder-1.5b-awq: ok  declared_slots=8 (observed)
+  srv1/srv1-ollama-qwen2.5-coder-3b: ok  declared_slots=1 (observed)
+  srv1/srv1-vllm-qwen2.5-coder-3b-awq: ok  declared_slots=8 (observed)
+  srv1/srv1-ollama-llama3.2-3b: ok  declared_slots=1 (observed)
+  srv1/srv1-vllm-qwen3-4b-awq: REFUSED
+  srv1/srv1-ollama-nemotron-3-nano-4b: ok  declared_slots=1 (observed)
+  srv1/srv1-ollama-qwen2.5-coder-7b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-qwen2.5-coder-1.5b: ok  declared_slots=1 (observed)
+  srv2/srv2-vllm-qwen2.5-coder-1.5b-awq: ok  declared_slots=8 (observed)
+  srv2/srv2-ollama-qwen2.5-coder-3b: ok  declared_slots=1 (observed)
+  srv2/srv2-vllm-qwen3-4b-awq: REFUSED
+  srv2/srv2-ollama-llama3.2-3b: ok  declared_slots=1 (observed)
+  srv2/srv2-vllm-qwen2.5-coder-7b-awq: ok  declared_slots=8 (observed)
+  srv2/srv2-ollama-nemotron-3-nano-4b: ok  declared_slots=1 (observed)
+  srv2/srv2-vllm-qwen2.5-coder-14b-awq: REFUSED
+  srv2/srv2-ollama-qwen2.5-coder-7b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-yi-coder-9b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-deepseek-coder-v2-16b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-qwen2.5-coder-14b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-gpt-oss-20b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-qwen3-30b-a3b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-qwen3-coder-30b: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-nemotron-3-nano-30b-a3b-iq2: ok  declared_slots=1 (observed)
+  srv2/srv2-ollama-qwen3-coder-next-ud-q3_K_XL: ok  declared_slots=1 (observed)
+  family ollama/qwen2.5-coder:1.5b: identical manifest digest across all members  [2 of 2]
+  family vllm/Qwen2.5-Coder-1.5B-Instruct-AWQ: identical checkpoint-tensor digest across all members  [2 of 2]
+  family ollama/qwen2.5-coder:3b: identical manifest digest across all members  [2 of 2]
+  family vllm/Qwen2.5-Coder-3B-Instruct-AWQ: single member — nothing to compare  [1 of 1]
+  family ollama/llama3.2:3b: identical manifest digest across all members  [2 of 2]
+  family vllm/Qwen3-4B-AWQ: no member was measured  [0 of 2]
+  family ollama/nemotron-3-nano:4b: identical manifest digest across all members  [2 of 2]
+  family ollama/qwen2.5-coder:7b: identical manifest digest across all members  [2 of 2]
+  family vllm/Qwen2.5-Coder-7B-Instruct-AWQ: single member — nothing to compare  [1 of 1]
+  family vllm/Qwen2.5-Coder-14B-Instruct-AWQ: no member was measured  [0 of 1]
+  family ollama/yi-coder:9b: single member — nothing to compare  [1 of 1]
+  family ollama/deepseek-coder-v2:16b: single member — nothing to compare  [1 of 1]
+  family ollama/qwen2.5-coder:14b: single member — nothing to compare  [1 of 1]
+  family ollama/gpt-oss:20b: single member — nothing to compare  [1 of 1]
+  family ollama/qwen3:30b-a3b: single member — nothing to compare  [1 of 1]
+  family ollama/qwen3-coder:30b: single member — nothing to compare  [1 of 1]
+  family ollama/nemotron-3-nano:30b-a3b-iq2: single member — nothing to compare  [1 of 1]
+  family ollama/qwen3-coder-next-ud:q3_K_XL: single member — nothing to compare  [1 of 1]
+[srv1] release ollama: released=True card=1 MiB
+[srv1] release vllm: released=True card=1 MiB
+[srv2] release ollama: released=True card=1 MiB
+[srv2] release vllm: released=True card=1 MiB
