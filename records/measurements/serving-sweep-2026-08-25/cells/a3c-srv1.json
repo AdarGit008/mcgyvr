@@ -1,0 +1,50 @@
+[
+ {
+  "host": "srv1",
+  "label": "A3-3 ncmoe30 t6",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 30 -t 6 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ },
+ {
+  "host": "srv1",
+  "label": "A2c-1 ncmoe28 t5",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 28 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ },
+ {
+  "host": "srv1",
+  "label": "A2c-2 ncmoe27 t5",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 27 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ }
+]
