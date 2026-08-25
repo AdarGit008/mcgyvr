@@ -1,0 +1,18 @@
+cleared
+srv1	7B-IQ4XS np=1 ctx_slot=1024 c=1024 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4012
+srv1	7B-IQ4XS np=1 ctx_slot=1024 c=1024 ncmoe=0	n=1	agg=54.5	p50=8.72	truncated=0/1	wall=8.7
+srv1	7B-IQ4XS np=4 ctx_slot=1024 c=4096 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4180
+srv1	7B-IQ4XS np=4 ctx_slot=1024 c=4096 ncmoe=0	n=1	agg=54.3	p50=8.75	truncated=0/1	wall=8.8
+srv1	7B-IQ4XS np=4 ctx_slot=1024 c=4096 ncmoe=0	n=4	agg=107.5	p50=17.68	truncated=0/4	wall=17.7
+srv1	7B-IQ4XS np=8 ctx_slot=1024 c=8192 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4404
+srv1	7B-IQ4XS np=8 ctx_slot=1024 c=8192 ncmoe=0	n=1	agg=54.2	p50=8.76	truncated=0/1	wall=8.8
+srv1	7B-IQ4XS np=8 ctx_slot=1024 c=8192 ncmoe=0	n=8	agg=128.4	p50=29.59	truncated=0/8	wall=29.6
+srv1	7B-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4852
+srv1	7B-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=1	agg=54.1	p50=8.78	truncated=0/1	wall=8.8
+srv1	7B-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=8	agg=128.7	p50=29.52	truncated=0/8	wall=29.5
+srv1	7B-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=16	agg=106.3	p50=71.48	truncated=0/16	wall=71.5
+srv1	7B-IQ4XS np=32 ctx_slot=1024 c=32768 ncmoe=0	REFUSED	/app/libggml-cuda.so(_Z15ggml_cuda_errorPKcS0_S0_iS0_+0xb5)[0x7799d62230a5]
+srv1	7B-IQ4XS np=8 ctx_slot=4096 c=32768 ncmoe=0	REFUSED	/app/libggml-cuda.so(_Z15ggml_cuda_errorPKcS0_S0_iS0_+0xb5)[0x72a81a2230a5]
+srv1	7B-IQ4XS np=8 ctx_slot=8192 c=65536 ncmoe=0	REFUSED	0.01.199.758 E srv  llama_server: exiting due to model loading error
+
+[exited with code 0]

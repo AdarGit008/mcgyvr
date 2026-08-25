@@ -1,0 +1,17 @@
+srv1	35B-IQ3XXS np=1 ctx_slot=1024 c=1024 ncmoe=35	CONFIG	real_ctx_slot=1024	vram=3402
+srv1	35B-IQ3XXS np=1 ctx_slot=1024 c=1024 ncmoe=35	n=1	agg=29.1	p50=16.33	truncated=0/1	wall=16.3
+srv1	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=35	CONFIG	real_ctx_slot=1024	vram=3650
+srv1	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=35	n=1	agg=28.4	p50=16.73	truncated=0/1	wall=16.7
+srv1	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=35	n=4	agg=24.3	p50=78.30	truncated=0/4	wall=78.3
+srv1	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=35	CONFIG	real_ctx_slot=1024	vram=3982
+srv1	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=35	n=1	agg=29.3	p50=16.22	truncated=0/1	wall=16.2
+srv1	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=35	n=8	agg=31.8	p50=119.42	truncated=0/8	wall=119.4
+srv1	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=35	CONFIG	real_ctx_slot=1024	vram=4644
+srv1	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=35	n=1	agg=29.3	p50=16.19	truncated=0/1	wall=16.2
+srv1	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=35	n=8	agg=31.8	p50=119.32	truncated=0/8	wall=119.3
+srv1	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=35	n=16	agg=42.7	p50=178.03	truncated=0/16	wall=178.0
+srv1	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=35	CONFIG	real_ctx_slot=4096	vram=4464
+srv1	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=35	n=1	agg=28.4	p50=16.71	truncated=0/1	wall=16.7
+srv1	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=35	n=8	agg=31.8	p50=119.37	truncated=0/8	wall=119.4
+
+[exited with code 0]

@@ -1,0 +1,8 @@
+srv1 card=1 MiB
+srv1	np=1	c=4096	ncmoe=0	slots=1	ctx_slot=4096	kv_unified = 'false'	vram=4184	
+srv1	np=4	c=4096	ncmoe=0	slots=4	ctx_slot=1024	kv_unified = 'false'	vram=4180	
+srv1	np=16	c=4096	ncmoe=0	slots=16	ctx_slot=256	kv_unified = 'false'	vram=4180	
+srv1	np=4	c=16384	ncmoe=0	slots=4	ctx_slot=4096	kv_unified = 'false'	vram=4856	
+srv1	np=32	c=4096	ncmoe=0	slots=32	ctx_slot=256	kv_unified = 'false'	vram=4404	
+
+[exited with code 0]
