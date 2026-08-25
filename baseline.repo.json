@@ -10,7 +10,7 @@
   "lanes": {
     "namespace": "lane/*",
     "lease_ttl": "7d",
-    "families": ["dependabot/**"]
+    "families": ["dependabot/**", "research/*"]
   },
   "join_keys": ["Baseline-Agent", "Baseline-Issue"],
   "engine_pin": "2.x",
