@@ -219,8 +219,8 @@ two rows are also not a controlled pair: different model, quantisation and
 `--n-cpu-moe`. What is controlled is that the 2.06× row's slot count was never
 chosen, and that raising it on comparable hardware multiplies the result by 2.75.
 
-Evidence: `/home/adaramir/rig-sweep-2026-08-25/` (width x context x concurrency
-sweep, 2026-08-25). Also from that run, and bearing on §5's other claim:
+Evidence: **`width-sweep/`** in this directory — every cell, both rigs, both
+models, with the drivers. Also from that run, and bearing on §5's other claim:
 llama.cpp **divides `-c` across slots** (`-np 4 -c 4096` yields `n_ctx_slot 1024`),
 so width and context draw on one KV budget — the opposite of vLLM, where
 `--max-model-len` is a ceiling that reserves nothing. A width sweep at fixed `-c`
