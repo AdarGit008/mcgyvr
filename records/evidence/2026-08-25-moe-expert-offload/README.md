@@ -147,7 +147,13 @@ layer — and costs more than it frees on both rigs: srv1 26.40 against 26.83
 `--n-cpu-moe 18` (42.27), which f16 refuses, and that cell is still slower than 20.
 srv2 refuses 16 and 14 even at `-c 2048`.
 
-## 5. Concurrency: dense batches ~30×, expert offload batches ~2×
+## 5. Concurrency: dense batches ~30×, and the offload figure below is WRONG
+
+> **Superseded 2026-08-25, later the same day. Read the correction at the end of
+> this section before using any number in it.** The `2.06×` and `1.43×` rows are
+> artefacts of llama.cpp's **default 4 slots**, which this campaign never varied.
+> At 32 slots a comparable MoE reaches **5.67×**. The mechanism paragraph below is
+> wrong in its conclusion and is kept as written so the error is legible.
 
 vLLM, historical protocol (475 tokens, `ignore_eos`, temperature 0) so the numbers
 are comparable to `../2026-08-24-config-sweep/`:
@@ -182,6 +188,43 @@ a concurrency curve, both differences favour the dense side. The gap is far too
 large for them to reverse it &mdash; but read the claim as *"dense batches much
 better"*, not as the ratio 15.8. An equal-footing run (dense at 4096, MoE at
 matched slot count) is not in this record.
+
+### CORRECTION — the offload rows measured a default, not a property
+
+The matched-slot-count run named as absent above was then run, and it refutes the
+headline. **Every MoE cell in this record served on llama.cpp's default `-np 4`.**
+`-np` was never varied, so `n=16` was four concurrent sequences and twelve queued.
+
+| MoE on srv2, expert-offloaded | slots | n=1 | best | scaling |
+|---|---|---|---|---|
+| `qwen3-coder:30b` Q4_K_M, `--n-cpu-moe 20` (this record) | **4** (default) | 42.5 | 87.3 at n=16 | 2.06× |
+| `Qwen3.6-35B-A3B` IQ3_XXS, `--n-cpu-moe 25` | **32** | 44.9 | **254.5 at n=32** | **5.67×** |
+
+Latency moves the same way rather than being traded away: p50 is **59.7 s** at
+`np=32, n=32` against **94.8 s** at `np=16, n=16`. Wider was faster per request,
+not merely higher in aggregate.
+
+**Why the default hid it.** At four concurrent sequences there is almost no chance
+two tokens in a batch route to the same expert, so every token pays its own read
+over the memory bus and batching amortises nothing — which is exactly what the
+mechanism paragraph above describes, and it is right *about a batch of four*. As
+the batch widens, expert reuse across sequences becomes likely and the reads
+amortise after all. **"Expert offload does not batch" is a statement about
+`-np 4`, not about expert offload.**
+
+**What this does and does not overturn.** The direction stands: dense-on-card still
+batches better than experts-in-RAM. The *ratio* does not — 15.8× was never a
+property of the two placements, and the true figure is not established here. The
+two rows are also not a controlled pair: different model, quantisation and
+`--n-cpu-moe`. What is controlled is that the 2.06× row's slot count was never
+chosen, and that raising it on comparable hardware multiplies the result by 2.75.
+
+Evidence: `/home/adaramir/rig-sweep-2026-08-25/` (width x context x concurrency
+sweep, 2026-08-25). Also from that run, and bearing on §5's other claim:
+llama.cpp **divides `-c` across slots** (`-np 4 -c 4096` yields `n_ctx_slot 1024`),
+so width and context draw on one KV budget — the opposite of vLLM, where
+`--max-model-len` is a ceiling that reserves nothing. A width sweep at fixed `-c`
+silently starves each slot; every cell in the follow-up sets `-c = np x ctx_slot`.
 
 ## 6. Two MoE models co-reside; the constraint is threads, not VRAM
 
