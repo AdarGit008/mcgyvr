@@ -174,6 +174,15 @@ dense rung's batching curve will be wrong by an order of magnitude.
 vLLM has no `--n-cpu-moe` equivalent, so a MoE larger than the card is not a vLLM
 workload at all.
 
+**Two asymmetries bound the 30&times;-against-2&times; figure, and neither is removed here.**
+The dense rows are vLLM at `--max-model-len 1024`; the MoE rows are llama.cpp at
+`-c 4096` across **4 slots**, so a level of n=16 is four concurrent sequences and
+twelve queued rather than sixteen resident ones. Since KV cache room is what ends
+a concurrency curve, both differences favour the dense side. The gap is far too
+large for them to reverse it &mdash; but read the claim as *"dense batches much
+better"*, not as the ratio 15.8. An equal-footing run (dense at 4096, MoE at
+matched slot count) is not in this record.
+
 ## 6. Two MoE models co-reside; the constraint is threads, not VRAM
 
 srv1, two **different** expert-offloaded MoE models at once:
