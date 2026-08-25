@@ -1,0 +1,25 @@
+cleared
+srv2	35B-IQ3XXS np=1 ctx_slot=1024 c=1024 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=6069
+srv2	35B-IQ3XXS np=1 ctx_slot=1024 c=1024 ncmoe=25	n=1	agg=44.7	p50=10.62	truncated=0/1	wall=10.6
+srv2	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=6317
+srv2	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=25	n=1	agg=44.4	p50=10.70	truncated=0/1	wall=10.7
+srv2	35B-IQ3XXS np=4 ctx_slot=1024 c=4096 ncmoe=25	n=4	agg=62.6	p50=30.37	truncated=0/4	wall=30.4
+srv2	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=6649
+srv2	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=25	n=1	agg=40.0	p50=11.87	truncated=0/1	wall=11.9
+srv2	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=25	n=8	agg=70.5	p50=53.90	truncated=0/8	wall=53.9
+srv2	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=7311
+srv2	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=25	n=1	agg=44.8	p50=10.61	truncated=0/1	wall=10.6
+srv2	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=25	n=8	agg=70.1	p50=54.20	truncated=0/8	wall=54.2
+srv2	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=25	n=16	agg=80.2	p50=94.75	truncated=0/16	wall=94.8
+srv2	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=8635
+srv2	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=25	n=1	agg=44.9	p50=10.59	truncated=0/1	wall=10.6
+srv2	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=25	n=8	agg=70.2	p50=54.10	truncated=0/8	wall=54.1
+srv2	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=25	n=32	agg=254.5	p50=59.70	truncated=0/32	wall=59.7
+srv2	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=25	CONFIG	real_ctx_slot=4096	vram=7131
+srv2	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=25	n=1	agg=44.0	p50=10.80	truncated=0/1	wall=10.8
+srv2	35B-IQ3XXS np=8 ctx_slot=4096 c=32768 ncmoe=25	n=8	agg=70.4	p50=53.98	truncated=0/8	wall=54.0
+srv2	35B-IQ3XXS np=8 ctx_slot=8192 c=65536 ncmoe=25	CONFIG	real_ctx_slot=8192	vram=7775
+srv2	35B-IQ3XXS np=8 ctx_slot=8192 c=65536 ncmoe=25	n=1	agg=44.8	p50=10.59	truncated=0/1	wall=10.6
+srv2	35B-IQ3XXS np=8 ctx_slot=8192 c=65536 ncmoe=25	n=8	agg=70.1	p50=54.23	truncated=0/8	wall=54.2
+
+[exited with code 0]

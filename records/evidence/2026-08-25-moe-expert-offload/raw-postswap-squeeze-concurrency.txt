@@ -1,0 +1,172 @@
+# POST-SWAP re-measure — 2026-08-25 (RAM swapped, GPUs NOT swapped)
+
+## Hardware after the swap
+srv1: 16GB Kingston (ChA-DIMM1) + 32GB Transcend (ChB-DIMM1) = 48GB, both trained 3200 MT/s
+srv2: 2x8GB Corsair (ChA-DIMM0 + ChB-DIMM0) = 16GB TRUE dual channel, trained 2667 MT/s (not 2933)
+GPUs unchanged: srv1 = GTX 1660S 6GB, srv2 = RTX 3060 12GB
+
+## STREAM triad (own benchmark, checksum-verified so the loop is not elided)
+srv1: 26.8 GB/s  (was 26.8)  -> unchanged, +16 GB capacity
+srv2: 23.8 GB/s  (was 13.3)  -> 1.79x
+
+## qwen3-coder:30b decode tok/s
+srv2 (16GB dual):   n-cpu-moe   pre-swap-mmap  post-swap-mmap  post-swap-NO-mmap
+                          20         31.57          26.28           42.86
+                          24         26.32          20.71           37.53
+                          32         20.73          13.26           33.28
+                          40         17.80          11.75           25.57
+                          48         15.07          14.41             ---
+
+srv1 (48GB, control):     40         25.43          25.21           22.19
+                          44         25.37          24.66           (pending)
+                          48   21.60 / 23.93        23.08           (pending)
+
+## The mechanism
+With 16 GB of RAM and an 18.56 GB GGUF, mmap thrashes: measured 821 MB/s of sustained
+NVMe reads DURING decode (4,107 MB in 5 s), free=207 MB, page cache pinned at max.
+--no-mmap allocates only the CPU-side expert tensors as anon memory, so nothing pages.
+llama.cpp's own load log had said: 'tensor overrides to CPU are used with mmap enabled
+- consider using --load-mode none for better performance'.
+
+## The flag is rig-dependent, not universally good
+srv2 (16 GB, tight):  --no-mmap is +63% over mmap
+srv1 (48 GB, roomy):  --no-mmap is -12% (22.19 vs 25.21) - mmap is fine, the copy costs
+
+## CORRECTION to the pre-swap advice
+I told you '16 GB is enough, measured' from a docker --memory=15g test that showed no
+penalty. That test was INVALID: the GGUF was already in the HOST page cache from earlier
+runs and charged outside the cgroup, so the limit never forced an eviction. On a real
+16 GB machine with a cold cache the model does not fit, and mmap pages continuously.
+The swap is still a net win - but only with --no-mmap, which the invalid test hid.
+
+## Final tuning (srv2, --no-mmap, n-cpu-moe 20)
+n-cpu-moe 18 and 16: REFUSE (out of VRAM) -> 20 is the empirical floor on a 12 GB card
+threads  6: 42.90 | 10: 42.86, 44.82 | 20: 45.16   -> t=20 wins now (was t=4/10 pre-swap)
+  threads matter again because bandwidth doubled: more cores can now be fed.
+
+## srv1 --no-mmap is consistently WORSE (keep mmap there)
+  n-cpu-moe 40: 22.19 vs 25.21 mmap | 44: 20.47 vs 24.66 | 48: 18.89 vs 23.08
+
+## SHIPPED: llama-moe.service updated to '--n-cpu-moe 20 -t 20 --no-mmap'
+verified through the service, 2 reps each:
+  SHORT decode 45.13 / 45.15   prefill  71.7 / 100.9
+  LONG  decode 44.14 / 44.14   prefill 621.8 / 652.2  (1694-token prompt)
+
+## Before / after, the shipped service
+                       pre-swap (-t 4, mmap)   post-swap (-t 20, --no-mmap)   delta
+  decode, long prompt        31.05                     44.14                  +42%
+  decode, short prompt       31.68                     45.14                  +42%
+  prefill, long prompt      386                       637                     +65%
+  vs the ollama baseline     28.82                     44.14                  +53%
+
+## Aggregate 30B capacity across both rigs
+  before: srv1 25.4 + srv2 31.6 = 57.0 tok/s
+  after:  srv1 25.2 + srv2 45.2 = 70.4 tok/s   -> +24%, zero cost
+  (predicted before the swap: ~68-70)
+
+## srv1 given the same service treatment — 2026-08-25
+unit: /etc/systemd/system/llama-moe.service on srv1, NOT enabled at boot
+  -m /home/adaramir/ggufs/qwen3-coder-30b.gguf -ngl 99 --n-cpu-moe 40 -t 5 -c 4096 -fa on
+  NO --no-mmap: srv1 has 48 GB, mmap is faster there (25.21 vs 22.19 at n-cpu-moe 40)
+  Conflicts=ollama.service + ollama.service.d drop-in; verified BOTH directions
+
+srv1 thread tune at n-cpu-moe 40 (mmap): t=4 -> 23.96 | t=5 -> 25.82 (PEAK, shipped) | t=6 -> 25.01
+  t=4 is 7% below t=5, so the peak is real and not just noise in a flat region.
+n-cpu-moe 36 refuses (6 GB card full); 38 was left untested - the sweep was stopped for time.
+
+verified through the service, 2 reps each:
+  SHORT decode 25.95 / 25.93   prefill 41.2
+  LONG  decode 25.29 / 25.30   prefill 98.6   (1694-token prompt)
+  repeatability 0.04%
+
+## Both rigs, final shipped configuration
+  srv1  1660S 6GB + 48GB @26.8GB/s : --n-cpu-moe 40 -t 5  mmap ON   -> 25.3-26.0 tok/s, prefill  98.6
+  srv2  3060 12GB + 16GB @23.8GB/s : --n-cpu-moe 20 -t 20 --no-mmap -> 44.1-45.2 tok/s, prefill 637
+  aggregate 30B decode: 70.4 tok/s (was 57.0 before the RAM swap, +24%, zero cost)
+
+## NOTE ON CURRENT STATE
+llama-moe is RUNNING on BOTH rigs, so ollama is stopped on both.
+Anything that dispatches to ollama:11434 will get connection refused until you run:
+  ssh srv1 sudo systemctl start ollama   # and/or srv2
+Neither llama-moe unit is enabled at boot, so a reboot returns both rigs to ollama.
+
+## Squeeze pass — 2026-08-25
+
+### srv1: n-cpu-moe below 40 (the direct ask). f16 KV, -t 5, -c 4096
+  nm=40 -> 25.82  (4,410 MiB)
+  nm=39 -> 26.00  (4,734 MiB)
+  nm=38 -> 26.83  (5,108 MiB)  <-- PEAK, SHIPPED
+  nm=37 -> 26.34  (5,444 MiB)  measured through the service, 3 reps, 0.04% spread
+  nm=36 -> refuses (measured in the earlier sweep)
+The curve TURNS OVER at 37: only ~700 MiB of headroom is left on the 6 GB card,
+and the lost room costs more than the extra GPU layer gains. 38 is the peak.
+
+### srv2: KV-cache quantization to free VRAM. -t 20, --no-mmap
+  nm=20 f16 KV -> 45.20  (11,297 MiB)  <-- still the best, UNCHANGED
+  nm=20 q8  KV -> 44.10  (11,117 MiB)  -2.4%
+  nm=18 q8  KV -> 42.27  (11,763 MiB)  -6.5%  (18 only LOADS with q8 KV)
+  nm=16, 14 q8 KV -> refuse, even at -c 2048
+q8_0 KV costs more in dequant than the extra GPU layers gain. srv2 is DRY.
+
+### srv1 also tested with q8_0 KV (late flush from the killed sweep)
+  nm=38 f16 KV -> 26.83  (5,108 MiB)
+  nm=38 q8  KV -> 26.40  (4,928 MiB)   -1.6%, frees 180 MiB
+The q8 penalty is the same sign and size on BOTH rigs (-1.6% srv1, -2.4% srv2), and the
+180 MiB it frees is under half a layer's worth. Combined with the f16 curve already turning
+over at nm=37, there is no combination left that beats nm=38 f16. srv1 is DRY too.
+
+### Shipped after the squeeze
+  srv1: --n-cpu-moe 38 -t 5 -c 4096 -fa on, mmap ON   -> 26.85 short / 26.10 long, prefill 100.7
+  srv2: --n-cpu-moe 20 -t 20 -c 4096 -fa on --no-mmap -> 45.15 short / 44.14 long, prefill 637
+  aggregate 30B decode: 72.0 tok/s   (was 70.4 before the squeeze; 57.0 pre-RAM-swap)
+
+### Harness defect seen in this pass (does not affect any number above)
+Piping the remote driver through 'sed' block-buffers its stdout, so cells completed on the
+rig without their lines reaching the caller. Cells were re-measured directly against the
+running server instead. srv1 also loads very slowly (~45-120 s per container restart),
+which is why its sweeps were stopped early twice.
+
+## Concurrency: dense-vLLM vs MoE-expert-offload — 2026-08-25
+
+### Q1a: did the RAM swap change vLLM dense concurrency?  NO.
+srv2, vLLM v0.26.0, no-eager, --max-model-len 1024 --max-num-seqs 256 --kv-cache-dtype fp8,
+475 tokens, ignore_eos, temperature 0 — the historical protocol, so directly comparable.
+  1.5B AWQ:  n=1 202.2 | n=8 1534.8 | n=32 4219.2 | n=128 5904.5 | n=256 6562.0
+             historical best cells: 6445.1 / 6452.2 / 6480.6 at n=256  -> UNCHANGED (+1.3%)
+  7B   AWQ:  n=1  67.3 | n=8  515.1 | n=32 1370.7 | n=128 1617.2
+             historical E2-2: 1604.7 at n=128                          -> UNCHANGED (+0.8%)
+A fully GPU-resident dense model never touches system RAM in the decode path, so
+32GB-single-channel -> 16GB-dual-channel is invisible to it. vLLM also loads fine on 16 GB.
+
+### Q1b: dense batches ~30x; MoE-with-CPU-experts batches ~2x.
+dense vLLM  1.5B: 202.2 -> 6562.0  = 32.5x   (n=1 -> n=256)
+dense vLLM  7B  :  67.3 -> 1617.2  = 24.0x   (n=1 -> n=128)
+MoE llama.cpp srv2 (nm=20): 42.48 -> 53.97 -> 64.88 -> 80.21 -> 87.34 = 2.06x (n=1..16)
+MoE llama.cpp srv1 (nm=38): 25.19 -> 28.99 -> 34.27 -> 36.07          = 1.43x (n=1..8)
+MECHANISM: dense batching reuses the SAME weight matrices across the batch, so one weight
+read serves every sequence. MoE expert offload routes different tokens to DIFFERENT experts,
+so batching multiplies the distinct expert tensors pulled over the RAM bus instead of
+amortising them. Concurrency is a GPU-residency benefit, not an offload benefit.
+NOTE: vLLM has no --n-cpu-moe equivalent, so a MoE too big for VRAM is not a vLLM workload.
+
+### Q2: two MoE models at once — YES, and VRAM is not the constraint
+srv1 (6 GB card, 45 GB RAM), two DIFFERENT MoE models, both expert-offloaded:
+  A qwen3-coder:30b     n-cpu-moe 48 -> 1,274 MiB VRAM
+  B deepseek-coder-v2:16b n-cpu-moe 27 -> 1,424 MiB VRAM
+  both resident: 2,702 MiB of 6,144 — 3.4 GB still free
+
+THREAD SIZING IS EVERYTHING (i5-9600K, 6 cores, no HT):
+  -t 5 each (10 threads on 6 cores):  solo 23.02 / 23.73 -> CONC 1.63 / 1.64  = 14x SLOWER
+                                       combined aggregate 3.26 tok/s  (a 7x net LOSS)
+  -t 3 each (6 threads on 6 cores):   solo 20.53 / 20.18 -> CONC 14.14 / 14.11 = 1.44x slower
+                                       combined aggregate 28.25 tok/s
+  => 8.7x difference from thread count alone. llama.cpp's threadpool SPIN-WAITS, so
+     oversubscribing cores collapses throughput far beyond the oversubscription ratio.
+  => sized correctly, two models beat one (28.25 vs the shipped single-model 26.83),
+     and the real win is having two different models live at once.
+
+### Incidental
+ollama's gpt-oss:20b blob will NOT load in llama.cpp b10481:
+  'unknown model architecture: gptoss'  — ollama uses its own arch tag.
+  ~/ggufs/gpt-oss-20b.gguf on srv1 (13.8 GB) is therefore dead weight.
+srv1 ~/ggufs now holds 39 GB (qwen3-coder-30b, deepseek-coder-v2-16b, gpt-oss-20b); 562 GB free.
