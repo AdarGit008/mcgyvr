@@ -3,10 +3,10 @@ Current phase: A1
 # Run plan v2 — the serving floor, and what a sweep costs
 
 Status: **draft, unapproved.** No issue number yet; per the #304 convention a plan's home is
-`docs/plans/<issue>/`, so this directory is renamed once one is filed. It does not amend
-`docs/plans/302/`; it depends on that plan's instrument and says so below.
+`docs/plans/<issue>/`, so this directory is renamed once one is filed. It does not amend #302,
+which was archived to `docs/archive/plans-302/` on 2026-08-25.
 
-Evidence: `docs/plans/302/evidence/verify/rig-reality-2026-08-25.md`. Every rig figure quoted
+Evidence: `records/measurements/serving-sweep-2026-08-25/rig-reality-2026-08-25.md`. Every rig figure quoted
 here is derived there and nowhere else.
 
 **v2 supersedes v1 (same file, 2026-08-25).** v1 ranked serving configurations by

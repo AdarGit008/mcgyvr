@@ -1,7 +1,7 @@
 {
   "_doc": "The host state this project DECLARES, as data rather than as prose in a session record. Filed 2026-08-22 to close the gap the K9 ruling named: the settings that decide residency were declared live on both rigs, and nothing in this repository stated them, set them, or would notice them regressing. A value here is the required value; a survey that disagrees is a defect, and `tests/test_declared_host_state.py` is where it is caught. This file states what must be true; applying it is a host action (see `apply`), because this repository does not reach into a rig's unit files.",
   "declared_on": "2026-08-22",
-  "source": "records/sessions/lane/286/2026-08-22-120000-claude.md:22-35 — the table of what each rig was and what both now are, and the owner's rule beneath it.",
+  "source": "docs/archive/sessions/lane/286/2026-08-22-120000-claude.md:22-35 — the table of what each rig was and what both now are, and the owner's rule beneath it.",
   "hosts": ["srv1", "srv2"],
 
   "residency": {
