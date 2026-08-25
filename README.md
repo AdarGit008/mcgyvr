@@ -13,8 +13,8 @@ workers you have, a deterministic acceptance gate, verification, and a PR.
 that can actually do the job.
 
 > **Status:** pre-v1, under construction. Scope of record is the
-> [issue tree](https://github.com/AdarGit008/mcgyvr/issues); forks and
-> rationale are in [`docs/decisions/`](docs/decisions/). Functionality is
+> [issue tree](https://github.com/AdarGit008/mcgyvr/issues); superseded
+> decision records are in [`docs/archive/`](docs/archive/). Functionality is
 > read from code, never from docs.
 
 ## How it works
@@ -75,8 +75,8 @@ tools and local models, with the gate as the acceptance bar.
 | `src/mcgyvr/` | The package |
 | `data/` | Capability table and its provenance |
 | `docs/config-reference.md` | Every config key — generated from the schema, not hand-written |
-| `docs/decisions/` | Decision records — forks and rationale only |
-| `records/` | Session records, judgments, claims, measurements |
+| `docs/archive/` | Decision records, claims, session records, plan #302 — history, not authority |
+| `records/` | Measurements, corpora, evidence |
 
 ## Prior work
 

@@ -11,14 +11,14 @@ Instrument: `measure.py`. Conditions: `conditions/`. Task set: `tasks/`.
 > exists because CLM-0012's null could not say whether it was about the language
 > or about the serving stack, and the answer turned out to be neither. See
 > [`python/README.md`](python/README.md).
-Prior run this repeats: [CLM-0004](../../records/claims/CLM-0004.json), designed
+Prior run this repeats: [CLM-0004](../../docs/archive/claims/CLM-0004.json), designed
 in [`context_size_experiment_2026-07-28.md`](../../records/evidence/local-ai-2026-08-02/research/context_size_experiment_2026-07-28.md).
 
 **The sweep has run, twice, and it found nothing.** `c0`/`c1`/`c2`/`c3` measured
 45/55/50/45% first-pass acceptance on `qwen2.5-coder:3b` — no rung separates
 from having no bundle at all. The result, both runs and the limits are in
 [`records/measurements/jsts-bundle-2026-08-04/`](../../records/measurements/jsts-bundle-2026-08-04/README.md);
-the claim is [CLM-0012](../../records/claims/CLM-0012.json). This document is
+the claim is [CLM-0012](../../docs/archive/claims/CLM-0012.json). This document is
 the instrument and its design — read the measurement record for what came out.
 
 ## What is under test

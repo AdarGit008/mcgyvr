@@ -256,25 +256,10 @@ def test_the_superseded_constant_is_gone_from_the_prose() -> None:
     )
 
 
-def test_the_constant_is_retired_everywhere_it_was_quotable() -> None:
-    """The doctrine applied to the document the first pass of it missed.
-
-    ADR-0027's rejection argument prices bound combinations at "~40 minutes
-    each". A test that checked only ``reproducibility.json`` let that copy
-    survive — which is the same failure as replacing a figure in one place and
-    calling it replaced, one level up.
-    """
-    adr = next(
-        (REPO / "docs" / "decisions").glob("0027-run-identity-is-one-block*.md")
-    ).read_text(encoding="utf-8")
-    assert "~40 minutes each" in adr, (
-        "the phrase this test pins moved; re-point it rather than deleting the "
-        "check, or the amendment below becomes unanchored"
-    )
-    _, _, amendments = adr.partition("## Amendment — 2026-08-16 (#289)")
-    assert amendments, (
-        "ADR-0027 still prices bound combinations at ~40 minutes with no "
-        "amendment correcting it — the constant is quotable there even though "
-        "reproducibility.json retired it"
-    )
-    assert "2.66x" in amendments and "rate-card.json" in amendments
+# The ADR-0027 cross-check that stood here is gone with its subject. It
+# asserted that ADR-0027's "~40 minutes each" carried the #289 amendment
+# retiring it, so the constant could not stay quotable in the record after
+# rate-card.json replaced it. The decision records were archived on
+# 2026-08-25 (docs/archive/decisions/) and no longer bind anything, so
+# there is nothing left for that check to keep in sync. rate-card.json is
+# still checked by the tests above.

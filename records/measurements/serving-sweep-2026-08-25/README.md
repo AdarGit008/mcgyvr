@@ -15,7 +15,7 @@ on srv1 and srv2 — model, `--n-cpu-moe`, `-t`, and KV-cache precision — to a
 is infrastructure: it sets Phase B's budget and decides nothing about any model's quality.
 
 **The engine was llama.cpp, not ollama.** Ollama was `inactive` on both hosts throughout
-(`docs/plans/302/evidence/verify/rig-reality-2026-08-25.md`). Cells naming a `/blobs/sha256-…`
+(`rig-reality-2026-08-25.md (this directory)`). Cells naming a `/blobs/sha256-…`
 path read a file out of ollama's blob store; the process reading it was `llama-server`. This is
 the binding CAV-02 requires — an explicit GGUF under llama-server, never an ollama tag.
 
