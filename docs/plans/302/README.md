@@ -141,9 +141,9 @@ the SURFACE before r2. Sub-items land in numbered order, one lane each.
 
 1. - [x] **#287** — both runners' resume-drift checks route through `identity.drift()`.
    DEC-9: `language`/`conditions_sha256` join GROUPS at this boundary (adopted line included).
-2. - [ ] **#286** — the observed block: writer in both runners; probe set (quantization,
+2. - [x] **#286** — the observed block: writer in both runners; probe set (quantization,
    context_length, concurrency, seed); file beside run.json. (probe_model verified live on srv2,
-   2026-08-18.)
+   2026-08-18.) DEC-14: `serving_resolved_sha256` joins GROUPS and KEY on this lane (#358).
 3. - [ ] **NEW issue — the grader joins the digest**: accept.py/checker bytes join tasks_sha256
    (breadth `tier_digests`; bundle equivalent); reference.py stays out, reason stated in code.
    Repairs product.py:59-61's false exclusion premise. Without it, P2's grader rulings would be
@@ -297,6 +297,9 @@ Each DEC's dated record (ADR amendment or judgment) rides the SAME PR as its enf
   `superseded_by`; retired.json frozen for new entries (its two stay as history). [P2.1/P2.3]
 - **DEC-13** Registry semantics: banner always; refusal on quote; starts empty (r1 control entry
   recorded as voided); criterion computed from run data, never asserted. [P2.5]
+- **DEC-14** `serving_resolved_sha256` joins GROUPS and KEY (#358, owner ruling 2026-08-25:
+  admitted, by qualification not perturbation); ADR-0027 amendment rides P1.2's PR. KEY is 12;
+  §0.1 binds by reference. A writer for the scored runners is owed as its own issue.
 
 ## 4. The control campaign's pre-signed outcome table (read at P3.3's decision gate)
 

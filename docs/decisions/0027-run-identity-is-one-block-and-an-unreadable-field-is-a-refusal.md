@@ -323,3 +323,38 @@ non-adopted: a pre-round directory was measured against a revision nobody
 recorded, and stamping today's onto it would invent one.
 
 Nothing else in D1-D9 changes.
+
+## Amendment — 2026-08-25 (#358, DEC-14): `KEY` grows one field, admitted by qualification
+
+**DEC-14.** `serving_resolved_sha256` joins `GROUPS["server"]` and `KEY`
+(`tools/bench/identity.py`, commit `1bb3ebed`). Owner ruling on #358,
+2026-08-25: *admitted*. `KEY` is twelve fields; §0.1 of the plan binds by
+reference, not by count.
+
+**What it is.** The digest of what the engine *resolved* — attention
+backend, sampler path, linear kernel, `dtype`, `kv_cache_dtype`, graph mode,
+launcher — read from the startup log and the engine config by
+`tools/bench/serving/fingerprint.py::resolved`, and null with a reason unless
+every declared field was read. It is not a digest of the request.
+
+**Why it enters without a perturbation run.** #276's rule admits a field by
+perturbation. `serving_build` was admitted under corollary 3 ("two builds are
+two instruments") — and `records/evidence/2026-08-24-resolved-config/` shows
+two hosts answering the same `vllm 0.26.0` while running different kernels
+(srv1 `TRITON_ATTN` + torch sampler, srv2 `FLASH_ATTN` + FlashInfer;
+digests `5ac25112…` / `75fd5838…`). The string `serving_build` holds names
+the engine, not the instrument. A field that repairs a keyed field's stated
+justification enters beside it; that is the qualification, and it is the
+reason this is the owner's ruling rather than a perturbation result.
+
+**What it costs, stated.** Only `tools/bench/serving/` writes the field
+(`calibrate.py`, `backends/vllm.py`). The breadth and bundle `run.json`
+writers do not, and every record written before 2026-08-24 carries no value
+for it — so `require_comparable` refuses a table mixing such rows on absence,
+and `allow_unfingerprinted=True` is how a reader takes them deliberately
+(D3). A writer for the scored runners is owed and is a separate issue, not a
+widening under #286 or #358.
+
+Nothing else in D1–D9 changes. The canary is
+`tests/test_bench_resolved_config.py`: two rows identical in every keyed
+field but this one, and the contrast declines them.
