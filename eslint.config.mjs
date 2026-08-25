@@ -19,15 +19,6 @@
 // bench are paired, so a bar that is materially harsher on one side would show
 // up as a language effect that is really a rule-selection effect.
 //
-// **What is not linted, and why.** `tools/baseline/` is a vendored, hash-pinned
-// tree (REC-06) — linting it invites edits that break the pin. The task corpora
-// are instrument material: their contents are fixed by digest in their
-// admission manifests, and a formatter run there does not tidy anything, it
-// invalidates a pin. These mirror `extend-exclude` in `pyproject.toml`.
-//
-// The bench copies this file into each scored workspace (`tools/bench/score.py`)
-// so a candidate is judged by the project's bar rather than by whatever eslint
-// falls back to when it finds no configuration.
 
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
@@ -35,7 +26,6 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      "tools/baseline/**",
       "records/evidence/**",
       "tools/bundle/tasks/**",
       "tools/bundle/python/tasks/**",
