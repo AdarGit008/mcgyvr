@@ -22,7 +22,6 @@ outlived the record that created it.
 from __future__ import annotations
 
 import ast
-import re
 from pathlib import Path
 
 import pytest
@@ -210,24 +209,9 @@ def test_canary_a_role_bound_as_a_name_is_refused(tmp_path: Path) -> None:
     )
 
 
-def test_canary_the_adr_names_every_check_in_this_file() -> None:
-    """ADR-0037 rule 3 from the other side: the record and the file agree.
-
-    The resolver proves each named check exists. This proves the file holds no
-    check the record forgot to name -- a test that enforces a decision nobody
-    can find from the decision is the same loss, mirrored.
-    """
-    adr = next((REPO / "docs" / "decisions").glob("0038-*.md")).read_text(
-        encoding="utf-8"
-    )
-    named = set(re.findall(r"tests/test_run_contract\.py::(test_\w+)", adr))
-    defined = {
-        node.name
-        for node in ast.parse(Path(__file__).read_text(encoding="utf-8")).body
-        if isinstance(node, ast.FunctionDef)
-        and node.name.startswith("test_")
-        and not node.name.startswith("test_canary_")
-    }
-    assert defined == named, (
-        f"ADR-0038 names {sorted(named)}; this file defines {sorted(defined)}"
-    )
+# ADR-0037 rule 3's mirror stood here: it read ADR-0038 and required this
+# file to define exactly the checks that record named. Both halves of that
+# pairing are gone with their corpus -- the decision records were archived
+# on 2026-08-25 (docs/archive/decisions/) and no longer govern anything, so
+# a test asserting agreement with one would be the archive governing by the
+# back door. The checks it counted are all still here and still run.

@@ -114,3 +114,52 @@ under q8_0 KV) and two are the `gptoss` architecture failure. No cell was droppe
 No model was scored. No task passed or failed. Phase B — the per-family floor map and pass@<=k
 per 1,000 tokens — has not run, and cannot be recorded as a measurement until P0.1 and P0.2
 land. Nothing about vLLM was measured in this session on either host.
+
+---
+
+## CORRECTION — 2026-08-25, on rebase onto main
+
+This record was written against `main@f2d9ddb9` and is five commits stale. Rebasing it onto
+`main@b8247a75` puts it beside work that measures the same flag on the same two rigs and
+**refutes three of its claims**. They are corrected here rather than edited above: the numbers
+were really measured, and what they are numbers *about* is narrower than the text says.
+
+**1. Every cell ran at llama.cpp's default `-np 4`, so no `tasks/h @8` figure above is a
+property of its configuration.** #366 is a correction issued for this exact defect — "a level of
+n=16 was four concurrent sequences and twelve queued." An 8-way burst against 4 slots is four
+served and four queued, which is what the 29.0 / 39.1 split in the arrival measurement was
+showing. #366 varies `-np` and the figure moves hard: 35B-A3B IQ3_XXS at `--n-cpu-moe 25` and
+**32 slots** reaches **254.5 tok/s at n=32**, against this record's best of ~67 tok/s single-stream
+at 4 slots. Read every `tasks/h @8` column here as *tasks/h at 8 requests against 4 slots*.
+
+**2. The `--n-cpu-moe` descent walked to the refusal, which #364 names as the wrong search.**
+"The curve is not monotone at the edge. n-cpu-moe 37 is slower than 38 while still loading, so a
+search that walks to the refusal picks the wrong cell." srv2's ncmoe 4 (406 MiB spare, ncmoe 2
+OOM) and srv1's ncmoe 28 (27 OOM) are exactly cells found that way. They are the fastest cells
+*measured*; they are not established as the fastest cells.
+
+That defect compounds with the first: tuning ncmoe to the VRAM wall is what left 406 MiB and made
+`--parallel` look unreachable. #366's best configuration spends VRAM on slots instead
+(`--n-cpu-moe 25`, 32 slots), which this record's search could not reach because it optimised
+single-stream throughput first.
+
+**3. The two "legal cross-host contrasts" are confounded by `--no-mmap`.** srv2 carried it in
+every cell and srv1 in none. #364 measures that flag at **+63% on a 16 GB host and −12..−18% on a
+48 GB one** — precisely srv2 and srv1. The 1.95x and 1.32x ratios fold host, thread count and
+`--no-mmap` together. The byte-identity of the weights and the identity of the build hold; the
+contrast does not.
+
+**4. The harness beside this file duplicates one that already exists.** `tools/bench/serving/`
+(#318) carries `launch.py`, `knobs.py`, `calibrate.py`, its own `sweep.py`, `fingerprint.py`, and
+backends for both ollama and vLLM, with the rigs declared in `configs/hosts.json`. A re-run
+belongs there. `sweep.py` here is kept only because it is what produced these rows.
+
+**5. Withdrawn: "nothing about vLLM was measured in this session on either host" was written as
+though it described the repository.** It describes this session only. `records/evidence/` on main
+holds ten vLLM measurement directories, including a 140-cell config sweep
+(`2026-08-24-config-sweep/`) in which 36 cells were refusals and one flag was worth 5.02x on srv2.
+
+**What survives.** The rig facts in `rig-reality-2026-08-25.md` (both hosts' RAM against the 32 GB
+in ADR-0024 and `capability-table.json`, the byte-identical GGUF digests, `gpt-oss-20b` failing to
+load on b10481 as `unknown model architecture: 'gptoss'`), and the single-stream S1 column, which
+is a measurement of a named configuration and does not depend on `-np`.
