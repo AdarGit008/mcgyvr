@@ -1,0 +1,66 @@
+[
+ {
+  "host": "srv1",
+  "label": "A1-1 qwen3-coder-30b",
+  "model": "qwen3-coder-30b",
+  "model_path": "/models/qwen3-coder-30b.gguf",
+  "params_b": 30.5,
+  "bytes": 18556688736,
+  "sha256": "1194192cf2a187eb02722edcc3f77b11d21f537048ce04b67ccf8ba78863006a",
+  "args": "-ngl 99 --n-cpu-moe 38 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ },
+ {
+  "host": "srv1",
+  "label": "A1-2 Qwen3.6-35B-A3B",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 38 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ },
+ {
+  "host": "srv1",
+  "label": "A1-3 gpt-oss-20b",
+  "model": "gpt-oss-20b",
+  "model_path": "/models/gpt-oss-20b.gguf",
+  "params_b": 20.9,
+  "bytes": 13793422144,
+  "sha256": "e7b273f9636059a689e3ddcab3716e4f65abe0143ac978e46673ad0e52d09efb",
+  "args": "-ngl 99 --n-cpu-moe 20 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ },
+ {
+  "host": "srv1",
+  "label": "A1-4 Qwen2.5-Coder-7B IQ4_XS (dense)",
+  "model": "Qwen2.5-Coder-7B-Instruct-IQ4_XS",
+  "model_path": "/models/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf",
+  "params_b": 7.6,
+  "bytes": 4218473248,
+  "sha256": "f7eff217195ff98092353ab2a101882e5a756513d6080d6fdd6bcae2f21831ac",
+  "args": "-ngl 99 -t 5 -c 4096 -fa on",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ]
+  ]
+ }
+]

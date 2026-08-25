@@ -98,5 +98,5 @@ uv run --no-sync python tools/breadth/measure.py --out <dir> --summarise-only
 ```
 
 The result lives in `records/measurements/` and its claim in
-`records/claims/` — read those for what came out; this document is the
+`docs/archive/claims/` — read those for what came out; this document is the
 instrument.

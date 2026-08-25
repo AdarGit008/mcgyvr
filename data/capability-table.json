@@ -18,18 +18,32 @@
       "gpu": "NVIDIA GeForce GTX 1660 SUPER",
       "vram_gb": 6,
       "architecture": "Turing",
+      "compute_capability": "7.5",
       "cuda_cores": 1408,
       "cpu": "Intel i5-9600K (6c/6t)",
-      "ram_gb": 32
+      "ram_gb": 48,
+      "_ram_gb": "Corrected 2026-08-25 from 32. dmidecode: 16 GB in ChannelA-DIMM1 + 32 GB in ChannelB-DIMM1 at 3200 MT/s, a mismatched pair, so only the paired 32 GB interleaves. `free -g` reports 45 total.",
+      "host": "srv1"
     },
     "rig_b": {
       "gpu": "NVIDIA GeForce RTX 3060",
       "vram_gb": 12,
       "architecture": "Ampere",
+      "compute_capability": "8.6",
       "cuda_cores": 3584,
       "cpu": "Intel i9-10900F (10c/20t)",
-      "ram_gb": 32
-    }
+      "ram_gb": 16,
+      "_ram_gb": "Corrected 2026-08-25 from 32. dmidecode: 8 GB in ChannelA-DIMM0 + 8 GB in ChannelB-DIMM0 at 2667 MT/s, one DIMM per channel, so dual channel. `free -g` reports 15 total. ADR-0024 additionally recorded this rig as single-channel 2933; it is neither.",
+      "host": "srv2"
+    },
+    "_correction": {
+      "date": "2026-08-25",
+      "what": "Both rigs read ram_gb 32. Neither was 32: rig_a is 48 and rig_b is 16.",
+      "method": "ssh <host> 'sudo dmidecode -t memory' and 'free -g' on both rigs. Derivation: records/measurements/serving-sweep-2026-08-25/rig-reality-2026-08-25.md.",
+      "why_it_matters": "This file is what `mcgyvr init` reads to propose worker bindings without benchmarking the user's machine. Host RAM is what decides whether a model larger than the card can be served at all by MoE expert offload, and the table was proposing against a rig_b twice its real size.",
+      "not_corrected_here": "The same figure appears in ADR-0024, archived to docs/archive/decisions/ on 2026-08-25. An archived record is history and is not edited."
+    },
+    "_host_mapping": "rig_a is srv1 and rig_b is srv2, matched by GPU: nvidia-smi reports GTX 1660 SUPER / 6144 MiB / cc 7.5 on srv1 and RTX 3060 / 12288 MiB / cc 8.6 on srv2 (2026-08-25). The labels predate the hostnames appearing anywhere in this repository; tools/bench/serving/configs/hosts.json declares srv1/srv2 directly."
   },
   "harness_caveats": [
     {

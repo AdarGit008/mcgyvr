@@ -1,7 +1,0 @@
-{
-  "_preset": "internal-tool — a CLI, script, or internal library with no competitive/novelty claims and no service to operate. Lean: build/test/quality/security/context on, CLAIM-* and OPS off. Good default for a utility repo.",
-  "project_type": "node",
-  "_project_type": "use 'python' for a Python CLI, 'library' if it's a published package.",
-  "makes_external_claims": false,
-  "bootstrap_command": "npm ci && npm test"
-}

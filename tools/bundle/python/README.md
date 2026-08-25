@@ -1,7 +1,7 @@
 # The Python arm — the control CLM-0012 could not run
 
 Issue: [#167](https://github.com/AdarGit008/mcgyvr/issues/167).
-Claim: [CLM-0017](../../../records/claims/CLM-0017.json).
+Claim: [CLM-0017](../../../docs/archive/claims/CLM-0017.json).
 Result: [`records/measurements/python-bundle-2026-08-07/`](../../../records/measurements/python-bundle-2026-08-07/README.md).
 Instrument: `../measure.py --language python`. Comparison: `compare.py`.
 Positive control: `output_rule_probe.py`.

@@ -1,0 +1,62 @@
+[
+ {
+  "host": "srv2",
+  "label": "A2b-1 Qwen3.6-35B-A3B ncmoe6",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 6 -t 20 -c 4096 -fa on --no-mmap",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ],
+   [
+    "/usr/share/ollama/.ollama/models/blobs",
+    "/blobs"
+   ]
+  ]
+ },
+ {
+  "host": "srv2",
+  "label": "A2b-2 Qwen3.6-35B-A3B ncmoe4",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 4 -t 20 -c 4096 -fa on --no-mmap",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ],
+   [
+    "/usr/share/ollama/.ollama/models/blobs",
+    "/blobs"
+   ]
+  ]
+ },
+ {
+  "host": "srv2",
+  "label": "A2b-3 Qwen3.6-35B-A3B ncmoe2",
+  "model": "Qwen3.6-35B-A3B-UD-IQ3_XXS",
+  "model_path": "/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+  "params_b": 35.0,
+  "bytes": 13211155424,
+  "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe",
+  "args": "-ngl 99 --n-cpu-moe 2 -t 20 -c 4096 -fa on --no-mmap",
+  "mounts": [
+   [
+    "/home/adaramir/ggufs",
+    "/models"
+   ],
+   [
+    "/usr/share/ollama/.ollama/models/blobs",
+    "/blobs"
+   ]
+  ]
+ }
+]
