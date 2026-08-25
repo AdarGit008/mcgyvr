@@ -1,0 +1,62 @@
+{
+  "record": "run-header/1",
+  "id": "2026-08-25-moe-expert-offload",
+  "declared": "2026-08-25",
+  "retroactive": true,
+  "question": "ADR-0039 and ADR-0040 make a serving memory declaration a quantity in bytes and a placement fraction an engine property, but every cell behind them puts the whole model on the card. A mixture-of-experts model can instead declare a split: attention and KV cache on the card, the expert FFN weights of N layers in system RAM (llama.cpp's --n-cpu-moe; ollama cannot express it, ollama/ollama#11772). Three things about that declaration are unknown and each of them would change how a rung prices a MoE source. First, what does the split actually cost -- is the rate a smooth function of N, so a search can walk it, and where does the engine refuse? Second, is the cost a property of the card or of the host's memory, which decides whether a cell recorded on one rig transfers to another? Third, does a split model batch like a resident one -- the whole concurrency story in ../2026-08-24-config-sweep/ is dense and on-card, and a scheduler that reuses that curve for an offloaded MoE would be wrong by whatever the gap is. Measured as: a --n-cpu-moe sweep on both rigs against one byte-identical GGUF, with the alternatives to a memory explanation removed by two single-rig controls (turbo on/off, thread count 1..20); a concurrency ramp on the offloaded model against a vLLM dense ramp re-taken under the 2026-08-24 protocol as its control; and a co-residency cell with two different offloaded MoE models on one card.",
+  "arms": [
+    "srv1 (GTX 1660 SUPER 6 GB) and srv2 (RTX 3060 12 GB), llama.cpp server-cuda-b10481, qwen3-coder:30b Q4_K_M -- the identical 18,556,688,736-byte file, rsync'd from srv2's ollama blob to srv1 so both rigs serve the same weights rather than two downloads. -ngl 99 -c 4096 -fa on, 128 tokens after an untimed 32-token warm-up, temperature 0, cache_prompt false.",
+    "Alternative-removal on srv2 alone, holding the host fixed: intel_pstate no_turbo 1 -> 0 (2.8 -> 5.2 GHz) at four operating points, and -t in {1,2,4,10,20}. srv1's thread scan over {1,2,4,5,6}. If clock and cores are worth little and the cross-rig gap persists at matched card usage, the gap is the memory system.",
+    "vLLM v0.26.0 dense control, 1.5B and 7B AWQ, re-taken under the 2026-08-24 protocol (475 tokens, ignore_eos, temperature 0, levels to n=256) so it is directly comparable to that campaign's cells -- and so it also answers whether a host memory change is visible to a fully resident model at all.",
+    "Co-residency: two DIFFERENT offloaded MoE models on srv1's card at once (qwen3-coder:30b and deepseek-coder-v2:16b), each solo and then both generating, at two thread counts."
+  ],
+  "hosts": ["srv1", "srv2"],
+  "cost": {
+    "estimate_minutes": {
+      "unknown": true,
+      "searched": [
+        "No prior --n-cpu-moe cell exists in this tree to estimate from; ../2026-08-24-engine-sweep/ has llama-server wall-clocks but only for fully resident 1.5B cells.",
+        "The run was not estimated in advance because it began as an ad-hoc question and became a campaign; this header is retroactive and does not invent a figure it never had."
+      ]
+    },
+    "actual_note": "Dominated by container reloads, not by generation. srv1 reloads the 18.56 GB file in 45-120 s per cell, which is why two of its sweeps were stopped early; srv2 reloads in roughly a third of that.",
+    "source": "driver logs under drivers/, and the wall-clocks in raw-postswap-squeeze-concurrency.txt"
+  },
+  "could_have_carried": [
+    "A second MoE model through the whole --n-cpu-moe sweep rather than only through the co-residency cell, which would say whether the non-monotone edge at n-cpu-moe 37 is this model's layer shape or a general property of running the card near full.",
+    "Quality. Every cell records tokens produced; none records whether the tokens are right, and the q8_0 KV cells in particular change numerics without any check that the output survived it.",
+    "The prefill curve at the shipped operating points. Prefill was captured, but only at two prompt shapes (10 and 1,694 tokens), so it is two points on a line nobody fitted."
+  ],
+  "left_on_table": [
+    "Repeats. One pass per cell except where a row says otherwise, so the srv1 spread (5-10%) is a floor read off two accidental repeats rather than a measured distribution.",
+    "srv1's q8_0 KV cells below n-cpu-moe 38, and n-cpu-moe 38 on srv1 under --no-mmap: both sweeps were stopped for time and their cells are absent, not zero.",
+    "Whether the 1.4-1.6x cross-rig ratio holds once srv2's memory was changed -- the post-swap sweeps re-measured each rig against itself, and no matched-card-usage cross-rig pair was re-taken afterwards.",
+    "The dense-vs-offload concurrency comparison is between two engines as well as two placements. vLLM has no --n-cpu-moe, so the confound cannot be removed without a llama.cpp dense ramp, which was not run."
+  ],
+  "prerequisites": [
+    "One byte-identical GGUF on both rigs: srv1 had no copy of qwen3-coder:30b, so the run began by rsync'ing srv2's ollama blob to srv1:~/ggufs/ and both were checked at 18,556,688,736 bytes before any cell.",
+    "Both rigs idle at 1 MiB with no container of ours running, confirmed before the first cell.",
+    "llama.cpp server-cuda-b10481 already present on both hosts from ../2026-08-24-engine-sweep/, so no image pull enters the wall-clock."
+  ],
+  "void_if": [
+    "A cell's two rigs are not serving the same weights -- the whole cross-rig arm rests on the copied file, and a re-pull would void it.",
+    "A second claimant appears on either card during a cell. The co-residency arm is the one place two claimants are intended, and it says so.",
+    "The host's memory configuration changes mid-arm. It did change between the pre-swap and post-swap sweeps, deliberately, and the two are reported as separate arms rather than pooled -- pooling them would be the void case."
+  ],
+  "run": {
+    "started": "2026-08-25T04:35",
+    "ended": "2026-08-25T12:10",
+    "wall": "about 7.5 h across both rigs, mostly container reloads; unestimated",
+    "driver": "drivers/ in the evidence directory -- moerun.sh, squeeze.py, c2run.py, conc.py, vllmramp.py, memcap.py, triad.c, sysinfo.sh; run over ssh, one rig at a time except where an arm says both concurrently",
+    "phases": [
+      "hosts as read (sysinfo.sh, triad.c) and ollama's automatic placement across every model srv2 holds",
+      "--n-cpu-moe sweeps on both rigs, plus thread scans and the srv2 turbo control",
+      "srv2 memory changed 32 GB single-channel -> 16 GB dual-channel; both rigs re-swept, --no-mmap tested on each",
+      "squeeze pass (n-cpu-moe below the shipped value, q8_0 KV) on both rigs",
+      "concurrency ramps: offloaded MoE on both rigs, vLLM dense control on srv2",
+      "two offloaded MoE models co-resident on srv1 at two thread counts"
+    ],
+    "outcome": "25 of 25 intended arms produced a reading or a recorded refusal. Two srv1 sweeps were stopped early for time and their remaining cells are absent rather than zero; one cgroup-cap cell is kept and marked invalid."
+  },
+  "notes": "Filed as research, not against an open issue. The record is records/evidence/2026-08-25-moe-expert-offload/. Scope: this is a serving-knob measurement in the line of ../2026-08-22-coresidency-feasibility/ and ../2026-08-24-engine-sweep/, admitted here for the reason ADR-0038 gives. The same session also produced a ranked hardware buy list (RAM, GPU, CPU, motherboard, with prices); that half is host-shopping and is deliberately NOT in this repo, which states the contract rather than which host to buy. Two results are corrections to things this session itself had asserted earlier and both are kept in the raw files rather than edited out: a docker --memory cap that appeared to show 16 GB was sufficient was invalid because the file was already in the host page cache outside the cgroup, and an n-cpu-moe search that assumed monotonicity would have picked 37 over 38 on srv1."
+}

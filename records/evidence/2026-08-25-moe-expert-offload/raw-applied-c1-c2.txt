@@ -1,0 +1,51 @@
+# C1 + C2 APPLIED on srv2 — 2026-08-25
+
+## C1: turbo enabled, persistent
+unit: /etc/systemd/system/cpu-turbo.service (enabled at boot)
+no_turbo 1 -> 0 ; cpuinfo_max_freq 2800000 -> 5200000 ; RAPL PL1 still 65W (never binds: max observed 40.0 W)
+
+## C2: llama-server MoE expert offload, n-cpu-moe 20, -t 4, port 8080
+unit: /etc/systemd/system/llama-moe.service (NOT enabled at boot)
+mutual exclusion: llama-moe Conflicts=ollama.service and drop-in ollama.service.d/10-conflicts-llama-moe.conf
+  -> starting either one stops the other; verified both directions
+
+## thread sweep at n-cpu-moe 20, turbo ON (decode / prefill / package watts)
+srv2	C2_TURBO_ON	ncpumoe=20	t=4	SHORT	vram=11283	decode=31.32	prefill=53.8	prompt_tok=10	pkg_W=22.8	MHz=2420
+srv2	C2_TURBO_ON	ncpumoe=20	t=4	LONG 	vram=11283	decode=30.80	prefill=384.5	prompt_tok=1694	pkg_W=16.6	MHz=2150
+srv2	C2_TURBO_ON	ncpumoe=20	t=10	SHORT	vram=11283	decode=30.20	prefill=64.1	prompt_tok=10	pkg_W=40.0	MHz=2960
+srv2	C2_TURBO_ON	ncpumoe=20	t=10	LONG 	vram=11283	decode=29.31	prefill=384.3	prompt_tok=1694	pkg_W=25.3	MHz=2826
+srv2	C2_TURBO_ON	ncpumoe=20	t=20	SHORT	vram=11283	decode=31.83	prefill=64.1	prompt_tok=10	pkg_W=39.6	MHz=3500
+srv2	C2_TURBO_ON	ncpumoe=20	t=20	LONG 	vram=11283	decode=31.30	prefill=384.0	prompt_tok=1694	pkg_W=24.7	MHz=3500
+
+## before/after, same session, same prompts
+ollama qwen3-coder:30b (turbo on)   SHORT decode=28.90 prefill=50.5 ; LONG decode=28.82 prefill=363.8 (1702 tok)
+llama-moe.service applied           SHORT decode=31.68/31.70/31.53   ; LONG decode=31.05/31.10/30.97 prefill=385.9/391.3/381.1 (1694 tok)
+=> decode +7.8% (long) to +9.7% (short); prefill +6.8%. Repeatability within 0.2%.
+
+## measured reason the two must not share the card
+with llama-moe holding 11.3 GiB, ollama placed qwen2.5-coder:1.5b at 93%/7% CPU/GPU
+and read 22.20 tok/s (vs 114.9 single-stream fully resident) — HTTP 200, correct output, ~5x slower.
+
+## revert
+  sudo systemctl start ollama            # stops llama-moe, gives the card back
+  sudo systemctl disable --now cpu-turbo # restores no_turbo=1
+
+## Zero-cost reshuffle evidence — 2026-08-25
+Q: is 16 GB enough for MoE expert offload (i.e. can srv2 live on the 2x8 pair)?
+Method: same container, docker --memory=15g --memory-swap=15g vs unlimited (31 GB).
+n-cpu-moe=20 mem=unlimited(31G)	decode=31.43	prefill=53.6	vram=11283	cgroup_mem=326.9MiB / 30.27GiB	wall=5.3s
+n-cpu-moe=20 mem=15g	decode=31.55	prefill=54.0	vram=11283	cgroup_mem=327.5MiB / 15GiB	wall=5.2s
+n-cpu-moe=40 mem=unlimited(31G)	decode=18.57	prefill=31.6	vram=4457	cgroup_mem=325.9MiB / 30.27GiB	wall=8.2s
+n-cpu-moe=40 mem=15g	decode=18.42	prefill=31.6	vram=4457	cgroup_mem=324.2MiB / 15GiB	wall=8.2s
+=> A 15 GiB cap costs NOTHING at either operating point. llama.cpp mmaps the GGUF,
+   so the weights live in reclaimable page cache backed by NVMe (1.34 GB/s); the cap never binds.
+   docker stats anon memory is only ~326 MiB in every cell.
+
+## sockets — a CPU swap is physically impossible
+srv1 i5-9600K  Upgrade: Socket LGA1151  (Z390)
+srv2 i9-10900F Comet Lake              (H410 = LGA1200)
+
+## 1660 SUPER ceilings (from the footprint table + the n-cpu-moe sweep)
+dense on 6 GB: qwen2.5-coder:7b 4,618 MiB OK ; yi-coder:9b 5,275 MiB OK ; 14b 9,171 MiB NO
+MoE  on 6 GB: qwen3-coder:30b (18.56 GB file) RUNS at n-cpu-moe 40-48, 21.60-25.43 tok/s
+=> the card serves a 30B MoE but only a ~9B dense. MoE is its STRENGTH, not its exclusion.

@@ -1,0 +1,27 @@
+# Rig sweep 2026-08-25 — raw
+# ollama /api/generate, 128 tokens, temp 0, num_ctx 2048, cold load, card released between models
+
+## CPU-only decode (pure RAM-bandwidth contrast)
+srv1	qwen2.5-coder:7b	CPU_ONLY	decode_toks=128	decode_tok_s=7.79	prefill_tok_s=36.2	load_s=5.1	total_s=22.6
+srv1	qwen2.5-coder:1.5b	CPU_ONLY	decode_toks=128	decode_tok_s=33.26	prefill_tok_s=182.8	load_s=1.4	total_s=5.4
+srv2	qwen2.5-coder:7b	CPU_ONLY	decode_toks=128	decode_tok_s=4.52	prefill_tok_s=39.3	load_s=7.1	total_s=36.4
+srv2	qwen2.5-coder:1.5b	CPU_ONLY	decode_toks=128	decode_tok_s=19.48	prefill_tok_s=187.5	load_s=1.9	total_s=8.7
+
+## GPU decode
+srv1	qwen2.5-coder:7b	GPU_FULL	decode_toks=128	decode_tok_s=50.11	prefill_tok_s=121.0	load_s=2.4	total_s=5.3
+srv2	qwen2.5-coder:7b	GPU_FULL	decode_toks=128	decode_tok_s=66.57	prefill_tok_s=325.0	load_s=3.1	total_s=5.1
+
+## srv2 residency sweep + forced-CPU anchors
+--- srv2: auto-placement (what the rig does today) ---
+srv2	qwen3-coder:30b	AUTO	decode_tok_s=28.62	prefill_tok_s=43.5	load_s=31.3	placement=
+srv2	qwen3:30b-a3b	AUTO	decode_tok_s=28.19	prefill_tok_s=50.9	load_s=58.5	placement=
+srv2	gpt-oss:20b	AUTO	decode_tok_s=40.85	prefill_tok_s=100.1	load_s=39.1	placement=
+srv2	nemotron-3-nano:30b-a3b-iq2	AUTO	decode_tok_s=13.18	prefill_tok_s=25.5	load_s=28.0	placement=18 GB 67%/33%
+srv2	qwen2.5-coder:14b	AUTO	decode_tok_s=34.57	prefill_tok_s=218.9	load_s=12.8	placement=9.1 GB 100%
+srv2	deepseek-coder-v2:16b	AUTO	decode_tok_s=134.34	prefill_tok_s=65.7	load_s=11.0	placement=9.5 GB 100%
+srv2	qwen3-coder-next-ud:q3_K_XL	AUTO	decode_tok_s=15.76	prefill_tok_s=0.7	load_s=49.4	placement=36 GB 70%/30%
+--- srv2: CPU-only (pure RAM-bandwidth term) ---
+srv2	qwen3:30b-a3b	CPU_ONLY	decode_tok_s=9.05	prefill_tok_s=9.7	load_s=49.9	placement=18 GB 100%
+srv2	gpt-oss:20b	CPU_ONLY	decode_tok_s=5.30	prefill_tok_s=42.6	load_s=20.5	placement=13 GB 100%
+
+[exited with code 0]
