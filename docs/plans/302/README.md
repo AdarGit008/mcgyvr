@@ -366,3 +366,16 @@ arithmetic stated.
   obstacle; outcome table row 4 owns it.
 - KEY growth (11→12→~18) makes some historical cross-round reads refuse harder over time — by
   design, but stated.
+
+## Amendment — 2026-08-25 (#365): the plan is paused; real commits become the tasks
+
+Owner decision, quoted from the 2026-08-25 session: *"pause dev. start using. record.
+script to control. review after a month — let the results decide the bench."* Then, on the
+unit of work: *"just take commits from my repos"*; admission *"code+test, no prompt. we judge
+by output vs issue body"*; *"each multifile task is a multifile task that needs to decompose
+into one file tasks. its up to decompose and the orchestrator."*
+
+Effect on this plan: no DEC-n is reversed and no checkbox moves. P1.3–P1.10 wait behind #365,
+which builds the loop that lets the orchestrator receive a task (`tools/missions/`, off-SURFACE;
+five RED tests first). The pool is a fixed local ladder with no API source. What the month of
+use shows decides what r2 is for; this block is the record that the sequencing changed and why.
