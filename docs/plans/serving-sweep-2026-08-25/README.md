@@ -2,7 +2,12 @@ Current phase: A1
 
 # Run plan v2 — the serving floor, and what a sweep costs
 
-Status: **draft, unapproved.** No issue number yet; per the #304 convention a plan's home is
+Status: **superseded on rebase, 2026-08-25.** `tools/bench/serving/` (#318) already implements
+this plan's Phase A with both engines and the rigs declared in `configs/hosts.json`, and #364/#366
+already ran the `--n-cpu-moe` axis more carefully. Phase B's floor question is the part still
+unanswered. Kept as the design that produced
+`records/measurements/serving-sweep-2026-08-25/`, whose CORRECTION section lists what it got
+wrong. Originally: **draft, unapproved.** No issue number yet; per the #304 convention a plan's home is
 `docs/plans/<issue>/`, so this directory is renamed once one is filed. It does not amend #302,
 which was archived to `docs/archive/plans-302/` on 2026-08-25.
 
@@ -232,8 +237,9 @@ sweeps and is currently serving an 18.6 GB MoE.
 ## What this plan does not do
 
 - **No ceiling work.** ADR-0017: the floor is the product. The API tier is not measured here.
-- **No vLLM.** srv2 has none installed, srv1's card is sm_75, and no MoE candidate fits either card
-  in a vLLM format (Qwen3.6-35B-A3B is 24.97 GB at AWQ INT4, 37.46 GB at FP8). CON-04/05/06 in
+- **No vLLM** *(written before the rebase; `tools/bench/serving/backends/vllm.py` exists on main
+  and `records/evidence/` holds ten vLLM measurement directories)*. srv2 has no local install,
+  srv1's card is sm_75, and no MoE candidate fits either card in a vLLM format (Qwen3.6-35B-A3B is 24.97 GB at AWQ INT4, 37.46 GB at FP8). CON-04/05/06 in
   `data/capability-table.json` were measured under vLLM on rig_b, which today has no vLLM — that
   provenance gap is a P0.3 item, not a reason to re-run them.
 - **No new model pulls.** Every file this plan touches is already staged on both hosts.
