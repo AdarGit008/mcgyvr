@@ -1,0 +1,35 @@
+# Rig sweep v2 — MoE expert offload (--n-cpu-moe), 2026-08-25
+# llama.cpp server-cuda-b10481, qwen3-coder:30b Q4_K_M 18,556,688,736 B (identical file both rigs)
+# -ngl 99 -c 4096 -fa on, 128 tok after 32-tok warmup, temp 0, timings.predicted_per_second
+
+## n-cpu-moe sweep
+srv1	NSWEEP	ncpumoe=48	threads=6	decode_tok_s=21.60	prefill_tok_s=44.3	vram_mib=1472
+srv1	NSWEEP	ncpumoe=44	threads=6	decode_tok_s=25.37	prefill_tok_s=44.7	vram_mib=2966
+srv1	NSWEEP	ncpumoe=40	threads=6	decode_tok_s=25.43	prefill_tok_s=44.8	vram_mib=4410
+srv1	NSWEEP	ncpumoe=36	threads=6	FAILED	0.01.838.963 E srv  llama_server: exiting due to model loading error
+srv2	NSWEEP	ncpumoe=48	threads=10	decode_tok_s=15.07	prefill_tok_s=34.8	vram_mib=1519
+srv2	NSWEEP	ncpumoe=40	threads=10	decode_tok_s=17.80	prefill_tok_s=40.2	vram_mib=4457
+srv2	NSWEEP	ncpumoe=32	threads=10	decode_tok_s=20.73	prefill_tok_s=48.6	vram_mib=7197
+srv2	NSWEEP	ncpumoe=24	threads=10	decode_tok_s=26.32	prefill_tok_s=60.6	vram_mib=9889
+srv2	NSWEEP	ncpumoe=20	threads=10	decode_tok_s=31.57	prefill_tok_s=69.2	vram_mib=11283
+
+## thread scans
+srv1	THREADS	ncpumoe=48	threads=1	decode_tok_s=9.85	prefill_tok_s=12.6	vram_mib=1472
+srv1	THREADS	ncpumoe=48	threads=2	decode_tok_s=16.79	prefill_tok_s=22.7	vram_mib=1472
+srv1	THREADS	ncpumoe=48	threads=4	decode_tok_s=22.46	prefill_tok_s=36.9	vram_mib=1472
+srv1	THREADS	ncpumoe=48	threads=5	decode_tok_s=23.49	prefill_tok_s=41.4	vram_mib=1472
+srv1	THREADS	ncpumoe=48	threads=6	decode_tok_s=23.93	prefill_tok_s=44.3	vram_mib=1472
+srv2	THREADS_NOTURBO	ncpumoe=48	threads=1	decode_tok_s=6.95	prefill_tok_s=8.3	vram_mib=1519
+srv2	THREADS_NOTURBO	ncpumoe=48	threads=2	decode_tok_s=12.33	prefill_tok_s=15.9	vram_mib=1519
+srv2	THREADS_NOTURBO	ncpumoe=48	threads=4	decode_tok_s=15.26	prefill_tok_s=25.8	vram_mib=1519
+srv2	THREADS_NOTURBO	ncpumoe=48	threads=10	decode_tok_s=14.63	prefill_tok_s=34.7	vram_mib=1519
+srv2	THREADS_NOTURBO	ncpumoe=48	threads=20	decode_tok_s=15.72	prefill_tok_s=35.3	vram_mib=1519
+srv2	THREADS_TURBO	ncpumoe=48	threads=4	decode_tok_s=15.69	prefill_tok_s=28.7	vram_mib=1519
+srv2	THREADS_TURBO	ncpumoe=48	threads=10	decode_tok_s=15.07	prefill_tok_s=35.9	vram_mib=1519
+srv2	THREADS_TURBO	ncpumoe=48	threads=20	decode_tok_s=15.95	prefill_tok_s=36.1	vram_mib=1519
+srv2	THREADS_TURBO	ncpumoe=20	threads=10	decode_tok_s=31.67	prefill_tok_s=71.1	vram_mib=11283
+
+## power/clock state (as found)
+srv1: no_turbo=0 max=4600MHz RAPL PL1=PL2=4095W(unrestricted)
+srv2: no_turbo=1 max=2800MHz RAPL PL1=65W PL2=0   <-- turbo disabled; RESTORED to 1 after tests
+srv2 turbo enabled -> max=5200MHz; decode +0.3..3.0%, prefill +3..11%
