@@ -67,8 +67,10 @@ packages = ["src/mcgyvr"]
 line-length = 88
 target-version = "py312"
 src = ["src", "tests"]
-# tools/baseline/ is a vendored, hash-pinned tree (REC-06). Linting it would
-# invite edits that break the pin. records/evidence/ is third-party source
+# records/measurements/ holds run artifacts, including the harness as it was
+# actually run. Reformatting one is not a tidy-up: the file stops being what
+# produced the numbers beside it. Same reason as records/evidence/ below.
+# records/evidence/ is third-party source
 # vendored as evidence and hashed in its MANIFEST.json (#118): a formatter run
 # there does not tidy anything, it invalidates the citation.
 #
@@ -80,7 +82,7 @@ src = ["src", "tests"]
 # and the arm would stop being CLM-0004's task set. The contracts beside them
 # are ours and are not excluded — YAML is not ruff's anyway.
 extend-exclude = [
-    "tools/baseline",
+    "records/measurements",
     "records/evidence",
     "tools/bundle/python/tasks",
     # tools/problems/tasks/ is digest-pinned by tools/problems/admissions.jsonl the

@@ -31,7 +31,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-.baseline/cache/
 tools/breadth/worker.local.json
 node_modules/
 # The campaign driver's stop sentinel (tools/bench/serving/launch.py) — touched
