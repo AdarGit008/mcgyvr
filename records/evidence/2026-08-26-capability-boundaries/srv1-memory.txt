@@ -1,0 +1,29 @@
+=== srv1 2026-08-26 ===
+	Locator: ChannelA-DIMM0
+	Type: Unknown
+	Size: 16 GB
+	Locator: ChannelA-DIMM1
+	Type: DDR4
+	Speed: 3200 MT/s
+	Rank: 1
+	Configured Memory Speed: 3200 MT/s
+	Locator: ChannelB-DIMM0
+	Type: Unknown
+	Size: 32 GB
+	Locator: ChannelB-DIMM1
+	Type: DDR4
+	Speed: 3200 MT/s
+	Rank: 2
+	Configured Memory Speed: 3200 MT/s
+--- triad x4 ---
+STREAM triad: 19.6 GB/s  (threads=6, best=0.0306 s, checksum=3.500)
+STREAM triad: 19.6 GB/s  (threads=6, best=0.0306 s, checksum=3.500)
+STREAM triad: 19.6 GB/s  (threads=6, best=0.0306 s, checksum=3.500)
+STREAM triad: 19.6 GB/s  (threads=6, best=0.0307 s, checksum=3.500)
+--- cpu ---
+CPU(s):                                  6
+Model name:                              Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz
+Thread(s) per core:                      1
+CPU(s) scaling MHz:                      96%
+               total        used        free      shared  buff/cache   available
+Mem:              45           1          35           0           9          44

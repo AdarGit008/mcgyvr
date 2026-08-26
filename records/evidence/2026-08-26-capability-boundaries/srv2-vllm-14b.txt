@@ -1,0 +1,12 @@
+srv2	14B-AWQ util=0.90 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	CONFIG	vram=11823
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	n=1	agg=35.9	p50=13.24	truncated=0/1	wall=13.2
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	n=8	agg=171.6	p50=15.50	truncated=0/8	wall=22.1
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	n=32	agg=274.5	p50=33.52	truncated=0/32	wall=55.4
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	n=128	agg=307.9	p50=105.42	truncated=0/128	wall=197.5
+srv2	14B-AWQ util=0.95 len=1024 seqs=256 kv=fp8	n=256	agg=313.5	p50=201.86	truncated=0/256	wall=387.9
+srv2	14B-AWQ util=0.95 len=1024 seqs=64 kv=fp8	CONFIG	vram=10897
+srv2	14B-AWQ util=0.95 len=1024 seqs=64 kv=fp8	n=1	agg=35.8	p50=13.25	truncated=0/1	wall=13.3
+srv2	14B-AWQ util=0.95 len=1024 seqs=64 kv=fp8	n=8	agg=171.8	p50=15.49	truncated=0/8	wall=22.1
+srv2	14B-AWQ util=0.95 len=1024 seqs=64 kv=fp8	n=32	agg=278.3	p50=33.60	truncated=0/32	wall=54.6
+srv2	14B-AWQ util=0.95 len=1024 seqs=64 kv=fp8	n=64	agg=298.9	p50=58.80	truncated=0/64	wall=101.7

@@ -1,0 +1,22 @@
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=35	REFUSED	0.02.140.337 E srv  llama_server: exiting due to model loading error
+srv1	35B-IQ3XXS np=16 ctx_slot=1024 c=16384 ncmoe=28	REFUSED	0.02.268.618 E srv  llama_server: exiting due to model loading error
+srv1	35B-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=28	REFUSED	0.02.239.160 E srv  llama_server: exiting due to model loading error
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	CONFIG	real_ctx_slot=1024	vram=4582
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=1	agg=26.8	p50=17.73	truncated=0/1	wall=17.7
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=8	agg=28.0	p50=135.85	truncated=0/8	wall=135.9
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=32	agg=128.1	p50=118.62	truncated=0/32	wall=118.6
+srv1	30B-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=38	REFUSED	0.01.752.442 E srv  llama_server: exiting due to model loading error
+srv1	30B-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=38	CONFIG	real_ctx_slot=1024	vram=5490
+srv1	30B-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=38	n=1	agg=25.9	p50=18.37	truncated=0/1	wall=18.4
+srv1	30B-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=38	n=8	agg=60.6	p50=62.73	truncated=0/8	wall=62.7
+srv1	30B-Q4KM np=32 ctx_slot=1024 c=32768 ncmoe=44	CONFIG	real_ctx_slot=1024	vram=5652
+srv1	30B-Q4KM np=32 ctx_slot=1024 c=32768 ncmoe=44	n=1	agg=24.0	p50=19.80	truncated=0/1	wall=19.8
+srv1	30B-Q4KM np=32 ctx_slot=1024 c=32768 ncmoe=44	n=8	agg=55.6	p50=68.35	truncated=0/8	wall=68.4
+srv1	30B-Q4KM np=32 ctx_slot=1024 c=32768 ncmoe=44	n=32	agg=49.6	p50=306.54	truncated=0/32	wall=306.6
+srv1	DS16B np=1 ctx_slot=1024 c=1024 ncmoe=27	CONFIG	real_ctx_slot=1024	vram=1158
+srv1	DS16B np=1 ctx_slot=1024 c=1024 ncmoe=27	n=1	agg=19.0	p50=25.04	truncated=0/1	wall=25.0
+srv1	DS16B np=16 ctx_slot=1024 c=16384 ncmoe=27	CONFIG	real_ctx_slot=1024	vram=5208
+srv1	DS16B np=16 ctx_slot=1024 c=16384 ncmoe=27	n=1	agg=19.3	p50=24.67	truncated=0/1	wall=24.7
+srv1	DS16B np=16 ctx_slot=1024 c=16384 ncmoe=27	n=8	agg=21.4	p50=177.24	truncated=0/8	wall=177.2
+srv1	DS16B np=16 ctx_slot=1024 c=16384 ncmoe=27	n=16	agg=21.5	p50=353.40	truncated=0/16	wall=353.4
+srv1	DS16B np=16 ctx_slot=1024 c=16384 ncmoe=20	REFUSED	0.01.215.723 E srv  llama_server: exiting due to model loading error
