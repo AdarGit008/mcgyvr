@@ -2990,10 +2990,19 @@ def _provenance_defects(contract: Any) -> list[str]:
     ]
     for name, entry in table.items():
         run = REPO / str(entry.get("run", ""))
+        # The run's data stays under records/evidence/; its README was moved to
+        # docs/archive/evidence-prose/<dir>/ on 2026-08-26 under the tree's rule
+        # that prose lives in the archive. A constant is still only citable if
+        # its run carries a written provenance -- this accepts either location
+        # and refuses a run that has none.
+        readme_here = run / "README.md"
+        readme_archived = (
+            REPO / "docs" / "archive" / "evidence-prose" / run.name / "README.md"
+        )
         if (
             not entry.get("run")
             or not run.is_dir()
-            or not (run / "README.md").is_file()
+            or not (readme_here.is_file() or readme_archived.is_file())
         ):
             defects.append(
                 f"{name}: run {entry.get('run')!r} is not an evidence "
