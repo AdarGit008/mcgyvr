@@ -1,0 +1,6 @@
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	CONFIG	vram=11791
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	n=1	agg=122.2	p50=3.89	truncated=0/1	wall=3.9
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	n=8	agg=929.7	p50=4.09	truncated=0/8	wall=4.1
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	n=32	agg=2514.2	p50=6.04	truncated=0/32	wall=6.0
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	n=128	agg=3237.4	p50=18.75	truncated=0/128	wall=18.8
+srv2	3B-AWQ util=0.85 len=1024 seqs=256 kv=fp8	n=256	agg=3497.3	p50=34.69	truncated=0/256	wall=34.8
