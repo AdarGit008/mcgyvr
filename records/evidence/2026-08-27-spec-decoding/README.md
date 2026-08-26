@@ -70,6 +70,24 @@ The 128-token delta is **embedding padding only** — the tokenizer content is b
 
 **The deeper, more important finding → the brief's implied "2–4× speedup" does NOT materialize for `Qwen2.5-Coder` via vLLM `draft_model` on these consumer GPUs.** Acceptance is high (α ≈ 0.9 initial, ~4.2 tokens/draft), yet wall-clock **regresses** at batch 8 (0.75–0.88×) and is a wash at batch 1 (~1.02×), across eager/CUDA-graph and default/FLASH_ATTN backends. High α ≠ speedup here.
 
+**BUT llama.cpp `--model-draft` DOES win (~+10–11%)** — the opposite sign from vLLM, and it needs no cross-vocab surgery (see §4). This is the one path that beats target-alone for this pair on srv2.
+
+## 4. llama.cpp `--model-draft` (the win path) — srv2
+
+Image `ghcr.io/ggml-org/llama.cpp:server-cuda-b10481`, `llama-server`, `-ngl 99`, single-slot, `temperature 0`, 150-token completion. Draft `qwen2.5-coder-1.5b-instruct-q6_k.gguf` (1.5B / vocab 151936), target `Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf` (vocab 152064) — **diff 128, which llama.cpp's `SPEC_VOCAB_MAX_SIZE_DIFFERENCE` (=128) tolerates natively** (byte-identical tokenizer), so `--spec-type draft-simple` just works, no TLI.
+
+| config | tok/s | vs baseline |
+|---|---|---|
+| 7B alone | 72.7 | 1.00× |
+| +1.5B draft, `--spec-draft-n-max 2` | 76.0 | 1.05× |
+| +1.5B draft, `--spec-draft-n-max 3` | 80.2 | 1.10× |
+| +1.5B draft, `--spec-draft-n-max 4` | **80.9** | **1.11×** |
+| +1.5B draft, `--spec-draft-n-max 5` | 79.7 | 1.10× |
+
+- **llama.cpp is the one runtime that beats target-alone here** (+10–11%, plateau at NMAX 3–5). It tolerates the 128-token vocab diff natively, so the 1.5B draft runs as a plain small GGUF with **no TLI intersection cost** — exactly the overhead that sank vLLM `draft_model`.
+- **Not EAGLE3**: `--spec-type draft-eagle3` needs a dedicated EAGLE head checkpoint; we only have a plain 1.5B draft GGUF (→ `draft-simple`). No published Qwen2.5-Coder EAGLE head exists, so `--model-draft` (draft-simple) is the available path.
+- **Scale caveat**: +10% is far from the brief's "2–4×". This is single-slot (batch-1) latency; the absolute ceiling on this hardware is ~81 tok/s for the heavily-quantized IQ4_XS target.
+
 ## Root causes (measured + sourced)
 
 - **Draft overhead isn't amortized on compute/bandwidth-bound consumer cards** (RTX 2070 ref: cost_ratio 1.18×; target already cheap → draft is pure overhead). This dominates on both the 3060 and 1660 SUPER.
@@ -81,7 +99,7 @@ The 128-token delta is **embedding padding only** — the tokenizer content is b
 
 1. **Same-vocab pairing** (best α, no TLI cost) — but Qwen2.5-Coder has **no** same-vocab small draft for the 7B target (only 151936 family is small: 0.5/1.5/3B). For a *3B target* the 1.5B draft is same-vocab and ran clean (but regressed on srv1 anyway).
 2. **Force `VLLM_ATTENTION_BACKEND=FLASH_ATTN` + CUDA graphs** (tested: no win here). Consider `--kv-cache-memory` to claw back KV and raise concurrency where SD *can* win on datacenter-class loads — but on 12 GB the headroom is small.
-3. **llama.cpp `--model-draft`** — naturally accepts the 128-token delta (no surgery, no TLI); a Reddit report runs 32B+1.5B cross-vocab on an RTX 3090 (65–80 tok/s). Different runtime; unbenchmarked here.
+3. **llama.cpp `--model-draft`** — **MEASURED (srv2): +10–11% (80.9 vs 72.7 tok/s)**, the only path that beats target-alone. Accepts the 128-token delta natively, no TLI. (Matches the Reddit 32B+1.5B RTX 3090 report.)
 4. **Skip draft-model SD** — expected. For throughput on these cards the target alone (with CUDA graphs) is the better engine; SD only makes sense at very low concurrency where the gain is ~1.02% here. N-gram/suffix SD was already shown net-negative.
 
 ## Untested levers (recommended if pursued)

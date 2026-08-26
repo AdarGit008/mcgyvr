@@ -11,5 +11,11 @@
   {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":8,"backend":"FLASH_ATTN","tokens_per_sec":475.32,"mean_al":null},
   {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":8,"cross_vocab":true,"backend":"FLASH_ATTN","tokens_per_sec":411.51,"mean_al":4.207,"acceptance":[0.899,0.828,0.765,0.715]},
   {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":1,"tokens_per_sec":68.23,"mean_al":null},
-  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":1,"cross_vocab":true,"tokens_per_sec":69.33,"mean_al":4.271,"acceptance":[0.894,0.849,0.792,0.736]}
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":1,"cross_vocab":true,"tokens_per_sec":69.33,"mean_al":4.271,"acceptance":[0.894,0.849,0.792,0.736]},
+
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":null,"port":"single-slot","num_tokens":150,"tokens_per_sec":72.7,"speedup_vs_target":1.0},
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":2,"num_tokens":150,"tokens_per_sec":76.0,"speedup_vs_target":1.05},
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":3,"num_tokens":150,"tokens_per_sec":80.2,"speedup_vs_target":1.10},
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":4,"num_tokens":150,"tokens_per_sec":80.9,"speedup_vs_target":1.11},
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":5,"num_tokens":150,"tokens_per_sec":79.7,"speedup_vs_target":1.10}
 ]
