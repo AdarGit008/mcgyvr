@@ -11,11 +11,12 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-VERIFY = Path(__file__).resolve().parent
+VERIFY = ROOT / "docs/archive/evidence-prose/2026-08-26-claim-verification"   # the findings; prose lives in docs/archive
+HERE = Path(__file__).resolve().parent
 OUT = ROOT / "okf"
 STAMP = "2026-08-26T00:00:00Z"
 PROVISIONAL_UNTIL = "2026-08-27T00:00:00Z"
-APPROVALS = VERIFY / "approvals.json"
+APPROVALS = HERE / "approvals.json"
 
 
 def load_approvals() -> dict:
@@ -211,9 +212,9 @@ def emit(cid: str, group: list[dict]) -> str | None:
         if e["bears"]:
             out += [f"Bears on: {e['bears']}", ""]
     out += ["---", "",
-            f"Register: `records/evidence/2026-08-26-claim-verification/CLAIMS.md` · "
-            f"Findings: `records/evidence/2026-08-26-claim-verification/srv1-findings.md`, "
-            f"`records/evidence/2026-08-26-claim-verification/srv2-findings.md` · Report: `records/evidence/2026-08-26-claim-verification/REPORT.md`"]
+            f"Register: `docs/archive/evidence-prose/2026-08-26-claim-verification/CLAIMS.md` · "
+            f"Findings: `docs/archive/evidence-prose/2026-08-26-claim-verification/srv1-findings.md`, "
+            f"`docs/archive/evidence-prose/2026-08-26-claim-verification/srv2-findings.md` · Report: `docs/archive/evidence-prose/2026-08-26-claim-verification/REPORT.md`"]
     return "\n".join(out) + "\n"
 
 def main():

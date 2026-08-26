@@ -37,3 +37,12 @@ node_modules/
 # by the interrupt trap so a phase that has not started cannot start during the
 # kill. Cleared at the next launch, so an interrupted run leaves one behind.
 .campaign-stop
+
+# okf-rag artifacts. `okf/` is a generated concept bundle — its authority is the
+# pgvector store okf-rag maintains, and it is rebuilt from the archived findings
+# by records/evidence/2026-08-26-claim-verification/build_okf.py. Committing it
+# would put generated prose in the tree and give a stale copy equal standing
+# with the store. `.okfrag/` is the staleness flag okf-rag writes on `status`.
+okf/
+.okfrag/
+
