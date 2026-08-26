@@ -1,0 +1,15 @@
+[
+  {"machine":"srv1","target":"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ","draft":null,"enforce_eager":true,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":64.87,"mean_al":null},
+  {"machine":"srv1","target":"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":true,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":43.37,"mean_al":4.227,"acceptance":[0.9,0.833,0.774,0.72]},
+  {"machine":"srv1","target":"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":64.85,"mean_al":null},
+  {"machine":"srv1","target":"Qwen/Qwen2.5-Coder-3B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":37.97,"mean_al":4.199,"acceptance":[0.895,0.825,0.767,0.712]},
+  {"machine":"srv1","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"note":"FAILS TO LOAD: FA2 only supported on compute capability >= 8 (CC 7.5)", "tokens_per_sec":null,"mean_al":null},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":true,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":320.99,"mean_al":null},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":true,"num_spec":4,"max_n_seqs":8,"cross_vocab":true,"tokens_per_sec":240.23,"mean_al":4.204,"acceptance":[0.9,0.828,0.763,0.713]},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":8,"tokens_per_sec":475.37,"mean_al":null},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":8,"cross_vocab":true,"tokens_per_sec":418.39,"mean_al":4.207,"acceptance":[0.899,0.828,0.765,0.715]},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":8,"backend":"FLASH_ATTN","tokens_per_sec":475.32,"mean_al":null},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":8,"cross_vocab":true,"backend":"FLASH_ATTN","tokens_per_sec":411.51,"mean_al":4.207,"acceptance":[0.899,0.828,0.765,0.715]},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":null,"enforce_eager":false,"num_spec":4,"max_n_seqs":1,"tokens_per_sec":68.23,"mean_al":null},
+  {"machine":"srv2","target":"Qwen/Qwen2.5-Coder-7B-Instruct-AWQ","draft":"Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ","enforce_eager":false,"num_spec":4,"max_n_seqs":1,"cross_vocab":true,"tokens_per_sec":69.33,"mean_al":4.271,"acceptance":[0.894,0.849,0.792,0.736]}
+]
