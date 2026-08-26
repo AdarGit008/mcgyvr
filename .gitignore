@@ -46,3 +46,9 @@ node_modules/
 okf/
 .okfrag/
 
+# graphify's output directory. `graphify-out/` holds a generated knowledge graph
+# of the tree (graph.json, graph.html, GRAPH_REPORT.md) plus its extraction
+# cache. It is rebuilt from the sources it describes, so committing it would put
+# a snapshot in the tree that goes stale the moment anything under src/ or
+# tools/ moves.
+graphify-out/
