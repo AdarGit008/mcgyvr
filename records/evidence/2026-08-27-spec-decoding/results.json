@@ -258,5 +258,11 @@
     "n_predict": 150,
     "agg_tokens_per_sec": 226.2,
     "speedup_vs_target": 1.06
+  },
+  {
+    "engine": "llama.cpp",
+    "machine": "srv1",
+    "target": "gpt-oss-20b.gguf",
+    "note": "BLOCKED: unknown model architecture 'gptoss' in server-cuda-b10481 build"
   }
 ]
