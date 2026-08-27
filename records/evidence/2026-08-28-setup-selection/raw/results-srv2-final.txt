@@ -1,0 +1,29 @@
+== srv2 final start Thu Aug 27 09:20:35 PM UTC 2026 ==
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	CONFIG	vram=11717
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=1	agg=201.8	p50=2.35	truncated=0/1	wall=2.4
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=2	agg=398.4	p50=2.38	truncated=0/2	wall=2.4
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=4	agg=793.5	p50=2.39	truncated=0/4	wall=2.4
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=8	agg=1540.9	p50=2.46	truncated=0/8	wall=2.5
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=16	agg=2819.4	p50=2.69	truncated=0/16	wall=2.7
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=32	agg=4239.6	p50=3.58	truncated=0/32	wall=3.6
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=64	agg=5268.7	p50=5.75	truncated=0/64	wall=5.8
+srv2	vllm-15b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=128	agg=5949.7	p50=10.19	truncated=0/128	wall=10.2
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	CONFIG	vram=11613
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=1	agg=122.3	p50=3.88	truncated=0/1	wall=3.9
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=2	agg=242.1	p50=3.92	truncated=0/2	wall=3.9
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=4	agg=478.5	p50=3.97	truncated=0/4	wall=4.0
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=8	agg=929.6	p50=4.09	truncated=0/8	wall=4.1
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=16	agg=1709.4	p50=4.43	truncated=0/16	wall=4.4
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=32	agg=2513.4	p50=6.03	truncated=0/32	wall=6.0
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=64	agg=2991.1	p50=10.15	truncated=0/64	wall=10.2
+srv2	vllm-3b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=128	agg=3236.0	p50=18.75	truncated=0/128	wall=18.8
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	CONFIG	vram=11511
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=1	agg=99.4	p50=4.78	truncated=0/1	wall=4.8
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=2	agg=195.5	p50=4.86	truncated=0/2	wall=4.9
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=4	agg=383.5	p50=4.95	truncated=0/4	wall=5.0
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=8	agg=729.7	p50=5.21	truncated=0/8	wall=5.2
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=16	agg=1308.0	p50=5.81	truncated=0/16	wall=5.8
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=32	agg=1885.4	p50=8.05	truncated=0/32	wall=8.1
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=64	agg=2180.1	p50=13.93	truncated=0/64	wall=13.9
+srv2	vllm-q3-4b-s128 util=0.9 len=1024 seqs=128 kv=fp8	n=128	agg=2378.6	p50=25.52	truncated=0/128	wall=25.6
+== srv2 final done Thu Aug 27 09:28:54 PM UTC 2026 ==

@@ -1,0 +1,48 @@
+== srv2 fix start Thu Aug 27 08:41:27 PM UTC 2026 ==
+srv2	vllm-15b util=0.9 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	vllm-3b util=0.9 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	vllm-q3-4b util=0.9 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	CONFIG	vram=11283
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=1	agg=26.7	p50=17.79	truncated=0/1	wall=17.8
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=2	agg=52.9	p50=17.97	truncated=0/2	wall=18.0
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=4	agg=107.3	p50=17.70	truncated=0/4	wall=17.7
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=8	agg=213.6	p50=17.79	truncated=0/8	wall=17.8
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=16	agg=424.0	p50=17.92	truncated=0/16	wall=17.9
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=32	agg=539.7	p50=22.33	truncated=0/32	wall=28.2
+srv2	vllm-14b util=0.9 len=1024 seqs=64 kv=fp8	n=64	agg=605.4	p50=41.42	truncated=0/64	wall=50.2
+(EngineCore pid=204) ERROR 08-27 20:50:43 [core.py:1330] torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 16.12 MiB is free. Including non-PyTorch memory, this process has 11.60 GiB memory in use. Of the allocated memory 11.44 GiB is allocated by PyTorch, and 22.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+(EngineCore pid=204) torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 16.12 MiB is free. Including non-PyTorch memory, this process has 11.60 GiB memory in use. Of the allocated memory 11.44 GiB is allocated by PyTorch, and 22.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+(APIServer pid=1)     raise RuntimeError(
+(APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	mxfp4-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=11511
+srv2	mxfp4-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	n=1	agg=97.0	p50=4.90	truncated=0/1	wall=4.9
+srv2	mxfp4-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	n=2	agg=138.0	p50=6.88	truncated=0/2	wall=6.9
+srv2	mxfp4-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	n=4	agg=192.7	p50=9.86	truncated=0/4	wall=9.9
+srv2	mxfp4-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	n=8	agg=277.9	p50=13.67	truncated=0/8	wall=13.7
+srv2	mxfp4-20b np=32 ctx_slot=1024 c=32768 ncmoe=0	REFUSED	0.03.459.285 E srv  llama_server: exiting due to model loading error
+== srv2 fix done Thu Aug 27 08:52:28 PM UTC 2026 ==
+== srv2 gap start Thu Aug 27 08:46:33 PM UTC 2026 ==
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=9297
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=1	agg=61.1	p50=7.78	truncated=0/1	wall=7.8
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=2	agg=109.4	p50=8.68	truncated=0/2	wall=8.7
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=4	agg=143.9	p50=13.21	truncated=0/4	wall=13.2
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=8	agg=166.7	p50=22.79	truncated=0/8	wall=22.8
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=16	agg=464.5	p50=16.36	truncated=0/16	wall=16.4
+srv2	q3-8b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=32	agg=664.2	p50=22.88	truncated=0/32	wall=22.9
+srv2	q3-8b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	REFUSED	0.01.472.771 E srv  llama_server: exiting due to model loading error
+srv2	14b-Q4-kvu np=32 ctx_slot=1024 c=32768 ncmoe=0	REFUSED	0.09.331.813 E srv  llama_server: exiting due to model loading error
+srv2	vllmL-15b util=0.9 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	vllmL-3b util=0.9 len=1024 seqs=256 kv=fp8	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	CONFIG	vram=11283
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=1	agg=25.9	p50=18.36	truncated=0/1	wall=18.4
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=2	agg=51.3	p50=18.51	truncated=0/2	wall=18.5
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=4	agg=103.1	p50=18.42	truncated=0/4	wall=18.4
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=8	agg=205.4	p50=18.50	truncated=0/8	wall=18.5
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=16	agg=408.5	p50=18.60	truncated=0/16	wall=18.6
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=32	agg=535.1	p50=22.36	truncated=0/32	wall=28.4
+srv2	vllmL-14b util=0.9 len=1024 seqs=64 kv=fp8	n=64	agg=610.1	p50=43.81	truncated=0/64	wall=49.8
+(EngineCore pid=205) ERROR 08-27 21:02:51 [core.py:1330] torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 16.12 MiB is free. Including non-PyTorch memory, this process has 11.60 GiB memory in use. Of the allocated memory 11.44 GiB is allocated by PyTorch, and 22.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+(EngineCore pid=205) torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 11.63 GiB of which 16.12 MiB is free. Including non-PyTorch memory, this process has 11.60 GiB memory in use. Of the allocated memory 11.44 GiB is allocated by PyTorch, and 22.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+(APIServer pid=1)     raise RuntimeError(
+(APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+== srv2 gap done Thu Aug 27 09:04:03 PM UTC 2026 ==

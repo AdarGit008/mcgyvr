@@ -1,0 +1,137 @@
+== srv1 sweep start Thu Aug 27 06:37:45 PM UTC 2026 ==
+srv1	ctrl-35B-ncmoe40-b10481 np=32 ctx_slot=1024 c=32768 ncmoe=40	CONFIG	real_ctx_slot=1024	vram=4582
+srv1	ctrl-35B-ncmoe40-b10481 np=32 ctx_slot=1024 c=32768 ncmoe=40	n=1	agg=19.6	p50=24.23	truncated=0/1	wall=24.2
+srv1	ctrl-35B-ncmoe40-b10481 np=32 ctx_slot=1024 c=32768 ncmoe=40	n=32	agg=88.8	p50=171.05	truncated=0/32	wall=171.1
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=1976
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=1	agg=158.5	p50=3.00	truncated=0/1	wall=3.0
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=2	agg=244.0	p50=3.89	truncated=0/2	wall=3.9
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=4	agg=314.2	p50=6.05	truncated=0/4	wall=6.0
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=8	agg=373.9	p50=10.16	truncated=0/8	wall=10.2
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=16	agg=402.7	p50=18.87	truncated=0/16	wall=18.9
+srv1	15b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=32	agg=440.4	p50=34.51	truncated=0/32	wall=34.5
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=2872
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=1	agg=158.4	p50=3.00	truncated=0/1	wall=3.0
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=2	agg=244.0	p50=3.89	truncated=0/2	wall=3.9
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=4	agg=315.7	p50=6.02	truncated=0/4	wall=6.0
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=8	agg=373.7	p50=10.17	truncated=0/8	wall=10.2
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=16	agg=402.3	p50=18.89	truncated=0/16	wall=18.9
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=32	agg=439.5	p50=34.58	truncated=0/32	wall=34.6
+srv1	15b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=64	agg=459.9	p50=66.08	truncated=0/64	wall=66.1
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4676
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=1	agg=158.0	p50=3.01	truncated=0/1	wall=3.0
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=2	agg=244.0	p50=3.89	truncated=0/2	wall=3.9
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=4	agg=315.3	p50=6.02	truncated=0/4	wall=6.0
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=8	agg=372.9	p50=10.19	truncated=0/8	wall=10.2
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=16	agg=400.4	p50=18.98	truncated=0/16	wall=19.0
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=32	agg=440.0	p50=34.54	truncated=0/32	wall=34.5
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=64	agg=459.2	p50=66.19	truncated=0/64	wall=66.2
+srv1	15b-Q4 np=128 ctx_slot=1024 c=131072 ncmoe=0	n=128	agg=467.5	p50=130.03	truncated=0/128	wall=130.1
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=3146
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=1	agg=96.8	p50=4.91	truncated=0/1	wall=4.9
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=2	agg=147.3	p50=6.45	truncated=0/2	wall=6.4
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=4	agg=186.9	p50=10.16	truncated=0/4	wall=10.2
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=8	agg=218.9	p50=17.36	truncated=0/8	wall=17.4
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=16	agg=234.6	p50=32.40	truncated=0/16	wall=32.4
+srv1	3b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	n=32	agg=255.2	p50=59.56	truncated=0/32	wall=59.6
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4298
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=1	agg=96.7	p50=4.91	truncated=0/1	wall=4.9
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=2	agg=147.2	p50=6.46	truncated=0/2	wall=6.5
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=4	agg=186.8	p50=10.17	truncated=0/4	wall=10.2
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=8	agg=219.5	p50=17.31	truncated=0/8	wall=17.3
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=16	agg=234.2	p50=32.42	truncated=0/16	wall=32.5
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=32	agg=255.4	p50=59.52	truncated=0/32	wall=59.5
+srv1	3b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	n=64	agg=268.7	p50=113.12	truncated=0/64	wall=113.1
+srv1	q3-4b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=0	REFUSED	0.02.365.753 E srv  llama_server: exiting due to model loading error
+srv1	q3-4b-Q4 np=64 ctx_slot=1024 c=65536 ncmoe=0	REFUSED	0.01.047.437 E srv  llama_server: exiting due to model loading error
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4852
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=1	agg=54.1	p50=8.78	truncated=0/1	wall=8.8
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=2	agg=85.7	p50=11.09	truncated=0/2	wall=11.1
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=4	agg=107.1	p50=17.75	truncated=0/4	wall=17.7
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=8	agg=128.3	p50=29.62	truncated=0/8	wall=29.6
+srv1	7b-IQ4XS np=16 ctx_slot=1024 c=16384 ncmoe=0	n=16	agg=105.6	p50=71.94	truncated=0/16	wall=71.9
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=5280
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=1	agg=49.6	p50=9.57	truncated=0/1	wall=9.6
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=2	agg=77.5	p50=12.26	truncated=0/2	wall=12.3
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=4	agg=97.3	p50=19.52	truncated=0/4	wall=19.5
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=8	agg=110.3	p50=34.45	truncated=0/8	wall=34.5
+srv1	nemotron7b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=16	agg=115.6	p50=65.75	truncated=0/16	wall=65.8
+srv1	14b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=0	REFUSED	0.05.632.176 E srv  llama_server: exiting due to model loading error
+srv1	14b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	REFUSED	0.01.027.341 E srv  llama_server: exiting due to model loading error
+srv1	30b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=38	CONFIG	real_ctx_slot=1024	vram=5490
+srv1	30b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=38	n=1	agg=23.2	p50=20.49	truncated=0/1	wall=20.5
+srv1	30b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=38	n=2	agg=28.5	p50=33.30	truncated=0/2	wall=33.3
+srv1	30b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=38	n=4	agg=57.2	p50=33.21	truncated=0/4	wall=33.2
+srv1	30b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=38	n=8	agg=67.8	p50=56.04	truncated=0/8	wall=56.0
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	CONFIG	real_ctx_slot=1024	vram=5652
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=1	agg=22.1	p50=21.51	truncated=0/1	wall=21.5
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=2	agg=26.2	p50=36.32	truncated=0/2	wall=36.3
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=4	agg=53.1	p50=35.78	truncated=0/4	wall=35.8
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=8	agg=62.8	p50=60.47	truncated=0/8	wall=60.5
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=16	agg=65.4	p50=116.12	truncated=0/16	wall=116.2
+srv1	30b-Q4 np=32 ctx_slot=1024 c=32768 ncmoe=44	n=32	agg=48.4	p50=313.79	truncated=0/32	wall=314.0
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	CONFIG	real_ctx_slot=1024	vram=4582
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=1	agg=26.9	p50=17.65	truncated=0/1	wall=17.6
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=2	agg=31.9	p50=29.77	truncated=0/2	wall=29.8
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=4	agg=31.6	p50=60.13	truncated=0/4	wall=60.1
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=8	agg=32.4	p50=117.20	truncated=0/8	wall=117.2
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=16	agg=39.8	p50=190.81	truncated=0/16	wall=191.0
+srv1	35B-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=40	n=32	agg=127.4	p50=119.27	truncated=0/32	wall=119.3
+srv1	35B-IQ3XXS np=64 ctx_slot=1024 c=65536 ncmoe=48	REFUSED	0.01.921.389 E srv  llama_server: exiting due to model loading error
+srv1	nem30b-IQ2XXS np=8 ctx_slot=1024 c=8192 ncmoe=38	REFUSED	0.16.358.677 E srv  llama_server: exiting due to model loading error
+srv1	nem30b-IQ2XXS np=32 ctx_slot=1024 c=32768 ncmoe=44	REFUSED	0.01.893.672 E srv  llama_server: exiting due to model loading error
+srv1	nextud-80B-Q3XL np=8 ctx_slot=1024 c=8192 ncmoe=50	CONFIG	real_ctx_slot=1024	vram=3700
+srv1	nextud-80B-Q3XL np=8 ctx_slot=1024 c=8192 ncmoe=50	n=1	agg=19.0	p50=25.07	truncated=0/1	wall=25.1
+srv1	nextud-80B-Q3XL np=8 ctx_slot=1024 c=8192 ncmoe=50	n=2	agg=22.6	p50=42.08	truncated=0/2	wall=42.1
+srv1	nextud-80B-Q3XL np=8 ctx_slot=1024 c=8192 ncmoe=50	n=4	agg=22.3	p50=85.29	truncated=0/4	wall=85.3
+srv1	nextud-80B-Q3XL np=8 ctx_slot=1024 c=8192 ncmoe=50	n=8	agg=25.3	p50=150.16	truncated=0/8	wall=150.2
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	CONFIG	real_ctx_slot=1024	vram=4494
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	n=1	agg=19.0	p50=25.06	truncated=0/1	wall=25.1
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	n=2	agg=17.4	p50=54.68	truncated=0/2	wall=54.7
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	n=4	agg=27.0	p50=70.25	truncated=0/4	wall=70.3
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	n=8	agg=25.3	p50=149.92	truncated=0/8	wall=149.9
+srv1	nextud-80B-Q3XL np=16 ctx_slot=1024 c=16384 ncmoe=60	n=16	agg=29.0	p50=261.75	truncated=0/16	wall=261.8
+srv1	dscv2-16b np=8 ctx_slot=1024 c=8192 ncmoe=30	CONFIG	real_ctx_slot=1024	vram=3048
+srv1	dscv2-16b np=8 ctx_slot=1024 c=8192 ncmoe=30	n=1	agg=20.3	p50=23.37	truncated=0/1	wall=23.4
+srv1	dscv2-16b np=8 ctx_slot=1024 c=8192 ncmoe=30	n=2	agg=19.1	p50=49.70	truncated=0/2	wall=49.7
+srv1	dscv2-16b np=8 ctx_slot=1024 c=8192 ncmoe=30	n=4	agg=21.5	p50=88.43	truncated=0/4	wall=88.4
+srv1	dscv2-16b np=8 ctx_slot=1024 c=8192 ncmoe=30	n=8	agg=20.9	p50=181.54	truncated=0/8	wall=181.6
+srv1	dscv2-16b np=32 ctx_slot=1024 c=32768 ncmoe=40	REFUSED	0.01.022.988 E srv  llama_server: exiting due to model loading error
+srv1	gptoss-20b np=8 ctx_slot=1024 c=8192 ncmoe=0	REFUSED	0.00.527.555 E srv  llama_server: exiting due to model loading error
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4172
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=1	agg=98.5	p50=4.82	truncated=0/1	wall=4.8
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=2	agg=35.9	p50=26.44	truncated=0/2	wall=26.4
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=4	agg=181.9	p50=10.44	truncated=0/4	wall=10.4
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=8	agg=203.4	p50=18.68	truncated=0/8	wall=18.7
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=16	agg=243.2	p50=31.24	truncated=0/16	wall=31.2
+srv1	gptoss-4b np=32 ctx_slot=1024 c=32768 ncmoe=0	n=32	agg=213.8	p50=71.08	truncated=0/32	wall=71.1
+srv1	32b-Q4 np=8 ctx_slot=1024 c=8192 ncmoe=0	REFUSED	0.11.800.013 E srv  llama_server: exiting due to model loading error
+srv1	32b-Q4 np=16 ctx_slot=1024 c=16384 ncmoe=0	REFUSED	0.01.162.025 E srv  llama_server: exiting due to model loading error
+srv1	30b-IQ3XXS np=8 ctx_slot=1024 c=8192 ncmoe=28	REFUSED	0.10.359.230 E srv  llama_server: exiting due to model loading error
+srv1	30b-IQ3XXS np=32 ctx_slot=1024 c=32768 ncmoe=35	REFUSED	0.01.689.967 E srv  llama_server: exiting due to model loading error
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	CONFIG	vram=4866
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=1	agg=44.8	p50=10.59	truncated=0/1	wall=10.6
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=2	agg=27.2	p50=34.94	truncated=0/2	wall=34.9
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=4	agg=54.8	p50=34.65	truncated=0/4	wall=34.7
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=8	agg=107.8	p50=35.26	truncated=0/8	wall=35.3
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=16	agg=168.6	p50=45.07	truncated=0/16	wall=45.1
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=32	agg=229.9	p50=66.10	truncated=0/32	wall=66.1
+srv1	vllm-15b util=0.85 len=1024 seqs=64 kv=auto	n=64	agg=284.0	p50=106.92	truncated=0/64	wall=107.1
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	CONFIG	vram=4802
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=1	agg=22.6	p50=21.02	truncated=0/1	wall=21.0
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=2	agg=17.8	p50=53.27	truncated=0/2	wall=53.3
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=4	agg=35.7	p50=53.15	truncated=0/4	wall=53.2
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=8	agg=70.3	p50=54.02	truncated=0/8	wall=54.0
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=16	agg=102.9	p50=73.83	truncated=0/16	wall=73.8
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=32	agg=132.3	p50=114.86	truncated=0/32	wall=114.9
+srv1	vllm-3b util=0.85 len=1024 seqs=64 kv=auto	n=64	agg=155.3	p50=195.73	truncated=0/64	wall=195.8
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	CONFIG	vram=4678
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=1	agg=17.2	p50=27.60	truncated=0/1	wall=27.6
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=2	agg=14.1	p50=67.48	truncated=0/2	wall=67.5
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=4	agg=27.6	p50=68.91	truncated=0/4	wall=68.9
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=8	agg=53.0	p50=71.66	truncated=0/8	wall=71.7
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=16	agg=75.3	p50=100.92	truncated=0/16	wall=100.9
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=32	agg=87.8	p50=162.54	truncated=0/32	wall=173.2
+srv1	vllm-q3-4b util=0.85 len=1024 seqs=64 kv=auto	n=64	agg=87.9	p50=283.24	truncated=0/64	wall=345.8
+srv1	vllm-7b util=0.9 len=1024 seqs=64 kv=auto	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+srv1	vllm-nem4b-fp8 util=0.8 len=1024 seqs=32 kv=auto	REFUSED	(APIServer pid=1)   Value error, The quantization method modelopt is not supported for the current GPU. Minimum capability: 89. Current capability: 75. [type=value_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs] | (APIServer pid=1)     For further information visit https://errors.pydantic.dev/2.13/v/value_error
+== srv1 sweep done Thu Aug 27 08:41:53 PM UTC 2026 ==
