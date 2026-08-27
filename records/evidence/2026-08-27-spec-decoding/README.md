@@ -88,6 +88,16 @@ Image `ghcr.io/ggml-org/llama.cpp:server-cuda-b10481`, `llama-server`, `-ngl 99`
 - **Not EAGLE3**: `--spec-type draft-eagle3` needs a dedicated EAGLE head checkpoint; we only have a plain 1.5B draft GGUF (→ `draft-simple`). No published Qwen2.5-Coder EAGLE head exists, so `--model-draft` (draft-simple) is the available path.
 - **Scale caveat**: +10% is far from the brief's "2–4×". This is single-slot (batch-1) latency; the absolute ceiling on this hardware is ~81 tok/s for the heavily-quantized IQ4_XS target.
 
+## 5. Can we draft the 35B (Qwen3.6-35B-A3B MoE)? — NO, on this hardware
+
+Investigating both mechanisms for the stock `Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf` (MoE, 3B active, ~13 GB):
+
+**(a) Native MTP `--spec-type draft-mtp` — blocked by a missing head.** Qwen3.6-35B-A3B *is* MTP-native (arch `qwen35moe`, `Qwen3_5MoeForConditionalGeneration`), and llama.cpp supports `draft-mtp`. **BUT every hardware-fitting stock GGUF strips the MTP head** — verified via `gguf` lib: our `UD-IQ3_XXS` and the `MXFP4_MOE` (22.2 GB, pulled to test) both report **0 MTP tensors**; llama.cpp says `model doesn't contain MTP layers`. The only quant that keeps MTP is the **BF16 (71 GB)**, which fits no box (srv1 48 GB RAM, srv2 16 GB; 6/12 GB VRAM).
+
+**(b) External small-draft `--model-draft` — blocked by vocab.** The 35B vocab = **248320**. There is **no small Qwen3.6 model** (smallest is 27B) sharing it, standard small Qwen3 (151936) is ~96k off, and llama.cpp has **no cross-vocab/TLI** (only tolerates ≤128 diff with byte-identical tokenizer). So no draft can pass the vocab check.
+
+Also, the 35B is **offload-bound** even alone (srv1 needed `--n-cpu-moe 40`, ~27 tok/s single) and heavily quantized (IQ3_XXS). Bottom line: **the 35B is not draftable within these constraints**; the working SD win remains the 7B on srv2 (+11%).
+
 ## Root causes (measured + sourced)
 
 - **Draft overhead isn't amortized on compute/bandwidth-bound consumer cards** (RTX 2070 ref: cost_ratio 1.18×; target already cheap → draft is pure overhead). This dominates on both the 3060 and 1660 SUPER.
