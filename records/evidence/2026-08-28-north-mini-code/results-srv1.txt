@@ -1,0 +1,13 @@
+== North-Mini-Code srv1 sweep start Thu Aug 27 10:19:50 PM UTC 2026 ==
+srv1	north-30b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=40	CONFIG	real_ctx_slot=1024	vram=5482
+srv1	north-30b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=40	n=1	agg=23.7	p50=20.07	truncated=0/1	wall=20.1
+srv1	north-30b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=40	n=2	agg=34.2	p50=27.78	truncated=0/2	wall=27.8
+srv1	north-30b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=40	n=4	agg=30.0	p50=63.37	truncated=0/4	wall=63.4
+srv1	north-30b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=40	n=8	agg=60.8	p50=62.47	truncated=0/8	wall=62.5
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	CONFIG	real_ctx_slot=1024	vram=4870
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	n=1	agg=22.7	p50=20.95	truncated=0/1	wall=21.0
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	n=2	agg=28.3	p50=33.55	truncated=0/2	wall=33.6
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	n=4	agg=28.8	p50=65.97	truncated=0/4	wall=66.0
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	n=8	agg=56.5	p50=67.21	truncated=0/8	wall=67.2
+srv1	north-30b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=44	n=16	agg=66.2	p50=114.84	truncated=0/16	wall=114.8
+== srv1 sweep done Thu Aug 27 10:30:09 PM UTC 2026 ==

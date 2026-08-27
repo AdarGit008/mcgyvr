@@ -1,0 +1,14 @@
+== North-Mini-Code srv2 sweep start Thu Aug 27 10:17:04 PM UTC 2026 ==
+srv2	north-30b-IQ2M np=8 ctx_slot=1024 c=8192 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=11067
+srv2	north-30b-IQ2M np=8 ctx_slot=1024 c=8192 ncmoe=0	n=1	agg=90.3	p50=5.26	truncated=0/1	wall=5.3
+srv2	north-30b-IQ2M np=8 ctx_slot=1024 c=8192 ncmoe=0	n=2	agg=153.0	p50=6.21	truncated=0/2	wall=6.2
+srv2	north-30b-IQ2M np=8 ctx_slot=1024 c=8192 ncmoe=0	n=4	agg=180.2	p50=10.54	truncated=0/4	wall=10.5
+srv2	north-30b-IQ2M np=8 ctx_slot=1024 c=8192 ncmoe=0	n=8	agg=281.1	p50=13.51	truncated=0/8	wall=13.5
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=11851
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	n=1	agg=90.2	p50=5.26	truncated=0/1	wall=5.3
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	n=2	agg=157.2	p50=6.04	truncated=0/2	wall=6.0
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	n=4	agg=182.1	p50=10.43	truncated=0/4	wall=10.4
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	n=8	agg=281.3	p50=13.51	truncated=0/8	wall=13.5
+srv2	north-30b-IQ2M np=16 ctx_slot=1024 c=16384 ncmoe=0	n=16	agg=518.4	p50=14.66	truncated=0/16	wall=14.7
+srv2	north-30b-IQ2M np=32 ctx_slot=1024 c=32768 ncmoe=0	REFUSED	0.02.511.300 E srv  llama_server: exiting due to model loading error
+== srv2 sweep done Thu Aug 27 10:19:02 PM UTC 2026 ==
