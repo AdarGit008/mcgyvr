@@ -98,6 +98,20 @@ Investigating both mechanisms for the stock `Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf` (M
 
 Also, the 35B is **offload-bound** even alone (srv1 needed `--n-cpu-moe 40`, ~27 tok/s single) and heavily quantized (IQ3_XXS). Bottom line: **the 35B is not draftable within these constraints**; the working SD win remains the 7B on srv2 (+11%).
 
+## 6. Bigger target IS draftable — Qwen3-30B-A3B MoE (revises the "7B ceiling")
+
+**Correction: a larger model than 7B CAN be speculative-decoded.** The **Qwen3-30B-A3B MoE** (`qwen3-coder-30b.gguf`, srv1, 18.6 GB, vocab **151936**, 3B active) pairs **exactly** with a small **Qwen3-1.7B draft** (vocab **151936**, 1.01 GB) — same-vocab, no TLI, no cross-vocab. It loads and runs in llama.cpp `--model-draft`.
+
+| config (srv1, ncmoe=44 offload) | tok/s | vs baseline |
+|---|---|---|
+| 30B MoE alone | 22.80 | 1.00× |
+| 30B MoE + 1.7B draft | 23.50 | **1.03×** |
+
+- **So a bigger (30B) target is draftable** — the user's concern is valid and the 7B is *not* a hard ceiling.
+- **But the speedup is ~3% (near noise) on srv1**, because the 30B MoE is **offload-bound**: with `--n-cpu-moe 44` most experts are CPU-resident, so per-token cost is dominated by CPU/offload latency, not target-forward count. SD (which cuts forwards) barely moves it.
+- **Where it could win**: srv2 (12 GB VRAM, the fast card) — but srv2's **16 GB RAM** can't hold the 18.6 GB GGUF + draft; a ≤13 GB quant (Qwen3-30B-A3B IQ3_XXS) would be needed, tight. Unmeasured (RAM-risky).
+- **Summary of ceiling:** 7B on srv2 = **+11%** (real, measured). 30B MoE on srv1 = **+3%** (wins-but-negligible, offload-bound). 35B (Qwen3.6, vocab 248320) = not draftable. Bigger targets draft fine mechanically; the *gain* is box/offload-bound.
+
 ## Root causes (measured + sourced)
 
 - **Draft overhead isn't amortized on compute/bandwidth-bound consumer cards** (RTX 2070 ref: cost_ratio 1.18×; target already cheap → draft is pure overhead). This dominates on both the 3060 and 1660 SUPER.

@@ -4,11 +4,12 @@
 # decoding, does a warmup + N measured /completion requests, then prints per-request
 # tokens/sec parsed from the server's own "print_timing" log lines.
 # NOTE: a single request must complete within TMO seconds (serve stdout not needed).
-MODEL="$1"; DRAFT="$2"; N="${3:-150}"; N_RUNS="${4:-3}"; PREFIX="${5:-base}"; PORT="${6:-8081}"; TMO="${7:-300}"; NMAX="${8:-3}"
+MODEL="$1"; DRAFT="$2"; N="${3:-150}"; N_RUNS="${4:-3}"; PREFIX="${5:-base}"; PORT="${6:-8081}"; TMO="${7:-300}"; NMAX="${8:-3}"; NCMOE="${9:-0}"
 CONTAINER="llama_${PREFIX}"
 docker rm -f "$CONTAINER" >/dev/null 2>&1
 
 ARGS=( -m "/models/$(basename "$MODEL")" -ngl 99 -c 4096 -np 1 --host 0.0.0.0 --port "$PORT" )
+if [ "$NCMOE" -gt 0 ]; then ARGS+=( --n-cpu-moe "$NCMOE" ); fi
 if [ -n "$DRAFT" ]; then
   ARGS+=( -md "/draft/$(basename "$DRAFT")" --spec-draft-n-max "$NMAX" --spec-type draft-simple )
 fi

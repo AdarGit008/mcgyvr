@@ -17,5 +17,8 @@
   {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":2,"num_tokens":150,"tokens_per_sec":76.0,"speedup_vs_target":1.05},
   {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":3,"num_tokens":150,"tokens_per_sec":80.2,"speedup_vs_target":1.10},
   {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":4,"num_tokens":150,"tokens_per_sec":80.9,"speedup_vs_target":1.11},
-  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":5,"num_tokens":150,"tokens_per_sec":79.7,"speedup_vs_target":1.10}
+  {"engine":"llama.cpp","machine":"srv2","target":"Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf","draft":"qwen2.5-coder-1.5b-instruct-q6_k.gguf","spec_draft_n_max":5,"num_tokens":150,"tokens_per_sec":79.7,"speedup_vs_target":1.10},
+
+  {"engine":"llama.cpp","machine":"srv1","target":"qwen3-coder-30b.gguf","n_cpu_moe":44,"draft":null,"num_tokens":60,"tokens_per_sec":22.8,"speedup_vs_target":1.0},
+  {"engine":"llama.cpp","machine":"srv1","target":"qwen3-coder-30b.gguf","n_cpu_moe":44,"draft":"qwen3-1.7b-IQ4_XS.gguf","spec_draft_n_max":3,"num_tokens":60,"tokens_per_sec":23.5,"speedup_vs_target":1.03}
 ]
