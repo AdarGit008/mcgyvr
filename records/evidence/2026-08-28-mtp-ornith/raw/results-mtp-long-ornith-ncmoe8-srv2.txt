@@ -1,0 +1,6 @@
+srv2	ornith-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run1	gen_tok_s=69.7	prefill_ms=14276	accept=n/a	gen=475
+srv2	ornith-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run2	gen_tok_s=70.1	prefill_ms=14265	accept=n/a	gen=475
+srv2	ornith-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run3	gen_tok_s=70.2	prefill_ms=14272	accept=n/a	gen=475
+srv2	ornith-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run1	gen_tok_s=84.4	prefill_ms=14632	accept=291/365=0.797	gen=475
+srv2	ornith-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run2	gen_tok_s=84.9	prefill_ms=14622	accept=291/365=0.797	gen=475
+srv2	ornith-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run3	gen_tok_s=85.0	prefill_ms=14593	accept=291/365=0.797	gen=475

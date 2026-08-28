@@ -1,0 +1,21 @@
+=== ncmoe=4 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=4	agg=77.8	wall=6.1	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=4	REFUSED	0.02.379.835 E llama_model_load: error loading model: unable to allocate CUDA0 buffer | 0.02.380.672 E srv  llama_server: exiting due to model loading error
+=== ncmoe=8 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=8	agg=68.6	wall=6.9	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=8	agg=92.2	wall=5.2	gen=475	accept=305/338=0.902
+=== ncmoe=12 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=12	agg=62.1	wall=7.6	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=12	agg=85.0	wall=5.6	gen=475	accept=306/335=0.913
+=== ncmoe=16 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=16	agg=61.3	wall=7.8	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=16	agg=80.4	wall=5.9	gen=475	accept=313/322=0.972
+=== ncmoe=20 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=20	agg=58.2	wall=8.2	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=20	agg=72.3	wall=6.6	gen=475	accept=307/332=0.925
+=== ncmoe=24 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=24	agg=45.9	wall=10.3	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=24	agg=69.2	wall=6.9	gen=475	accept=313/322=0.972
+=== ncmoe=28 ===
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=28	agg=51.1	wall=9.3	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=28	agg=62.3	wall=7.6	gen=475	accept=306/335=0.913
