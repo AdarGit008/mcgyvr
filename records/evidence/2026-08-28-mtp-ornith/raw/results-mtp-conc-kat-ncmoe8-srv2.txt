@@ -1,0 +1,10 @@
+srv2	kat-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=8	agg=70.3	wall=6.8	gen=475	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=8	agg=88.9	wall=5.3	gen=475	accept=298/350=0.851
+srv2	kat-35b-MTP-Q2K conc n=2 nmax=0 ncmoe=8	agg=100.7	wall=9.4	gen=950	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=2 nmax=2 ncmoe=8	agg=115.7	wall=8.2	gen=950	accept=578/738=0.783
+srv2	kat-35b-MTP-Q2K conc n=4 nmax=0 ncmoe=8	agg=126.2	wall=15.1	gen=1900	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=4 nmax=2 ncmoe=8	REFUSED	0.03.780.119 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 238.00 MiB on device 0: cudaMalloc failed: out of memory | 0.03.784.750 E srv  llama_server: exiting due to model loading error
+srv2	kat-35b-MTP-Q2K conc n=8 nmax=0 ncmoe=8	agg=162.2	wall=23.4	gen=3800	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=8 nmax=2 ncmoe=8	REFUSED	0.04.118.693 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1507.50 MiB on device 0: cudaMalloc failed: out of memory | 0.04.123.210 E srv  llama_server: exiting due to model loading error
+srv2	kat-35b-MTP-Q2K conc n=16 nmax=0 ncmoe=8	agg=215.9	wall=35.2	gen=7600	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=16 nmax=2 ncmoe=8	REFUSED	0.04.581.500 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 3015.00 MiB on device 0: cudaMalloc failed: out of memory | 0.04.591.008 E srv  llama_server: exiting due to model loading error
