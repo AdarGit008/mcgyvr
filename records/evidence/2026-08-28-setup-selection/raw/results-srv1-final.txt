@@ -1,0 +1,7 @@
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	CONFIG	real_ctx_slot=1024	vram=4838
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=1	agg=76.7	p50=6.20	truncated=0/1	wall=6.2
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=2	agg=117.4	p50=8.09	truncated=0/2	wall=8.1
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=4	agg=146.5	p50=12.96	truncated=0/4	wall=13.0
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=8	agg=167.7	p50=22.65	truncated=0/8	wall=22.7
+srv1	q3-4b-Q4-np16 np=16 ctx_slot=1024 c=16384 ncmoe=0	n=16	agg=174.4	p50=43.57	truncated=0/16	wall=43.6
+done
