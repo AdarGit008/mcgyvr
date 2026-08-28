@@ -1079,6 +1079,42 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   reports realized counts per steering cell. Offline invariants pinned in
   `tests/test_bench_gate.py`.
 
+- The orchestration core ported from local-ai: mcgyvr can now run a task.
+  Nineteen levers, each stated first as a behaviour test in `tests/red_port/`
+  and then bound. The port's finding was that mcgyvr was a library of seams
+  with no assembled driver — `escalate()`'s `attempt`, `decompose()`'s
+  `propose` and `judge()`'s `verifier` were unbound parameters, and
+  `runner.dispatch_role` had no caller at all — so most of this is binding
+  sockets that already existed rather than new machinery.
+  - `deliver.py` writes an accepted change into the repository it was attached
+    to and commits it, re-confirming at commit time what acceptance
+    established at build time. It refuses a dirty tree, diffs against the
+    sandbox base commit rather than the attach revision, and restores a
+    byte-exact snapshot on every non-committing exit. `config.delivery.*` was
+    validated and read by nothing; it is now read.
+  - `telemetry.py` records every attempt exactly once, whether it returned or
+    raised, as append-only JSONL with corrections folded latest-wins. No
+    module-level state and an `flock`ed whole-line write, so several
+    orchestrators can share a sink.
+  - `verify.py` gives `dispatch_role` its first caller: the verifier prompt,
+    the anchored first-token parse, and the refusal to let a model judge its
+    own output. The semantic rung stays non-blocking and reaches the reviewer
+    as notes, which is what #129 measured and chose.
+  - `repair.py` fixes what a gate rejection can fix deterministically and
+    re-runs the gate, so a repairable failure costs no model call.
+  - `deterministic.py` binds the tier-0 floor. All four deterministic task
+    types previously planned nothing to run on their own floor, so each was a
+    model call for work `ruff` does for free; a missing tool now degrades onward
+    and records what it cost instead of halting.
+  - Also: `waves.py` (DAG waves on `depends_on`), `pending.py` (stash and
+    resume work stranded by an unreachable verifier), `cooldown.py`,
+    `consensus.py`, `cleanup.py`, `attempt.py` (a retry is told what the
+    previous one got wrong), `gate/typecheck.py`, `worker/scoped.py`, and
+    per-task-type output caps.
+  Verified against 18 regression tests pinning what mcgyvr already did better
+  than local-ai — sandbox isolation, context assembly, availability probing,
+  failing-test-first acceptance, secret scanning, determinism. None regressed.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
