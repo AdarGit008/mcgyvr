@@ -152,7 +152,28 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # capacity accounting and telemetry — both of which live below the seam"
 # (`pool.py`). Nothing travels upward either — a caller above the seam hands
 # `run_batch` a capacity and gets back outcomes, and never an endpoint.
-BELOW_THE_SEAM = {"pool.py", "runner.py", "availability.py", "capacity.py"}
+#
+# `cooldown.py` (D09) is the fifth, and it is capacity's argument rather than
+# availability's. It never talks to anything: probing is delegated whole to
+# `Availability`, and of an endpoint it reads exactly one field, `source` — the
+# key its failure record is held under, which is the same key capacity holds its
+# semaphores under and the use `Endpoint` itself names. It touches neither
+# `base_url` nor `protocol` nor the credential, so it cannot dispatch even by
+# accident. Nothing travels upward: `source_map` consults it through
+# `SourceProbe` exactly as it consults availability, handing endpoints down and
+# getting back a mapping of source name to reason.
+#
+# It is on this list rather than off it because the alternative was worse. The
+# same import spelled `from mcgyvr.availability import Endpoint` — a re-export —
+# would satisfy this guard while changing nothing about the dependency, which is
+# defeating the guard by spelling instead of making the argument it asks for.
+BELOW_THE_SEAM = {
+    "pool.py",
+    "runner.py",
+    "availability.py",
+    "capacity.py",
+    "cooldown.py",
+}
 
 
 def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:

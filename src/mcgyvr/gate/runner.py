@@ -53,6 +53,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.structured import validate_structured_data
+from mcgyvr.gate.typecheck import STYLE, TypeCheck
 from mcgyvr.scope import Scope
 
 
@@ -141,6 +142,7 @@ class Gate:
         *,
         semantic: SemanticCheck | None = None,
         acceptance: Acceptance | None = None,
+        typecheck: TypeCheck | None = None,
     ) -> GateResult:
         findings: list[Finding] = []
         observations: list[Finding] = []
@@ -170,9 +172,26 @@ class Gate:
         env_issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
         for adapter in self.adapters:
-            findings.extend(
-                self._run_adapter(adapter, changeset, env_issues, inconclusive)
-            )
+            for item in self._run_adapter(adapter, changeset, env_issues, inconclusive):
+                (observations if item.check == STYLE else findings).append(item)
+
+        if typecheck is not None and not findings:
+            try:
+                findings.extend(typecheck.run(changeset))
+            except ToolFailedError as exc:
+                rung = InconclusiveRung(
+                    adapter="python",
+                    rung="typecheck",
+                    tool=exc.tool,
+                    exit_code=exc.exit_code,
+                    detail=exc.detail,
+                )
+                inconclusive.append(rung)
+                env_issues.append(str(rung))
+            except ToolUnavailableError as exc:
+                env_issues.append(
+                    f"python: {exc.tool} not installed — typecheck skipped"
+                )
 
         # 5 — semantic resolution (#123): the first rung that needs the
         # sandbox, and much the cheaper of the two that do. It resolves the

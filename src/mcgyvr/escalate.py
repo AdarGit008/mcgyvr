@@ -54,6 +54,21 @@ passing checks is spend that carries no information, and neither an observation
 (a finding the gate deliberately did not reject on) nor an environment issue (a
 tool that was not installed) is something the worker did or can fix.
 
+**How a task ended and what to do about it are two questions.**
+:class:`Outcome` answers the first and deliberately not the second, and every
+caller that has to decide whether the work may be tried somewhere else would
+otherwise re-derive the answer from the outcome's *name* — differently, in each
+caller, and silently. :func:`disposition` answers it once per outcome with a
+reason a human can act on, and :func:`may_reassign` is the single decision that
+reads it together with the budget. The split it draws is the one a caller acts
+on: the two ceilings are numbers an operator chose and can raise, so work they
+stopped may move; a spent ladder is a statement about what this install can do,
+and sending it to a dearer family that does not exist changes the bill and
+nothing else. Ported from local-ai's ``REASSIGNABLE`` set, and needed here
+before §9's ``main_out_queue`` can exist, because pushing work back for another
+orchestrator to take *is* a reassignment and cannot be written against a
+taxonomy that does not say which failures are eligible.
+
 **What is deliberately not here.** Parsing a model's reply into a
 :class:`Review` is #41's; this module fixes only *when* one is asked for and
 what follows from each answer. Reviewing the applied diff in fresh context is
@@ -72,7 +87,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.route import (
@@ -659,3 +674,111 @@ def _halt_detail(
         f"the ladder is spent: {attempts_spent} attempt(s) and {escalations} "
         f"escalation(s) across {climbed}, and none produced an acceptable change."
     )
+
+
+# --- what to do next -------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Disposition:
+    """Whether the work behind one outcome may be tried somewhere else, and why.
+
+    Two fields, kept together because either alone is a trap. A bool with no
+    reason tells an operator that the work stopped and not what would let it
+    continue; prose with no bool is re-read and re-interpreted at every call
+    site, which is the thing this axis exists to stop.
+    """
+
+    reassignable: bool
+    detail: str
+
+
+def disposition(outcome: Outcome) -> Disposition:
+    """What ``outcome`` says about trying this work somewhere else.
+
+    A match over the enum with :func:`~typing.assert_never` beneath it rather
+    than a lookup table, so a seventh :class:`Outcome` is a type error where it
+    is declared. A taxonomy with a hole in it is worse than no taxonomy: the
+    hole is found by a caller, at runtime, on the one path nobody exercised.
+    """
+    match outcome:
+        case Outcome.ACCEPTED:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "accepted: the change landed, so there is no work to move. "
+                    "Reassigning here buys a second answer to a question that "
+                    "already has one."
+                ),
+            )
+        case Outcome.ESCALATION_CEILING:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "escalation_ceiling: the climb stopped at "
+                    "budgets.max_escalations with rungs of the ascent never "
+                    "entered, so nothing here says the ladder cannot do the "
+                    "work — only that it was not allowed to try. Raise the "
+                    "ceiling, or hand the contract to someone who can pay for "
+                    "the moves."
+                ),
+            )
+        case Outcome.ATTEMPT_CEILING:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "attempt_ceiling: the task stopped at what it may spend, "
+                    "which bounds the bill and not the ladder's ability. The "
+                    "same contract may be attempted again against a budget "
+                    "that can pay for it."
+                ),
+            )
+        case Outcome.LADDER_SPENT:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "ladder_spent: every rung this install offers was tried "
+                    "and none produced an acceptable change, so there is no "
+                    "dearer family left to send the work to. The remedy is to "
+                    "bind a dearer rung or to narrow the contract — raising a "
+                    "number changes what it costs to fail, not whether it "
+                    "fails."
+                ),
+            )
+        case Outcome.NOTHING_TO_RUN:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "nothing_to_run: no family from the contract's floor "
+                    "upward offers a rung, so the pool stopped this and not "
+                    "the work. Until a rung is bound — a config line, a "
+                    "credential — moving the contract only relocates the same "
+                    "answer."
+                ),
+            )
+        case Outcome.DECLINED_THROUGHOUT:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "declined_throughout: every rung of every family stepped "
+                    "aside without spending an attempt, so no rung of this "
+                    "ladder claims the contract. Nothing dearer is being "
+                    "withheld; what is missing is a rung that accepts this "
+                    "work, or a contract the bound rungs recognise."
+                ),
+            )
+        case _:  # pragma: no cover - unreachable while the match is exhaustive
+            assert_never(outcome)
+
+
+def may_reassign(outcome: Outcome, budget_remaining: int) -> bool:
+    """Whether to hand this work on, given the kind of ending and what is left.
+
+    Two inputs, and both have to matter. Deciding on the budget alone is the
+    rule this project already had, and it sends work a ladder has already shown
+    it cannot do to a dearer family that cannot do it either — the bill is the
+    only thing that changes. Deciding on the kind alone spends money nobody
+    has: ``reassignable`` says the work *may* move, never that moving it is
+    free.
+    """
+    return disposition(outcome).reassignable and budget_remaining > 0

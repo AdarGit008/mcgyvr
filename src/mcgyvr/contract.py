@@ -40,9 +40,10 @@ The field layout follows the split #94 arrived at from small-model research:
 worker-facing fields (``task``, ``target``, ``target_content``, ``deps``,
 ``interface``, ``stop_conditions``, ``output_schema``, ``context``) are
 separated from orchestrator-only ones (``risk``, ``verification``,
-``attempts``, ``acceptance``), and :meth:`Contract.worker_view` is the only way
-to reach the former. Building the flat shape first and splitting it later was the rework
-#94 exists to describe, so the split is here from the start.
+``attempts``, ``acceptance``, ``depends_on``), and :meth:`Contract.worker_view`
+is the only way to reach the former. Building the flat shape first and
+splitting it later was the rework #94 exists to describe, so the split is here
+from the start.
 
 ``SCHEMA`` below is declarative data, not hand-written checks — the same
 approach :mod:`mcgyvr.config` takes, so the authoring guide (#18) can be
@@ -75,6 +76,7 @@ from typing import Any, Literal
 import yaml
 
 from mcgyvr.catalog import CatalogError, catalog
+from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.scope import Scope
 
@@ -142,6 +144,104 @@ def task_type(name: str) -> CatalogTaskType:
                 f"task_type: {name!r} is not in the vocabulary. {gone.reason}{hint}"
             ) from exc
         raise ContractSchemaError(f"task_type: {exc}") from exc
+
+
+# --- the output cap -------------------------------------------------------
+
+# What a reply may cost, in tokens, before anything is known about the file it
+# lands in. One number for every task type is wrong for at least one of them:
+# too small truncates a reply into a named failure that costs a whole attempt,
+# too large steals context from the prompt that would have made the reply
+# right, and a docstring and a function written from nothing cannot both be
+# served by the same number.
+#
+# Keyed by what the catalog says a type must *prove*, never by the type's name.
+# A table of names here would be the second definition of the vocabulary that
+# :mod:`mcgyvr.catalog` exists to prevent, and adding a task type would mean
+# editing this file to give it a cap. Required evidence is the honest key
+# because it is already a statement about the reply: evidence a structural
+# check can read is evidence about prose or a shape, and evidence only a
+# command can produce is evidence about behaviour — which has to be written
+# before it can run.
+#
+# Two steps and not more, because two is as far as the catalog's properties
+# actually distinguish. Splitting the second — a defect fix, say, above a
+# function written from nothing — would need a measurement nobody here has
+# taken: both must write behaviour, and under `whole_file` both re-emit the
+# file around it, so a third number would be a preference wearing a budget's
+# clothes. The two that are here are a shape rather than a measurement too, and
+# generous on purpose: an unspent cap costs nothing, while truncation costs a
+# whole attempt. A reply that overflows a generous cap is a task too big for one
+# contract, which is a re-decomposition and not a larger number.
+#
+# Moving either number is not a free re-tune. A contract's emitted form carries
+# its cap, and `sha256(dumps(contract))` is what `tools/instruments.py` joins
+# recorded runs to their task set by, so a step that moves re-keys every pinned
+# contract of every type that reads it and detaches those runs from their
+# provenance. Deliberate is fine; incidental is not.
+_STRUCTURAL_ALLOWANCE = 512
+"""Nothing to run: the reply is prose, or an edit a parser can check."""
+
+_RUNNING_ALLOWANCE = 1024
+"""A command has to run afterwards, so behaviour has to be written."""
+
+# A file that does not exist yet arrives with its declarations as well as its
+# body — the imports, the def line, the module docstring — so creating one is a
+# step dearer than editing one that is already there.
+_NEW_FILE_STEP = 512
+
+# Caps come out as whole steps rather than as arbitrary numbers, and never
+# below the floor. Both bite on what a caller adds — the new-file step today,
+# a term derived from the target's own content when #17 lands — rather than on
+# the allowances above, which are already whole steps.
+_ROUND_TO = 128
+_MIN_CAP = 256
+
+
+def output_cap(name: str, *, new_file: bool = False) -> int:
+    """The output cap a contract of this task type carries when it declares none.
+
+    Deterministic in its inputs and in nothing else: same task type, same
+    number, in this process and in the next one. A cap is a budget, and a
+    budget that moved between two runs of the same contract would make every
+    refusal downstream unreproducible.
+
+    A type the deterministic tier executes gets the floor. There is no model
+    reply to size — a tool writes the change — so any larger number would be a
+    reservation against something that never happens.
+
+    ``new_file`` is a fact about the repository, so it is asked of the caller
+    rather than guessed here. The loader cannot supply it: an empty
+    ``target_content`` means "the file does not exist yet" *or* "its content is
+    not needed", and a loader that read the first meaning into it would
+    over-cap half the contracts that carry neither.
+    """
+    kind = task_type(name)
+    allowance = (
+        0
+        if kind.deterministic
+        else max(
+            (_evidence_allowance(e) for e in kind.required_evidence),
+            default=_STRUCTURAL_ALLOWANCE,
+        )
+    )
+    if allowance and new_file:
+        allowance += _NEW_FILE_STEP
+    whole_steps = ((allowance + _ROUND_TO - 1) // _ROUND_TO) * _ROUND_TO
+    return max(_MIN_CAP, whole_steps)
+
+
+def _evidence_allowance(evidence: CatalogEvidence) -> int:
+    """How big one required evidence kind says the reply has to be allowed to be.
+
+    Read off the property the catalog declares — whether this evidence needs a
+    command to produce it — because that is the property that says what the
+    reply must contain: evidence a structural check can read is evidence about
+    prose or a shape, and evidence a command produces is evidence about
+    behaviour, which has to be written before it can run. A kind matched by
+    name would put the evidence vocabulary in this file too.
+    """
+    return _RUNNING_ALLOWANCE if evidence.needs_commands else _STRUCTURAL_ALLOWANCE
 
 
 # --- the declared schema --------------------------------------------------
@@ -274,9 +374,12 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "Hard cap on the worker's reply, enforced in the runner. A reply cut "
         "off at the cap is a named failure and is never applied to a file. "
-        "Deriving this from the target's own content is #17; the schema only "
-        "requires that a contract carry one.",
-        default=1024,
+        "Left out, it is derived from what the task type's own required "
+        "evidence says the reply has to be (`output_cap`) — which is why this "
+        "is the one key in the schema with no static default: a single number "
+        "for every type is wrong for at least one of them. Deriving it "
+        "further from the target's own content is #17.",
+        default=None,
         min_value=1,
     ),
     Field(
@@ -433,6 +536,20 @@ SCHEMA: tuple[Field, ...] = (
         default=(),
     ),
     Field(
+        "depends_on",
+        "str_list",
+        "Ids of the contracts that must complete before this one may run. "
+        "Stated on the contract, so a plan can be ordered — and the parts of "
+        "it that cannot run at all found — before a token is spent, the way "
+        "`route.plan()` already is. A proposer's emission order is the order a "
+        "model thought of things, not a dependency order, so ordering that is "
+        "not written down here is ordering that does not exist. Not "
+        "worker-facing: a worker is handed one task and never the plan around "
+        "it, and a dependency that has landed is already in the tree it reads.",
+        default=(),
+        hint='e.g. ["write-fetch"]',
+    ),
+    Field(
         "risk",
         "enum",
         "How much a wrong answer costs. A floor on how cheap the work may "
@@ -507,9 +624,10 @@ class Contract:
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
+    depends_on: tuple[str, ...] = ()
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
-    limits: Limits = Limits(1024, 2)
+    limits: Limits = Limits(_RUNNING_ALLOWANCE, 2)
 
     @property
     def type(self) -> CatalogTaskType:
@@ -554,7 +672,17 @@ class Contract:
         Round-trips: ``parse(dumps(c))`` reconstructs ``c``. That is what makes
         "a contract the orchestrator emits is one the direct-mode API accepts"
         testable rather than asserted.
+
+        ``depends_on`` is emitted only when the contract states one, where
+        every other key is emitted empty or not. The difference is not
+        tidiness: this form is an identity — ``tools/instruments.py`` pins
+        ``sha256(dumps(contract))`` per task as the evidence that a recorded
+        run was run against a declared instrument — so a key every contract
+        carries whether or not it means anything re-keys every contract ever
+        emitted, and several runs' provenance with them. A key that appears
+        exactly when it says something costs nothing to add later.
         """
+        stated = {"depends_on": list(self.depends_on)} if self.depends_on else {}
         return {
             "version": self.version,
             "id": self.id,
@@ -576,6 +704,7 @@ class Contract:
             },
             "acceptance": list(self.acceptance),
             "demonstration": list(self.demonstration),
+            **stated,
             "risk": self.risk,
             "verification": {"policy": self.verification.policy},
             "limits": {
@@ -652,6 +781,12 @@ def parse(text: str, path: Path | None = None) -> Contract:
         )
 
     data = _block(raw, SCHEMA, "")
+    if data["limits"]["max_output_tokens"] is None:
+        # The one key the schema cannot default statically: how big a reply may
+        # be depends on what the reply has to be. Filled before
+        # `_cross_validate`, so the cap is checked against the prompt budget on
+        # the same terms whether it was declared or derived.
+        data["limits"]["max_output_tokens"] = output_cap(data["task_type"])
     _cross_validate(data)
     return _build(data)
 
@@ -681,6 +816,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
         max_input_tokens=data["context"]["max_input_tokens"],
         acceptance=tuple(data["acceptance"]),
         demonstration=tuple(data["demonstration"]),
+        depends_on=tuple(data["depends_on"]),
         risk=data["risk"],
         verification=Verification(policy=data["verification"]["policy"]),
         limits=Limits(
@@ -951,6 +1087,33 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"acceptance if it is a regression signal, demonstration if it "
             f"shows the defect."
         )
+
+    # A dependency is a join key onto another contract's id, and every way of
+    # writing one that no contract could ever match is a plan that deadlocks
+    # instead of running — which is only visible once a driver has ordered the
+    # whole set, long after this contract was accepted.
+    waiting: set[str] = set()
+    for index, needed in enumerate(data["depends_on"]):
+        if needed == identity:
+            raise ContractSchemaError(
+                f"depends_on.{index}: {needed!r} is this contract's own id, so "
+                f"it would be waiting for itself and could never start. Name "
+                f"the contract that must land first, or drop the key."
+            )
+        if not _ID.match(needed):
+            raise ContractSchemaError(
+                f"depends_on.{index}: {needed!r} is not a usable contract id, "
+                f"so no contract could ever satisfy it. Use letters, digits, "
+                f"dot, dash or underscore, starting with a letter or digit, up "
+                f"to 64 characters."
+            )
+        if needed in waiting:
+            raise ContractSchemaError(
+                f"depends_on.{index}: {needed!r} appears more than once. "
+                f"Waiting for one contract twice is waiting for it once — "
+                f"remove the repeat."
+            )
+        waiting.add(needed)
 
     seen: set[str] = set()
     for index, dep in enumerate(data["deps"]):

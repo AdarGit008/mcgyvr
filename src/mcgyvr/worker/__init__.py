@@ -28,7 +28,14 @@ from mcgyvr.worker.bundle import (
     load_bundle,
 )
 from mcgyvr.worker.prompt import WorkerPrompt, build_prompt, render_user_message
-from mcgyvr.worker.reply import WHOLE_FILE, ParsedFile, ReplyError, parse_reply
+from mcgyvr.worker.reply import (
+    WHOLE_FILE,
+    ParsedFile,
+    ReplyError,
+    parse_pinned,
+    parse_reply,
+)
+from mcgyvr.worker.scoped import apply_scoped
 
 __all__ = [
     "MAX_BUNDLE_BYTES",
@@ -41,9 +48,11 @@ __all__ = [
     "ParsedFile",
     "ReplyError",
     "WorkerPrompt",
+    "apply_scoped",
     "build_prompt",
     "bundle_for",
     "load_bundle",
+    "parse_pinned",
     "parse_reply",
     "render_user_message",
 ]

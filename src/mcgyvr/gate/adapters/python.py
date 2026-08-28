@@ -27,11 +27,15 @@ from mcgyvr.gate.adapter import (
 )
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.typecheck import STYLE, STYLE_LINT_CODES, compliance_findings
 
 _EXTENSIONS = (".py", ".pyi")
 
-#: Both rungs are the same binary, and both are named in the fault it raises.
-_RUFF = "ruff"
+#: The Python toolchain binary, named once. Both gate rungs here are the same
+#: program, and `mcgyvr.repair` imports this rather than restating it: repairing
+#: with a different tool than the one that rejected would be a second opinion,
+#: and a second opinion cannot guarantee the re-run gate accepts.
+RUFF = "ruff"
 
 
 class PythonAdapter(LanguageAdapter):
@@ -69,13 +73,15 @@ class PythonAdapter(LanguageAdapter):
             return []  # syntax pass already owns this; do not double-report
         visitor = _HazardVisitor(change.path, change.added_lines)
         visitor.visit(tree)
-        return visitor.findings
+        return visitor.findings + compliance_findings(
+            tree, change.path, change.added_lines
+        )
 
     def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool(_RUFF)
+        ruff = require_tool(RUFF)
         proc = subprocess.run(
             [
                 ruff,
@@ -95,14 +101,14 @@ class PythonAdapter(LanguageAdapter):
         # read below succeeds and yields no diagnostics — a clean pass under a
         # linter that never ran (#261). The exit code is the only thing that
         # separates the two, so it is checked first.
-        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
+        stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         try:
             diagnostics = json.loads(stdout or "[]")
         except json.JSONDecodeError as exc:
             # An expected exit code with unreadable output: not a shape ruff
             # produces today, and inconclusive rather than clean if it ever does.
             raise ToolFailedError(
-                _RUFF, proc.returncode, f"stdout is not JSON: {exc}"
+                RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
         added = _added_by_resolved_path(files, repo)
         findings: list[Finding] = []
@@ -114,12 +120,13 @@ class PythonAdapter(LanguageAdapter):
                 continue
             path, added_lines = rel
             if row in added_lines:
+                code = diag.get("code")
                 findings.append(
                     Finding(
-                        check="lint",
+                        check=STYLE if code in STYLE_LINT_CODES else "lint",
                         path=path,
                         line=row,
-                        code=diag.get("code"),
+                        code=code,
                         message=diag.get("message", "").strip(),
                     )
                 )
@@ -129,7 +136,7 @@ class PythonAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool(_RUFF)
+        ruff = require_tool(RUFF)
         proc = subprocess.run(
             [ruff, "format", "--diff", "--force-exclude", "--", *_paths(files)],
             cwd=repo,
@@ -140,7 +147,7 @@ class PythonAdapter(LanguageAdapter):
         # Same shape as lint, same reason: `ruff format --diff` exits 0 already
         # formatted, 1 would reformat, 2 failed — and on 2 the diff is empty,
         # which reads as "nothing to reflow" (#261).
-        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
+        stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         if not stdout.strip():
             return []
         touched = _format_touched_lines(stdout)

@@ -86,6 +86,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
+    from mcgyvr.deterministic import ToolStep
     from mcgyvr.pool import Rung, SourceMap
 
 
@@ -140,16 +141,24 @@ class Step:
 
 @dataclass(frozen=True)
 class Plan:
-    """The rungs of one family a contract may be tried on, cheapest first.
+    """What one family would run for a contract, cheapest first.
 
     Empty is an ordinary answer rather than an error: a keyless install
-    planning an ``api`` family has no rungs, and so does every plan for the
-    deterministic family. ``reason`` says which, in words, so that a caller
-    reporting "nothing ran" can say why without inspecting the config itself.
+    planning an ``api`` family has no rungs. ``reason`` says which, in words, so
+    that a caller reporting "nothing ran" can say why without inspecting the
+    config itself.
+
+    A step is a :class:`Step` — a rung a runner dispatches against — or, on the
+    deterministic floor, a :class:`~mcgyvr.deterministic.ToolStep`, which is a
+    program and has no rung to name. The two are deliberately different types
+    rather than one with an optional field: fitting a tool into ``Step`` would
+    mean inventing a rung name :meth:`~mcgyvr.pool.SourceMap.bind` cannot
+    honour, and every caller that reads ``rung`` would have to learn that it
+    sometimes means nothing.
     """
 
     family: Family
-    steps: tuple[Step, ...]
+    steps: tuple[Step | ToolStep, ...]
     reason: str = ""
 
     def __bool__(self) -> bool:
@@ -160,8 +169,13 @@ class Plan:
 
     @property
     def rungs(self) -> tuple[str, ...]:
-        """The rung names in the order they would be tried."""
-        return tuple(step.rung.name for step in self.steps)
+        """The rung names in the order they would be tried.
+
+        A deterministic step contributes nothing here rather than a placeholder:
+        it has no rung, and a name invented for it would be a name no source map
+        could bind and no ladder entry could configure.
+        """
+        return tuple(step.rung.name for step in self.steps if isinstance(step, Step))
 
     @property
     def budget(self) -> int:
@@ -344,6 +358,20 @@ def plan(
     rungs = by_family(config, pool).get(chosen)
     if rungs is None:  # a Family from another catalog than the one loaded here
         raise RouteError(f"{chosen.name!r} is not a family of the loaded catalog")
+
+    if chosen.rank == 0:
+        # The deterministic floor is planned from the task type, not from the
+        # ladder: it binds no rung because its executor is a program, and until
+        # this branch existed every `starts_on: deterministic` type planned
+        # nothing at all — a model call for work a tool does for free. Imported
+        # here rather than at module scope because `mcgyvr.deterministic` reads
+        # `attempts_for` from this module; at module scope that is a cycle.
+        from mcgyvr.deterministic import tool_steps
+
+        tools = tool_steps(contract)
+        if tools:
+            return Plan(family=chosen, steps=tools)
+
     if not rungs:
         return Plan(family=chosen, steps=(), reason=_why_empty(config, chosen, pool))
 
@@ -369,11 +397,14 @@ def _configured_attempts(config: Config, rung: str) -> int:
 def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     """Why a family offers nothing, in the terms that make it actionable.
 
-    The deterministic family is empty for a structural reason that no config
-    edit will change, so saying "no rung is bound to it" would send an operator
-    to the wrong file. Every other family is empty either because nothing was
-    bound to it or because what was bound could not be offered, and the pool
-    already holds the reason for the second case.
+    The deterministic family is empty for a reason no config edit will change,
+    so saying "no rung is bound to it" would send an operator to the wrong file.
+    It is also, since the floor was bound, a much narrower case than it was:
+    :func:`plan` reaches this branch only when no program is bound for the
+    contract's type on its target, not merely because the family holds no rung.
+    Every other family is empty either because nothing was bound to it or
+    because what was bound could not be offered, and the pool already holds the
+    reason for the second case.
 
     Only *this family's* skipped rungs are quoted. A local rung that was skipped
     says nothing about why the api family is empty, and offering it as the
@@ -381,9 +412,10 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     """
     if family.rank == 0:
         return (
-            "the deterministic family binds no rung: it is tools, not a model on "
-            "a source. Its executor is the deterministic tier (#81), which is not "
-            "reached through the ladder."
+            "the deterministic family runs tools, not a model on a source, and no "
+            "tool is bound for this contract's task type on this target. It binds "
+            "no rung either, so there is no ladder entry to configure: what is "
+            "missing is a program for the type, not a source for a rung."
         )
     mine = [s for s in pool.skipped if family_of(config, s.name) == family]
     if mine:
@@ -446,7 +478,19 @@ def climb[T](
             detail=plan.reason,
         )
 
-    for step in plan.steps:
+    # A tool is not climbed. Every shape this loop hands out — `Try`, `permit`'s
+    # argument, an `Attempted` row — is named after a rung, and a deterministic
+    # step has none: it is a program, executed by :mod:`mcgyvr.deterministic`.
+    # Refusing here rather than skipping keeps that a visible routing error
+    # instead of a plan that reports having run and spent nothing.
+    steps = tuple(step for step in plan.steps if isinstance(step, Step))
+    if len(steps) != len(plan.steps):
+        raise RouteError(
+            f"the {plan.family.name!r} plan is a program, not a rung, so it is "
+            f"not climbed: run it through `mcgyvr.deterministic` instead."
+        )
+
+    for step in steps:
         for number in range(1, step.attempts + 1):
             if permit is not None and not permit(step, number):
                 return Exhausted(

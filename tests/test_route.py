@@ -39,6 +39,7 @@ from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
+from mcgyvr.deterministic import ToolStep
 from mcgyvr.pool import Endpoint, Rung, SourceMap, source_map
 from mcgyvr.route import (
     Accepted,
@@ -120,6 +121,19 @@ id: tidy
 task_type: format
 task: Reformat the package.
 target: src/pkg/fetch.py
+scope:
+  allow: ["src/**"]
+"""
+
+# A deterministic type whose floor binds no program: ADR-0025 holds eslint at
+# `recommended`, which has no import-order rule, so nothing sorts imports in
+# js/ts. This is the contract that still reaches the empty-plan path now that
+# the floor binds tools for the types that have them.
+UNBOUND_DETERMINISTIC_CONTRACT = """
+id: tidy-imports
+task_type: import_sort
+task: Sort the imports.
+target: src/pkg/fetch.ts
 scope:
   allow: ["src/**"]
 """
@@ -355,19 +369,51 @@ def test_a_plan_never_contains_a_rung_of_another_family(key: None) -> None:
         made = plan(config, pool, contract(), family=family)
         assert made.family == family
         for step in made.steps:
+            # A deterministic step is a program and carries no rung, so it has no
+            # family to cross; `Plan.rungs` is the property that already draws
+            # that line, and reading it here keeps this test about rungs.
+            assert isinstance(step, Step)
             assert family_of(config, step.rung.name) == family
 
 
-def test_the_deterministic_family_plans_nothing_and_says_why_structurally() -> None:
-    """It is empty for a reason no config edit changes, and the words say so."""
+def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
+    """The floor binds a program, so a `format` contract plans one.
+
+    This test used to assert the opposite — that the family planned nothing and
+    said so structurally — and it was an accurate description of a hole. X07
+    measured the hole rather than reading the comment: 4 of 4 deterministic task
+    types planned nothing to run on their own floor, so every one of them was a
+    model call for work `ruff` does for free. The reason string it asserted is
+    still reachable, and the test below is what reaches it.
+    """
     config, pool = mapped(KEYLESS)
 
     made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
 
     assert made.family == DETERMINISTIC
+    assert made
+    assert made.rungs == (), "a program has no rung, and none should be invented"
+    assert [step.tool.program for step in made.steps if isinstance(step, ToolStep)] == [
+        "ruff"
+    ]
+
+
+def test_a_deterministic_type_with_no_program_for_its_target_still_says_why() -> None:
+    """The structural reason survives, narrowed to the case that now reaches it.
+
+    ADR-0025 holds eslint at `recommended`, which has no import-order rule, so
+    there is no js/ts import sorter to bind. That is a missing *program for a
+    type*, not a missing source for a rung, and the words have to send an
+    operator to the right file.
+    """
+    config, pool = mapped(KEYLESS)
+
+    made = plan(config, pool, contract(UNBOUND_DETERMINISTIC_CONTRACT))
+
+    assert made.family == DETERMINISTIC
     assert not made
-    assert "#81" in made.reason
     assert "tools, not a model on a source" in made.reason
+    assert "no tool is bound" in made.reason
 
 
 def test_an_empty_family_with_skipped_rungs_points_at_the_skip() -> None:
@@ -504,7 +550,7 @@ def test_a_decline_beside_a_failure_is_a_spent_family_not_a_declined_one(
 
 def test_an_empty_plan_is_exhausted_with_no_rung_and_carries_the_reason() -> None:
     config, pool = mapped(KEYLESS)
-    made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
+    made = plan(config, pool, contract(UNBOUND_DETERMINISTIC_CONTRACT))
     attempts = Recorder()
 
     result = exhausted(climb(made, attempts))

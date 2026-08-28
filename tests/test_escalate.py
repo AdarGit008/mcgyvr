@@ -137,6 +137,18 @@ scope:
   allow: ["src/**"]
 """
 
+# A deterministic type whose floor binds no program, which since X07 bound the
+# floor is the only way a floor family is still empty: ADR-0025 holds eslint at
+# `recommended`, which has no import-order rule, so nothing sorts js/ts imports.
+UNBOUND_DETERMINISTIC_CONTRACT = """
+id: tidy-imports
+task_type: import_sort
+task: Sort the imports.
+target: src/pkg/fetch.ts
+scope:
+  allow: ["src/**"]
+"""
+
 LOCAL = catalog().family("local")
 API = catalog().family("api")
 DETERMINISTIC = catalog().family("deterministic")
@@ -283,20 +295,22 @@ def test_a_family_cheaper_than_the_floor_is_absent_rather_than_skipped(
 
 
 def test_an_empty_floor_family_is_climbed_past_and_keeps_its_reason() -> None:
-    """The case #24 handed over: a floor that binds no rung is an input.
+    """The case #24 handed over: a floor that binds nothing is an input.
 
-    A `format` contract floors on the deterministic family, which no config can
-    bind. #24 returns an empty plan naming why; ascent is what turns that into
-    work rather than into a failure.
+    #24 returns an empty plan naming why; ascent is what turns that into work
+    rather than into a failure. What has changed since is only which contracts
+    reach it: X07 bound the deterministic floor, so a `format` contract now
+    plans `ruff` and is no longer an example of an empty floor. A type with no
+    program for its target still is, and that is what this drives.
     """
     config, pool = mapped(KEYLESS)
 
-    route = ascent(config, pool, contract(DETERMINISTIC_CONTRACT))
+    route = ascent(config, pool, contract(UNBOUND_DETERMINISTIC_CONTRACT))
 
     assert route.floor == DETERMINISTIC
     assert [f.name for f in route.families] == ["deterministic", "local", "api"]
     assert [p.family.name for p in route.runnable] == ["local"]
-    assert "#81" in route.reason
+    assert "no tool is bound" in route.reason
 
 
 def test_a_family_from_another_catalog_is_refused_rather_than_climbed() -> None:

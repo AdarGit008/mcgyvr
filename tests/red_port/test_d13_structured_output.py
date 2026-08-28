@@ -95,9 +95,12 @@ def _pinned_request() -> Any:
         return Request(
             prompt="Add retry with backoff to the fetch helper.",
             max_output_tokens=512,
-            # The absent field is what this test exists to report, so the type
-            # error here is the RED condition rather than a mistake.
-            response_schema=SCHEMA,  # type: ignore[call-arg]
+            # This carried `# type: ignore[call-arg]` while the field was absent,
+            # since the type error *was* the RED condition. The port added the
+            # field, so the ignore became unused — and under `strict` an unused
+            # ignore is itself an error, which is what makes its removal part of
+            # going green rather than a tidy-up someone has to remember.
+            response_schema=SCHEMA,
         )
 
     return required(BEHAVIOR_PIN, build)
