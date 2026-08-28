@@ -156,7 +156,13 @@ def _draw(
         target = space.workspace / contract.target
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content)
+            # `write_bytes` under `surrogateescape`, the same way
+            # :func:`mcgyvr.pending.stash` stores accepted work: `write_text`
+            # encodes with the platform's preferences under `strict` and
+            # translates line endings, so the draw the gate judged would not be
+            # the draw returned as the winner. A verdict about a file nobody
+            # kept is the one thing this ranking cannot survive.
+            target.write_bytes(_bytes_of(content, index))
             verdicts.append(gate(space.workspace))
         finally:
             # In `finally` rather than after the verdict: a gate that raises
@@ -171,6 +177,35 @@ def _draw(
     # where the gate cannot separate two candidates, the one drawn first wins.
     best = max(range(n), key=lambda index: _score(verdicts[index]))
     return Consensus(content=drawn[best], chosen=best, gates=tuple(verdicts))
+
+
+def _bytes_of(content: str, index: int) -> bytes:
+    """One draw as the bytes that go in the workspace, or this module's error.
+
+    The other half of the ``pending.stash`` model the comment above cites: the
+    convention is ``surrogateescape``, which round-trips *bytes* a decode could
+    not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of those. It
+    is a legal JSON escape, so ``\ud800`` survives ``json.loads`` into a
+    completion and reaches here as ordinary draw text — and ``stash`` was fixed
+    to answer that with its own error rather than a codec exception, for the
+    reason that applies here unchanged: a caller catching :class:`ConsensusError`
+    has decided what to do about a draw it cannot use, and a bare
+    ``UnicodeEncodeError`` out of a ranking function is not a decision it can
+    make.
+
+    A refusal rather than a rejection, because there is no verdict to record: no
+    file was written, so no gate ran, so the draw is not a candidate that scored
+    badly — it is a candidate that does not exist.
+    """
+    try:
+        return content.encode("utf-8", "surrogateescape")
+    except UnicodeEncodeError as exc:
+        raise ConsensusError(
+            f"draw {index} cannot be written into the workspace: the character at "
+            f"position {exc.start} is the lone surrogate "
+            f"U+{ord(content[exc.start]):04X}, which has no UTF-8 encoding and "
+            f"stands for no byte, so there is nothing for the gate to judge"
+        ) from exc
 
 
 def _score(result: GateResult) -> tuple[int, int, int]:

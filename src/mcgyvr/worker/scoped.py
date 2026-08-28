@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import ast
 
+from mcgyvr.lines import parser_lines
 from mcgyvr.runner import StopReason
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -154,7 +155,7 @@ def apply_scoped(
     if written.decorator_list and existing.decorator_list:
         start = min(decorator.lineno for decorator in existing.decorator_list)
 
-    lines = source.splitlines(keepends=True)
+    lines = parser_lines(source)
     return "".join(lines[: start - 1]) + fragment + "".join(lines[end:])
 
 

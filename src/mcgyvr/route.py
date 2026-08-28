@@ -48,10 +48,12 @@ known-in-advance result; :func:`attempts_for` returns 1 for it whatever the
 config says. But no configuration can put a rung in that family: a rung's family
 comes from whether its *source* needs a credential
 (:meth:`~mcgyvr.catalog.Catalog.family_of`), and the deterministic tier binds no
-source because it is a program, not a model. So :func:`plan` for the
-deterministic family is empty by construction today, and says so in words. #81
-is the tier itself; when it lands it supplies the step, and the budget rule here
-already covers it.
+source because it is a program, not a model. So :func:`plan` for that family
+answers from the task type instead (#81, :mod:`mcgyvr.deterministic`), and what
+it returns is a program — which is why a plan's steps are two types and why
+:attr:`Plan.climbable` exists. A caller that read ``bool(plan)`` as "there is
+something to climb" was right only while the floor was empty; it holds work and
+nothing climbable now, and :func:`climb` refuses the difference by name.
 
 **Declining is not failing.** An attempt may answer that this rung cannot do
 this contract at all — #81's rule, and the reason it exists is that a
@@ -139,8 +141,68 @@ class Step:
     attempts: int
 
 
+class Planned:
+    """Reading a tuple of steps as rungs and as programs, in one place.
+
+    Two types carry ``tuple[Step | ToolStep, ...]`` — :class:`Plan`, which is one
+    family's answer, and :class:`~mcgyvr.deterministic.Routed`, which is the
+    floor router's — and every question worth asking about that tuple is the
+    same question for both. It is stated here once because the alternative was
+    tried: ``Plan`` gained :attr:`climbable` when #81 bound the floor, ``Routed``
+    did not, and a caller holding the second had truthiness and nothing else —
+    which is precisely the misreading :attr:`climbable` was added to end.
+
+    A plain base rather than a dataclass one: it holds no field, only the four
+    readings of the field its subclasses declare, and a dataclass base would put
+    ``steps`` in both constructors' signatures from a class that cannot supply
+    one.
+    """
+
+    steps: tuple[Step | ToolStep, ...]
+
+    @property
+    def climbable(self) -> tuple[Step, ...]:
+        """The steps :func:`climb` can run: rungs, never programs.
+
+        The question every reader of a plan actually has, asked once here rather
+        than by each of them. ``bool(plan)`` answers "is there anything here",
+        which was the same question only while the floor was empty by
+        construction; since #81 bound it, a family can hold work and hold
+        nothing to climb, and a caller that kept using truthiness would enter a
+        family whose only step :func:`climb` refuses.
+        """
+        return tuple(step for step in self.steps if isinstance(step, Step))
+
+    @property
+    def programs(self) -> tuple[ToolStep, ...]:
+        """The steps that are a program rather than a rung.
+
+        The complement of :attr:`climbable`, and named so that a caller refusing
+        one can say which program it was holding rather than only that the plan
+        was the wrong shape.
+        """
+        return tuple(step for step in self.steps if not isinstance(step, Step))
+
+    @property
+    def budget(self) -> int:
+        """The most attempts these steps could spend between them."""
+        return sum(step.attempts for step in self.steps)
+
+    @property
+    def climb_budget(self) -> int:
+        """The most attempts :func:`climb` could spend on these steps.
+
+        Distinct from :attr:`budget` because a program's single attempt is spent
+        by :mod:`mcgyvr.deterministic` and never by the ladder. A caller
+        budgeting a climb wants this one; a caller reporting what the family
+        costs in total wants :attr:`budget`. Collapsing them would hand the
+        climb an attempt of headroom the operator's ladder does not offer.
+        """
+        return sum(step.attempts for step in self.climbable)
+
+
 @dataclass(frozen=True)
-class Plan:
+class Plan(Planned):
     """What one family would run for a contract, cheapest first.
 
     Empty is an ordinary answer rather than an error: a keyless install
@@ -176,11 +238,6 @@ class Plan:
         could bind and no ladder entry could configure.
         """
         return tuple(step.rung.name for step in self.steps if isinstance(step, Step))
-
-    @property
-    def budget(self) -> int:
-        """The most attempts this plan could spend before the family is spent."""
-        return sum(step.attempts for step in self.steps)
 
 
 @dataclass(frozen=True)
@@ -483,11 +540,17 @@ def climb[T](
     # step has none: it is a program, executed by :mod:`mcgyvr.deterministic`.
     # Refusing here rather than skipping keeps that a visible routing error
     # instead of a plan that reports having run and spent nothing.
-    steps = tuple(step for step in plan.steps if isinstance(step, Step))
-    if len(steps) != len(plan.steps):
+    #
+    # The refusal is for a caller that reached for the wrong function, so it is
+    # not something a walk of the ascent should ever meet: `Plan.climbable` is
+    # what a caller asks before handing a plan over, and #43 asks it.
+    steps = plan.climbable
+    if plan.programs:
+        named = ", ".join(sorted({step.tool.task_type for step in plan.programs}))
         raise RouteError(
             f"the {plan.family.name!r} plan is a program, not a rung, so it is "
-            f"not climbed: run it through `mcgyvr.deterministic` instead."
+            f"not climbed: run it through `mcgyvr.deterministic` instead "
+            f"({named})."
         )
 
     for step in steps:

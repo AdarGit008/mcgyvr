@@ -22,9 +22,21 @@ that defined the gate — and four properties this module exists to hold:
   when stashing than when recovering.
 * **Resuming re-runs the gate.** :func:`resume` restores the bytes and hands the
   whole apply-check-commit decision to :func:`mcgyvr.deliver.deliver`, which
-  re-establishes at commit time what acceptance established when the work was
-  built. The earlier gate pass belonged to different bytes and to a tree that has
-  since moved; a verifier approving today does not make yesterday's tree true.
+  judges them again against the tree they are landing in. The earlier gate pass
+  belonged to different bytes and to a tree that has since moved; a verifier
+  approving today does not make yesterday's tree true. This was the claim the
+  module made and the code did not: ``resume`` handed over a bare ``str``, which
+  delivery took as an acceptance, so a stub verifier was enough to commit bytes
+  the gate had rejected. Delivery reaches its own verdict now, and what the store
+  contributes is the half delivery cannot reach — the verdict from the sandboxed
+  rungs, and the identity of the bytes it was reached on.
+* **The verdict is stored with the bytes, or not at all.** :func:`stash` takes an
+  :class:`mcgyvr.deliver.Accepted` from the caller that gated, records its digest
+  and its verdict in ``meta.json``, and :func:`resume` rebuilds the pair from the
+  entry. That is the one place ``Accepted.intact`` can come out false and mean
+  something: the digest was minted in the workspace the gate ran in, the bytes
+  come back off a directory anybody with a shell can edit, and a mismatch says
+  the work that is about to be committed is not the work that was judged.
 * **A failed recovery changes nothing.** The entry is removed only after a commit
   exists. Clearing on the way out is one line and it sits on the path nobody
   exercises, which is exactly how a store like this leaks: an outage lasting
@@ -60,7 +72,7 @@ from mcgyvr.config import Config
 from mcgyvr.contract import Contract, ContractError
 from mcgyvr.contract import dumps as dump_contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.deliver import Delivery, deliver
+from mcgyvr.deliver import Accepted, Delivery, deliver
 
 #: The contract, as the JSON the direct-mode API emits and the loader accepts.
 CONTRACT_FILE = "contract.json"
@@ -118,6 +130,18 @@ class Pending:
     size: int
     reason: str = ""
 
+    accepted: bool | None = None
+    """The gate's verdict on the stashed bytes, when the caller carried one.
+
+    ``None`` means the stash was handed a bare ``str`` and no verdict came with
+    it — which is not the same as a rejection, and is why this is not a plain
+    ``bool``: a resume that read ``False`` out of "nothing was recorded" would
+    strand recoverable work forever."""
+
+    digest: str = ""
+    """The digest of the bytes the verdict was reached on, minted where it was
+    reached. Empty for the same reason ``accepted`` is ``None``."""
+
     def __str__(self) -> str:
         why = f" — {self.reason}" if self.reason else ""
         return (
@@ -150,12 +174,18 @@ def stash(
     store: Path | str,
     repo: Path | str,
     contract: Contract,
-    content: str,
+    content: str | Accepted,
     reason: str = "",
 ) -> Pending:
     """Snapshot gate-passed work that could not be verified, and return the entry.
 
-    ``content`` is the accepted file exactly as the gate saw it. ``reason`` is why
+    ``content`` is the accepted file exactly as the gate saw it — either the
+    :class:`mcgyvr.deliver.Accepted` the gating caller minted, which carries the
+    verdict and the digest of the bytes it was reached on, or a bare ``str``,
+    which carries neither. Prefer the former: it is the only form that lets a
+    recovery run tell "these are the bytes that were judged" from "these are the
+    bytes that are in the directory now", and the store is a directory an
+    operator is expected to read with ``cat`` mid-incident. ``reason`` is why
     verification could not happen — it is what the operator reads in
     :func:`listing`, so "verifier unreachable: connection refused" is worth more
     there than a bare timestamp.
@@ -163,23 +193,39 @@ def stash(
     A newer attempt for the same task replaces the older entry outright; the
     replacement is assembled beside it and renamed over it, so an interrupted
     stash cannot leave the task with two sets of bytes or none.
+
+    Raises :class:`PendingError` when the entry cannot be written, which
+    includes content that has no byte form: ``surrogateescape`` round-trips the
+    bytes a decode produced, and a lone ``\\ud800`` that only ever existed as a
+    JSON escape is not one of them. That has to arrive as this module's error
+    rather than as a codec exception, because a caller catching
+    :class:`PendingError` is a caller that has decided what to do about work it
+    cannot stash.
     """
     root = Path(store)
     rel = _relative(contract.target)
     entry = root / _slug(contract.id)
     staging = root / f"{_STAGING}{entry.name}"
-
-    record = Pending(
-        task=contract.id,
-        target=rel,
-        entry=entry,
-        repo=str(Path(repo)),
-        stashed_at=datetime.now(UTC).isoformat(timespec="seconds"),
-        size=len(content.encode("utf-8", "surrogateescape")),
-        reason=reason,
-    )
+    bound = content if isinstance(content, Accepted) else None
+    text = bound.content if bound is not None else str(content)
 
     try:
+        # Inside the try, and the record is built here for one reason: `size`
+        # is an encoded length, so building the record is already one of the
+        # ways this function can fail on the bytes it was handed. Computing it
+        # above the try put the first encode of the content outside the only
+        # handler the module has.
+        record = Pending(
+            task=contract.id,
+            target=rel,
+            entry=entry,
+            repo=str(Path(repo)),
+            stashed_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            size=len(text.encode("utf-8", "surrogateescape")),
+            reason=reason,
+            accepted=bound.accepted if bound is not None else None,
+            digest=bound.digest if bound is not None else "",
+        )
         shutil.rmtree(staging, ignore_errors=True)
         (staging / FILES).mkdir(parents=True, exist_ok=True)
         # The contract is dumped through the loader's own emitted form and read
@@ -188,17 +234,19 @@ def stash(
         serialized = dump_contract(contract)
         _check_round_trip(serialized, contract.id)
         (staging / CONTRACT_FILE).write_text(serialized, encoding="utf-8")
-        _write_exact(staging / FILES / rel, content)
-        (staging / PATCH).write_text(
-            _patch(Path(repo) / rel, rel, content), encoding="utf-8"
-        )
+        _write_exact(staging / FILES / rel, text)
+        # The diff carries the same bytes the file does, so it is written the
+        # same way. A strict text write here would refuse an entry whose stored
+        # file was written without complaint — the store would hold resumable
+        # bytes and raise on its way to the operator-facing copy of them.
+        _write_exact(staging / PATCH, _patch(Path(repo) / rel, rel, text))
         # Last, always: meta.json is what listing keys on, so until it lands the
         # entry does not exist as far as any reader is concerned.
         (staging / META_FILE).write_text(_meta_json(record), encoding="utf-8")
 
         shutil.rmtree(entry, ignore_errors=True)
         staging.rename(entry)
-    except OSError as exc:
+    except (OSError, UnicodeEncodeError) as exc:
         shutil.rmtree(staging, ignore_errors=True)
         raise PendingError(f"cannot stash {contract.id} under {root}: {exc}") from exc
     return record
@@ -239,11 +287,14 @@ def resume(
 
     ``verify`` is handed the stashed bytes verbatim — the same string the gate
     judged — and says whether verification approves them now. Approval is not the
-    end of it: the bytes then go through :func:`mcgyvr.deliver.deliver`, which
-    re-checks them against the tree they are landing in. An approving verifier
-    cannot commit a file that no longer parses, is out of scope, or would land on
-    a dirty tree, because time has passed and nothing about that tree is still
-    guaranteed by the gate run that produced these bytes.
+    end of it, and this is the half that was missing: a verifier is a reviewer,
+    not a gate, and ``resume`` used to turn its "yes" into delivery's *acceptance*
+    by handing over a bare ``str``. Measured, that let a stub verifier commit
+    bytes the gate had rejected. What goes to :func:`mcgyvr.deliver.deliver` now
+    is the verdict the store recorded, bound to the bytes it was reached on, and
+    delivery judges the restored bytes for itself besides. An approving verifier
+    cannot commit a file that does not pass the gate, no longer parses, is out of
+    scope, or would land on a dirty tree.
 
     Every outcome but a commit leaves the entry untouched, including a ``verify``
     that raises: an unreachable verifier is this store's *expected* failure, not
@@ -274,7 +325,11 @@ def resume(
         )
 
     result = deliver(
-        repo=repo, contract=contract, content=content, base=base, config=config
+        repo=repo,
+        contract=contract,
+        content=_restored(record, content),
+        base=base,
+        config=config,
     )
     if not result.committed:
         return Resumed(False, task=task, reason=result.reason, delivery=result)
@@ -282,6 +337,31 @@ def resume(
     # Only now: the work exists somewhere more durable than this directory.
     shutil.rmtree(entry, ignore_errors=True)
     return Resumed(True, task=task, delivery=result)
+
+
+def _restored(record: Pending, content: str) -> str | Accepted:
+    """The stashed bytes, rebound to the verdict the entry recorded.
+
+    The rebuild is the point: the digest was minted in the workspace the gate ran
+    in and written into ``meta.json``, and the content comes back off
+    ``files/<target>`` — a plain file in a plain directory. Putting the two back
+    together *without recomputing the digest* is what makes
+    :attr:`~mcgyvr.deliver.Accepted.intact` answer a real question here, and the
+    only place in the codebase where it can come out false: an entry whose bytes
+    were edited after they were judged is refused at the commit point instead of
+    being delivered as though the gate had seen them.
+
+    An entry with no recorded verdict is handed over as the bare string it always
+    was. That is not a downgrade — delivery gates what it commits either way —
+    it just carries nothing extra.
+    """
+    if not record.digest:
+        return content
+    return Accepted(
+        content=content,
+        accepted=bool(record.accepted),
+        digest=record.digest,
+    )
 
 
 def _slug(task: str) -> str:
@@ -311,11 +391,13 @@ def _relative(target: str) -> str:
 
 
 def _write_exact(path: Path, content: str) -> None:
-    """Write the stashed bytes with no translation of any kind.
+    """Write ``content`` with no translation of any kind.
 
     ``write_bytes`` rather than ``write_text``: a text write encodes with the
     platform's preferences and translates line endings, and either would hand a
-    resume a file the gate never saw.
+    resume a file the gate never saw. It also encodes under ``strict``, which
+    refuses the ``surrogateescape`` characters that are how every byte the tree
+    could not decode got into a ``str`` in the first place.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content.encode("utf-8", "surrogateescape"))
@@ -374,6 +456,11 @@ def _meta_json(record: Pending) -> str:
             "stashed_at": record.stashed_at,
             "size": record.size,
             "reason": record.reason,
+            # Both null when the stash was handed a bare string: an absent
+            # verdict has to read as absent rather than as a rejection, or a
+            # resume would strand work nobody ever refused.
+            "accepted": record.accepted,
+            "digest": record.digest,
         },
         indent=2,
         ensure_ascii=False,
@@ -394,6 +481,7 @@ def _read(entry: Path) -> Pending | None:
         return None
     if not isinstance(raw, Mapping):
         return None
+    verdict = raw.get("accepted")
     return Pending(
         task=str(raw.get("task", entry.name)),
         target=str(raw.get("target", "")),
@@ -402,6 +490,10 @@ def _read(entry: Path) -> Pending | None:
         stashed_at=str(raw.get("stashed_at", "")),
         size=int(raw.get("size", 0)),
         reason=str(raw.get("reason", "")),
+        # An entry written before the verdict was recorded, or by a caller that
+        # carried none, reads back as "no verdict" rather than as False.
+        accepted=None if verdict is None else bool(verdict),
+        digest=str(raw.get("digest", "") or ""),
     )
 
 
