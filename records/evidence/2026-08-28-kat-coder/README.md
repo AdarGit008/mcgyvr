@@ -79,6 +79,7 @@ same MTP file with `--spec-type` off. `draft acceptance = 0.783 (289/369), mean 
 
 - `README.md` — this report
 - `results-kat-srv2.txt`, `results-kat-srv1.txt` — raw sweep output
+- `drivers/mtpsweep.py` — the MTP baseline-vs-draft driver
 
 Rig-side (kept): `~/models/moe/KAT-Coder-V2.5-Dev.{Q2_K,Q4_K_M}.gguf` (plain) and
 `KAT-Coder-V2.5-Dev_Q{2_K-AllGPU,3_K_M_imatrix_MTP}.gguf` (MTP) on srv2/srv1;
