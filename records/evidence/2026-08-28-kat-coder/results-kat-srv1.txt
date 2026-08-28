@@ -1,0 +1,27 @@
+== KAT-Coder srv1 start Fri Aug 28 04:23:51 AM UTC 2026 ==
+-- plain Q4_K_M (21.2 GB, offload) --
+srv1	kat-35b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=48	CONFIG	real_ctx_slot=1024	vram=2488
+srv1	kat-35b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=48	n=1	agg=28.6	p50=16.61	truncated=0/1	wall=16.6
+srv1	kat-35b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=48	n=2	agg=33.8	p50=28.07	truncated=0/2	wall=28.1
+srv1	kat-35b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=48	n=4	agg=41.4	p50=45.92	truncated=0/4	wall=45.9
+srv1	kat-35b-Q4KM np=8 ctx_slot=1024 c=8192 ncmoe=48	n=8	agg=73.4	p50=51.78	truncated=0/8	wall=51.8
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	CONFIG	real_ctx_slot=1024	vram=3150
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	n=1	agg=28.5	p50=16.64	truncated=0/1	wall=16.6
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	n=2	agg=33.4	p50=28.47	truncated=0/2	wall=28.5
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	n=4	agg=41.3	p50=46.05	truncated=0/4	wall=46.1
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	n=8	agg=73.5	p50=51.72	truncated=0/8	wall=51.7
+srv1	kat-35b-Q4KM np=16 ctx_slot=1024 c=16384 ncmoe=50	n=16	agg=65.7	p50=115.75	truncated=0/16	wall=115.8
+-- MTP grafted file (Q3_K_M 18.1 GB): baseline vs draft-mtp nmax=2,3,4 @ ncmoe=40 --
+srv1	kat-35b-MTP-Q3 nmax=0 ncmoe=40	run1	tok/s=30.3	wall=15.7	gen=475
+srv1	kat-35b-MTP-Q3 nmax=0 ncmoe=40	run2	tok/s=29.9	wall=15.9	gen=475
+srv1	kat-35b-MTP-Q3 nmax=0 ncmoe=40	run3	tok/s=30.5	wall=15.6	gen=475
+srv1	kat-35b-MTP-Q3 nmax=2 ncmoe=40	run1	tok/s=37.1	wall=12.8	gen=475
+srv1	kat-35b-MTP-Q3 nmax=2 ncmoe=40	run2	tok/s=37.2	wall=12.8	gen=475
+srv1	kat-35b-MTP-Q3 nmax=2 ncmoe=40	run3	tok/s=36.4	wall=13.1	gen=475
+srv1	kat-35b-MTP-Q3 nmax=3 ncmoe=40	run1	tok/s=36.5	wall=13.0	gen=475
+srv1	kat-35b-MTP-Q3 nmax=3 ncmoe=40	run2	tok/s=36.8	wall=12.9	gen=475
+srv1	kat-35b-MTP-Q3 nmax=3 ncmoe=40	run3	tok/s=36.9	wall=12.9	gen=475
+srv1	kat-35b-MTP-Q3 nmax=4 ncmoe=40	run1	tok/s=35.2	wall=13.5	gen=475
+srv1	kat-35b-MTP-Q3 nmax=4 ncmoe=40	run2	tok/s=35.9	wall=13.2	gen=475
+srv1	kat-35b-MTP-Q3 nmax=4 ncmoe=40	run3	tok/s=36.0	wall=13.2	gen=475
+== KAT-Coder srv1 done Fri Aug 28 04:41:40 AM UTC 2026 ==

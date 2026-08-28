@@ -1,0 +1,23 @@
+== KAT-Coder srv2 start Fri Aug 28 04:21:40 AM UTC 2026 ==
+-- plain Q2_K (DoD-table comparison vs Qwen3.6-35B IQ3_XXS @ ncmoe=25) --
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	CONFIG	real_ctx_slot=1024	vram=8247
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=1	agg=44.1	p50=10.76	truncated=0/1	wall=10.8
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=2	agg=81.6	p50=11.65	truncated=0/2	wall=11.6
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=4	agg=99.1	p50=19.18	truncated=0/4	wall=19.2
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=8	agg=123.4	p50=30.78	truncated=0/8	wall=30.8
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=16	agg=148.8	p50=51.06	truncated=0/16	wall=51.1
+srv2	kat-35b-Q2K np=32 ctx_slot=1024 c=32768 ncmoe=25	n=32	agg=244.7	p50=62.10	truncated=0/32	wall=62.1
+-- MTP grafted file: baseline (nmax=0) vs draft-mtp nmax=2,3,4 @ ncmoe=28 --
+srv2	kat-35b-MTP nmax=0 ncmoe=28	run1	tok/s=50.5	wall=9.4	gen=475
+srv2	kat-35b-MTP nmax=0 ncmoe=28	run2	tok/s=51.0	wall=9.3	gen=475
+srv2	kat-35b-MTP nmax=0 ncmoe=28	run3	tok/s=51.0	wall=9.3	gen=475
+srv2	kat-35b-MTP nmax=2 ncmoe=28	run1	tok/s=56.5	wall=8.4	gen=475
+srv2	kat-35b-MTP nmax=2 ncmoe=28	run2	tok/s=57.9	wall=8.2	gen=475
+srv2	kat-35b-MTP nmax=2 ncmoe=28	run3	tok/s=58.1	wall=8.2	gen=475
+srv2	kat-35b-MTP nmax=3 ncmoe=28	run1	tok/s=55.1	wall=8.6	gen=475
+srv2	kat-35b-MTP nmax=3 ncmoe=28	run2	tok/s=55.5	wall=8.6	gen=475
+srv2	kat-35b-MTP nmax=3 ncmoe=28	run3	tok/s=55.3	wall=8.6	gen=475
+srv2	kat-35b-MTP nmax=4 ncmoe=28	run1	tok/s=55.5	wall=8.6	gen=475
+srv2	kat-35b-MTP nmax=4 ncmoe=28	run2	tok/s=55.8	wall=8.5	gen=475
+srv2	kat-35b-MTP nmax=4 ncmoe=28	run3	tok/s=55.7	wall=8.5	gen=475
+== KAT-Coder srv2 done Fri Aug 28 04:28:15 AM UTC 2026 ==
