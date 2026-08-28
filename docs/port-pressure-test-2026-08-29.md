@@ -66,7 +66,7 @@ These are worse than the crashes because they write wrong bytes and report succe
 
 `apply_scoped` indexes `splitlines(keepends=True)` with AST line numbers.
 `str.splitlines()` breaks on eight characters the tokenizer does not treat as line
-terminators (`\x0b \x0c \x1c \x1d \x1e \x85    `), all legal inside string
+terminators (`\x0b \x0c \x1c \x1d \x1e \x85 \u2028 \u2029`), all legal inside string
 literals. One above the spliced node shifts every index: the requested fix is applied and
 then immediately undone by resurrected old lines, the file parses, and `ruff check`
 passes clean.
