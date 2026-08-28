@@ -1,0 +1,6 @@
+srv2	kat-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run1	gen_tok_s=68.0	prefill_ms=14431	accept=n/a	gen=475
+srv2	kat-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run2	gen_tok_s=68.1	prefill_ms=14444	accept=n/a	gen=475
+srv2	kat-35b-MTP-Q2K long nmax=0 ncmoe=8 ctx=16384	run3	gen_tok_s=68.2	prefill_ms=14448	accept=n/a	gen=475
+srv2	kat-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run1	gen_tok_s=80.4	prefill_ms=14759	accept=281/384=0.732	gen=475
+srv2	kat-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run2	gen_tok_s=80.4	prefill_ms=14736	accept=280/386=0.725	gen=475
+srv2	kat-35b-MTP-Q2K long nmax=2 ncmoe=8 ctx=16384	run3	gen_tok_s=80.4	prefill_ms=14734	accept=280/386=0.725	gen=475

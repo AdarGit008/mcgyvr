@@ -1,0 +1,10 @@
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=8	agg=72.1	wall=6.6	gen=475	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=8	agg=91.2	wall=5.2	gen=475	accept=305/338=0.902
+srv2	ornith-35b-MTP-Q2K conc n=2 nmax=0 ncmoe=8	agg=104.2	wall=9.1	gen=950	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=2 nmax=2 ncmoe=8	agg=127.1	wall=7.5	gen=950	accept=610/674=0.905
+srv2	ornith-35b-MTP-Q2K conc n=4 nmax=0 ncmoe=8	agg=127.9	wall=14.9	gen=1900	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=4 nmax=2 ncmoe=8	REFUSED	0.03.704.681 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 238.00 MiB on device 0: cudaMalloc failed: out of memory | 0.03.709.113 E srv  llama_server: exiting due to model loading error
+srv2	ornith-35b-MTP-Q2K conc n=8 nmax=0 ncmoe=8	agg=164.2	wall=23.1	gen=3800	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=8 nmax=2 ncmoe=8	REFUSED	0.03.891.083 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1507.50 MiB on device 0: cudaMalloc failed: out of memory | 0.03.899.885 E srv  llama_server: exiting due to model loading error
+srv2	ornith-35b-MTP-Q2K conc n=16 nmax=0 ncmoe=8	agg=219.3	wall=34.7	gen=7600	accept=n/a
+srv2	ornith-35b-MTP-Q2K conc n=16 nmax=2 ncmoe=8	REFUSED	0.05.381.190 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 3015.00 MiB on device 0: cudaMalloc failed: out of memory | 0.05.391.578 E srv  llama_server: exiting due to model loading error

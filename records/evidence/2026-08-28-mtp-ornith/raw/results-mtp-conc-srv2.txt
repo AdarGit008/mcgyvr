@@ -1,0 +1,8 @@
+srv2	kat-35b-MTP-Q2K conc n=1 nmax=0 ncmoe=28	agg=51.7	wall=9.2	gen=475	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=1 nmax=2 ncmoe=28	agg=57.7	wall=8.2	gen=475	accept=289/369=0.783
+srv2	kat-35b-MTP-Q2K conc n=2 nmax=0 ncmoe=28	agg=73.4	wall=12.9	gen=950	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=2 nmax=2 ncmoe=28	agg=85.0	wall=11.2	gen=950	accept=598/696=0.859
+srv2	kat-35b-MTP-Q2K conc n=4 nmax=0 ncmoe=28	agg=92.4	wall=20.6	gen=1900	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=4 nmax=2 ncmoe=28	agg=110.4	wall=17.2	gen=1900	accept=1168/1456=0.802
+srv2	kat-35b-MTP-Q2K conc n=8 nmax=0 ncmoe=28	agg=112.7	wall=33.7	gen=3800	accept=n/a
+srv2	kat-35b-MTP-Q2K conc n=8 nmax=2 ncmoe=28	agg=128.0	wall=29.7	gen=3800	accept=2344/2896=0.809
