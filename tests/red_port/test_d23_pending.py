@@ -29,6 +29,18 @@ both, and the broken file would land under an approval that was given for the
 earlier, valid bytes. Time has passed since the stash was written; nothing about the
 tree it lands on is still guaranteed.
 
+**``GOOD`` had to change, and the reason is a defect this file was carrying.** It
+was ``'def fetch(url):\n    return "café " + url  \n'`` — trailing spaces and a
+non-ASCII byte, both of which a careless stash normalises away. The non-ASCII byte
+stays, because it makes the statement. The trailing spaces had to go: the gate
+rejects them (``format``: "formatter would reflow a worker-added line"), so no gate
+run can produce that verdict about those bytes, and a test that resumed them to a
+commit was pinning a state the system cannot reach — the pressure test's pattern D,
+in the file whose own headline is that the bytes are the bytes. Byte-exactness is
+still asserted, on the statement where it belongs: what the *store* holds is
+compared for equality, including for content the gate would refuse, which is
+:func:`test_the_store_keeps_bytes_the_gate_would_refuse` below.
+
 *Still unverifiable leaves the stash intact* is the failure path, and it is where a
 store like this normally leaks: clearing on the way out is one line and it is on the
 path nobody exercises. If a failed re-verification consumed the entry, an outage that
@@ -53,9 +65,15 @@ STASH = (
 LIST = "list the work it is holding, so an operator can see what is owed"
 RESUME = "resume stashed work once verification is reachable again"
 
-# Trailing spaces and a non-ASCII byte, both of which a careless stash normalises away.
-GOOD = 'def fetch(url):\n    return "café " + url  \n'
+# A non-ASCII byte a careless stash re-encodes away, in bytes a gate can accept —
+# which the version with trailing whitespace could not be, see the module docstring.
+GOOD = 'def fetch(url):\n    return "café " + url\n'
 BROKEN = "def fetch(url:\n    return url\n"
+
+# Byte-exactly what a careless stash would normalise, and byte-exactly what the
+# gate's format rung refuses. It is stored, listed and restored; what it is not is
+# committed, because nothing ever accepted it.
+UNGATEABLE = 'def fetch(url):\n    return "café " + url  \n'
 
 
 def _stash() -> Any:
@@ -186,6 +204,48 @@ def test_resuming_restores_the_exact_bytes_re_gates_them_and_finishes(
     )
 
 
+def test_the_store_keeps_bytes_the_gate_would_refuse(
+    repo: Path, contract: Any, tmp_path: Path
+) -> None:
+    """The bytes are the bytes — asserted where it is the store's own promise.
+
+    ``UNGATEABLE`` carries the trailing whitespace the gate's ``format`` rung
+    rejects. A stash that stripped it, re-encoded it or appended a newline would
+    hand a recovery run a file that never existed, and the operator reading
+    ``files/`` with ``cat`` would be reading a different change than the one that
+    was stranded. So the store keeps it byte-for-byte.
+
+    What the store does *not* do is turn keeping it into committing it: the same
+    bytes, offered to an approving verifier, still do not reach the repository,
+    because nothing ever accepted them. Both halves are asserted here, since it
+    is the pair that is the property — a store that refused these bytes and a
+    store that committed them are both wrong, in opposite directions.
+    """
+    store = tmp_path / "pending"
+    head = git(repo, "rev-parse", "HEAD").strip()
+    before = (repo / "src" / "pkg" / "fetch.py").read_text()
+
+    _stash()(store=store, repo=repo, contract=contract, content=UNGATEABLE)
+
+    assert _holds_exactly(store, UNGATEABLE), (
+        "the store normalised the bytes it was given; a resume would restore a "
+        "file the gate never saw"
+    )
+
+    result = _resume()(
+        store=store, repo=repo, task=contract.id, verify=lambda _text: True
+    )
+
+    assert not getattr(result, "completed", False), (
+        f"an approving verifier committed bytes the gate rejects: {result}"
+    )
+    assert git(repo, "rev-parse", "HEAD").strip() == head
+    assert (repo / "src" / "pkg" / "fetch.py").read_text() == before
+    assert _holds_exactly(store, UNGATEABLE), (
+        "a refused resume consumed the work the store exists to protect"
+    )
+
+
 def test_work_that_still_cannot_be_verified_keeps_its_stash(
     repo: Path, contract: Any, tmp_path: Path
 ) -> None:
@@ -223,6 +283,8 @@ def test_a_newer_attempt_replaces_the_stash_it_supersedes(
     """
     store = tmp_path / "pending"
     stash = _stash()
+    # Never delivered, only stored and compared: trailing whitespace is exactly
+    # what a careless stash normalises, which is what this asserts against.
     newer = 'def fetch(url):\n    return "café " + url.strip()  \n'
 
     stash(store=store, repo=repo, contract=contract, content=GOOD)

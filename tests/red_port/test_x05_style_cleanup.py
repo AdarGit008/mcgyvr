@@ -9,6 +9,13 @@ is run with ``--diff`` and ``ruff check`` without ``--fix``, so a change whose o
 problem is a blank line in the wrong place is reported and then handed to a model to
 fix — a dispatch, a full context, an attempt off the ceiling, to insert a space.
 
+Where the split does not fall where its name suggests, the values below follow the
+gate rather than the name. The format rung emits ``check="format"``, and
+``Gate.run`` files it in ``findings``: a change whose only problem is its formatting
+is a *rejected* change, and a style-only verdict built as an observation is a value
+no gate run returns. That is what these constants were, and the version of this file
+that held them was green over a state the system cannot produce.
+
 Three statements, and the two after the first are what stop this from being a footgun.
 
 *A style-only violation is cleaned deterministically, at no model cost* is the lever.
@@ -25,10 +32,10 @@ dispatches is just a cheaper-sounding retry.
 
 *A correctness violation is never cleaned* is the refusal, and it is the one that makes
 the lever safe. The input is the same messy content, so the only difference between this
-test and the first is which bucket the gate put the problem in. The change must be
-rejected and the content must come back untouched — both, because a cleanup that
-tidied the bytes and then rejected would hand the next attempt a file it never wrote,
-and the worker's diff would stop matching what the worker produced.
+test and the first is which rung rejected it. The change must be rejected and the
+content must come back untouched — both, because a cleanup that tidied the bytes and
+then rejected would hand the next attempt a file it never wrote, and the worker's diff
+would stop matching what the worker produced.
 
 *A cleanup that itself fails does not turn a passing gate into a failing one* is the
 best-effort statement. It is held with a deliberate contradiction: a gate result that
@@ -40,8 +47,11 @@ it, and a rewriter that reports its own failure as a finding would fail changes 
 passed everything mcgyvr actually checks. Note it is *not* asserted that cleanup
 silently claims success: the outcome must not say it cleaned anything it did not.
 
-Nothing here runs the gate. Both gate results are constructed, which is what makes the
-style/correctness split assertable independently of which rung produced it.
+Nothing here runs the gate. The gate results are constructed, which is what makes the
+style/correctness split assertable independently of which rung produced it — and it is
+also how this file was once green over an impossible value, so the correspondence
+between these constants and what ``Gate.run`` returns is pinned by a real run in
+``tests/test_fix_b4_b9_text_handling.py`` rather than assumed here.
 """
 
 from __future__ import annotations
@@ -52,8 +62,8 @@ from mcgyvr.gate import Finding, GateResult
 from tests.red_port.conftest import required
 
 BEHAVIOR = (
-    "rewrite a style-only violation out of an accepted change deterministically and "
-    "at zero model spend, while a correctness violation still rejects"
+    "rewrite a style-only violation out of a change deterministically and at zero "
+    "model spend, while a correctness violation still rejects"
 )
 
 TARGET = "src/pkg/fetch.py"
@@ -64,17 +74,23 @@ MESSY = "def fetch( url ):\n    return  url\n"
 # Not valid Python at all — the stand-in for a cleanup that cannot run.
 UNPARSEABLE = "def fetch(url:\n    return url\n"
 
+# What the gate returns for a change whose only problem is its formatting: the format
+# rung's own finding, in `findings`, rejecting. `observations` carries only what the
+# gate classes as STYLE, and the format rung does not emit that.
 STYLE_ONLY = GateResult(
-    observations=(
+    findings=(
         Finding(
             check="format",
             path=TARGET,
-            message="the file would be reformatted",
+            message="formatter would reflow a worker-added line",
             line=1,
         ),
     )
 )
 
+# A correctness rejection, and nothing beside it: the acceptance rung runs only while
+# nothing cheaper has rejected, so a verdict carrying one of its findings never carries
+# a format finding too.
 CORRECTNESS = GateResult(
     findings=(
         Finding(
@@ -82,8 +98,7 @@ CORRECTNESS = GateResult(
             path=TARGET,
             message="the declared demonstration did not pass",
         ),
-    ),
-    observations=STYLE_ONLY.observations,
+    )
 )
 
 
@@ -100,7 +115,11 @@ def _tidy() -> Any:
 
 
 def test_a_style_only_violation_is_cleaned_before_the_change_is_reviewed() -> None:
-    """The change passed; its formatting did not; nobody is asked to fix it.
+    """Everything the change was rejected on, the formatter itself raised.
+
+    Nobody is asked to fix it, and nothing here claims it now passes: the cleanup
+    removes the reason for the rejection and the caller re-runs the gate, because the
+    rungs behind a rejection never ran.
 
     Stability and idempotence are asserted alongside the rewrite because a
     non-deterministic rewriter puts a coin flip inside acceptance — and D26, no RNG in
@@ -112,7 +131,14 @@ def test_a_style_only_violation_is_cleaned_before_the_change_is_reviewed() -> No
 
     first = tidy(content=MESSY, result=STYLE_ONLY, target=TARGET)
 
-    assert first.accepted, "a style-only observation rejected an accepted change"
+    assert first.cleaned, (
+        "a change whose only problem was its formatting was handed back untouched, so "
+        "a model is about to be paid to insert a space"
+    )
+    assert not first.accepted, (
+        "the cleanup reported an acceptance the gate never gave: the gate stops before "
+        "its acceptance rung the moment anything rejects"
+    )
     assert first.content != MESSY, "nothing was cleaned"
     assert "return url" in first.content, "the cleanup changed what the code does"
     assert first.tokens_spent == 0, (

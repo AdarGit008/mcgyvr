@@ -24,20 +24,30 @@ and the point of it is the rung that does *not* appear: on a repaired file the
 gate is re-run **on the same rung, with no model retry**. A failed attempt
 becomes a free pass.
 
-Three constraints hold the lever honest, and each is a way it could otherwise
-buy nothing or cost something:
+Four constraints hold the lever honest, and each is a way it could otherwise
+buy nothing, cost something, or write somewhere it was not asked to:
 
 * **It reports what it did, by the bytes.** ``changed`` is computed by
   comparing each file before and after, not by trusting a tool's exit code. A
   caller told "repaired" re-runs the gate; told that on a file nothing touched,
   it re-runs a gate whose answer it already has, and on a failing attempt that
   is a loop that ends at the attempt ceiling rather than a recovery.
-* **It stays inside the contract's scope.** The tools are pointed at an
-  explicit file list drawn from the change set and filtered through
-  :class:`~mcgyvr.scope.Scope`, never at a directory. A formatter run across a
-  tree is exactly how a tidy-up escapes its contract: it rewrites a human's
-  unrelated file, and the gate never notices because the gate only looks at the
-  change.
+* **It stays inside the contract's scope — the file's, not the name's.** The
+  tools are pointed at an explicit file list drawn from the change set and
+  filtered through :class:`~mcgyvr.scope.Scope`, never at a directory. A
+  formatter run across a tree is exactly how a tidy-up escapes its contract: it
+  rewrites a human's unrelated file, and the gate never notices because the gate
+  only looks at the change. Checking the *path* is not enough for the same
+  reason: a symlink the worker left inside the scope is an in-scope name for an
+  out-of-scope file, and ``ruff format`` writes through it. Resolving the path
+  is not enough either, because a hard link has nothing to resolve — it *is*
+  the file, under a second name, and the formatter writing through the name the
+  scope allows rewrites the one it forbids (see :func:`_repairable`).
+* **It says what it left behind.** ``repair`` mutates the working tree while its
+  caller holds the worker's reply as a string, so :attr:`RepairOutcome.content`
+  carries the bytes now on disk. Without it the caller has no way to learn what
+  the gate is about to be re-run on, and the bytes it carries forward to
+  :func:`mcgyvr.deliver.deliver` are the ones the gate *rejected*.
 * **The one step that adds code may only transcribe.** Auto-import insertion
   writes ``from <module> import <name>`` for an undefined name **only** when
   some ``deps`` entry in the contract already declares that name. The repair is
@@ -54,10 +64,11 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import subprocess
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.contract import Contract, Dependency
@@ -65,6 +76,7 @@ from mcgyvr.gate.adapter import ToolUnavailableError, plain_env, require_tool
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
+from mcgyvr.lines import LINE_END, parser_lines
 
 #: ruff reports on 0 (clean) and 1 (diagnostics, or fixes applied with some
 #: left); anything else is ruff telling us it did not do the job. Same split
@@ -94,6 +106,15 @@ class RepairOutcome:
     the gate worth a second subprocess rather than a guaranteed repeat of the
     verdict already in hand.
 
+    ``content`` is what is on disk when the pass finishes, per repairable path
+    and whether or not this pass changed it. It is here because a repair mutates
+    the tree and its caller does not: the caller holds the worker's reply as a
+    string, the gate is re-run against the file, and nothing connected the two —
+    so the bytes carried on to delivery were the bytes the gate had rejected.
+    That is the ``repair`` half of the port's "nothing owns the bytes"; the
+    delivery half is :class:`mcgyvr.deliver.Accepted`, which binds these bytes to
+    the verdict the re-run gate reaches on them.
+
     ``environment_issues`` mirror
     :class:`~mcgyvr.gate.acceptance.AcceptanceReport`'s — a step that could not
     run, phrased so an operator knows what to install. They never imply
@@ -101,6 +122,7 @@ class RepairOutcome:
     """
 
     repaired: tuple[str, ...] = ()
+    content: Mapping[str, str] = field(default_factory=dict)
     environment_issues: tuple[str, ...] = ()
 
     @property
@@ -122,6 +144,11 @@ def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutco
     then the formatter. The insertion is the only step that writes new code, so
     running the tools after it means they see the file the re-run gate will see
     and the repair never leaves behind a line it added but did not tidy.
+
+    The outcome carries the bytes left on disk as well as the paths, because the
+    caller's next move is to re-run the gate on this tree and then hand *content*
+    to :func:`mcgyvr.deliver.deliver` — and the content it was holding when it
+    called this is no longer the content the gate is about to judge.
     """
     issues: list[str] = []
     try:
@@ -144,26 +171,128 @@ def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutco
         _run_ruff(repo, ruff, ["check", "--fix", "--force-exclude"], paths, issues)
         _run_ruff(repo, ruff, ["format", "--force-exclude"], paths, issues)
 
+    after = {path: _read_bytes(repo / path) for path in paths}
     return RepairOutcome(
-        repaired=tuple(p for p in paths if _read_bytes(repo / p) != before[p]),
+        repaired=tuple(path for path in paths if after[path] != before[path]),
+        content={
+            path: raw.decode("utf-8", "surrogateescape")
+            for path, raw in after.items()
+            if raw is not None
+        },
         environment_issues=tuple(issues),
     )
 
 
 def _repairable(changeset: ChangeSet, contract: Contract) -> list[FileChange]:
-    """The changed files a repair may open: Python, in scope, still on disk.
+    """The changed files a repair may open: Python, in scope, still a real file.
 
     ``owned`` is the adapter's own answer to "is this a Python file the gate
     scans", already excluding deletions and binaries — asking it rather than
     re-deriving the suffix list keeps the repair pointed at precisely the files
     the gate's Python rungs rejected on.
+
+    Scope is asked about the name, and then about the file, because those were
+    not the same question and the gap was a way out of the contract. ``is_file()``
+    follows symlinks: a link the worker left at an allowed path is an in-scope
+    *name* for whatever it points at, and ``ruff format`` writes through it —
+    rewriting a file the contract explicitly forbids, reporting the repair
+    against the in-scope name, and leaving the gate none the wiser because the
+    gate only ever looks at the change. So the answer is taken about the bytes
+    that would actually be rewritten: still inside the repository, permitted
+    where the name really lands, and — because a file may have more than one
+    name and resolving finds only the first kind — permitted under *every* name
+    it has (:func:`_writes_where_it_says`).
     """
     return [
         change
         for change in PythonAdapter().owned(changeset.files)
         if contract.scope.permits(change.path)
-        and (changeset.repo / change.path).is_file()
+        and _writes_where_it_says(changeset.repo, change.path, contract)
     ]
+
+
+def _writes_where_it_says(repo: Path, path: str, contract: Contract) -> bool:
+    """Whether opening ``path`` for writing rewrites only bytes the contract allows.
+
+    ``False`` for a path that is not a regular file, that resolves outside the
+    repository, that resolves onto a file the scope does not permit, or that is
+    one of several names for a file whose other names the scope does not permit —
+    one check rather than four because the answer to all of them is the same:
+    this is not ours to rewrite. A path with no link in it resolves to itself and
+    has one name, and the scope has already said yes to that, so the ordinary
+    case costs two ``stat`` calls and answers exactly as before.
+    """
+    target = repo / path
+    if not target.is_file():
+        return False
+    anchor = repo.resolve()
+    resolved = target.resolve()
+    if anchor not in resolved.parents:
+        return False
+    if not contract.scope.permits(resolved.relative_to(anchor).as_posix()):
+        return False
+    return _every_name_is_in_scope(anchor, resolved, contract)
+
+
+def _every_name_is_in_scope(anchor: Path, resolved: Path, contract: Contract) -> bool:
+    """Whether every name this file has is one the contract permits.
+
+    ``resolve()`` answers for symlinks and cannot answer for hard links, because
+    a hard link is not a reference to a file — it *is* the file, under a second
+    directory entry, with nothing to see through and nothing to resolve. The
+    formatter writes to the inode, so what it writes through the name the scope
+    allows appears under the name the scope forbids: in a directory the contract
+    excluded, or in a tree the repository does not contain.
+
+    An inode cannot be asked for its names, and the names that matter most are
+    the ones outside the repository, where there is nowhere to look. So the
+    question is asked the other way round. ``st_nlink`` is how many names the
+    file has; count the ones inside the repository that the scope permits, and if
+    that is fewer, at least one name exists that this repair may not write to —
+    without ever having to find it. Two in-scope names for one inode is a file
+    the contract permits, written twice, and is repaired as normal: the refusal
+    is about where the other names are, not about there being more than one.
+    """
+    try:
+        inode = resolved.stat()
+    except OSError:
+        return False
+    if inode.st_nlink <= 1:
+        return True
+    return _in_scope_names(anchor, inode, contract) >= inode.st_nlink
+
+
+def _in_scope_names(anchor: Path, inode: os.stat_result, contract: Contract) -> int:
+    """How many names inside the repository, and inside scope, this inode has.
+
+    The walk is paid for only by a file that has more than one name, which in a
+    source tree is rare enough to cost nothing in the ordinary case, and it stops
+    as soon as the count can no longer change the answer.
+
+    ``lstat`` rather than ``stat`` so that a symlink counts as the separate file
+    it is rather than as a second name for its target: counted the other way, a
+    symlink and a hard link both aimed at one forbidden file would look like two
+    permitted names and let the pair through. ``.git`` is not walked — nothing in
+    it is a repair's to rewrite, and leaving a name found there out of the count
+    can only refuse a file, never admit one.
+    """
+    device, number = inode.st_dev, inode.st_ino
+    found = 0
+    for directory, subdirectories, names in os.walk(anchor):
+        subdirectories[:] = [name for name in subdirectories if name != ".git"]
+        for name in names:
+            candidate = Path(directory) / name
+            if not contract.scope.permits(candidate.relative_to(anchor).as_posix()):
+                continue
+            try:
+                entry = candidate.lstat()
+            except OSError:
+                continue
+            if (entry.st_dev, entry.st_ino) == (device, number):
+                found += 1
+                if found >= inode.st_nlink:
+                    return found
+    return found
 
 
 # --- the tools ------------------------------------------------------------
@@ -365,14 +494,27 @@ def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> No
         # gate's to report and a model's to fix. Editing it blind would only
         # move the error.
         return
-    lines = source.splitlines(keepends=True)
+    lines = parser_lines(source)
     present = {line.strip() for line in lines}
-    fresh = [f"{line}\n" for line in imports if line not in present]
+    ending = _terminator(source)
+    fresh = [f"{line}{ending}" for line in imports if line not in present]
     if not fresh:
         return
     anchor = _import_anchor(tree)
     lines[anchor:anchor] = fresh
-    path.write_text("".join(lines), encoding="utf-8")
+    _write_text(path, "".join(lines))
+
+
+def _terminator(source: str) -> str:
+    """The line ending ``source`` already uses, or ``\\n`` for a file with none.
+
+    An inserted line has to end the way the file's other lines end. A ``\\n``
+    spliced into a CRLF file leaves a mixed-ending file behind, which the next
+    formatter normalises — so a repair that added one import is recorded as
+    having rewritten every line in the file.
+    """
+    found = LINE_END.search(source)
+    return found.group(0) if found else "\n"
 
 
 def _import_anchor(tree: ast.Module) -> int:
@@ -421,10 +563,32 @@ def _read_bytes(path: Path) -> bytes | None:
 
 
 def _read_text(path: Path) -> str | None:
+    """The file as text with its line endings intact, or ``None`` if unreadable.
+
+    ``newline=""`` turns off universal-newline translation, which is not a
+    detail: with it on, a CRLF file arrives as LF, is written back as LF, and a
+    repair asked to add one import has rewritten every line ending in the file —
+    the whole file reported as repaired, and every line of it in the diff a
+    reviewer reads. The parser is handed this same string and numbers its lines
+    over ``\\r\\n`` and ``\\r`` exactly as it does over ``\\n``.
+    """
     try:
-        return path.read_text(encoding="utf-8")
+        with path.open(encoding="utf-8", newline="") as handle:
+            return handle.read()
     except (OSError, UnicodeDecodeError):
         return None
+
+
+def _write_text(path: Path, source: str) -> None:
+    """Write ``source`` back as it is, line endings included.
+
+    ``newline=""`` for the other half of :func:`_read_text`'s reason: the default
+    translates every ``\\n`` written to ``os.linesep``, so on a platform whose
+    linesep is not ``\\n`` even a file read without translation would come back
+    with its endings changed.
+    """
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(source)
 
 
 def _first_line(stderr: str) -> str:

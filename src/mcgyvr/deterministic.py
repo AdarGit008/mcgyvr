@@ -40,14 +40,27 @@ be. A :class:`Degradation` names four things — the contract, its type, the
 family it left and the family now paying for it — because a fixed sentence can
 satisfy any one of them and not all four.
 
-**What is deliberately not here.** Running the tool is #81's: nothing in this
-file executes a program, which is what lets every rule in it be asserted on a
-machine with no ruff and no sandbox. Climbing past the family a degradation
-lands on is #43's — this decides where work starts, never how far it goes. And
-the write to telemetry is the caller's: :meth:`Degradation.as_record` renders
-one for whoever owns the sink, because a routing decision has no attempt to
-hang a record on, and a planning function that opened a file would stop being
-the thing a caller can inspect before anything is spent.
+**A planned step names the whole command, because a step nothing can run is
+not a floor.** :attr:`ToolStep.argv` is the executable, its subcommand and
+flags, and the contract's target — everything a caller needs to run it and
+nothing it would have to re-derive. The alternative was tried and is the defect
+this replaces: a step carrying a program's *name* determined nothing, because
+``ruff`` owns three of the four deterministic types with three different
+invocations and the target was never on the step at all. A caller holding such
+a step had to rebuild the command from the task type, which is the second table
+this module exists to prevent — and, until it did, the floor was bound in the
+plan and unbound in every direction downstream of it.
+
+**What is deliberately not here.** Running the tool is the caller's: nothing in
+this file executes a program, which is what lets every rule in it be asserted on
+a machine with no ruff and no sandbox, and what keeps a routing decision from
+writing to a working tree. The command is data here and a subprocess there, for
+the same reason :meth:`Degradation.as_record` renders a record rather than
+appending one. Climbing past the family a degradation lands on is #43's — this
+decides where work starts, never how far it goes. And the write to telemetry is
+the caller's too, because a routing decision has no attempt to hang a record on,
+and a planning function that opened a file would stop being the thing a caller
+can inspect before anything is spent.
 """
 
 from __future__ import annotations
@@ -58,7 +71,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from mcgyvr.catalog import Family, catalog
-from mcgyvr.route import Plan, Step, attempts_for, plan
+from mcgyvr.route import Plan, Planned, Step, attempts_for, plan
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -66,14 +79,32 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.pool import SourceMap
 
 
-# Which program owns which type, per language. Both halves of every entry are
-# already written down elsewhere: the catalog states the guarantee in terms of
-# "the project's own formatter/linter/tool" (``data/task-catalog.json``), and
-# the gate's adapters name which program that is — ruff for Python
-# (``gate/adapters/python.py``), eslint and prettier for JS/TS
-# (``gate/adapters/javascript.py``). Nothing is chosen here; this records the
-# choice the gate already made, so a change cannot be produced by one program
-# and judged by another.
+# Which program owns which type, per language, and how it is invoked. Both
+# halves of every entry are already written down elsewhere: the catalog states
+# the guarantee in terms of "the project's own formatter/linter/tool"
+# (``data/task-catalog.json``), and the gate's adapters name which program that
+# is — ruff for Python (``gate/adapters/python.py``), eslint and prettier for
+# JS/TS (``gate/adapters/javascript.py``). Nothing is chosen here; this records
+# the choice the gate already made, so a change cannot be produced by one
+# program and judged by another.
+#
+# **The invocation is part of the binding, not a detail a caller supplies.**
+# Three Python types map to one program, and ``ruff`` is not a command: the
+# subcommand and flags are what make it ``format``'s tool rather than
+# ``lint_fix``'s. Each is forced by the type's guarantee rather than chosen
+# here — "byte-identical to what the project's own formatter produces" is
+# ``ruff format``; "every autofix the project's linter applies … and nothing
+# else" is ``ruff check --fix``; "imports are ordered as the project's own tool
+# orders them, with no other change to the file" is ruff's import rule alone,
+# which is ``--select I``. A step that carried only the name would be the same
+# step three times over, and running one type's invocation for another's
+# contract makes a change that type's guarantee does not describe.
+#
+# The target is not here: it is the contract's, and it is appended by
+# :attr:`ToolStep.argv`. Every program in this table takes the path last, after
+# a ``--`` that argv supplies — an entry for a program that could not be told
+# where its flags end would not belong here, because a target it read as an
+# option is a target it never acted on.
 #
 # ``("js/ts", "import_sort")`` is absent on purpose. ADR-0025 holds this
 # project's eslint config at `recommended`, which carries no import-order rule,
@@ -82,12 +113,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # the project's own tool orders them" — for a tool that orders nothing. The
 # absence routes such a contract onward and says why, which is the honest
 # answer and the same one a missing ruff gets.
-_PROGRAMS: dict[tuple[str, str], str] = {
-    ("python", "format"): "ruff",
-    ("python", "import_sort"): "ruff",
-    ("python", "lint_fix"): "ruff",
-    ("js/ts", "format"): "prettier",
-    ("js/ts", "lint_fix"): "eslint",
+_PROGRAMS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("python", "format"): ("ruff", "format"),
+    ("python", "import_sort"): ("ruff", "check", "--select", "I", "--fix"),
+    ("python", "lint_fix"): ("ruff", "check", "--fix"),
+    ("js/ts", "format"): ("prettier", "--write"),
+    ("js/ts", "lint_fix"): ("eslint", "--fix"),
 }
 
 # The types mcgyvr executes itself, with nothing to install. ``rename_symbol``'s
@@ -103,16 +134,26 @@ _IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 class Tool:
     """What executes one task type on one target, and what it needs installed.
 
-    ``program`` is the name of an executable on PATH, or ``None`` for a type
-    mcgyvr executes in-process. ``None`` is not "no tool" — it is a tool with
-    nothing to install, and that distinction is the whole of what :func:`route`
-    asks about: a tool with nothing to install cannot be missing, so the one
-    deterministic type that needs no program is the one a bare machine can
-    always run on its own floor.
+    ``command`` is how the program is invoked, without the target — the whole
+    invocation rather than the program's name, because one program owns three
+    of the four deterministic types and the subcommand is what tells them
+    apart. It is empty for a type mcgyvr executes in-process.
+
+    :attr:`program` is the first word of that, or ``None``. ``None`` is not "no
+    tool" — it is a tool with nothing to install, and that distinction is the
+    whole of what :func:`route` asks about: a tool with nothing to install
+    cannot be missing, so the one deterministic type that needs no program is
+    the one a bare machine can always run on its own floor. It is derived
+    rather than stored so that the name and the command cannot disagree.
     """
 
     task_type: str
-    program: str | None
+    command: tuple[str, ...] = ()
+
+    @property
+    def program(self) -> str | None:
+        """The executable this tool needs on PATH, or ``None`` for in-process."""
+        return self.command[0] if self.command else None
 
 
 @dataclass(frozen=True)
@@ -128,10 +169,43 @@ class ToolStep:
     ``attempts`` is one and comes from :func:`~mcgyvr.route.attempts_for`
     rather than from a literal here, so the rule that a tool fails identically
     on retry keeps being stated in exactly one place.
+
+    ``target`` is the contract's, carried on the step rather than left for the
+    caller to fetch back, because a step that named a program and not the file
+    it acts on determined nothing that could be run. With it, :attr:`argv` is
+    the whole command and executing this step is handing that to a runner —
+    which is what "the floor binds a program" has to mean for it to be worth
+    more than the empty family it replaced.
     """
 
     tool: Tool
+    target: str
     attempts: int = 1
+
+    @property
+    def argv(self) -> tuple[str, ...]:
+        """The exact command line that performs this step, or ``()``.
+
+        Empty for an in-process tool, and deliberately not a plausible-looking
+        command built from the task type: there is no program to run, and an
+        argv that named one would send a caller to a process that cannot exist.
+        An empty tuple is the honest answer and is the answer a caller can
+        distinguish, which a guessed command is not.
+
+        ``--`` before the target, for the same reason the gate's own ruff
+        invocation has always carried one (``gate/adapters/python.py``). A target
+        is a contract's field, a contract is what a decomposer emitted, and
+        ``target: -h.py`` is a legal string in one: without the separator ``ruff
+        format -h.py`` prints help, **exits 0** and formats nothing, so an
+        executor reading the exit code records a ``format`` contract completed
+        over a file it never touched. ``--config=…`` is the same defect with a
+        worse ending — the program loads a file the contract named as its
+        configuration. Both were reproduced against ruff, prettier and eslint,
+        and all three read the path as a path once ``--`` is there.
+        """
+        if not self.tool.command:
+            return ()
+        return (*self.tool.command, "--", self.target)
 
 
 @dataclass(frozen=True)
@@ -177,13 +251,29 @@ class Degradation:
 
 
 @dataclass(frozen=True)
-class Routed:
+class Routed(Planned):
     """Where a contract's work lands, and what it cost to put it there.
 
     The same shape as :class:`~mcgyvr.route.Plan` — a family, the steps in it,
     and a reason when there are none — plus what was given up on the way. A
     plan cannot carry that: it answers about one family, and a degradation is
     a fact about two.
+
+    "The same shape" is inherited rather than restated. This carries the same
+    ``ToolStep | Step`` union a plan does, so it holds the same trap: ``steps``
+    and truthiness cannot tell a program from a rung, and a caller that read
+    either as "there is something to climb here" would make the mistake #81 made
+    one class over. :attr:`~mcgyvr.route.Planned.climbable`,
+    :attr:`~mcgyvr.route.Planned.programs` and
+    :attr:`~mcgyvr.route.Planned.climb_budget` come from
+    :class:`~mcgyvr.route.Planned` for that reason — one answer to the question,
+    for both of the types that raise it.
+
+    Truthiness here does keep its own meaning, and it is not the ascent's. A
+    route holding one program is a route that found something to run — that is
+    the whole of what the floor is for — so ``bool`` and ``len`` both answer
+    "was anything planned", and they agree. What may be *climbed* is a narrower
+    question and it now has its own name.
     """
 
     family: Family
@@ -213,14 +303,14 @@ def tool_for(contract: Contract) -> Tool | None:
     is still perfectly executable by a model.
     """
     if contract.task_type in _IN_PROCESS:
-        return Tool(task_type=contract.task_type, program=None)
+        return Tool(task_type=contract.task_type)
     language = _language_of(contract.target)
     if language is None:
         return None
-    program = _PROGRAMS.get((language, contract.task_type))
-    if program is None:
+    command = _PROGRAMS.get((language, contract.task_type))
+    if command is None:
         return None
-    return Tool(task_type=contract.task_type, program=program)
+    return Tool(task_type=contract.task_type, command=command)
 
 
 def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
@@ -245,6 +335,7 @@ def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
     return (
         ToolStep(
             tool=tool,
+            target=contract.target,
             attempts=attempts_for(contract.type.starts_on, 1, contract),
         ),
     )

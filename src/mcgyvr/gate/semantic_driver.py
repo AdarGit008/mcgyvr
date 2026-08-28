@@ -269,7 +269,14 @@ def resolve_file(
     try:
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
+        # Strict decoding is right here — `ast.parse` below cannot be handed a
+        # surrogate, so reading with `surrogateescape` would only move the
+        # failure one line down — but `UnicodeDecodeError` is a `ValueError`,
+        # not an `OSError`. Catching only `OSError` let one latin-1 byte out of
+        # a function documented never to raise, out through `run_job`, and out
+        # of the process: the whole job died, and every *other* file's
+        # resolution died with it. One unreadable file costs only itself.
         return {"path": path, "error": f"unreadable: {exc}"}
     try:
         tree = ast.parse(source)

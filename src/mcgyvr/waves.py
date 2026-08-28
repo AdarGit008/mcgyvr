@@ -41,6 +41,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from enum import Enum
+from types import MappingProxyType
 from typing import Protocol
 
 from mcgyvr.contract import Contract
@@ -57,11 +59,30 @@ What is left over is reported by name, never retried quietly.
 class Attempt(Protocol):
     """Running one contract, however it is run.
 
-    The return value only has to say whether the work landed: it is read as a
-    truth value, and a falsy one is asked for a ``reason``. Deliberately no
-    narrower than that — the outcome of a real dispatch belongs to whatever
-    binds this parameter, and a driver that demanded that type would be
-    unusable until it existed.
+    The return value only has to say whether the work landed, and there are
+    three ways it may say so: an ``ok`` attribute, the field named for its type
+    in :data:`VERDICTS`, or — for a bare value whose truth *is* its content — its
+    own truth value. One that did not land is asked for a ``reason``.
+    Deliberately no narrower than that — the outcome of a real dispatch belongs
+    to whatever binds this parameter, and a driver that demanded that type would
+    be unusable until it existed.
+
+    Reading a stated verdict first is what makes that width real rather than
+    nominal, because **not one terminal outcome in mcgyvr defines** ``__bool__``.
+    That is on purpose and it is the codebase's policy: a caller is meant to
+    match on the answer rather than remember a boolean's polarity. Every one of
+    them is therefore true whatever it says, so truthiness alone reports a spent
+    ladder as an accepted change and a refused delivery as a commit — which is
+    not a misreading a driver can be left to notice on its own.
+
+    They do not all state it in one word, and assuming they did is how six of
+    them stayed misread after the first fix. :class:`~mcgyvr.escalate.Delivered`,
+    :class:`~mcgyvr.escalate.Halted`, :class:`~mcgyvr.route.Accepted`,
+    :class:`~mcgyvr.route.Exhausted` and
+    :class:`~mcgyvr.sandbox.base.CommandResult` say ``ok``; six more say
+    ``committed``, ``completed``, ``accepted`` or ``changed``, and those are
+    :data:`VERDICTS`. An outcome that says none of them is refused rather than
+    guessed at — see :func:`_landed`.
     """
 
     def __call__(self, contract: Contract, /) -> object: ...
@@ -129,6 +150,19 @@ class WaveRun:
     blocked: tuple[tuple[str, str], ...] = ()
     waves: int = 0
 
+    @property
+    def ok(self) -> bool:
+        """Whether the plan is done: nothing failed, and nothing is still waiting.
+
+        Stated here for the reason every other outcome in mcgyvr states it
+        (:attr:`~mcgyvr.escalate.Delivered.ok`,
+        :attr:`~mcgyvr.route.Accepted.ok`)
+        rather than left to be worked out of three tuples at each call site,
+        where it would be worked out differently each time. A plan with nothing
+        in it is ok vacuously: no work was asked for, so none is outstanding.
+        """
+        return not self.failed and not self.blocked
+
 
 def run_waves(
     contracts: Iterable[Contract],
@@ -186,7 +220,7 @@ def run_waves(
         for contract in ready:
             outcome = attempt(contract)
             del pending[contract.id]
-            if outcome:
+            if _landed(outcome):
                 completed.append(contract.id)
                 landed.add(contract.id)
             else:
@@ -216,15 +250,173 @@ def run_waves(
     )
 
 
+VERDICTS: Mapping[str, str] = MappingProxyType(
+    {
+        "mcgyvr.cleanup.Cleanup": "accepted",
+        "mcgyvr.consensus.Consensus": "accepted",
+        "mcgyvr.deliver.Delivery": "committed",
+        "mcgyvr.gate.runner.GateResult": "accepted",
+        "mcgyvr.pending.Resumed": "completed",
+        "mcgyvr.repair.RepairOutcome": "changed",
+    }
+)
+"""Where an outcome states its verdict, for the types that do not say ``ok``.
+
+Six entries because six is how many there are, and written down because the
+alternative was assuming there were none. ``ok`` is the convention and this is
+the exception list; both are read before anything falls back to a truth value.
+
+Keyed by qualified name rather than by the class so that this module keeps
+importing nothing but a contract. An outcome's type belongs to whatever binds
+:class:`Attempt` — delivery, recovery, repair, cleanup, consensus, the gate —
+and importing six modules to learn six field names would make ordering a plan
+depend on every lever that can execute one, which is the coupling this module
+was written without.
+
+The table is not a best effort. An outcome type in neither it nor the ``ok``
+convention is refused by :func:`_landed` rather than guessed at, so the day it
+falls behind is a named failure in a report and never a quiet completion; and a
+field renamed out from under an entry reads the same way, because a name that no
+longer resolves states no verdict either.
+"""
+
+_UNSTATED = object()
+"""Not the same as an outcome that stated its verdict and stated it falsely.
+
+A default that could itself be an outcome would collapse the two, and the
+distinction is the whole of :func:`_landed`: one of them is a verdict to be
+believed, the other is an object that has not answered the question.
+"""
+
+
+def _verdict(outcome: object) -> object:
+    """What ``outcome`` says about its own work, or :data:`_UNSTATED`.
+
+    Three readings in the order they were written down deliberately. ``ok`` is
+    the convention, so it outranks everything — including a type in
+    :data:`VERDICTS` that later grows one, which is how a type leaves this table
+    without anything here changing. :data:`VERDICTS` is the stated exception.
+    Truthiness comes last and only from a bare value (:func:`_is_a_bare_value`).
+    """
+    stated: object = getattr(outcome, "ok", _UNSTATED)
+    if stated is not _UNSTATED:
+        return stated
+    named = VERDICTS.get(_named(outcome))
+    if named is not None:
+        return getattr(outcome, named, _UNSTATED)
+    if _is_a_bare_value(outcome):
+        return bool(outcome)
+    return _UNSTATED
+
+
+def _is_a_bare_value(outcome: object) -> bool:
+    """Whether truthiness is the whole of what this value has to say.
+
+    Two conditions, and both are needed. It has to be a **builtin** — ``True``,
+    ``None``, ``""``, ``()`` have no verdict to state anywhere, so their truth
+    value *is* their content and reading it is reading what they mean, while
+    anything with a type of its own is asked where its verdict is instead. And
+    its type has to **say** what its truth value is, by defining ``__bool__`` or
+    ``__len__``: a bare :class:`object` is a builtin that defines neither, so it
+    is true for no reason at all, which is the accident this whole function
+    exists to keep out.
+
+    The narrower line was chosen after the wider one was tried. "It defines
+    ``__bool__`` or ``__len__``, so its truthiness was deliberate" reads well and
+    is false in this codebase: :class:`~mcgyvr.consensus.Consensus` defines
+    ``__len__`` as *the number of draws*, so a best-of-three whose winner the
+    gate rejected is three, and three is true. A truth value that was written
+    down on purpose can still be a statement about something other than the
+    verdict — and every misreading in this module has been exactly that. So a
+    class states its verdict in ``ok`` or in :data:`VERDICTS`, or it is not read.
+
+    This is what keeps the documented fallback honest rather than merely alive:
+    a driver handing back a bare ``bool`` is still served, and everything else is
+    asked to say what it means.
+    """
+    kind = type(outcome)
+    return kind.__module__ == "builtins" and any(
+        "__bool__" in each.__dict__ or "__len__" in each.__dict__
+        for each in kind.__mro__
+    )
+
+
+def _landed(outcome: object) -> bool:
+    """Whether an attempt says its work landed, in whichever way it says it.
+
+    Never inferred. An outcome that states no verdict any of the three readings
+    can find is reported as a failure naming itself (:func:`_unreadable`),
+    because the only other default is "landed" and a wrong "landed" is the
+    expensive one: it releases the dependants into the next wave, where a rung's
+    tokens buy a rejection against a tree their input was never written into —
+    the exact spend this module exists to refuse.
+
+    A failure rather than a raised exception, for the reason this function is
+    reached at all: waves run contracts that commit, and a driver that aborted
+    mid-plan on a type it did not recognise would leave earlier work in the tree
+    and no report saying what happened to the rest.
+    """
+    stated = _verdict(outcome)
+    return stated is not _UNSTATED and bool(stated)
+
+
+def _named(outcome: object) -> str:
+    """The outcome's type, as :data:`VERDICTS` keys it and a report names it."""
+    kind = type(outcome)
+    return f"{kind.__module__}.{kind.__qualname__}"
+
+
+def _unreadable(outcome: object) -> str:
+    """Why an outcome could not be read, and what would make it readable.
+
+    Both halves, because this sentence is the whole of the loudness: it is what
+    an operator sees in ``failed`` on the day a new outcome type reaches a wave
+    loop that has never heard of it, and "something went wrong" would send them
+    to the worker rather than to this table.
+    """
+    return (
+        f"the attempt returned {_named(outcome)}, which states no verdict this "
+        f"driver can read: it carries no 'ok', is not named in "
+        f"mcgyvr.waves.VERDICTS, and defines no truth value of its own. Read as "
+        f"a failure rather than guessed at — the guess would be 'landed', for "
+        f"every outcome of that type and whatever it actually said."
+    )
+
+
 def _reason(outcome: object) -> str:
     """Why an attempt did not land, as the attempt itself put it.
 
     Read off the outcome rather than invented here: a driver that supplied its
     own wording would hand the re-planner a sentence about the plan when what
-    it needs is the one about the work.
+    it needs is the one about the work. Two spellings because both are live —
+    :class:`~mcgyvr.route.Exhausted` carries a machine-readable ``reason`` with
+    the prose beside it in ``detail``, :class:`~mcgyvr.escalate.Halted` carries
+    only the prose.
+
+    Prose outranks a code, which is the one thing the first version of this got
+    backwards: ``Exhausted.reason`` is an :class:`~enum.Enum` member, so asking
+    for ``reason`` first reported ``rungs_spent`` and dropped the sentence
+    sitting beside it. An enum is machine-readable, which is a virtue in a field
+    and not in a paragraph handed to a model re-planner — and one told nothing
+    but a token re-emits the step that just failed. The code is still used when
+    it is all there is.
+
+    An outcome nobody can read gets :func:`_unreadable` instead of its own
+    words, however many it carries: whatever it says about the work, the fact
+    that reaches the operator first has to be that this driver could not read it.
     """
-    stated = str(getattr(outcome, "reason", "")).strip()
-    return stated or "the attempt reported a failure without stating a reason"
+    if _verdict(outcome) is _UNSTATED:
+        return _unreadable(outcome)
+    coded = ""
+    for spelling in ("reason", "detail"):
+        stated = getattr(outcome, spelling, "")
+        if isinstance(stated, Enum):
+            coded = coded or str(stated.value).strip()
+            continue
+        prose = str(stated).strip()
+        if prose:
+            return prose
+    return coded or "the attempt reported a failure without stating a reason"
 
 
 def _blocked_reason(

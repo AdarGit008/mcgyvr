@@ -1,4 +1,4 @@
-"""Cleaning a style violation out of an accepted change, at no model cost.
+"""Cleaning a style violation out of a change, at no model cost.
 
 mcgyvr already draws the distinction this module acts on.
 :class:`~mcgyvr.gate.GateResult` splits what the rungs saw into ``findings``,
@@ -8,15 +8,29 @@ run. What nothing did was *act* on the split: ``ruff format`` is run with
 ``--diff`` and ``ruff check`` without ``--fix``, so a change whose only remaining
 problem is a space in the wrong place is reported and then handed to a model —
 a dispatch, a full context and an attempt off the ceiling, to insert a space.
-This module closes that: the gate's own two buckets decide whether a change is
-tidied or rejected, and the tidying is a formatter, not a model.
+This module closes that: the gate's own verdict decides whether a change is
+tidied or left alone, and the tidying is a formatter, not a model.
 
-**Style is cleaned; correctness is rejected and never tidied.** The bucket is
-the whole decision, and it is read from the result rather than from a check's
-name — which is what lets the split hold whichever rung produced the item. A
-rejected change comes back byte-identical on purpose: rewriting it would hand
-the next attempt a file the worker never wrote, and every retry note about
-"your change" would then be about somebody else's.
+**Style is cleaned; correctness is rejected and never tidied.** The gate's two
+buckets are most of that decision and not all of it. ``observations`` never
+reject, so a change carrying only those is already accepted and is tidied. The
+format rung is the awkward one: it emits ``check="format"``, which lands in
+``findings``, so the single case this module was built for arrives as a
+*rejection*. It is tidied anyway, and it is the only rejection that is — a
+change is cleaned when every reason the gate gave for rejecting it is one the
+formatter itself raised. That is the same rule the buckets were standing in for,
+stated where the gate actually files the item rather than where the bucket's
+name suggests it would. Every other rejection comes back byte-identical on
+purpose: rewriting it would hand the next attempt a file the worker never wrote,
+and every retry note about "your change" would then be about somebody else's.
+
+**Cleaning a rejection does not overturn it.** The gate short-circuits — its
+typecheck, semantic and acceptance rungs run only while nothing has rejected yet
+— so behind a format finding the contract's own suite never ran at all.
+:attr:`Cleanup.accepted` is therefore the gate's own verdict carried through
+unchanged, and :attr:`Cleanup.regate` is what says the reason for the rejection
+is no longer in the bytes. The caller re-runs the gate; nothing here reports a
+bar that nobody applied.
 
 **The spend is zero, structurally.** :attr:`Cleanup.tokens_spent` is a property
 returning ``0`` rather than a field anything could set, and this module imports
@@ -73,6 +87,15 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: way an absent tool is: the content comes back untouched.
 _FORMAT_TIMEOUT_S = 30.0
 
+#: The rejecting checks a formatter answers on its own. Only the format rung is
+#: here, and only because it *is* the formatter: its finding says ruff format
+#: would reflow a worker-added line, so running ruff format is not a guess at
+#: what would satisfy it but the same tool reaching the same fixed point. Both
+#: language adapters spell it this way. The lint rung's style-classed codes are
+#: deliberately absent — answering those means ``ruff check --fix``, which the
+#: module docstring declines for a reason that has not changed.
+_FORMATTER_CHECKS = frozenset({"format"})
+
 
 @dataclass(frozen=True)
 class Cleanup:
@@ -99,6 +122,23 @@ class Cleanup:
         """
         return 0
 
+    @property
+    def regate(self) -> bool:
+        """Whether the verdict behind this result is now stale.
+
+        True exactly when a rejected change was cleaned, which happens only
+        where every finding was the formatter's own: the reason for the
+        rejection is no longer in the bytes, and no rung has said so yet.
+        Behind that rejection the gate also stopped before its typecheck,
+        semantic and acceptance rungs, so what is owed is a whole gate run and
+        not a re-read of this one.
+
+        Derived rather than stored, for the reason :attr:`tokens_spent` is: it
+        is a fact about what happened, and a field would be somewhere to write
+        a more convenient answer.
+        """
+        return self.cleaned and not self.accepted
+
 
 def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     """``content`` as ``ruff format`` would write it, or ``None`` if it could not.
@@ -112,6 +152,14 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     temporary file: ruff resolves the same settings it would for that path, and
     with ``--force-exclude`` an excluded path is echoed back unchanged rather
     than reformatted, which is the gate's own behaviour for the same file.
+
+    The pipe is bytes on both sides. ``text=True`` would encode with the
+    process's preferred encoding under ``strict``, which raises on the
+    ``surrogateescape`` characters the rest of mcgyvr uses to carry an
+    undecodable byte through a ``str`` (:mod:`mcgyvr.pending`) — a crash out of
+    the one function in this module that promises never to raise. It would also
+    translate the newlines on the way back, so a file with CRLF endings would
+    come out of a *cleanup* with different ones.
     """
     try:
         # The gate's own formatter, named here and nowhere else in this module:
@@ -121,12 +169,19 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     except EnvironmentFaultError:
         return None
     try:
+        stdin = content.encode("utf-8", "surrogateescape")
+    except UnicodeEncodeError:
+        # `surrogateescape` is total over bytes that came off a disk and
+        # partial over text that came off the wire: a lone `\ud800` is a legal
+        # JSON escape and has no byte form at all. There is nothing to hand the
+        # formatter, which is the same answer as a formatter that is not there.
+        return None
+    try:
         done = subprocess.run(
             [ruff, "format", "--force-exclude", "--stdin-filename", target, "-"],
-            input=content,
+            input=stdin,
             cwd=repo,
             capture_output=True,
-            text=True,
             env=plain_env(),
             timeout=_FORMAT_TIMEOUT_S,
             check=False,
@@ -137,11 +192,13 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
         # Exit 2 is ruff refusing to parse; its stdout is empty, and writing
         # that back would delete the file. #261 is a record of empty output
         # being read as a clean answer three times in this project — here the
-        # exit code is the test, and nothing else is consulted.
+        # exit code is the test, and nothing else is consulted. Bytes ruff
+        # cannot read as UTF-8 arrive here too, for the same reason and with
+        # the same answer.
         return None
     if not done.stdout and content.strip():
         return None
-    return done.stdout
+    return done.stdout.decode("utf-8", "surrogateescape")
 
 
 #: Suffix to formatter. Python's is ruff — the tool this project already gates
@@ -162,11 +219,21 @@ def tidy(
     target: str,
     repo: Path | None = None,
 ) -> Cleanup:
-    """Clean an accepted change's style, or hand back a rejected one untouched.
+    """Clean a change whose only problem is formatting, or hand it back untouched.
 
     ``result`` is the gate's verdict on this change and is the only thing that
-    decides which of those happens: a change with findings is rejected and its
-    bytes are not this module's to alter, whatever its observations say.
+    decides which of those happens. A change it accepted is tidied; so is one it
+    rejected *only* on the formatter's own rung, which is the case this module
+    exists for and the one the gate files under ``findings`` rather than under
+    ``observations``. Any other rejection — a lint code, a failed acceptance
+    command, a rung that could not say what bar it applied — leaves the bytes
+    alone, whatever else the result carries.
+
+    The verdict itself is never overturned: :attr:`Cleanup.accepted` is
+    ``result.accepted`` unchanged, and a cleaned rejection is reported through
+    :attr:`Cleanup.regate` for the caller to re-gate. This function has no way
+    of knowing what the rungs behind the rejection would have said, because
+    behind a rejection they did not run.
 
     ``repo`` names the tree whose formatter configuration decides what clean
     means. It matters that this is the same tree the gate checked: a cleanup run
@@ -174,15 +241,16 @@ def tidy(
     complains about, which is worse than not cleaning at all. ``None`` runs
     where the process already is.
     """
-    if not result.accepted:
+    if not _cleanable(result):
         return Cleanup(
             content=content,
             accepted=False,
             detail=(
                 "the change was rejected on "
-                f"{', '.join(result.by_check()) or 'no named check'}; a "
-                "rejected change is not tidied, because what the next attempt "
-                "is shown must be what the worker wrote."
+                f"{', '.join(result.by_check()) or 'a rung that could not run'}"
+                "; only a rejection the formatter itself raised is tidied, "
+                "because what the next attempt is shown must be what the "
+                "worker wrote."
             ),
         )
 
@@ -190,7 +258,7 @@ def tidy(
     if cleaner is None:
         return Cleanup(
             content=content,
-            accepted=True,
+            accepted=result.accepted,
             detail=f"no deterministic cleaner is registered for {target}.",
         )
 
@@ -198,24 +266,40 @@ def tidy(
     if tidied is None:
         return Cleanup(
             content=content,
-            accepted=True,
+            accepted=result.accepted,
             detail=(
                 f"the cleanup could not run over {target}; the gate had "
-                f"already accepted this change and a tidy-up that failed does "
-                f"not overturn that."
+                f"already reached its verdict and a tidy-up that failed does "
+                f"not move it."
             ),
         )
     if tidied == content:
         return Cleanup(
             content=content,
-            accepted=True,
+            accepted=result.accepted,
             # Covers both "already formatted" and "the formatter declined this
             # path", which are the same fact to a caller: nothing to write.
             detail=f"nothing to rewrite in {target}; it came back unchanged.",
         )
+    settled = "." if result.accepted else ", and the gate wants re-running over it."
     return Cleanup(
         content=tidied,
-        accepted=True,
+        accepted=result.accepted,
         cleaned=True,
-        detail=f"{target} was reformatted deterministically, at no model cost.",
+        detail=f"{target} was reformatted deterministically, at no model cost{settled}",
     )
+
+
+def _cleanable(result: GateResult) -> bool:
+    """Whether these bytes are this module's to rewrite.
+
+    True for a change the gate accepted, and for exactly one kind of rejection:
+    one where every finding came from the formatter itself, so re-running the
+    formatter removes all of it. An inconclusive rung disqualifies a change even
+    with no findings beside it — a rung that ran and cannot say what bar it
+    applied (ADR-0034) has not told anyone the problem is formatting, and
+    tidying on that would be answering a question that was never asked.
+    """
+    if result.inconclusive:
+        return False
+    return all(finding.check in _FORMATTER_CHECKS for finding in result.findings)

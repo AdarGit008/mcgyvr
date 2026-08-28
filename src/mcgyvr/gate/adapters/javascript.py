@@ -244,7 +244,13 @@ class JavaScriptAdapter(LanguageAdapter):
             return None
         try:
             manifest = json.loads(package.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # An unreadable manifest is not a declaration, and nothing here
+            # raises: the answer to "does this repository declare a test
+            # command" is no. `UnicodeDecodeError` is named because the read is
+            # strict and it is a `ValueError`, so it belongs to neither of the
+            # other two — the same hole, and the same fix, as
+            # `python.py`'s `_has_toml_table` over `pyproject.toml`.
             return None
         scripts = manifest.get("scripts")
         if not isinstance(scripts, dict) or "test" not in scripts:

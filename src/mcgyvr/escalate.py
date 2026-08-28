@@ -410,7 +410,22 @@ class Ascent:
     ceiling: Ceiling
 
     def __bool__(self) -> bool:
-        return any(self.plans)
+        """Whether there is anything here to climb.
+
+        The same question :meth:`__len__` answers, and therefore the same
+        answer. It was ``any(self.plans)`` — plan truthiness — until the floor
+        was bound to a program: an ascent whose only non-empty plan holds a
+        :class:`~mcgyvr.deterministic.ToolStep` was then true and empty at once,
+        so ``if route:`` entered a climb that ``for p in route.runnable``
+        immediately found nothing in. Python asks ``__bool__`` first and falls
+        back to ``__len__``, which makes disagreeing versions of one question
+        the sharpest kind of trap: the guard passes and the loop does not run.
+
+        "This ascent contains work" is a different and true statement about such
+        an ascent, and :attr:`plans` is where it is asked. It is not what a
+        caller reaching for truthiness means.
+        """
+        return bool(self.runnable)
 
     def __len__(self) -> int:
         return len(self.runnable)
@@ -422,8 +437,14 @@ class Ascent:
 
     @property
     def runnable(self) -> tuple[Plan, ...]:
-        """The families that actually offer a rung."""
-        return tuple(p for p in self.plans if p)
+        """The families that actually offer a rung.
+
+        A rung, not a step: since #81 bound the floor, the cheapest family can
+        hold a program, and a program is something to *run* and nothing to
+        *climb*. Counting it here would tell a caller the ladder can walk a
+        family whose only step :func:`~mcgyvr.route.climb` refuses.
+        """
+        return tuple(p for p in self.plans if p.climbable)
 
     @property
     def rungs(self) -> tuple[str, ...]:
@@ -431,8 +452,24 @@ class Ascent:
 
     @property
     def ladder_budget(self) -> int:
-        """The most attempts the configured rungs could spend between them."""
-        return sum(p.budget for p in self.plans)
+        """The most attempts the configured rungs could spend between them.
+
+        Summed over what each family can *climb*, so the floor's one program
+        does not appear: it is spent by :mod:`mcgyvr.deterministic` and never by
+        :func:`escalate`, and counting it would give the climb one attempt of
+        headroom past the end of the operator's ladder — the ceiling would stop
+        a task later than the config it was read from says.
+
+        Not the figure ``mcgyvr pool`` prints, and it never could be. That one
+        sums each rung's configured ``attempts`` with no contract in hand; every
+        step counted here has already been through
+        :func:`~mcgyvr.route.attempts_for`, which takes the lower of the rung's
+        budget and the contract's own ``limits.attempts``. The printed number is
+        the ladder's ceiling for any task; this is the ceiling for *this* task,
+        and where a contract asks for fewer attempts than the ladder offers the
+        two differ by design. This is the one that is enforced.
+        """
+        return sum(p.climb_budget for p in self.plans)
 
     @property
     def budget(self) -> int:
@@ -595,8 +632,15 @@ def escalate[T](
         return judgement.as_result()
 
     for each in route.plans:
-        if not each:
-            continue  # an empty family is not entered; its reason is kept
+        if not each.climbable:
+            # Not entered, and its reason is kept for the halt detail. The test
+            # is `climbable` rather than truthiness because the two stopped
+            # agreeing when #81 bound the floor: a deterministic family holding
+            # a program is non-empty and still has nothing to climb, so a
+            # truthiness guard entered it and `climb` raised `RouteError` —
+            # which is not a `RunnerError`, so the mission loop did not catch
+            # it and the run ended with earlier contracts already committed.
+            continue
         result = climb(each, observed, capacity=capacity, permit=permit)
         history.extend(result.history)
         if result.history:
