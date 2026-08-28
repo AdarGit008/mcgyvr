@@ -1079,13 +1079,19 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   reports realized counts per steering cell. Offline invariants pinned in
   `tests/test_bench_gate.py`.
 
-- The orchestration core ported from local-ai: mcgyvr can now run a task.
-  Nineteen levers, each stated first as a behaviour test in `tests/red_port/`
-  and then bound. The port's finding was that mcgyvr was a library of seams
-  with no assembled driver — `escalate()`'s `attempt`, `decompose()`'s
-  `propose` and `judge()`'s `verifier` were unbound parameters, and
-  `runner.dispatch_role` had no caller at all — so most of this is binding
-  sockets that already existed rather than new machinery.
+- The orchestration core ported from local-ai as **library code**: nineteen
+  levers, each stated first as a behaviour test in `tests/red_port/` and then
+  implemented. The port's finding was that mcgyvr was a library of seams with
+  no assembled driver — `escalate()`'s `attempt`, `decompose()`'s `propose`
+  and `judge()`'s `verifier` were unbound parameters, and
+  `runner.dispatch_role` had no caller at all.
+  **That finding still stands after the port.** These levers are not wired
+  together: 28 of 35 public entry points have no production caller,
+  `runner.dispatch` among them, and there is still no `run` subcommand. A task
+  can be driven to a commit only by writing the orchestration `src/` does not
+  contain. An adversarial review of this work
+  (`docs/port-pressure-test-2026-08-29.md`) found nine critical defects that a
+  passing suite does not reach — read it before building on any of this.
   - `deliver.py` writes an accepted change into the repository it was attached
     to and commits it, re-confirming at commit time what acceptance
     established at build time. It refuses a dirty tree, diffs against the
@@ -1102,10 +1108,12 @@ Format: [Keep a Changelog](https://keepachangelog.com).
     as notes, which is what #129 measured and chose.
   - `repair.py` fixes what a gate rejection can fix deterministically and
     re-runs the gate, so a repairable failure costs no model call.
-  - `deterministic.py` binds the tier-0 floor. All four deterministic task
-    types previously planned nothing to run on their own floor, so each was a
-    model call for work `ruff` does for free; a missing tool now degrades onward
-    and records what it cost instead of halting.
+  - `deterministic.py` binds the tier-0 floor in the *plan*. All four
+    deterministic task types previously planned nothing to run on their own
+    floor, so each was a model call for work `ruff` does for free. The floor
+    now plans a tool — but **nothing executes one**, and binding it regressed
+    `escalate()`, which raises on all four types where it previously fell
+    through to a model. Both are open; see the pressure-test report.
   - Also: `waves.py` (DAG waves on `depends_on`), `pending.py` (stash and
     resume work stranded by an unreachable verifier), `cooldown.py`,
     `consensus.py`, `cleanup.py`, `attempt.py` (a retry is told what the
