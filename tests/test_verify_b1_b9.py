@@ -121,12 +121,17 @@ def work_contract(target: str, scope: str = "src/**/*.py") -> Contract:
     return load_contract(WORK_CONTRACT.format(target=target, scope=scope))
 
 
-def passing(this: object) -> Judgement[str]:
-    """An attempt that accepts on whatever rung it is handed."""
+def passing(this: object) -> Judgement:
+    """An attempt that accepts on whatever rung it is handed.
+
+    The rung's name is stated in ``detail`` rather than returned as content: a
+    judgement's acceptance is bound to the tree its gate read, and nothing here
+    runs a gate.
+    """
     rung = getattr(this, "rung", None)
     return Judgement(
         verdict=Verdict.PASSED,
-        value=f"{getattr(rung, 'name', '?')}",
+        detail=f"{getattr(rung, 'name', '?')}",
         assurance=Assurance.UNVERIFIED,
     )
 

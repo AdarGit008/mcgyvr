@@ -334,7 +334,6 @@ def test_the_verified_assurance_is_unreachable_unless_a_review_agreed(
             contract,
             MODEL_FAMILY,
             GateResult(),
-            value="def fetch(url):\n    return url\n",
             verifier=lambda: _review(verify, Reviewer(reply=reply), contract=contract),
         ).assurance
 

@@ -187,13 +187,19 @@ class Recorder:
     Running past the script is itself a failure: a task that made more attempts
     than the test wrote down has broken the budget the test is about, and a
     silent default would hide exactly that.
+
+    :attr:`seen` is where "which rung ran, and how many times" is asserted from:
+    one entry per call, in call order, each carrying the rung and the attempt
+    number the climb funded. A judgement cannot carry that and never could — it
+    is what an attempt came to, not a record of having been asked — so the
+    record lives on the thing that was asked.
     """
 
     def __init__(self, *verdicts: Verdict) -> None:
         self._verdicts = list(verdicts)
         self.seen: list[Try] = []
 
-    def __call__(self, this: Try) -> Judgement[str]:
+    def __call__(self, this: Try) -> Judgement:
         self.seen.append(this)
         if not self._verdicts:
             raise AssertionError(
@@ -201,11 +207,7 @@ class Recorder:
             )
         verdict = self._verdicts.pop(0)
         if verdict is Verdict.PASSED:
-            return Judgement(
-                verdict=Verdict.PASSED,
-                value=f"{this.rung.name}#{this.attempt}",
-                assurance=Assurance.UNVERIFIED,
-            )
+            return Judgement(verdict=Verdict.PASSED, assurance=Assurance.UNVERIFIED)
         if verdict is Verdict.DECLINED:
             return Judgement(verdict=Verdict.DECLINED, detail="not work this rung does")
         return Judgement(verdict=Verdict.FAILED, detail="the gate rejected it")
@@ -240,12 +242,12 @@ def clean() -> GateResult:
     return GateResult()
 
 
-def delivered(result: Delivered[str] | Halted) -> Delivered[str]:
+def delivered(result: Delivered | Halted) -> Delivered:
     assert isinstance(result, Delivered), f"expected an accepted task, got {result}"
     return result
 
 
-def halted(result: Delivered[str] | Halted) -> Halted:
+def halted(result: Delivered | Halted) -> Halted:
     assert isinstance(result, Halted), f"expected a halted task, got {result}"
     return result
 
@@ -551,7 +553,7 @@ def test_a_declared_model_policy_is_never_lowered() -> None:
 
 
 def test_the_upgrade_is_recorded_on_the_judgement_that_carried_it() -> None:
-    verdict = judge(contract(), LOCAL, clean(), "new content")
+    verdict = judge(contract(), LOCAL, clean())
 
     assert verdict.policy == "model"
     assert verdict.upgraded is True
@@ -581,7 +583,6 @@ def test_verified_is_unreachable_unless_a_verifier_ran_and_agreed() -> None:
                     declared,
                     family,
                     clean(),
-                    "new content",
                     verifier=None if review is None else review,
                 )
                 if verdict.assurance is Assurance.VERIFIED:
@@ -600,7 +601,7 @@ def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly()
     None
 ):
     """E6's third first-class configuration, and where #44 attaches."""
-    verdict = judge(contract(), LOCAL, clean(), "new content")
+    verdict = judge(contract(), LOCAL, clean())
 
     assert verdict.verdict is Verdict.PASSED
     assert verdict.assurance is Assurance.UNVERIFIED
@@ -615,7 +616,7 @@ def test_an_available_verifier_is_never_skipped() -> None:
         asked.append("called")
         return Review.agreed("the change does what the contract asked")
 
-    verdict = judge(contract(), LOCAL, clean(), "new content", verifier=verifier)
+    verdict = judge(contract(), LOCAL, clean(), verifier=verifier)
 
     assert asked == ["called"]
     assert verdict.assurance is Assurance.VERIFIED
@@ -624,7 +625,7 @@ def test_an_available_verifier_is_never_skipped() -> None:
 def test_the_deterministic_family_does_not_spend_a_verifier_it_did_not_need() -> None:
     """`gate_only` is the whole bar there, so asking is spend the policy refused."""
     verdict = judge(
-        contract(DETERMINISTIC_CONTRACT), DETERMINISTIC, clean(), "x", verifier=Spy()
+        contract(DETERMINISTIC_CONTRACT), DETERMINISTIC, clean(), verifier=Spy()
     )
 
     assert verdict.assurance is Assurance.DETERMINISTIC
@@ -636,7 +637,6 @@ def test_a_refused_review_is_a_failed_attempt_and_carries_what_to_fix() -> None:
         contract(),
         LOCAL,
         clean(),
-        "x",
         verifier=lambda: Review.refused("the retry has no backoff"),
     )
 
@@ -649,7 +649,7 @@ def test_a_refused_review_is_a_failed_attempt_and_carries_what_to_fix() -> None:
 def test_an_unusable_review_is_neither_an_approval_nor_the_builders_fault() -> None:
     """#41's rule reaching the policy: a reply that cannot be read is not a verdict."""
     verdict = judge(
-        contract(), LOCAL, clean(), "x", verifier=lambda: Review.unusable("empty reply")
+        contract(), LOCAL, clean(), verifier=lambda: Review.unusable("empty reply")
     )
 
     assert verdict.verdict is Verdict.FAILED
@@ -668,14 +668,8 @@ def test_a_review_is_built_through_a_named_opinion_never_a_boolean() -> None:
 def test_an_accepted_task_reports_the_bar_it_actually_cleared(key: None) -> None:
     config, pool = mapped(MIXED)
 
-    def attempt(this: Try) -> Judgement[str]:
-        return judge(
-            contract(),
-            LOCAL,
-            clean(),
-            this.rung.name,
-            verifier=lambda: Review.agreed(),
-        )
+    def attempt(this: Try) -> Judgement:
+        return judge(contract(), LOCAL, clean(), verifier=lambda: Review.agreed())
 
     result = delivered(escalate(config, pool, contract(), attempt))
 
@@ -687,8 +681,8 @@ def test_an_acceptance_that_named_no_bar_is_read_as_unverified(key: None) -> Non
     """Defaulting the other way is how a result is reported as more assured."""
     config, pool = mapped(MIXED)
 
-    def attempt(this: Try) -> Judgement[str]:
-        return Judgement(verdict=Verdict.PASSED, value=this.rung.name)
+    def attempt(this: Try) -> Judgement:
+        return Judgement(verdict=Verdict.PASSED)
 
     result = delivered(escalate(config, pool, contract(), attempt))
 
@@ -701,7 +695,7 @@ def test_an_acceptance_that_named_no_bar_is_read_as_unverified(key: None) -> Non
 
 def test_no_verifier_is_asked_about_a_change_the_gate_rejected() -> None:
     """#32 stated this ordering; nothing held it until here."""
-    verdict = judge(contract(), LOCAL, rejected("lint"), "x", verifier=Spy())
+    verdict = judge(contract(), LOCAL, rejected("lint"), verifier=Spy())
 
     assert verdict.verdict is Verdict.FAILED
     assert verdict.assurance is None
@@ -710,7 +704,7 @@ def test_no_verifier_is_asked_about_a_change_the_gate_rejected() -> None:
 
 def test_the_ordering_holds_for_a_contract_that_demanded_verification() -> None:
     """The contract asking for a verifier does not buy the gate's failure one."""
-    verdict = judge(verifying(), API, rejected("secrets", "scope"), "x", verifier=Spy())
+    verdict = judge(verifying(), API, rejected("secrets", "scope"), verifier=Spy())
 
     assert verdict.verdict is Verdict.FAILED
 
@@ -718,10 +712,8 @@ def test_the_ordering_holds_for_a_contract_that_demanded_verification() -> None:
 def test_a_gate_failure_costs_no_verifier_spend_anywhere_in_a_climb(key: None) -> None:
     config, pool = mapped(MIXED)
 
-    def attempt(this: Try) -> Judgement[str]:
-        return judge(
-            contract(), LOCAL, rejected("lint"), this.rung.name, verifier=Spy()
-        )
+    def attempt(this: Try) -> Judgement:
+        return judge(contract(), LOCAL, rejected("lint"), verifier=Spy())
 
     result = halted(escalate(config, pool, contract(), attempt))
 
@@ -771,7 +763,7 @@ def test_a_retry_note_excludes_observations_and_environment_issues() -> None:
 
 def test_a_clean_gate_produces_no_retry_note() -> None:
     assert RetryNotes.of(clean()) is None
-    assert judge(contract(), LOCAL, clean(), "x").retry is None
+    assert judge(contract(), LOCAL, clean()).retry is None
 
 
 def test_the_retry_prompt_names_what_failed_and_repeats_nothing_that_passed() -> None:
@@ -844,7 +836,7 @@ def test_an_attempt_that_raises_is_not_swallowed_into_a_terminal_outcome() -> No
     """A judgement is something the attempt made; an exception is its absence."""
     config, pool = mapped(KEYLESS)
 
-    def explode(this: Try) -> Judgement[str]:
+    def explode(this: Try) -> Judgement:
         raise RuntimeError("the socket died")
 
     with pytest.raises(RuntimeError):

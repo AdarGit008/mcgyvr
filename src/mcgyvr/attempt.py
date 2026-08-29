@@ -40,13 +40,13 @@ from mcgyvr.route import Verdict
 from mcgyvr.worker.prompt import WorkerPrompt, build_prompt
 
 
-def run[T](
+def run(
     contract: Contract,
-    work: Callable[[WorkerPrompt], Judgement[T]],
+    work: Callable[[WorkerPrompt], Judgement],
     *,
     attempts: int = 1,
     adapters: Sequence[LanguageAdapter] | None = None,
-) -> Judgement[T]:
+) -> Judgement:
     """Run ``work`` on ``contract`` until it passes or ``attempts`` are spent.
 
     ``work`` is the caller's, exactly as it is :func:`~mcgyvr.route.climb`'s and
@@ -62,7 +62,7 @@ def run[T](
     if attempts < 1:
         raise ValueError(f"a rung must be allowed at least one attempt, got {attempts}")
 
-    def dispatch(retry: RetryNotes | None) -> Judgement[T]:
+    def dispatch(retry: RetryNotes | None) -> Judgement:
         return work(build_prompt(contract, adapters=adapters, retry=retry))
 
     # The opening attempt is dispatched outside the loop rather than guarded

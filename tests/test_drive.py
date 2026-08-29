@@ -441,7 +441,13 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
         )
 
     assert judgement.verdict is Verdict.PASSED
-    assert judgement.value == "VALUE = 1\n"
+    # The bytes the driver returns are the bytes it gated: `worker_attempt`
+    # mints the binding with `Accepted.read` off the workspace the gate judged,
+    # so this reads the tree back through the verdict rather than through the
+    # string the reply happened to carry.
+    assert judgement.accepted is not None
+    assert judgement.accepted.content == "VALUE = 1\n"
+    assert judgement.accepted.accepted is True
 
 
 def test_a_rejected_attempt_tells_the_next_one_what_failed(
@@ -565,7 +571,8 @@ def test_the_attempt_function_plugs_into_escalate(
 
     assert isinstance(outcome, Delivered)
     assert outcome.rung == "local_qwen-14b"
-    assert outcome.value == "VALUE = 1\n"
+    assert outcome.judgement.accepted is not None
+    assert outcome.judgement.accepted.content == "VALUE = 1\n"
 
 
 # --- the production caller ---------------------------------------------------

@@ -49,10 +49,11 @@ already settles in one place a second place to be settled differently.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
@@ -271,7 +272,7 @@ def worker_attempt(
     adapters: Sequence[LanguageAdapter] | None = None,
     verifier: Callable[[], Review] | None = None,
     recording: Recording | None = None,
-) -> Callable[[Try], Judgement[str]]:
+) -> Callable[[Try], Judgement]:
     """The attempt function :func:`~mcgyvr.escalate.escalate` has always taken.
 
     Every function it composes was written to be composed — ``escalate``,
@@ -302,7 +303,7 @@ def worker_attempt(
     """
     notes: dict[str, RetryNotes] = {}
 
-    def attempt(this: Try) -> Judgement[str]:
+    def attempt(this: Try) -> Judgement:
         family = family_of(config, this.rung.name)
         prompt = build_prompt(
             contract, adapters=adapters, retry=notes.get(this.rung.name)
@@ -343,9 +344,21 @@ def worker_attempt(
             )
 
         gate = gate_in_sandbox(contract, sandbox, parsed.content, adapters=adapters)
-        judgement = judge(
-            contract, family, gate, value=parsed.content, verifier=verifier
-        )
+        judgement = judge(contract, family, gate, verifier=verifier)
+        if gate.accepted:
+            # Read back off the workspace rather than carried from `parsed`,
+            # even though nothing here rewrites the tree between the two. The
+            # point is that a step which *did* — `repair` is written to, and its
+            # documented loop is exactly this one with a repair in the middle —
+            # cannot make the two disagree without this line noticing. A binding
+            # minted from the caller's own string would be true by construction
+            # and would check nothing.
+            judgement = replace(
+                judgement,
+                accepted=Accepted.read(
+                    repo=sandbox.workspace, contract=contract, result=gate
+                ),
+            )
         if judgement.retry is not None:
             notes[this.rung.name] = judgement.retry
         return judgement

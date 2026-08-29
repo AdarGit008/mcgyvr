@@ -160,16 +160,22 @@ FINDING = Finding(
 )
 
 
-def delivered() -> Delivered[str]:
+def delivered() -> Delivered:
+    """An accepted task, carrying no bound content — because none is read here.
+
+    ``Judgement.accepted`` is minted only by
+    :meth:`mcgyvr.deliver.Accepted.read`, off the tree a gate judged, and there
+    is no tree in this sweep: what is under test is *how an outcome states its
+    verdict*, which for this type is ``ok``. The ``value="ok"`` that used to sit
+    on both the ``Delivered`` and its ``Judgement`` was a string no reader
+    consulted — the unbound channel, in miniature.
+    """
     family = catalog().families[0]
     return Delivered(
         family=family,
         rung="local",
-        value="ok",
         assurance=Assurance.DETERMINISTIC,
-        judgement=Judgement(
-            verdict=Verdict.PASSED, value="ok", assurance=Assurance.DETERMINISTIC
-        ),
+        judgement=Judgement(verdict=Verdict.PASSED, assurance=Assurance.DETERMINISTIC),
         entered=(family,),
         history=(),
         attempts_spent=1,
@@ -198,15 +204,22 @@ def exhausted() -> Exhausted:
 
 
 # Every terminal outcome type in mcgyvr, in both polarities where it has two.
-# `Delivered` and `Accepted` have only one: they are the types that exist to say
-# a change was accepted, and a false one of either is not a value the codebase
-# can produce.
+# `Delivered` and `route.Accepted` have only one: they are the types that exist
+# to say a change was accepted, and a false one of either is not a value the
+# codebase can produce.
+#
+# The names are qualified because two of them collide. `route.Accepted` below is
+# a *climb* outcome — which rung passed and what it took to get there — while
+# `mcgyvr.deliver.Accepted` is the bytes a gate read bound to the verdict it
+# reached on them. The second is not a terminal outcome and is deliberately not
+# swept: it is what a `Judgement` carries, it states no `ok`, and a wave loop is
+# never handed one.
 OUTCOMES: tuple[tuple[str, object, bool], ...] = (
     ("escalate.Delivered", delivered(), True),
     ("escalate.Halted", halted(), False),
     (
         "route.Accepted",
-        Accepted(family=catalog().families[0], rung="local", value="ok", history=()),
+        Accepted(family=catalog().families[0], rung="local", history=()),
         True,
     ),
     ("route.Exhausted", exhausted(), False),

@@ -352,7 +352,7 @@ class Trace:
     completion: Completion
     reply: ParsedFile | ReplyError
     gate: GateResult | None
-    judgement: Judgement[ParsedFile]
+    judgement: Judgement
 
     @property
     def content(self) -> str | None:
@@ -463,7 +463,7 @@ class Attempt:
         """Every try so far, in the order the climb made them."""
         return tuple(self._trace)
 
-    def __call__(self, this: Try) -> Judgement[ParsedFile]:
+    def __call__(self, this: Try) -> Judgement:
         contract = self._contract
         family = self._family_of(this.rung.name)
 
@@ -498,7 +498,7 @@ class Attempt:
             gate: GateResult | None = None
         else:
             gate, bound = self._gate_run(reply)
-            judgement = judge(contract, family, gate, reply)
+            judgement = judge(contract, family, gate)
             if bound is not None:
                 # The binding is attached here rather than passed into `judge`,
                 # because `judge` decides a verdict and has no tree to read from
@@ -523,7 +523,7 @@ class Attempt:
         )
         return judgement
 
-    def _unparsed(self, error: ReplyError) -> Judgement[ParsedFile]:
+    def _unparsed(self, error: ReplyError) -> Judgement:
         """The judgement for a reply that never became a file.
 
         The parser's ``refusal`` is the one code with its own routing

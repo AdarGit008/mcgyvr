@@ -174,13 +174,22 @@ class Recorder:
     The script is consumed one verdict per call, and running past its end is
     itself a failure: a climb that tried more rungs than the test scripted has
     broken the budget the test is about, and a silent default would hide it.
+
+    A passing verdict carries a marker naming the rung and the attempt number
+    that produced it. It travels as the result's ``detail``, which
+    :func:`~mcgyvr.route.climb` copies into the :class:`~mcgyvr.route.Attempted`
+    row it appends — so a test can still say *which* attempt on *which* rung the
+    accepted climb came from, which is the only reason the marker exists. It
+    used to ride on a ``Result.value``; that channel is gone, because content
+    that travels beside a verdict without being bound to it is how un-gated
+    bytes reach a repository.
     """
 
     def __init__(self, *verdicts: Verdict) -> None:
         self._verdicts = list(verdicts)
         self.seen: list[Try] = []
 
-    def __call__(self, attempt: Try) -> Result[str]:
+    def __call__(self, attempt: Try) -> Result:
         self.seen.append(attempt)
         if not self._verdicts:
             raise AssertionError(
@@ -217,12 +226,12 @@ class DownProbe:
         }
 
 
-def accepted(result: Accepted[str] | Exhausted) -> Accepted[str]:
+def accepted(result: Accepted | Exhausted) -> Accepted:
     assert isinstance(result, Accepted), f"expected an accepted climb, got {result}"
     return result
 
 
-def exhausted(result: Accepted[str] | Exhausted) -> Exhausted:
+def exhausted(result: Accepted | Exhausted) -> Exhausted:
     assert isinstance(result, Exhausted), f"expected an exhausted family, got {result}"
     return result
 
@@ -475,7 +484,12 @@ def test_a_passing_rung_ends_the_climb_and_the_dearer_rung_is_never_tried(
     result = accepted(climb(plan(config, pool, contract()), attempts))
 
     assert result.rung == "local_qwen-7b"
-    assert result.value == "local_qwen-7b#1"
+    assert result.history[-1] == Attempted(
+        rung="local_qwen-7b",
+        attempt=1,
+        verdict=Verdict.PASSED,
+        detail="local_qwen-7b#1",
+    )
     assert attempts.rungs == ["local_qwen-7b"]
 
 
@@ -636,7 +650,7 @@ def test_an_attempt_that_raises_is_not_swallowed_into_an_exhaustion() -> None:
     """A verdict is a judgement; an exception is the absence of one."""
     config, pool = mapped(KEYLESS)
 
-    def explode(attempt: Try) -> Result[str]:
+    def explode(attempt: Try) -> Result:
         raise RuntimeError("the socket died")
 
     with pytest.raises(RuntimeError):
@@ -684,7 +698,7 @@ def test_a_plan_reports_its_budget_before_anything_is_spent() -> None:
 
 def test_a_result_is_built_through_a_named_verdict() -> None:
     assert Result.passed("x").verdict is Verdict.PASSED
-    assert Result.passed("x").value == "x"
+    assert Result.passed("x").detail == "x"
     assert Result.failed("why").verdict is Verdict.FAILED
     assert Result.declined("why").detail == "why"
 

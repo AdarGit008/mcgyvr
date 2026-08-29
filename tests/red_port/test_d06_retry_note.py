@@ -111,23 +111,23 @@ class Twice:
     this assertable without one.
     """
 
-    def __init__(self, contract: Any, first: Judgement[str]) -> None:
+    def __init__(self, contract: Any, first: Judgement) -> None:
         self._contract = contract
         self._first = first
         self.prompts: list[Any] = []
 
-    def __call__(self, prompt: Any) -> Judgement[str]:
+    def __call__(self, prompt: Any) -> Judgement:
         self.prompts.append(prompt)
         if len(self.prompts) == 1:
             return self._first
-        return judge(self._contract, LOCAL, GateResult(), value="accepted")
+        return judge(self._contract, LOCAL, GateResult())
 
     @property
     def texts(self) -> list[str]:
         return [str(getattr(p, "user", p)) for p in self.prompts]
 
 
-def _two_attempts(contract: Any, first: Judgement[str]) -> Twice:
+def _two_attempts(contract: Any, first: Judgement) -> Twice:
     work = Twice(contract, first)
     _run()(contract, work, attempts=2)
     assert len(work.prompts) == 2, (
@@ -196,7 +196,6 @@ def test_a_reviewers_remediation_notes_reach_the_next_attempt(
         contract,
         LOCAL,
         GateResult(),
-        value="rejected by the reviewer",
         verifier=lambda: Review.refused(REMEDIATION),
     )
 

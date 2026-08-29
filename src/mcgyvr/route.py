@@ -260,7 +260,7 @@ class Try:
 
 
 @dataclass(frozen=True)
-class Result[T]:
+class Result:
     """What an attempt function reports back.
 
     Built through :meth:`passed`, :meth:`failed` or :meth:`declined` rather than
@@ -269,19 +269,18 @@ class Result[T]:
     """
 
     verdict: Verdict
-    value: T | None = None
     detail: str = ""
 
     @classmethod
-    def passed(cls, value: T, detail: str = "") -> Result[T]:
-        return cls(verdict=Verdict.PASSED, value=value, detail=detail)
+    def passed(cls, detail: str = "") -> Result:
+        return cls(verdict=Verdict.PASSED, detail=detail)
 
     @classmethod
-    def failed(cls, detail: str = "") -> Result[T]:
+    def failed(cls, detail: str = "") -> Result:
         return cls(verdict=Verdict.FAILED, detail=detail)
 
     @classmethod
-    def declined(cls, detail: str = "") -> Result[T]:
+    def declined(cls, detail: str = "") -> Result:
         return cls(verdict=Verdict.DECLINED, detail=detail)
 
 
@@ -301,16 +300,19 @@ class Attempted:
 
 
 @dataclass(frozen=True)
-class Accepted[T]:
+class Accepted:
     """A climb that ended with a rung producing an acceptable result.
 
-    ``value`` is whatever the attempt function handed back — this module never
-    inspects it, which is what keeps routing testable without a model.
+    Names which rung and what it took to get there, and carries nothing the
+    attempt produced. It used to carry a ``value`` this module never inspected,
+    which is what kept routing testable without a model — the testability came
+    from not inspecting it, not from holding it, and the caller that needs the
+    accepted bytes reads them off the :class:`~mcgyvr.escalate.Judgement` that
+    bound them to a tree.
     """
 
     family: Family
     rung: str
-    value: T | None
     history: tuple[Attempted, ...]
 
     @property
@@ -493,13 +495,13 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
 # --- executing a plan ------------------------------------------------------
 
 
-def climb[T](
+def climb(
     plan: Plan,
-    attempt: Callable[[Try], Result[T]],
+    attempt: Callable[[Try], Result],
     *,
     capacity: Capacity | None = None,
     permit: Callable[[Step, int], bool] | None = None,
-) -> Accepted[T] | Exhausted:
+) -> Accepted | Exhausted:
     """Try each rung of ``plan`` in turn until one passes or the family is spent.
 
     ``attempt`` is the caller's — it is what actually assembles a prompt,
@@ -585,7 +587,6 @@ def climb[T](
                 return Accepted(
                     family=plan.family,
                     rung=step.rung.name,
-                    value=result.value,
                     history=tuple(history),
                 )
             if result.verdict is Verdict.DECLINED:

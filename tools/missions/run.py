@@ -562,7 +562,7 @@ class MissionResult:
     plan: Plan
     acceptance: Mapping[str, str]
     """The child's test files by path — the bar every attempt ran against."""
-    outcomes: tuple[tuple[Contract, Delivered[Any] | Halted], ...]
+    outcomes: tuple[tuple[Contract, Delivered | Halted], ...]
     traces: tuple[tuple[dict[str, Any], ...], ...]
     """Per contract, item 3's trace of every try, as plain data."""
     files: Mapping[str, str]
@@ -597,7 +597,7 @@ def run_task(
     into: Path,
     proposer_rung: str | None = None,
     propose: Proposer | None = None,
-    attempt_for: Callable[[Contract], Callable[[Try], Judgement[Any]]] | None = None,
+    attempt_for: Callable[[Contract], Callable[[Try], Judgement]] | None = None,
     records_root: Path = REPO,
 ) -> MissionResult:
     """One admitted commit, end to end, leaving ``records/missions/<sha>/``.
@@ -631,7 +631,7 @@ def run_task(
         )
     )
 
-    outcomes: list[tuple[Contract, Delivered[Any] | Halted]] = []
+    outcomes: list[tuple[Contract, Delivered | Halted]] = []
     traces: list[tuple[dict[str, Any], ...]] = []
     files: dict[str, str] = {}
     commits: list[tuple[str, str]] = []
@@ -823,11 +823,11 @@ class _Watched:
     its own ``trace``; the caller reads that off the original object.
     """
 
-    def __init__(self, attempt: Callable[[Try], Judgement[Any]]) -> None:
+    def __init__(self, attempt: Callable[[Try], Judgement]) -> None:
         self._attempt = attempt
         self.rung: str | None = None
 
-    def __call__(self, this: Try) -> Judgement[Any]:
+    def __call__(self, this: Try) -> Judgement:
         self.rung = this.rung.name
         return self._attempt(this)
 
@@ -856,7 +856,7 @@ def _make_attempt(
     plan: Plan,
     contract: Contract,
     acceptance: Mapping[str, str],
-) -> Callable[[Try], Judgement[Any]]:
+) -> Callable[[Try], Judgement]:
     """Item 3's attempt for one contract, bound to the pool by name.
 
     ``dispatch`` is item 3's own ``dispatch_via`` over the pool and
@@ -881,7 +881,7 @@ def _make_attempt(
         raise SiblingMismatch(
             f"attempt.make_attempt returned a {type(made).__name__}, not a callable"
         )
-    attempt: Callable[[Try], Judgement[Any]] = made
+    attempt: Callable[[Try], Judgement] = made
     return attempt
 
 
@@ -985,9 +985,7 @@ def _run_test(
     )
 
 
-def _outcome_dict(
-    contract: Contract, outcome: Delivered[Any] | Halted
-) -> dict[str, Any]:
+def _outcome_dict(contract: Contract, outcome: Delivered | Halted) -> dict[str, Any]:
     """How one contract's climb ended — the rule that ended it, and the counts.
 
     Nothing verdict-shaped: the per-try verdicts and item 3's traces go under
@@ -1012,7 +1010,7 @@ def _outcome_dict(
 
 def _gate_dict(
     contract: Contract,
-    outcome: Delivered[Any] | Halted,
+    outcome: Delivered | Halted,
     trace: tuple[dict[str, Any], ...],
 ) -> dict[str, Any]:
     """One contract's pass/fail material: the climb's verdicts and every try."""
@@ -1039,7 +1037,7 @@ def _write_record(
     config: Config,
     db_path: Path,
     acceptance: Mapping[str, str],
-    outcomes: Sequence[tuple[Contract, Delivered[Any] | Halted]],
+    outcomes: Sequence[tuple[Contract, Delivered | Halted]],
     traces: Sequence[tuple[dict[str, Any], ...]],
     files: Mapping[str, str],
     test: TestRun | None,

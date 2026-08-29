@@ -97,21 +97,22 @@ def contract(text: str = FORMAT) -> Contract:
     return load_contract(text)
 
 
-def passes(this: Try) -> Judgement[str]:
+def passes(this: Try) -> Judgement:
     """An attempt function that accepts on whatever rung it is handed.
 
     The verdict is the whole of what these tests need from an attempt: they are
     about which steps are offered and which are refused, never about what an
-    attempt does with one.
+    attempt does with one. The rung and attempt number are stated in ``detail``
+    so a failure report names where the climb actually landed.
     """
     return Judgement(
         verdict=Verdict.PASSED,
-        value=f"{this.rung.name}#{this.attempt}",
+        detail=f"{this.rung.name}#{this.attempt}",
         assurance=Assurance.UNVERIFIED,
     )
 
 
-def never_asked(this: Try) -> Result[str]:
+def never_asked(this: Try) -> Result:
     """An attempt function that must never be reached.
 
     `climb` refuses a program before it funds anything, so an attempt made at

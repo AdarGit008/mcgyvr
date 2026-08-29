@@ -210,7 +210,12 @@ def test_planning_and_ascent_spend_nothing_and_answer_the_same_twice(
     a purity test passing on its own, while an unstable plan would still be
     caught here. The ascent is included because it is what a caller inspects
     before funding anything, and the escalation is driven with a constructed
-    attempt so nothing but the routing itself is exercised.
+    attempt so nothing but the routing itself is exercised. That attempt states
+    which rung answered and on which try, so the delivered outcome is pinned to
+    one point on the ladder: a climb that had started somewhere else, or retried
+    before it landed, is a different answer to the same inputs and is caught
+    here rather than being averaged away by an equality between two equally
+    wrong runs.
     """
     config, pool, contract = routing_inputs
     catalog()  # the one legitimate read, cached for the process, warmed deliberately
@@ -221,10 +226,14 @@ def test_planning_and_ascent_spend_nothing_and_answer_the_same_twice(
 
         return guard
 
-    def attempt(this: Try) -> Judgement[str]:
+    def attempt(this: Try) -> Judgement:
+        # Which rung answered, on which try. A judgement carries no content of
+        # its own any more, so the identity is stated in `detail` — the one
+        # field that reaches the caller verbatim, through both the delivered
+        # judgement and the history entry `climb` records from it.
         return Judgement(
             verdict=Verdict.PASSED,
-            value=f"{this.rung.name}#{this.attempt}",
+            detail=f"{this.rung.name}#{this.attempt}",
             assurance=Assurance.UNVERIFIED,
         )
 
@@ -252,4 +261,5 @@ def test_planning_and_ascent_spend_nothing_and_answer_the_same_twice(
     )
     delivered = climbs[0]
     assert isinstance(delivered, Delivered), f"the climb did not deliver: {delivered}"
-    assert delivered.value == "local_qwen-7b#1", delivered
+    assert (delivered.rung, delivered.attempts_spent) == ("local_qwen-7b", 1), delivered
+    assert delivered.judgement.detail == "local_qwen-7b#1", delivered

@@ -72,16 +72,20 @@ def halted(detail: str = SPENT) -> Halted:
     )
 
 
-def delivered() -> Delivered[str]:
-    """A real terminal acceptance, for the runs that have to differ from it."""
+def delivered() -> Delivered:
+    """A real terminal acceptance, for the runs that have to differ from it.
+
+    ``ok`` is ``True`` and the object is truthy, so it agrees with its own
+    truthiness exactly where :func:`halted` disagrees with its. That is the
+    whole of what these runs need it to be: the two outcomes are told apart by
+    the verdict each states, and a driver that read either off truthiness would
+    read both the same way.
+    """
     family = catalog().families[0]
-    judgement = Judgement(
-        verdict=Verdict.PASSED, value="ok", assurance=Assurance.DETERMINISTIC
-    )
+    judgement = Judgement(verdict=Verdict.PASSED, assurance=Assurance.DETERMINISTIC)
     return Delivered(
         family=family,
         rung="local",
-        value="ok",
         assurance=Assurance.DETERMINISTIC,
         judgement=judgement,
         entered=(family,),

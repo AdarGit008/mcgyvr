@@ -242,7 +242,7 @@ class RetryNotes:
 
 
 @dataclass(frozen=True)
-class Judgement[T]:
+class Judgement:
     """What one attempt came to, and what its acceptance would rest on.
 
     This is what an attempt function hands the driver, rather than a bare
@@ -250,22 +250,23 @@ class Judgement[T]:
     bar was cleared and a routing verdict cannot carry that without
     :mod:`mcgyvr.route` learning what verification is.
 
-    **Two fields carry the work, and only one of them can be trusted.**
-    ``value`` is whatever the attempt function was holding — for every current
-    caller, the worker's reply as a string — and nothing binds it to ``verdict``.
-    A step that rewrites the *tree* between the write and the gate leaves it
-    stale, which is the port's documented repair loop run as written, and pattern
-    B's finding. ``accepted`` is the same content read back out of the tree the
-    gate judged (:meth:`mcgyvr.deliver.Accepted.read`, which has no parameter to
-    hand content through), so it answers for its own bytes.
+    **``accepted`` is the work, and it answers for its own bytes.** It is the
+    content read back out of the tree the gate judged
+    (:meth:`mcgyvr.deliver.Accepted.read`, which has no parameter to hand
+    content through), so a caller cannot be holding one thing while the verdict
+    is about another.
 
-    ``value`` is on its way out and is kept only until its last reader is gone;
-    a caller that is about to write bytes somewhere reads ``accepted`` and
-    refuses when it is ``None``.
+    There is deliberately no second field. An earlier ``value: T`` carried
+    whatever the attempt function happened to be holding — the worker's reply as
+    a string — and nothing bound it to ``verdict``: a step that rewrote the
+    *tree* between the write and the gate left it stale, which is the port's
+    documented repair loop run as written. It had exactly one reader in the
+    repository, a second delivery implementation that wrote it and committed it
+    without re-gating. Both are gone, and with them the type parameter that
+    existed only to carry it (pattern B).
     """
 
     verdict: Verdict
-    value: T | None = None
     accepted: BoundContent | None = None
     assurance: Assurance | None = None
     policy: str = GATE_ONLY
@@ -274,9 +275,9 @@ class Judgement[T]:
     retry: RetryNotes | None = None
     detail: str = ""
 
-    def as_result(self) -> Result[T]:
+    def as_result(self) -> Result:
         """The routing verdict alone, for :func:`~mcgyvr.route.climb`."""
-        return Result(verdict=self.verdict, value=self.value, detail=self.detail)
+        return Result(verdict=self.verdict, detail=self.detail)
 
 
 # --- policy ----------------------------------------------------------------
@@ -300,14 +301,13 @@ def _rank(policy: str) -> int:
     return _POLICY_RANK.get(policy, _POLICY_RANK[MODEL])
 
 
-def judge[T](
+def judge(
     contract: Contract,
     family: Family,
     gate: GateResult,
-    value: T | None = None,
     *,
     verifier: Callable[[], Review] | None = None,
-) -> Judgement[T]:
+) -> Judgement:
     """Turn a gate run — and, only if it passed, a verifier — into a judgement.
 
     The ordering is the point and it is structural: ``verifier`` is not
@@ -334,7 +334,6 @@ def judge[T](
     if policy == GATE_ONLY:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.DETERMINISTIC,
             policy=policy,
             upgraded=upgraded,
@@ -347,7 +346,6 @@ def judge[T](
     if verifier is None:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.UNVERIFIED,
             policy=policy,
             upgraded=upgraded,
@@ -363,7 +361,6 @@ def judge[T](
     if review.opinion is Opinion.AGREED:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.VERIFIED,
             policy=policy,
             upgraded=upgraded,
@@ -550,14 +547,19 @@ def ascent(
 
 
 @dataclass(frozen=True)
-class Delivered[T]:
-    """A task that ended with a change accepted, and what that rests on."""
+class Delivered:
+    """A task that ended with a change accepted, and what that rests on.
+
+    The accepted bytes are reached through ``judgement.accepted``, which is a
+    binding minted from the tree its gate read. There is no bare content field:
+    one used to sit here and it was the port's only route for un-gated bytes
+    into a repository.
+    """
 
     family: Family
     rung: str
-    value: T | None
     assurance: Assurance
-    judgement: Judgement[T]
+    judgement: Judgement
     entered: tuple[Family, ...]
     history: tuple[Attempted, ...]
     attempts_spent: int
@@ -599,15 +601,15 @@ class Halted:
         return False
 
 
-def escalate[T](
+def escalate(
     config: Config,
     pool: SourceMap,
     contract: Contract,
-    attempt: Callable[[Try], Judgement[T]],
+    attempt: Callable[[Try], Judgement],
     *,
     capacity: Capacity | None = None,
     floor: Family | None = None,
-) -> Delivered[T] | Halted:
+) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
     ``attempt`` is the caller's, as it is one level down: it assembles a
@@ -628,7 +630,7 @@ def escalate[T](
     spent_rungs: list[str] = []
     attempts_spent = 0
     stopped_by: Outcome | None = None
-    accepted_judgement: Judgement[T] | None = None
+    accepted_judgement: Judgement | None = None
     history: list[Attempted] = []
     entered: list[Family] = []
 
@@ -648,7 +650,7 @@ def escalate[T](
             return False
         return True
 
-    def observed(this: Try) -> Result[T]:
+    def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
         judgement = attempt(this)
         if judgement.verdict is not Verdict.DECLINED:
@@ -678,7 +680,6 @@ def escalate[T](
             return Delivered(
                 family=result.family,
                 rung=result.rung,
-                value=result.value,
                 # An attempt that passed without saying what its acceptance
                 # rests on is read as unverified. Defaulting the other way is
                 # how a result comes to be reported as more assured than it is.
