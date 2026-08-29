@@ -236,18 +236,24 @@ def gate_summary(gate: GateResult) -> str:
 
     Inconclusive rungs need no channel of their own: the gate already renders
     each one into ``environment_issues``, so they arrive with the rest.
+
+    Findings are rendered with
+    :meth:`~mcgyvr.gate.findings.Finding.for_model`, which is the same boundary
+    :func:`_contract_block` holds one function below: a reviewer that cannot be
+    shown ``acceptance`` cannot be shown it inside a finding's path either, and
+    an acceptance finding's path is the command.
     """
     verdict = "accepted" if gate.accepted else "rejected"
     lines = [f"The deterministic gate {verdict} this change."]
     if gate.findings:
         lines.append("Failed:")
-        lines.extend(f"- {finding}" for finding in gate.findings)
+        lines.extend(f"- {finding.for_model()}" for finding in gate.findings)
     if gate.observations:
         lines.append(
             "Reported without rejecting. These did not fail the change and no "
             "check is asking for them to be fixed; judging them is yours:"
         )
-        lines.extend(f"- {finding}" for finding in gate.observations)
+        lines.extend(f"- {finding.for_model()}" for finding in gate.observations)
     if gate.environment_issues:
         lines.append("Could not run, so this change was never checked for it:")
         lines.extend(f"- {issue}" for issue in gate.environment_issues)
@@ -457,7 +463,11 @@ def reviewer_for(
     would turn the ordinary Ollama install into one with no verifier at all
     while telling the operator nothing.
     """
-    if source_map.role(VERIFIER_ROLE) is None:
+    # ``role_model`` rather than ``role``: this is a presence check, and a
+    # ``RoleBinding`` would hand this module an endpoint and its
+    # ``credential()`` to answer a yes/no question. Dispatch stays with
+    # ``dispatch_role``, below the seam, where the endpoint belongs.
+    if source_map.role_model(VERIFIER_ROLE) is None:
         return None
 
     def ask(prompt: str) -> str:

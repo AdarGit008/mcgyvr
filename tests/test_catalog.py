@@ -172,7 +172,7 @@ def test_unservable_names_the_types_rather_than_returning_a_count(
 
 
 def test_a_new_task_type_needs_no_code_change(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> None:
     """The criterion, tested the only way that cannot rot: invent one.
 
@@ -192,7 +192,12 @@ def test_a_new_task_type_needs_no_code_change(
     )
     path = tmp_path / "task-catalog.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
-    monkeypatch.setattr("mcgyvr.catalog._CACHED", load(path))
+    # Repoint the loader and clear the memo, which is the whole of the
+    # supported way to swap the shipped catalog. The module variable this
+    # used to assign was also the way *anything* could swap it silently.
+    monkeypatch.setattr("mcgyvr.catalog.catalog_path", lambda: path)
+    catalog.cache_clear()
+    request.addfinalizer(catalog.cache_clear)
 
     kind = task_type("sql_migration")
     assert kind.starts_on.name == "api"

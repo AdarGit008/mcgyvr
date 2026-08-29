@@ -112,6 +112,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from mcgyvr.pool import Endpoint, PoolError, Protocol
+from mcgyvr.redact import safe_url
 
 # Short by design, and three orders of magnitude below the dispatch timeout: this
 # bounds "did anything accept a connection and answer", not "did a model finish
@@ -262,7 +263,8 @@ def probe_endpoint(endpoint: Endpoint, timeout_s: float = PROBE_TIMEOUT_S) -> Ve
         return _verdict(
             endpoint,
             False,
-            f"source {endpoint.source!r} did not answer at {endpoint.base_url} "
+            f"source {endpoint.source!r} did not answer at "
+            f"{safe_url(endpoint.base_url)} "
             f"within {timeout_s:g}s ({exc})",
             f"GET {path} raised {type(exc).__name__} within {timeout_s:g}s",
             started,
@@ -291,7 +293,7 @@ def _from_status(endpoint: Endpoint, status: int, url: str, started: float) -> V
             f"source {endpoint.source!r} answered HTTP {status}: it is reachable "
             f"but refused the credential ({named}). Every rung on it would fail "
             f"the same way",
-            f"GET {url} answered {status}",
+            f"GET {safe_url(url)} answered {status}",
             started,
         )
     if status >= 500:
@@ -300,7 +302,7 @@ def _from_status(endpoint: Endpoint, status: int, url: str, started: float) -> V
             False,
             f"source {endpoint.source!r} answered HTTP {status}: it is reachable "
             f"but reports it cannot serve",
-            f"GET {url} answered {status}",
+            f"GET {safe_url(url)} answered {status}",
             started,
         )
     if status >= 400:
@@ -308,11 +310,13 @@ def _from_status(endpoint: Endpoint, status: int, url: str, started: float) -> V
             endpoint,
             True,
             "",
-            f"GET {url} answered {status}; read as reachable because the "
+            f"GET {safe_url(url)} answered {status}; read as reachable because the "
             f"model-list path is optional and a dispatch may still succeed",
             started,
         )
-    return _verdict(endpoint, True, "", f"GET {url} answered {status}", started)
+    return _verdict(
+        endpoint, True, "", f"GET {safe_url(url)} answered {status}", started
+    )
 
 
 def _verdict(

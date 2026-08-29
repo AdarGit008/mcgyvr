@@ -207,6 +207,13 @@ class RetryNotes:
     (:attr:`~mcgyvr.gate.GateResult.observations`), so quoting them would ask
     for changes that were never required; and an environment issue is a tool
     that was not installed, which is not something the worker did or can fix.
+
+    A fourth exclusion is not this class's to decide and is not applied here:
+    the lines are rendered with :meth:`~mcgyvr.gate.findings.Finding.for_model`
+    rather than ``str``, so an acceptance finding arrives without the command it
+    ran. ``acceptance`` is an orchestrator-only contract field (#94) and a note
+    is worker-facing text; rendering with ``str`` put the field the worker view
+    excludes into the second prompt of every retried task.
     """
 
     checks: tuple[str, ...]
@@ -219,7 +226,7 @@ class RetryNotes:
             return None
         return cls(
             checks=tuple(gate.by_check()),
-            lines=tuple(str(f) for f in gate.findings),
+            lines=tuple(f.for_model() for f in gate.findings),
         )
 
     @property

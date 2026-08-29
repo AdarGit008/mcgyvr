@@ -39,6 +39,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import ClassVar
 
@@ -145,14 +146,19 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
 # os._exit — where atexit still runs registered reapers over whatever is
 # live. Each mode registers a cheap idempotent callable.
 _LIVE_REAPERS: dict[int, tuple[Callable[[], None], ...]] = {}
-_reaper_installed = False
 
 
+@cache
 def _install_reaper() -> None:
-    global _reaper_installed
-    if not _reaper_installed:
-        atexit.register(_reap_all)
-        _reaper_installed = True
+    """Register the exit reaper, once per process.
+
+    Memoised rather than latched behind a module flag. The registry above has
+    to be process-wide — there is one process exit to hook — but the *flag* did
+    not have to be rebindable, and §9's "no global mutable state" is checkable
+    only if the exceptions are zero: a guard that allows one legitimate
+    ``global`` allows the next one that claims to be legitimate.
+    """
+    atexit.register(_reap_all)
 
 
 def _reap_all() -> None:

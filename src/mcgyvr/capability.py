@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from functools import cache
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -302,9 +303,7 @@ def load(path: Path | None = None) -> CapabilityTable:
     return CapabilityTable(models=models, caveats=caveats)
 
 
-_CACHED_TABLE: CapabilityTable | None = None
-
-
+@cache
 def shipped_table() -> CapabilityTable:
     """The shipped table, loaded once.
 
@@ -312,11 +311,17 @@ def shipped_table() -> CapabilityTable:
     so re-reading and re-validating it per contract would be cost with no
     meaning. The same argument :func:`mcgyvr.catalog.catalog` makes, for the same
     reason: these are the two shipped data files, and both are read on hot paths.
+
+    Memoised rather than held in a module variable, which is the difference
+    between a value loaded once and a value anything can replace. §9 of the port
+    plan bars global mutable state so that two orchestrators in one process
+    cannot interfere; the sharper reason here is that the name would be
+    assignable — ``mcgyvr.capability._CACHED_TABLE = <anything>`` would have
+    re-answered every capability question in the process, with no call site able
+    to tell. Reloading, which only a test wants, is
+    ``shipped_table.cache_clear()`` after repointing :func:`table_path`.
     """
-    global _CACHED_TABLE
-    if _CACHED_TABLE is None:
-        _CACHED_TABLE = load()
-    return _CACHED_TABLE
+    return load()
 
 
 # --- what a task needs, and which model has it ------------------------------

@@ -68,6 +68,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -638,6 +639,37 @@ class Contract:
     def is_deterministic(self) -> bool:
         """Whether the deterministic tier can execute this contract outright."""
         return self.type.deterministic
+
+    @property
+    def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:
+        """``acceptance``, split into argv the acceptance rung can run.
+
+        A contract writes a command the way a person types it —
+        ``"pytest -q"`` — and :class:`~mcgyvr.gate.acceptance.Acceptance` takes
+        argv, because it runs commands without a shell (a shell would give an
+        acceptance command the metacharacters to do things an acceptance
+        command must not do, starting with writing to the tree). Nothing turned
+        one into the other, which is why ``acceptance`` reached the gate through
+        no code path at all.
+
+        The split is here rather than at each caller for the reason
+        :attr:`demonstration_commands` shares: two spellings of "what this
+        contract's commands are" would eventually disagree about quoting, and a
+        contract whose acceptance bar means one thing to the gate and another
+        to a report is a contract nothing can be said to have passed.
+        """
+        return tuple(tuple(shlex.split(command)) for command in self.acceptance)
+
+    @property
+    def demonstration_commands(self) -> tuple[tuple[str, ...], ...]:
+        """``demonstration``, split into argv, with the opposite baseline.
+
+        Separate from :attr:`acceptance_commands` because the two lists are
+        judged against opposite expectations at baseline (#183) and the gate
+        takes them as two arguments; folding them here would lose exactly the
+        distinction the split exists for.
+        """
+        return tuple(tuple(shlex.split(command)) for command in self.demonstration)
 
     def worker_view(self) -> dict[str, Any]:
         """Exactly the fields a worker prompt may be built from.

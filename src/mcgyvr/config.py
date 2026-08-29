@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -752,6 +753,35 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     return result
 
 
+def _refuse_userinfo(name: str, base_url: str) -> None:
+    """Refuse a ``base_url`` that carries a credential in its userinfo.
+
+    ``https://user:key@host`` is a credential written into the config file,
+    which :meth:`Config.secret` refuses in the one place it is asked for — "put
+    it in a git-ignored .env; never write the value into the config file". The
+    same rule, held where the value enters rather than where it is read.
+
+    Refusing here is what makes the rule cheap everywhere else. A ``base_url``
+    is interpolated into roughly a dozen operator-facing strings — every runner
+    transport error, every availability verdict, ``mcgyvr sources``, the init
+    summary — and a credential that cannot be in the value cannot be in any of
+    them. Scrubbing each sink instead would have to be got right once per sink
+    and again for every sink added later, which is the shape of defect this
+    check exists to make impossible rather than to keep catching.
+    """
+    userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
+    if not userinfo:
+        return
+    raise ConfigSchemaError(
+        f"sources.{name}.base_url: carries credentials in the URL "
+        f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
+        f"probe verdicts and `mcgyvr sources`, so a key written here reaches "
+        f"logs and terminals that a key in the environment never does. Remove "
+        f"the `user:password@` part and name the variable holding it with "
+        f"`api_key_env`."
+    )
+
+
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject configs that satisfy the schema but contradict themselves."""
     sources: Mapping[str, Any] = data["sources"]
@@ -760,6 +790,9 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             "sources: no source is declared. mcgyvr needs at least one "
             "endpoint to dispatch work to."
         )
+
+    for name, block in sources.items():
+        _refuse_userinfo(name, str(block["base_url"]))
 
     seen: set[str] = set()
     for index, tier in enumerate(data["ladder"]["tiers"]):

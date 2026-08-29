@@ -10,6 +10,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mcgyvr import __version__
 from mcgyvr.availability import PROBE_TIMEOUT_S
@@ -19,6 +20,11 @@ from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.initialize import InitError, initialize
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.contract import Contract
+    from mcgyvr.gate import GateResult
+    from mcgyvr.sandbox.base import Sandbox
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -144,12 +150,12 @@ def _pool(args: argparse.Namespace) -> int:
 
     for role in ("orchestrator", "verifier"):
         try:
-            binding = pool.role(role)
+            model = pool.role_model(role)
         except SourceUnavailableError as exc:
             print(f"\n{role}: unavailable — {exc}")
             continue
-        if binding is not None:
-            print(f"\n{role}: {binding.model}")
+        if model is not None:
+            print(f"\n{role}: {model}")
 
     if availability is not None:
         # Every source that was actually asked, live ones included. A ladder
@@ -677,6 +683,128 @@ def _read(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run(args: argparse.Namespace) -> int:
+    """Drive one contract to a gated verdict, and optionally to a commit.
+
+    The root of the call graph pattern C found missing. Everything below this
+    existed and was reachable from a test; nothing reached it from a command,
+    which is what "28 of 35 public entry points have no production caller"
+    described.
+
+    Committing is opt-in. A gate verdict costs the user a sandbox that is torn
+    down either way, and a commit is a write to a repository they did not hand
+    over for one — so ``--commit`` is what makes the difference, and its absence
+    prints the verdict and the diff instead.
+    """
+    from mcgyvr.contract import ContractError
+    from mcgyvr.contract import load as load_task_contract
+    from mcgyvr.deterministic import tool_steps
+    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step
+    from mcgyvr.sandbox.base import SandboxError, open_sandbox
+
+    try:
+        contract = load_task_contract(Path(args.contract))
+    except ContractError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    repo = Path(args.repo).resolve()
+    if not (repo / ".git").exists():
+        print(f"error: {repo} is not a git repository", file=sys.stderr)
+        return 1
+
+    if not contract.is_deterministic:
+        # The ladder path needs a config, a source map and a reachable backend.
+        # `mcgyvr.drive.worker_attempt` is that path and is driven by its tests;
+        # what is not yet decided is which of `mcgyvr run`'s flags select a rung,
+        # and inventing that here would be inventing policy in a CLI.
+        print(
+            f"error: {contract.id} is a {contract.task_type!r} contract, which "
+            f"starts on the {contract.type.starts_on.name!r} family. This "
+            f"command drives the deterministic floor only.",
+            file=sys.stderr,
+        )
+        return 1
+
+    steps = tool_steps(contract)
+    if not steps:
+        print(
+            f"error: no program on this machine executes {contract.task_type!r} "
+            f"for {contract.target}. The work is still doable on a dearer "
+            f"family, which this command does not climb to.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        sandbox = open_sandbox(repo, mode=args.sandbox)
+    except SandboxError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        with sandbox:
+            for note in sandbox.notes:
+                print(f"note: {note}")
+            for step in steps:
+                outcome = run_tool_step(step, sandbox)
+                print(f"  $ {' '.join(step.argv)}")
+                if not outcome.ran:
+                    print(f"error: {outcome.environment_issue}", file=sys.stderr)
+                    return 1
+                if not outcome.ok:
+                    assert outcome.result is not None  # `ran` is `result is not None`
+                    detail = (outcome.result.stderr or outcome.result.stdout).strip()
+                    print(f"error: {detail}", file=sys.stderr)
+                    return 1
+            result = gate_workspace(contract, sandbox)
+            return _report_run(args, contract, sandbox, repo, result)
+    except DriveError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except SandboxError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _report_run(
+    args: argparse.Namespace,
+    contract: Contract,
+    sandbox: Sandbox,
+    repo: Path,
+    result: GateResult,
+) -> int:
+    """Print the gate verdict, and commit it when asked."""
+    from mcgyvr.deliver import Accepted, DeliveryError, deliver
+
+    print(f"\n{contract.id}: gate {'accepted' if result.accepted else 'rejected'}")
+    for finding in result.findings:
+        print(f"  ✗ {finding}")
+    for issue in result.environment_issues:
+        print(f"  ? {issue}")
+    if not result.accepted:
+        return 1
+
+    if not args.commit:
+        print(f"\nNot committed (no --commit). The change is in {contract.target}.")
+        return 0
+
+    try:
+        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
+        delivery = deliver(
+            repo=repo,
+            contract=contract,
+            content=bound,
+            base=sandbox.source_base_commit(),
+        )
+    except DeliveryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"\n{delivery}")
+    return 0 if delivery.committed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -986,6 +1114,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     rd.set_defaults(func=_read)
+
+    run = sub.add_parser(
+        "run",
+        help="execute a contract on the deterministic floor and gate the result",
+    )
+    run.add_argument("contract", help="contract file to execute (YAML or JSON)")
+    run.add_argument(
+        "--repo",
+        default=".",
+        metavar="PATH",
+        help="the git repository the work is done against (default: .)",
+    )
+    run.add_argument(
+        "--sandbox",
+        default="docker",
+        choices=("docker", "tempdir"),
+        help=(
+            "sandbox mode; `docker` falls back to `tempdir` when no daemon "
+            "answers, and says so"
+        ),
+    )
+    run.add_argument(
+        "--commit",
+        action="store_true",
+        help=(
+            "commit the change into the repository when the gate accepts it. "
+            "Without this the verdict is printed and nothing is written"
+        ),
+    )
+    run.set_defaults(func=_run)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)

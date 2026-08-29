@@ -1123,7 +1123,71 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   than local-ai — sandbox isolation, context assembly, availability probing,
   failing-test-first acceptance, secret scanning, determinism. None regressed.
 
+- **The driver (`src/mcgyvr/drive.py`) and `mcgyvr run`** — the two seams the
+  2026-08-29 pressure test named as standing between the port and a working
+  orchestrator, and the command that roots them. `run_tool_step` executes a
+  deterministic `ToolStep` inside a sandbox, which `deterministic.py` planned
+  in full and said was "the caller's" to run — there was no caller, so the
+  cheapest family in the catalog planned commands nothing executed.
+  `dispatch_prompt` turns a `WorkerPrompt` into a `Request`, which is the first
+  time `contract.limits.max_output_tokens` reaches anything and the first
+  production caller `runner.dispatch` has had. `worker_attempt` is the attempt
+  function `escalate`, `climb` and `judge` were each written to receive: prompt,
+  dispatch, parse, apply, gate, judge, with the retry note carried from the last
+  judgement on the same rung so `climb` keeps owning how many attempts a rung
+  gets. `mcgyvr run CONTRACT --repo PATH` drives a deterministic contract to a
+  gate verdict, and to a commit with `--commit`.
+- `Contract.acceptance_commands` and `Contract.demonstration_commands` — the
+  contract's command strings as argv. Nothing split one into the other, so a
+  contract's acceptance bar was declared, validated at load, and executed by no
+  code path.
+- `drive.Recording` — where attempt records go and which orchestrator is
+  writing them, giving `telemetry.observe` its first caller. The orchestrator id
+  is a value the caller constructs, never derived from the process, and it is
+  part of the attempt id rather than only a field beside it: `fold` keys
+  attempts by that id and a repeat supersedes, so two orchestrators on one
+  contract and one rung would otherwise have written one row that erased the
+  other (§9).
+- `gate.findings.Finding.for_model` and `Finding.names_a_file` — one rendering
+  for the operator and one for anything a model reads. An acceptance finding
+  carries the command it ran in `path`, and `acceptance` is a contract field
+  #94 keeps off every model-facing surface.
+- `pool.SourceMap.role_model` — which model a role runs, for callers above the
+  seam. `role()` returns a `RoleBinding`, which carries an `Endpoint`, which
+  carries `credential()`.
+
 ### Fixed
+
+- **Pattern E — five declared boundaries that nothing was holding** (pressure
+  test 2026-08-29).
+  - **#94 on the retry path.** `RetryNotes.of` rendered findings with `str()`,
+    which prints the finding's path first — and an acceptance finding's path is
+    the command. So `contract.acceptance`, excluded from `worker_view()` on
+    purpose, reached the worker prompt of every retried task. `verify.gate_summary`
+    handed the reviewer the same command, one function below a docstring saying a
+    reviewer "cannot be shown `acceptance`". Both render through `for_model()`
+    now, and the rule is declared by the check that raises the finding rather
+    than relearned by each consumer.
+  - **D20 at the port's own sinks.** A `base_url` may carry userinfo, and a URL
+    is quoted in every runner transport error, every availability verdict and
+    `mcgyvr sources` — so a key written into the config reached logs a key in the
+    environment never does. It is refused at load, where `Config.secret` already
+    says a credential belongs in the environment; `redact.safe_url` and
+    `redact.scrub` are the second line, for URLs that reach a message without
+    passing the loader, and telemetry's `error_detail` is scrubbed because the
+    exception it quotes is the caller's.
+  - **§9's no-global-mutable-state.** `capability.shipped_table` and
+    `catalog.catalog` held their value in a module variable — a name anything in
+    the process could reassign, silently re-answering every capability question
+    or re-keying every contract digest. Both are memoised; `sandbox.base`'s exit
+    latch is too, because a rule that allows one legitimate `global` allows the
+    next one that claims to be. There are now zero `global` statements in `src/`.
+  - **The seam.** `verify.reviewer_for` asked `source_map.role(VERIFIER_ROLE) is
+    None` — a yes/no question answered with a live credential — and imported
+    neither forbidden name, which is how the import guard missed it. It asks
+    `role_model` now. The guard itself had three bypasses (`import mcgyvr.pool`,
+    a relative import, and `.role()` needing no import at all) and reported on
+    spelling; it catches all three, and a test feeds it modules that must fail.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable

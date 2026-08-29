@@ -2,6 +2,20 @@
 
 **Read this before touching PR #380 or anything under the ported modules.**
 
+> **Status, 2026-08-29 (later the same day).** This document is the record of
+> what the pressure test found and is left as written. What has since been
+> closed, and where:
+>
+> | Finding | State |
+> | --- | --- |
+> | B1-B9, and 11 more found reproducing them | Fixed — `16a31cbc`, PR #381 |
+> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is built and tested and is not yet reachable from a flag. |
+> | **E** · eight boundaries held by nothing | Closed for the five that were breached — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
+> | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
+> | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
+> | **B** · nothing owns the bytes | Partly. B6's delivery-time re-check landed; who owns the bytes across `repair`/`consensus`/`cleanup`/`judge` is undecided. |
+> | §4's seven items, and the ~48 major | Open. |
+
 |                |                                                                                  |
 | -------------- | -------------------------------------------------------------------------------- |
 | **Subject**    | PR #380, branch `green/port-from-local-ai`, 19 levers ported from local-ai        |

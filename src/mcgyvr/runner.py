@@ -94,6 +94,7 @@ from typing import Any, ClassVar
 
 from mcgyvr.capacity import Capacity
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
+from mcgyvr.redact import safe_url
 
 # Local models on modest hardware are slow rather than broken: a 7B answering a
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
@@ -649,24 +650,26 @@ def _post_json(
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
         raise BackendError(
-            f"{url} answered HTTP {exc.code}: {detail or '(empty body)'}"
+            f"{safe_url(url)} answered HTTP {exc.code}: {detail or '(empty body)'}"
         ) from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
         # mean the same thing — nothing usable answered within the timeout.
         raise TransportError(
-            f"could not reach {url} within {timeout:g}s: {exc}"
+            f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
         ) from exc
 
     try:
         document = json.loads(raw)
     except ValueError as exc:
         raise ProtocolError(
-            f"{url} answered with something that is not JSON: "
+            f"{safe_url(url)} answered with something that is not JSON: "
             f"{raw.strip()[:_ERROR_BODY_CHARS] or '(empty body)'}"
         ) from exc
     if not isinstance(document, dict):
-        raise ProtocolError(f"{url} answered with JSON {type(document).__name__}")
+        raise ProtocolError(
+            f"{safe_url(url)} answered with JSON {type(document).__name__}"
+        )
     return document
 
 

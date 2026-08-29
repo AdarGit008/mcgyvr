@@ -69,6 +69,8 @@ import json
 import time
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.redact import scrub
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
     from pathlib import Path
@@ -143,7 +145,7 @@ def observe(
             "ok": False,
             "elapsed_s": _since(started),
             "error": type(failure).__name__,
-            "error_detail": str(failure),
+            "error_detail": scrub(str(failure)),
         }
         if model is not None:
             record["model"] = model

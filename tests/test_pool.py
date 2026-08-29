@@ -176,6 +176,57 @@ BELOW_THE_SEAM = {
 }
 
 
+#: The names that carry a dispatchable endpoint. ``RoleBinding`` holds one, so
+#: reaching either is reaching the same thing.
+BELOW_THE_SEAM_NAMES = {"Endpoint", "RoleBinding"}
+
+
+def seam_offenders(root: Path) -> list[str]:
+    """Every way a module under ``root`` reaches an endpoint, with where.
+
+    Three routes, because the guard was defeated by two of them. The original
+    checked one shape — ``from mcgyvr.pool import Endpoint`` — and the 2026-08-29
+    pressure test found the rule crossed anyway by ``import mcgyvr.pool`` and by
+    a relative import, neither of which that shape matches, and once more by
+    ``SourceMap.role()``, which needs no import at all: it *returns* a
+    ``RoleBinding``, so a module could hold a live ``credential()`` while
+    importing nothing. A guard with three known bypasses is not a weak guard, it
+    is a guard that reports on spelling.
+
+    ``role()`` is therefore treated as below-the-seam API and
+    ``SourceMap.role_model()`` is what above it may call. The check is by
+    method name, which will occasionally catch an unrelated ``.role(...)``: that
+    is the intended direction, and the same argument the module list makes — a
+    false positive costs someone an argument, a false negative costs the rule.
+    """
+    offenders: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        if path.name in BELOW_THE_SEAM:
+            continue
+        where = path.relative_to(root)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            # `from mcgyvr.pool import Endpoint`, and the relative spelling of
+            # the same import, which resolves to the same module.
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if module == "mcgyvr.pool" or (node.level and module == "pool"):
+                    imported = {alias.name for alias in node.names}
+                    if imported & BELOW_THE_SEAM_NAMES:
+                        offenders.append(f"{where}: imports {sorted(imported)}")
+            # `import mcgyvr.pool`, which reaches every name in it.
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "mcgyvr.pool":
+                        offenders.append(f"{where}: imports the module whole")
+            # `something.role(...)` — an endpoint through an accessor.
+            elif isinstance(node, ast.Call):
+                func = node.func
+                if isinstance(func, ast.Attribute) and func.attr == "role":
+                    offenders.append(f"{where}:{node.lineno}: calls .role()")
+    return offenders
+
+
 def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:
     """An architectural guard: if this fails, something above the seam has learned
     where work runs, and re-pointing a rung stops being a config edit.
@@ -186,17 +237,7 @@ def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:
     question instead of a false failure here.
     """
     src = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
-    offenders: list[str] = []
-    for path in src.rglob("*.py"):
-        if path.name in BELOW_THE_SEAM:
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "mcgyvr.pool":
-                imported = {alias.name for alias in node.names}
-                if imported & {"Endpoint", "RoleBinding"}:
-                    offenders.append(f"{path.relative_to(src)}: {sorted(imported)}")
-    assert offenders == []
+    assert seam_offenders(src) == []
 
 
 # --- a single-source install needs no pool concepts in its config ---------
