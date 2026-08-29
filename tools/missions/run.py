@@ -106,7 +106,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config
 from mcgyvr.config import load as load_config
 from mcgyvr.contract import Contract
-from mcgyvr.deliver import Identity, deliver
+from mcgyvr.deliver import DeliveryError, Identity, deliver
 from mcgyvr.escalate import Delivered, Halted, Judgement, escalate
 from mcgyvr.orchestrator.decompose import (
     Decomposition,
@@ -576,7 +576,17 @@ class MissionResult:
 
     @property
     def delivered(self) -> int:
-        return sum(1 for _, o in self.outcomes if isinstance(o, Delivered))
+        """How many contracts reached a commit — not how many climbs passed.
+
+        These were the same number while the runner committed whatever a
+        ``Delivered`` carried. They stopped being the same when delivery gained
+        refusals it can reach on its own: an ignored target, a change that is no
+        longer a change, an unbound climb. Counting climb outcomes here would
+        print "1 of 1 contract(s) delivered" over a run that committed nothing,
+        which is B8's defect — a refusal reported as a completion — in the line
+        the operator actually reads.
+        """
+        return len(self.commits)
 
 
 def run_task(
@@ -706,13 +716,31 @@ def run_task(
                     )
                 )
                 continue
-            delivery = deliver(
-                repo=plan.worktree,
-                contract=contract,
-                content=bound,
-                base=base,
-                identity=_DELIVERY_IDENTITY,
-            )
+            try:
+                delivery = deliver(
+                    repo=plan.worktree,
+                    contract=contract,
+                    content=bound,
+                    base=base,
+                    identity=_DELIVERY_IDENTITY,
+                )
+            except DeliveryError as exc:
+                # `deliver` refuses by returning; it *raises* when git itself
+                # fails — a signing config, a hook that aborts, a repository
+                # that moved under the run. Uncaught, that ends the mission with
+                # earlier contracts already committed and no record written,
+                # which is the shape B1 came in. It is this contract's
+                # unrecoverable and nothing more.
+                attempt_refusals.append(
+                    AttemptRefusal(
+                        subject=contract.id,
+                        stage=STAGE_DELIVER,
+                        why=str(exc),
+                        rung=outcome.rung,
+                        exception=type(exc).__name__,
+                    )
+                )
+                continue
             if not delivery.committed:
                 # `deliver` refuses rather than raises, and the refusals it can
                 # reach here are real answers: the change is no longer a change,

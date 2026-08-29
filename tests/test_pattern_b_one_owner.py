@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import ast
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -132,51 +133,87 @@ def test_the_mission_runner_has_no_delivery_of_its_own(
         )
 
 
-def test_a_climb_that_passed_without_binding_its_bytes_is_not_delivered(
-    tmp_path: Path, missions_run: object
+def test_a_passing_judgement_carries_no_binding_unless_one_was_minted(
+    missions_run: object,
 ) -> None:
-    """A ``Delivered`` is not on its own a licence to write.
+    """The default is the refusing direction.
 
-    The runner's delivery reads ``outcome.judgement.accepted`` — the binding item
-    3 mints inside the workspace its gate ran in — and a caller-supplied
-    ``attempt_for`` need not mint one. That case is the old defect's exact shape:
-    a passing verdict, and a caller holding bytes nothing re-read. It is recorded
-    at stage ``deliver`` rather than written, because this seam has no tree to
-    read the accepted bytes back out of and inventing them from a string is what
-    pattern B is about.
-
-    Driven through the runner's own refusal type rather than a full mission: what
-    is being pinned is that the ``None`` branch refuses and says why, and a
-    mission run would spend a pool to reach the same two lines.
+    The runner's delivery branches on ``outcome.judgement.accepted`` and records
+    a refusal at stage ``deliver`` when it is ``None`` — the case of a
+    caller-supplied ``attempt_for`` that never minted one, which is the old
+    defect's exact shape: a passing verdict, and a caller holding bytes nothing
+    re-read. That branch is only reachable if a judgement built without a binding
+    actually has none, so that is what is pinned here rather than the branch,
+    which a full mission run would have to spend a pool to reach.
     """
-    target = "src/pkg/fetch.py"
-    worktree = make_repo(
-        tmp_path / "worktree", {target: "def fetch(url):\n    return url\n"}
-    )
-    contract = contract_for(target)
-    head = git(worktree, "rev-parse", "HEAD").strip()
-
-    # The shape the runner branches on: a passing judgement carries no binding
-    # unless something minted one from a gated tree, and the default is the
-    # refusing direction rather than the writing one.
     assert Judgement(verdict=Verdict.PASSED).accepted is None, (
         "a judgement built without a binding has one, so the runner's `None` "
         "branch can never fire and an unbound climb would be delivered"
     )
-    assert missions_run.STAGE_DELIVER  # type: ignore[attr-defined]
+    assert missions_run.STAGE_DELIVER == "deliver"  # type: ignore[attr-defined]
 
-    delivery = deliver(
-        repo=worktree,
-        contract=contract,
-        content=UNFORMATTED,
-        base=head,
+
+def test_delivery_runs_none_of_the_repositorys_hooks(tmp_path: Path) -> None:
+    """All four, not the two ``--no-verify`` covers.
+
+    Delivery commits into whatever tree the run was pointed at, and a mission
+    points it at a detached worktree of someone else's clone. A hook there runs
+    with the runner's environment, on the runner's machine, while mcgyvr holds
+    the repository lock.
+
+    This test exists because the first fix used ``--no-verify`` and the commit
+    message claimed the hooks were closed. ``--no-verify`` suppresses
+    ``pre-commit`` and ``commit-msg`` only: ``prepare-commit-msg`` still ran,
+    before the object was written and holding the message file, and
+    ``post-commit`` still ran after. Both were reproduced firing under a real
+    delivery. So the assertion is over all four by name, and each hook records
+    itself rather than being inferred from a side effect.
+
+    The control matters as much as the claim: a plain ``git commit`` in the same
+    repository must fire them, or the test would pass against hooks that were
+    never live.
+    """
+    target = "src/pkg/fetch.py"
+    repo = make_repo(tmp_path / "repo", {target: "def fetch(url):\n    return url\n"})
+    ran = tmp_path / "ran.txt"
+    hooks = ("pre-commit", "commit-msg", "prepare-commit-msg", "post-commit")
+    for hook in hooks:
+        script = repo / ".git" / "hooks" / hook
+        script.write_text(f'#!/bin/sh\necho {hook} >> "{ran}"\nexit 0\n')
+        script.chmod(0o755)
+
+    # The control: these hooks are live in this repository.
+    (repo / "unrelated.txt").write_text("x\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "control")
+    fired = ran.read_text().split() if ran.is_file() else []
+    assert sorted(fired) == sorted(hooks), (
+        f"the premise did not hold: a plain commit fired {fired}, not every hook, "
+        f"so this test could pass against hooks that never ran"
     )
-    assert not delivery.committed, (
-        "delivery accepted a bare string with no verdict bound to it; the bytes "
-        "reaching a repository must be bytes a gate read"
+    ran.unlink()
+
+    contract = contract_for(target)
+    base = git(repo, "rev-parse", "HEAD").strip()
+    workspace = make_repo(
+        tmp_path / "workspace", {target: "def fetch(url):\n    return url\n"}
     )
-    assert git(worktree, "rev-parse", "HEAD").strip() == head
-    assert git(worktree, "status", "--porcelain").strip() == ""
+    (workspace / target).write_text("def fetch(url):\n    return url.strip()\n")
+    result = Gate().run(
+        ChangeSet.detect(workspace, git(workspace, "rev-parse", "HEAD").strip()),
+        contract.scope,
+    )
+    assert result.accepted, f"the premise did not hold: {result.findings}"
+    bound = Accepted.read(repo=workspace, contract=contract, result=result)
+
+    delivery = deliver(repo=repo, contract=contract, content=bound, base=base)
+
+    assert delivery.committed, f"the delivery did not commit: {delivery.reason}"
+    assert not ran.is_file(), (
+        f"delivery ran the repository's hooks: {ran.read_text().split()}. "
+        f"`--no-verify` covers `pre-commit` and `commit-msg` only; disabling all "
+        f"four is `core.hooksPath` pointed at a path that does not exist."
+    )
 
 
 def test_the_binding_is_minted_from_the_tree_the_gate_read(tmp_path: Path) -> None:
@@ -237,57 +274,135 @@ MAY_COMMIT = {
     # The one seam that writes into a repository a human owns. It re-runs the
     # gate over the bytes on disk, inside the repository lock, immediately
     # before staging (B6).
-    "deliver.py": "the single delivery",
+    "src/mcgyvr/deliver.py": "the single delivery",
     # Commits only into a workspace it has just `git init`-ed, to give the
     # sandbox a base to diff against. Nothing it commits is anybody's tree.
-    "base.py": "the sandbox's own base commit",
+    "src/mcgyvr/sandbox/base.py": "the sandbox's own base commit",
 }
 
+#: Directories whose ``.py`` files are corpus rather than product — benchmark
+#: tasks, problem fixtures, word counters. ``commit`` appears in them as English
+#: and as a transaction verb (there is a task named ``p178-commit-index``), and
+#: nothing in them runs git. Excluded by path so the detector below can be blunt.
+NOT_PRODUCT_CODE = (
+    "tools/bundle/",
+    "tools/problems/tasks/",
+    "tools/reach/",
+)
 
-def _is_git_commit(argv: list[str]) -> bool:
+#: What marks a run of arguments as a git command line rather than a word list.
+#: Any dash-led token — ``-m`` and ``-q`` count, and their absence is what the
+#: first version of this guard got wrong — or the program name itself.
+_GIT_MARKERS = ("git",)
+
+
+def _is_git_commit(argv: Sequence[str]) -> bool:
     """Whether a run of string arguments is a ``git commit`` invocation.
 
-    ``"commit"`` beside at least one ``--flag``. The bare word alone is not
-    enough and the first draft of this guard proved it: the repository holds a
-    benchmark task called ``p178-commit-index``, transaction fixtures whose
-    mini-language has a ``commit`` verb, and word counters under
-    ``tools/reach/`` — 46 matches, none of them git. A commit *invocation*
-    always carries a flag, and no word list does.
+    ``"commit"`` beside either a dash-led token or the word ``git``.
+
+    The first version asked for a ``--flag`` and missed ``git commit -m msg``,
+    which is the most common spelling of this command in existence — an
+    adversarial pass planted nine committing modules and the guard reported one.
+    Single dashes count now, and so does ``"git"`` on its own, which is what
+    catches a commit whose flags were splatted from a variable or concatenated
+    from a second list: the verb and the program name are the two tokens a git
+    invocation cannot avoid writing down.
+
+    What still escapes, stated so the next reader does not assume otherwise: a
+    verb held in a variable (``_git(repo, VERB, ...)``) has no literal to match.
+    Const-propagation is where that ends, and this guard deliberately stops
+    short of it — :func:`_is_shell_git_commit` covers the shapes that are
+    reachable by accident, and a name chosen to evade a test in this file is not
+    a defect this test can be asked to catch.
     """
-    return "commit" in argv and any(arg.startswith("--") for arg in argv)
+    if "commit" not in argv:
+        return False
+    return any(
+        arg.startswith("-") or arg in _GIT_MARKERS for arg in argv if arg != "commit"
+    )
 
 
-def commit_sites(root: Path) -> list[str]:
-    """Every module under ``root`` that runs ``git commit``, with where.
+def _is_shell_git_commit(text: str) -> bool:
+    """Whether one string is a shell command line that commits.
 
-    Two argument shapes, because the repository uses both and matching one
-    would report on spelling — the mistake the seam guard made before the
-    pressure test found three ways around it. ``tools/missions/run.py`` builds
-    its commit as a list literal it later splats into ``subprocess.run``;
-    :func:`mcgyvr.deliver._commit` passes the arguments straight to a ``_git``
-    helper. So both a sequence literal's elements and a call's positional
-    arguments are read, and neither spelling hides.
+    ``subprocess.run(..., shell=True)`` and :func:`os.system` take the whole
+    command as one string, so there is no argument list to walk and the check
+    above cannot see them. Both are how a second delivery would most plausibly
+    be written by someone reaching for the shortest thing that works.
+    """
+    words = text.split()
+    if "git" not in words:
+        return False
+    # The subcommand, not merely the word somewhere in the string. Prose in this
+    # repository says "is not a git repository" one clause away from "for commit
+    # {sha}", and a membership test called both of those a commit invocation.
+    # After the program name, dash-led tokens are options and what follows is the
+    # verb — checked over the first two non-dash tokens because a `-C <path>`
+    # puts the path there, and an interpolated path is not in the literal at all.
+    after = words[words.index("git") + 1 :]
+    return "commit" in [word for word in after if not word.startswith("-")][:2]
+
+
+def _string_constants(node: ast.expr) -> list[str]:
+    """Every string literal directly inside one expression, f-strings included.
+
+    An f-string is an :class:`ast.JoinedStr` rather than a
+    :class:`ast.Constant`, so a command line built by interpolation — the usual
+    way a repository path reaches a git call — is invisible to a check that
+    looks only for constants. Its literal pieces are constants, and they are
+    what carry the verb.
+    """
+    if isinstance(node, ast.Constant):
+        return [node.value] if isinstance(node.value, str) else []
+    if isinstance(node, ast.JoinedStr):
+        pieces = [
+            part.value
+            for part in node.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        ]
+        # The pieces *and* their join. An interpolated command line splits the
+        # verb from the program name — `f"git -C {root} commit ..."` is two
+        # constants, neither of which holds both words — so a shell check run
+        # per piece sees nothing. The join puts the line back together, with the
+        # interpolations standing in as whitespace, which is what a shell would
+        # have received anyway.
+        return [*pieces, " ".join(pieces)]
+    return []
+
+
+def commit_sites(repo: Path) -> list[str]:
+    """Every module under ``repo`` that runs ``git commit``, with where.
+
+    Reported as a path relative to ``repo``, and allowlisted the same way. The
+    first version keyed on the *basename*, so a second ``base.py`` anywhere in
+    the tree inherited the sandbox's exemption without anybody arguing for it —
+    and ``base.py`` is one of the most common module names there is.
+
+    Three argument shapes, because the repository uses two and a third is the
+    obvious way to write a fourth: a sequence literal's elements, a call's
+    positional arguments, and a single string handed to a shell.
     """
     found: list[str] = []
-    for path in sorted(root.rglob("*.py")):
-        if path.name in MAY_COMMIT:
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.List | ast.Tuple):
-                elements: list[ast.expr] = list(node.elts)
-            elif isinstance(node, ast.Call):
-                elements = list(node.args)
-            else:
+    for where in ("src", "tools"):
+        for path in sorted((repo / where).rglob("*.py")):
+            rel = path.relative_to(repo).as_posix()
+            if rel in MAY_COMMIT or rel.startswith(NOT_PRODUCT_CODE):
                 continue
-            argv = [
-                element.value
-                for element in elements
-                if isinstance(element, ast.Constant) and isinstance(element.value, str)
-            ]
-            if _is_git_commit(argv):
-                found.append(f"{path.name}:{node.lineno}")
-    return found
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.List | ast.Tuple):
+                    elements: list[ast.expr] = list(node.elts)
+                elif isinstance(node, ast.Call):
+                    elements = list(node.args)
+                else:
+                    continue
+                argv = [
+                    text for element in elements for text in _string_constants(element)
+                ]
+                if _is_git_commit(argv) or any(map(_is_shell_git_commit, argv)):
+                    found.append(f"{rel}:{node.lineno}")
+    return sorted(set(found))
 
 
 def test_nothing_but_delivery_commits() -> None:
@@ -304,7 +419,7 @@ def test_nothing_but_delivery_commits() -> None:
     intended cost.
     """
     here = Path(__file__).resolve().parent.parent
-    offenders = commit_sites(here / "src") + commit_sites(here / "tools")
+    offenders = commit_sites(here)
     assert offenders == [], (
         f"these commit without going through `deliver`, so the gate run under "
         f"the repository lock does not stand between them and a human's tree: "

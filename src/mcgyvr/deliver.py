@@ -156,6 +156,12 @@ _FORGE_MODES = frozenset({"branch", "pull_request"})
 _LOCK_NAME = "mcgyvr-delivery.lock"
 
 
+#: Where delivery tells git to look for hooks: a path that does not exist, so it
+#: finds none. Absolute and obviously-named — a relative path would resolve
+#: inside the repository being delivered to, where something could one day be.
+_NO_HOOKS = "/nonexistent/mcgyvr-delivery-runs-no-hooks"
+
+
 @dataclass(frozen=True)
 class Identity:
     """Who a delivery commit is authored by.
@@ -752,12 +758,22 @@ def _ignored(root: Path, rel: str) -> bool:
     ``check-ignore`` exits 1 for a path that is *not* ignored, which is an answer
     rather than a failure — hence :func:`subprocess.run` here instead of
     :func:`_git`, which turns a non-zero exit into a :class:`DeliveryError`.
-    ``--no-index`` asks about the ignore rules alone: a tracked file is never
-    reported as ignored by default, and "tracked" is exactly the thing this is
-    called to explain.
+
+    Deliberately **without** ``--no-index``, which the first version passed and
+    which asks the wrong question. It reports on the ignore rules alone, so a
+    file force-added with ``git add -f`` while matching ``.gitignore`` comes back
+    ignored — and delivery would then tell an operator their tracked, gated,
+    perfectly deliverable file "was not in the change set the gate judged", when
+    the real reason was that its content equals the base. Every clause of that
+    sentence would be false. Without the flag git answers about the path as it
+    actually stands, which is what the caller is trying to explain.
+
+    Only exit 0 is read as ignored. Anything else — 1 for not-ignored, 128 for a
+    pathspec git will not take — leaves the caller on its original refusal, which
+    is the safe direction: this function chooses between two ways of saying no.
     """
     done = subprocess.run(
-        ["git", "check-ignore", "--no-index", "--quiet", "--", rel],
+        ["git", "check-ignore", "--quiet", "--", rel],
         cwd=root,
         capture_output=True,
     )
@@ -882,16 +898,29 @@ def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
     the path commits this contract's file and leaves everyone else's work —
     staged, unstaged or untracked — exactly where it was.
 
-    **``--no-verify``, because the repository is not ours.** ``repo`` is whatever
+    **No hooks run, because the repository is not ours.** ``repo`` is whatever
     tree the run was pointed at, and a mission points it at a detached worktree
-    of a *cloned* repository whose hooks live in the shared git directory. A
-    ``pre-commit`` or ``commit-msg`` hook there is code the operator never agreed
-    to run: it executes with the runner's environment, on the runner's machine,
-    at the one moment mcgyvr is holding a repository lock. Nothing upstream of
-    here gates a hook — the gate reads the worker's diff, not the repository's
-    configuration — so the only place to decline is the invocation. A delivery
-    that wanted hooks to run would be asking the corpus to have an opinion about
-    the change, which is the reviewer's job and not a shell script's.
+    of a *cloned* repository whose hooks live in the shared git directory. A hook
+    there is code the operator never agreed to run: it executes with the runner's
+    environment, on the runner's machine, at the one moment mcgyvr is holding a
+    repository lock. Nothing upstream of here gates a hook — the gate reads the
+    worker's diff, not the repository's configuration — so the only place to
+    decline is the invocation.
+
+    ``--no-verify`` is **not** how that is done, and the first version of this
+    fix used it and was wrong. It suppresses ``pre-commit`` and ``commit-msg``
+    and nothing else: ``prepare-commit-msg`` still runs, before the object is
+    written and with the message file to rewrite, and ``post-commit`` still runs
+    after. Both satisfy the paragraph above word for word. ``core.hooksPath``
+    pointed at a path that does not exist is what actually holds — git finds no
+    hook directory and runs none of the four — and it is set on the command line
+    rather than in the repository's config so that nothing about the operator's
+    checkout is changed. ``--no-verify`` is kept beside it as a statement of
+    intent for a reader who greps for it, and carries no load.
+
+    A delivery that wanted hooks to run would be asking the corpus to have an
+    opinion about the change, which is the reviewer's job and not a shell
+    script's.
 
     **``commit.gpgsign=false``, because this commit is scaffolding.** It is
     written by a runner under a synthetic identity, not authored, so a signature
@@ -911,6 +940,8 @@ def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
         f"user.email={identity.email}",
         "-c",
         "commit.gpgsign=false",
+        "-c",
+        f"core.hooksPath={_NO_HOOKS}",
         "commit",
         "--quiet",
         "--no-verify",
