@@ -79,11 +79,12 @@ import os
 import shlex
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import Family
+from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import Judgement, RetryNotes, judge
 from mcgyvr.gate import Acceptance, ChangeSet, Gate, GateResult, LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
@@ -496,8 +497,16 @@ class Attempt:
             judgement = self._unparsed(reply)
             gate: GateResult | None = None
         else:
-            gate = self._gate_run(reply)
+            gate, bound = self._gate_run(reply)
             judgement = judge(contract, family, gate, reply)
+            if bound is not None:
+                # The binding is attached here rather than passed into `judge`,
+                # because `judge` decides a verdict and has no tree to read from
+                # — minting inside it would mean handing it content, which is the
+                # substitution `Accepted` exists to make unconstructable. Every
+                # accepted try overwrites the last, so what survives the climb is
+                # the binding for the try `escalate` actually returned on.
+                judgement = replace(judgement, accepted=bound)
 
         self._retry[this.rung.name] = judgement.retry
         self._trace.append(
@@ -529,12 +538,27 @@ class Attempt:
             detail=f"the reply did not parse as one file: {error}",
         )
 
-    def _gate_run(self, reply: ParsedFile) -> GateResult:
-        """Write the file into a fresh sandbox and run the shipped gate over it.
+    def _gate_run(self, reply: ParsedFile) -> tuple[GateResult, Accepted | None]:
+        """Write the file into a fresh sandbox, gate it, and bind what it read.
 
         The change set is computed **before** the acceptance files land, so
         the gate's own rungs see the worker's diff and nothing else; the
         narrowed command then runs with the child's tests beside the change.
+
+        **The binding is minted here because here is the only place it can be.**
+        This sandbox is opened per try and torn down when the ``with`` closes —
+        ``Sandbox.__exit__`` removes the workspace tree outright — so by the time
+        ``escalate`` returns a ``Delivered`` there is no tree anywhere holding
+        the accepted bytes. Delivery used to be handed the caller's copy of the
+        reply instead, which is a string nothing had re-read since the gate ran
+        (pattern B). :meth:`~mcgyvr.deliver.Accepted.read` takes the bytes off
+        the workspace the verdict was reached over, one line after it was
+        reached and while it still exists.
+
+        ``None`` on a rejected verdict, and deliberately: an ``Accepted`` is a
+        binding between bytes and an *acceptance*, so minting one for a rejection
+        would make the type mean "some bytes and some verdict" and give a caller
+        something to mistake for a licence to write.
         """
         contract = self._contract
         with self._sandbox_factory(self._base) as sandbox:
@@ -549,11 +573,16 @@ class Attempt:
                 commands=(self._command,),
                 timeout=self._timeout_s,
             )
-            return self._gate.run(
+            result = self._gate.run(
                 changeset,
                 contract.scope,
                 semantic=None,
                 acceptance=acceptance,
+            )
+            if not result.accepted:
+                return result, None
+            return result, Accepted.read(
+                repo=workspace, contract=contract, result=result
             )
 
 

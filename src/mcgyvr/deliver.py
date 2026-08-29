@@ -432,6 +432,20 @@ def deliver(
 
             change = _delivered_change(root, resolved, rel)
             if change is None:
+                if _ignored(root, rel):
+                    # A different fact with the same symptom, and worth its own
+                    # sentence: `ChangeSet.detect` stages with `add -A`, which
+                    # honours `.gitignore`, so an ignored target is not in the
+                    # change set — here *or* in the sandbox the gate ran in. The
+                    # bytes were therefore never judged, and "identical to base"
+                    # would send the reader looking for a diff that is not the
+                    # problem.
+                    return call.refuse(
+                        f"{rel} is ignored by {root.name}'s .gitignore, so it was "
+                        f"not in the change set the gate judged and is not in the "
+                        f"one delivery can commit. Un-ignore the path or point the "
+                        f"contract at one the repository tracks."
+                    )
                 # Freshness, in local-ai's merge-gate sense: the accepted change
                 # is no longer a change. Either the tree already holds it or the
                 # base moved under the run, and committing now would report
@@ -732,6 +746,24 @@ def _tracked(root: Path, rel: str) -> bool:
     return bool(_git(root, "ls-files", "--", rel).strip())
 
 
+def _ignored(root: Path, rel: str) -> bool:
+    """Whether ``.gitignore`` excludes this path, so a change to it is invisible.
+
+    ``check-ignore`` exits 1 for a path that is *not* ignored, which is an answer
+    rather than a failure — hence :func:`subprocess.run` here instead of
+    :func:`_git`, which turns a non-zero exit into a :class:`DeliveryError`.
+    ``--no-index`` asks about the ignore rules alone: a tracked file is never
+    reported as ignored by default, and "tracked" is exactly the thing this is
+    called to explain.
+    """
+    done = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--quiet", "--", rel],
+        cwd=root,
+        capture_output=True,
+    )
+    return done.returncode == 0
+
+
 def _delivered_change(root: Path, base: str, rel: str) -> FileChange | None:
     """This delivery's own file within the whole change against ``base``.
 
@@ -849,6 +881,27 @@ def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
     else the caller had staged and ``-a`` would take the whole tree, while naming
     the path commits this contract's file and leaves everyone else's work —
     staged, unstaged or untracked — exactly where it was.
+
+    **``--no-verify``, because the repository is not ours.** ``repo`` is whatever
+    tree the run was pointed at, and a mission points it at a detached worktree
+    of a *cloned* repository whose hooks live in the shared git directory. A
+    ``pre-commit`` or ``commit-msg`` hook there is code the operator never agreed
+    to run: it executes with the runner's environment, on the runner's machine,
+    at the one moment mcgyvr is holding a repository lock. Nothing upstream of
+    here gates a hook — the gate reads the worker's diff, not the repository's
+    configuration — so the only place to decline is the invocation. A delivery
+    that wanted hooks to run would be asking the corpus to have an opinion about
+    the change, which is the reviewer's job and not a shell script's.
+
+    **``commit.gpgsign=false``, because this commit is scaffolding.** It is
+    written by a runner under a synthetic identity, not authored, so a signature
+    would attest to something that did not happen. The sharper reason is the
+    failure mode: on a host with ``commit.gpgsign=true`` and no usable key, git
+    exits non-zero, :func:`_git` raises :class:`DeliveryError`, and it raises
+    from inside the ``try`` whose ``finally`` is mid-restore — out of a seam
+    whose callers are written to receive a refusal. A delivery that cannot
+    commit must say so as a :class:`Delivery`, never as an exception thrown
+    through a caller that has already committed earlier contracts.
     """
     _git(
         root,
@@ -856,8 +909,11 @@ def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
         f"user.name={identity.name}",
         "-c",
         f"user.email={identity.email}",
+        "-c",
+        "commit.gpgsign=false",
         "commit",
         "--quiet",
+        "--no-verify",
         "--message",
         message,
         "--",

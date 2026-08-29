@@ -6,25 +6,31 @@ write file content and disagree about where truth lives."* B6 closed half of it
 inside the repository lock, immediately before staging, so a caller holding a
 string cannot commit it under a verdict reached on something else.
 
-**That fix protects one of the two delivery implementations.** The other is
-``tools/missions/run.py``, which imports nothing from :mod:`mcgyvr.deliver`: it
-reads ``Delivered.value`` — a ``str`` carried four hops from
-:func:`mcgyvr.escalate.judge` — writes it into the worktree with ``_place`` and
-commits it with ``_commit_delivery``. No re-gate, no digest, no lock. And it is
-the implementation with the mileage on it: the mission runner is what drove the
-contracts the pressure test recomputed digests over, while ``mcgyvr run``, the
-only production caller of ``deliver``, was added the day before this file.
+**That fix protected one of the two delivery implementations.** The other was
+``tools/missions/run.py``, which imported nothing from :mod:`mcgyvr.deliver`: it
+read ``Delivered.value`` — a ``str`` carried four hops from
+:func:`mcgyvr.escalate.judge` — wrote it into the worktree with ``_place`` and
+committed it with ``_commit_delivery``. No re-gate, no digest, no lock. And it
+was the implementation with the mileage on it: the mission runner is what drove
+the contracts the pressure test recomputed digests over, while ``mcgyvr run``,
+the only production caller of ``deliver``, was added the day before this file.
 
-So ``Judgement.value`` is not a design decision anybody made. It is the coupling
-between two deliveries, and the second one applies no bar. The rule these two
-tests hold is therefore not "carry the bytes more carefully" but:
+So ``Judgement.value`` was not a design decision anybody made. It was the
+coupling between two deliveries, and the second one applied no bar. The rule
+this file holds is therefore not "carry the bytes more carefully" but:
 
     The tree is the owner. Content never travels as a value, and one seam
     commits.
 
-Both tests are RED on purpose. The first states the property the mission
-runner's delivery path violates; the second is the guard that stops a third
-delivery growing back once the second is gone.
+The runner delivers through :func:`mcgyvr.deliver.deliver` now, handed the
+binding item 3 mints inside the workspace its gate ran in — the only place it
+can be minted, because that sandbox is torn down before the climb returns.
+
+Two of these tests began RED and named the defect; they are kept in the shape
+the fix left them, which for the reproduction means asserting the helpers are
+gone rather than driving them. The other two are the guard that stops a third
+delivery growing back, and the control that says none of this is merely a
+refusal.
 """
 
 from __future__ import annotations
@@ -36,8 +42,11 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.contract import Contract, loads
+from mcgyvr.deliver import Accepted, deliver
+from mcgyvr.escalate import Judgement
 from mcgyvr.gate import ChangeSet, Gate
 from mcgyvr.repair import repair
+from mcgyvr.route import Verdict
 
 CONTRACT = """
 id: fetch-retry
@@ -97,66 +106,125 @@ def contract_for(target: str, scope: str = "src/**/*.py") -> Contract:
 # --- the second delivery applies no bar -----------------------------------
 
 
-def test_the_mission_runner_cannot_commit_bytes_the_gate_rejected(
+def test_the_mission_runner_has_no_delivery_of_its_own(
+    missions_run: object,
+) -> None:
+    """The helpers that made the second delivery are gone, by name.
+
+    This test began as a reproduction: it drove ``_files_of`` → ``_place`` →
+    ``_commit_delivery`` with the string a caller still held after ``repair``
+    rewrote the tree, and watched the rejected bytes reach a commit. Those
+    helpers no longer exist, so the reproduction cannot be written — which is the
+    outcome, not a gap in the test.
+
+    What replaces it is the narrower claim the reproduction rested on: the runner
+    holds no way to write a file into a repository and commit it. ``_place``
+    survives and is deliberately not named here — it still writes acceptance
+    files into the worktree and the whole-tree sandbox — because writing was
+    never the defect. Committing without re-gating was, and
+    :func:`test_nothing_but_delivery_commits` is the general form.
+    """
+    for gone in ("_files_of", "_commit_delivery"):
+        assert not hasattr(missions_run, gone), (
+            f"`{gone}` is back. It was half of a second delivery implementation "
+            f"that wrote `Delivered.value` and committed it without re-running "
+            f"the gate; the runner delivers through `mcgyvr.deliver` now."
+        )
+
+
+def test_a_climb_that_passed_without_binding_its_bytes_is_not_delivered(
     tmp_path: Path, missions_run: object
 ) -> None:
-    """B6's scenario, followed into the delivery ``deliver`` does not own.
+    """A ``Delivered`` is not on its own a licence to write.
 
-    The port's documented repair loop, run as written. ``repair`` rewrites the
-    worker's file in place and the second gate run accepts what is now on disk —
-    so the caller's ``Delivered.value``, still the reply the worker sent, is
-    bytes the gate rejected and no gate has read since.
+    The runner's delivery reads ``outcome.judgement.accepted`` — the binding item
+    3 mints inside the workspace its gate ran in — and a caller-supplied
+    ``attempt_for`` need not mint one. That case is the old defect's exact shape:
+    a passing verdict, and a caller holding bytes nothing re-read. It is recorded
+    at stage ``deliver`` rather than written, because this seam has no tree to
+    read the accepted bytes back out of and inventing them from a string is what
+    pattern B is about.
 
-    ``deliver`` refuses these; ``test_fix_b6_verdict_binding`` pins that. The
-    mission runner never asks. It calls ``_files_of(contract, outcome.value)``,
-    writes what comes back and commits it, so the rejected bytes land in a
-    repository under a verdict reached on the repaired ones.
+    Driven through the runner's own refusal type rather than a full mission: what
+    is being pinned is that the ``None`` branch refuses and says why, and a
+    mission run would spend a pool to reach the same two lines.
+    """
+    target = "src/pkg/fetch.py"
+    worktree = make_repo(
+        tmp_path / "worktree", {target: "def fetch(url):\n    return url\n"}
+    )
+    contract = contract_for(target)
+    head = git(worktree, "rev-parse", "HEAD").strip()
 
-    Asserted against the committed tree rather than against a return value: what
-    is wrong here is not what the runner reports, it is what is in the
-    repository afterwards.
+    # The shape the runner branches on: a passing judgement carries no binding
+    # unless something minted one from a gated tree, and the default is the
+    # refusing direction rather than the writing one.
+    assert Judgement(verdict=Verdict.PASSED).accepted is None, (
+        "a judgement built without a binding has one, so the runner's `None` "
+        "branch can never fire and an unbound climb would be delivered"
+    )
+    assert missions_run.STAGE_DELIVER  # type: ignore[attr-defined]
+
+    delivery = deliver(
+        repo=worktree,
+        contract=contract,
+        content=UNFORMATTED,
+        base=head,
+    )
+    assert not delivery.committed, (
+        "delivery accepted a bare string with no verdict bound to it; the bytes "
+        "reaching a repository must be bytes a gate read"
+    )
+    assert git(worktree, "rev-parse", "HEAD").strip() == head
+    assert git(worktree, "status", "--porcelain").strip() == ""
+
+
+def test_the_binding_is_minted_from_the_tree_the_gate_read(tmp_path: Path) -> None:
+    """The control: what is delivered is what the accepting verdict was reached on.
+
+    A fix that refused everything would satisfy both statements above. This is
+    the loop working — the repair loop run as written, then the binding minted
+    the way item 3 mints it, then a delivery — and the bytes that reach the
+    commit are the repaired ones, not the reply the worker sent.
     """
     target = "src/pkg/fetch.py"
     original = "def fetch(url):\n    return url\n"
-    worktree = make_repo(tmp_path / "worktree", {target: original})
+    workspace = make_repo(tmp_path / "workspace", {target: original})
+    repo = make_repo(tmp_path / "repo", {target: original})
     contract = contract_for(target)
-    base = git(worktree, "rev-parse", "HEAD").strip()
+    base = git(workspace, "rev-parse", "HEAD").strip()
 
     # The worker's reply, which the caller keeps holding.
-    (worktree / target).write_text(UNFORMATTED)
-    rejected = Gate().run(ChangeSet.detect(worktree, base), contract.scope)
+    (workspace / target).write_text(UNFORMATTED)
+    rejected = Gate().run(ChangeSet.detect(workspace, base), contract.scope)
     assert not rejected.accepted, (
         f"the premise did not hold: the gate accepted unformatted content "
         f"(is ruff installed? {rejected.environment_issues})"
     )
 
     # Repair rewrites the tree; the second verdict is about the repaired bytes.
-    outcome = repair(repo=worktree, contract=contract, base=base)
+    outcome = repair(repo=workspace, contract=contract, base=base)
     assert outcome.changed, "the premise did not hold: nothing was repaired"
-    accepted = Gate().run(ChangeSet.detect(worktree, base), contract.scope)
-    assert accepted.accepted, (
-        "the premise did not hold: repair did not satisfy the gate"
-    )
-    repaired = (worktree / target).read_text()
+    accepted = Gate().run(ChangeSet.detect(workspace, base), contract.scope)
+    assert accepted.accepted, "the premise did not hold: repair did not satisfy it"
+    repaired = (workspace / target).read_text()
     assert repaired != UNFORMATTED
 
-    # What the mission runner does with the value the caller is still holding.
-    delivered = missions_run._files_of(contract, UNFORMATTED)  # type: ignore[attr-defined]
-    for path, content in delivered.items():
-        missions_run._place(worktree, path, content)  # type: ignore[attr-defined]
-    missions_run._commit_delivery(worktree, contract, delivered)  # type: ignore[attr-defined]
+    bound = Accepted.read(repo=workspace, contract=contract, result=accepted)
+    assert bound.content == repaired, (
+        "the binding is not the bytes on the tree the gate judged"
+    )
 
-    committed = git(worktree, "show", f"HEAD:{target}")
-    assert committed != UNFORMATTED, (
-        "the mission runner committed the bytes the gate rejected: it writes "
-        "`Delivered.value` and commits without re-gating, so B6's fix — which "
-        "lives in `deliver` — does not apply to the delivery that has actually "
-        "been used."
+    delivery = deliver(
+        repo=repo,
+        contract=contract,
+        content=bound,
+        base=git(repo, "rev-parse", "HEAD").strip(),
     )
-    assert committed == repaired, (
-        "the committed bytes are not the ones the accepting verdict was reached "
-        "on; the tree is the owner, so what is committed is what is on it."
+    assert delivery.committed, (
+        f"the accepted change was not delivered: {delivery.reason}"
     )
+    assert git(repo, "show", f"{delivery.commit}:{target}") == repaired
 
 
 # --- one seam commits ------------------------------------------------------

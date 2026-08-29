@@ -108,6 +108,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
+
+    # Aliased on import, because this module already binds the name `Accepted`
+    # to `mcgyvr.route.Accepted` — a *climb outcome*, unrelated to this one. The
+    # collision is real and pre-existing; spelling the delivery type differently
+    # here is cheaper than renaming either class, and it makes the two
+    # distinguishable at every use in this file rather than only at the import.
+    from mcgyvr.deliver import Accepted as BoundContent
     from mcgyvr.gate import GateResult
     from mcgyvr.pool import SourceMap
 
@@ -242,10 +249,24 @@ class Judgement[T]:
     :class:`~mcgyvr.route.Result`, because a task-level answer has to say which
     bar was cleared and a routing verdict cannot carry that without
     :mod:`mcgyvr.route` learning what verification is.
+
+    **Two fields carry the work, and only one of them can be trusted.**
+    ``value`` is whatever the attempt function was holding — for every current
+    caller, the worker's reply as a string — and nothing binds it to ``verdict``.
+    A step that rewrites the *tree* between the write and the gate leaves it
+    stale, which is the port's documented repair loop run as written, and pattern
+    B's finding. ``accepted`` is the same content read back out of the tree the
+    gate judged (:meth:`mcgyvr.deliver.Accepted.read`, which has no parameter to
+    hand content through), so it answers for its own bytes.
+
+    ``value`` is on its way out and is kept only until its last reader is gone;
+    a caller that is about to write bytes somewhere reads ``accepted`` and
+    refuses when it is ``None``.
     """
 
     verdict: Verdict
     value: T | None = None
+    accepted: BoundContent | None = None
     assurance: Assurance | None = None
     policy: str = GATE_ONLY
     upgraded: bool = False

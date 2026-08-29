@@ -60,12 +60,14 @@ try's sandbox with ``git archive HEAD`` of the worktree, so a file that only
 sits uncommitted beside it is invisible to the next contract's base: on a
 multi-contract task the second contract would be attempted against the parent
 tree as if the first had never delivered. So after each ``Delivered`` the file
-is written into the worktree *and committed* on its detached HEAD
-(:func:`_commit_delivery`, with an identity set through the environment so the
-commit works on any clone), and the record lists the sha each contract moved
-HEAD to (``output.head``). The commits belong to the mission worktree; once it
-is released they dangle in the canonical clone until it prunes, which is the
-cost of the base being a real tree rather than a copy.
+is delivered through :func:`mcgyvr.deliver.deliver` — the one seam in the
+project that commits, which re-runs the gate over the bytes on disk inside the
+repository lock before staging — and the record lists the sha each contract
+moved HEAD to (``output.head``). A delivery it refuses is recorded at stage
+``deliver`` rather than counted as one, because a refusal reported as a
+completion is B8's defect wearing a different hat. The commits belong to the
+mission worktree; once it is released they dangle in the canonical clone until
+it prunes, which is the cost of the base being a real tree rather than a copy.
 
 **The record carries no verdict.** Everything pass/fail-shaped lives under
 ``output.gate``: the whole-tree run's exit status (``gate.whole``) and, per
@@ -89,7 +91,6 @@ import argparse
 import functools
 import importlib.util
 import inspect
-import os
 import shlex
 import shutil
 import subprocess
@@ -105,6 +106,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config
 from mcgyvr.config import load as load_config
 from mcgyvr.contract import Contract
+from mcgyvr.deliver import Identity, deliver
 from mcgyvr.escalate import Delivered, Halted, Judgement, escalate
 from mcgyvr.orchestrator.decompose import (
     Decomposition,
@@ -119,7 +121,6 @@ from mcgyvr.pool import Endpoint, PoolError, SourceMap, source_map
 from mcgyvr.route import Try, family_of
 from mcgyvr.runner import RunnerError
 from mcgyvr.sandbox.base import Sandbox
-from mcgyvr.worker.reply import ParsedFile
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -172,17 +173,13 @@ _FAILING_TEST_FIRST = "failing_test_first"
 #: the commit works on any clone, configured or not; deliberately not the host
 #: user's, because the commit is scaffolding for the next climb's base and
 #: never authorship.
-_DELIVERY_IDENTITY = {
-    "GIT_AUTHOR_NAME": "mcgyvr mission",
-    "GIT_AUTHOR_EMAIL": "mission@mcgyvr.invalid",
-    "GIT_COMMITTER_NAME": "mcgyvr mission",
-    "GIT_COMMITTER_EMAIL": "mission@mcgyvr.invalid",
-}
+_DELIVERY_IDENTITY = Identity(name="mcgyvr mission", email="mission@mcgyvr.invalid")
 
 #: Where a refusal stopped a contract, for the record (see :class:`AttemptRefusal`).
 STAGE_DECLARE = "declare"
 STAGE_ASSEMBLE = "assemble"
 STAGE_DISPATCH = "dispatch"
+STAGE_DELIVER = "deliver"
 
 
 class MissionError(Exception):
@@ -207,11 +204,6 @@ class DeliveredPathEscapes(MissionError):  # noqa: N818
 
 class RecordAlreadyThere(MissionError):  # noqa: N818
     """``records/missions/<sha>/task.json`` exists; a run is not overwritten."""
-
-
-class DeliveryNotCommitted(MissionError):  # noqa: N818
-    """A delivered file could not be committed on the worktree, so the next
-    contract's base would not carry it."""
 
 
 @dataclass(frozen=True)
@@ -657,6 +649,13 @@ def run_task(
                 )
                 continue
         watched = _Watched(attempt)
+        # Captured before the climb, because that is what it means: the tree
+        # every sandbox for this contract was populated from. `deliver` diffs
+        # against it, and `MissionSandbox(worktree)` archives `HEAD`, so the two
+        # are the same commit by construction. Read here rather than passed as
+        # the literal `"HEAD"` — `deliver._resolve` softens that spelling, and
+        # B7 was a moving name being read as a fixed one.
+        base = _git(plan.worktree, "rev-parse", "HEAD").strip()
         try:
             outcome = escalate(config, plan.pool, contract, attempt=watched)
         except RunnerError as exc:
@@ -681,16 +680,66 @@ def run_task(
         outcomes.append((contract, outcome))
         traces.append(_trace_of(attempt))
         if isinstance(outcome, Delivered):
-            delivered = _files_of(contract, outcome.value)
-            for path, content in delivered.items():
-                _place(plan.worktree, path, content)
-                files[path] = content
+            # One delivery, and it is `mcgyvr.deliver` (pattern B). What stood
+            # here wrote `outcome.value` — the caller's copy of the worker's
+            # reply — and committed it, so nothing re-established that the bytes
+            # reaching this repository were bytes a gate had read. `deliver`
+            # re-runs the gate over what is on disk, inside the repository lock,
+            # immediately before staging, and it is handed the binding item 3
+            # minted in the workspace the verdict was reached in.
+            bound = outcome.judgement.accepted
+            if bound is None:
+                # A `Delivered` with no binding is a caller-supplied
+                # `attempt_for` that did not mint one. Recorded rather than
+                # written: this seam has no tree to read the accepted bytes back
+                # out of, and inventing them from a string is the defect.
+                attempt_refusals.append(
+                    AttemptRefusal(
+                        subject=contract.id,
+                        stage=STAGE_DELIVER,
+                        why=(
+                            "the climb passed but no `Accepted` came with it, so "
+                            "there is nothing bound to the verdict to deliver; an "
+                            "attempt function must mint one where its gate ran"
+                        ),
+                        rung=outcome.rung,
+                    )
+                )
+                continue
+            delivery = deliver(
+                repo=plan.worktree,
+                contract=contract,
+                content=bound,
+                base=base,
+                identity=_DELIVERY_IDENTITY,
+            )
+            if not delivery.committed:
+                # `deliver` refuses rather than raises, and the refusals it can
+                # reach here are real answers: the change is no longer a change,
+                # the target is ignored, the tree is dirty. Recording one keeps
+                # the run going with the reason attached — the alternative,
+                # treating a refusal as a delivery, is how B8 reported every
+                # failure as a completion.
+                attempt_refusals.append(
+                    AttemptRefusal(
+                        subject=contract.id,
+                        stage=STAGE_DELIVER,
+                        why=delivery.reason,
+                        rung=outcome.rung,
+                    )
+                )
+                continue
+            # Read back off the worktree rather than carried from the reply: the
+            # tree is what the next contract's sandbox archives and what the
+            # whole-tree run reads, so it is also what the record should say was
+            # delivered.
+            files[delivery.path] = (plan.worktree / delivery.path).read_text(
+                encoding="utf-8"
+            )
             # Committed, not just written: the next contract's sandbox is
             # ``git archive HEAD`` of this worktree, and an uncommitted file
             # is not in HEAD.
-            commits.append(
-                (contract.id, _commit_delivery(plan.worktree, contract, delivered))
-            )
+            commits.append((contract.id, delivery.commit))
 
     test: TestRun | None = None
     if outcomes:
@@ -773,65 +822,6 @@ def _sandbox_factory(attempt_module: types.ModuleType) -> Callable[[Path], Sandb
     return chosen
 
 
-def _commit_delivery(
-    worktree: Path, contract: Contract, delivered: Mapping[str, str]
-) -> str:
-    """Commit the delivered paths on the worktree's detached HEAD; the new sha.
-
-    Every try's sandbox is ``git archive HEAD`` of this worktree (E4's
-    population), so a delivery that only sits on disk is invisible to the
-    next contract's base and the second contract of a task would climb
-    against the parent as if the first had never delivered. The identity
-    comes from the environment (:data:`_DELIVERY_IDENTITY`) so a clone with no
-    ``user.*`` configured commits all the same; ``--no-verify`` because a
-    hook read off someone else's repository must not run under the runner,
-    and ``commit.gpgsign=false`` because the commit is scaffolding, not
-    authorship. ``--force`` on add because the delivered file is the output
-    whether or not the repository ignores that path; ``--allow-empty`` so a
-    delivery whose content equals the base still moves HEAD and is listed.
-    """
-    paths = list(delivered)
-    env = {**os.environ, **_DELIVERY_IDENTITY}
-    steps = (
-        ["add", "--force", "--", *paths],
-        [
-            "-c",
-            "commit.gpgsign=false",
-            "commit",
-            "--quiet",
-            "--no-verify",
-            "--allow-empty",
-            "-m",
-            f"#365 mission: {contract.id}",
-        ],
-    )
-    for args in steps:
-        done = subprocess.run(
-            ["git", "-C", str(worktree), *args],
-            capture_output=True,
-            text=True,
-            env=env,
-            check=False,
-        )
-        if done.returncode != 0:
-            raise DeliveryNotCommitted(
-                f"contract {contract.id}: git {args[0]} of {paths!r} in "
-                f"{worktree} failed: {done.stderr.strip()}"
-            )
-    head = subprocess.run(
-        ["git", "-C", str(worktree), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if head.returncode != 0:
-        raise DeliveryNotCommitted(
-            f"contract {contract.id}: HEAD of {worktree} cannot be read after "
-            f"the commit: {head.stderr.strip()}"
-        )
-    return head.stdout.strip()
-
-
 def _make_attempt(
     attempt_module: types.ModuleType,
     config: Config,
@@ -898,34 +888,20 @@ def _whole_command(
     return tuple(str(part) for part in command)
 
 
-def _files_of(contract: Contract, value: object) -> dict[str, str]:
-    """What a delivered value puts in the tree: a path map, or the target's text.
+def _git(worktree: Path, *args: str) -> str:
+    """Run git in ``worktree``, returning stdout, raising with git's complaint.
 
-    Item 3 delivers a :class:`~mcgyvr.worker.reply.ParsedFile` — one file's
-    whole content for the contract's target (``output_schema: whole_file``).
-    A bare string and a path map are accepted for a caller-supplied attempt.
+    Read-only here by construction: the one caller asks for ``rev-parse HEAD``.
+    Writing is :mod:`mcgyvr.deliver`'s, and ``test_pattern_b_one_owner`` holds
+    that — a ``commit`` reached through this helper would be a second delivery
+    growing back under a smaller name.
     """
-    if value is None:
-        return {}
-    if isinstance(value, ParsedFile):
-        return {contract.target: value.content}
-    if isinstance(value, str):
-        return {contract.target: value}
-    if isinstance(value, Mapping):
-        out: dict[str, str] = {}
-        for key, text in value.items():
-            if not isinstance(key, str) or not isinstance(text, str):
-                raise SiblingMismatch(
-                    f"contract {contract.id}: delivered a {type(value).__name__} "
-                    f"holding {type(key).__name__} -> {type(text).__name__}; "
-                    "run.py assembles str -> str only"
-                )
-            out[key] = text
-        return out
-    raise SiblingMismatch(
-        f"contract {contract.id}: delivered a {type(value).__name__}; run.py "
-        "assembles a ParsedFile, a str (the target's content) or a Mapping[str, str]"
+    done = subprocess.run(
+        ["git", "-C", str(worktree), *args], capture_output=True, text=True, check=False
     )
+    if done.returncode != 0:
+        raise MissionError(f"git {args[0]} in {worktree} failed: {done.stderr.strip()}")
+    return done.stdout
 
 
 def _place(worktree: Path, rel: str, content: str | bytes) -> None:
