@@ -377,7 +377,11 @@ def _breadth_seen(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     """
     import mcgyvr.drive as drive
 
-    real = drive.best_of
+    # `type: ignore` for the re-export rule, not for the lookup: `best_of` is
+    # imported into `drive`, which mypy will not call an export, and the whole
+    # point of reading it here is that the driver's own namespace is where the
+    # call site lives.
+    real = drive.best_of  # type: ignore[attr-defined]
     seen: list[int] = []
 
     def spy(**kwargs):  # type: ignore[no-untyped-def]

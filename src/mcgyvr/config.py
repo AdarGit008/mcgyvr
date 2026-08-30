@@ -336,6 +336,26 @@ BUDGET_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+BREADTH_FIELDS: tuple[Field, ...] = (
+    Field(
+        "draws",
+        "int",
+        "How many candidates one attempt asks its rung for before the gate "
+        "picks between them. Draws are not attempts: they share one prompt and "
+        "one attempt's budget, and the gate ranks the answers rather than the "
+        "next attempt being told what the last one got wrong. The default of 1 "
+        "is ADR-0008 unchanged — one draw, one verdict, and the draw is the "
+        "answer. Raising it is most defensible on a cheap rung that is often "
+        "almost right, where three draws are still cheaper than escalating; a "
+        "lever whose whole benefit is fewer crossings into the api family "
+        "cannot be evaluated before the telemetry that counts crossings, which "
+        "is why this is something to ask for rather than something you are "
+        "given.",
+        default=1,
+        min_value=1,
+    ),
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "version",
@@ -386,6 +406,14 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "The ceilings that bound one task's cost.",
         block=BUDGET_FIELDS,
+    ),
+    Field(
+        "breadth",
+        "block",
+        "How many answers one attempt asks for. Separate from `budgets` "
+        "because breadth is not a ceiling: it is what a single attempt spends, "
+        "and every budget in this file still counts that attempt once.",
+        block=BREADTH_FIELDS,
     ),
 )
 

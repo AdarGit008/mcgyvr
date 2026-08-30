@@ -53,7 +53,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.deliver import Accepted
+from mcgyvr.consensus import best_of
 from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
@@ -88,6 +88,23 @@ class UnrunnableStepError(DriveError):
 
 class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
+
+
+class _UnreadableDrawError(DriveError):
+    """One draw's reply could not be read, carried out of the sampler.
+
+    Private, and never seen outside :func:`worker_attempt`. It exists because of
+    a mismatch the first real caller of :func:`~mcgyvr.consensus.best_of`
+    exposes: ``sample`` is typed ``Callable[[int], str]`` and has no way to say
+    "this draw produced nothing usable" — an exception it raises is deliberately
+    not caught, on the grounds that "a draw that could not be made is not a
+    verdict". For a sampler that dispatches to a model that is the *common*
+    case: a truncated reply, a refusal in place of a file, prose where a fenced
+    block was asked for. Raising out is the only thing the signature permits, so
+    the whole attempt ends with the refusal in its detail — the behaviour a
+    single-draw attempt has always had, at the cost that at ``n > 1`` the
+    verdicts of the draws already gated are discarded with it.
+    """
 
 
 @dataclass(frozen=True)
@@ -249,8 +266,8 @@ class Recording:
                 "exists to close (§9)."
             )
 
-    def attempt_id(self, contract: str, rung: str, attempt: int) -> str:
-        """The id one attempt's row is keyed by.
+    def attempt_id(self, contract: str, rung: str, attempt: int, draw: int = 0) -> str:
+        """The id one dispatch's row is keyed by.
 
         The orchestrator is part of it, and that is not decoration.
         :func:`~mcgyvr.telemetry.fold` keys attempts by this string and a repeat
@@ -259,8 +276,19 @@ class Recording:
         is keeping reachable, would have written one row that erased the other.
         The rest is derived rather than random so a row can be found again from
         a report naming the contract, the rung and the attempt.
+
+        ``draw`` is here for the same reason the orchestrator is. An attempt
+        that asks its rung for several candidates (``breadth.draws``) makes one
+        dispatch per draw, and a key that named only the attempt would have let
+        each row supersede the last: n dispatches paid for, one recorded, and
+        the telemetry saying breadth costs what a single draw costs. The first
+        draw is left unsuffixed so that every row an unconfigured install writes
+        is byte-identical to the ones written before breadth existed — a
+        superseding key must not change meaning under a stream that already
+        holds rows.
         """
-        return f"{self.orchestrator}:{contract}:{rung}:{attempt}"
+        row = f"{self.orchestrator}:{contract}:{rung}:{attempt}"
+        return row if draw == 0 else f"{row}#{draw}"
 
 
 def worker_attempt(
@@ -300,8 +328,21 @@ def worker_attempt(
     parser refuses by name — truncated, no fenced block, a refusal in place of
     a file — and every one of those is something the next attempt could do
     differently, which is the definition of a failure rather than a fault.
+
+    **How many answers the attempt asks for is ``breadth.draws``'s, and the
+    default asks once.** Every attempt goes through
+    :func:`~mcgyvr.consensus.best_of`, including the unconfigured one, rather
+    than through a single-dispatch branch beside it. A lever the ordinary
+    install skips is a lever the ordinary install never proves, and ``n = 1``
+    through ``best_of`` is the same behaviour by construction: one draw, one
+    verdict, and the draw is the answer. What it costs is that the workspace is
+    reset after the last draw as it is after every other one, so the attempt
+    ends with the sandbox holding the base — which is why the accepted bytes
+    leave here as the binding ``best_of`` minted in the tree its gate read,
+    rather than being re-read off a workspace that no longer holds them.
     """
     notes: dict[str, RetryNotes] = {}
+    draws = int(config.get("breadth.draws", 1))
 
     def attempt(this: Try) -> Judgement:
         family = family_of(config, this.rung.name)
@@ -309,56 +350,90 @@ def worker_attempt(
             contract, adapters=adapters, retry=notes.get(this.rung.name)
         )
 
-        def send() -> Completion:
-            return dispatch_prompt(
-                pool, this.rung.name, prompt, contract, capacity=this.capacity
-            )
+        def send(draw: int) -> Completion:
+            def once() -> Completion:
+                return dispatch_prompt(
+                    pool, this.rung.name, prompt, contract, capacity=this.capacity
+                )
 
-        if recording is None:
-            completion = send()
-        else:
-            completion = observe(
-                send,
+            if recording is None:
+                return once()
+            return observe(
+                once,
                 path=recording.path,
                 attempt_id=recording.attempt_id(
-                    contract.id, this.rung.name, this.attempt
+                    contract.id, this.rung.name, this.attempt, draw
                 ),
                 orchestrator=recording.orchestrator,
                 rung=this.rung.name,
                 model=this.rung.model,
             )
-        parsed = parse_reply(
-            completion.text,
-            output_schema=contract.output_schema,
-            stop_reason=completion.stop_reason,
-            target=contract.target,
-        )
-        if isinstance(parsed, ReplyError):
+
+        def sample(draw: int) -> str:
+            completion = send(draw)
+            parsed = parse_reply(
+                completion.text,
+                output_schema=contract.output_schema,
+                stop_reason=completion.stop_reason,
+                target=contract.target,
+            )
+            if isinstance(parsed, ReplyError):
+                raise _UnreadableDrawError(f"the reply could not be read: {parsed}")
+            return parsed.content
+
+        def judge_draw(workspace: Path) -> GateResult:
+            # The workspace handed over is this sandbox's, because this sandbox
+            # is what `best_of` was given — and it is ignored, because the gate
+            # cannot be run from a path. A contract's acceptance commands are
+            # arbitrary shell and run inside a sandbox and nowhere else
+            # (ADR-0005), so the thing that judges is `gate_workspace`, which
+            # takes the sandbox. The parameter is checked rather than silently
+            # dropped: a mismatch would mean the draws are being written
+            # somewhere other than where they are being judged.
+            if workspace != sandbox.workspace:
+                raise DriveError(
+                    f"a draw was written into {workspace} and this attempt gates "
+                    f"in {sandbox.workspace}; the verdict would be about a tree "
+                    f"the draw is not in."
+                )
+            return gate_workspace(contract, sandbox, adapters=adapters)
+
+        # Before the writes rather than after the last one, which is the same
+        # bargain `gate_in_sandbox` makes and for the same reason: `best_of`
+        # tidies up in a `finally`, and a `finally` is one exception away from
+        # not having run. An attempt that inherited the previous one's tree
+        # would judge a change it did not produce.
+        sandbox.reset()
+        try:
+            picked = best_of(
+                repo=sandbox.workspace,
+                contract=contract,
+                sample=sample,
+                gate=judge_draw,
+                n=draws,
+                sandbox=sandbox,
+            )
+        except _UnreadableDrawError as exc:
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
             return Judgement(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
-                detail=f"the reply could not be read: {parsed}",
+                detail=str(exc),
             )
 
-        gate = gate_in_sandbox(contract, sandbox, parsed.content, adapters=adapters)
+        gate = picked.gate
         judgement = judge(contract, family, gate, verifier=verifier)
         if gate.accepted:
-            # Read back off the workspace rather than carried from `parsed`,
-            # even though nothing here rewrites the tree between the two. The
-            # point is that a step which *did* — `repair` is written to, and its
-            # documented loop is exactly this one with a repair in the middle —
-            # cannot make the two disagree without this line noticing. A binding
-            # minted from the caller's own string would be true by construction
-            # and would check nothing.
-            judgement = replace(
-                judgement,
-                accepted=Accepted.read(
-                    repo=sandbox.workspace, contract=contract, result=gate
-                ),
-            )
+            # The winner's own binding, minted by `best_of` one line after its
+            # gate and one line before its reset — in the tree the verdict was
+            # reached in, which is the only moment it exists. Reading the
+            # workspace here instead would answer for whatever the last draw
+            # left behind, and after the reset for the base itself. A binding
+            # minted from a string the caller happens to be holding would be
+            # true by construction and would check nothing.
+            judgement = replace(judgement, accepted=picked.winner)
         if judgement.retry is not None:
             notes[this.rung.name] = judgement.retry
         return judgement
