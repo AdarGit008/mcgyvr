@@ -1124,6 +1124,14 @@ ALLOCATOR_BLOCK_MIB = 256
 #: the constant wrong.
 NON_KV_OVERHEAD_MIB = 733
 
+#: Slack allowed when checking ``total == reserved + used + free``. The four
+#: fields are rounded to whole MiB independently, so a healthy card misses the
+#: identity by a MiB or so. What the check exists to catch is `used` changing
+#: to NVML v2 semantics and absorbing the reserve, which moves the sum by the
+#: reserve's own size -- 380 to 401 MiB on these cards. Anything between the
+#: two is neither rounding nor that, and is worth stopping for.
+IDENTITY_TOLERANCE_MIB = 8
+
 
 def _mib(byte_count: float) -> int:
     """Bytes as whole MiB, rounded up — a partial block is a held block."""
@@ -1140,17 +1148,107 @@ def free_mib(host: str) -> int | None:
     """
     line = contract.ssh(
         host,
-        "nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits",
+        "nvidia-smi --query-gpu=memory.total,memory.used,memory.free,memory.reserved "
+        "--format=csv,noheader,nounits",
     )
     parts = (
         [p.strip() for p in (line or "").strip().splitlines()[:1][0].split(",")]
         if (line and line.strip())
         else []
     )
-    if len(parts) != 2:
+    if len(parts) < 2:
         return None
     total, used = contract.first_int(parts[0]), contract.first_int(parts[1])
-    return None if total is None or used is None else total - used
+    if total is None or used is None:
+        return None
+    free = contract.first_int(parts[2]) if len(parts) > 2 else None
+    reserved = contract.first_int(parts[3]) if len(parts) > 3 else None
+    # **The tripwire, 2026-08-30.** `total - used` is not what a process can
+    # allocate: the card also carries a driver/firmware reserve that belongs to
+    # neither term -- 401 MiB on srv1, 380 on srv2, measured. This function
+    # still returns `total - used`, because NON_KV_OVERHEAD_MIB was fitted as a
+    # residue against exactly that figure and already absorbs the reserve;
+    # subtracting it here would charge it twice and refuse cells that fit. The
+    # branch that DOES need it lowers its own ceiling -- see `declaration_fits`.
+    #
+    # What is not safe is the identity moving under us: NVML v1 and v2 disagree
+    # on whether `used` includes `reserved`, so a driver that switched
+    # `nvidia-smi`'s field to v2 semantics would make `used` jump by the reserve
+    # and silently tighten every gate by ~400 MiB with no error anywhere.
+    #
+    # Each field is an independently rounded whole MiB, so the identity closes
+    # to within a MiB or two on a healthy card -- srv1 reports 401 + 17 + 5,727
+    # = 6,145 against a total of 6,144. The shift guarded against is the size of
+    # the reserve itself, so the tolerance sits far above rounding and far below
+    # that.
+    if (
+        free is not None
+        and reserved is not None
+        and abs(total - (reserved + used + free)) > IDENTITY_TOLERANCE_MIB
+    ):
+        raise contract.NotCleanError(
+            f"{host}: the card reports total {total:,} MiB but "
+            f"reserved {reserved:,} + used {used:,} + free {free:,} = "
+            f"{reserved + used + free:,} MiB. This function returns "
+            "`total - used`, and NON_KV_OVERHEAD_MIB is fitted against that "
+            "figure on the assumption that `used` excludes the driver reserve. "
+            "The identity says it no longer does, so the pairing that makes the "
+            "gate conservative cannot be relied on and the overhead constant "
+            "must be refitted before anything launches. Nothing was measured."
+        )
+    return total - used
+
+
+def reserved_mib(host: str) -> int | None:
+    """The card's driver/firmware reserve, or ``None`` if the driver withheld it.
+
+    **Measured 2026-08-30: 401 MiB on srv1, 380 on srv2.** This is the GSP
+    firmware carveout -- the GPU System Processor runs the driver's own firmware
+    out of the card's memory, and has done by default on every part since
+    Turing, which is both of these rigs. It belongs to no process, so it appears
+    in neither ``memory.used`` nor ``memory.free``; the identity is
+    ``total = reserved + used + free`` and :func:`free_mib` returns only
+    ``total - used``.
+
+    Two independent confirmations that this memory is unreachable, not merely
+    unaccounted: ``nvidia-smi -q -d MEMORY`` prints the reserve as its own line,
+    and PyTorch reports srv2's 12,288 MiB card as a ``total capacity of 11.63
+    GiB`` -- 12,288 less 380, exactly -- in the OOM this fix exists to prevent.
+
+    Read on its own rather than alongside ``free``, which :func:`free_mib`'s
+    docstring warns against for that pairing: the reserve is fixed when the
+    driver loads and does not move while a run is in flight, so a second reading
+    of it cannot describe a different moment the way a free-memory reading can.
+    """
+    line = contract.ssh(
+        host,
+        "nvidia-smi --query-gpu=memory.reserved --format=csv,noheader,nounits",
+    )
+    if not (line and line.strip()):
+        return None
+    return contract.first_int(line.strip().splitlines()[0])
+
+
+#: **`--cpu-offload-gb` does not reduce what an AWQ checkpoint holds on the
+#: card. Measured on srv2 2026-08-30**, Qwen2.5-Coder-14B-Instruct-AWQ at
+#: `--max-model-len 2048 --max-num-seqs 8 --kv-cache-dtype fp8`, three launches
+#: differing only in the offload budget:
+#:
+#:     --cpu-offload-gb 0   Model loading took 9.38 GiB   OOM, never started
+#:     --cpu-offload-gb 4   Model loading took 9.38 GiB   OOM, never started
+#:     --cpu-offload-gb 6   Model loading took 9.38 GiB   OOM, never started
+#:
+#: The figure does not move, and neither does the outcome: PyTorch reported
+#: `total capacity of 11.63 GiB` -- the 12,288 MiB card less its 380 MiB GSP
+#: firmware reserve -- against 9.38 GiB of weights plus the KV cache.
+#:
+#: This is recorded rather than acted on. A gate that subtracted the declared
+#: budget from the weights was written here on 2026-08-30 and REMOVED the same
+#: day: it turned a correct refusal into an admission, and the cell it admitted
+#: OOMed at load. Until a cell demonstrates that the flag moves weights off this
+#: engine's card, the declaration is weighed at its full weight and an entry
+#: that does not fit is refused.
+_CPU_OFFLOAD_IS_NOT_A_DISCOUNT = True
 
 
 def declaration_fits(
@@ -1206,7 +1304,34 @@ def declaration_fits(
 
     kv_mib = _mib(int(kv_bytes))
     measured = (serve.get("_footprint_mib") or {}).get(host)
+    # **The two branches are weighed against DIFFERENT ceilings, deliberately.**
+    # Do not reconcile them. `free_mib` returns `total - used`, which overstates
+    # what a process can allocate by the driver/firmware reserve (401 MiB srv1,
+    # 380 srv2 -- see `reserved_mib`). The predicted branch is already correct
+    # against that figure because NON_KV_OVERHEAD_MIB was FITTED as a residue
+    # against it and so already carries the reserve inside itself; subtracting
+    # the reserve there as well would charge it twice and refuse cells that fit.
+    # The measured branch has no such constant -- a footprint is exact -- so
+    # nothing there absorbs the reserve and the ceiling must be lowered by hand.
+    # Left unlowered, a footprint between `total - used - reserved` and
+    # `total - used` is admitted and then dies at load: on srv1 that is a
+    # 401 MiB-wide window of cells the gate waves through.
+    reserve_mib = None
     if measured is not None:
+        reserve_mib = reserved_mib(host)
+        if reserve_mib is None:
+            raise contract.NotCleanError(
+                f"{model} on {host}: this entry is weighed on its measured "
+                f"footprint of {int(measured):,} MiB, and that comparison needs "
+                "the card's driver/firmware reserve, which this driver did not "
+                "report. It is NOT assumed to be zero: it was 401 MiB on srv1 "
+                "and 380 on srv2 when measured, and treating it as absent is "
+                "exactly the optimism that admits a cell which then dies in "
+                "torch.OutOfMemoryError at load. Query "
+                "`nvidia-smi --query-gpu=memory.reserved` on this host and "
+                "refuse until it answers. Nothing was measured."
+            )
+        free_mib = free_mib - reserve_mib
         required_mib, weights_mib, how = int(measured), None, "measured"
     else:
         weights = serve.get("weights_bytes")
@@ -1229,12 +1354,15 @@ def declaration_fits(
         return
 
     if how == "measured":
+        assert reserve_mib is not None
         raise contract.NotCleanError(
             f"{model} on {host}: this entry took {required_mib:,} MiB on this "
-            f"card when it was measured, and {free_mib:,} MiB is free now — "
-            f"{required_mib - free_mib:,} MiB short. The declaration is "
-            f"{int(kv_bytes):,} B of KV cache. Refused before the launch "
-            "(#354). Nothing was measured."
+            f"card when it was measured, and {free_mib:,} MiB is allocatable "
+            f"now — that is the free reading less the {reserve_mib:,} MiB this "
+            "card reserves for driver and GSP firmware, which belongs to no "
+            f"process and cannot be allocated. {required_mib - free_mib:,} MiB "
+            f"short. The declaration is {int(kv_bytes):,} B of KV cache. "
+            "Refused before the launch (#354). Nothing was measured."
         )
 
     assert weights_mib is not None

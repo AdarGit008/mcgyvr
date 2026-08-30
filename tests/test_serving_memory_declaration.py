@@ -193,6 +193,20 @@ REFIT = REPO / "records" / "evidence" / "2026-08-23-phase0-refit"
 #: `footprints.csv`'s `card_mib_before` column records for all 25 cells.
 PHASE0_FREE_MIB = {"srv1": 6144 - 1, "srv2": 12288 - 1}
 
+#: Each rig's driver/firmware reserve, MEASURED 2026-08-30 via
+#: `nvidia-smi --query-gpu=memory.reserved`: the GSP firmware carveout, which
+#: belongs to no process and so appears in neither `memory.used` nor
+#: `memory.free`. `free_mib` returns `total - used` and therefore overstates
+#: what a process can allocate by exactly this much.
+RESERVED_MIB = {"srv1": 401, "srv2": 380}
+
+#: What each card can actually hand a process at rest: nameplate, less the
+#: 17 MiB both rigs read as `used` with nothing running, less the reserve.
+ALLOCATABLE_MIB = {
+    "srv1": 6144 - 17 - RESERVED_MIB["srv1"],
+    "srv2": 12288 - 17 - RESERVED_MIB["srv2"],
+}
+
 #: The weights, in bytes, for the three cells that never reached a footprint --
 #: from the engine's OWN words in `engine-refusals/`, the `Model loading took
 #: X GiB` line it prints before it touches the KV cache. Qwen3-4B reported 2.5
@@ -268,7 +282,9 @@ def test_the_phase0_cells_are_all_seven_and_three_of_them_refused() -> None:
     }
 
 
-def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(vllm: Any) -> None:
+def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(
+    vllm: Any, monkeypatch: Any
+) -> None:
     """Seven cells, seven verdicts, and the rule must match the card on all of them.
 
     This is the check with the content. A pre-check that refused everything
@@ -282,6 +298,11 @@ def test_the_pre_check_agrees_with_the_card_on_every_phase_0_cell(vllm: Any) -> 
     has no footprint by definition, so it is judged on the predicted path: its
     weights, from the engine's own log, plus its declared KV, plus the residue.
     """
+    # The measured branch reads the card's reserve, and this check is static by
+    # construction -- its content is a campaign already on disk. Left unstubbed
+    # it would ssh to a live rig, which passes on a machine that has one and
+    # hangs on a machine that does not.
+    monkeypatch.setattr(vllm, "reserved_mib", lambda host: RESERVED_MIB[host])
     for cell in _phase0_cells():
         serve = dict(cell["serve"])
         if cell["loaded"]:
@@ -518,3 +539,196 @@ def test_every_vllm_entry_can_be_checked_against_a_card() -> None:
             assert "MEASURED" in note and "Model loading took" in note, (
                 f"{where}: the note does not show where weights_bytes came from"
             )
+
+
+# --- the reserve: the measured branch's own ceiling -------------------------
+#
+# `free_mib` returns `total - used`. That is not what a process can allocate:
+# the card also carries a driver/firmware reserve belonging to no process, so
+# the identity is `total = reserved + used + free`. Measured 2026-08-30 --
+# 401 MiB on srv1, 380 on srv2 -- and confirmed from the other side by PyTorch,
+# which called srv2's 12,288 MiB card a `total capacity of 11.63 GiB` in the
+# OOM that prompted this: 12,288 less 380, exactly.
+#
+# The predicted branch is already right against `total - used`, because
+# NON_KV_OVERHEAD_MIB was FITTED as a residue against that figure and carries
+# the reserve inside itself. The measured branch has no such constant. These
+# checks pin both halves: that the measured ceiling drops by the reserve, and
+# that the predicted one does not -- so the double-count cannot be reintroduced
+# by a later reader who notices the two branches disagree and "fixes" it.
+
+
+def test_the_measured_branch_refuses_a_footprint_inside_the_reserve_window(
+    vllm: Any, monkeypatch: Any
+) -> None:
+    """srv1's window is 5,726..6,127 MiB, and every cell in it must be refused.
+
+    Both edges, because a check that only proved the refusal would pass on a
+    branch that refused everything. The admitted case sits one MiB under the
+    real ceiling and the refused case one MiB over it, so the boundary itself
+    is asserted rather than a value comfortably either side of it.
+    """
+    monkeypatch.setattr(vllm, "reserved_mib", lambda host: RESERVED_MIB[host])
+    free = 6144 - 17  # what `free_mib` reports: total - used
+    ceiling = ALLOCATABLE_MIB["srv1"]  # 5,726 -- what the card can actually give
+    assert free - ceiling == RESERVED_MIB["srv1"]
+
+    def verdict(footprint: int) -> str | None:
+        serve = {
+            "kv_cache_memory_bytes": 1879048192,
+            "_footprint_mib": {"srv1": footprint},
+        }
+        try:
+            vllm.declaration_fits("srv1", "model", serve, free)
+            return None
+        except Exception as error:
+            return str(error)
+
+    assert verdict(ceiling) is None, "a footprint at the real ceiling was refused"
+    assert verdict(ceiling - 1) is None
+
+    for inside in (ceiling + 1, (ceiling + free) // 2, free):
+        refused = verdict(inside)
+        assert refused is not None, (
+            f"footprint {inside:,} MiB sits in the reserve window and was "
+            "admitted -- it would die in torch.OutOfMemoryError at load"
+        )
+        # The refusal states the term it subtracted, not just the shortfall.
+        assert f"{RESERVED_MIB['srv1']:,} MiB this card reserves" in refused
+        assert "GSP firmware" in refused
+        assert "Nothing was measured" in refused
+
+
+def test_the_predicted_branch_does_not_subtract_the_reserve(
+    vllm: Any, monkeypatch: Any
+) -> None:
+    """The double-count, pinned shut from both directions.
+
+    NON_KV_OVERHEAD_MIB is a residue fitted against `total - used`, so it
+    already carries the reserve. Subtracting the reserve again would refuse
+    cells that fit. Two assertions: the predicted path never asks for the
+    reserve at all, and a declaration sitting between the two ceilings is
+    ADMITTED there -- the opposite verdict to the measured branch above, on the
+    same numbers, which is the whole reason the branches are kept apart.
+    """
+    asked: list[str] = []
+    monkeypatch.setattr(
+        vllm, "reserved_mib", lambda host: asked.append(host) or RESERVED_MIB[host]
+    )
+    free = 6144 - 17
+    # Weights + KV + 733 lands at 5,898: inside srv1's reserve window (5,726
+    # ..6,127), the exact band the measured branch refuses.
+    serve = {
+        "max_model_len": 11264,
+        "max_num_seqs": 8,
+        "kv_cache_memory_bytes": 8 * 11264 * 36864,
+        "bytes_per_token": 36864,
+        "weights_bytes": int(1.95 * 1024**3),
+    }
+    predicted = (
+        vllm._mib(serve["weights_bytes"])
+        + vllm._mib(serve["kv_cache_memory_bytes"])
+        + vllm.NON_KV_OVERHEAD_MIB
+    )
+    assert ALLOCATABLE_MIB["srv1"] < predicted <= free, (
+        "this fixture no longer sits between the two ceilings, so it cannot "
+        "tell the branches apart"
+    )
+    vllm.declaration_fits("srv1", "model", serve, free)
+    assert asked == [], (
+        "the predicted branch read the card's reserve. NON_KV_OVERHEAD_MIB is "
+        "fitted against `total - used` and already contains it; subtracting it "
+        "here too charges it twice and refuses cells that fit"
+    )
+
+
+def test_the_predicted_verdicts_are_unchanged_across_the_fitted_window(
+    vllm: Any, monkeypatch: Any
+) -> None:
+    """733 is derived, not chosen -- and the window admits no verdict change.
+
+    The floor is EXCLUSIVE. `test_the_constant_lands_inside_the_window...`
+    derives it as `free - weights - kv` = 511 for srv2's Qwen3-4B, the value at
+    which that cell's requirement equals free exactly and so is admitted; the
+    smallest constant that still refuses it is 512. The window this sweeps is
+    therefore (511, 1,145].
+
+    If an edit to the predicted branch ever made a verdict depend on where
+    inside that window the constant sits, the constant would have stopped being
+    a residue and become a tuning knob.
+    """
+    monkeypatch.setattr(vllm, "reserved_mib", lambda host: RESERVED_MIB[host])
+    baseline: dict[tuple[str, str], bool] = {}
+    for overhead in (512, 733, 1145):
+        monkeypatch.setattr(vllm, "NON_KV_OVERHEAD_MIB", overhead)
+        for cell in _phase0_cells():
+            serve = dict(cell["serve"])
+            if cell["loaded"]:
+                serve["_footprint_mib"] = {cell["host"]: cell["footprint_mib"]}
+            else:
+                serve["weights_bytes"] = PHASE0_WEIGHTS_BYTES[cell["model"]]
+            key = (cell["host"], cell["model"])
+            try:
+                vllm.declaration_fits(
+                    cell["host"], cell["model"], serve, PHASE0_FREE_MIB[cell["host"]]
+                )
+                admitted = True
+            except Exception:
+                admitted = False
+            assert admitted is cell["loaded"], (
+                f"{key} disagrees with the card at overhead {overhead}"
+            )
+            baseline.setdefault(key, admitted)
+            assert baseline[key] is admitted, (
+                f"{key} changed verdict at overhead {overhead}: the constant's "
+                "stated 511..1,145 window no longer holds"
+            )
+
+
+def test_an_unreported_reserve_refuses_rather_than_assuming_zero(
+    vllm: Any, monkeypatch: Any
+) -> None:
+    """A driver that withholds the field must stop the run, not be read as zero.
+
+    Assuming zero is precisely the optimism this whole fix removes: it restores
+    `total - used` as the measured branch's ceiling and re-opens the window.
+    """
+    monkeypatch.setattr(vllm, "reserved_mib", lambda host: None)
+    serve = {
+        "kv_cache_memory_bytes": 1879048192,
+        "_footprint_mib": {"srv1": 3130},  # comfortably fitting, if it were checked
+    }
+    with pytest.raises(vllm.contract.NotCleanError) as raised:
+        vllm.declaration_fits("srv1", "model", serve, 6144 - 17)
+    message = str(raised.value)
+    assert "did not report" in message
+    assert "NOT assumed to be zero" in message
+    assert "memory.reserved" in message
+    assert "Nothing was measured" in message
+
+
+def test_every_declared_footprint_fits_its_host_allocatable_ceiling() -> None:
+    """The configs' own numbers, against what the card can actually hand over.
+
+    A footprint is only evidence that a cell fits if it fits the ceiling the
+    card enforces, not the one `total - used` advertises. This fails on an edit
+    that inflates a declared footprint past that line, which is the shape of
+    mistake a hand-copied reading makes.
+    """
+    seen = 0
+    for path in sorted(CONFIGS.glob("srv-vllm-n1248-*.json")):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        for entry in document.get("models") or []:
+            footprints = (entry.get("serve") or {}).get("_footprint_mib") or {}
+            assert footprints, f"{path.name}:{entry.get('label')} declares none"
+            for host, mib in footprints.items():
+                ceiling = ALLOCATABLE_MIB[host]
+                assert 0 < mib <= ceiling, (
+                    f"{path.name}:{entry.get('label')} declares {mib:,} MiB on "
+                    f"{host}, whose card can allocate {ceiling:,} MiB "
+                    f"({RESERVED_MIB[host]:,} of the nameplate is driver and "
+                    "GSP firmware reserve). A footprint above that line was "
+                    "never observed on this card"
+                )
+                seen += 1
+    assert seen >= 7, f"only {seen} declared footprints checked"
