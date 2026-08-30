@@ -59,6 +59,25 @@ one verdict, and the draw is the answer. A lever whose whole benefit is "fewer
 crossings into the API family" cannot be evaluated before the telemetry that
 counts crossings exists, so breadth above one stays something a caller asks for
 rather than something it is given.
+
+**A draw may come back with nothing in it, and that is not an exception.** The
+sampler was first typed ``Callable[[int], str]``, which offers a real caller two
+answers and both are wrong. A model reply that cannot be read — truncated, prose
+where a fenced block was asked for, a refusal in place of a file — is the common
+case rather than the exceptional one, and a sampler holding one could either
+fabricate a string, which is then written, gated and reported as a candidate the
+gate rejected when there was never a candidate, or raise, which ends the attempt
+and discards the verdicts of every draw already gated. At ``n > 1`` the second
+loses real work: draw 0 can pass the gate and be thrown away because draw 1 came
+back truncated.
+
+So the sampler may answer :class:`Unusable`. Such a draw is not written, not
+gated and not ranked — there is no verdict to rank it by — and it is recorded in
+:attr:`Consensus.unusable` in the sampler's own words, because "two of three
+draws were unreadable" is the measurement that says what breadth actually bought.
+Only when *every* draw refuses is there nothing to return, and that is
+:class:`NoUsableDrawError`, which is the single-draw behaviour unchanged: one
+unreadable reply, one failed attempt, the refusal in its detail.
 """
 
 from __future__ import annotations
@@ -82,6 +101,30 @@ class ConsensusError(Exception):
     """A best-of run could not be made from the inputs given."""
 
 
+class NoUsableDrawError(ConsensusError):
+    """Every draw refused, so there is nothing to rank and no winner to return.
+
+    Distinct from its parent because a caller can act on it: this is an attempt
+    that failed, not a ranking that could not be performed. A driver turns it
+    into a rejected attempt and lets the ladder decide what to do next, where a
+    bare :class:`ConsensusError` — a lone surrogate in a draw, a gate that
+    deleted the file it was judging — is a fault it has no answer for.
+    """
+
+
+@dataclass(frozen=True)
+class Unusable:
+    """A sampler's answer that this draw produced no candidate, and why.
+
+    The reason is the sampler's own sentence and is kept verbatim: it is the
+    only account of the draw that exists — nothing was written, so no gate ran
+    and no finding was recorded — and it is what the operator reads when an
+    attempt spent N dispatches and returned nothing.
+    """
+
+    reason: str
+
+
 @dataclass(frozen=True)
 class Consensus:
     """What N draws of one attempt came to: every verdict, and the winner.
@@ -95,11 +138,21 @@ class Consensus:
     in. It is deliberately the only way to the bytes: there is no ``content``
     field, because a ``str`` beside a verdict is a claim about a tree that this
     module has already reset, and the next reader has no way to check it.
+
+    ``unusable`` holds the draws that produced no candidate at all, in the order
+    drawn and each naming its index. They are deliberately *not* in ``gates``:
+    an unusable draw has no verdict, and giving it a synthetic rejection would
+    put "the gate refused this" in the record of a gate run that never happened
+    — the same fabrication the sampler is no longer forced into. ``gates`` and
+    ``draws`` therefore run over the draws that produced a candidate, which is
+    what ``chosen`` indexes, while ``len()`` still counts every draw the caller
+    paid for.
     """
 
     draws: tuple[Accepted, ...]
     chosen: int
     gates: tuple[GateResult, ...]
+    unusable: tuple[str, ...] = ()
 
     @property
     def gate(self) -> GateResult:
@@ -128,14 +181,20 @@ class Consensus:
         return self.gate.accepted
 
     def __len__(self) -> int:
-        return len(self.gates)
+        """How many draws were made, candidates and refusals alike.
+
+        The count is what was spent, not what came back: an attempt that drew
+        three times and could read one of them cost three dispatches, and a
+        length of one would report breadth as cheaper than it was.
+        """
+        return len(self.gates) + len(self.unusable)
 
 
 def best_of(
     *,
     repo: Path,
     contract: Contract,
-    sample: Callable[[int], str],
+    sample: Callable[[int], str | Unusable],
     gate: Callable[[Path], GateResult],
     n: int = 1,
     sandbox: Sandbox | None = None,
@@ -145,10 +204,15 @@ def best_of(
     ``sample(index)`` is the text of one draw for ``contract.target`` — a whole
     file, which is what ``output_schema: whole_file`` means and what a
     model-executed contract's target always is (a pattern target is refused at
-    load for every type a model runs). It is called once per draw, in order, and
-    an exception it raises is not caught: a draw that could not be made is not a
-    verdict, and swallowing it into a rejection would report the rung as having
-    tried.
+    load for every type a model runs). It is called once per draw, in order.
+
+    It may instead answer :class:`Unusable`, which is how a sampler says this
+    draw produced nothing to gate. That draw is skipped and recorded, the ones
+    around it keep their verdicts, and :class:`NoUsableDrawError` is raised only if
+    none of the ``n`` produced a candidate. An *exception* out of the sampler is
+    still not caught, and now means what it always said it meant: not "the model
+    answered badly" — that is ``Unusable`` — but that the draw could not be made
+    at all, which is not a verdict and must not be reported as one.
 
     ``gate(workspace)`` judges the draw that is currently in the tree. It is
     handed the workspace rather than the text on purpose — what is being ranked
@@ -172,16 +236,24 @@ def best_of(
 def _draw(
     space: Sandbox,
     contract: Contract,
-    sample: Callable[[int], str],
+    sample: Callable[[int], str | Unusable],
     gate: Callable[[Path], GateResult],
     n: int,
 ) -> Consensus:
     """Write each draw into ``space``, judge it, bind it, and undo it."""
     drawn: list[Accepted] = []
     verdicts: list[GateResult] = []
+    refused: list[str] = []
 
     for index in range(n):
         content = sample(index)
+        if isinstance(content, Unusable):
+            # Before the workspace is touched, which is the whole of what this
+            # branch is: nothing is written, so nothing is gated, so there is no
+            # reset to make and no verdict to record. The draw cost a dispatch
+            # and bought nothing, and that is what is kept.
+            refused.append(f"draw {index}: {content.reason}")
+            continue
         target = space.workspace / contract.target
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -208,10 +280,25 @@ def _draw(
             # workspace and N-1 resets (ADR-0008).
             space.reset()
 
+    if not verdicts:
+        # Every draw refused. There is no winner and no honest way to invent
+        # one: `Consensus.winner` promises the best of what was drawn, and the
+        # best of nothing is not a rejected candidate, it is no candidate.
+        raise NoUsableDrawError(
+            f"none of the {n} draw(s) produced anything to gate — " + "; ".join(refused)
+        )
+
     # `max` keeps the first of equal keys, so a tie goes to the earliest draw:
     # where the gate cannot separate two candidates, the one drawn first wins.
-    best = max(range(n), key=lambda index: _score(verdicts[index]))
-    return Consensus(draws=tuple(drawn), chosen=best, gates=tuple(verdicts))
+    # Over the candidates, not over `range(n)`: a refused draw has no verdict to
+    # be ranked by, and the draws that did produce one keep their order.
+    best = max(range(len(verdicts)), key=lambda index: _score(verdicts[index]))
+    return Consensus(
+        draws=tuple(drawn),
+        chosen=best,
+        gates=tuple(verdicts),
+        unusable=tuple(refused),
+    )
 
 
 def _bind(

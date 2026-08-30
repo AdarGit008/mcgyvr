@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.cleanup import tidy
-from mcgyvr.consensus import best_of
+from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
 from mcgyvr.gate import Gate, GateResult
@@ -92,23 +92,6 @@ class UnrunnableStepError(DriveError):
 
 class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
-
-
-class _UnreadableDrawError(DriveError):
-    """One draw's reply could not be read, carried out of the sampler.
-
-    Private, and never seen outside :func:`worker_attempt`. It exists because of
-    a mismatch the first real caller of :func:`~mcgyvr.consensus.best_of`
-    exposes: ``sample`` is typed ``Callable[[int], str]`` and has no way to say
-    "this draw produced nothing usable" — an exception it raises is deliberately
-    not caught, on the grounds that "a draw that could not be made is not a
-    verdict". For a sampler that dispatches to a model that is the *common*
-    case: a truncated reply, a refusal in place of a file, prose where a fenced
-    block was asked for. Raising out is the only thing the signature permits, so
-    the whole attempt ends with the refusal in its detail — the behaviour a
-    single-draw attempt has always had, at the cost that at ``n > 1`` the
-    verdicts of the draws already gated are discarded with it.
-    """
 
 
 @dataclass(frozen=True)
@@ -394,7 +377,12 @@ def worker_attempt(
     **A reply that cannot be read is a failed attempt, not an exception.** The
     parser refuses by name — truncated, no fenced block, a refusal in place of
     a file — and every one of those is something the next attempt could do
-    differently, which is the definition of a failure rather than a fault.
+    differently, which is the definition of a failure rather than a fault. It
+    reaches :func:`~mcgyvr.consensus.best_of` as an
+    :class:`~mcgyvr.consensus.Unusable` draw, so at ``n > 1`` one unreadable
+    reply costs its own draw and not the verdicts of the draws beside it; the
+    attempt fails only when :class:`~mcgyvr.consensus.NoUsableDrawError` says every
+    draw refused, which for the default single draw is the same thing.
 
     **How many answers the attempt asks for is ``breadth.draws``'s, and the
     default asks once.** Every attempt goes through
@@ -472,7 +460,7 @@ def worker_attempt(
                 model=this.rung.model,
             )
 
-        def sample(draw: int) -> str:
+        def sample(draw: int) -> str | Unusable:
             completion = send(draw)
             parsed = parse_reply(
                 completion.text,
@@ -481,7 +469,11 @@ def worker_attempt(
                 target=contract.target,
             )
             if isinstance(parsed, ReplyError):
-                raise _UnreadableDrawError(f"the reply could not be read: {parsed}")
+                # A refusal, not a raise: at `n > 1` the draws already gated
+                # keep their verdicts, and a reply that could not be read is
+                # the ordinary failure this rung is being measured on rather
+                # than something that ends the attempt from underneath it.
+                return Unusable(f"the reply could not be read: {parsed}")
             return parsed.content
 
         def judge_draw(workspace: Path) -> GateResult:
@@ -519,7 +511,7 @@ def worker_attempt(
                 n=draws,
                 sandbox=sandbox,
             )
-        except _UnreadableDrawError as exc:
+        except NoUsableDrawError as exc:
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
