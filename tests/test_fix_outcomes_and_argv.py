@@ -60,7 +60,8 @@ from mcgyvr.config import Config, parse
 from mcgyvr.consensus import Consensus
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.deliver import Delivery
+from mcgyvr.deliver import Accepted as BoundBytes
+from mcgyvr.deliver import Delivery, digest_of
 from mcgyvr.deterministic import Routed, ToolStep, tool_steps
 from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import (
@@ -214,6 +215,22 @@ def exhausted() -> Exhausted:
 # reached on them. The second is not a terminal outcome and is deliberately not
 # swept: it is what a `Judgement` carries, it states no `ok`, and a wave loop is
 # never handed one.
+def _bound(text: str, *, accepted: bool) -> BoundBytes:
+    """An :class:`~mcgyvr.deliver.Accepted` for a fixture, digest and all.
+
+    Aliased to ``BoundBytes`` on import because ``route.Accepted`` — a climb
+    that ended well, carrying no bytes at all — has the same name and is the one
+    this file already used. The collision is noted above the table for the same
+    reason.
+
+    :meth:`~mcgyvr.deliver.Accepted.read` needs a tree the gate ran in, and
+    these outcomes are table entries rather than runs. The digest is taken the
+    way ``read`` takes it, so the value is ``intact`` and nothing here is
+    asserting over one that has already come apart.
+    """
+    return BoundBytes(content=text, accepted=accepted, digest=digest_of(text))
+
+
 OUTCOMES: tuple[tuple[str, object, bool], ...] = (
     ("escalate.Delivered", delivered(), True),
     ("escalate.Halted", halted(), False),
@@ -265,12 +282,20 @@ OUTCOMES: tuple[tuple[str, object, bool], ...] = (
     ("gate.GateResult-rejected", GateResult(findings=(FINDING,)), False),
     (
         "consensus.Consensus",
-        Consensus(content="x = 1\n", chosen=0, gates=(GateResult(),)),
+        Consensus(
+            draws=(_bound("x = 1\n", accepted=True),),
+            chosen=0,
+            gates=(GateResult(),),
+        ),
         True,
     ),
     (
         "consensus.Consensus-rejected",
-        Consensus(content="x=1\n", chosen=0, gates=(GateResult(findings=(FINDING,)),)),
+        Consensus(
+            draws=(_bound("x=1\n", accepted=False),),
+            chosen=0,
+            gates=(GateResult(findings=(FINDING,)),),
+        ),
         False,
     ),
 )
@@ -362,7 +387,9 @@ def test_a_truth_value_that_counts_something_else_is_not_a_verdict() -> None:
     not a builtin is read that way.
     """
     rejected = Consensus(
-        content="x=1\n", chosen=0, gates=(GateResult(findings=(FINDING,)),)
+        draws=(_bound("x=1\n", accepted=False),),
+        chosen=0,
+        gates=(GateResult(findings=(FINDING,)),),
     )
 
     assert len(rejected) == 1 and bool(rejected) is True, "the premise did not hold"

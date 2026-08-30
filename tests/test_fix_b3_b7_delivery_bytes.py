@@ -281,23 +281,45 @@ def test_repair_does_not_write_through_a_symlink_out_of_scope(tmp_path: Path) ->
     )
 
 
-def test_repair_reports_the_bytes_it_left_on_disk(tmp_path: Path) -> None:
-    """Half of B6, on the writing side: repair mutates the tree and says so.
+def test_repair_names_what_it_changed_and_leaves_it_in_the_tree(
+    tmp_path: Path,
+) -> None:
+    """Half of B6, on the writing side: repair mutates the tree and says which.
 
     A caller holding the worker's reply as a string has no way to learn what a
     repair left behind — which is how the bytes a gate rejected stay in the
     caller's hand while the bytes it accepted sit only on disk.
+
+    What it learns is the *path*, not a copy of the bytes.
+    ``RepairOutcome.content`` used to carry the second copy, for a caller that
+    would hand it to :func:`~mcgyvr.deliver.deliver`; delivery takes an
+    :class:`~mcgyvr.deliver.Accepted` minted off the tree now, so the copy was a
+    value channel with no reader (pattern B, phase 3). The replacement is
+    asserted here rather than assumed: the named path is bound off the tree, and
+    the binding holds what the repair wrote.
     """
     repo = make_repo(tmp_path / "work", {"src/pkg/fetch.py": UNFORMATTED})
     base = git(repo, "rev-parse", "HEAD").strip()
     (repo / "src" / "pkg" / "fetch.py").write_text(UNFORMATTED.replace("os", "os "))
+    contract = contract_for("src/pkg/fetch.py")
 
-    outcome = repair(repo=repo, contract=contract_for("src/pkg/fetch.py"), base=base)
+    outcome = repair(repo=repo, contract=contract, base=base)
 
-    assert (
-        outcome.content["src/pkg/fetch.py"]
-        == (repo / "src" / "pkg" / "fetch.py").read_text()
-    ), "the reported content is not what is on disk"
+    assert outcome.repaired == ("src/pkg/fetch.py",), (
+        f"the repair did not name the file it rewrote: {outcome}"
+    )
+    on_disk = (repo / "src" / "pkg" / "fetch.py").read_text()
+    assert on_disk != UNFORMATTED.replace("os", "os "), (
+        "the premise did not hold: nothing was rewritten"
+    )
+    bound = Accepted.read(
+        repo=repo,
+        contract=contract,
+        result=Gate().run(ChangeSet.detect(repo, base), contract.scope),
+    )
+    assert bound.content == on_disk, (
+        "the binding a caller carries onward is not the file the repair left"
+    )
 
 
 # --- B6: the bytes a verdict was reached on ------------------------------

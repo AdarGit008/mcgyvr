@@ -13,7 +13,7 @@
 > | **E** · eight boundaries held by nothing | Closed for the five that were breached — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
 > | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
 > | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
-> | **B** · nothing owns the bytes | Partly. B6's delivery-time re-check landed; who owns the bytes across `repair`/`consensus`/`cleanup`/`judge` is undecided. |
+> | **B** · nothing owns the bytes | Closed. The tree owns them and one seam commits. B6's delivery-time re-check, then phase 1 (the second delivery routed through `deliver`), phase 2 (`Judgement.value` and the three `value` fields under it deleted), phase 3 (`RepairOutcome.content` deleted, `Consensus` carries `Accepted` bindings minted per draw, `Cleanup.regate` true whenever bytes were rewritten). A guard in `tests/test_pattern_b_tree_owns_bytes.py` fails a new `content` field that carries no digest. |
 > | §4's seven items, and the ~48 major | Open. |
 
 |                |                                                                                  |

@@ -116,7 +116,12 @@ def gate_repair_gate(repo: Path, contract: Contract, base: str) -> GateResult:
     assert outcome.changed, "the premise did not hold: nothing was repaired"
     second = Gate().run(ChangeSet.detect(repo, base), contract.scope)
     assert second.accepted, "the premise did not hold: repair did not satisfy the gate"
-    assert outcome.content[contract.target] != UNFORMATTED
+    assert contract.target in outcome.repaired, (
+        f"the premise did not hold: the repair did not name {contract.target}"
+    )
+    assert (repo / contract.target).read_text() != UNFORMATTED, (
+        "the premise did not hold: the tree still holds what the worker wrote"
+    )
     return second
 
 

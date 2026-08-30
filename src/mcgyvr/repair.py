@@ -43,11 +43,14 @@ buy nothing, cost something, or write somewhere it was not asked to:
   is not enough either, because a hard link has nothing to resolve — it *is*
   the file, under a second name, and the formatter writing through the name the
   scope allows rewrites the one it forbids (see :func:`_repairable`).
-* **It says what it left behind.** ``repair`` mutates the working tree while its
-  caller holds the worker's reply as a string, so :attr:`RepairOutcome.content`
-  carries the bytes now on disk. Without it the caller has no way to learn what
-  the gate is about to be re-run on, and the bytes it carries forward to
-  :func:`mcgyvr.deliver.deliver` are the ones the gate *rejected*.
+* **It says what it left behind, and not what that is.** ``repair`` mutates the
+  working tree, so the tree is where the bytes are and there is no second place
+  they could be. :attr:`RepairOutcome.repaired` names the paths that differ from
+  what the worker left — the claim a caller acts on, because it is what makes a
+  second gate run worth a subprocess. It used to hand back a copy of those bytes
+  as well, for a caller that would pass them to :func:`mcgyvr.deliver.deliver`;
+  delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the tree now,
+  and a copy nothing reads is the value channel pattern B is about.
 * **The one step that adds code may only transcribe.** Auto-import insertion
   writes ``from <module> import <name>`` for an undefined name **only** when
   some ``deps`` entry in the contract already declares that name. The repair is
@@ -67,8 +70,8 @@ import json
 import os
 import re
 import subprocess
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from mcgyvr.contract import Contract, Dependency
@@ -106,14 +109,12 @@ class RepairOutcome:
     the gate worth a second subprocess rather than a guaranteed repeat of the
     verdict already in hand.
 
-    ``content`` is what is on disk when the pass finishes, per repairable path
-    and whether or not this pass changed it. It is here because a repair mutates
-    the tree and its caller does not: the caller holds the worker's reply as a
-    string, the gate is re-run against the file, and nothing connected the two —
-    so the bytes carried on to delivery were the bytes the gate had rejected.
-    That is the ``repair`` half of the port's "nothing owns the bytes"; the
-    delivery half is :class:`mcgyvr.deliver.Accepted`, which binds these bytes to
-    the verdict the re-run gate reaches on them.
+    There is deliberately no copy of those bytes here. A repair writes the tree
+    in place, so the tree is the owner: what the re-run gate is about to read is
+    what is on disk, and a second copy travelling beside the paths is a thing a
+    caller can hand onward without a gate in between. The bytes reach delivery
+    as an :class:`mcgyvr.deliver.Accepted`, minted off this tree after the
+    re-run gate speaks over it.
 
     ``environment_issues`` mirror
     :class:`~mcgyvr.gate.acceptance.AcceptanceReport`'s — a step that could not
@@ -122,7 +123,6 @@ class RepairOutcome:
     """
 
     repaired: tuple[str, ...] = ()
-    content: Mapping[str, str] = field(default_factory=dict)
     environment_issues: tuple[str, ...] = ()
 
     @property
@@ -145,10 +145,10 @@ def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutco
     running the tools after it means they see the file the re-run gate will see
     and the repair never leaves behind a line it added but did not tidy.
 
-    The outcome carries the bytes left on disk as well as the paths, because the
-    caller's next move is to re-run the gate on this tree and then hand *content*
-    to :func:`mcgyvr.deliver.deliver` — and the content it was holding when it
-    called this is no longer the content the gate is about to judge.
+    The outcome carries the paths and not the bytes. The caller's next move is to
+    re-run the gate on this tree, and what it delivers is minted from the tree
+    there — the string it was holding when it called this stopped being the
+    change the moment the formatter ran.
     """
     issues: list[str] = []
     try:
@@ -174,11 +174,6 @@ def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutco
     after = {path: _read_bytes(repo / path) for path in paths}
     return RepairOutcome(
         repaired=tuple(path for path in paths if after[path] != before[path]),
-        content={
-            path: raw.decode("utf-8", "surrogateescape")
-            for path, raw in after.items()
-            if raw is not None
-        },
         environment_issues=tuple(issues),
     )
 

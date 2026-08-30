@@ -134,7 +134,11 @@ def test_every_sample_of_one_attempt_is_gated_on_its_own(
     assert verdicts == [False, True, False], (
         f"each sample must be judged on what it did; got {verdicts}"
     )
-    assert result.content == _marked(1)
+    assert result.winner.content == _marked(1)
+    assert result.winner.accepted and result.winner.intact, (
+        "the winner arrives bound to the verdict reached on it, so a caller "
+        "reading these bytes is reading what the middle gate run read"
+    )
 
 
 def test_the_winner_is_chosen_by_the_gate_and_not_by_the_model(
@@ -156,9 +160,13 @@ def test_the_winner_is_chosen_by_the_gate_and_not_by_the_model(
         gate=_gate_on_tree("strip"),
     )
 
-    assert result.content == WORKING, (
+    assert result.winner.content == WORKING, (
         "the sample that announced its own correctness was preferred to the one that "
         "passed the gate"
+    )
+    assert result.winner.accepted, (
+        "and the verdict bound to the winning bytes is the accepting one, not the "
+        "boast's"
     )
     assert sum(gate.accepted for gate in result.gates) == 1
 
@@ -217,4 +225,7 @@ def test_asking_for_one_sample_is_what_mcgyvr_does_today(
 
     assert len(result.gates) == 1, f"the default asked for {len(result.gates)} samples"
     assert result.gates[0].accepted
-    assert result.content == WORKING
+    assert result.winner.content == WORKING
+    assert result.winner is result.draws[0], (
+        "one draw makes it the winner, and the binding is that draw's"
+    )

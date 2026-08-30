@@ -63,6 +63,7 @@ import pytest
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import best_of
 from mcgyvr.contract import Contract, loads
+from mcgyvr.deliver import Accepted
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import GateResult
 from mcgyvr.repair import RepairOutcome
@@ -180,8 +181,8 @@ def test_the_winning_draw_arrives_bound_to_the_tree_it_was_judged_in(
     assert picked.chosen == 1, "the middle draw must be the winner for this to bite"
     assert picked.accepted
 
-    bound = picked.accepted_draw
-    assert bound is not None, (
+    bound = picked.winner
+    assert isinstance(bound, Accepted), (
         "the winner must arrive bound to the bytes its verdict was reached on; "
         "a bare `str` is a claim about a tree that has already been reset"
     )

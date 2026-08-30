@@ -354,7 +354,11 @@ def test_best_of_gates_the_bytes_it_returns(repo: Path, contract: Contract) -> N
     assert seen == [content.encode("utf-8", "surrogateescape")], (
         "the bytes the gate judged are not the bytes the draw was made of"
     )
-    assert result.content == content, "the winner is not the draw that was gated"
+    assert result.winner.content == content, "the winner is not the draw that was gated"
+    assert result.winner.intact, (
+        "and the digest bound to it was taken off the same surrogate-escaped "
+        "bytes, so a caller carrying this pair can still tell them apart"
+    )
 
 
 # --------------------------------------------------------------------------

@@ -24,13 +24,17 @@ name suggests it would. Every other rejection comes back byte-identical on
 purpose: rewriting it would hand the next attempt a file the worker never wrote,
 and every retry note about "your change" would then be about somebody else's.
 
-**Cleaning a rejection does not overturn it.** The gate short-circuits — its
-typecheck, semantic and acceptance rungs run only while nothing has rejected yet
-— so behind a format finding the contract's own suite never ran at all.
-:attr:`Cleanup.accepted` is therefore the gate's own verdict carried through
-unchanged, and :attr:`Cleanup.regate` is what says the reason for the rejection
-is no longer in the bytes. The caller re-runs the gate; nothing here reports a
-bar that nobody applied.
+**A cleanup overturns nothing, and it settles nothing either.** The gate
+short-circuits — its typecheck, semantic and acceptance rungs run only while
+nothing has rejected yet — so behind a format finding the contract's own suite
+never ran at all. :attr:`Cleanup.accepted` is therefore the gate's own verdict
+carried through unchanged, and it is a verdict about the bytes that went *in*.
+:attr:`Cleanup.regate` is true whenever bytes came out different, acceptance or
+rejection alike: what makes a verdict true is the file it was computed over, and
+this module replaced that file. The caller re-runs the gate. Nothing here
+reports a bar that nobody applied, and nothing here lets a file travel onward
+under a verdict about a different one — which is the port's "nothing owns the
+bytes" at this lever.
 
 **The spend is zero, structurally.** :attr:`Cleanup.tokens_spent` is a property
 returning ``0`` rather than a field anything could set, and this module imports
@@ -104,6 +108,14 @@ class Cleanup:
     ``content`` is what the caller carries forward — always the input bytes
     unless something actually rewrote them, so a caller can use this result
     without first asking which branch it came from.
+
+    Where they *were* rewritten, they are bytes no rung has read:
+    :attr:`accepted` is the verdict the gate reached over what went in, and this
+    is what came out. :attr:`regate` is how that is said, and it is the reason
+    these bytes are allowed to travel as a plain ``str`` at all — a caller
+    cannot get them into a tree that anything commits without running the gate
+    again, and what it delivers is minted there
+    (:meth:`mcgyvr.deliver.Accepted.read`).
     """
 
     content: str
@@ -126,18 +138,28 @@ class Cleanup:
     def regate(self) -> bool:
         """Whether the verdict behind this result is now stale.
 
-        True exactly when a rejected change was cleaned, which happens only
-        where every finding was the formatter's own: the reason for the
-        rejection is no longer in the bytes, and no rung has said so yet.
-        Behind that rejection the gate also stopped before its typecheck,
-        semantic and acceptance rungs, so what is owed is a whole gate run and
-        not a re-read of this one.
+        True whenever the bytes were rewritten, which is the only thing that can
+        make a verdict stale: what makes one true is the file it was computed
+        over, and the formatter replaced that file. This used to read
+        ``cleaned and not accepted`` — stale only where the *rejection* had to
+        be cleared — which left the worse branch silent. A rejected change gets
+        re-run because nothing can ship under a rejection anyway; an accepted
+        one was carried onward under a verdict reached on bytes the formatter
+        had already replaced, and no rung anywhere had read what the caller was
+        holding.
+
+        Behind a rejection the gate also stopped before its typecheck, semantic
+        and acceptance rungs, so there what is owed is a whole gate run rather
+        than a re-read of this one. After an acceptance every rung did run, and
+        the re-run is the cheap confirmation that a deterministic reformat
+        changed nothing they cared about — which costs a subprocess and no
+        tokens, the same trade this module already makes against a dispatch.
 
         Derived rather than stored, for the reason :attr:`tokens_spent` is: it
         is a fact about what happened, and a field would be somewhere to write
         a more convenient answer.
         """
-        return self.cleaned and not self.accepted
+        return self.cleaned
 
 
 def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
@@ -281,12 +303,17 @@ def tidy(
             # path", which are the same fact to a caller: nothing to write.
             detail=f"nothing to rewrite in {target}; it came back unchanged.",
         )
-    settled = "." if result.accepted else ", and the gate wants re-running over it."
     return Cleanup(
         content=tidied,
         accepted=result.accepted,
         cleaned=True,
-        detail=f"{target} was reformatted deterministically, at no model cost{settled}",
+        # Unconditional: the sentence used to end with a full stop when the gate
+        # had accepted, which told the operator a rewritten file was settled.
+        # The verdict in hand is about the bytes that went in either way.
+        detail=(
+            f"{target} was reformatted deterministically, at no model cost, "
+            f"and the gate wants re-running over it."
+        ),
     )
 
 
