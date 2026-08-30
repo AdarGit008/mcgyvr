@@ -106,6 +106,17 @@ escalates to would be whichever machine happened to be quiet, which inverts the
 one thing a ladder asserts, each rung being measurably better than the one
 below it, and which ``docs/config-reference.md`` calls actively harmful.
 
+**A start can also be handed in, already paid for.** :func:`climb`'s ``claimed``
+takes the name of a rung whose reservation the caller holds, and that rung goes
+first without being reserved again. It exists because the *entry* decision —
+which family an ``idle`` ladder enters, which is #43's — is priced across
+families and must commit to what it prices: naming a rung reserves nothing, so
+without this every member of a batch reads the same one free api slot and each
+pays for it. It changes nothing else. The claimed rung is popped out of the
+middle of the walk and every other rung stays where it was, because a start is a
+scheduling decision and a deletion is a spend one — the same rule, stated the
+same way, for a start chosen by load.
+
 That walk does pass back through the rungs the start skipped over, because they
 are the cheap end of the price order, and that is deliberate. Trying a rung a
 dearer one has already failed at looks like a descent, and the alternative was
@@ -871,7 +882,30 @@ def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity) -> int:
     return 0
 
 
-def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> Step:
+def _standing(remaining: list[Step], claimed: str | None) -> int | None:
+    """Where ``claimed`` sits in ``remaining``, or ``None`` if it is not there.
+
+    A name rather than a step, because the caller holding the reservation is one
+    module up and holds a rung name — a :class:`Step` is built by :func:`plan`
+    and a caller that had to hand one back would be handing back a thing it did
+    not make. ``None`` for a name this plan does not offer is an ordinary
+    answer and :func:`_claim_next` treats it as one; see :func:`climb` for whose
+    reservation that leaves and why it cannot be given back from here.
+    """
+    if claimed is None:
+        return None
+    for index, step in enumerate(remaining):
+        if step.rung.name == claimed:
+            return index
+    return None
+
+
+def _claim_next(
+    remaining: list[Step],
+    mode: Fanout,
+    capacity: Capacity | None,
+    claimed: str | None = None,
+) -> Step:
     """Take the next step off ``remaining`` and count it as chosen.
 
     Choosing and counting are one decision and so happen inside one
@@ -896,14 +930,43 @@ def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) 
     part that was really about ladders — the *start* is chosen once, and the
     walk after it is price order rather than a fresh load reading.
 
+    **``claimed`` is a rung the caller already reserved, and it is taken as it
+    stands.** It is popped out of wherever it sits and *not* claimed again —
+    the reservation exists — so the pairing over the whole climb stays one
+    reserve and one release, :func:`climb`'s ``finally`` giving back the
+    caller's. It is how a decision made one module up, inside its own
+    ``deciding`` section, arrives here intact: :func:`mcgyvr.escalate._idle_entry`
+    prices the families against one another and reserves what it names in the
+    same breath, and without a way to hand that reservation down the two would
+    be a read and then a separate commitment, with every member of a batch free
+    to read the same one free api slot in between and each pay for it.
+
+    **And it drops nothing.** The rungs cheaper than the claimed one stay on
+    ``remaining`` exactly as they do for a rung chosen by load, for exactly the
+    same reason: a start is a scheduling decision and a deletion is a spend one.
+    An earlier note in ``escalate`` proposed ``del remaining[:index]`` here and
+    it was wrong in the way ``869bf2a1`` was wrong — a shortened walk leaves
+    escalation budget unspent, and leftover budget funds a move into a dearer
+    family. Popping the claimed rung out of the middle honours the invariant;
+    deleting what is below it does not.
+
+    A ``claimed`` name this plan does not offer selects normally, as though
+    nothing had been claimed — see :func:`climb` for why that leaves the
+    reservation with the caller.
+
     Without a capacity there is nothing to read and nothing to count, so the
     walk is the plan's own order and ``climb(capacity=None)`` counts nothing —
     which is intended: the reservations exist to spread one batch across rigs,
-    and a climb with no capacity is not in a batch.
+    and a climb with no capacity is not in a batch. A ``claimed`` name is
+    ignored there too, and can only be a mistake: a reservation is a claim
+    against a capacity, so a caller without one has nothing to hand over.
     """
     if capacity is None:
         return remaining.pop(0)
     with capacity.deciding():
+        held = _standing(remaining, claimed)
+        if held is not None:
+            return remaining.pop(held)
         step = remaining.pop(_next_index(remaining, mode, capacity))
         if step.machine is not None:
             step.machine.claim(capacity)
@@ -926,6 +989,7 @@ def climb(
     *,
     capacity: Capacity | None = None,
     permit: Callable[[Step, int], bool] | None = None,
+    claimed: str | None = None,
 ) -> Accepted | Exhausted:
     """Try each rung of ``plan`` in turn until one passes or the family is spent.
 
@@ -975,6 +1039,41 @@ def climb(
     refused. Being passed over is still not a verdict: a rung the climb never
     reaches, because something below it passed, has no history entry and cannot
     fund anything.
+
+    ``claimed`` names a rung whose reservation the caller **already holds**, and
+    it is what lets a choice made across families be one decision rather than
+    two. :func:`mcgyvr.escalate.escalate` prices every family's rungs against
+    one another inside a single :meth:`~mcgyvr.capacity.Capacity.deciding`
+    section and reserves the rung it lands on before leaving it; handing the
+    name down here is how that reservation becomes the one this climb walks on,
+    instead of being read by one member of a batch and paid for by all of them.
+    The rung goes first, whatever the mode and whatever the loads now say — the
+    caller decided, under a lock, and re-deciding here would reopen the window
+    the reservation closed — and it is taken *without being claimed again*, so
+    the caller's reservation and this climb's ``finally`` release pair off
+    exactly once. Every other rung of the plan is walked after it in the plan's
+    own price order, the claimed rung being popped out of the middle and nothing
+    else moved: the budget, the history and the exhaustion are the plan's, and a
+    handed-down start is a start like any other.
+
+    **Only for the first step.** ``claimed`` is consumed by the rung it names
+    and every later rung claims its own, which is the same shape as the fan-out
+    mode being asked once: a caller holds one reservation, so there is exactly
+    one to hand over.
+
+    **A ``claimed`` name this plan does not offer** — an ascent rebuilt
+    differently, a stale name — selects normally, as though none had been given.
+    The reservation behind it then stays the *caller's* to release, and that is
+    not a division of labour this function could choose otherwise: a
+    :class:`Machine` is built by :func:`plan` from the rungs of one family, so a
+    name that is not in the plan has no machine here to release, and #20's rule
+    means nothing above the execution seam holds the source name that would be
+    the alternative. The same applies to an empty plan, which returns
+    :attr:`Exhaustion.NO_RUNG` before any step is taken. So a caller that
+    reserves must be able to give it back on every path that does not reach a
+    climb that can take it, which is what
+    :func:`mcgyvr.escalate.escalate` does in a ``finally``; a leaked reservation
+    narrows a source for the life of the process.
     """
     history: list[Attempted] = []
     if not plan.steps:
@@ -1009,9 +1108,14 @@ def climb(
     # it per rung would order the whole walk by load, and a walk ordered by load
     # has no ladder left in it — see :func:`_next_index`.
     choosing = plan.fanout
+    # The caller's reservation is handed over once, to the rung it was taken
+    # for, and every rung after it claims its own — one reservation, one
+    # hand-over, one release.
+    holding = claimed
     while remaining:
-        step = _claim_next(remaining, choosing, capacity)
+        step = _claim_next(remaining, choosing, capacity, holding)
         choosing = Fanout.NONE
+        holding = None
         try:
             for number in range(1, step.attempts + 1):
                 if permit is not None and not permit(step, number):

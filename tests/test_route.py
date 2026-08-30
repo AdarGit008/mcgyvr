@@ -1476,6 +1476,157 @@ def test_a_step_bound_to_no_machine_is_taken_in_price_order(lock_dir: None) -> N
     assert attempts.rungs == ["local_qwen-7b"]
 
 
+# --- a rung the caller already holds ---------------------------------------
+
+
+def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
+    lock_dir: None,
+) -> None:
+    """The handed-down reservation: one reserve, one release, and no re-claim.
+
+    The caller — :func:`mcgyvr.escalate.escalate`, in the only code that passes
+    this — reserved ``local_14b`` inside the section that priced the families
+    against one another, which is what makes the entry decision a decision
+    rather than a reading every member of a batch can act on at once. Handing
+    the name down is how that reservation becomes this climb's start, and the
+    load read from inside the first attempt is the whole assertion: **1**, not
+    2. A climb that claimed it again would count two attempts for one dispatch,
+    and a source narrowed by a phantom reservation sends the next member of the
+    batch somewhere dearer for a slot that is free.
+
+    The rung is also full — its own single slot is what the caller's
+    reservation spoke for — so a climb that re-read the loads would have started
+    somewhere else. The caller decided, under a lock; re-deciding here would
+    reopen the window the reservation closed.
+    """
+    config, pool = mapped(with_fanout(UNEVEN, "idle"))
+    capacity = Capacity.of(config)
+    seen: list[tuple[str, int]] = []
+
+    def attempt(this: Try) -> Result[str]:
+        seen.append((this.rung.name, capacity.load("medium")))
+        return Result.failed("the gate rejected it")
+
+    capacity.reserve("medium")
+    spent = exhausted(
+        climb(
+            plan(config, pool, contract()),
+            attempt,
+            capacity=capacity,
+            claimed="local_14b",
+        )
+    )
+
+    assert seen[0] == ("local_14b", 1), "the caller's reservation, and only it"
+    assert [rung for rung, _ in seen] == ["local_14b", "local_7b", "local_32b"]
+    assert spent.reason is Exhaustion.RUNGS_SPENT
+    assert capacity.load("medium") == 0, "the reservation was given back"
+
+
+def test_a_claimed_first_rung_drops_no_rung_and_spends_what_the_default_spends(
+    lock_dir: None,
+) -> None:
+    """A start handed in is still a start: nothing below it is discarded.
+
+    The same ladder twice, once entered at its middle rung with a reservation
+    already held and once walked plainly. The order differs and nothing else
+    does — the same rungs run, for the same attempts, and the family reaches the
+    same exhaustion. That equality is the escalation budget:
+    :func:`mcgyvr.escalate.permit` charges a move per rung actually spent, so a
+    walk shortened by the rungs it started above would run out of family early
+    with budget nobody had paid for, and that leftover move is what once bought
+    an api call the default refused. Popping the claimed rung out of the middle
+    honours the rule; deleting what is below it does not.
+    """
+    config, pool = mapped(with_fanout(UNEVEN, "idle"))
+    capacity = Capacity.of(config)
+    handed = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+    plain, plain_pool = mapped(UNEVEN)
+    walked = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+
+    capacity.reserve("medium")
+    with_claim = exhausted(
+        climb(
+            plan(config, pool, contract()),
+            handed,
+            capacity=capacity,
+            claimed="local_14b",
+        )
+    )
+    without = exhausted(
+        climb(plan(plain, plain_pool, contract()), walked, capacity=Capacity.of(plain))
+    )
+
+    assert handed.rungs == ["local_14b", "local_7b", "local_32b"], "middle first"
+    assert walked.rungs == ["local_7b", "local_14b", "local_32b"], "price order"
+    assert sorted(handed.rungs) == sorted(walked.rungs), "every rung, both ways"
+    assert with_claim.attempts_spent == without.attempts_spent == 3
+    assert with_claim.reason is without.reason is Exhaustion.RUNGS_SPENT
+
+
+def test_a_handed_over_reservation_is_given_back_exactly_once(lock_dir: None) -> None:
+    """Once, and not twice: a release is a decrement of a shared count.
+
+    The caller holds *two* reservations on the machine ``local_14b`` runs on
+    and hands over one of them. A climb that released both would be giving back
+    a reservation somebody else is still relying on — the count is per source,
+    not per caller — and a source that reads emptier than it is sends the next
+    dispatch at a rig with nothing free. One is left standing, which is the only
+    way to say "exactly one" about a counter.
+    """
+    config, pool = mapped(UNEVEN)
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    capacity.reserve("medium")
+    capacity.reserve("medium")
+    climb(
+        plan(config, pool, contract()),
+        attempts,
+        capacity=capacity,
+        claimed="local_14b",
+    )
+
+    assert attempts.rungs == ["local_14b"]
+    assert capacity.load("medium") == 1, "one given back, and only one"
+
+
+def test_a_claimed_rung_this_plan_does_not_offer_selects_as_though_none_was_given(
+    lock_dir: None,
+) -> None:
+    """A stale name is an ordinary answer, and the reservation stays the caller's.
+
+    An ascent rebuilt differently, or a name from a plan that is not this one:
+    the climb cannot take a rung it has not got, so it chooses the way it always
+    would. What it also cannot do is give the reservation back — a
+    :class:`~mcgyvr.route.Machine` is built from the rungs of one family, so a
+    name that is not in the plan has no handle here to release with, and #20's
+    rule keeps the source name from being the alternative. So the count is
+    untouched by the climb and the obligation is still the caller's, which is
+    what :func:`mcgyvr.escalate.escalate` discharges in a ``finally``. A leak
+    would show up as this source reading busy forever.
+    """
+    config, pool = mapped(UNEVEN)
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+
+    capacity.reserve("medium")
+    spent = exhausted(
+        climb(
+            plan(config, pool, contract()),
+            attempts,
+            capacity=capacity,
+            claimed="local_ghost",
+        )
+    )
+
+    assert attempts.rungs == ["local_7b", "local_14b", "local_32b"], "price order"
+    assert spent.attempts_spent == 3, "no rung was dropped for a name nobody knows"
+    assert capacity.load("medium") == 1, "route gave back nothing it cannot name"
+    capacity.release("medium")
+    assert capacity.load("medium") == 0
+
+
 # --- the shapes callers depend on -----------------------------------------
 
 
