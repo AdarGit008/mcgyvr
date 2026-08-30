@@ -1293,6 +1293,60 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   so a ruff-less install rejects too, with 3.9's `_collections_abc.__all__`
   written out rather than introspected — the verdict is about the worker's file,
   not about mcgyvr's own interpreter.
+- **A rung that could not run does not get a commit.** `deliver._judged`
+  returned `GateResult.findings` and dropped `inconclusive`, but `accepted` is
+  `not findings and not inconclusive`, and ADR-0034 says a rung that ran and
+  cannot say what bar it applied rejects. So where `ruff` exited 2 — a malformed
+  `pyproject.toml`, a version mismatch, a crash — the commit-time gate recorded
+  an inconclusive rung, returned no findings, and the change was committed with
+  lint and format never applied and nothing on the `Delivery` saying so. That is
+  the one path (`mcgyvr run --commit`, `pending.resume` on a bare `str`) where
+  delivery's own gate run is the only gate, and it defeated the module's stated
+  floor: nothing a caller says can make un-judged bytes into a commit.
+- **A fixer that fixed what it could is not an error.** `mcgyvr run` treated
+  every non-zero tool exit as fatal and returned before the gate was reached.
+  `ruff check --fix` exits 1 whenever diagnostics remain after fixing, which is
+  the ordinary outcome for `lint_fix` — so a contract whose autofixes landed
+  exactly as its catalog guarantee describes was reported as an error, never
+  gated and never committed. The test is now the exit code against the set the
+  invocation reports under, and that set comes from the *task type*: `(0, 1)`
+  for `lint_fix` and `import_sort`, whose guarantees put an unfixable diagnostic
+  out of scope in as many words, and `(0,)` for `format`, whose "byte-identical
+  to what the project's own formatter produces" leaves no room for a file the
+  formatter declined to write. Everything else stays fatal — a fixer that exits
+  2 could not load its config, so it applied the guarantee to nothing and the
+  gate reading that same config is broken the same way. The residue is printed
+  rather than swallowed.
+- **A retry note is this attempt's account of this attempt.** `worker_attempt`
+  only ever wrote a note, never cleared one, so an attempt that produced none —
+  an unreadable reply, or a reviewer-side failure — left the previous attempt's
+  note standing and attempt 3 was prompted with attempt 1's gate findings, which
+  the worker had already been asked to fix once. `tools/missions/attempt.py` was
+  the correct spelling of the same loop; the two now agree.
+- **The mission runner read a delivered file back the way nothing wrote it.**
+  `tools/missions/run.py` decoded strictly immediately after `deliver`
+  committed, while delivery deliberately writes through `surrogateescape` and
+  refuses only lone surrogates. A target holding a byte that is not valid UTF-8
+  committed and then raised `UnicodeDecodeError` — after the commit, before the
+  record was written, which is exactly the failure the `DeliveryError` handler
+  twelve lines above exists to prevent.
+- **An append ends its lines the way the file does.** `scoped._appended` did
+  `source.rstrip("\n")`, which leaves the `\r` on a CRLF file, then joined LF
+  separators and an LF fragment onto it. The next formatter run normalised the
+  whole file, so a one-definition append was reported as having rewritten every
+  line. `repair._terminator` is now `mcgyvr.lines.terminator` and both callers
+  share it, rather than a second definition of where a line ends — which
+  `lines.py`'s own docstring names as a defect that has already cost this
+  project twice. The splice path has the same shape and is deliberately left
+  alone: its bytes are a pinned guarantee, and a guard test now says so.
+- **The pinned fallback kept the target's envelope rule.** `parse_pinned`'s
+  not-honoured fallback called `parse_reply` without `target`, and with no
+  target any `{"content": "..."}` object in the fence is unwrapped — so a
+  contract whose target is a `.json` file that legitimately *is* such an object
+  had it silently truncated to that field. The structural fence read is now
+  `_fenced`, and `parse_pinned` applies both rules itself: whether to open the
+  envelope is decided by whether the object is bound for a language the gate
+  owns, and #174 still runs last, on the file rather than on the envelope.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable

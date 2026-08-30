@@ -9,7 +9,7 @@
 > | Finding | State |
 > | --- | --- |
 > | B1-B9, and 11 more found reproducing them | Fixed — `16a31cbc`, PR #381 |
-> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`, PR #383. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is built and tested and is not yet reachable from a flag. |
+> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`, PR #383. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is reachable from `mcgyvr run` as of the reach work below. |
 > | **E** · eight boundaries held by nothing | Closed for the five that were breached, PR #383 — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
 > | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
 > | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
@@ -18,6 +18,7 @@
 > | **§4** · `delivery.mode` promised three behaviours and had one | Fixed — `branch` writes a `mcgyvr/<contract-id>` ref without moving HEAD, `none` commits to the checked-out branch, `pull_request` is retired at load. |
 > | **§4** · `param-mutation` is order-blind | Fixed — the walk is in execution order and a branch merge is a union, so a rebind defends only where no path skips it. `contract_text` is threaded from `Contract.prose` and the stand-down is reachable. |
 > | **§4** · `UP035` demoted wholesale | Fixed — the demotion is withdrawn per line, not per code. An AST family over `ImportFrom` naming `collections` rejects on `structure`, so a ruff-less install rejects too; the `typing` half stays demoted. |
+> | **Reach** · three levers built against callers nobody had written | Closed — `mcgyvr run` climbs the ladder behind one new `--config` flag (no `--rung`: `starts_on`, `ascent`, `plan` and the budgets already settle that), `best_of` draws every attempt with `breadth.draws` defaulting to 1, and `tidy` sits between the gate and `judge` behind `cleanup.enabled: false`, honouring `regate` with a full re-gate and a fresh `Accepted.read`. |
 > | §4's remaining three items, and the ~48 major | Open — `max_waves`, the cooldown lever, and the task-catalog digest dependency. |
 >
 > **Where to start next.** §6's order of work is spent, and so are four of §4's
@@ -33,8 +34,41 @@
 > contract digest identity now depending on `data/task-catalog.json` — plus the
 > ~48 major.
 >
-> Three findings the fixes themselves surfaced, each load-bearing in a way it
-> was not before:
+> Wiring the three unreached levers is what turned up the next block of work,
+> which is the point of wiring a lever built against a caller nobody had
+> written:
+>
+> * **`consensus.best_of`'s `sample: Callable[[int], str]` cannot say a draw
+>   produced nothing usable**, and an unreadable model reply — truncated, prose
+>   instead of a fenced block, a refusal — is the common case rather than the
+>   exceptional one. The signature offers only two answers and both are wrong:
+>   fabricate a string, which is then gated and reported as a candidate the gate
+>   rejected when the reply was never readable, or raise out and discard the
+>   verdicts of every draw already gated. The second shipped, because it keeps
+>   the single-draw behaviour exact and is honest about what happened — but at
+>   `n > 1` it loses real work, since draw 0 can pass the gate and be thrown away
+>   because draw 1 came back truncated. The fix is a sampler that can return "no
+>   candidate", so an unusable draw scores last instead of ending the attempt.
+> * **`best_of`'s `repo` and `sandbox` are mutually exclusive and the signature
+>   does not say so**; a caller mid-attempt, the exact caller the docstring says
+>   should pass its own sandbox, must still supply a dead `repo`.
+> * **`best_of`'s `gate: Callable[[Path], GateResult]` promises the workspace is
+>   enough to gate**, and in this project it is not: acceptance commands are
+>   arbitrary shell that must run in a sandbox (ADR-0005), so the real caller
+>   closes over the sandbox and discards the `Path` it is handed.
+> * **`worker_attempt`'s `verifier` parameter still has no production caller.**
+>   `mcgyvr run` passes `None`, so every ladder acceptance is labelled
+>   `unverified` even on an install with `verifier.enabled: true` and a bound
+>   role. `verify.reviewer_for` exists and is unwired — a fourth gap of the same
+>   shape as the three just closed.
+> * **`mcgyvr run` never consults `delivery.mode`**, deliberately: `--commit` is
+>   a person saying commit this, in the tree they are looking at. That keeps one
+>   flag meaning one thing, and it means an operator who set
+>   `delivery.mode: branch` does not get a branch from `run`. Worth a deliberate
+>   decision rather than leaving it implicit.
+>
+> Three more the earlier fixes surfaced, each load-bearing in a way it was not
+> before:
 >
 > * `_INPLACE_WORDS` is a substring match, so a contract saying *"do not mutate
 >   the caller's list"* stands the mutation rung down for the whole file. That

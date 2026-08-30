@@ -66,9 +66,14 @@ with no reason cannot tell "refused" from "nothing to do":
   them out on the grounds that re-litigating them would drop an accepted change
   over a trailing space, which is only true if an accepted change is what
   arrived. It is not checkable from here, and the premise is false anyway — the
-  gate rejects on ``lint`` and ``format`` (they are findings, not observations),
-  so bytes that passed a gate pass these too, and bytes that do not never
-  passed one. The expensive rungs (acceptance commands, semantic resolution)
+  gate rejects on ``lint`` and ``format``, so bytes that passed a gate pass
+  these too, and bytes that do not never passed one. With one carve-out that is
+  the gate's and not delivery's: a diagnostic an adapter stamps ``style`` is
+  routed to ``observations`` and blocks nothing, here or anywhere. That is the
+  demotion :mod:`mcgyvr.gate.typecheck` argues for, and delivery inherits it
+  rather than re-deciding it — which is also why that demotion is withdrawn per
+  *line* and not per code, so a line that cannot be imported rejects at both
+  ends. The expensive rungs (acceptance commands, semantic resolution)
   need a sandbox delivery is not given, which is exactly the part an
   :class:`Accepted` carries in from where it could be run. What re-runs cheaply
   and catches what no rung could is *identity*: a substitution parses and lints,
