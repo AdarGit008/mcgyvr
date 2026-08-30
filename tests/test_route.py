@@ -19,6 +19,15 @@ one contract against two configs that differ only in a rung's ``attempts`` and
 asserting the number of attempts changes with it — a test that asserted the
 default of 1 alone would pass just as well against a hard-coded 1.
 
+*Fan-out breaks a tie and never reorders the ladder* is the fourth statement,
+added with ``ladder.fanout``, and it is held from both sides: a busy cheapest
+rung is still taken under ``none`` and under ``idle`` (which is another
+module's mode), the free peer is taken under ``full``, an idle ladder gives the
+same rung under every mode, and a plan's order is asserted to be price order
+whatever the mode and whatever is busy. Load is made real with
+:meth:`~mcgyvr.capacity.Capacity.hold` rather than with a stub, because the
+number under test is the one a real dispatch moves.
+
 Nothing here dispatches. The attempt function is a recorder, which is the whole
 reason :func:`~mcgyvr.route.climb` takes one: every rule in the module is about
 sequencing and budgets, and a test that needed a model to check a budget would
@@ -45,6 +54,7 @@ from mcgyvr.route import (
     Attempted,
     Exhausted,
     Exhaustion,
+    Fanout,
     Plan,
     Result,
     RouteError,
@@ -115,6 +125,23 @@ limits:
   attempts: 5
 """
 
+SHARED = """
+version: 1
+sources:
+  workstation:
+    base_url: http://localhost:11434
+    api: ollama
+    max_parallel: 2
+ladder:
+  tiers:
+    - name: local_qwen-7b
+      source: workstation
+      model: qwen2.5-coder:7b
+    - name: local_qwen-14b
+      source: workstation
+      model: qwen2.5-coder:14b
+"""
+
 DETERMINISTIC_CONTRACT = """
 id: tidy
 task_type: format
@@ -135,9 +162,26 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
 
 
+@pytest.fixture
+def lock_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slot files are host-wide by design (#185); tests must not share them."""
+    monkeypatch.setattr(
+        "mcgyvr.capacity._default_lock_dir", lambda: tmp_path / "capacity-locks"
+    )
+
+
 def mapped(text: str) -> tuple[Config, SourceMap]:
     config = parse(text)
     return config, source_map(config)
+
+
+def with_fanout(text: str, mode: str) -> str:
+    """The same config with ``ladder.fanout`` set, and nothing else moved.
+
+    One substituted line, so that no assertion about a mode can be quietly
+    explained by a config that also drifted somewhere else.
+    """
+    return text.replace("ladder:\n", f"ladder:\n  fanout: {mode}\n")
 
 
 def with_attempts(text: str, rung: str, attempts: int) -> str:
@@ -621,6 +665,217 @@ def test_a_climb_with_no_capacity_says_so_rather_than_inventing_one() -> None:
     climb(plan(config, pool, contract()), attempts)
 
     assert attempts.seen[0].capacity is None
+
+
+# --- fan-out decides which rung is first, never what order they are in ------
+
+
+def test_a_plan_carries_the_configured_fanout_mode() -> None:
+    """``climb`` has no config, so the mode has to travel on the plan."""
+    default, default_pool = mapped(KEYLESS)
+    spread, spread_pool = mapped(with_fanout(KEYLESS, "full"))
+
+    assert plan(default, default_pool, contract()).fanout is Fanout.NONE
+    assert plan(spread, spread_pool, contract()).fanout is Fanout.FULL
+
+
+def test_a_fanout_mode_nobody_declared_is_refused_rather_than_defaulted() -> None:
+    """The schema refuses one at parse; reaching here means a hand-built config,
+    and routing it as ``none`` would answer "spread this batch" by not doing."""
+    config, pool = mapped(KEYLESS)
+    sideways = replace(config, ladder=replace(config.ladder, fanout="sideways"))
+
+    with pytest.raises(RouteError, match="sideways"):
+        plan(sideways, pool, contract())
+
+
+def test_load_never_reorders_a_plan_under_any_mode(lock_dir: None) -> None:
+    """Price order is what a ladder means, and no mode may rewrite it — a plan
+    that put a busy rung last would be deciding that load outranks price."""
+    for mode in ("none", "idle", "full"):
+        config, pool = mapped(with_fanout(MIXED, mode))
+        capacity = Capacity.of(config)
+
+        with capacity.hold(pool.bind("local_qwen-7b")):
+            made = plan(config, pool, contract(), capacity=capacity)
+
+        assert made.rungs == ("local_qwen-7b", "local_qwen-14b"), mode
+
+
+def test_the_default_takes_the_cheapest_rung_however_busy_it_is(
+    lock_dir: None,
+) -> None:
+    """``none`` is today's behaviour and this is what keeps it byte for byte."""
+    config, pool = mapped(MIXED)
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_full_fanout_starts_on_the_free_peer_when_the_cheapest_rung_is_busy(
+    lock_dir: None,
+) -> None:
+    """The gap the knob exists for: a batch queues on one rung while a peer of
+    the same family sits idle, and widening ``max_parallel`` cannot fix it."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        landed = accepted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_qwen-14b"]
+    assert landed.rung == "local_qwen-14b"
+
+
+def test_full_fanout_on_an_idle_ladder_still_takes_the_cheapest_rung(
+    lock_dir: None,
+) -> None:
+    """A tie goes to price, so turning the knob on changes nothing until
+    something is actually busy."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_idle_is_not_this_modules_mode_and_reads_as_the_default_here(
+    lock_dir: None,
+) -> None:
+    """``idle`` may spill into a priced family, which crosses the boundary #24
+    draws; it is :func:`mcgyvr.escalate.ascent`'s and is carried, not acted on."""
+    config, pool = mapped(with_fanout(MIXED, "idle"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_full_fanout_without_a_capacity_keeps_price_order() -> None:
+    """There is no load to read without one, and inventing one is not routing."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    attempts = Recorder(Verdict.PASSED)
+
+    climb(plan(config, pool, contract()), attempts)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_full_fanout_still_walks_every_rung_when_the_first_one_fails(
+    lock_dir: None,
+) -> None:
+    """Fan-out changes which rung is tried first, not how many may be tried."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        spent = exhausted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_qwen-14b", "local_qwen-7b"]
+    assert spent.reason is Exhaustion.RUNGS_SPENT
+    assert spent.attempts_spent == 2
+
+
+def test_a_raising_attempt_stops_counting_against_the_rung_it_raised_on(
+    lock_dir: None,
+) -> None:
+    """A count that leaked would make a machine look busy to every later climb
+    in the process — and it would show as a batch avoiding a rung that is free."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    capacity = Capacity.of(config)
+
+    def explode(step: Try) -> Result[str]:
+        raise RuntimeError("the socket died mid-dispatch")
+
+    with pytest.raises(RuntimeError):
+        climb(plan(config, pool, contract()), explode, capacity=capacity)
+
+    after = Recorder(Verdict.PASSED)
+    climb(plan(config, pool, contract()), after, capacity=capacity)
+
+    assert after.rungs == ["local_qwen-7b"]
+
+
+def test_a_busy_rung_is_passed_over_and_never_recorded_as_having_failed(
+    lock_dir: None,
+) -> None:
+    """Busy is a queue, not a verdict. Escalation is funded by failures, so a
+    rung that was skipped for a free peer must leave no mark that reads as one."""
+    config, pool = mapped(with_fanout(MIXED, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        landed = accepted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert [entry.rung for entry in landed.history] == ["local_qwen-14b"]
+    assert all(entry.verdict is Verdict.PASSED for entry in landed.history)
+
+
+def test_two_rungs_on_one_machine_are_one_queue() -> None:
+    """Load is a property of the box. Two names for one machine that counted
+    separately would let a fan-out spread a batch across a box it never left."""
+    config, pool = mapped(SHARED)
+
+    made = plan(config, pool, contract())
+
+    assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
+    assert made.steps[0].machine is made.steps[1].machine
+
+
+def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
+    lock_dir: None,
+) -> None:
+    """#20 at this seam: the plan carries the question, never the box's name."""
+    config, pool = mapped(MIXED)
+    capacity = Capacity.of(config)
+
+    made = plan(config, pool, contract())
+    machine = made.steps[0].machine
+    assert machine is not None
+
+    rendered = repr(made)
+    for where in ("workstation", "spare", "localhost", "192.168.1.20"):
+        assert where not in rendered
+    assert machine.load(capacity) == 0
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        assert machine.load(capacity) == 1
+
+
+def test_a_step_bound_to_no_machine_is_taken_in_price_order(lock_dir: None) -> None:
+    """A hand-built plan names no machine, so there is no load to order by, and
+    ordering by the ones that could be read would order by nothing at all."""
+    config, pool = mapped(MIXED)
+    capacity = Capacity.of(config)
+    made = plan(config, pool, contract())
+    bare = Plan(
+        family=LOCAL,
+        steps=tuple(Step(step.rung, step.attempts) for step in made.steps),
+        fanout=Fanout.FULL,
+    )
+    attempts = Recorder(Verdict.PASSED)
+
+    with capacity.hold(pool.bind("local_qwen-7b")):
+        climb(bare, attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_qwen-7b"]
 
 
 # --- the shapes callers depend on -----------------------------------------

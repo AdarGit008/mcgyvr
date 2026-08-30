@@ -301,17 +301,6 @@ def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - the width is whatever the setup says, not what "
-        "the config guesses. Red until a source that can report its own "
-        "parallel width is bounded by the reported number: there is no probe "
-        "for it today, so `Capacity.of` takes no probe and this raises rather "
-        "than asserts. llama.cpp answers it on `GET /slots` and `/props."
-        "total_slots`; that is the backend this covers"
-    ),
-)
 def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> None:
     """The declared number is a guess; a reported one is a fact, and it wins.
 
@@ -324,23 +313,12 @@ def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> Non
     config, _ = mapped()
     reported = {"srv1": 4, "srv2": 4, "vendor": 4}
 
-    capacity = Capacity.of(config, probe=_ReportingProbe(reported))  # type: ignore[call-arg]  # red: Capacity.of takes no probe yet
+    capacity = Capacity.of(config, probe=_ReportingProbe(reported))
 
     assert capacity.limits["srv1"] == 4, "the config declared 2; the rig said 4"
     assert capacity.total == 12
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - a width that was confirmed and a width that was "
-        "assumed must not look alike. Red until an unreportable source keeps "
-        "its declared number and is marked unconfirmed. Probed 2026-08-29: "
-        "srv1 and srv2 both serve ollama 0.32.15, `/slots` answers 404, and "
-        "both units set OLLAMA_NUM_PARALLEL=0 (auto, decided per model at load "
-        "time), so this is the branch both of this project's rigs are in"
-    ),
-)
 def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_so() -> (
     None
 ):
@@ -356,24 +334,13 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
     config, _ = mapped()
 
     probe = _ReportingProbe({"srv1": None, "srv2": None})
-    capacity = Capacity.of(config, probe=probe)  # type: ignore[call-arg]  # red: no probe yet
+    capacity = Capacity.of(config, probe=probe)
 
     assert capacity.limits["srv1"] == 2, "the declaration stands when nothing answers"
-    assert capacity.confirmed("srv1") is False  # type: ignore[attr-defined]
-    assert capacity.confirmed("vendor") is False  # type: ignore[attr-defined]
+    assert capacity.confirmed("srv1") is False
+    assert capacity.confirmed("vendor") is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - CON-02's invisible queue becomes visible the "
-        "moment the rig can be asked. Red until a declared width the setup "
-        "contradicts is refused by name instead of enforced. `Capacity.hold` "
-        "already refuses an endpoint that disagrees with the enforced limit "
-        "('two answers to one question'); this is the same rule pointed at the "
-        "machine rather than at a stale config"
-    ),
-)
 def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
     None
 ):
@@ -388,7 +355,7 @@ def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced(
     config, _ = mapped()
 
     with pytest.raises(Exception, match=r"srv1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))  # type: ignore[call-arg]
+        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))
 
 
 class _ReportingProbe:
@@ -441,16 +408,6 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
     assert observer.peak_total == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - fan-out is `ladder.fanout`, default `none`. Red "
-        "at parse first (the key is not in LADDER_FIELDS yet), then red at the "
-        "rendezvous until `route.plan` reads `Capacity.in_use`: today it orders "
-        "rungs by price alone, so six contracts of one task type all take the "
-        "cheapest rung, queue two-wide on srv1 and never reach srv2"
-    ),
-)
 def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     key: None,
 ) -> None:
@@ -483,16 +440,6 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     assert observer.peak_total > max(observer.peak.values()), "together, not in series"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - load may break a tie and may never reorder the "
-        "price ladder. Red at parse until `ladder.fanout` exists, then red "
-        "until `plan` takes a capacity at all; written now because it is the "
-        "regression the fix invites, and a guard added after the fact guards "
-        "nothing"
-    ),
-)
 def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     """The constraint that keeps the fix from becoming an escalation change.
 
@@ -507,22 +454,11 @@ def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     config, pool = mapped(peers("full"))
     capacity = Capacity.of(config)
 
-    ordered = plan(config, pool, contract(), capacity=capacity)  # type: ignore[call-arg]
+    ordered = plan(config, pool, contract(), capacity=capacity)
 
     assert ordered.rungs == ("local_srv1", "local_srv2"), "price order, always"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - `idle` takes the cheapest rung AT OR ABOVE the "
-        "contract's floor that has a free slot; the floor is the only bound, so "
-        "a saturated local ladder spills into api rather than waiting. Red at "
-        "parse until `ladder.fanout` exists, then red until `ascent` takes a "
-        "capacity. `escalate.ascent` and not `route.plan` because the choice "
-        "crosses families and #24 forbids `route` from seeing past one"
-    ),
-)
 def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     key: None,
 ) -> None:
@@ -543,6 +479,6 @@ def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     capacity = Capacity.of(config)
 
     with saturated(capacity, pool, "local_srv1", "local_srv2"):
-        climbable = ascent(config, pool, contract(), capacity=capacity)  # type: ignore[call-arg]
+        climbable = ascent(config, pool, contract(), capacity=capacity)
 
-        assert climbable.next_free_rung == "api_big"  # type: ignore[attr-defined]
+        assert climbable.next_free_rung == "api_big"
