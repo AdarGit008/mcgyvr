@@ -143,7 +143,18 @@ class Gate:
         semantic: SemanticCheck | None = None,
         acceptance: Acceptance | None = None,
         typecheck: TypeCheck | None = None,
+        contract_text: str = "",
     ) -> GateResult:
+        """Judge one change set. ``contract_text`` is the contract's own prose.
+
+        Only one rung reads it — ``param-mutation``, which a contract can
+        order and therefore has to be able to stand down (see
+        :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`). It is
+        a plain string with an empty default because the gate must still reach
+        a verdict for a caller holding no contract, and that verdict is the
+        strict one: a rung that read an absent contract as permission would
+        stand down hardest exactly where the least is known.
+        """
         findings: list[Finding] = []
         observations: list[Finding] = []
 
@@ -172,7 +183,9 @@ class Gate:
         env_issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
         for adapter in self.adapters:
-            for item in self._run_adapter(adapter, changeset, env_issues, inconclusive):
+            for item in self._run_adapter(
+                adapter, changeset, env_issues, inconclusive, contract_text
+            ):
                 (observations if item.check == STYLE else findings).append(item)
 
         if typecheck is not None and not findings:
@@ -227,6 +240,7 @@ class Gate:
         changeset: ChangeSet,
         env_issues: list[str],
         inconclusive: list[InconclusiveRung],
+        contract_text: str = "",
     ) -> list[Finding]:
         repo = changeset.repo
         findings: list[Finding] = []
@@ -237,7 +251,9 @@ class Gate:
                 findings.extend(syntax)  # a file that can't parse is not linted
                 continue
             syntax_clean.append(change)
-            findings.extend(adapter.structural_checks(change, repo))
+            findings.extend(
+                adapter.structural_checks(change, repo, contract_text=contract_text)
+            )
 
         if not syntax_clean:
             return findings

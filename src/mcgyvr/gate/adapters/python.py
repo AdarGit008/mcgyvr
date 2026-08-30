@@ -68,7 +68,9 @@ class PythonAdapter(LanguageAdapter):
             return [_not_utf8(change.path, source, exc)]
         return []
 
-    def structural_checks(self, change: FileChange, repo: Path) -> list[Finding]:
+    def structural_checks(
+        self, change: FileChange, repo: Path, *, contract_text: str = ""
+    ) -> list[Finding]:
         source = _read(repo / change.path)
         if source is None:
             return []
@@ -79,7 +81,7 @@ class PythonAdapter(LanguageAdapter):
         visitor = _HazardVisitor(change.path, change.added_lines)
         visitor.visit(tree)
         return visitor.findings + compliance_findings(
-            tree, change.path, change.added_lines
+            tree, change.path, change.added_lines, contract_text=contract_text
         )
 
     def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:

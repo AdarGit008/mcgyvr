@@ -413,6 +413,14 @@ def gate_workspace(
     insisted on being handed content would have to read the file back out and
     write it again — two more chances for the bytes to stop being the bytes,
     which is the defect class B6 came from.
+
+    "Against ``contract``" now includes the contract's own words. Two rungs
+    could only ever be as right as what the contract asked for — the acceptance
+    commands, and ``param-mutation``, which rejects a function for mutating its
+    caller's object and has to stand down where the contract *ordered* that.
+    Only the first was wired; the second's stand-down existed with no parameter
+    anywhere between here and it, so a contract saying "sort the rows in place"
+    was unsatisfiable by any change a worker could write.
     """
     acceptance = None
     if contract.acceptance_commands or contract.demonstration_commands:
@@ -425,4 +433,5 @@ def gate_workspace(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
+        contract_text=contract.prose,
     )

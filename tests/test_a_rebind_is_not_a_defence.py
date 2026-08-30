@@ -140,6 +140,26 @@ UNDEFENDED = [
         id="a-copy-in-a-loop-that-may-not-run",
     ),
     pytest.param(
+        """def merge_into(items, extra, pending):
+    while pending:
+        items = list(items)
+    items.append(extra)
+    return items
+""",
+        id="a-copy-in-a-while-that-may-not-run",
+    ),
+    pytest.param(
+        """def merge_into(items, extra, copy, other):
+    if copy:
+        items = list(items)
+    elif other:
+        items = []
+    items.append(extra)
+    return items
+""",
+        id="an-elif-chain-with-no-else",
+    ),
+    pytest.param(
         """def merge_into(items, extra):
     try:
         items[0]
@@ -192,6 +212,28 @@ DEFENDED = [
     return items
 """,
         id="both-arms-rebind",
+    ),
+    pytest.param(
+        """def merge_into(items, extra, copy, other):
+    if copy:
+        items = list(items)
+    elif other:
+        items = []
+    else:
+        items = sorted(items)
+    items.append(extra)
+    return items
+""",
+        id="every-arm-of-an-elif-chain-rebinds",
+    ),
+    pytest.param(
+        """async def merge_into(items, extra):
+    await ready()
+    items = list(items)
+    items.append(extra)
+    return items
+""",
+        id="the-copy-precedes-the-mutation-in-a-coroutine",
     ),
     pytest.param(
         """def merge_into(items, extra, copy):
