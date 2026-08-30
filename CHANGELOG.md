@@ -1239,6 +1239,60 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   verifier entirely to a rule that matched on resemblance. The refusal still
   names both models as the operator spelled them, because a normalised name in
   the message points at a config line that does not exist.
+- **A delivery mode is a promise, and all three made the same one** (pressure
+  test 2026-08-29, §4). `delivery.mode` defaulted to `pull_request`, and every
+  mode committed onto the checked-out branch: one commit, one ref, HEAD advanced,
+  nothing pushed and nothing branched. `handoff` came back as the literal word
+  `pull_request`. Now `branch` builds the commit as objects — a scratch index
+  seeded from HEAD, `commit-tree` parented on it, `update-ref` on a new
+  `mcgyvr/<contract-id>` — so the operator's HEAD, index and working tree are
+  read and never written, and the handoff carries the pasteable
+  `git push -u <remote> <branch>` beside `Delivery.branch`. `none` still commits
+  onto the checked-out branch. `pull_request` is retired through a declarative
+  `Field.retired`, so the loader's message says what the value was actually
+  doing rather than that it is unknown. Building a forge client was rejected:
+  it would make the seam that must be certain about what it writes also own
+  network transport, credentials and one forge's API shape, none of it reachable
+  from a test that does not mock the acceptance boundary (ADR-0014). So was
+  `checkout -b` / `commit` / `checkout -`, which reaches the destination by
+  moving the operator's HEAD twice through states they never asked for.
+- **A rebind is a defence only where it runs before the mutation** (pressure
+  test 2026-08-29, §4). `param-mutation` collected rebinds with `ast.walk`,
+  which has neither order nor control flow, so a rebind anywhere in a function —
+  in dead code, in a branch that returns, textually after the mutation —
+  cleared every mutation in it. The canonical `if target is None: target = []`
+  followed by `target.append(extra)` mutates the caller's list whenever the
+  caller passed one, and was accepted. The walk is now in execution order and
+  threads which names may still be the caller's object on *some* path to here;
+  a branch merge is a union, so a rebind defends only where no path skips it,
+  and an arm that cannot fall through contributes nothing. Swept against the old
+  implementation over `src/`, `tests/` and `tools/`: 67 hits identical, one
+  addition — a bench task's own reference solution, which is the canonical shape
+  and is legitimate only because its contract orders in-place work.
+  - That is why the `contract_text` stand-down was threaded rather than deleted.
+    It had no caller: `LanguageAdapter.structural_checks` took no contract, so a
+    contract asking for in-place work was unsatisfiable. `Contract.prose` — the
+    two fields the worker is given — now flows through `Gate.run` to the
+    adapter, from both call sites that hold a contract, so the commit-time gate
+    is not a stricter bar than the sandbox one. It is passed as text and not as
+    a `Contract`, so an adapter cannot start judging by `risk` or `verification`
+    (#94).
+- **A module that cannot be imported is not a style note** (pressure test
+  2026-08-29, §4). `UP035` was demoted by code, and it covers two different
+  things: `typing`→`collections.abc`, which is style, and
+  `collections`→`collections.abc`, which is an `ImportError` on 3.10 and later —
+  and `requires-python` is `>=3.12`. So a worker file holding
+  `from collections import Mapping` was accepted with zero findings, and reached
+  the verifier under the heading saying no check is asking for it to be fixed.
+  The demotion is now withdrawn per *line* rather than per code. Ruff's two
+  UP035 diagnostics are identical in code, rule, message, severity, url and
+  offered fix — they differ only in filename and end column, so a message-text
+  discriminator was impossible rather than merely fragile, and that fact is
+  pinned by a test that fails the day ruff diverges. The discriminator is an AST
+  family over `ImportFrom` nodes naming `collections`, reported on `structure`
+  so a ruff-less install rejects too, with 3.9's `_collections_abc.__all__`
+  written out rather than introspected — the verdict is about the worker's file,
+  not about mcgyvr's own interpreter.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable
