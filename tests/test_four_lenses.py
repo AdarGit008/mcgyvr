@@ -83,6 +83,23 @@ def _where(path: Path, lineno: int) -> str:
 # happen to have picked the same word — which this check must not force into
 # agreement.
 DECLARED_DUPLICATES: dict[str, bool] = {
+    # Two serving backends, added 2026-08-30. Each names the engine it drives,
+    # so three of these four MUST differ and are declared False for that reason
+    # rather than as an unreconciled conflict.
+    # Different engines ship different images; equal values here would mean one
+    # backend was launching the other's container.
+    "CONTAINER_IMAGE": False,
+    # Must differ: one name for both would have the two backends tear down and
+    # reuse each other's container, which is the collision `release()` exists to
+    # make impossible.
+    "CONTAINER_NAME": False,
+    # 40 against 60. How much log each keeps on a refusal is tuned to how much
+    # that engine prints before it fails; there is no quantity here they share.
+    "LAUNCH_LOG_LINES": False,
+    # Must agree: both express the same thing — how long a launch may take
+    # before the cell is refused — and a run that allowed one engine longer than
+    # the other would report the difference as the engine's.
+    "START_TIMEOUT_S": True,
     # Must agree. Asserted in a comment at repo.py:46 and by nothing else;
     # git's empty-tree SHA-1 is the same fact on both sides of the seam.
     "_EMPTY_TREE": True,
