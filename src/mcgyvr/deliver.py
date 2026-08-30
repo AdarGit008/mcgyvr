@@ -561,7 +561,7 @@ def deliver(
                     f"not be committed under it"
                 )
 
-            findings = _judged(change, root, resolved, adapters)
+            findings = _judged(change, root, resolved, adapters, contract)
             if findings:
                 return call.refuse(
                     f"{rel} does not pass the gate in {root.name}: {findings[0]}",
@@ -1092,6 +1092,7 @@ def _judged(
     root: Path,
     base: str,
     adapters: Sequence[LanguageAdapter] | None,
+    contract: Contract,
 ) -> tuple[Finding, ...]:
     """Run the gate over this delivery's own change, here, now.
 
@@ -1111,10 +1112,18 @@ def _judged(
     ``Scope`` is not passed: the contract's scope is re-confirmed a few lines
     above, where the refusal can name the contract that forbids the path rather
     than arriving as one finding among several.
+
+    The contract's *prose* is passed, and for the opposite reason. It is the
+    one input that changes what a rung means rather than which files it reads:
+    ``param-mutation`` rejects a function for mutating its caller's object, and
+    a contract that ordered in-place work has told the worker to write exactly
+    that. Withholding it here would make delivery a stricter bar than the gate
+    the change already passed in the sandbox — a change accepted where it was
+    written and refused where it lands, for obeying its contract.
     """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
     narrowed = ChangeSet(repo=root, base=base, files=(change,))
-    return Gate(owners).run(narrowed).findings
+    return Gate(owners).run(narrowed, contract_text=contract.prose).findings
 
 
 def _ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802 — a default, not a class

@@ -119,12 +119,29 @@ class LanguageAdapter(ABC):
         """
 
     @abstractmethod
-    def structural_checks(self, change: FileChange, repo: Path) -> list[Finding]:
+    def structural_checks(
+        self, change: FileChange, repo: Path, *, contract_text: str = ""
+    ) -> list[Finding]:
         """Language hazards on worker-added lines only.
 
         Called only after :meth:`check_syntax` passes for the file. Findings
         must be attributed to lines in ``change.added_lines``; a hazard the
         worker did not introduce is out of scope by construction.
+
+        ``contract_text`` is the contract's own prose
+        (:attr:`~mcgyvr.contract.Contract.prose`), and it is here because this
+        is the only rung whose hazards a contract can *order*. ``param-mutation``
+        rejects a function that mutates the object its caller passed in, and a
+        contract that says "sort the rows in place" has told the worker to do
+        exactly that; without the prose the rung rejects the worker for obeying
+        and the contract cannot be satisfied by any change at all.
+
+        It is passed as text rather than as a :class:`~mcgyvr.contract.Contract`
+        so an adapter cannot reach past what the worker was told and start
+        judging by ``risk`` or ``verification`` — orchestrator fields #94 keeps
+        off every worker-facing surface. It defaults to empty because a caller
+        with no contract to hand must get the *strict* reading: silence is not
+        permission, and delivery and every bench harness gate without one.
         """
 
     @abstractmethod
