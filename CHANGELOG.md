@@ -1222,6 +1222,23 @@ Format: [Keep a Changelog](https://keepachangelog.com).
     because `Accepted.read` mints it off the tree the gate judged and pairs it
     with a digest. A guard test fails any new dataclass carrying `content`
     beside no digest; three pre-verdict types are listed with an argument each.
+- **The self-verification refusal is no longer defeatable by spelling**
+  (pressure test 2026-08-29, §4's first item). A model does not review its own
+  output, and that rule was decided by `strip().casefold()` on two names read
+  out of a config file — which catches a different capitalisation and nothing
+  else. `qwen2.5-coder` and `qwen2.5-coder:latest` are one pull of one blob and
+  compared unequal, so the accidental case was a working install's, not an
+  attacker's; a provider prefix, a registry path, a zero-width space, a Cyrillic
+  homoglyph and a non-breaking hyphen were the deliberate ones.
+  `verify.model_identity` is now what the two names are compared through: NFKC,
+  invisibles dropped, confusables folded to Latin, the routing prefix and a
+  trailing `:latest` removed, separators removed. It normalises only what a
+  registry itself treats as noise and never guesses at similarity — `mistral`
+  beside `mixtral` is two models, and so is `qwen2.5-coder:32b` reviewing
+  `qwen2.5-coder:7b`, which is the ordinary local install and would lose its
+  verifier entirely to a rule that matched on resemblance. The refusal still
+  names both models as the operator spelled them, because a normalised name in
+  the message points at a config line that does not exist.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable

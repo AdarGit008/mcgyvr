@@ -14,20 +14,33 @@
 > | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
 > | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
 > | **B** · nothing owns the bytes | Closed, PR #383. The tree owns them and one seam commits. B6's delivery-time re-check, then phase 1 (the second delivery routed through `deliver`), phase 2 (`Judgement.value` and the three `value` fields under it deleted), phase 3 (`RepairOutcome.content` deleted, `Consensus` carries `Accepted` bindings minted per draw, `Cleanup.regate` true whenever bytes were rewritten). A guard in `tests/test_pattern_b_tree_owns_bytes.py` fails a new `content` field that carries no digest. |
-> | §4's seven items, and the ~48 major | Open. |
+> | **§4, first item** · the self-verification refusal, defeated by spelling | Fixed — `verify.model_identity`, PR #383. The comparison is on what the two names resolve to, not on the two strings. |
+> | §4's other six items, and the ~48 major | Open. |
 >
 > **Where to start next.** §6's order of work is spent: steps 1-5 are the rows
-> above. What is left is §4, and its first item is the one with a live consequence
-> — `verify.py:368` compares `strip().casefold()`, so `qwen2.5-coder` and
-> `qwen2.5-coder:latest` are different models to the self-verification refusal and
-> the same weights to Ollama. Nothing else in the codebase cross-checks
-> `verifier.model` against the ladder's tiers. It is defeatable by a tag, a
-> provider prefix, a zero-width space or a homoglyph.
+> above, and so is §4's first item — the one that had a live consequence.
+> `verify.py` compared `strip().casefold()`, so `qwen2.5-coder` and
+> `qwen2.5-coder:latest` were different models to the self-verification refusal
+> and the same weights to Ollama. It compares through `model_identity` now, which
+> normalises only what a registry itself treats as noise — the tag default, the
+> routing prefix, invisibles, confusables — and never guesses at similarity, so
+> the ordinary local install (`:32b` reviewing `:7b`) keeps its verifier.
 >
-> Two things are built and unreached, and either is a smaller piece of work than
-> §4: `worker_attempt` has no flag on `mcgyvr run`, and `consensus.best_of` and
+> What is left is §4's other six. The next with a live consequence is
+> `delivery.mode`: it defaults to `pull_request` and all three modes commit
+> directly to the checked-out branch, which was a promise nothing kept back when
+> nothing delivered — and `mcgyvr run` now drives a task to a commit.
+>
+> Still true, and either is a smaller piece of work than a §4 item:
+> `worker_attempt` has no flag on `mcgyvr run`, and `consensus.best_of` and
 > `cleanup.tidy` still have no production caller — which is why phase 3 had to
 > reason about their shape rather than about a call site.
+>
+> One thing §4's first item did *not* close: nothing cross-checks
+> `verifier.model` against the ladder's tiers at config time. The pairwise
+> refusal catches a self-review at the moment it would happen, which is the
+> defect that mattered; an install whose verifier is also a rung still learns it
+> one task in rather than at `mcgyvr config`.
 
 |                |                                                                                  |
 | -------------- | -------------------------------------------------------------------------------- |

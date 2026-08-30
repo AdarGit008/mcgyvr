@@ -22,11 +22,14 @@ told so in the prompt rather than left to assume it saw everything.
 **A model never verifies its own output, and the refusal happens before the
 spend.** Identity is checked ahead of assembling anything, because a
 self-review that ran and was then discarded has already cost what the rule
-exists to save. The comparison is on the model name, case- and
-whitespace-insensitively — a rule the config file can defeat by capitalising a
-model differently is not a rule. Two models from one family are *not* the same
-model: ``qwen2.5-coder:32b`` reviewing ``qwen2.5-coder:7b`` is the ordinary
-local setup, and refusing it would leave most installs with no verifier at all.
+exists to save. The comparison is on the weights the two names point at, not on
+the two strings — a rule the config file can defeat by capitalising a model
+differently, appending Ollama's own ``:latest``, or pasting in a provider
+prefix is not a rule, and neither is one a zero-width space defeats.
+:func:`model_identity` is that reading, and it normalises only what a registry
+itself treats as noise. Two models from one family are *not* the same model:
+``qwen2.5-coder:32b`` reviewing ``qwen2.5-coder:7b`` is the ordinary local
+setup, and refusing it would leave most installs with no verifier at all.
 
 **The verdict must be the exact first token of the reply.** ``Cannot approve``
 contains the word and is a refusal; ``I would APPROVE if …`` contains it and is
@@ -72,6 +75,7 @@ rather than truncating, and the same rule is expressible here because
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -355,6 +359,115 @@ def build_prompt(
     )
 
 
+# --- which weights a name points at -----------------------------------------
+
+# Latin letters that another script spells with the same pixels. Applied after
+# ``casefold``, so only the lowercase forms are needed. Deliberately short: it
+# covers the Cyrillic and Greek letters that appear in Latin-looking model
+# names, and it is not a general confusable table — the goal is that two names
+# nobody could tell apart on screen compare equal, not that every pair of
+# code points with a shared glyph does.
+_CONFUSABLES = str.maketrans(
+    {
+        # Cyrillic
+        "\u0430": "a",  # CYRILLIC SMALL LETTER A
+        "\u0435": "e",  # CYRILLIC SMALL LETTER IE
+        "\u043a": "k",  # CYRILLIC SMALL LETTER KA
+        "\u043c": "m",  # CYRILLIC SMALL LETTER EM
+        "\u043d": "h",  # CYRILLIC SMALL LETTER EN
+        "\u043e": "o",  # CYRILLIC SMALL LETTER O
+        "\u0440": "p",  # CYRILLIC SMALL LETTER ER
+        "\u0441": "c",  # CYRILLIC SMALL LETTER ES
+        "\u0442": "t",  # CYRILLIC SMALL LETTER TE
+        "\u0443": "y",  # CYRILLIC SMALL LETTER U
+        "\u0445": "x",  # CYRILLIC SMALL LETTER HA
+        "\u0455": "s",  # CYRILLIC SMALL LETTER DZE
+        "\u0456": "i",  # CYRILLIC SMALL LETTER BYELORUSSIAN-UKRAINIAN I
+        "\u0458": "j",  # CYRILLIC SMALL LETTER JE
+        "\u0501": "d",  # CYRILLIC SMALL LETTER KOMI DE
+        "\u051b": "q",  # CYRILLIC SMALL LETTER QA
+        "\u051d": "w",  # CYRILLIC SMALL LETTER WE
+        # Greek
+        "\u03b1": "a",  # GREEK SMALL LETTER ALPHA
+        "\u03b2": "b",  # GREEK SMALL LETTER BETA
+        "\u03b5": "e",  # GREEK SMALL LETTER EPSILON
+        "\u03b9": "i",  # GREEK SMALL LETTER IOTA
+        "\u03ba": "k",  # GREEK SMALL LETTER KAPPA
+        "\u03bd": "v",  # GREEK SMALL LETTER NU
+        "\u03bf": "o",  # GREEK SMALL LETTER OMICRON
+        "\u03c1": "p",  # GREEK SMALL LETTER RHO
+        "\u03c4": "t",  # GREEK SMALL LETTER TAU
+        "\u03c5": "u",  # GREEK SMALL LETTER UPSILON
+        "\u03c7": "x",  # GREEK SMALL LETTER CHI
+    }
+)
+
+# Characters that separate words inside a model name and carry no identity of
+# their own. Removed rather than folded to one, so ``qwen2.5-coder`` and
+# ``qwen2_5_coder`` are the same name. Every dash goes with them, by category
+# rather than by listing: NFKC leaves U+2011 NON-BREAKING HYPHEN and most of
+# the ``Pd`` block exactly as typed, and a hyphen nobody can see the difference
+# in is the same defeat as a zero-width space.
+_SEPARATORS = "-_. \t\u2212"
+_SEPARATOR_CATEGORY = "Pd"
+
+# The tag Ollama supplies when a name carries none, so ``qwen2.5-coder`` and
+# ``qwen2.5-coder:latest`` are one pull of one blob. Every *other* tag is part
+# of the identity: ``:7b`` and ``:32b`` are different weights.
+_DEFAULT_TAG = ":latest"
+
+
+def model_identity(name: str) -> str:
+    """The weights ``name`` points at, as a string two names can be compared on.
+
+    The comparison this exists for decides whether a model is about to review
+    its own output, and both directions of getting it wrong are expensive. Read
+    two spellings of one model as two models and the refusal is defeated by a
+    tag, a prefix or an invisible character. Read two models as one and the
+    ordinary local install — a big model reviewing a small one from the same
+    family — loses its verifier entirely.
+
+    So this normalises only what a registry itself treats as noise, and never
+    guesses at similarity:
+
+    * **NFKC, then invisibles removed.** A zero-width space, a soft hyphen or a
+      bidi mark is not part of a name; it is a way to write one name twice.
+    * **Confusables folded to Latin.** A Cyrillic ``U+043E`` is the same pixels
+      as a Latin ``o`` in every config file a person will ever read.
+    * **The routing prefix dropped.** ``ollama/qwen2.5-coder`` and
+      ``hf.co/Qwen/qwen2.5-coder`` say where to fetch the same blob. Only the
+      last path segment names it.
+    * **A trailing** ``:latest`` **dropped**, because Ollama appends exactly
+      that to an untagged name. No other tag is touched.
+    * **Separators removed**, so ``qwen2.5-coder``, ``qwen2_5_coder`` and
+      ``qwen25coder`` are one name.
+
+    What it does *not* do is edit-distance, prefix matching or family
+    grouping. ``mistral`` and ``mixtral`` are one letter apart and are two
+    models; a rule that collapsed them would refuse a review nobody asked it to
+    refuse.
+
+    Returns ``""`` for a name that is empty or holds nothing but noise — which
+    is an unnamed model, and :func:`_independence_fault` answers it as one
+    rather than as a match against another empty name.
+    """
+    folded = unicodedata.normalize("NFKC", name)
+    folded = "".join(
+        char
+        for char in folded
+        if unicodedata.category(char) not in {"Cc", "Cf", "Zl", "Zp", "Zs"}
+    )
+    folded = folded.casefold().translate(_CONFUSABLES)
+    folded = folded.rpartition("/")[2]
+    if folded.endswith(_DEFAULT_TAG):
+        folded = folded[: -len(_DEFAULT_TAG)]
+    return "".join(
+        char
+        for char in folded
+        if char not in _SEPARATORS and unicodedata.category(char) != _SEPARATOR_CATEGORY
+    )
+
+
 # --- one verification -------------------------------------------------------
 
 
@@ -364,14 +477,18 @@ def _independence_fault(builder: str, reviewer: str) -> str | None:
     Both anonymous cases are faults. A reviewer or a builder that was not named
     leaves independence unestablished, and an unestablished independence is not
     a weaker warrant than a broken one — it is the same warrant, missing.
+
+    The names are compared through :func:`model_identity` and reported as the
+    operator wrote them. A message quoting the normalised form would send
+    someone looking for a config line that does not exist.
     """
-    if not builder.strip() or not reviewer.strip():
+    if not model_identity(builder) or not model_identity(reviewer):
         return (
             f"independence cannot be established: the change was written by "
             f"{builder!r} and the reviewer is {reviewer!r}, and a review is "
             f"only worth the distance between those two names."
         )
-    if builder.strip().casefold() == reviewer.strip().casefold():
+    if model_identity(builder) == model_identity(reviewer):
         return (
             f"the reviewer is {reviewer!r}, the model that wrote this change "
             f"({builder!r}). A model does not verify its own output, so nothing "
