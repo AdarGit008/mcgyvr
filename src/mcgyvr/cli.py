@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, TextIO
 from mcgyvr import __version__
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
-from mcgyvr.capability import CapabilityTableError, load, table_path
+from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, Config, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
@@ -1393,13 +1393,28 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     The whole weight is the one figure that cannot under-state the demand, and
     under-stating it is the direction that swaps somebody's host.
 
-    ``blocks`` is ``None`` for every row because the table carries no block
-    count for any model. That refuses an MoE rather than guessing one
-    (:func:`mcgyvr.serving.fit`): ``--n-cpu-moe`` counts blocks, gpt-oss-20b
-    has 24 where the sweep's Qwen3 pair has 48, and pricing one at the other's
-    layout writes an offload wrong by a factor of two in gigabytes. A dense
-    model has no such knob, so the field says nothing about it either way.
-    Adding a block count to the table is what lifts the refusal.
+    ``blocks`` and ``expert_gb`` are ``None`` for every row because the table
+    carries neither for any model. That refuses an MoE rather than guessing
+    (:func:`mcgyvr.serving.fit`): the block count varies by architecture and
+    the expert mass varies by quantisation of the *same* architecture, so
+    nothing derivable from a name, a parameter count or a file size answers
+    either. An operator who has read the file states them under ``models:``,
+    and that lifts the refusal for the model they stated.
+
+    **The table is in decimal GB and this module is in GiB.** Tied to a real
+    file: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes and its row
+    says ``weights_gb: 8.9``, which is decimal (GiB would be 8.3). Everything
+    downstream compares against ``free_mib / 1024``
+    (:data:`mcgyvr.detect.MIB_PER_GB`), so the conversion happens here, once,
+    at the boundary where the two conventions meet. Skipping it inflated every
+    spec by 7.37% — harmlessly for a while, because the MoE arithmetic carried
+    two further errors that cancelled it.
+
+    ``ram_gb`` is ``0.0`` for every row, dense and MoE alike. It is a floor an
+    operator may raise, not a declaration this function can make: what an MoE
+    actually spills depends on the card and is derived per machine by
+    :func:`mcgyvr.serving._placement`. Passing the whole model weight here —
+    which is what it used to do — made that derivation inert.
     """
     architectures = _architectures()
     specs: list[ModelSpec] = []
@@ -1408,11 +1423,12 @@ def _model_specs() -> tuple[ModelSpec, ...]:
         specs.append(
             ModelSpec(
                 name=model.id,
-                vram_gb=model.vram_gb_working,
-                ram_gb=model.weights_gb if moe else 0.0,
-                disk_gb=model.weights_gb,
+                vram_gb=model.vram_gb_working / GB_PER_GIB,
+                ram_gb=0.0,
+                disk_gb=model.weights_gb / GB_PER_GIB,
                 moe=moe,
                 blocks=None,
+                expert_gb=None,
             )
         )
     return tuple(specs)

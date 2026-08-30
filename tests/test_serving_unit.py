@@ -28,11 +28,26 @@ from mcgyvr.serving import (
 
 SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
 MID = ModelSpec(name="qwen2.5-coder-14b", vram_gb=9.6, ram_gb=0.0, disk_gb=9.0)
+# blocks and expert_gb are the model's own geometry and there is no default
+# for either: Qwen3-Coder-30B-A3B carries 48 blocks, and ~84% of an MoE file
+# of this shape is expert tensors.
 MOE = ModelSpec(
-    name="qwen3-coder-30b", vram_gb=5.0, ram_gb=13.6, disk_gb=18.6, moe=True
+    name="qwen3-coder-30b",
+    vram_gb=5.0,
+    ram_gb=13.6,
+    disk_gb=18.6,
+    moe=True,
+    blocks=48,
+    expert_gb=15.6,
 )
 HUGE = ModelSpec(
-    name="glm-4.6-355b", vram_gb=24.0, ram_gb=180.0, disk_gb=220.0, moe=True
+    name="glm-4.6-355b",
+    vram_gb=24.0,
+    ram_gb=180.0,
+    disk_gb=220.0,
+    moe=True,
+    blocks=92,
+    expert_gb=200.0,
 )
 
 
@@ -253,6 +268,7 @@ SPILLER = ModelSpec(
     disk_gb=8.9,
     moe=True,
     blocks=27,
+    expert_gb=7.5,
 )
 
 

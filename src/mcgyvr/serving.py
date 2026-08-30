@@ -36,6 +36,7 @@ import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr.config import Config
@@ -59,30 +60,52 @@ DEFAULT_CONTEXT = 4096
 DEFAULT_PORT = 8080
 
 # MoE geometry. ``--n-cpu-moe N`` keeps the expert tensors of N blocks on the
-# CPU, so sizing it needs two things: how many blocks a model has, and what
-# share of its weights are experts.
+# CPU, so sizing it needs two things a model knows about itself: how many
+# blocks it has, and how much of its weight is experts. Both are now fields on
+# :class:`ModelSpec` rather than constants here, and a spec that states neither
+# is refused by :func:`fit`.
 #
-# 48 blocks is the Qwen3-family MoE coder layout — both models the sweep drove
-# (30B-A3B and 35B-A3B) — so it is what a spec from that family gets by saying
-# nothing, and that is the whole of its authority. It is not a fact about MoEs:
-# gpt-oss-20b has 24 blocks, and pricing its offload at 48 halves the cost of
-# every block, which is an offload that reports as placed and does not fit. A
-# spec whose count nobody knows says ``blocks=None`` and :func:`fit` refuses
-# it, because a wrong divisor here is wrong in gigabytes on someone's rig.
+# There used to be an ``EXPERT_SHARE = 0.92`` and a ``MOE_BLOCKS = 48``. Read
+# against the file the provenance comment cited — Qwen3.6-35B-A3B-UD-IQ3_XXS,
+# byte-identical to the sweep's — both were wrong, and so was the unit they
+# were applied in:
 #
-# EXPERT_SHARE comes off the same record: srv2 moved "about +260 MiB per layer"
-# of a 13.21 GB model, and 48 x 260 MiB is 12.2 GB, which is 92% of it. It only
-# ever divides a block count the spec stated, so it is never the thing standing
-# in for a layout nobody measured.
-MOE_BLOCKS = 48
-EXPERT_SHARE = 0.92
+#   block count   48 declared, 40 actual
+#   expert share  0.92 declared, 0.8416 actual
+#   disk_gb       a decimal-GB numeral from the capability table, divided as
+#                 though it were GiB (``detect.MIB_PER_GB = 1024.0``)
+#
+# The three errors multiplied to 0.978, so the per-block figure they produced
+# was within 1% of the sweep's measurement and correcting any one of them
+# alone made it worse. The complement did not cancel: ``1 - 0.92`` against a
+# true residue fraction of 0.1475 left the resident floor at roughly half what
+# the file leaves non-expert, which is the direction that OOMs a host. A
+# constant that is only right because three mistakes cancel is not a constant
+# to correct — it is one to delete, which is what happened here.
+#
+# The expert mass is per model and per quant: the same architecture at another
+# quantisation has a different one, and the layers are not uniform (this file
+# runs 262 MiB for 37 blocks and 300 MiB for 3). Nothing derivable from a name
+# or a parameter count answers it, so the spec carries it or the fit refuses.
+
+# What system memory holds beyond the offloaded experts themselves: context,
+# compute buffers, and the copy paths that do not live on the card. Measured
+# across the sweep's six ``--n-cpu-moe`` cells on srv2, where
+# ``RSS - blocks * expert_per_block`` sat at 1.52-1.53 GiB at every setting
+# from 4 blocks to 20 — flat, which is what makes it an intercept rather than
+# a rate. It applies only where experts actually spill: a model held entirely
+# on the card is not paying it, and a dense model has no spill to pay it for.
+RUNTIME_RESIDENT_GB = 1.53
 
 # What one extra slot costs on the card. The sweep bounds it from below: q8_0
-# KV freed 36 MiB across 4 slots at 4096, so f16 KV is ~18 MiB per slot for
-# that family. A quarter of a gigabyte is a deliberate over-allowance — a slot
-# also costs compute buffers, and a model with wider KV heads costs many times
-# that per slot. Slots are cheap and an OOM is not.
-KV_GB_PER_SLOT = 0.25
+# KV freed 36 MiB across 4 slots at 4096 (11,882 -> 11,846 MiB on an otherwise
+# identical cell), so f16 KV is ~18 MiB per slot for that family. 64 MiB is a
+# deliberate over-allowance of about 3.5x — a slot also costs compute buffers,
+# and a model with wider KV heads costs more per slot than this one. It is not
+# a larger margin than that, because the margin is subtracted from the slots a
+# rig is allowed to serve: the previous 0.25 was 256 MiB, fourteen times the
+# measurement, and it cost a 12 GB card ten slots it could measurably hold.
+KV_GB_PER_SLOT = 0.0625
 
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on
 # a 12 GB card). Past it this arithmetic would be extrapolating.
@@ -113,14 +136,21 @@ class ModelSpec:
     between "does not fit" and "fits differently on this machine".
 
     ``blocks`` is what that knob counts — ``--n-cpu-moe N`` moves the experts
-    of N transformer blocks — and ``None`` says nobody has stated it. An MoE
-    with an unknown block count is refused rather than sized at
-    :data:`MOE_BLOCKS`: the per-block cost is the expert mass over that number,
-    so the wrong count is not a rounding difference but gigabytes placed in the
-    wrong memory. The default is the layout the sweep measured, which a spec
-    from that family inherits by saying nothing; the shipped capability table
-    carries no count at all, so :func:`mcgyvr.cli._model_specs` passes ``None``
-    and its MoE rows are refused until the table can answer.
+    of N transformer blocks — and ``expert_gb`` is how much weight those blocks
+    hold between them. ``None`` on either says nobody has stated it, and an MoE
+    missing either is refused rather than sized from a family default: the
+    per-block cost is the expert mass over the block count, so a wrong value in
+    the numerator or the denominator is not a rounding difference but gigabytes
+    placed in the wrong memory.
+
+    Both default to ``None`` on purpose. There is no honest default for either
+    — the block count varies by architecture and the expert mass varies by
+    quantisation of the *same* architecture — and the constants that used to
+    stand in for them were wrong in both places at once. They arrive from a
+    reader that has seen the file, or from an operator who states them, or the
+    fit declines. Every unit in this module is in GiB, which is the convention
+    :data:`mcgyvr.detect.MIB_PER_GB` sets; a caller holding decimal GB converts
+    before it builds a spec.
     """
 
     name: str
@@ -128,7 +158,8 @@ class ModelSpec:
     ram_gb: float
     disk_gb: float
     moe: bool = False
-    blocks: int | None = MOE_BLOCKS
+    blocks: int | None = None
+    expert_gb: float | None = None
 
 
 @dataclass(frozen=True)
@@ -241,17 +272,26 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
     free_vram = _free_vram_gb(scan)
     available_ram = scan.memory.available_gb if scan.memory else 0.0
 
-    if spec.moe and not spec.blocks:
+    if spec.moe and (not spec.blocks or spec.expert_gb is None):
+        missing = " and ".join(
+            name
+            for name, absent in (
+                ("a block count", not spec.blocks),
+                ("an expert mass", spec.expert_gb is None),
+            )
+            if absent
+        )
         return Fit(
             fits=False,
             headroom_gb=DEFAULT_HEADROOM_GB,
             why=(
-                f"{spec.name}: nothing states how many transformer blocks this "
-                "MoE has, and --n-cpu-moe counts blocks — the capability table "
-                "carries no block count, so an offload sized here would be this "
-                "model priced at another model's layout. Refusing rather than "
-                "guessing: add a block count to the table and this fits or does "
-                "not on its own numbers"
+                f"{spec.name}: sizing an MoE offload needs a block count and an "
+                f"expert mass, and this spec is missing {missing}. --n-cpu-moe "
+                "counts blocks and the per-block cost is the expert mass over "
+                "that count, so both are the model's own and neither is "
+                "derivable from its name, its parameter count or its file size. "
+                "Refusing rather than guessing: state them under `models:` in "
+                "the config, or point this at a reader that has seen the file"
             ),
         )
     if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
@@ -402,7 +442,10 @@ def units_for(
     caller's port-contention check has nothing to complain about either. That
     rung is dead in a ladder that reads as fine.
     """
-    catalogue = {spec.name: spec for spec in specs}
+    # The config wins over the table, and the precedence lives here rather than
+    # in the caller so that every caller gets it: measured where mcgyvr can
+    # measure, stated where it cannot, refused only when neither has an answer.
+    catalogue = {spec.name: spec for spec in specs} | declared_models(config)
     grouped: dict[UnitKey, list[str]] = {}
     hosts: dict[UnitKey, Scan] = {}
     models: dict[UnitKey, ModelSpec] = {}
@@ -421,12 +464,22 @@ def units_for(
             )
         spec = catalogue.get(tier.model)
         if spec is None:
-            raise UnitError(f"{tier.name}: no model spec for {tier.model!r}")
+            raise UnitError(
+                f"{tier.name}: no model spec for {tier.model!r} — it is not in "
+                f"the shipped capability table, and nothing declares it under "
+                f"`models:` in the config. Sizing a unit needs what the model "
+                f"costs, and mcgyvr will not invent that; state it and this "
+                f"model is served on your numbers"
+            )
 
         key = UnitKey(
             host=host,
             model=spec.name,
-            engine=DEFAULT_ENGINE,
+            # The source's, because a URL points at one process and one process
+            # runs one engine. Absent it is llama.cpp, which is what this line
+            # asserted unconditionally before the field existed — so a config
+            # that names no engine is bound exactly as it was.
+            engine=source.engine or DEFAULT_ENGINE,
             port=port_of(source.base_url),
         )
         grouped.setdefault(key, []).append(tier.name)
@@ -454,6 +507,36 @@ def units_for(
         )
         for key, rungs in grouped.items()
     )
+
+
+def declared_models(config: Config) -> dict[str, ModelSpec]:
+    """Serving specs an operator wrote down, which override the shipped table.
+
+    mcgyvr sizes from what it can measure, and this is the seam where somebody
+    states what it cannot. Nothing here is second-guessed: a declaration that
+    is wrong produces a launch spec that fails on the rig, and that is the
+    operator's call to make rather than this module's to prevent. What the
+    module still owes them is to say what it measured — which it does, in the
+    fit's ``why`` — and then do what it was told.
+
+    It lives here rather than in :mod:`mcgyvr.config` because a
+    :class:`ModelSpec` is a serving type and config cannot import serving
+    without a cycle. Already in GiB: the schema says so on every size field,
+    because a unit is the one thing a reader cannot check by eye.
+    """
+    blocks: Mapping[str, Any] = config.data.get("models") or {}
+    return {
+        name: ModelSpec(
+            name=name,
+            vram_gb=block.get("vram_gb") or 0.0,
+            ram_gb=block.get("ram_gb") or 0.0,
+            disk_gb=block.get("disk_gb") or 0.0,
+            moe=bool(block.get("moe")),
+            blocks=block.get("blocks"),
+            expert_gb=block.get("expert_gb"),
+        )
+        for name, block in blocks.items()
+    }
 
 
 def host_of(base_url: str) -> str:
@@ -534,21 +617,28 @@ def _placement(spec: ModelSpec, free_vram_gb: float) -> _Placement:
     answering "no offload" is the honest shape for a knob this module cannot
     turn.
 
-    The RAM figure is the larger of the spec's declaration and what this card
-    actually spills. The two can be wrong in opposite directions — the
-    declaration knows the model but not the machine, the spill knows the
-    machine but inherits the share — and the larger of them is the safe answer,
-    because a refusal costs an operator a minute and an OOM costs them the
-    host.
+    The RAM figure is what this card actually spills, plus the runtime that
+    spilling carries with it — not the whole model weight. It used to be
+    ``max(spec.ram_gb, spilled)`` with ``spec.ram_gb`` set to the entire file
+    for every MoE, which made the ``max()`` win every time and the block count
+    irrelevant to the answer: four blocks offloaded and thirty-six both claimed
+    13.2 GB. Against the sweep's own cells that over-claimed by 1.9x to 4.8x.
+    The declaration is still honoured as a floor, so an operator who states a
+    memory demand this module cannot see is not overruled by it.
     """
-    if not spec.moe or not spec.blocks:
+    if not spec.moe or not spec.blocks or spec.expert_gb is None:
         return _Placement(blocks=0, vram_gb=spec.vram_gb, ram_gb=spec.ram_gb)
     total = spec.blocks
     blocks = _offload_blocks(spec, free_vram_gb, total)
+    spilled = (
+        blocks * _expert_gb_per_block(spec, total) + RUNTIME_RESIDENT_GB
+        if blocks
+        else 0.0
+    )
     return _Placement(
         blocks=blocks,
         vram_gb=_resident_gb(spec, blocks, total),
-        ram_gb=max(spec.ram_gb, blocks * _expert_gb_per_block(spec, total)),
+        ram_gb=max(spec.ram_gb, spilled),
     )
 
 
@@ -562,11 +652,21 @@ def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
 def _expert_gb_per_block(spec: ModelSpec, blocks: int) -> float:
     """What one block's experts weigh: the expert mass over the model's blocks.
 
-    ``blocks`` is passed rather than read off :data:`MOE_BLOCKS` because it is
-    the model's own count, and dividing by another model's is the whole of the
-    error this argument exists to prevent.
+    Both numbers are the model's own. Neither is derived from the other, and
+    neither is a share of the file — the previous form divided ``disk_gb`` by a
+    constant fraction and a constant block count, and was wrong in the mass,
+    the count and the unit simultaneously.
+
+    This is an average across blocks and the blocks are not equal: the file the
+    sweep drove carries 262 MiB of experts in 37 of its blocks and 300 MiB in
+    the other 3. ``--n-cpu-moe N`` takes the *first* N, so an offload that stays
+    inside the cheap band costs less than this says and one that reaches the
+    expensive blocks costs more. Averaging is the conservative direction for
+    small N, which is the direction a small card offloads in.
     """
-    return spec.disk_gb * EXPERT_SHARE / blocks
+    if spec.expert_gb is None:  # pragma: no cover - fit() refuses first
+        raise UnitError(f"{spec.name}: no expert mass stated")
+    return spec.expert_gb / blocks
 
 
 def _resident_floor_gb(spec: ModelSpec) -> float:
@@ -576,14 +676,15 @@ def _resident_floor_gb(spec: ModelSpec) -> float:
     this is the smallest a model can be made on a GPU, and the number a fit
     against a small card is really asking about.
 
-    The share is the sweep's and only the block count is the model's, so this
-    is the one figure here that still reasons about one family from another's
-    measurement. It bounds a placement from below rather than deciding one —
-    what a fit compares against is :func:`_resident_gb`, which starts from the
-    spec's own working set — but a spec that carried its own expert mass would
-    make this exact rather than conservative, and that is the field to add.
+    Now a subtraction between two figures the model states rather than a
+    fraction of one of them. That matters in the direction it was wrong before:
+    the old ``disk_gb * 0.08`` put this at 1082 MiB for a file that leaves 1995
+    MiB non-expert, and a floor set below what the weights actually leave is a
+    fit approved against room the card will not have.
     """
-    return spec.disk_gb * (1.0 - EXPERT_SHARE)
+    if spec.expert_gb is None:  # pragma: no cover - fit() refuses first
+        raise UnitError(f"{spec.name}: no expert mass stated")
+    return max(0.0, spec.disk_gb - spec.expert_gb)
 
 
 def _offload_blocks(spec: ModelSpec, free_vram_gb: float, blocks: int) -> int:

@@ -22,8 +22,17 @@ from mcgyvr.emit import EmitError, emit_all, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 
+# blocks and expert_gb are the model's own geometry and there is no default
+# for either: Qwen3-Coder-30B-A3B carries 48 blocks, and ~84% of an MoE file
+# of this shape is expert tensors.
 MOE = ModelSpec(
-    name="qwen3-coder-30b", vram_gb=5.0, ram_gb=13.6, disk_gb=18.6, moe=True
+    name="qwen3-coder-30b",
+    vram_gb=5.0,
+    ram_gb=13.6,
+    disk_gb=18.6,
+    moe=True,
+    blocks=48,
+    expert_gb=15.6,
 )
 SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
 

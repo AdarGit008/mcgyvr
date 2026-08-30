@@ -29,6 +29,7 @@ them rather than documenting them and hoping:
 | text | A non-empty string. An empty value is rejected rather than treated as unset — remove the key instead. |
 | URL | Text that carries a scheme: it must start with `http://` or `https://`. |
 | boolean | `true` or `false`, unquoted. |
+| decimal number | A number that may carry a fraction. Sizes written this way are in **GiB** — powers of 1024 — which is what the rest of mcgyvr measures in; a file a tool reports as 13.2 GB is 12.3 here. |
 | one of ... | Text drawn from a fixed set. Anything else is rejected, with the valid values named. |
 | env var name | The **name** of an environment variable (e.g. `ANTHROPIC_API_KEY`), never the value. Credentials are never written into this file; the orchestrator resolves the name at point of use and a task sandbox never sees the result. |
 | list of text | A YAML list of non-empty strings. |
@@ -42,6 +43,7 @@ them rather than documenting them and hoping:
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | **yes** | — | Config schema version. Currently 1; bumped only by a breaking change to this file's shape. |
 | `sources` | block map | **yes** | — | Where model work is executed, keyed by a name you choose. A source is an endpoint with a capacity and a wire protocol — nothing above the execution seam knows which host or backend served a request. |
+| `models` | block map | no | — | Serving specs for models the shipped capability table does not carry, or whose numbers you want to override, keyed by the model identifier a rung names. mcgyvr sizes from what it can measure; this is where an operator states what it cannot. A declaration here wins over the table and is not second-guessed — a wrong one produces a launch spec that fails on the rig, which is the operator's to make. |
 | `ladder` | block | **yes** | — | The rungs work climbs, and what each is bound to. |
 | `orchestrator` | block | no | — | The role that turns a prompt plus a repository into contracts. Only used in delegated mode; direct mode authors contracts itself. |
 | `verifier` | block | no | — | The role that reads an applied diff in fresh context. |
@@ -63,6 +65,22 @@ Each entry takes these keys:
 | `api` | one of `ollama`, `openai` | **yes** | — | Wire protocol. `openai` covers vLLM, llama-server, LM Studio and TGI, so adding a backend is a protocol question, not an integration. |
 | `max_parallel` | number (min 1) | no | `1` | How many requests this source may run at once. Concurrency is capacity, not a preference: measured, three models ran concurrently on one card in 23.6 s against ~44 s serial. |
 | `api_key_env` | env var name | no | unset | NAME of the environment variable holding this source's key. Absent means the source needs no credential, which is the normal case for a local backend. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
+| `engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this URL, for `mcgyvr emit` to write a launch spec for. `api` cannot answer this: it is a wire protocol, and vLLM and llama-server both speak `openai` while taking entirely different argv. Absent means llama.cpp, which is what emit assumed unconditionally before this field existed. It belongs on the source rather than the rung because a URL points at one process and one process runs one engine. To bind it: leave it out unless the backend is not llama-server. |
+
+## `models`
+
+Serving specs for models the shipped capability table does not carry, or whose numbers you want to override, keyed by the model identifier a rung names. mcgyvr sizes from what it can measure; this is where an operator states what it cannot. A declaration here wins over the table and is not second-guessed — a wrong one produces a launch spec that fails on the rig, which is the operator's to make.
+
+Each entry takes these keys:
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `vram_gb` | decimal number (min 0.0) | no | unset | Working set on the card with nothing offloaded, in GiB. Not the weight on disk: a working set carries buffers. To bind it: set it to what the server reports resident on the card with -ngl 99 and no offload, converted to GiB. |
+| `disk_gb` | decimal number (min 0.0) | no | unset | Weight on disk, in GiB. Note the unit — a file listed as 13.2 GB by a tool using decimal gigabytes is 12.3 GiB here. To bind it: set it to `ls -l` on the weights file divided by 1024^3. |
+| `ram_gb` | decimal number (min 0.0) | no | `0.0` | A floor on what system memory may be asked to hold, in GiB. Absent means the offload arithmetic decides it alone; state it only to claim a demand this module cannot see. |
+| `moe` | boolean | no | `false` | Whether this model has expert weights that `--n-cpu-moe` can move off the card. Not inferable from the other numbers: it is the difference between `does not fit` and `fits differently here`. |
+| `blocks` | number (min 1) | no | unset | How many transformer blocks this model has — what `--n-cpu-moe` counts. Required for an MoE, meaningless for a dense model. Read it from the file rather than a model card: it is the GGUF metadata key `<arch>.block_count`. To bind it: read it off the file, e.g. `gguf-parser --path <file> --json` or the block_count key any GGUF reader exposes. |
+| `expert_gb` | decimal number (min 0.0) | no | unset | How much weight this model's expert tensors hold between them, in GiB. Required for an MoE. It varies by quantisation of the same architecture, so it is per file and not per model: sum the tensors whose names match `blk.*.ffn_*_exps.*`. To bind it: sum the `blk.*.ffn_*_exps.*` tensor sizes in the file and divide by 1024^3; a GGUF reader lists them. |
 
 ## `ladder`
 
