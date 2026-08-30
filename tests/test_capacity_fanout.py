@@ -408,16 +408,6 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
     assert observer.peak_total == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - fan-out is `ladder.fanout`, default `none`. Red "
-        "at parse first (the key is not in LADDER_FIELDS yet), then red at the "
-        "rendezvous until `route.plan` reads `Capacity.in_use`: today it orders "
-        "rungs by price alone, so six contracts of one task type all take the "
-        "cheapest rung, queue two-wide on srv1 and never reach srv2"
-    ),
-)
 def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     key: None,
 ) -> None:
@@ -450,16 +440,6 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     assert observer.peak_total > max(observer.peak.values()), "together, not in series"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - load may break a tie and may never reorder the "
-        "price ladder. Red at parse until `ladder.fanout` exists, then red "
-        "until `plan` takes a capacity at all; written now because it is the "
-        "regression the fix invites, and a guard added after the fact guards "
-        "nothing"
-    ),
-)
 def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     """The constraint that keeps the fix from becoming an escalation change.
 
@@ -474,7 +454,7 @@ def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     config, pool = mapped(peers("full"))
     capacity = Capacity.of(config)
 
-    ordered = plan(config, pool, contract(), capacity=capacity)  # type: ignore[call-arg]
+    ordered = plan(config, pool, contract(), capacity=capacity)
 
     assert ordered.rungs == ("local_srv1", "local_srv2"), "price order, always"
 
