@@ -27,7 +27,12 @@ from mcgyvr.gate.adapter import (
 )
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
-from mcgyvr.gate.typecheck import STYLE, STYLE_LINT_CODES, compliance_findings
+from mcgyvr.gate.typecheck import (
+    STYLE,
+    STYLE_LINT_CODES,
+    compliance_findings,
+    unimportable_lines,
+)
 
 _EXTENSIONS = (".py", ".pyi")
 
@@ -116,6 +121,7 @@ class PythonAdapter(LanguageAdapter):
                 RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
         added = _added_by_resolved_path(files, repo)
+        unimportable = _Unimportable(repo)
         findings: list[Finding] = []
         for diag in diagnostics:
             resolved = Path(diag["filename"]).resolve()
@@ -126,9 +132,18 @@ class PythonAdapter(LanguageAdapter):
             path, added_lines = rel
             if row in added_lines:
                 code = diag.get("code")
+                # A demotable code is only demoted where the line it sits on is
+                # a style fault. UP035 is one code over two faults, and its
+                # other half — `from collections import Mapping` — is an
+                # ImportError that this line withdraws the demotion for. The
+                # AST family reports it too, on the same line and the same
+                # side of the verdict, so a machine with ruff and a machine
+                # without one reject the same change — and the two voices,
+                # where both are heard, are not saying opposite things.
+                demoted = code in STYLE_LINT_CODES and row not in unimportable.at(path)
                 findings.append(
                     Finding(
-                        check=STYLE if code in STYLE_LINT_CODES else "lint",
+                        check=STYLE if demoted else "lint",
                         path=path,
                         line=row,
                         code=code,
@@ -284,6 +299,35 @@ def _is_mutable_literal(node: ast.expr) -> bool:
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         return node.func.id in {"list", "dict", "set"}
     return False
+
+
+class _Unimportable:
+    """Which lines of which file hold an import that cannot resolve.
+
+    One of these lives for the length of one :meth:`PythonAdapter.lint` call.
+    The lint rung is batched — one ruff invocation for every changed Python
+    file — so a diagnostic arrives with a path and a row and no source, and the
+    only way to ask what was imported there is to read and parse the file. That
+    is done once per path and only for paths ruff raised a *demotable* code on,
+    which on a normal change is none of them: the short circuit in
+    :meth:`PythonAdapter.lint` means an ordinary lint finding never opens a
+    file. A cache rather than a precomputation for the same reason.
+
+    Deliberately not shared with :meth:`PythonAdapter.structural_checks`, which
+    parses every changed file a few milliseconds earlier. Threading a tree
+    cache between two rungs would make the lint rung's answer depend on another
+    rung having run, and the rungs are run independently on purpose — each is
+    tried even when the one before it faulted.
+    """
+
+    def __init__(self, repo: Path) -> None:
+        self._repo = repo
+        self._seen: dict[str, frozenset[int]] = {}
+
+    def at(self, path: str) -> frozenset[int]:
+        if path not in self._seen:
+            self._seen[path] = frozenset(unimportable_lines(_read(self._repo / path)))
+        return self._seen[path]
 
 
 def _read(path: Path) -> str | None:
