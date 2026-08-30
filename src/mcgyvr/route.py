@@ -63,27 +63,67 @@ attempt and without being recorded as a failure, which is why
 :class:`Exhaustion` distinguishes a family whose rungs all declined from one
 whose attempts were spent.
 
-**Fan-out breaks a tie inside a family; it never reorders the ladder.**
+**Fan-out chooses where a climb starts; it never reorders the ladder.**
 ``ladder.fanout`` is the knob and ``none`` is its default, which is this
 module as it was: a batch of contracts sharing a task type shares a floor
 family, so every one of them takes the cheapest rung and queues there while a
 peer serving the same model sits idle — and raising ``max_parallel`` does not
 fix that, it widens the rig that was already the only one being used. Under
-``full`` :func:`climb` starts on the *least-loaded* rung of the plan instead of
-the first. :func:`plan` still orders by price and nothing may make it do
-otherwise, because price order is what a ladder means and a plan that put a
-busy rung last would be deciding, from inside one family, that load outranks
-price. A tie goes to the cheaper rung, so ``full`` on an idle ladder is
-``none`` on an idle ladder exactly, and preferring a free peer that serves the
-same model costs nothing that could be called an escalation.
+``full`` :func:`climb` starts on the rung with the most *free slots* rather than
+on the first one.
 
-``idle`` is not honoured here, and reads as ``none`` from inside this file.
-Its choice is the cheapest rung *at or above the floor* with a free slot, which
-may be a priced api rung — a spend decision that crosses families, and #24's
-boundary is that nothing here looks at a family other than the one it was asked
-about. :func:`mcgyvr.escalate.ascent` already holds the view that mode needs.
-And busy is never a verdict: a rung this module passed over for a free peer was
-not tried and did not fail, so no amount of load can fund an escalation.
+Free slots — ``width - load`` — and not the smallest load, because the question
+a fan-out asks is "which of these can take this dispatch now", and an absolute
+load cannot answer it: a four-wide rig with two dispatches on it carries twice
+the work of a single-slot rig that is full, and it is the only one of the two
+with anywhere to put the work. Sending the climb to the emptier-looking rung
+parks it in :meth:`~mcgyvr.capacity.Capacity.hold` on a saturated machine while
+slots stand free next door — the funnel the knob exists to end, arrived at
+through the knob. It is the same rule
+:attr:`mcgyvr.escalate.Ascent.next_free_rung` states as ``load < width``, and
+one question answered two ways at two seams would be worse than either answer.
+
+**And it chooses once.** From the rung it starts on, the climb walks the plan's
+remaining rungs upward and stops. Re-choosing by load at every step would order
+the whole *walk* by load, so a rung that failed could be followed by a weaker
+model — which inverts the one thing a ladder asserts, each rung being measurably
+better than the one below it, and which ``docs/config-reference.md`` calls
+actively harmful. Nor would it be free: :func:`mcgyvr.escalate.permit` charges an
+escalation per new rung, so a task at ``max_escalations: 1`` would spend its only
+move going downhill. The rungs cheaper than the start are not revisited later
+for the same reason — they were passed over for being busy rather than for
+failing, and returning to them is still a descent.
+
+:func:`plan` still orders by price and nothing may make it do otherwise, because
+price order is what a ladder means and a plan that put a busy rung last would be
+deciding, from inside one family, that load outranks price. A tie in free slots
+goes to the cheaper rung, so on an idle ladder of equally wide rungs ``full`` is
+``none`` exactly; where the widths differ it starts on the widest, which is the
+spreading that was asked for and is one more reason the mode is opt-in.
+Preferring a free peer that serves the same model costs nothing that could be
+called an escalation.
+
+``idle`` is honoured here for the half of it that is #24's. Its choice is the
+cheapest rung *at or above the floor* with a free slot, and that question has
+two halves at two seams: which rung *within* one family, which is choosing among
+the rungs of a plan and so is this module's under any mode, and which *family*
+to enter, which may reach a priced api rung and so is #43's — nothing here looks
+at a family other than the one it was asked about, and
+:func:`mcgyvr.escalate.ascent` already holds the view that half needs. So
+:func:`climb` under ``idle`` starts on the cheapest rung of its plan with a free
+slot, and when no rung of the plan has one it starts on the cheapest and queues
+there, exactly as ``none`` does; the spill into the next family up is
+:attr:`mcgyvr.escalate.Ascent.next_free_rung`'s answer and is applied by
+:func:`mcgyvr.escalate.escalate` choosing which family this module is asked
+about. Leaving both halves out of this file was the earlier reading of the
+boundary and it made the mode a switch wired to nothing: entering a family whose
+cheapest rung was full still picked that full rung.
+
+``idle`` is not ``full`` with a threshold. ``full`` takes the roomiest rung and
+``idle`` takes the first one that will admit work, which on a ladder of unequal
+widths are different rungs — see :func:`_next_index`. And busy is never a verdict
+under either: a rung this module passed over for a free peer was not tried and
+did not fail, so no amount of load can fund an escalation.
 
 **What is deliberately not here.** Risk floors raising where work may start are
 #16's; this module reads the type's floor from the catalog and applies nothing
@@ -99,9 +139,8 @@ where it first becomes observable.
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -166,29 +205,17 @@ class Fanout(StrEnum):
     batch, and a throughput rig feeding an intelligence rig must not, since the
     second is sized to drain the first's failure tail.
 
-    Only ``FULL`` changes anything in this module. ``IDLE``'s choice may cross
-    from the floor family into a priced one, which is #43's to make and not
-    #24's, so it is carried and not acted on here — see the module docstring.
+    ``FULL`` and ``IDLE`` both change which rung of a plan a climb starts on,
+    and they choose differently: ``FULL`` takes the roomiest rung, ``IDLE`` the
+    cheapest one with a slot to spare. Only the *cross-family* half of ``IDLE``
+    is missing here — a choice that may reach from the floor family into a
+    priced one is #43's to make and not #24's, so it is carried and not acted on
+    here. See the module docstring.
     """
 
     NONE = "none"
     IDLE = "idle"
     FULL = "full"
-
-
-# How many attempts this process currently has in flight on each source, by
-# source name. Module state, deliberately, and it is the smallest thing that
-# makes ``full`` mean anything. :meth:`~mcgyvr.capacity.Capacity.in_use` counts
-# slots that have been *granted*, and every member of a batch chooses its rung
-# before any of them has been granted one — so six climbs reading only that
-# number would read six zeroes, all choose the cheapest rung, and queue on it,
-# which is the funnel the knob exists to end. Counting an attempt from the
-# moment it is chosen rather than from the moment it is admitted is what makes
-# the spread a fact instead of a race between threads. It is keyed by source
-# name and not by :class:`Machine`, because every contract of a batch plans
-# separately and would otherwise count its own machines and nobody else's.
-_in_flight: dict[str, int] = {}
-_in_flight_lock = threading.Lock()
 
 
 class Machine:
@@ -208,6 +235,14 @@ class Machine:
     wherever a plan is printed, and the only thing anyone above can do with one
     is ask how busy it is. Rungs sharing a source share an instance, so "same
     box" is answerable without anyone being told which box.
+
+    That grouping is what load-aware routing needs today and is observable
+    upstream; it is not a boundary this module has settled. A fleet holds rigs,
+    a rig holds containers, and a rung may come to bind at any of those levels,
+    so how rungs group is a question the ladder/rungs/rigs/models composition is
+    still working out. What is decided is that a machine stays an opaque handle
+    that answers "how busy" and names nothing — which is exactly what leaves the
+    grouping free to change.
     """
 
     __slots__ = ("_source",)
@@ -229,36 +264,75 @@ class Machine:
     def load(self, capacity: Capacity) -> int | None:
         """How busy this machine is, or ``None`` if this capacity cannot say.
 
-        The greater of the slots ``capacity`` has granted and the attempts this
-        process has started on it, because neither alone is the load: granted
-        under-reports a batch that is mid-choice, which is exactly when this is
-        asked, and started misses every dispatch that did not come through
-        :func:`climb` — another process's share of the same host-wide slot files
-        included (#185).
+        :meth:`~mcgyvr.capacity.Capacity.load` is the answer, which is the
+        greater of the slots that capacity has granted and the attempts reserved
+        against it — neither alone is the load, because granted under-reports a
+        batch that is mid-choice, which is exactly when this gets asked, and
+        reserved misses every dispatch that was never routed through a caller
+        that reserves.
+
+        **This process, this capacity, and only the choices it was told about.**
+        Another mcgyvr process contending for the same host-wide slot files
+        (#185) is not counted here and never was: the *bound* is the flock and is
+        shared, while this number exists to spread the choices one batch is
+        making. Cross-process load sensing would mean a ``LOCK_NB`` sweep of
+        every slot file on every routing decision — a syscall per rung per
+        choice, to fix a case that only bites multi-process runs — so if it is
+        ever wanted it belongs in :class:`~mcgyvr.capacity.Capacity`, beside the
+        files it would have to read, and not here.
 
         ``None`` when the capacity does not bound this source at all, which is a
         capacity and a plan built from different configs; it is an ordinary
         answer here rather than an error, because the caller's response is to
         keep price order rather than to fail a climb over a number nobody asked
-        for. A caller about to *act* on the answer reads it under
-        :data:`_in_flight_lock`, as :func:`_claim_next` does, because choosing
-        and claiming have to be one decision.
+        for. A caller about to *act* on the answer reads it inside
+        :meth:`~mcgyvr.capacity.Capacity.deciding`, as :func:`_claim_next` does,
+        because choosing and claiming have to be one decision.
         """
         if self._source not in capacity.limits:
             return None
-        return max(capacity.in_use(self._source), _in_flight.get(self._source, 0))
+        return capacity.load(self._source)
 
-    def claim(self) -> None:
-        """Count one more attempt in flight here. Called under the module lock."""
-        _in_flight[self._source] = _in_flight.get(self._source, 0) + 1
+    def free(self, capacity: Capacity) -> int | None:
+        """How many more dispatches this machine would admit, or ``None``.
 
-    def release(self) -> None:
-        """Stop counting one. Called under the module lock, always in a finally."""
-        left = _in_flight.get(self._source, 0) - 1
-        if left > 0:
-            _in_flight[self._source] = left
-        else:
-            _in_flight.pop(self._source, None)
+        ``width - load``, and the number a fan-out actually needs: a load on its
+        own says how much work a machine is doing and not whether it has
+        anywhere to put more, and those are different questions the moment two
+        machines are different sizes. Zero means saturated — a dispatch sent
+        here queues — and the value can go below zero when more attempts have
+        chosen a machine than it has slots, which is a truthful reading of a rung
+        that is oversubscribed rather than merely full.
+
+        ``None`` for a source this capacity does not bound, for the same reason
+        and with the same consequence as :meth:`load`: an unknown width is not a
+        free slot, and the two must not be made to look alike.
+        """
+        width = capacity.limits.get(self._source)
+        if width is None:
+            return None
+        return width - capacity.load(self._source)
+
+    def claim(self, capacity: Capacity) -> None:
+        """Count one more attempt as headed here, before it holds anything.
+
+        Called inside :meth:`~mcgyvr.capacity.Capacity.deciding`, so that the
+        loads a choice was read from cannot have moved before the choice is
+        counted. A source ``capacity`` does not bound is not counted rather than
+        refused, because a plan from another config is something this module
+        answers ``None`` to everywhere else and a climb over it still has to run.
+        """
+        if self._source in capacity.limits:
+            capacity.reserve(self._source)
+
+    def release(self, capacity: Capacity) -> None:
+        """Stop counting one attempt. Never raises, so a ``finally`` is safe.
+
+        A leaked reservation is forever, and it would show this machine as busy
+        to every later choice the batch makes — so the release has to be
+        callable on the path where something has already gone wrong.
+        """
+        capacity.release(self._source)
 
 
 @dataclass(frozen=True)
@@ -269,11 +343,24 @@ class Step:
     answers "how busy" and names nothing. ``None`` for a step nobody bound to a
     machine, which is a step no load can be read for and which is therefore
     taken in price order whatever the fan-out mode says.
+
+    **And it is out of the comparison.** A :class:`Machine` names nothing, so it
+    has no value equality to offer and falls back to identity — which made
+    ``plan(config, pool, contract)`` unequal to itself called twice, and with it
+    every :class:`mcgyvr.escalate.Ascent`, directly contradicting that class's
+    own claim that two ascents differing only in the capacity they were handed
+    are the same ascent. Giving ``Machine`` an ``__eq__`` keyed by its source
+    would cure the symptom by asserting something this project has not decided:
+    a fleet holds rigs, a rig holds containers, and a rung may come to bind at
+    any of those levels, so "machine identity is the source name" is a
+    commitment the composition work is likely to contradict. A plan describes
+    the same route whichever handle answers "how busy" for it, so the field
+    stays and the comparison does not use it.
     """
 
     rung: Rung
     attempts: int
-    machine: Machine | None = None
+    machine: Machine | None = field(default=None, compare=False)
 
 
 class Planned:
@@ -693,53 +780,108 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
 # --- which rung a climb takes next -----------------------------------------
 
 
-def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> int:
-    """Which of the rungs still untried to take next: the first, unless ``full``.
+def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity) -> int:
+    """Which of the rungs still untried to take, under each of the three modes.
 
-    Under every mode but ``full`` this is ``0`` — the cheapest rung still
-    standing, byte for byte the order this module has always walked. Under
-    ``full`` it is the least-loaded of them, and a tie is broken by price
-    because ``min`` returns the first minimum: on an idle ladder every rung ties
-    at zero, so ``full`` there is ``none`` there and nothing was reordered by
-    load that load had nothing to say about.
+    Under ``none`` this is ``0`` — the cheapest rung still standing, byte for
+    byte the order this module has always walked.
 
-    Falls back to price order when the loads cannot all be read — no capacity to
-    read them from, a step bound to no machine, or a machine this capacity does
-    not bound. A partial view would order the ladder by which rungs a capacity
-    happened to know about, which is not a fact about load at all.
+    Under ``full`` it is the rung with the most *free slots*, and a tie is
+    broken by price because ``max`` returns the first maximum: on an idle
+    ladder of equally wide rungs every rung ties, so ``full`` there is ``none``
+    there and nothing was reordered by load that load had nothing to say about.
+
+    Under ``idle`` it is the *cheapest rung with at least one free slot*, and
+    that is a different question from ``full``'s rather than a softer version of
+    it. ``idle`` takes the first rung that will admit this dispatch now;
+    ``full`` takes the roomiest one, which on an unequal ladder is often dearer
+    than a cheaper rung with a single slot to spare. Where they disagree,
+    neither is wrong — they are answering the two different questions the two
+    modes were asked. When no rung has a free slot the answer is ``0``, which
+    queues on the cheapest exactly as ``none`` does: within one family there is
+    nowhere cheaper to wait, and the rung a queue would spill into is in another
+    family and so is :attr:`mcgyvr.escalate.Ascent.next_free_rung`'s to name.
+
+    Free slots and not the smallest load, under both load-aware modes. The two
+    only agree when every rung is the same width, and where they disagree the
+    load is wrong: a four-wide rig with two dispatches on it has two slots free,
+    a single-slot rig holding one dispatch has none, and it is the
+    *emptier-looking* second one that a climb ordered by load would queue on.
+    See the module docstring; and :attr:`mcgyvr.escalate.Ascent.next_free_rung`,
+    which states the same rule as ``load < width`` for the half of ``idle`` that
+    crosses families.
+
+    :func:`climb` asks this once, for the rung it starts on. Asking again after
+    a failure would order the whole walk by load, and a walk ordered by load can
+    descend to a weaker model than the one that just failed.
+
+    Falls back to price order when a load cannot be read — a step bound to no
+    machine, or a machine this capacity does not bound. Under ``full`` that
+    means every rung, because a partial view would order the ladder by which
+    rungs a capacity happened to know about, which is not a fact about load at
+    all; under ``idle`` it means every rung *cheaper than the one chosen*, since
+    an unreadable rung stops the walk rather than being stepped over — "cheapest
+    free" is only knowable if every cheaper rung could be priced, and an unknown
+    belongs on the cheap side. That is the rule ``next_free_rung`` states in the
+    same words, and one question answered two ways at two seams would be worse
+    than either answer. A climb with no capacity at all never gets here;
+    :func:`_claim_next` answers that one, and answers it the same way.
     """
-    if mode is not Fanout.FULL or capacity is None:
+    if mode is Fanout.NONE:
         return 0
-    loads: list[int] = []
-    for step in remaining:
-        load = None if step.machine is None else step.machine.load(capacity)
-        if load is None:
+    free: list[int] = []
+    for index, step in enumerate(remaining):
+        slots = None if step.machine is None else step.machine.free(capacity)
+        if slots is None:
             return 0
-        loads.append(load)
-    return min(range(len(loads)), key=loads.__getitem__)
+        if mode is Fanout.IDLE and slots > 0:
+            return index
+        free.append(slots)
+    if mode is Fanout.IDLE:
+        return 0
+    return max(range(len(free)), key=free.__getitem__)
 
 
 def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> Step:
-    """Take the next step off ``remaining`` and count it as in flight.
+    """Take the next step off ``remaining`` and count it as chosen.
 
-    Choosing and counting are one decision and so happen under one lock: a
-    climb that read the loads, released the lock and only then said which rung
-    it had taken would leave a window in which every member of a batch reads
-    the same zeroes — the funnel again, narrowed to microseconds but not closed.
+    Choosing and counting are one decision and so happen inside one
+    :meth:`~mcgyvr.capacity.Capacity.deciding` section: a climb that read the
+    loads, left the section and only then said which rung it had taken would
+    leave a window in which every member of a batch reads the same zeroes — the
+    funnel again, narrowed to microseconds but not closed. Nothing slow may run
+    in there, which is why this reserves a rung and never holds a slot: the
+    section borrows the very lock :meth:`~mcgyvr.capacity.Capacity.hold` keeps
+    its counters under.
+
+    The rungs *cheaper* than the one chosen are dropped rather than left on
+    ``remaining`` for later. They were passed over for having no free slot, and
+    a climb that came back to one of them after a dearer rung had failed would
+    be trying a weaker model to fix work a stronger one could not — a descent,
+    whatever order it was reached in. Under ``none`` the index is ``0`` and
+    nothing is dropped; under the two load-aware modes it is ``0`` whenever the
+    cheapest rung is the one chosen, which on an idle ladder is always.
+
+    Without a capacity there is nothing to read and nothing to count, so the
+    walk is the plan's own order and ``climb(capacity=None)`` counts nothing —
+    which is intended: the reservations exist to spread one batch across rigs,
+    and a climb with no capacity is not in a batch.
     """
-    with _in_flight_lock:
-        step = remaining.pop(_next_index(remaining, mode, capacity))
+    if capacity is None:
+        return remaining.pop(0)
+    with capacity.deciding():
+        del remaining[: _next_index(remaining, mode, capacity)]
+        step = remaining.pop(0)
         if step.machine is not None:
-            step.machine.claim()
+            step.machine.claim(capacity)
     return step
 
 
-def _release(machine: Machine | None) -> None:
+def _release(machine: Machine | None, capacity: Capacity | None) -> None:
     """Stop counting an attempt that has ended, however it ended."""
-    if machine is None:
+    if machine is None or capacity is None:
         return
-    with _in_flight_lock:
-        machine.release()
+    machine.release(capacity)
 
 
 # --- executing a plan ------------------------------------------------------
@@ -778,15 +920,23 @@ def climb(
     already turns a raising job into a named failure beside its neighbours,
     which is the right place for that to happen.
 
-    ``capacity`` is also what makes ``full`` fan-out possible, and this is the
-    only place in the module load is read. Under :attr:`Fanout.FULL` each rung
-    is taken in order of how busy its machine is rather than off the top of the
-    plan; under every other mode the walk is the plan's own order, unchanged.
-    Either way *every* rung is walked, each keeps its own budget, and ``permit``
-    is asked before each attempt — fan-out decides which rung is tried first,
-    never how many may be tried. Nor can it fail one: a rung passed over for a
-    free peer produces no verdict and no history entry, so a busy ladder cannot
-    fund an escalation the way a failing one does.
+    ``capacity`` is also what makes load-aware fan-out possible, and this is the
+    only place in the module load is read. Under :attr:`Fanout.FULL` the rung
+    the climb *starts* on is the one with the most free slots rather than the
+    top of the plan; under :attr:`Fanout.IDLE` it is the cheapest rung of the
+    plan that has a free slot, which is the top of the plan whenever the top has
+    one and is the top again when no rung does. Under :attr:`Fanout.NONE` the
+    start is the top of the plan, unchanged. In every case the walk from there
+    is price order upward and stops at the dearest rung, each rung keeps its own
+    budget, and ``permit`` is asked before each attempt — fan-out decides where a
+    climb begins, never how many attempts it may make.
+
+    The rungs below the start are not walked, and that is the decision rather
+    than an omission. They were passed over for having no free slot, so trying
+    one after a dearer rung has failed would be answering a failure with a
+    weaker model, which is what a ladder exists to rule out. Nor is being passed
+    over a failure: such a rung produces no verdict and no history entry, so a
+    busy ladder cannot fund an escalation the way a failing one does.
     """
     history: list[Attempted] = []
     if not plan.steps:
@@ -816,8 +966,14 @@ def climb(
         )
 
     remaining = list(steps)
+    # Fan-out is asked once, for the rung this climb starts on; from there the
+    # walk is the plan's own price order. Re-asking it per rung would order the
+    # whole walk by load, and a walk ordered by load can answer a failure with a
+    # weaker model — see :func:`_next_index`.
+    choosing = plan.fanout
     while remaining:
-        step = _claim_next(remaining, plan.fanout, capacity)
+        step = _claim_next(remaining, choosing, capacity)
+        choosing = Fanout.NONE
         try:
             for number in range(1, step.attempts + 1):
                 if permit is not None and not permit(step, number):
@@ -859,9 +1015,10 @@ def climb(
                     break
         finally:
             # However this rung ended — passed, declined, withheld, spent or
-            # raised — it is no longer in flight, and a count that leaked would
-            # make the machine look busy to every later climb in this process.
-            _release(step.machine)
+            # raised — it is no longer in flight, and a reservation that leaked
+            # would make the machine look busy to every later choice made under
+            # this capacity.
+            _release(step.machine, capacity)
 
     declined_only = all(a.verdict is Verdict.DECLINED for a in history)
     return Exhausted(
@@ -873,15 +1030,35 @@ def climb(
 
 
 def _exhausted_detail(plan: Plan, history: list[Attempted], declined_only: bool) -> str:
-    """One sentence saying what was tried, for a caller reporting upward."""
-    rungs = ", ".join(plan.rungs)
+    """One sentence saying what was tried, for a caller reporting upward.
+
+    The rungs named are the ones actually attempted, which under ``none`` is
+    every rung of the plan and under the two load-aware modes is the start rung
+    and everything above it. A rung the climb never reached is named separately
+    and as what it is — untried, and so unjudged — because listing it beside the
+    attempts would make a busy machine read as a family that could not do the
+    work, which is the one thing an exhaustion must not be able to say by
+    accident.
+    """
+    tried = tuple(dict.fromkeys(a.rung for a in history))
+    rungs = ", ".join(tried)
+    skipped = tuple(name for name in plan.rungs if name not in set(tried))
+    aside = (
+        ""
+        if not skipped
+        else (
+            f" Not tried and so not judged: {', '.join(skipped)} — no free slot "
+            f"when this climb chose where to start."
+        )
+    )
     if declined_only:
+        every = "every rung" if not skipped else "every rung this climb tried"
         return (
-            f"every rung of the {plan.family.name!r} family declined this "
-            f"contract ({rungs}); no attempt was spent."
+            f"{every} of the {plan.family.name!r} family declined this "
+            f"contract ({rungs}); no attempt was spent.{aside}"
         )
     spent = sum(1 for a in history if a.verdict is not Verdict.DECLINED)
     return (
         f"the {plan.family.name!r} family is spent: {spent} attempt(s) across "
-        f"{rungs} and none produced an acceptable result."
+        f"{rungs} and none produced an acceptable result.{aside}"
     )

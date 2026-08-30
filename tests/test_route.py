@@ -19,14 +19,35 @@ one contract against two configs that differ only in a rung's ``attempts`` and
 asserting the number of attempts changes with it — a test that asserted the
 default of 1 alone would pass just as well against a hard-coded 1.
 
-*Fan-out breaks a tie and never reorders the ladder* is the fourth statement,
-added with ``ladder.fanout``, and it is held from both sides: a busy cheapest
-rung is still taken under ``none`` and under ``idle`` (which is another
-module's mode), the free peer is taken under ``full``, an idle ladder gives the
-same rung under every mode, and a plan's order is asserted to be price order
-whatever the mode and whatever is busy. Load is made real with
-:meth:`~mcgyvr.capacity.Capacity.hold` rather than with a stub, because the
-number under test is the one a real dispatch moves.
+*Fan-out chooses where a climb starts and never reorders the ladder* is the
+fourth statement, added with ``ladder.fanout``, and it is held from all three
+sides: a full cheapest rung is still taken under ``none``, the free peer is
+taken under ``full``, the cheapest rung with a slot to spare is taken under
+``idle``, an idle ladder gives the same rung under every mode, and a plan's
+order is asserted to be price order whatever the mode and whatever is busy.
+
+``idle`` and ``full`` are held apart rather than assumed different, because the
+two agree on every ladder of equal widths and a suite that only ever ran one of
+those would let either rule stand in for the other. The case that separates
+them is a cheap narrow rung beside a dear wide one: ``idle`` takes the first
+rung that will admit work and ``full`` takes the roomiest, so they name
+different rungs there and the same rung everywhere else. What crosses *families*
+under ``idle`` is not this module's — :func:`mcgyvr.escalate.escalate` chooses
+which family a climb enters — so the ladders here are single-family and the
+assertions are about which rung of one plan a climb starts on.
+
+Two of those need machines of *different widths* to be worth anything. "Busy"
+means no free slot and not merely fewer jobs — a four-wide rig running two
+dispatches can take this contract and a single-slot rig running one cannot — so
+the ladders here declare unequal ``max_parallel`` and the tests fill slots
+rather than counting them. And the walk from the start rung is upward only: a
+rung skipped for being full is not returned to when a dearer one fails, because
+that is answering a failure with a weaker model.
+
+Load is made real with :meth:`~mcgyvr.capacity.Capacity.hold` rather than with a
+stub, because the number under test is the one a real dispatch moves; filling
+more than one slot of a source takes more than one thread, which is what
+:func:`occupied` is for.
 
 Nothing here dispatches. The attempt function is a recorder, which is the whole
 reason :func:`~mcgyvr.route.climb` takes one: every rule in the module is about
@@ -36,7 +57,9 @@ be testing the model.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import threading
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
@@ -143,6 +166,90 @@ ladder:
       model: qwen2.5-coder:14b
 """
 
+WIDTHS = """
+version: 1
+sources:
+  wide:
+    base_url: http://wide.example.net:11434
+    api: ollama
+    max_parallel: 4
+  narrow:
+    base_url: http://narrow.example.net:11434
+    api: ollama
+    max_parallel: 1
+ladder:
+  tiers:
+    - name: local_wide
+      source: wide
+      model: qwen3-coder:30b
+    - name: local_narrow
+      source: narrow
+      model: qwen3-coder:30b
+"""
+
+# Three rungs of three different widths, which is the only arrangement on which
+# the three fan-out modes can give three different answers. Fill the cheapest
+# rung's single slot and ``none`` still takes it, ``idle`` takes the next
+# cheapest — the first that will admit work — and ``full`` takes the roomiest,
+# which is the dearest rung on this ladder. On any ladder of equal widths
+# ``idle`` and ``full`` agree everywhere, so a suite without this shape would
+# let either rule stand in for the other.
+UNEVEN = """
+version: 1
+sources:
+  small:
+    base_url: http://small.example.net:11434
+    api: ollama
+    max_parallel: 1
+  medium:
+    base_url: http://medium.example.net:11434
+    api: ollama
+    max_parallel: 1
+  large:
+    base_url: http://large.example.net:11434
+    api: ollama
+    max_parallel: 4
+ladder:
+  tiers:
+    - name: local_7b
+      source: small
+      model: qwen2.5-coder:7b
+    - name: local_14b
+      source: medium
+      model: qwen2.5-coder:14b
+    - name: local_32b
+      source: large
+      model: qwen2.5-coder:32b
+"""
+
+TRIPLE = """
+version: 1
+sources:
+  small:
+    base_url: http://small.example.net:11434
+    api: ollama
+    max_parallel: 2
+  medium:
+    base_url: http://medium.example.net:11434
+    api: ollama
+    max_parallel: 2
+  large:
+    base_url: http://large.example.net:11434
+    api: ollama
+    max_parallel: 2
+ladder:
+  tiers:
+    - name: local_7b
+      source: small
+      model: qwen2.5-coder:7b
+    - name: local_14b
+      source: medium
+      model: qwen2.5-coder:14b
+    - name: local_32b
+      source: large
+      model: qwen2.5-coder:32b
+"""
+
 DETERMINISTIC_CONTRACT = """
 id: tidy
 task_type: format
@@ -164,6 +271,10 @@ target: src/pkg/fetch.ts
 scope:
   allow: ["src/**"]
 """
+
+# How long a slot-holding thread waits to be let go. Nothing asserts on it: it
+# only decides how long a broken implementation takes to say so.
+HOLD_TIMEOUT_S = 5.0
 
 LOCAL = catalog().family("local")
 API = catalog().family("api")
@@ -268,6 +379,39 @@ class DownProbe:
             for e in endpoints
             if e.source in self._down
         }
+
+
+@contextmanager
+def occupied(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
+    """Hold one slot of each rung named, for the body of the block.
+
+    A rung named twice has two of its slots held, which is the only way a
+    *width* can be made to matter: the arrangement worth testing is a wide rig
+    carrying work and still able to take more, beside a narrow rig carrying
+    less and unable to take any. One thread per slot rather than a nested stack
+    on this one, because :meth:`~mcgyvr.capacity.Capacity.hold` refuses a thread
+    that already holds the source — a caller queueing against itself is a
+    deadlock it names rather than performs.
+    """
+    held = threading.Semaphore(0)
+    release = threading.Event()
+
+    def occupy(rung: str) -> None:
+        with capacity.hold(pool.bind(rung)):
+            held.release()
+            release.wait(HOLD_TIMEOUT_S)
+
+    threads = [threading.Thread(target=occupy, args=(rung,)) for rung in rungs]
+    for thread in threads:
+        thread.start()
+    try:
+        for _ in rungs:
+            assert held.acquire(timeout=HOLD_TIMEOUT_S), "a slot never filled"
+        yield
+    finally:
+        release.set()
+        for thread in threads:
+            thread.join(timeout=HOLD_TIMEOUT_S)
 
 
 def accepted(result: Accepted | Exhausted) -> Accepted:
@@ -776,16 +920,22 @@ def test_the_default_takes_the_cheapest_rung_however_busy_it_is(
     assert attempts.rungs == ["local_qwen-7b"]
 
 
-def test_full_fanout_starts_on_the_free_peer_when_the_cheapest_rung_is_busy(
+def test_full_fanout_starts_on_the_free_peer_when_the_cheapest_rung_is_full(
     lock_dir: None,
 ) -> None:
     """The gap the knob exists for: a batch queues on one rung while a peer of
-    the same family sits idle, and widening ``max_parallel`` cannot fix it."""
+    the same family sits idle, and widening ``max_parallel`` cannot fix it.
+
+    "Busy" is *no free slot*, which is why both of the cheapest rung's slots are
+    held here and not just one. A rung with work on it and a slot to spare is
+    still the cheapest place this contract can run right now, and moving off it
+    would be paying for a dearer rung to avoid a queue that does not exist.
+    """
     config, pool = mapped(with_fanout(MIXED, "full"))
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
         landed = accepted(
             climb(plan(config, pool, contract()), attempts, capacity=capacity)
         )
@@ -794,11 +944,30 @@ def test_full_fanout_starts_on_the_free_peer_when_the_cheapest_rung_is_busy(
     assert landed.rung == "local_qwen-14b"
 
 
+def test_full_fanout_on_an_idle_ladder_of_equal_rungs_is_the_default(
+    lock_dir: None,
+) -> None:
+    """Three equally wide rungs, nothing running: every rung has the same number
+    of free slots, the tie goes to price, and the knob has changed nothing."""
+    config, pool = mapped(with_fanout(TRIPLE, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_7b"]
+
+
 def test_full_fanout_on_an_idle_ladder_still_takes_the_cheapest_rung(
     lock_dir: None,
 ) -> None:
-    """A tie goes to price, so turning the knob on changes nothing until
-    something is actually busy."""
+    """Turning the knob on changes nothing until something is actually busy.
+
+    Here the cheapest rung is also the widest, so it wins on free slots outright
+    rather than on the tie-break. That is the knob spreading work as asked: with
+    nothing running, the rung with the most room is where a batch should start,
+    and on this ladder it is also the cheapest.
+    """
     config, pool = mapped(with_fanout(MIXED, "full"))
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
@@ -808,16 +977,147 @@ def test_full_fanout_on_an_idle_ladder_still_takes_the_cheapest_rung(
     assert attempts.rungs == ["local_qwen-7b"]
 
 
-def test_idle_is_not_this_modules_mode_and_reads_as_the_default_here(
+def test_idle_keeps_the_cheapest_rung_while_it_still_has_a_slot_to_spare(
     lock_dir: None,
 ) -> None:
-    """``idle`` may spill into a priced family, which crosses the boundary #24
-    draws; it is :func:`mcgyvr.escalate.ascent`'s and is carried, not acted on."""
+    """ "Busy" is *no free slot*, and a rung with work on it is not that.
+
+    One of ``local_qwen-7b``'s two slots is held, so the cheapest rung can still
+    take this contract now — and moving off it would be reaching for a dearer
+    rung to avoid a queue that does not exist. ``idle`` is a mode about which
+    rung a *saturated* ladder offers, not about which rung is quietest.
+    """
     config, pool = mapped(with_fanout(MIXED, "idle"))
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
     with capacity.hold(pool.bind("local_qwen-7b")):
+        climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_idle_starts_on_the_cheapest_rung_that_has_a_free_slot(
+    lock_dir: None,
+) -> None:
+    """The half of ``idle`` that is #24's: choosing among the rungs of one family.
+
+    Both of the cheapest rung's slots are held, so it will admit nothing, and
+    the next cheapest is where this contract can actually run. Before this was
+    wired the mode was a switch attached to nothing here — entering a family
+    whose cheapest rung was full still picked that full rung, and
+    ``docs/config-reference.md`` told operators otherwise.
+
+    The busy rung is passed over rather than tried: it reaches no verdict and
+    is in no history, which is what keeps a queue from funding an escalation.
+    """
+    config, pool = mapped(with_fanout(MIXED, "idle"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
+        landed = accepted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_qwen-14b"]
+    assert landed.rung == "local_qwen-14b"
+    assert [a.rung for a in landed.history] == ["local_qwen-14b"], "busy is no verdict"
+
+
+def test_the_three_modes_give_three_different_answers_on_one_busy_ladder(
+    lock_dir: None,
+) -> None:
+    """``idle`` is not ``full`` with a threshold, and this is where that shows.
+
+    One ladder, one held slot, three modes, three rungs. The cheapest rung is
+    full, so ``none`` queues on it, ``idle`` takes the next cheapest — the first
+    rung that will admit this dispatch now — and ``full`` takes the roomiest,
+    which here is the dearest rung on the ladder. All three are right for the
+    question their own mode asks; what they must not be is the same answer,
+    because ``idle``'s rule is "the first that admits work" and ``full``'s is
+    "the one with the most room", and those coincide on every ladder of equal
+    widths. Asserting them side by side is what stops one implementation from
+    quietly serving both.
+    """
+    landed: dict[str, list[str]] = {}
+    for mode in ("none", "idle", "full"):
+        config, pool = mapped(with_fanout(UNEVEN, mode))
+        capacity = Capacity.of(config)
+        attempts = Recorder(Verdict.PASSED)
+
+        with occupied(capacity, pool, "local_7b"):
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+        landed[mode] = attempts.rungs
+
+    assert landed["none"] == ["local_7b"], "the cheapest rung, queued on"
+    assert landed["idle"] == ["local_14b"], "the cheapest rung with a free slot"
+    assert landed["full"] == ["local_32b"], "the roomiest rung, which is dearest"
+
+
+def test_idle_queues_on_the_cheapest_rung_when_no_rung_has_a_free_slot(
+    lock_dir: None,
+) -> None:
+    """With nothing free inside the family, ``idle`` is ``none``, exactly.
+
+    There is nowhere cheaper to wait than the cheapest rung, and choosing a
+    dearer full rung would buy a queue instead of a slot. The rung this mode
+    would spill to when every rung of *this* family is full is in another
+    family, which is :attr:`mcgyvr.escalate.Ascent.next_free_rung`'s to name and
+    :func:`mcgyvr.escalate.escalate`'s to enter — nothing here may reach for it.
+    """
+    config, pool = mapped(with_fanout(WIDTHS, "idle"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with occupied(
+        capacity,
+        pool,
+        "local_wide",
+        "local_wide",
+        "local_wide",
+        "local_wide",
+        "local_narrow",
+    ):
+        climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert attempts.rungs == ["local_wide"], "the cheapest rung, queued on"
+
+
+def test_idle_without_a_capacity_keeps_price_order() -> None:
+    """No capacity is no load, and inventing one is not routing — as for ``full``."""
+    config, pool = mapped(with_fanout(MIXED, "idle"))
+    attempts = Recorder(Verdict.PASSED)
+
+    climb(plan(config, pool, contract()), attempts)
+
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_idle_stops_at_a_rung_whose_load_cannot_be_read_rather_than_stepping_over(
+    lock_dir: None,
+) -> None:
+    """An unknown belongs on the cheap side, at this seam and at the other one.
+
+    This capacity bounds the cheapest rung's source and no other, which is a
+    capacity and a pool built from different configs. The cheapest rung is full
+    and the dearer one cannot be read at all — and "cheapest free" is only
+    knowable if every cheaper rung could be priced, so the answer is price
+    order. Reading the unreadable rung as free instead would move the climb onto
+    a dearer rung on the strength of not knowing; it is the same rule
+    :attr:`mcgyvr.escalate.Ascent.next_free_rung` applies by answering ``None``.
+
+    The width is stated to match what the config declares, because
+    :meth:`~mcgyvr.capacity.Capacity.hold` refuses an endpoint that disagrees
+    with the capacity bounding it — the fact under test is a *missing* source,
+    not a contradicted one.
+    """
+    config, pool = mapped(with_fanout(MIXED, "idle"))
+    capacity = Capacity({"workstation": 2})
+    attempts = Recorder(Verdict.PASSED)
+
+    with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
         climb(plan(config, pool, contract()), attempts, capacity=capacity)
 
     assert attempts.rungs == ["local_qwen-7b"]
@@ -833,22 +1133,119 @@ def test_full_fanout_without_a_capacity_keeps_price_order() -> None:
     assert attempts.rungs == ["local_qwen-7b"]
 
 
-def test_full_fanout_still_walks_every_rung_when_the_first_one_fails(
+def test_a_rung_skipped_for_being_full_is_not_walked_back_down_to(
     lock_dir: None,
 ) -> None:
-    """Fan-out changes which rung is tried first, not how many may be tried."""
+    """A rung passed over is passed over for the whole climb, not deferred.
+
+    This replaces a test that asserted the opposite — that a climb starting on
+    ``local_qwen-14b`` walked back to ``local_qwen-7b`` and spent two attempts
+    doing it. That was the defect written down as the specification: the cheaper
+    rung was skipped because it had no free slot, and reaching it *after* the
+    dearer rung has failed answers a failure with a weaker model. It also costs
+    a move — :func:`mcgyvr.escalate.permit` charges an escalation per new rung —
+    so at ``max_escalations: 1`` the run spends its only escalation going
+    downhill.
+
+    The family is spent when the climb runs out of rungs *above* where it
+    started, and the untried rung is named as untried rather than counted as a
+    failure.
+    """
     config, pool = mapped(with_fanout(MIXED, "full"))
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
         spent = exhausted(
             climb(plan(config, pool, contract()), attempts, capacity=capacity)
         )
 
-    assert attempts.rungs == ["local_qwen-14b", "local_qwen-7b"]
+    assert attempts.rungs == ["local_qwen-14b"]
+    assert spent.reason is Exhaustion.RUNGS_SPENT
+    assert spent.attempts_spent == 1
+    assert "local_qwen-7b" in spent.detail
+    assert "Not tried" in spent.detail
+
+
+def test_full_fanout_prefers_a_free_slot_over_a_smaller_number_of_jobs(
+    lock_dir: None,
+) -> None:
+    """Least loaded is not the same question as has a slot free, and only the
+    second one is answerable without knowing how wide a machine is.
+
+    A four-wide rig with two dispatches on it is doing twice the work of a
+    single-slot rig that is full, and it is the only one of the two that can
+    take this contract now. Choosing by absolute load sends the climb to the
+    saturated rung, where :meth:`~mcgyvr.capacity.Capacity.hold` blocks it while
+    two slots stand free next door — the funnel the knob exists to end, reached
+    by the knob itself. It is the same rule
+    :attr:`mcgyvr.escalate.Ascent.next_free_rung` states as ``load < width``.
+    """
+    config, pool = mapped(with_fanout(WIDTHS, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with occupied(capacity, pool, "local_wide", "local_wide", "local_narrow"):
+        landed = accepted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_wide"], "two free slots beat one busy one"
+    assert landed.rung == "local_wide"
+
+
+def test_full_fanout_climbs_upward_from_its_start_and_never_back_down(
+    lock_dir: None,
+) -> None:
+    """Fan-out chooses where a climb *begins*; from there the ladder is a ladder.
+
+    Three rungs, with the cheapest and the dearest each carrying a dispatch, so
+    the free-slot choice starts in the middle. When that rung fails the climb
+    may only go up. Re-choosing by load at every step instead would order the
+    whole walk by load and send a failed 14b down to 7b — a weaker model tried
+    after a stronger one has already failed, which inverts the one thing a
+    ladder asserts, and which ``docs/config-reference.md`` calls actively
+    harmful. It is not free, either: :func:`mcgyvr.escalate.permit` charges an
+    escalation per new rung, so a task at ``max_escalations: 1`` would spend its
+    only move going downhill and never reach 32b at all.
+
+    The rungs cheaper than the start are not revisited, because they were
+    skipped for being busy rather than for failing, and a climb that came back
+    to them would be descending too.
+    """
+    config, pool = mapped(with_fanout(TRIPLE, "full"))
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+
+    with occupied(capacity, pool, "local_7b", "local_32b"):
+        spent = exhausted(
+            climb(plan(config, pool, contract()), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_14b", "local_32b"], "upward only"
     assert spent.reason is Exhaustion.RUNGS_SPENT
     assert spent.attempts_spent == 2
+
+
+def test_two_plans_of_the_same_inputs_are_the_same_plan(lock_dir: None) -> None:
+    """A plan is a value, and a caller may compare two of them.
+
+    What a rung runs on is not part of what a plan *is*: two plans built from
+    one config, one pool and one contract describe the same route whether or
+    not they were handed the same :class:`~mcgyvr.route.Machine` objects, and
+    :class:`mcgyvr.escalate.Ascent` says the same thing one level up about the
+    capacity an ascent was handed. A :class:`~mcgyvr.route.Machine` compared by
+    identity — which is the only way it can be compared, since it deliberately
+    names nothing — silently makes every plan unequal to every other.
+    """
+    config, pool = mapped(MIXED)
+    capacity = Capacity.of(config)
+
+    first = plan(config, pool, contract(), capacity=capacity)
+    second = plan(config, pool, contract(), capacity=capacity)
+
+    assert first == second
+    assert first.steps[0].machine is not second.steps[0].machine
 
 
 def test_a_raising_attempt_stops_counting_against_the_rung_it_raised_on(
@@ -880,7 +1277,7 @@ def test_a_busy_rung_is_passed_over_and_never_recorded_as_having_failed(
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
-    with capacity.hold(pool.bind("local_qwen-7b")):
+    with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):
         landed = accepted(
             climb(plan(config, pool, contract()), attempts, capacity=capacity)
         )
