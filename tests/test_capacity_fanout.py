@@ -459,17 +459,6 @@ def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     assert ordered.rungs == ("local_srv1", "local_srv2"), "price order, always"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-30: decided - `idle` takes the cheapest rung AT OR ABOVE the "
-        "contract's floor that has a free slot; the floor is the only bound, so "
-        "a saturated local ladder spills into api rather than waiting. Red at "
-        "parse until `ladder.fanout` exists, then red until `ascent` takes a "
-        "capacity. `escalate.ascent` and not `route.plan` because the choice "
-        "crosses families and #24 forbids `route` from seeing past one"
-    ),
-)
 def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     key: None,
 ) -> None:
@@ -490,6 +479,6 @@ def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     capacity = Capacity.of(config)
 
     with saturated(capacity, pool, "local_srv1", "local_srv2"):
-        climbable = ascent(config, pool, contract(), capacity=capacity)  # type: ignore[call-arg]
+        climbable = ascent(config, pool, contract(), capacity=capacity)
 
-        assert climbable.next_free_rung == "api_big"  # type: ignore[attr-defined]
+        assert climbable.next_free_rung == "api_big"
