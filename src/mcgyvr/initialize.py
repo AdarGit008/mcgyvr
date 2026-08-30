@@ -265,7 +265,7 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
             "image": None,
             "setup": [],
         },
-        "delivery": {"mode": "pull_request", "token_env": None},
+        "delivery": {"mode": "branch", "token_env": None},
         "budgets": {"max_escalations": 1, "task_timeout_s": 900},
     }
 

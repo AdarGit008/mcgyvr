@@ -106,6 +106,18 @@ class Field:
     min_value: int | None = None
     bind_hint: str = ""
 
+    retired: tuple[tuple[str, str], ...] = ()
+    """Enum values this build recognises and refuses, each with why and what to
+    set instead.
+
+    Distinct from simply dropping the value out of ``choices``, which is what
+    was tried first. That produces "not a valid value. Valid: ...", which is
+    true and unhelpful: a value that used to work — and, in the one case here,
+    used to be the *default* — was doing something other than what its name
+    said, and an operator who wrote it deserves to be told which behaviour they
+    were actually getting. A retired value is still recognised, so the message
+    can be specific; it is refused, so the config cannot resolve to it."""
+
 
 SOURCE_FIELDS: tuple[Field, ...] = (
     Field(
@@ -254,17 +266,35 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
         "enum",
-        "How accepted work is handed back. `pull_request` proposes it; "
-        "`branch` stops after pushing; `none` leaves it committed locally. "
-        "mcgyvr does not silently mutate a working tree it was pointed at.",
-        default="pull_request",
-        choices=("pull_request", "branch", "none"),
+        "Where an accepted change is committed. `branch` puts it on a new "
+        "local branch named after the contract and leaves the branch you have "
+        "checked out, your index and your working tree exactly as they were — "
+        "the delivery tells you the `git push` to run. `none` commits onto the "
+        "branch you have checked out. Nothing here pushes or opens a pull "
+        "request: mcgyvr reaches your repository through `git` and has no "
+        "forge, so the last step off this machine is yours.",
+        default="branch",
+        choices=("branch", "none"),
+        retired=(
+            (
+                "pull_request",
+                "is no longer a mode. It never opened one — every mode "
+                "committed straight to your checked-out branch, and the pull "
+                "request was recorded as owed to something that does not "
+                "exist. Opening one needs a forge and a credential this build "
+                "has nowhere to put. Set `branch` for a commit on a branch of "
+                "its own plus the push to run, or `none` to commit onto the "
+                "branch you have checked out.",
+            ),
+        ),
     ),
     Field(
         "token_env",
         "env_name",
-        "NAME of the environment variable holding the forge token. Absent "
-        "falls back to the ambient `gh` CLI credentials.",
+        "NAME of the environment variable holding a forge token, recorded for "
+        "tooling you drive after a delivery. Nothing in mcgyvr reads it: no "
+        "mode talks to a forge, so a token here is a note to yourself, not a "
+        "credential mcgyvr will spend.",
         bind_hint=(
             "set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself"
         ),
@@ -677,11 +707,15 @@ def _value(raw: object, spec: Field, path: str) -> Any:
                 f"empty value is not the same as an unset one."
             )
         _reject_credential_literal(value, path)
-        if spec.kind == "enum" and value not in spec.choices:
-            raise ConfigSchemaError(
-                f"{path}: {value!r} is not a valid value. Valid: "
-                f"{', '.join(spec.choices)}"
-            )
+        if spec.kind == "enum":
+            for name, why in spec.retired:
+                if value == name:
+                    raise ConfigSchemaError(f"{path}: `{value}` {why}")
+            if value not in spec.choices:
+                raise ConfigSchemaError(
+                    f"{path}: {value!r} is not a valid value. Valid: "
+                    f"{', '.join(spec.choices)}"
+                )
         if spec.kind == "url" and not value.startswith(("http://", "https://")):
             raise ConfigSchemaError(
                 f"{path}: {value!r} is not a URL — it needs a scheme, e.g. "

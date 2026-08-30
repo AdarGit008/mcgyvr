@@ -118,8 +118,8 @@ How accepted work gets back to you.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `mode` | one of `pull_request`, `branch`, `none` | no | `pull_request` | How accepted work is handed back. `pull_request` proposes it; `branch` stops after pushing; `none` leaves it committed locally. mcgyvr does not silently mutate a working tree it was pointed at. |
-| `token_env` | env var name | no | unset | NAME of the environment variable holding the forge token. Absent falls back to the ambient `gh` CLI credentials. To bind it: set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself. |
+| `mode` | one of `branch`, `none` | no | `branch` | Where an accepted change is committed. `branch` puts it on a new local branch named after the contract and leaves the branch you have checked out, your index and your working tree exactly as they were — the delivery tells you the `git push` to run. `none` commits onto the branch you have checked out. Nothing here pushes or opens a pull request: mcgyvr reaches your repository through `git` and has no forge, so the last step off this machine is yours. |
+| `token_env` | env var name | no | unset | NAME of the environment variable holding a forge token, recorded for tooling you drive after a delivery. Nothing in mcgyvr reads it: no mode talks to a forge, so a token here is a note to yourself, not a credential mcgyvr will spend. To bind it: set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself. |
 
 ## `budgets`
 
