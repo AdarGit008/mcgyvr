@@ -129,6 +129,42 @@ _PROGRAMS: dict[tuple[str, str], tuple[str, ...]] = {
 # references did so whatever language they were written in.
 _IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 
+# Which task types leave work on the floor and say so with a non-zero exit —
+# and, therefore, which exit codes mean the tool is *reporting* rather than
+# *failing*. The same distinction `gate.adapter.trusted_stdout` draws for the
+# gate's own invocations (ADR-0034 clause 2: "the test is the exit code, checked
+# before the output is read, against the set of codes under which the tool is
+# reporting rather than failing"), drawn here for the floor's.
+#
+# **Keyed by task type, because the guarantee is what decides it.** The catalog
+# says `lint_fix` applies "every autofix the project's linter applies ... and
+# nothing else", and that "a diagnostic the linter will not fix itself is
+# explicitly out of scope for this type". A leftover diagnostic is therefore the
+# type's stated shape, not a fault — and both linters here say so with exit 1.
+# `import_sort` is the same program with `--select I` and the same sentence
+# behind it. `format`'s guarantee is "byte-identical to what the project's own
+# formatter produces", which has no room in it for a file the formatter declined
+# to write, so nothing but 0 is it reporting. Keying on the program instead
+# would make this "ruff exits 1, so 1 is fine", and ruff owns three of these
+# types under three different guarantees.
+#
+# Measured 2026-08-30 against ruff 0.16.4, eslint 10 and prettier 3, running the
+# invocations in `_PROGRAMS` rather than reading their documentation:
+#
+# | invocation                    | 0          | 1                | 2 |
+# |---|---|---|---|
+# | `ruff check --fix`            | none left  | fixed, some left | bad config |
+# | `ruff check --select I --fix` | as above   | as above         | as above |
+# | `eslint --fix`                | none left  | fixed, some left | bad config |
+# | `ruff format`                 | written    | (not produced)   | unparseable/bad |
+# | `prettier --write`            | written    | (not produced)   | unparseable/bad |
+#
+# The two `2` columns are why the exit code has to be the test and the output
+# cannot substitute for it: a fixer that could not load its config has applied
+# the guarantee to nothing, and the change it did not make is not something a
+# gate reading the same broken config can judge.
+_RESIDUE_IS_EXPECTED: frozenset[str] = frozenset({"lint_fix", "import_sort"})
+
 
 @dataclass(frozen=True)
 class Tool:
@@ -145,6 +181,11 @@ class Tool:
     cannot be missing, so the one deterministic type that needs no program is
     the one a bare machine can always run on its own floor. It is derived
     rather than stored so that the name and the command cannot disagree.
+
+    :attr:`reporting` is the set of exit codes under which this invocation is
+    *reporting* rather than *failing*, and it is derived for the same reason:
+    a table of codes stored beside a command is a table that can be filled in
+    for the wrong command.
     """
 
     task_type: str
@@ -154,6 +195,26 @@ class Tool:
     def program(self) -> str | None:
         """The executable this tool needs on PATH, or ``None`` for in-process."""
         return self.command[0] if self.command else None
+
+    @property
+    def reporting(self) -> tuple[int, ...]:
+        """The exit codes under which this tool did the job its type describes.
+
+        Not "the codes that mean success". A fixer exiting 1 has left
+        diagnostics it will not fix, which is a fact worth printing and is
+        emphatically not a fault: :data:`_RESIDUE_IS_EXPECTED` carries which
+        types say so in their guarantee, and the measured table beside it
+        carries which codes each invocation says it with.
+
+        **``(0,)`` is the default, and the default is the strict one.** A
+        ``Tool`` built from a command this module did not bind — a test's
+        stand-in, a future entry — has no measurement behind it, and the
+        direction to be wrong in is the one that stops rather than the one that
+        carries an unjudged change onward. This is ADR-0005's rule ("a bar that
+        cannot run is not a bar that passed") applied to a bar nobody has
+        measured yet.
+        """
+        return (0, 1) if self.task_type in _RESIDUE_IS_EXPECTED else (0,)
 
 
 @dataclass(frozen=True)

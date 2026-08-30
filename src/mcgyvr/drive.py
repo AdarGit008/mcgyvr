@@ -124,6 +124,14 @@ class ToolOutcome:
     ``result`` is ``None`` only when the program did not run. A caller reading
     ``ok`` alone gets the safe answer in both failing cases; a caller deciding
     *whose* fault it was reads :attr:`environment_issue`.
+
+    The middle state has two halves and :attr:`ok` cannot tell them apart,
+    which is what :attr:`performed` is for. ``ruff check --fix`` exits **1**
+    whenever a diagnostic remains after fixing — the ordinary outcome of a
+    ``lint_fix`` contract, and the exact shape that type's guarantee describes.
+    A caller reading ``not ok`` as fatal reported a contract carried out to the
+    letter as an error and never reached the gate that was supposed to judge
+    the result.
     """
 
     step: ToolStep
@@ -146,6 +154,34 @@ class ToolOutcome:
         <mcgyvr.gate.changeset.ChangeSet.detect>` is what answers it.
         """
         return self.result is not None and self.result.ok
+
+    @property
+    def performed(self) -> bool:
+        """Whether the program ran and did the work its task type describes.
+
+        Wider than :attr:`ok` by exactly one thing: an exit code the invocation
+        uses to *report* rather than to *fail*
+        (:attr:`~mcgyvr.deterministic.Tool.reporting`, whose measured table
+        says which). For a fixer that is 1 — "I applied every autofix I have,
+        and here is what I will not fix" — and the catalog puts that residue
+        out of the type's scope in as many words, so a caller that stopped
+        there stopped on the contract having been satisfied.
+
+        **This is not "non-fatal".** A tool that could not load its config
+        exits 2 having applied nothing, and that stays outside the set: there
+        is no result for a gate to judge, and a gate reading the same config is
+        broken the same way. Nor does it soften a timeout —
+        :attr:`~mcgyvr.sandbox.base.CommandResult.ok` excludes one and so does
+        this, because a command killed at its ceiling did not finish whatever
+        it was part-way through writing.
+
+        A caller with something to say about the residue asks ``performed and
+        not ok``. Proceeding is not the same as reporting that nothing
+        happened.
+        """
+        if self.result is None or self.result.timed_out:
+            return False
+        return self.result.exit_code in self.step.tool.reporting
 
 
 def run_tool_step(
@@ -319,12 +355,39 @@ def worker_attempt(
     judging a tree it did not produce — a ``finally`` that tidies up is one
     exception away from not having run.
 
-    **The retry note comes from the last judgement on the same rung.**
+    **The retry note comes from the last judgement on the same rung — the last
+    one, not the last one that had something to say.**
     :func:`~mcgyvr.route.climb` owns how many attempts a rung gets, and its
     ``Result`` carries a verdict rather than notes, so the note is held here,
     per rung, and handed to ``build_prompt``. ``mcgyvr.attempt.run`` is the
     standalone spelling of the same loop, for a caller that is not climbing;
     running both would be two loops counting one budget.
+
+    The write is unconditional and the map holds ``RetryNotes | None``, which
+    is ``tools/missions/attempt.py``'s spelling and is the right one. The guard
+    it replaces — ``if judgement.retry is not None`` — could store a note and
+    never clear one, and two attempts produce none: the ``ReplyError`` branch
+    below returns before the assignment is reached, and a ``reviewer_failed``
+    judgement reaches it carrying ``retry=None`` because the gate passed and a
+    verifier that produced no verdict left nothing to quote. Under the guard,
+    the attempt after either of those was prompted with the note from the
+    attempt before, which the worker has already been asked to fix once.
+
+    That is worse than sending nothing rather than merely stale, because of
+    what the prompt does with it: ``render_user_message`` renders a note under
+    "YOUR PREVIOUS ATTEMPT WAS REJECTED. Fix exactly these and change nothing
+    else — every other check passed". Against an attempt that was never gated,
+    all three claims are false, and the last of them is a claim about a gate
+    run that did not happen. So the rule is that a note is *this* attempt's
+    account of *this* attempt: an attempt with nothing to say says nothing, and
+    the next one starts from the evidence rather than from a memory of it.
+
+    The alternative was to keep the guard and give the parse failure a note of
+    its own — which the sibling does, in its ``_unparsed``. It is rejected here
+    on two counts: it fixes one of the two producers of ``retry=None`` and
+    leaves ``reviewer_failed`` waved through the same guard, and the note it
+    would invent is not the gate's finding a note is supposed to be. The guard
+    was the defect, not the branch that stepped over it.
 
     **A reply that cannot be read is a failed attempt, not an exception.** The
     parser refuses by name — truncated, no fenced block, a refusal in place of
@@ -353,7 +416,7 @@ def worker_attempt(
     existed: the gate's rejection stands, the note goes to the next attempt, and
     a model is asked about the whitespace.
     """
-    notes: dict[str, RetryNotes] = {}
+    notes: dict[str, RetryNotes | None] = {}
     draws = int(config.get("breadth.draws", 1))
     tidying = bool(config.get("cleanup.enabled", False))
 
@@ -430,28 +493,31 @@ def worker_attempt(
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
-            return Judgement(
+            judgement = Judgement(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
                 detail=str(exc),
             )
+        else:
+            gate, bound = picked.gate, picked.winner
+            if tidying:
+                gate, bound = _cleaned(
+                    contract, sandbox, gate, bound, adapters=adapters
+                )
+            judgement = judge(contract, family, gate, verifier=verifier)
+            if gate.accepted:
+                # The winner's own binding, minted by `best_of` one line after
+                # its gate and one line before its reset — in the tree the
+                # verdict was reached in, which is the only moment it exists.
+                # Reading the workspace here instead would answer for whatever
+                # the last draw left behind, and after the reset for the base
+                # itself. A binding minted from a string the caller happens to
+                # be holding would be true by construction and would check
+                # nothing. Where a cleanup rewrote the file, `_cleaned` has
+                # replaced both halves together.
+                judgement = replace(judgement, accepted=bound)
 
-        gate, bound = picked.gate, picked.winner
-        if tidying:
-            gate, bound = _cleaned(contract, sandbox, gate, bound, adapters=adapters)
-        judgement = judge(contract, family, gate, verifier=verifier)
-        if gate.accepted:
-            # The winner's own binding, minted by `best_of` one line after its
-            # gate and one line before its reset — in the tree the verdict was
-            # reached in, which is the only moment it exists. Reading the
-            # workspace here instead would answer for whatever the last draw
-            # left behind, and after the reset for the base itself. A binding
-            # minted from a string the caller happens to be holding would be
-            # true by construction and would check nothing. Where a cleanup
-            # rewrote the file, `_cleaned` has replaced both halves together.
-            judgement = replace(judgement, accepted=bound)
-        if judgement.retry is not None:
-            notes[this.rung.name] = judgement.retry
+        notes[this.rung.name] = judgement.retry
         return judgement
 
     return attempt
