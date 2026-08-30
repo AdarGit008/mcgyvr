@@ -180,6 +180,21 @@ TIER_FIELDS: tuple[Field, ...] = (
     ),
     Field("model", "str", "Model identifier as the source names it.", required=True),
     Field(
+        "max_parallel",
+        "int",
+        "How many requests this rung may run at once, overriding its source's "
+        "`max_parallel`. Concurrency is a property of the serving process "
+        "rather than of the machine: the same weights on two rigs are two "
+        "processes started with two different slot counts, so one number on "
+        "the source cannot describe both. Unset means the source's number "
+        "stands, which is what it has always meant.",
+        min_value=1,
+        bind_hint=(
+            "set it to the slot count the rung's backend was started with "
+            "(e.g. 8), and leave it out to inherit the source's"
+        ),
+    ),
+    Field(
         "attempts",
         "int",
         "How many times this rung may be tried before escalation moves on. "
@@ -512,11 +527,19 @@ class Tier:
     how many times this rung is tried before escalation leaves it, and it lives
     here because policy references a rung by name (ADR-0008). It defaults to 1
     so that the configured behaviour is to escalate rather than retry.
+
+    ``max_parallel`` is ``None`` rather than a number when the rung does not
+    state one, because "this rung was started with eight slots" and "nobody
+    said, so the source's number stands" are different facts and a rung that
+    defaulted to the source's value would be indistinguishable from a rung that
+    declared it. :meth:`mcgyvr.capacity.Capacity.limit` is where the fallback
+    happens, once, at the point the bound is actually built.
     """
 
     name: str
     source: str
     model: str
+    max_parallel: int | None = None
     attempts: int = 1
 
 
@@ -975,6 +998,7 @@ def parse(text: str, path: Path | None = None) -> Config:
                 name=t["name"],
                 source=t["source"],
                 model=t["model"],
+                max_parallel=t["max_parallel"],
                 attempts=t["attempts"],
             )
             for t in data["ladder"]["tiers"]

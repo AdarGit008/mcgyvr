@@ -1,0 +1,679 @@
+"""A serving unit is one process: a host, a model, an engine and its arguments.
+
+The ladder is a routing structure and the unit is a running process, and this
+module exists because the two were being conflated. Several rungs may name one
+model on one host — a cheap rung and its retry, a fast lane and a careful one —
+and treating each as something to start loads one set of weights twice onto one
+card. That is how a 6 GB rig runs out of memory while the config looks correct.
+So a unit is keyed by what actually determines a process (host, model, engine
+and the port it answers on) and the rungs that resolve to it are carried *on*
+it, as names. Two rungs reaching one URL are one process; two rungs reaching
+two ports on one host are two, whatever else they have in common.
+
+What a unit deliberately does not carry is policy. There is no queue here and
+no schedule: how many requests are in flight against a source is
+:mod:`mcgyvr.capacity`'s, dispatch order is :mod:`mcgyvr.route`'s, and starting
+anything at all is the operator's — :mod:`mcgyvr.emit` writes a file and stops.
+A unit is a *launch spec*, which is why it can be built on a laptop for a rig
+it has never touched.
+
+Every number in it is read off a :class:`~mcgyvr.scan.Scan` rather than
+declared, because the questions this module answers are the ones a nameplate
+cannot. Free VRAM decides a fit today; total VRAM decides nothing. And a model
+too big for the card is not automatically a model the machine cannot serve: an
+MoE spills its experts to RAM, so fit is a question about a *machine* — card,
+memory and disk together — not about a GPU.
+
+The arithmetic below is anchored on the sweep in
+``records/measurements/serving-sweep-2026-08-25/``, which timed 32
+configurations on the two rigs this module was written for. Where a constant
+here has a number in it, that record is where the number came from.
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
+from pathlib import Path
+from urllib.parse import urlparse
+
+from mcgyvr.config import Config
+from mcgyvr.detect import MIB_PER_GB
+from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.scan import Gpu, Scan, default_weights_dir
+
+# The engine a unit gets when nothing says otherwise. A source's ``api`` is a
+# wire protocol (:class:`mcgyvr.pool.Protocol`) and cannot answer this: vLLM
+# and llama-server both speak ``openai`` and take entirely different argv.
+DEFAULT_ENGINE = "llama.cpp"
+
+# The context every sweep cell ran at. Held here so the slot arithmetic below
+# and the emitted ``-c`` cannot drift apart.
+DEFAULT_CONTEXT = 4096
+
+# llama.cpp's own default port — what the engine would bind if nothing said
+# otherwise. It is the fallback and never a preference: a unit built from a
+# ladder takes its port from the source URL, and this number only stands in
+# where nobody wrote one down, so stating it costs nothing and changes nothing.
+DEFAULT_PORT = 8080
+
+# MoE geometry. ``--n-cpu-moe N`` keeps the expert tensors of N blocks on the
+# CPU, so sizing it needs two things: how many blocks a model has, and what
+# share of its weights are experts.
+#
+# 48 blocks is the Qwen3-family MoE coder layout — both models the sweep drove
+# (30B-A3B and 35B-A3B) — so it is what a spec from that family gets by saying
+# nothing, and that is the whole of its authority. It is not a fact about MoEs:
+# gpt-oss-20b has 24 blocks, and pricing its offload at 48 halves the cost of
+# every block, which is an offload that reports as placed and does not fit. A
+# spec whose count nobody knows says ``blocks=None`` and :func:`fit` refuses
+# it, because a wrong divisor here is wrong in gigabytes on someone's rig.
+#
+# EXPERT_SHARE comes off the same record: srv2 moved "about +260 MiB per layer"
+# of a 13.21 GB model, and 48 x 260 MiB is 12.2 GB, which is 92% of it. It only
+# ever divides a block count the spec stated, so it is never the thing standing
+# in for a layout nobody measured.
+MOE_BLOCKS = 48
+EXPERT_SHARE = 0.92
+
+# What one extra slot costs on the card. The sweep bounds it from below: q8_0
+# KV freed 36 MiB across 4 slots at 4096, so f16 KV is ~18 MiB per slot for
+# that family. A quarter of a gigabyte is a deliberate over-allowance — a slot
+# also costs compute buffers, and a model with wider KV heads costs many times
+# that per slot. Slots are cheap and an OOM is not.
+KV_GB_PER_SLOT = 0.25
+
+# The widest configuration anyone has measured on these rigs (#366, 32 slots on
+# a 12 GB card). Past it this arithmetic would be extrapolating.
+MAX_WIDTH = 32
+
+
+class UnitError(Exception):
+    """A serving unit could not be built for a host, a model or a rung."""
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    """What a model costs, in the three places a machine can run out.
+
+    ``vram_gb`` is the working set on the card — what it holds with nothing
+    offloaded, which is not the same as the weights on disk, because a working
+    set carries buffers (deepseek-coder-v2:16b's is 0.5 GB larger than its
+    weights). ``disk_gb`` is those weights.
+
+    ``ram_gb`` is what system memory may be asked to hold: zero for a dense
+    model, which has nowhere to spill to, and for an MoE the experts it can
+    push off the card. It is a claim about the model and not a split of it —
+    how much actually spills depends on the card and is derived per machine by
+    :func:`fit`, which refuses on whichever of the two numbers is larger.
+
+    ``moe`` is not cosmetic and not inferable from the numbers: it says the
+    model has a knob for *where* its weights sit, which is the difference
+    between "does not fit" and "fits differently on this machine".
+
+    ``blocks`` is what that knob counts — ``--n-cpu-moe N`` moves the experts
+    of N transformer blocks — and ``None`` says nobody has stated it. An MoE
+    with an unknown block count is refused rather than sized at
+    :data:`MOE_BLOCKS`: the per-block cost is the expert mass over that number,
+    so the wrong count is not a rounding difference but gigabytes placed in the
+    wrong memory. The default is the layout the sweep measured, which a spec
+    from that family inherits by saying nothing; the shipped capability table
+    carries no count at all, so :func:`mcgyvr.cli._model_specs` passes ``None``
+    and its MoE rows are refused until the table can answer.
+    """
+
+    name: str
+    vram_gb: float
+    ram_gb: float
+    disk_gb: float
+    moe: bool = False
+    blocks: int | None = MOE_BLOCKS
+
+
+@dataclass(frozen=True)
+class Width:
+    """A slot count, and whether anyone actually said it.
+
+    A width mcgyvr derived from a card and a width an operator wrote in the
+    config are different facts, and a unit that lost the difference could not
+    explain itself. ``how`` is ``"written"`` only when the caller stated the
+    number.
+    """
+
+    value: int
+    how: str
+
+
+@dataclass(frozen=True)
+class Fit:
+    """Whether this machine can hold this model right now, and why.
+
+    ``headroom_gb`` is what was held back on the card rather than what was left
+    over: the reserve is the claim being made, and it is absolute because what
+    it protects — KV cache and compute buffers — is sized by tokens and not by
+    GPU (CAV-04, and :meth:`mcgyvr.capability.CapabilityTable.fitting`).
+    """
+
+    fits: bool
+    headroom_gb: float
+    why: str
+
+
+@dataclass(frozen=True)
+class UnitKey:
+    """What makes two units the same process rather than two.
+
+    The engine is part of it because the same weights under llama.cpp and
+    under vLLM are two servers, two ports and two copies of the weights in
+    memory. The port is part of it for the same reason read the other way: a
+    fast lane and a careful lane can name one model on one host and still be
+    two ``llama-server`` processes, because their two source URLs promise two
+    ports and a process listens on one. Merged into a single unit, the second
+    port has nothing behind it — one container is emitted, the rung pointing at
+    the other gets connection refused, and the config that says so reads as
+    correct. The rung is not part of it, which is the whole point.
+    """
+
+    host: str
+    model: str
+    engine: str
+    port: int = DEFAULT_PORT
+
+    @property
+    def slug(self) -> str:
+        return f"{self.host}:{self.port}/{self.model}/{self.engine}"
+
+
+@dataclass(frozen=True)
+class Unit:
+    """One process to start: where, what, how, and which rungs it serves.
+
+    Everything the emit layer needs is here and nothing it would have to
+    invent — the card index came from the scan, the weights path from the disk
+    the scan measured, ``port`` from the URL the ladder reaches this process
+    at, and ``args`` is the argv as flag → value, already sized for this
+    machine.
+
+    There is no queue and no schedule on purpose. See the module docstring.
+    """
+
+    key: UnitKey
+    host: str
+    model: str
+    engine: str
+    gpu: int
+    weights: Path
+    width: Width
+    args: Mapping[str, str]
+    fit: Fit
+    port: int = DEFAULT_PORT
+    rungs: tuple[str, ...] = ()
+
+    @property
+    def weights_dir(self) -> Path:
+        """The directory to mount; the container sees the file inside it."""
+        return self.weights.parent
+
+
+def fit(scan: Scan, spec: ModelSpec) -> Fit:
+    """Whether ``scan``'s machine can hold ``spec``, measured not declared.
+
+    Four refusals, checked in the order that makes the message useful. A spec
+    this module cannot size comes first, because it is a fact about the
+    catalogue rather than about the machine and no amount of hardware answers
+    it. Disk is next because weights that are not on the machine cannot be
+    loaded however much memory there is, and a report that says "needs more
+    VRAM" about a model that was never downloaded sends someone to the wrong
+    shop. Memory comes before the card because an MoE that clears the card by
+    spilling experts has only moved the demand, and the message an operator can
+    act on names the memory it moved into.
+
+    The RAM and VRAM refusals both read one :func:`_placement`, which is the
+    same call :func:`unit_for` makes to size ``--n-cpu-moe``. That is the point
+    of this function: checking a number here that the emitted argv does not
+    honour is how a fit says yes to an offload the machine cannot hold, which
+    is a compose file that passes review and swaps the host.
+
+    Never raises. An unmeasurable machine is a machine nothing is claimed
+    about — the same rule :mod:`mcgyvr.scan` runs on.
+    """
+    free_vram = _free_vram_gb(scan)
+    available_ram = scan.memory.available_gb if scan.memory else 0.0
+
+    if spec.moe and not spec.blocks:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: nothing states how many transformer blocks this "
+                "MoE has, and --n-cpu-moe counts blocks — the capability table "
+                "carries no block count, so an offload sized here would be this "
+                "model priced at another model's layout. Refusing rather than "
+                "guessing: add a block count to the table and this fits or does "
+                "not on its own numbers"
+            ),
+        )
+    if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {spec.disk_gb:.1f} GB of disk, "
+                f"{scan.disk.free_gb:.1f} GB free at {scan.disk.path}"
+            ),
+        )
+
+    placed = _placement(spec, free_vram)
+    if placed.ram_gb > available_ram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {placed.ram_gb:.1f} GB of RAM"
+                f"{_offload_note(spec, placed)}, "
+                f"{available_ram:.1f} GB available"
+            ),
+        )
+    if placed.vram_gb + DEFAULT_HEADROOM_GB > free_vram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {placed.vram_gb:.1f} GB on the card plus "
+                f"{DEFAULT_HEADROOM_GB:.1f} GB headroom, "
+                f"{free_vram:.1f} GB free"
+            ),
+        )
+
+    spilled = (
+        f", {placed.ram_gb:.1f} GB of experts in RAM{_offload_note(spec, placed)}"
+        if spec.moe and placed.ram_gb
+        else ""
+    )
+    return Fit(
+        fits=True,
+        headroom_gb=DEFAULT_HEADROOM_GB,
+        why=(
+            f"{spec.name}: {placed.vram_gb:.1f} GB on the card of "
+            f"{free_vram:.1f} GB free, "
+            f"{DEFAULT_HEADROOM_GB:.1f} GB headroom held back{spilled}"
+        ),
+    )
+
+
+def unit_for(
+    scan: Scan,
+    spec: ModelSpec,
+    *,
+    engine: str = DEFAULT_ENGINE,
+    width: int | None = None,
+    port: int = DEFAULT_PORT,
+) -> Unit:
+    """The one process that would serve ``spec`` on the machine ``scan`` measured.
+
+    A unit that cannot load is not a unit, so a spec this machine does not fit
+    is refused here with the fit's own reason rather than emitted and found out
+    by the loader.
+
+    ``port`` is where this process is expected to answer. A scan and a spec do
+    not know that — only a ladder does — so a unit built from those two alone
+    takes :data:`DEFAULT_PORT`, which is the number the engine would have
+    chosen anyway. :func:`units_for` is where the config's answer arrives.
+    """
+    sized = fit(scan, spec)
+    if not sized.fits:
+        raise UnitError(f"{scan.machine.host}: {sized.why}")
+
+    gpu = _roomiest_gpu(scan)
+    free_vram = gpu.vram.free_mib / MIB_PER_GB
+    # The same derivation :func:`fit` just approved, not a second one that
+    # agrees today: an argv whose offload differs from the one the fit checked
+    # is a unit that was never sized for this machine.
+    placed = _placement(spec, free_vram)
+    chosen = (
+        Width(value=width, how="written")
+        if width is not None
+        else Width(value=_derived_width(free_vram, placed.vram_gb), how="derived")
+    )
+    weights = _weights_path(scan, spec)
+
+    # Flag → value throughout, which is the shape both renderings of a launch
+    # spec need; a valueless switch would have to be a special case in each of
+    # them, so anything that is one is not expressed here.
+    args: dict[str, str] = {
+        "--model": str(weights),
+        "-ngl": "99",
+        "-c": str(DEFAULT_CONTEXT),
+        "-fa": "on",
+        "--parallel": str(chosen.value),
+        "-t": str(_threads(scan)),
+    }
+    # A card roomy enough for every expert derives zero blocks, and
+    # ``--n-cpu-moe 0`` is a no-op printed into a file a person reads: it says
+    # this rig offloads experts when it does not, and invites tuning a number
+    # that was never in play.
+    if spec.moe and placed.blocks > 0:
+        args["--n-cpu-moe"] = str(placed.blocks)
+
+    return Unit(
+        key=UnitKey(host=scan.machine.host, model=spec.name, engine=engine, port=port),
+        host=scan.machine.host,
+        model=spec.name,
+        engine=engine,
+        gpu=gpu.index,
+        weights=weights,
+        width=chosen,
+        args=args,
+        fit=sized,
+        port=port,
+        rungs=(),
+    )
+
+
+def units_for(
+    config: Config,
+    scans: Mapping[str, Scan],
+    *,
+    specs: Iterable[ModelSpec],
+) -> tuple[Unit, ...]:
+    """The processes a ladder implies: one per port on one host, not one per rung.
+
+    Tiers are grouped, not iterated: every rung that resolves to the same
+    process is collected onto the one :class:`Unit` that serves it, and the
+    rung names ride along so a report can say what a process is for.
+
+    A rung whose host was never scanned raises rather than being skipped. This
+    module cannot size a unit for a machine nobody measured, and quietly
+    dropping the rung would emit a ladder that is missing a step someone wrote
+    down — a scan is the fix, and the error says so.
+
+    Each unit's port comes from the URL its source names, because that URL is a
+    promise about where the rung answers and a server that does not listen
+    there makes the config a lie. Left to the engine's default, a host carrying
+    two models is two processes both taking 8080 — one of which loses, silently
+    and after the file was written.
+
+    The port is therefore part of the key and not a property collected onto
+    one: two sources on one host serving one model — a fast lane on 8080 and a
+    careful one on 8081 — are two processes, and grouping them into a single
+    unit keeps the first port and drops the second. Nothing then listens where
+    the second rung is told to knock, and because the two URLs differ the
+    caller's port-contention check has nothing to complain about either. That
+    rung is dead in a ladder that reads as fine.
+    """
+    catalogue = {spec.name: spec for spec in specs}
+    grouped: dict[UnitKey, list[str]] = {}
+    hosts: dict[UnitKey, Scan] = {}
+    models: dict[UnitKey, ModelSpec] = {}
+    widths: dict[UnitKey, int] = {}
+
+    for tier in config.ladder.tiers:
+        source = config.sources.get(tier.source)
+        if source is None:
+            raise UnitError(f"{tier.name}: no source named {tier.source!r}")
+        host = host_of(source.base_url)
+        scan = scans.get(host)
+        if scan is None:
+            raise UnitError(
+                f"{tier.name}: host {host!r} is unscanned — "
+                f"run `mcgyvr scan {host}` before emitting a unit for it"
+            )
+        spec = catalogue.get(tier.model)
+        if spec is None:
+            raise UnitError(f"{tier.name}: no model spec for {tier.model!r}")
+
+        key = UnitKey(
+            host=host,
+            model=spec.name,
+            engine=DEFAULT_ENGINE,
+            port=port_of(source.base_url),
+        )
+        grouped.setdefault(key, []).append(tier.name)
+        hosts.setdefault(key, scan)
+        models.setdefault(key, spec)
+        if tier.max_parallel is not None:
+            # One process, one slot count. Two rungs asking for different
+            # widths get the larger, because a slot the second rung never uses
+            # costs KV cache and a slot it needs and does not have is a queue
+            # nobody declared. The source's own ``max_parallel`` is not read
+            # here: that number bounds dispatch, which is capacity.py's, and a
+            # rung that states nothing has stated nothing about this process.
+            widths[key] = max(widths.get(key, 0), tier.max_parallel)
+
+    return tuple(
+        _with_rungs(
+            unit_for(
+                hosts[key],
+                models[key],
+                engine=key.engine,
+                width=widths.get(key),
+                port=key.port,
+            ),
+            tuple(rungs),
+        )
+        for key, rungs in grouped.items()
+    )
+
+
+def host_of(base_url: str) -> str:
+    """The machine a source's URL names, which is what a scan is keyed by."""
+    host = urlparse(base_url).hostname
+    if not host:
+        raise UnitError(f"no host in base_url {base_url!r}")
+    return host
+
+
+def port_of(base_url: str) -> int:
+    """The port a source's URL reaches, or the one the engine would have picked.
+
+    A URL that states no port is not an omission to be refused: ``http://host``
+    is the ordinary way of writing "wherever llama-server lands", and the
+    answer is :data:`DEFAULT_PORT`. A URL that states a *malformed* port is a
+    different thing — someone wrote a number down and it is not one — and it
+    surfaces here, where it is still a fixable line of config.
+    """
+    try:
+        port = urlparse(base_url).port
+    except ValueError as exc:
+        raise UnitError(f"no usable port in base_url {base_url!r}: {exc}") from exc
+    return port if port is not None else DEFAULT_PORT
+
+
+def _with_rungs(unit: Unit, rungs: tuple[str, ...]) -> Unit:
+    """The same process, told which rungs point at it."""
+    return replace(unit, rungs=rungs)
+
+
+def _roomiest_gpu(scan: Scan) -> Gpu:
+    """The card with the most free memory. A scan with none cannot host a unit."""
+    if not scan.gpus:
+        raise UnitError(
+            f"{scan.machine.host}: the scan found no GPU, so there is no card "
+            "to place a unit on"
+        )
+    return max(scan.gpus, key=lambda gpu: gpu.vram.free_mib)
+
+
+def _free_vram_gb(scan: Scan) -> float:
+    """Free VRAM on the roomiest card — free, because used memory is someone's."""
+    if not scan.gpus:
+        return 0.0
+    return max(gpu.vram.free_mib for gpu in scan.gpus) / MIB_PER_GB
+
+
+@dataclass(frozen=True)
+class _Placement:
+    """Where one model's weights end up on one machine, and the flag that says so.
+
+    Private because it is an intermediate answer and not a fact about a unit:
+    what survives into a :class:`Unit` is the argv and the :class:`Fit`. It
+    exists so that the card figure, the memory figure and ``--n-cpu-moe`` are
+    one derivation read three times rather than three derivations that have to
+    be kept in step by hand.
+    """
+
+    blocks: int
+    vram_gb: float
+    ram_gb: float
+
+
+def _placement(spec: ModelSpec, free_vram_gb: float) -> _Placement:
+    """How this card splits this model, in the two places the split lands.
+
+    Derived here and nowhere else, because the offload is three answers at once
+    — what the card holds, what memory holds, and the number written into
+    ``--n-cpu-moe`` — and three separate derivations of it are three chances to
+    disagree. The disagreement is not academic: a fit that checks the fully
+    offloaded floor while the argv offloads half of it approves a placement
+    nobody sized.
+
+    A dense model has no knob, so its working set is the demand and whatever
+    the spec says about system memory stands. So does an MoE whose block count
+    nobody stated — :func:`fit` refuses that one before it reaches here, and
+    answering "no offload" is the honest shape for a knob this module cannot
+    turn.
+
+    The RAM figure is the larger of the spec's declaration and what this card
+    actually spills. The two can be wrong in opposite directions — the
+    declaration knows the model but not the machine, the spill knows the
+    machine but inherits the share — and the larger of them is the safe answer,
+    because a refusal costs an operator a minute and an OOM costs them the
+    host.
+    """
+    if not spec.moe or not spec.blocks:
+        return _Placement(blocks=0, vram_gb=spec.vram_gb, ram_gb=spec.ram_gb)
+    total = spec.blocks
+    blocks = _offload_blocks(spec, free_vram_gb, total)
+    return _Placement(
+        blocks=blocks,
+        vram_gb=_resident_gb(spec, blocks, total),
+        ram_gb=max(spec.ram_gb, blocks * _expert_gb_per_block(spec, total)),
+    )
+
+
+def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
+    """The offload a refusal is about, so the reader can check the arithmetic."""
+    if not spec.moe or not spec.blocks:
+        return ""
+    return f" ({placed.blocks} of {spec.blocks} blocks of experts on the CPU)"
+
+
+def _expert_gb_per_block(spec: ModelSpec, blocks: int) -> float:
+    """What one block's experts weigh: the expert mass over the model's blocks.
+
+    ``blocks`` is passed rather than read off :data:`MOE_BLOCKS` because it is
+    the model's own count, and dividing by another model's is the whole of the
+    error this argument exists to prevent.
+    """
+    return spec.disk_gb * EXPERT_SHARE / blocks
+
+
+def _resident_floor_gb(spec: ModelSpec) -> float:
+    """What stays on the card with every expert block offloaded.
+
+    Attention, embeddings and the norms: ``--n-cpu-moe`` cannot move them, so
+    this is the smallest a model can be made on a GPU, and the number a fit
+    against a small card is really asking about.
+
+    The share is the sweep's and only the block count is the model's, so this
+    is the one figure here that still reasons about one family from another's
+    measurement. It bounds a placement from below rather than deciding one —
+    what a fit compares against is :func:`_resident_gb`, which starts from the
+    spec's own working set — but a spec that carried its own expert mass would
+    make this exact rather than conservative, and that is the field to add.
+    """
+    return spec.disk_gb * (1.0 - EXPERT_SHARE)
+
+
+def _offload_blocks(spec: ModelSpec, free_vram_gb: float, blocks: int) -> int:
+    """How many blocks of experts this card needs pushed onto the CPU.
+
+    Derived, never tabulated. With ``-ngl 99`` the card holds every weight
+    except the experts of the blocks named here, so the deficit is what the
+    weights want minus what the card has after the headroom is held back, and
+    each block moved buys back one block's worth of experts. Two rigs with
+    different free VRAM therefore get different numbers from the same model,
+    and the smaller card gets the larger one — which is the shape the sweep
+    measured (srv1, 6 GB: 28 blocks; srv2, 12 GB: 4, on the same weights).
+
+    Rounded up and capped at ``blocks``, the model's own count: a fractional
+    block does not exist, and offloading more blocks than there are is the
+    CPU-only case, not an error.
+    """
+    budget = free_vram_gb - DEFAULT_HEADROOM_GB
+    deficit = spec.disk_gb - budget
+    if deficit <= 0.0:
+        return 0
+    return min(blocks, math.ceil(deficit / _expert_gb_per_block(spec, blocks)))
+
+
+def _resident_gb(spec: ModelSpec, blocks: int, total: int) -> float:
+    """What the card ends up holding once ``blocks`` of experts are on the CPU.
+
+    It starts from the spec's own working set rather than from the weights: the
+    card holds buffers too, which is why deepseek-coder-v2:16b measures 9.4 GB
+    of VRAM for 8.9 GB of weights, and a placement that quietly substituted the
+    smaller number would under-state every MoE by whatever its buffers cost.
+    Each offloaded block takes its experts off that, down to the floor.
+    """
+    if not spec.moe:
+        return spec.vram_gb
+    return max(
+        _resident_floor_gb(spec),
+        spec.vram_gb - blocks * _expert_gb_per_block(spec, total),
+    )
+
+
+def _derived_width(free_vram_gb: float, resident_gb: float) -> int:
+    """Slots for the room the weights left, rather than the one slot nobody chose.
+
+    A default of 1 is a claim — that this rig serves one request at a time —
+    and it was never measured; #366 found 32 slots on a 12 GB card reaching
+    254 tok/s against ~67 single-stream. What actually bounds the number is
+    the VRAM the weights did not take, so that is what is divided here.
+
+    Minus the headroom, because :func:`fit` already held it back and slots are
+    exactly what it was held back from. A 9.9 GB model on a 12 GB card is a fit
+    that reports "2.0 GB headroom held back" and a width of 8 that spends 2.0
+    GB of it on KV — the module contradicting itself inside one unit, and the
+    contradiction resolving on the rig as an OOM under load. The floor of one
+    slot stands: a server with no slot serves nothing, and a machine that
+    cannot afford the first one is a fit this module should not have approved.
+    """
+    spare = free_vram_gb - resident_gb - DEFAULT_HEADROOM_GB
+    return max(1, min(MAX_WIDTH, int(spare / KV_GB_PER_SLOT)))
+
+
+def _threads(scan: Scan) -> int:
+    """Physical cores, not threads.
+
+    The sweep's advice on srv2 was "take ``-t 10``" on a 10-core, 20-thread
+    machine: t20, t16 and t10 were flat within noise. Expert GEMM on the CPU
+    is memory-bound, and a second thread on a core adds no memory ports — it
+    adds contention, and on this rig it also takes the cores the acceptance
+    gate runs on. Never above what the machine has, whichever number is read.
+    """
+    if scan.cpu is None:
+        return 1
+    return max(1, min(scan.cpu.cores or scan.cpu.threads, scan.cpu.threads))
+
+
+def _weights_path(scan: Scan, spec: ModelSpec) -> Path:
+    """Where the weights sit, *directly* under the directory the scan measured.
+
+    A model id can be a repository path — ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ``
+    is one the shipped table carries — and spelling that into the file name
+    puts the file one directory down. The unit's ``weights_dir`` is then
+    ``/srv/weights/Qwen`` while the disk check was about ``/srv/weights``, so
+    what gets bind-mounted is not the directory anything was measured about;
+    and if it does not exist, Docker creates it, empty and root-owned, and the
+    server fails at load against a mount the operator then has to go and delete
+    by hand.
+
+    So the separator is flattened rather than followed. A model id is a name
+    here, not a path: the id keeps its shape in the file name, and the file
+    stays in the directory the scan is a statement about.
+    """
+    root = scan.disk.path if scan.disk is not None else default_weights_dir()
+    return root / f"{spec.name.replace('/', '_')}.gguf"

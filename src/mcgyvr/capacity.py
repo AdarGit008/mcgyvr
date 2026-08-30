@@ -75,6 +75,31 @@ question — llama.cpp states its slot count on ``GET /slots`` and
   the same rule as :meth:`Capacity.hold`'s "two answers to one question",
   pointed at the machine rather than at a stale config.
 
+**A width can belong to a rung, not only to a rig.** ``max_parallel`` on a
+source describes a machine, and a machine is not what serves a request — a
+server process is. The same weights on two rigs are two processes started with
+two different slot counts, and one rig serving a small model at sixteen slots
+beside a large one at four is two processes on one machine; neither pair is
+describable by a single number on the source. So a tier may declare its own
+``max_parallel``, and three things follow:
+
+* The rung's number is the bound where it is given, and the source's is the
+  fallback where it is not. ``sources.*.max_parallel`` keeps exactly the
+  meaning it has always had, so a config that names no rung width is bounded
+  today as it was yesterday.
+* **A rung's slots are its own, not a share of the source's.** Two rungs on one
+  rig are two queues, so a dispatch to the small model cannot consume a slot
+  the large model's server would have served; pooling them would bound a thing
+  that does not exist. :meth:`in_flight` is therefore asked per rung, and a
+  hold on one rung leaves another's count at zero. The slot files are keyed by
+  the rung alongside the URL for the same reason — the physical thing being
+  protected is one server process, not the host it happens to sit on.
+* The three probe rules above apply per rung unchanged, because a rung's width
+  is the same kind of claim about the same backend. A probe that predates the
+  rung is asked about sources only: it did not answer ``None`` about a rung, it
+  was never asked, and inventing an answer on its behalf would confirm a width
+  no machine ever stated.
+
 The probe is a *parameter*. Nothing here opens a socket, for the same reason
 :mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
 builds nothing: who actually asks a rig is #22's, and this module's job is to
@@ -135,6 +160,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import inspect
 import os
 import re
 import tempfile
@@ -145,7 +171,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from typing import Protocol as TypingProtocol
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -169,17 +195,40 @@ def _default_lock_dir() -> Path:
     return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
 
 
-def _slot_stem(base_url: str) -> str:
-    """A filesystem-safe identity for one rig, derived from its URL.
+def _slot_stem(base_url: str, rung: str | None = None) -> str:
+    """A filesystem-safe identity for one served thing, derived from its URL.
 
     Normalized so that trailing-slash and case differences in a config do not
     split one rig into two bounds; digested so that sanitizing cannot merge two
     rigs into one.
+
+    A rung names a server process rather than a host, so it joins the identity
+    where it is given — a rung's slots are not the source's (see the module
+    docstring), and two bounds sharing a file would be one bound. Absent a
+    rung the value is unchanged, so an existing bound keeps the files it has.
     """
     normalized = base_url.strip().rstrip("/").lower()
-    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
     slug = _SLUG.sub("-", normalized).strip("-")[-40:]
+    if rung is not None:
+        tidied = rung.strip().lower()
+        normalized = f"{normalized}#{tidied}"
+        slug = f"{slug}.{_SLUG.sub('-', tidied).strip('-')[-24:]}"
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
     return f"{slug}.{digest}"
+
+
+class SourceWidthProbe(TypingProtocol):
+    """A probe that answers about a source and knows nothing of rungs.
+
+    The shape this module asked for before a width could belong to a rung, kept
+    because probes written against it are not wrong — a backend that reports one
+    number for the machine is still reporting a fact. It is accepted wherever
+    :class:`WidthProbe` is, and simply never asked the rung question.
+    """
+
+    def width(self, source: str) -> int | None:
+        """How many requests ``source`` will serve at once, or ``None`` if unsaid."""
+        ...
 
 
 class WidthProbe(TypingProtocol):
@@ -194,15 +243,63 @@ class WidthProbe(TypingProtocol):
     does not report its parallelism, which is an ordinary state of affairs and
     not a failure; a source that is *down* is :class:`~mcgyvr.pool.SourceProbe`'s
     question and is answered there, in words, as a skipped rung.
+
+    ``rung`` is optional on both sides: it defaults to ``None`` so that a probe
+    written for the whole source stays a valid one, and it is passed only to a
+    probe whose signature accepts it, because a probe that cannot be asked about
+    a rung has not answered about it.
     """
 
-    def width(self, source: str) -> int | None:
-        """How many requests ``source`` will serve at once, or ``None`` if unsaid."""
+    def width(self, source: str, rung: str | None = None) -> int | None:
+        """How many requests ``source`` serves at once, for ``rung`` if given."""
         ...
+
+
+def _reported(
+    probe: WidthProbe | SourceWidthProbe, source: str, rung: str | None
+) -> int | None:
+    """Ask ``probe`` about one bound, without assuming it has heard of rungs.
+
+    The arity is inspected rather than guessed at through a ``TypeError``,
+    which would swallow a genuine one raised inside a probe that does take a
+    rung and report it as "this backend does not say" — the one answer that
+    must never be manufactured, since it is what leaves a declaration standing.
+    """
+    if rung is None:
+        return probe.width(source)
+    try:
+        inspect.signature(probe.width).bind(source, rung)
+    except (TypeError, ValueError):
+        return None
+    return cast("WidthProbe", probe).width(source, rung)
 
 
 class CapacityError(Exception):
     """A slot could not be taken, and running unbounded would be worse."""
+
+
+# One bound: a source, and the rung whose own server process it bounds when the
+# rung declared a width of its own. ``None`` is the source's own bound — what
+# every dispatch that names no rung is held against — rather than a missing
+# value, which is why it is in the key and not a separate mapping.
+type _Bound = tuple[str, str | None]
+
+
+@dataclass(frozen=True)
+class RungWidth:
+    """One rung's own width, and whether a machine stated it.
+
+    Carried as a record rather than as a bare number because the two facts
+    travel together everywhere: a width without its provenance is the exact
+    confusion :meth:`Capacity.confirmed` exists to prevent, one rung at a time.
+    ``source`` is here because a bound is only meaningful against the rig it
+    bounds — the rung name alone would let a capacity be built for a rung whose
+    source it does not know.
+    """
+
+    source: str
+    limit: int
+    confirmed: bool = False
 
 
 @dataclass(frozen=True)
@@ -221,6 +318,12 @@ class Usage:
     that is the bound working, and the wait is still this batch's cost to
     report. No cross-process ledger is kept, because the numbers exist to
     explain this run's wall-clock, not to audit the host.
+
+    ``rung`` names the rung when the row is a rung's own bound and is ``None``
+    for the source's. A rung that declared its own width is a separate queue on
+    the same rig (see the module docstring), so folding its acquisitions into
+    the source's row would report a saturation that no single server ever
+    reached — and a report is the one place that must not.
     """
 
     source: str
@@ -228,6 +331,7 @@ class Usage:
     acquisitions: int
     peak: int
     waited_seconds: float
+    rung: str | None = None
 
     @property
     def saturated(self) -> bool:
@@ -287,6 +391,8 @@ class Capacity:
         *,
         lock_dir: Path | None = None,
         confirmed: Iterable[str] = (),
+        rungs: Mapping[str, RungWidth] | None = None,
+        urls: Mapping[str, str] | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -311,24 +417,61 @@ class Capacity:
                 f"capacity does not bound. A confirmation is a fact about a "
                 f"source's limit, so there has to be a limit for it to be about."
             )
+        self._rungs = dict(rungs or {})
+        for name, rung in self._rungs.items():
+            if rung.limit < 1:
+                raise CapacityError(
+                    f"rung {name!r} declares max_parallel={rung.limit}, which "
+                    f"would admit no dispatch at all. The config schema floors "
+                    f"it at 1; a rung that should not be used belongs out of "
+                    f"the ladder, not at zero capacity."
+                )
+            if rung.source not in self._limits:
+                raise CapacityError(
+                    f"rung {name!r} bounds source {rung.source!r}, which this "
+                    f"capacity does not bound. A rung's width is a width of the "
+                    f"rig it runs on, so the rig has to be one this capacity "
+                    f"knows."
+                )
+        # Where each source answers, so that a dispatch naming a source rather
+        # than an endpoint still locks the files that rig's URL identifies.
+        # Absent — a capacity built by hand from limits alone — the name is the
+        # only identity there is, and two configs naming one rig differently
+        # bound it separately, honestly and visibly.
+        self._urls = dict(urls or {})
+        # Every bound this capacity enforces, sources in declared order and
+        # then the rungs that declared a width of their own. One mapping rather
+        # than two because everything below — slots, peaks, waits, the report —
+        # is per bound, and a rung's bound is not a special case of a source's.
+        self._bounds: dict[_Bound, int] = {
+            (source, None): limit for source, limit in self._limits.items()
+        }
+        for name, rung in self._rungs.items():
+            self._bounds[(rung.source, name)] = rung.limit
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         self._lock = threading.Lock()
-        self._in_use = dict.fromkeys(self._limits, 0)
-        self._peak = dict.fromkeys(self._limits, 0)
+        self._in_use = dict.fromkeys(self._bounds, 0)
+        self._peak = dict.fromkeys(self._bounds, 0)
         # Tracked alongside the per-source peaks rather than derived from them:
         # a maximum of sums is not the sum of maxima, and it is the moment two
         # sources were busy *together* that the per-source dict cannot hold.
         self._in_flight = 0
         self._in_flight_peak = 0
-        self._acquisitions = dict.fromkeys(self._limits, 0)
-        self._waited = dict.fromkeys(self._limits, 0.0)
-        # Which sources *this* thread is currently holding. Thread-local rather
+        self._acquisitions = dict.fromkeys(self._bounds, 0)
+        self._waited = dict.fromkeys(self._bounds, 0.0)
+        # Which bounds *this* thread is currently holding. Thread-local rather
         # than shared, because the question it answers is "would this caller
         # block against itself", which is a per-thread question.
         self._holding = threading.local()
 
     @classmethod
-    def of(cls, config: Config, *, probe: WidthProbe | None = None) -> Capacity:
+    def of(
+        cls,
+        config: Config,
+        *,
+        probe: WidthProbe | SourceWidthProbe | None = None,
+        root: Path | None = None,
+    ) -> Capacity:
         """The capacities this config declares, checked against ``probe`` if given.
 
         Every source, not only the ones the ladder currently uses: a role
@@ -348,12 +491,25 @@ class Capacity:
         dispatch would spend a round trip on a number that does not move, and —
         worse — would let the bound change underneath a batch that is already
         queued against it.
+
+        Every tier is asked as well as every source, whether or not it declared
+        a width: a rung that inherits the source's number still has a server
+        process of its own, and that process is the thing a probe can speak
+        about. What it answers is measured against the number that would
+        otherwise apply — the rung's if it declared one, the source's if it did
+        not — by the same three rules, so a rung is neither silently narrowed
+        nor left at a guess a machine has already contradicted.
+
+        ``root`` is the directory the slot files live in — :class:`Capacity`'s
+        ``lock_dir``, named for what it is to a caller building from a config:
+        the rendezvous every mcgyvr process on this host must agree on. Omitted,
+        it is the per-user temp directory, which is the agreement by default.
         """
         limits: dict[str, int] = {}
         confirmed: list[str] = []
         for name, source in config.sources.items():
             declared = source.max_parallel
-            reported = None if probe is None else probe.width(name)
+            reported = None if probe is None else _reported(probe, name, None)
             if reported is None:
                 # Nobody asked, or the backend does not say. Two different
                 # reasons, one state of knowledge, and neither is evidence.
@@ -373,7 +529,61 @@ class Capacity:
                 )
             limits[name] = reported
             confirmed.append(name)
-        return cls(limits, confirmed=confirmed)
+
+        rungs: dict[str, RungWidth] = {}
+        for tier in config.ladder.tiers:
+            # What the *config* wrote for this rung: its own number, or its
+            # source's declared one where it wrote none. The declaration and not
+            # the enforced width, because the enforced width may already have
+            # been widened by this very probe, and a rung's report is then being
+            # measured against a number nobody wrote. One rig running a wide
+            # process behind one rung and a narrow one behind another is a
+            # coherent thing to run — it is the arrangement per-rung widths
+            # exist for — and inheriting the widest process's report as the
+            # narrow rung's written width refused it at startup, with a remedy
+            # ("declare 4 on the rung") that would not have helped, since the
+            # rung had declared nothing to be wrong about.
+            declared = (
+                tier.max_parallel
+                if tier.max_parallel is not None
+                else config.sources[tier.source].max_parallel
+            )
+            reported = (
+                None if probe is None else _reported(probe, tier.source, tier.name)
+            )
+            if reported is None:
+                # No rung bound at all where the rung declared none: falling back
+                # to the source is the *absence* of a second queue, not a copy of
+                # the first one. A copy would double the rig's admitted width.
+                if tier.max_parallel is not None:
+                    rungs[tier.name] = RungWidth(
+                        source=tier.source, limit=tier.max_parallel
+                    )
+                continue
+            if reported < declared:
+                raise CapacityError(
+                    f"rung {tier.name!r} on source {tier.source!r} is written "
+                    f"for {declared} but reports {reported}. Two answers to one "
+                    f"question, and the machine gave one of them, so the config "
+                    f"is the one that is wrong. Enforcing the written width "
+                    f"would not make the server wider: a backend handed more "
+                    f"concurrent requests than it has slots serializes them "
+                    f"rather than refusing, so the over-declaration would show "
+                    f"up as a rung that is merely slow and never as a config "
+                    f"that is merely wrong. Declare {reported} on the rung, or "
+                    f"start its backend with {declared} slots."
+                )
+            rungs[tier.name] = RungWidth(
+                source=tier.source, limit=reported, confirmed=True
+            )
+
+        return cls(
+            limits,
+            lock_dir=root,
+            confirmed=confirmed,
+            rungs=rungs,
+            urls={name: source.base_url for name, source in config.sources.items()},
+        )
 
     @property
     def limits(self) -> Mapping[str, int]:
@@ -387,7 +597,58 @@ class Capacity:
         """
         return dict(self._limits)
 
-    def confirmed(self, source: str) -> bool:
+    def _bound(self, source: str, rung: str | None) -> _Bound:
+        """Which bound a dispatch to ``source`` on ``rung`` is held against.
+
+        The fallback lives here, in one place, so that every question about a
+        rung — its width, its provenance, its slots, its in-flight count — is
+        answered by the same rung-or-source decision. A rung that declared no
+        width of its own is not a bound this capacity has; it is a name for the
+        source's, which is precisely what "the source's value remains the
+        default" means.
+        """
+        if rung is not None and (source, rung) in self._bounds:
+            return (source, rung)
+        return (source, None)
+
+    def limit(self, source: str, rung: str | None = None) -> int:
+        """The width enforced for ``source``, or for ``rung`` where it has its own.
+
+        The one place the fallback is spelled out for a caller: a rung that
+        declared a width is bounded by it, and a rung that did not is bounded by
+        its source's, which is the number ``sources.*.max_parallel`` has always
+        meant. A rung this capacity has never heard of is answered with its
+        source's width rather than refused, because an unknown rung name is a
+        dispatch that named no width, not a dispatch to an unknown rig.
+        """
+        limit = self._bounds.get(self._bound(source, rung))
+        if limit is None:
+            known = ", ".join(sorted(self._limits)) or "none"
+            raise CapacityError(
+                f"no declared capacity for source {source!r}, so there is no "
+                f"width to report for it. Known sources: {known}"
+            )
+        return limit
+
+    def queue(self, source: str, rung: str | None = None) -> str | None:
+        """Which queue a dispatch to ``source`` on ``rung`` would actually join.
+
+        The rung's name where the rung has a bound of its own — a second server
+        process on that rig, with slot files of its own — and ``None`` where it
+        does not, because a rung that inherits its source's width is another
+        name for the source's queue and not a queue beside it.
+
+        It exists for callers that count work they are *about* to dispatch:
+        :mod:`mcgyvr.route` keys its in-flight tally by the queue a chosen rung
+        will join, and a tally keyed any other way would either spread a batch
+        across a queue that does not exist or charge one rung's attempts to a
+        sibling's. Asking here is what keeps that answer the same one
+        :meth:`hold` acts on — the fallback is decided in one place (see
+        :meth:`_bound`) rather than guessed at from widths that may coincide.
+        """
+        return self._bound(source, rung)[1]
+
+    def confirmed(self, source: str, rung: str | None = None) -> bool:
         """Whether ``source``'s width was reported by the machine or assumed.
 
         The difference is evidence. A width a rig stated is a fact about that
@@ -402,6 +663,11 @@ class Capacity:
         for are both unconfirmed. "The backend does not say" and "nobody asked"
         are different reasons for the same state of knowledge, and this method
         reports the state of knowledge.
+
+        Asked about a rung, it reports that rung's own provenance, which is not
+        its source's: a rig may state the width of the server behind one rung
+        and say nothing about the one behind another, and a report that borrowed
+        the answer would call a guess evidence.
         """
         if source not in self._limits:
             known = ", ".join(sorted(self._limits)) or "none"
@@ -411,30 +677,65 @@ class Capacity:
                 f"would claim this capacity knows the source and merely could "
                 f"not confirm its width. Known sources: {known}"
             )
+        bound = self._bound(source, rung)
+        if bound[1] is not None:
+            return self._rungs[bound[1]].confirmed
         return source in self._confirmed
 
     @property
     def total(self) -> int:
-        """The most dispatches that could ever be in flight across all sources."""
-        return sum(self._limits.values())
+        """The most dispatches that could ever be in flight across every rig.
+
+        Counted per rig rather than per bound, because a rung's own width
+        *overrides* its source's — that is what ``ladder.tiers.*.max_parallel``
+        is documented to do — and a superseded number is not a queue. Summing
+        every bound counted it as one anyway: a rig whose source line says 1 and
+        whose rung says 16 reported 17, and :func:`run_batch` sized its pool at
+        seventeen threads for a rig that will admit sixteen.
+
+        The rung bounds of one rig *do* add up between themselves: each is a
+        server process of its own with slot files of its own, so two rungs at 8
+        are sixteen dispatches. What may not be added on top is the source
+        number they replaced, so each rig contributes the greater of its own
+        declared width and what its rungs declare between them. Where no rung
+        declares a width this is the sum of the source widths, unchanged.
+        """
+        by_source: dict[str, int] = {}
+        for rung in self._rungs.values():
+            by_source[rung.source] = by_source.get(rung.source, 0) + rung.limit
+        return sum(
+            max(limit, by_source.get(source, 0))
+            for source, limit in self._limits.items()
+        )
 
     def in_use(self, source: str) -> int:
-        """How many slots of ``source`` are held right now."""
+        """How many of ``source``'s own slots are held right now."""
+        return self.in_flight(source)
+
+    def in_flight(self, source: str, rung: str | None = None) -> int:
+        """How many slots of ``source`` — or of ``rung`` — are held right now.
+
+        Per rung where the rung has a width of its own, so a hold on one rung
+        leaves another's count at zero. That is not bookkeeping precision, it is
+        the fact: the two rungs are two server processes, and the second one is
+        idle.
+        """
         with self._lock:
-            return self._in_use[source]
+            return self._in_use[self._bound(source, rung)]
 
     def usage(self) -> tuple[Usage, ...]:
-        """What each source's capacity was used for, in declared order."""
+        """What each bound was used for: sources in declared order, then rungs."""
         with self._lock:
             return tuple(
                 Usage(
-                    source=source,
+                    source=bound[0],
+                    rung=bound[1],
                     limit=limit,
-                    acquisitions=self._acquisitions[source],
-                    peak=self._peak[source],
-                    waited_seconds=round(self._waited[source], 6),
+                    acquisitions=self._acquisitions[bound],
+                    peak=self._peak[bound],
+                    waited_seconds=round(self._waited[bound], 6),
                 )
-                for source, limit in self._limits.items()
+                for bound, limit in self._bounds.items()
             )
 
     def concurrency(self) -> Concurrency:
@@ -451,12 +752,28 @@ class Capacity:
 
     @contextmanager
     def hold(
-        self, endpoint: Endpoint, *, timeout: float | None = None
+        self,
+        source: Endpoint | str,
+        *,
+        rung: str | None = None,
+        timeout: float | None = None,
     ) -> Iterator[None]:
-        """Hold one of ``endpoint``'s source's slots for the body of the block.
+        """Hold one of that source's — or that rung's — slots for the block's body.
+
+        ``source`` is an :class:`~mcgyvr.pool.Endpoint` where the caller has one,
+        which is the dispatch path: the endpoint carries the declared width, so
+        the two configs can be checked against each other at the one moment both
+        are in hand. A bare source name is for a caller that has resolved no
+        endpoint yet and is asking about capacity itself; it is checked against
+        nothing, because there is nothing to check it against.
+
+        ``rung`` selects the rung's own bound where the rung declared a width,
+        and is otherwise ignored: a rung that inherits its source's number is
+        held against its source's slots, not against a second pool of the same
+        size (see the module docstring).
 
         The slot is an exclusive lock on one of ``max_parallel`` files keyed by
-        the endpoint's ``base_url``, so it excludes every thread of every
+        the source's ``base_url``, so it excludes every thread of every
         mcgyvr process on this host, not only this one (#185). With the default
         ``timeout=None`` this blocks until a slot frees — a deep batch queue is
         a legitimate wait, and a crashed holder's locks are released by the
@@ -473,55 +790,71 @@ class Capacity:
         one this capacity does not know, when the endpoint's declared
         ``max_parallel`` disagrees with the one being enforced (both of which
         mean the capacity and the source map were built from different configs),
-        or when the calling thread already holds this source.
+        or when the calling thread already holds this bound.
         """
-        source = endpoint.source
-        limit = self._limits.get(source)
-        if limit is None:
+        endpoint = None if isinstance(source, str) else source
+        name = source if isinstance(source, str) else source.source
+        if name not in self._limits:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
-                f"no declared capacity for source {source!r} — this capacity and "
+                f"no declared capacity for source {name!r} — this capacity and "
                 f"the source map it is bounding were built from different "
                 f"configs. Known sources: {known}"
             )
-        if endpoint.max_parallel != limit:
+        if endpoint is not None and endpoint.max_parallel != self._limits[name]:
             raise CapacityError(
-                f"source {source!r} is bounded at {limit} here "
+                f"source {name!r} is bounded at {self._limits[name]} here "
                 f"but the endpoint declares max_parallel="
                 f"{endpoint.max_parallel}. Two answers to one question means one "
                 f"of them is from a stale config; rebuild both from the same one."
             )
+        bound = self._bound(name, rung)
+        limit = self._bounds[bound]
+        where = (
+            f"rung {bound[1]!r} of source {name!r}" if bound[1] else f"source {name!r}"
+        )
         held = self._held()
-        if source in held:
+        if bound in held:
             raise CapacityError(
-                f"this thread already holds a slot on source {source!r}. A "
-                f"nested dispatch to the same source waits for a slot the waiter "
+                f"this thread already holds a slot on {where}. A "
+                f"nested dispatch to it waits for a slot the waiter "
                 f"is itself holding, so at the default max_parallel=1 it would "
                 f"deadlock silently. Finish the outer dispatch first."
             )
 
+        # The rig's URL where one is known, and the source's name where it is
+        # not: a capacity built from limits alone has no other identity to key
+        # the files by, and inventing one would be inventing a rendezvous.
+        base_url = (
+            endpoint.base_url if endpoint is not None else self._urls.get(name, name)
+        )
         started = time.monotonic()
-        fd = self._acquire_slot(source, endpoint.base_url, limit, timeout)
+        fd = self._acquire_slot(where, base_url, bound[1], limit, timeout)
         waited = time.monotonic() - started
-        held.add(source)
+        held.add(bound)
         with self._lock:
-            self._acquisitions[source] += 1
-            self._waited[source] += waited
-            self._in_use[source] += 1
-            self._peak[source] = max(self._peak[source], self._in_use[source])
+            self._acquisitions[bound] += 1
+            self._waited[bound] += waited
+            self._in_use[bound] += 1
+            self._peak[bound] = max(self._peak[bound], self._in_use[bound])
             self._in_flight += 1
             self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
         try:
             yield
         finally:
             with self._lock:
-                self._in_use[source] -= 1
+                self._in_use[bound] -= 1
                 self._in_flight -= 1
-            held.discard(source)
+            held.discard(bound)
             os.close(fd)  # closing the descriptor is what releases the flock
 
     def _acquire_slot(
-        self, source: str, base_url: str, limit: int, timeout: float | None
+        self,
+        where: str,
+        base_url: str,
+        rung: str | None,
+        limit: int,
+        timeout: float | None,
     ) -> int:
         """Take an exclusive lock on any free slot file, or raise at the deadline.
 
@@ -533,7 +866,7 @@ class Capacity:
         """
         directory = self._lock_dir
         directory.mkdir(parents=True, exist_ok=True)
-        stem = _slot_stem(base_url)
+        stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             for index in range(limit):
@@ -546,20 +879,20 @@ class Capacity:
                 return fd
             if deadline is not None and time.monotonic() >= deadline:
                 raise CapacityError(
-                    f"source {source!r} has all {limit} declared slot(s) in use "
+                    f"{where} has all {limit} declared slot(s) in use "
                     f"host-wide and none freed within {timeout}s. The bound "
                     f"counts every mcgyvr process on this host; a longer or "
                     f"absent timeout queues instead of refusing."
                 )
             time.sleep(_POLL_SECONDS)
 
-    def _held(self) -> set[str]:
-        """The sources this thread holds, created on first use per thread."""
-        sources: set[str] | None = getattr(self._holding, "sources", None)
-        if sources is None:
-            sources = set()
-            self._holding.sources = sources
-        return sources
+    def _held(self) -> set[_Bound]:
+        """The bounds this thread holds, created on first use per thread."""
+        bounds: set[_Bound] | None = getattr(self._holding, "bounds", None)
+        if bounds is None:
+            bounds = set()
+            self._holding.bounds = bounds
+        return bounds
 
 
 @dataclass(frozen=True)

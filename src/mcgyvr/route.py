@@ -176,18 +176,27 @@ class Fanout(StrEnum):
     FULL = "full"
 
 
-# How many attempts this process currently has in flight on each source, by
-# source name. Module state, deliberately, and it is the smallest thing that
-# makes ``full`` mean anything. :meth:`~mcgyvr.capacity.Capacity.in_use` counts
-# slots that have been *granted*, and every member of a batch chooses its rung
-# before any of them has been granted one — so six climbs reading only that
-# number would read six zeroes, all choose the cheapest rung, and queue on it,
-# which is the funnel the knob exists to end. Counting an attempt from the
-# moment it is chosen rather than from the moment it is admitted is what makes
-# the spread a fact instead of a race between threads. It is keyed by source
-# name and not by :class:`Machine`, because every contract of a batch plans
-# separately and would otherwise count its own machines and nobody else's.
-_in_flight: dict[str, int] = {}
+# How many attempts this process currently has in flight on each queue, by
+# the source name and the rung whose own width made it a queue of its own.
+# Module state, deliberately, and it is the smallest thing that makes ``full``
+# mean anything. :meth:`~mcgyvr.capacity.Capacity.in_flight` counts slots that
+# have been *granted*, and every member of a batch chooses its rung before any
+# of them has been granted one — so six climbs reading only that number would
+# read six zeroes, all choose the cheapest rung, and queue on it, which is the
+# funnel the knob exists to end. Counting an attempt from the moment it is
+# chosen rather than from the moment it is admitted is what makes the spread a
+# fact instead of a race between threads. It is keyed by name and not by
+# :class:`Machine`, because every contract of a batch plans separately and
+# would otherwise count its own machines and nobody else's.
+#
+# The key is the queue and not the source because a rung with a width of its
+# own is a server process of its own (#23): charging its attempts to the rig
+# would make every sibling rung look busy the moment one of them was chosen,
+# and an ``idle`` climb would then buy a priced rung to route around a local
+# one that was empty. Which of the two a rung is, is
+# :meth:`~mcgyvr.capacity.Capacity.queue`'s answer and never this module's
+# guess — the tally has to be keyed the way the slots will be.
+_in_flight: dict[tuple[str, str | None], int] = {}
 _in_flight_lock = threading.Lock()
 
 
@@ -226,8 +235,8 @@ class Machine:
     def __hash__(self) -> int:
         return hash(self._source)
 
-    def load(self, capacity: Capacity) -> int | None:
-        """How busy this machine is, or ``None`` if this capacity cannot say.
+    def load(self, capacity: Capacity, rung: str | None = None) -> int | None:
+        """How busy this machine is for ``rung``, or ``None`` if it cannot say.
 
         The greater of the slots ``capacity`` has granted and the attempts this
         process has started on it, because neither alone is the load: granted
@@ -235,6 +244,20 @@ class Machine:
         asked, and started misses every dispatch that did not come through
         :func:`climb` — another process's share of the same host-wide slot files
         included (#185).
+
+        ``rung`` is asked for because a rung that declares its own width is a
+        second server process on this box and therefore a second queue (#23),
+        and a reading taken against the source alone counts none of its holds:
+        once a dispatch names its rung, every rung with a width of its own
+        reports zero for ever, ``full`` compares zeroes and the fan-out it was
+        asked for is price order wearing its name. Omitted, this is the source's
+        own queue, which is what it has always been and what a caller holding no
+        rung is asking about.
+
+        Two rungs that declared no width of their own still read one number,
+        because they *are* one queue: the fallback is
+        :meth:`~mcgyvr.capacity.Capacity.queue`'s, so "load is a property of the
+        box" survives exactly as far as the box is one server.
 
         ``None`` when the capacity does not bound this source at all, which is a
         capacity and a plan built from different configs; it is an ordinary
@@ -246,19 +269,41 @@ class Machine:
         """
         if self._source not in capacity.limits:
             return None
-        return max(capacity.in_use(self._source), _in_flight.get(self._source, 0))
+        return max(
+            capacity.in_flight(self._source, rung),
+            _in_flight.get(self._key(capacity, rung), 0),
+        )
 
-    def claim(self) -> None:
+    def claim(self, capacity: Capacity | None = None, rung: str | None = None) -> None:
         """Count one more attempt in flight here. Called under the module lock."""
-        _in_flight[self._source] = _in_flight.get(self._source, 0) + 1
+        key = self._key(capacity, rung)
+        _in_flight[key] = _in_flight.get(key, 0) + 1
 
-    def release(self) -> None:
+    def release(
+        self, capacity: Capacity | None = None, rung: str | None = None
+    ) -> None:
         """Stop counting one. Called under the module lock, always in a finally."""
-        left = _in_flight.get(self._source, 0) - 1
+        key = self._key(capacity, rung)
+        left = _in_flight.get(key, 0) - 1
         if left > 0:
-            _in_flight[self._source] = left
+            _in_flight[key] = left
         else:
-            _in_flight.pop(self._source, None)
+            _in_flight.pop(key, None)
+
+    def _key(
+        self, capacity: Capacity | None, rung: str | None
+    ) -> tuple[str, str | None]:
+        """Which tally a rung's attempt belongs in: its own queue, or the box's.
+
+        Decided by the capacity, because the capacity is what will grant the
+        slot and a tally keyed differently from the slots is two answers to one
+        question. Without a capacity there is nothing to ask and no load anyone
+        can read either, so the attempt is counted against the source — the key
+        this tally has always used.
+        """
+        if capacity is None or rung is None:
+            return (self._source, None)
+        return (self._source, capacity.queue(self._source, rung))
 
 
 @dataclass(frozen=True)
@@ -712,7 +757,11 @@ def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity | None) 
         return 0
     loads: list[int] = []
     for step in remaining:
-        load = None if step.machine is None else step.machine.load(capacity)
+        load = (
+            None
+            if step.machine is None
+            else step.machine.load(capacity, step.rung.name)
+        )
         if load is None:
             return 0
         loads.append(load)
@@ -730,16 +779,22 @@ def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) 
     with _in_flight_lock:
         step = remaining.pop(_next_index(remaining, mode, capacity))
         if step.machine is not None:
-            step.machine.claim()
+            step.machine.claim(capacity, step.rung.name)
     return step
 
 
-def _release(machine: Machine | None) -> None:
-    """Stop counting an attempt that has ended, however it ended."""
-    if machine is None:
+def _release(step: Step, capacity: Capacity | None) -> None:
+    """Stop counting an attempt that has ended, however it ended.
+
+    Given the same step and capacity :func:`_claim_next` was, so that the tally
+    it decrements is the one it incremented: a claim charged to a rung's own
+    queue and released from its source's would leave the rung busy for the rest
+    of the process.
+    """
+    if step.machine is None:
         return
     with _in_flight_lock:
-        machine.release()
+        step.machine.release(capacity, step.rung.name)
 
 
 # --- executing a plan ------------------------------------------------------
@@ -861,7 +916,7 @@ def climb(
             # However this rung ended — passed, declined, withheld, spent or
             # raised — it is no longer in flight, and a count that leaked would
             # make the machine look busy to every later climb in this process.
-            _release(step.machine)
+            _release(step, capacity)
 
     declined_only = all(a.verdict is Verdict.DECLINED for a in history)
     return Exhausted(
