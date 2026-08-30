@@ -301,17 +301,6 @@ def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - the width is whatever the setup says, not what "
-        "the config guesses. Red until a source that can report its own "
-        "parallel width is bounded by the reported number: there is no probe "
-        "for it today, so `Capacity.of` takes no probe and this raises rather "
-        "than asserts. llama.cpp answers it on `GET /slots` and `/props."
-        "total_slots`; that is the backend this covers"
-    ),
-)
 def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> None:
     """The declared number is a guess; a reported one is a fact, and it wins.
 
@@ -324,23 +313,12 @@ def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> Non
     config, _ = mapped()
     reported = {"srv1": 4, "srv2": 4, "vendor": 4}
 
-    capacity = Capacity.of(config, probe=_ReportingProbe(reported))  # type: ignore[call-arg]  # red: Capacity.of takes no probe yet
+    capacity = Capacity.of(config, probe=_ReportingProbe(reported))
 
     assert capacity.limits["srv1"] == 4, "the config declared 2; the rig said 4"
     assert capacity.total == 12
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - a width that was confirmed and a width that was "
-        "assumed must not look alike. Red until an unreportable source keeps "
-        "its declared number and is marked unconfirmed. Probed 2026-08-29: "
-        "srv1 and srv2 both serve ollama 0.32.15, `/slots` answers 404, and "
-        "both units set OLLAMA_NUM_PARALLEL=0 (auto, decided per model at load "
-        "time), so this is the branch both of this project's rigs are in"
-    ),
-)
 def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_so() -> (
     None
 ):
@@ -356,24 +334,13 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
     config, _ = mapped()
 
     probe = _ReportingProbe({"srv1": None, "srv2": None})
-    capacity = Capacity.of(config, probe=probe)  # type: ignore[call-arg]  # red: no probe yet
+    capacity = Capacity.of(config, probe=probe)
 
     assert capacity.limits["srv1"] == 2, "the declaration stands when nothing answers"
-    assert capacity.confirmed("srv1") is False  # type: ignore[attr-defined]
-    assert capacity.confirmed("vendor") is False  # type: ignore[attr-defined]
+    assert capacity.confirmed("srv1") is False
+    assert capacity.confirmed("vendor") is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: decided - CON-02's invisible queue becomes visible the "
-        "moment the rig can be asked. Red until a declared width the setup "
-        "contradicts is refused by name instead of enforced. `Capacity.hold` "
-        "already refuses an endpoint that disagrees with the enforced limit "
-        "('two answers to one question'); this is the same rule pointed at the "
-        "machine rather than at a stale config"
-    ),
-)
 def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
     None
 ):
@@ -388,7 +355,7 @@ def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced(
     config, _ = mapped()
 
     with pytest.raises(Exception, match=r"srv1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))  # type: ignore[call-arg]
+        Capacity.of(config, probe=_ReportingProbe({"srv1": 1}))
 
 
 class _ReportingProbe:

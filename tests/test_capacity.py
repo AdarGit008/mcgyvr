@@ -542,6 +542,99 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
         assert capacity.in_use("spare") == 1
 
 
+# --- and from the machine, when the machine will say -------------------------
+
+
+class Widths:
+    """A stand-in for the width half of #22's probe: source name -> width or None.
+
+    A dict rather than anything that opens a socket, because the seam under test
+    is "what does this module do with an answer" and not "how is the answer
+    fetched". ``None`` — including for a source the table never mentions — is the
+    ollama case: a backend that does not report its parallelism at all, which is
+    an ordinary answer and not a failure.
+    """
+
+    def __init__(self, widths: dict[str, int | None]) -> None:
+        self._widths = widths
+
+    def width(self, source: str) -> int | None:
+        return self._widths.get(source)
+
+
+def test_a_width_the_rig_reports_beats_the_one_the_config_guessed() -> None:
+    """`init` writes 1 because it cannot know; a rig that says otherwise ends it."""
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+
+    assert capacity.limits["local"] == 8, "the config declared 3; the rig said 8"
+    assert capacity.total == 11
+    assert capacity.confirmed("local") is True
+
+
+def test_a_width_reported_the_same_as_declared_is_still_a_confirmed_one() -> None:
+    """The guess being right is not the same fact as the guess being unchecked."""
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"fast": 2}))
+
+    assert capacity.limits["fast"] == 2
+    assert capacity.confirmed("fast") is True
+
+
+def test_a_source_that_does_not_report_keeps_its_declaration_and_says_so() -> None:
+    """ollama serves its parallelism from a unit file and exposes no endpoint."""
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": None}))
+
+    assert capacity.limits["local"] == 3, "the declaration stands"
+    assert capacity.confirmed("local") is False
+
+
+def test_a_source_the_probe_never_mentions_is_unconfirmed_not_absent() -> None:
+    """Nobody asked, and the backend does not say: one state of knowledge."""
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+
+    assert capacity.limits["spare"] == 1
+    assert capacity.confirmed("spare") is False
+
+
+def test_without_a_probe_no_width_is_confirmed() -> None:
+    """The ordinary case, and the one every other test in this file is in."""
+    capacity = Capacity.of(parse(CONFIG))
+
+    assert not any(capacity.confirmed(source) for source in capacity.limits)
+
+
+def test_a_declared_width_the_machine_contradicts_is_refused_by_name() -> None:
+    """CON-02's invisible queue, made visible the moment the rig can be asked.
+
+    Lowering the bound silently would leave the config still wrong and the
+    operator's evidence for "my rig is slow" still indistinguishable from their
+    evidence for "my config is wrong".
+    """
+    with pytest.raises(CapacityError) as caught:
+        Capacity.of(parse(CONFIG), probe=Widths({"local": 1}))
+
+    assert "'local' declares 3 but reports 1" in str(caught.value)
+    assert "Two answers to one question" in str(caught.value)
+
+
+def test_asking_whether_an_unbounded_source_was_confirmed_is_refused() -> None:
+    """False would claim the source is known and merely unconfirmed."""
+    capacity = Capacity.of(parse(CONFIG))
+
+    with pytest.raises(CapacityError) as caught:
+        capacity.confirmed("nowhere")
+
+    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "Known sources: fast, local, spare" in str(caught.value)
+
+
+def test_a_confirmation_for_a_source_with_no_limit_is_refused() -> None:
+    """A confirmation is a fact about a limit, so there must be a limit."""
+    with pytest.raises(CapacityError) as caught:
+        Capacity({"local": 3}, confirmed=["fast"])
+
+    assert "confirmed width(s) for source(s) fast" in str(caught.value)
+
+
 def test_an_outcome_reports_failure_rather_than_an_absent_value() -> None:
     """`ok` exists so a failure cannot be read as a job that returned None."""
     assert Outcome[int](index=0, value=None).ok
