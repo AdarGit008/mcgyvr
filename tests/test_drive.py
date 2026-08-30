@@ -631,22 +631,36 @@ def test_the_run_command_writes_nothing_without_commit(
     assert (repo / "src/pkg/messy.py").read_bytes() == before
 
 
-def test_the_run_command_refuses_a_contract_it_cannot_drive(
-    repo: Path, tmp_path: Path
+def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A model contract is refused by name rather than half-run.
+    """A model contract needs a config, and the missing one is named by path.
 
-    The ladder path exists (``worker_attempt``) and which flags select a rung
-    does not; saying so is better than a command that appears to have tried.
+    This replaces the assertion that a model contract is refused outright. That
+    refusal said "which flags select a rung is not yet decided"; the answer is
+    that no flag does — the ladder in the config decides, and the only thing
+    ``run`` was missing is somewhere to read it from. What is left to check is
+    the failure that remains: a config that is not there.
+
+    ``MCGYVR_CONFIG`` is set to a path in ``tmp_path`` rather than left to
+    resolution, so the test asserts the same thing on a machine that has a user
+    config as on one that does not.
     """
     from mcgyvr.cli import main
+    from mcgyvr.config import CONFIG_PATH_ENV
 
     contract = tmp_path / "impl.yaml"
     contract.write_text(MODEL_CONTRACT, encoding="utf-8")
+    absent = tmp_path / "nowhere" / "mcgyvr.yaml"
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(absent))
 
-    assert (
-        main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]) == 1
-    )
+    code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
+
+    assert code == 1
+    assert str(absent) in capsys.readouterr().err
 
 
 # --- E5 · the orchestrator id, carried as a field ---------------------------

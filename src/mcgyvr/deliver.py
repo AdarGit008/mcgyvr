@@ -36,7 +36,7 @@ a store. It is a strictly additional refusal, never a licence to skip the gate
 run: a rejected verdict refuses, and a self-consistent forged one still has to
 survive the rungs delivery runs for itself.
 
-Six refusals, each with a named reason, because a caller handed a falsy result
+Seven refusals, each with a named reason, because a caller handed a falsy result
 with no reason cannot tell "refused" from "nothing to do":
 
 * **Not accepted, or a verdict that is not about these bytes.** The gate said no;
@@ -66,13 +66,58 @@ with no reason cannot tell "refused" from "nothing to do":
   them out on the grounds that re-litigating them would drop an accepted change
   over a trailing space, which is only true if an accepted change is what
   arrived. It is not checkable from here, and the premise is false anyway — the
-  gate rejects on ``lint`` and ``format`` (they are findings, not observations),
-  so bytes that passed a gate pass these too, and bytes that do not never
-  passed one. The expensive rungs (acceptance commands, semantic resolution)
+  gate rejects on ``lint`` and ``format``, so bytes that passed a gate pass
+  these too, and bytes that do not never passed one. With one carve-out that is
+  the gate's and not delivery's: a diagnostic an adapter stamps ``style`` is
+  routed to ``observations`` and blocks nothing, here or anywhere. That is the
+  demotion :mod:`mcgyvr.gate.typecheck` argues for, and delivery inherits it
+  rather than re-deciding it — which is also why that demotion is withdrawn per
+  *line* and not per code, so a line that cannot be imported rejects at both
+  ends. The expensive rungs (acceptance commands, semantic resolution)
   need a sandbox delivery is not given, which is exactly the part an
   :class:`Accepted` carries in from where it could be run. What re-runs cheaply
   and catches what no rung could is *identity*: a substitution parses and lints,
   and only a comparison against the bytes just written can see it.
+* **A rung of that gate run that could not say what bar it applied.** ADR-0034:
+  a tool that is *absent* leaves a hole an operator can see and does not reject,
+  and a tool that is present and then *fails* leaves a hole shaped exactly like
+  a pass. So the commit-time gate run is read through
+  :attr:`~mcgyvr.gate.GateResult.accepted`'s whole definition — no findings
+  *and* no inconclusive rung — rather than through its findings alone, which is
+  what it was read through and what let a repository with an unloadable ruff
+  config commit a change lint and format never looked at. Nothing is claimed
+  about the worker: the refusal names the rung, the tool and its exit code, and
+  :attr:`Delivery.inconclusive` carries them structurally.
+
+**Two modes, and a mode named after something this build cannot do is refused
+where it is written.** ``config.delivery.mode`` shipped three values and
+documented three destinations — ``pull_request`` "proposes it", ``branch``
+"stops after pushing", ``none`` "leaves it committed locally" — and carried out
+one. Four deliveries differing only in the mode produced the same commit on the
+same checked-out branch, created no ref, and pushed nothing; the only trace of
+the difference was ``Delivery.handoff``, which came back as the literal word
+``pull_request`` for a discharger that exists nowhere in ``src/``. The default
+was ``pull_request``, so the name that reads as *least* invasive named the most
+invasive thing this module does.
+
+What is left is what can be kept. ``none`` commits onto the branch the operator
+has checked out. ``branch`` commits onto a new local branch and leaves ``HEAD``,
+the index and the working tree exactly as it found them, and hands back the
+``git push`` that moves the work off this machine — the honest form of "give it
+to me rather than land it" in a repository this codebase reaches only through
+``subprocess``. ``pull_request`` is gone: opening one needs a forge, a remote and
+a credential, and there is no place in this codebase to put any of the three.
+Pretending otherwise is what the finding was.
+
+*The rejected alternative is a client.* Delivery could push and open the pull
+request — a remote, ``delivery.token_env`` resolved to a forge token, an HTTP
+call. It is rejected because the seam that must be certain about what it writes
+would become the seam that also owns network transport, credential handling and
+one forge's API shape, all of it unreachable from any test that does not either
+mock the forge — ADR-0014, "the acceptance boundary is never mocked" — or hold a
+real token. A branch and a printed command are checkable from a temporary
+directory, and they leave the operator holding exactly the same decision a pull
+request would have put in front of them.
 
 **What ships is one path (M3).** The diff is taken against the base the caller
 passes — a revision of *this* repository, the one the task's worker started from
@@ -116,8 +161,9 @@ import fcntl
 import hashlib
 import os
 import subprocess
+import tempfile
 import textwrap
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -127,7 +173,7 @@ from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
-from mcgyvr.gate.runner import Gate, GateResult
+from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.orchestrator.repo import AttachedRepo
 
 # The well-known SHA-1 of git's empty tree, and the same sentinel
@@ -136,17 +182,49 @@ from mcgyvr.orchestrator.repo import AttachedRepo
 # makes a first-ever delivery one code path with every other.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-#: The ``config.delivery.mode`` value a commit alone completes — and the
-#: assumption when no config is supplied, since a delivery with nothing to hand
-#: back to is a local commit.
+#: ``config.delivery.mode``: commit onto the branch the operator has checked
+#: out. Also the answer when no config is supplied at all — see :func:`_mode`.
 COMMIT_ONLY = "none"
 
-#: The modes whose handback is *not* finished by a commit. All three modes begin
-#: with the commit this module makes; ``branch`` then pushes it and
-#: ``pull_request`` also proposes it, both of which need a forge and the
-#: credential named by ``delivery.token_env``. Delivery never pushes as a side
-#: effect of committing, so those two are recorded on the result as still owed.
-_FORGE_MODES = frozenset({"branch", "pull_request"})
+#: ``config.delivery.mode``: commit onto a new local branch and leave the
+#: checkout alone. The shipped default, and the only mode that returns a
+#: handoff.
+ON_A_BRANCH = "branch"
+
+#: Every mode this build can carry out, cheapest description first. A mode
+#: outside this set is refused by :func:`_mode` rather than softened into a
+#: commit — softening is how ``pull_request`` came to mean ``none``.
+MODES = (ON_A_BRANCH, COMMIT_ONLY)
+
+#: The mode a config that does not choose one resolves to. ``branch``, because
+#: a config file is policy and the policy that does not move the operator's
+#: branch is the one to hold in the absence of an instruction.
+DEFAULT_MODE = ON_A_BRANCH
+
+#: Modes this build recognises and cannot carry out, each with what to set in
+#: its place. Recognised rather than merely unknown, because the message for
+#: ``pull_request`` has to say why it is gone: an operator who wrote it chose
+#: the *least* invasive-sounding of three names and was given the most invasive
+#: behaviour, and "not a valid value" would not tell them that.
+RETIRED_MODES = {
+    "pull_request": (
+        "opening one needs a forge, a remote and a credential, none of which "
+        "this build has anywhere to put. It committed straight to your "
+        "checked-out branch instead and recorded the pull request as owed to a "
+        "discharger that does not exist. Set `branch` to commit onto a new "
+        "local branch and be told the push to run, or `none` to commit onto "
+        "the branch you have checked out"
+    ),
+}
+
+#: Where a ``branch`` delivery's ref goes. Namespaced so an operator can see at
+#: a glance which branches a program made, and delete them as a set.
+_BRANCH_PREFIX = "mcgyvr"
+
+#: How many suffixed names a colliding branch is offered before delivery gives
+#: up. A repository holding a hundred undelivered branches for one contract has
+#: a problem a hundred-and-first will not fix.
+_BRANCH_ATTEMPTS = 100
 
 #: The exclusion one delivery holds against another into the same repository,
 #: kept inside the git directory rather than beside the target. The working
@@ -323,20 +401,53 @@ class Delivery:
     mode: str = COMMIT_ONLY
     """The ``config.delivery.mode`` this ran under."""
 
+    branch: str = ""
+    """The branch the commit landed on, when it is not the one checked out.
+
+    Empty under ``none``, where the commit is on whatever branch the operator
+    has in hand and naming it would be telling them something they can see.
+    Populated under ``branch``, and it is the *structural* half of the handback:
+    a caller wanting to push, diff, or name the work in a report has a ref to
+    resolve rather than a sentence to parse."""
+
     handoff: str = ""
-    """What the mode still owes this commit: empty when a local commit is the
-    whole handback, otherwise the mode's name. ``branch`` has to be pushed and
-    ``pull_request`` pushed and proposed; both need a forge and the credential
-    named by ``delivery.token_env``, and delivery does not push silently."""
+    """The next step the commit needs from a person, or empty when it needs none.
+
+    This field used to hold the *mode's name* — a ``Delivery`` came back saying
+    ``pull_request`` was "still owed" while nothing in ``src/`` could discharge
+    a mode name, and nothing tried. It now holds one command line: under
+    ``branch``, the ``git push`` that moves the work off this machine, with the
+    repository's own remote in it so it can be pasted. Under ``none`` it is
+    empty, and so it is on every refusal — nothing was committed, so nothing is
+    owed."""
 
     findings: tuple[Finding, ...] = field(default=())
     """Why a re-check refused, when one did — carried structurally so a caller
     can report the offending line rather than re-derive it from ``reason``."""
 
+    inconclusive: tuple[InconclusiveRung, ...] = field(default=())
+    """Which rungs of the commit-time gate run ran and could not say what bar
+    they applied (ADR-0034).
+
+    A separate field from :attr:`findings` because the two mean opposite things
+    to the caller holding them. A finding is a claim about the change and is
+    what a retry note is built from; an inconclusive rung claims nothing about
+    the change at all — it is a fact about the machine, and the operator's next
+    move is to fix a config rather than to ask a worker for a different file.
+    Folding them together would put "ruff could not load your pyproject.toml"
+    into the next prompt as something a model was expected to correct.
+
+    Structured rather than left to :attr:`reason` for the reason ADR-0034
+    clause 5 gives one line up in the gate: a run manifest has to answer *which
+    rung was inconclusive* per row, and a rate quoted from rows where lint could
+    not run is not the rate it claims to be. A caller re-deriving that by
+    parsing a sentence is the coupling the field exists to prevent."""
+
     def __str__(self) -> str:
         if self.committed:
-            owed = f", {self.handoff} still owed" if self.handoff else ""
-            return f"delivered {self.path} as {self.commit[:12]}{owed}"
+            where = f" on {self.branch}" if self.branch else ""
+            step = f"; next: {self.handoff}" if self.handoff else ""
+            return f"delivered {self.path} as {self.commit[:12]}{where}{step}"
         return f"not delivered: {self.reason}"
 
 
@@ -374,6 +485,13 @@ def deliver(
     check is exactly the claim B6 was — a caller asserting a verdict about bytes
     no gate ever read. Contradicting a bound verdict raises for the same reason.
 
+    ``config`` supplies ``delivery.mode``, which decides *where* the commit
+    lands: ``branch`` onto a new local branch, leaving the checkout untouched and
+    returning the push to run; ``none`` onto the branch in hand. A config naming
+    a mode this build cannot carry out raises before anything is written, rather
+    than falling back to a commit. No config at all is a local commit — a caller
+    that stated no delivery policy has not asked for a branch.
+
     ``adapters`` are the language adapters the commit-time gate run uses; the
     gate's own pair is the default. Nothing is shared between calls (§9); the one
     exclusion is per repository and held in the repository, so two deliveries
@@ -392,7 +510,7 @@ def deliver(
 
     with _exclusive(root):
         resolved = _resolve(root, base)
-        call = _Call(path=rel, base=resolved, mode=mode)
+        call = _Call(root=root, path=rel, base=resolved, mode=mode)
 
         if refused:
             # Cheapest first, and nothing has been touched yet: a rejected change
@@ -432,7 +550,13 @@ def deliver(
         target = root / rel
         before = _snapshot(target)
         staged = False
-        delivered = False
+        # Not "did it commit" — "is the tree where the commit landed". Under
+        # ``none`` the two are the same thing. Under ``branch`` the commit is in
+        # a ref and the checkout is left as it was found, so the undo below runs
+        # over a successful delivery, which is exactly right: the work is
+        # durable somewhere else and a copy of it in the operator's tree would
+        # be uncommitted edits they did not make.
+        landed_here = False
         try:
             _write(target, payload)
 
@@ -470,11 +594,27 @@ def deliver(
                     f"not be committed under it"
                 )
 
-            findings = _judged(change, root, resolved, adapters)
-            if findings:
+            verdict = _judged(change, root, resolved, adapters, contract)
+            if verdict.findings:
                 return call.refuse(
-                    f"{rel} does not pass the gate in {root.name}: {findings[0]}",
-                    findings,
+                    f"{rel} does not pass the gate in {root.name}: "
+                    f"{verdict.findings[0]}",
+                    verdict.findings,
+                )
+            if verdict.inconclusive:
+                # Findings first, and this second, because the two refusals are
+                # about different things and the reader needs the one that is
+                # about their change. A rung that faulted claims nothing about
+                # the worker (ADR-0034 clause 3); if something else already
+                # rejected, that is the sentence worth having.
+                return call.refuse(
+                    f"{rel} could not be judged in {root.name}: "
+                    f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
+                    f"rung that ran and cannot say what bar it applied did not "
+                    f"pass it, and a linter that reported clean while applying "
+                    f"no bar is a hole shaped exactly like a pass (ADR-0034). "
+                    f"Fix what the tool is complaining about and deliver again.",
+                    inconclusive=verdict.inconclusive,
                 )
 
             if _snapshot(target) != payload:
@@ -490,23 +630,32 @@ def deliver(
                     f"would ship bytes no verdict covers"
                 )
 
+            message = _message(contract, resolved)
+            if mode == ON_A_BRANCH:
+                branch = _free_branch(root, contract.id)
+                return call.delivered(
+                    _commit_onto(root, rel, message, identity, branch), branch
+                )
+
             _git(root, "add", "--", rel)
             staged = True
-            sha = _commit(root, rel, _message(contract, resolved), identity)
-            delivered = True
+            sha = _commit(root, rel, message, identity)
+            landed_here = True
             return call.delivered(sha)
         finally:
             # The invariant ported from local-ai's apply: no attempt may poison
-            # the next one, so every exit that is not a commit — a refusal or a
-            # raised error — leaves the tree byte-for-byte as it was found.
-            # Narrowed to what this call wrote, because a workspace-wide reset
-            # would delete work delivery was never given. An undo that itself
-            # fails raises out of here, over whatever was in flight: a tree we
-            # could not put back is the one thing a caller must not be allowed to
-            # miss. It runs inside the repository lock for the same reason the
-            # commit does — an undo racing another call's staging is how the
-            # concurrent case left the index holding bytes the tree did not.
-            if not delivered:
+            # the next one, so every exit that did not leave the change in this
+            # tree — a refusal, a raised error, or a ``branch`` delivery that
+            # put it in a ref instead — leaves the tree byte-for-byte as it was
+            # found. Narrowed to what this call wrote, because a workspace-wide
+            # reset would delete work delivery was never given. An undo that
+            # itself fails raises out of here, over whatever was in flight: a
+            # tree we could not put back is the one thing a caller must not be
+            # allowed to miss. It runs inside the repository lock for the same
+            # reason the commit does — an undo racing another call's staging is
+            # how the concurrent case left the index holding bytes the tree did
+            # not.
+            if not landed_here:
                 _restore(target, before)
                 if staged:
                     _git(root, "reset", "--quiet", "--", rel)
@@ -521,33 +670,48 @@ class _Call:
     the decision is made instead of a six-field constructor repeated five times.
     """
 
+    root: Path
     path: str
     base: str
     mode: str
 
-    @property
-    def handoff(self) -> str:
-        return self.mode if self.mode in _FORGE_MODES else ""
+    def refuse(
+        self,
+        reason: str,
+        findings: Sequence[Finding] = (),
+        inconclusive: Sequence[InconclusiveRung] = (),
+    ) -> Delivery:
+        """A refusal owes nothing.
 
-    def refuse(self, reason: str, findings: Sequence[Finding] = ()) -> Delivery:
+        It used to carry the mode name as a handoff, which said an unwritten
+        change still had to be pushed. Nothing was committed, so there is no
+        commit to hand anywhere.
+
+        The two structured channels are separate parameters rather than one,
+        and every refusal but the gate's passes neither: a refusal about a dirty
+        tree or a lone surrogate is not a verdict on the change, and inventing
+        an empty finding list for it would be the same conflation ADR-0034 drew
+        the line against one layer down.
+        """
         return Delivery(
             committed=False,
             reason=reason,
             path=self.path,
             base=self.base,
             mode=self.mode,
-            handoff=self.handoff,
             findings=tuple(findings),
+            inconclusive=tuple(inconclusive),
         )
 
-    def delivered(self, sha: str) -> Delivery:
+    def delivered(self, sha: str, branch: str = "") -> Delivery:
         return Delivery(
             committed=True,
             commit=sha,
             path=self.path,
             base=self.base,
             mode=self.mode,
-            handoff=self.handoff,
+            branch=branch,
+            handoff=_push_step(self.root, branch) if branch else "",
         )
 
 
@@ -639,10 +803,204 @@ def _git_dir(root: Path) -> Path:
 
 
 def _mode(config: Config | None) -> str:
-    """``config.delivery.mode``, or a local commit when there is no config."""
+    """``config.delivery.mode``, refused rather than softened when it is not one.
+
+    **No config means a local commit**, and that is deliberately *not* the same
+    answer as :data:`DEFAULT_MODE`. A caller handing over no config has stated no
+    delivery policy at all, and inventing the conservative one for it would put
+    a branch in a repository nobody asked to branch — ``mcgyvr run --commit`` is
+    a person saying "commit this", in the tree they are looking at. A config file
+    that omits the key is a different thing: policy exists, this key is silent
+    within it, and the value to fill the silence with is the one that does not
+    move a branch out from under them.
+
+    **An unrecognised mode raises.** The old reading was
+    ``config.get(...) or COMMIT_ONLY``, which turned every value it did not know
+    into a local commit — the exact mechanism by which ``pull_request``, the
+    shipped default, meant "commit to the checked-out branch". :class:`Config`
+    validation refuses these at the line that sets them; this is the same
+    refusal for a config assembled in code rather than parsed from a file, and
+    it happens before anything is written.
+    """
     if config is None:
         return COMMIT_ONLY
-    return str(config.get("delivery.mode", COMMIT_ONLY) or COMMIT_ONLY)
+    named = str(config.get("delivery.mode", DEFAULT_MODE) or DEFAULT_MODE)
+    if named in MODES:
+        return named
+    retired = RETIRED_MODES.get(named)
+    if retired is not None:
+        raise DeliveryError(f"delivery.mode is {named!r}, and {retired}")
+    raise DeliveryError(
+        f"delivery.mode is {named!r}, which is not a mode this build carries "
+        f"out. Set one of: {', '.join(MODES)}"
+    )
+
+
+def _free_branch(root: Path, identity: str) -> str:
+    """A branch name for this delivery that no ref in ``root`` already holds.
+
+    Named after the contract, because the contract's own schema says its ``id``
+    is "how this contract is referred to in records, telemetry and branch
+    names", and a delivery an operator cannot match to the task that produced it
+    is a branch they will not dare delete.
+
+    Two runs of one contract collide by construction, so the second takes a
+    suffix. Force-updating the first ref instead would throw away a commit an
+    operator has already been told to push — the one thing this mode exists to
+    hand them. Refusing outright was the other option and is worse: a re-run
+    after a failed push is the ordinary case, not an error.
+
+    The existence check is advisory; :func:`_commit_onto` passes the empty old
+    value to ``git update-ref``, which makes creation atomic against anything
+    the repository lock does not cover. Git is also asked whether the name is
+    usable at all rather than the rules being restated here — a contract id may
+    contain dots, and ``a..b`` or ``a.lock`` are legal ids and illegal refs.
+    """
+    stem = f"{_BRANCH_PREFIX}/{identity}"
+    for attempt in range(1, _BRANCH_ATTEMPTS + 1):
+        name = stem if attempt == 1 else f"{stem}-{attempt}"
+        if _refuses_ref(root, name):
+            raise DeliveryError(
+                f"{identity!r} does not make a git branch name ({name!r} is one "
+                f"git will not take), so this contract cannot be delivered onto "
+                f"a branch of its own. Rename the contract, or set "
+                f"`delivery.mode: {COMMIT_ONLY}` to commit onto the branch you "
+                f"have checked out"
+            )
+        if not _ref_exists(root, name):
+            return name
+    raise DeliveryError(
+        f"{root.name} already holds {_BRANCH_ATTEMPTS} undelivered branches for "
+        f"{identity!r}. Push or delete them before delivering another"
+    )
+
+
+def _ref_exists(root: Path, branch: str) -> bool:
+    """Whether ``refs/heads/<branch>`` is already there."""
+    done = subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        cwd=root,
+        capture_output=True,
+    )
+    return done.returncode == 0
+
+
+def _refuses_ref(root: Path, branch: str) -> bool:
+    """Whether git rejects this as a branch name — asked of git, not restated."""
+    done = subprocess.run(
+        ["git", "check-ref-format", "--branch", branch],
+        cwd=root,
+        capture_output=True,
+    )
+    return done.returncode != 0
+
+
+def _commit_onto(
+    root: Path, rel: str, message: str, identity: Identity, branch: str
+) -> str:
+    """Commit ``rel`` onto a new ``branch``, touching neither HEAD nor the index.
+
+    This is what makes ``branch`` a different mode rather than a different word
+    for ``none``. ``git checkout -b`` then ``git commit`` then ``git checkout -``
+    would also produce the ref, and would do it by moving the operator's HEAD
+    twice through states they never asked to be in — with their unfinished work
+    in the tree the whole time, and no way back if the second checkout fails.
+    Instead the commit is built as objects: a scratch index (``GIT_INDEX_FILE``,
+    outside the repository) seeded from ``HEAD``, this one path added into it,
+    a tree written, a commit written over that tree, and a ref created pointing
+    at it. The repository's own index, ``HEAD`` and working tree are read and
+    never written; :func:`deliver`'s undo then puts the file back.
+
+    **The parent is ``HEAD``, not the base.** The tree being committed is
+    ``HEAD``'s tree with one path replaced, so ``HEAD`` is the only parent under
+    which the commit's diff is this task's change. Parenting it on the base while
+    committing ``HEAD``'s tree would attribute everything that landed in between
+    to this contract.
+
+    ``update-ref`` is given ``""`` as the expected old value, which tells git the
+    ref must not already exist and makes the create atomic — the lock excludes
+    another delivery, and this excludes everything else. ``core.hooksPath`` is
+    still pointed at nothing for the reason :func:`_commit` gives: ``update-ref``
+    fires ``reference-transaction``, which is the repository's code and not ours
+    to run. ``commit-tree`` runs no hooks at all, which is a second reason to
+    prefer it, and it does honour ``commit.gpgsign`` — so that is turned off here
+    for the same reason it is there.
+    """
+    head = _head(root)
+    with _scratch_index() as index:
+        if head:
+            _git(root, "read-tree", head, env=index)
+        _git(root, "update-index", "--add", "--", rel, env=index)
+        tree = _git(root, "write-tree", env=index).strip()
+    parents = ["-p", head] if head else []
+    sha = _git(
+        root,
+        "-c",
+        f"user.name={identity.name}",
+        "-c",
+        f"user.email={identity.email}",
+        "-c",
+        "commit.gpgsign=false",
+        "commit-tree",
+        tree,
+        *parents,
+        # `-m`, because `commit-tree` is plumbing and does not take git-commit's
+        # `--message`; it is the same string either way.
+        "-m",
+        message,
+    ).strip()
+    _git(
+        root,
+        "-c",
+        f"core.hooksPath={_NO_HOOKS}",
+        "update-ref",
+        f"refs/heads/{branch}",
+        sha,
+        "",
+    )
+    return sha
+
+
+@contextlib.contextmanager
+def _scratch_index() -> Iterator[dict[str, str]]:
+    """A ``GIT_INDEX_FILE`` environment for staging that must not be seen.
+
+    Outside the repository on purpose. An index file dropped inside ``.git``
+    would be a name the operator's tooling can trip over, and one dropped in the
+    work tree would be untracked dirt of exactly the kind the delivery lock is
+    kept out of the tree to avoid.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-delivery-") as where:
+        yield {"GIT_INDEX_FILE": str(Path(where) / "index")}
+
+
+def _head(root: Path) -> str:
+    """The commit ``HEAD`` names, or empty in a repository with none yet."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def _push_step(root: Path, branch: str) -> str:
+    """The one command that moves a ``branch`` delivery off this machine.
+
+    A command rather than a description, and with the repository's own remote in
+    it rather than a guessed ``origin``, because the whole complaint against the
+    field it replaces was that it recorded an obligation nobody could act on. A
+    repository with no remote gets the shape of the command and the reason it
+    cannot be run yet, which is still more than a mode name.
+    """
+    remotes = _git(root, "remote").split()
+    if not remotes:
+        return (
+            f"git push -u <remote> {branch} — {root.name} has no remote "
+            f"configured, so add one first"
+        )
+    return f"git push -u {remotes[0]} {branch}"
 
 
 def _target(root: Path, contract: Contract) -> str:
@@ -696,14 +1054,7 @@ def _resolve(root: Path, base: str) -> str:
     """
     if base != "HEAD":
         return base
-    proc = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-    )
-    revision = proc.stdout.strip()
-    return revision if proc.returncode == 0 and revision else _EMPTY_TREE
+    return _head(root) or _EMPTY_TREE
 
 
 def _uncommitted(root: Path, rel: str) -> tuple[str, ...]:
@@ -802,7 +1153,8 @@ def _judged(
     root: Path,
     base: str,
     adapters: Sequence[LanguageAdapter] | None,
-) -> tuple[Finding, ...]:
+    contract: Contract,
+) -> GateResult:
     """Run the gate over this delivery's own change, here, now.
 
     This is the floor the whole module rests on: whatever a caller claims, these
@@ -813,6 +1165,18 @@ def _judged(
     the path. A file no adapter owns is delivered unlinted, the same latitude
     the gate gives it.
 
+    **The whole result comes back, not its findings.** This returned
+    ``result.findings`` and the call site asked ``if findings:``, which is the
+    reading of "accepted" that predates ADR-0034 — :attr:`GateResult.accepted`
+    is ``not findings and not inconclusive``, and the dropped half is the one
+    that exists precisely because a rung which crashed reports clean. With a
+    repository whose ``pyproject.toml`` ruff cannot load, every ruff invocation
+    exits 2 with an empty stdout, both adapters raise ``ToolFailedError``, the
+    gate records two inconclusive rungs and no findings, and a change nothing
+    linted became a commit. Narrowing the answer to one field here is how a
+    caller downstream could not have noticed; handing over the result is what
+    lets the call site refuse for the right reason and say which rung it was.
+
     The change set handed over is narrowed to this one path on purpose. The
     whole diff against ``base`` is also holding whatever sibling contracts have
     left in the workspace (M3), and a delivery must not be refused because
@@ -821,10 +1185,32 @@ def _judged(
     ``Scope`` is not passed: the contract's scope is re-confirmed a few lines
     above, where the refusal can name the contract that forbids the path rather
     than arriving as one finding among several.
+
+    The contract's *prose* is passed, and for the opposite reason. It is the
+    one input that changes what a rung means rather than which files it reads:
+    ``param-mutation`` rejects a function for mutating its caller's object, and
+    a contract that ordered in-place work has told the worker to write exactly
+    that. Withholding it here would make delivery a stricter bar than the gate
+    the change already passed in the sandbox — a change accepted where it was
+    written and refused where it lands, for obeying its contract.
     """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
     narrowed = ChangeSet(repo=root, base=base, files=(change,))
-    return Gate(owners).run(narrowed).findings
+    return Gate(owners).run(narrowed, contract_text=contract.prose)
+
+
+def _unjudged(rungs: Sequence[InconclusiveRung]) -> str:
+    """Every rung that could not say what bar it applied, in its own words.
+
+    All of them, not the first. ADR-0034 clause 6 keeps each rung being
+    attempted after one faults so that "an operator fixing a broken environment
+    gets both complaints from one run, not one per run" — quoting only the head
+    of the list here would spend that and hand back one complaint anyway.
+    :meth:`InconclusiveRung.__str__` already names the adapter, the rung, the
+    tool, the exit code and the tool's own first line, which is the whole of
+    what the operator has to act on.
+    """
+    return "; ".join(str(rung) for rung in rungs)
 
 
 def _ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802 — a default, not a class
@@ -984,14 +1370,25 @@ def _listed(paths: Sequence[str]) -> str:
     return shown if len(paths) <= 5 else f"{shown} (+{len(paths) - 5} more)"
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, env: Mapping[str, str] | None = None) -> str:
     """Run git in ``root``, returning stdout, raising with git's own complaint."""
-    return _git_bytes(root, *args).decode("utf-8", "surrogateescape")
+    return _git_bytes(root, *args, env=env).decode("utf-8", "surrogateescape")
 
 
-def _git_bytes(root: Path, *args: str) -> bytes:
-    """The bytes form: path output is only safely decoded after splitting on NUL."""
-    proc = subprocess.run(["git", *args], cwd=root, capture_output=True)
+def _git_bytes(root: Path, *args: str, env: Mapping[str, str] | None = None) -> bytes:
+    """The bytes form: path output is only safely decoded after splitting on NUL.
+
+    ``env`` is *added to* the inherited environment rather than replacing it:
+    the only caller uses it for ``GIT_INDEX_FILE``, and a git run with
+    ``PATH``, ``HOME`` and the operator's ``GIT_*`` settings stripped out is a
+    different git from the one every other call here gets.
+    """
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        capture_output=True,
+        env={**os.environ, **env} if env else None,
+    )
     if proc.returncode != 0:
         detail = proc.stderr.decode("utf-8", "replace").strip()
         raise DeliveryError(f"git {args[0]} failed in {root}: {detail}")

@@ -111,7 +111,15 @@ class JavaScriptAdapter(LanguageAdapter):
             )
         ]
 
-    def structural_checks(self, change: FileChange, repo: Path) -> list[Finding]:
+    def structural_checks(
+        self, change: FileChange, repo: Path, *, contract_text: str = ""
+    ) -> list[Finding]:
+        # `contract_text` is accepted and unread: every hazard in `_HAZARDS` is
+        # a fault no contract can order — `==` where `===` was meant, a `var`,
+        # an empty catch — so there is nothing here for a contract to stand
+        # down. Taking the argument anyway keeps one adapter signature; an
+        # adapter that refused it would make the gate's call site conditional
+        # on which language it was talking to.
         root = self._parse(repo / change.path)
         if root is None or root.has_error:
             return []  # the syntax pass owns a broken file; do not double-report

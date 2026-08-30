@@ -9,38 +9,79 @@
 > | Finding | State |
 > | --- | --- |
 > | B1-B9, and 11 more found reproducing them | Fixed — `16a31cbc`, PR #381 |
-> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`, PR #383. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is built and tested and is not yet reachable from a flag. |
+> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`, PR #383. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is reachable from `mcgyvr run` as of the reach work below. |
 > | **E** · eight boundaries held by nothing | Closed for the five that were breached, PR #383 — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
 > | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
 > | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
 > | **B** · nothing owns the bytes | Closed, PR #383. The tree owns them and one seam commits. B6's delivery-time re-check, then phase 1 (the second delivery routed through `deliver`), phase 2 (`Judgement.value` and the three `value` fields under it deleted), phase 3 (`RepairOutcome.content` deleted, `Consensus` carries `Accepted` bindings minted per draw, `Cleanup.regate` true whenever bytes were rewritten). A guard in `tests/test_pattern_b_tree_owns_bytes.py` fails a new `content` field that carries no digest. |
 > | **§4, first item** · the self-verification refusal, defeated by spelling | Fixed — `verify.model_identity`, PR #383. The comparison is on what the two names resolve to, not on the two strings. |
-> | §4's other six items, and the ~48 major | Open. |
+> | **§4** · `delivery.mode` promised three behaviours and had one | Fixed — PR #385. `branch` writes a `mcgyvr/<contract-id>` ref without moving HEAD, `none` commits to the checked-out branch, `pull_request` is retired at load. |
+> | **§4** · `param-mutation` is order-blind | Fixed — PR #385. The walk is in execution order and a branch merge is a union, so a rebind defends only where no path skips it. `contract_text` is threaded from `Contract.prose` and the stand-down is reachable. |
+> | **§4** · `UP035` demoted wholesale | Fixed — PR #385. The demotion is withdrawn per line, not per code. An AST family over `ImportFrom` naming `collections` rejects on `structure`, so a ruff-less install rejects too; the `typing` half stays demoted. |
+> | **Reach** · three levers built against callers nobody had written | Closed — PR #385. `mcgyvr run` climbs the ladder behind one new `--config` flag (no `--rung`: `starts_on`, `ascent`, `plan` and the budgets already settle that), `best_of` draws every attempt with `breadth.draws` defaulting to 1, and `tidy` sits between the gate and `judge` behind `cleanup.enabled: false`, honouring `regate` with a full re-gate and a fresh `Accepted.read`. |
+> | §4's remaining three items, and the ~48 major | Open — `max_waves`, the cooldown lever, and the task-catalog digest dependency. |
 >
-> **Where to start next.** §6's order of work is spent: steps 1-5 are the rows
-> above, and so is §4's first item — the one that had a live consequence.
-> `verify.py` compared `strip().casefold()`, so `qwen2.5-coder` and
-> `qwen2.5-coder:latest` were different models to the self-verification refusal
-> and the same weights to Ollama. It compares through `model_identity` now, which
-> normalises only what a registry itself treats as noise — the tag default, the
-> routing prefix, invisibles, confusables — and never guesses at similarity, so
-> the ordinary local install (`:32b` reviewing `:7b`) keeps its verifier.
+> **Where to start next.** §6's order of work is spent, and so are four of §4's
+> seven items — the self-verification refusal (`verify.model_identity`), the
+> delivery modes, `param-mutation`'s order blindness, and `UP035`'s wholesale
+> demotion. Each was reproduced with running code before it was fixed, and each
+> carries a control: the ordinary local install keeps its verifier, a defensive
+> copy placed before every mutation still stands the rung down, and the `typing`
+> half of UP035 is still a style note.
 >
-> What is left is §4's other six. The next with a live consequence is
-> `delivery.mode`: it defaults to `pull_request` and all three modes commit
-> directly to the checked-out branch, which was a promise nothing kept back when
-> nothing delivered — and `mcgyvr run` now drives a task to a commit.
+> What is left of §4 is three items — `max_waves` bounding total waves rather
+> than re-planning, the cooldown lever inert on a single-host install, and
+> contract digest identity now depending on `data/task-catalog.json` — plus the
+> ~48 major.
 >
-> Still true, and either is a smaller piece of work than a §4 item:
-> `worker_attempt` has no flag on `mcgyvr run`, and `consensus.best_of` and
-> `cleanup.tidy` still have no production caller — which is why phase 3 had to
-> reason about their shape rather than about a call site.
+> Wiring the three unreached levers is what turned up the next block of work,
+> which is the point of wiring a lever built against a caller nobody had
+> written:
 >
-> One thing §4's first item did *not* close: nothing cross-checks
-> `verifier.model` against the ladder's tiers at config time. The pairwise
-> refusal catches a self-review at the moment it would happen, which is the
-> defect that mattered; an install whose verifier is also a rung still learns it
-> one task in rather than at `mcgyvr config`.
+> * **`consensus.best_of`'s `sample: Callable[[int], str]` cannot say a draw
+>   produced nothing usable**, and an unreadable model reply — truncated, prose
+>   instead of a fenced block, a refusal — is the common case rather than the
+>   exceptional one. The signature offers only two answers and both are wrong:
+>   fabricate a string, which is then gated and reported as a candidate the gate
+>   rejected when the reply was never readable, or raise out and discard the
+>   verdicts of every draw already gated. The second shipped, because it keeps
+>   the single-draw behaviour exact and is honest about what happened — but at
+>   `n > 1` it loses real work, since draw 0 can pass the gate and be thrown away
+>   because draw 1 came back truncated. The fix is a sampler that can return "no
+>   candidate", so an unusable draw scores last instead of ending the attempt.
+> * **`best_of`'s `repo` and `sandbox` are mutually exclusive and the signature
+>   does not say so**; a caller mid-attempt, the exact caller the docstring says
+>   should pass its own sandbox, must still supply a dead `repo`.
+> * **`best_of`'s `gate: Callable[[Path], GateResult]` promises the workspace is
+>   enough to gate**, and in this project it is not: acceptance commands are
+>   arbitrary shell that must run in a sandbox (ADR-0005), so the real caller
+>   closes over the sandbox and discards the `Path` it is handed.
+> * **`worker_attempt`'s `verifier` parameter still has no production caller.**
+>   `mcgyvr run` passes `None`, so every ladder acceptance is labelled
+>   `unverified` even on an install with `verifier.enabled: true` and a bound
+>   role. `verify.reviewer_for` exists and is unwired — a fourth gap of the same
+>   shape as the three just closed.
+> * **`mcgyvr run` never consults `delivery.mode`**, deliberately: `--commit` is
+>   a person saying commit this, in the tree they are looking at. That keeps one
+>   flag meaning one thing, and it means an operator who set
+>   `delivery.mode: branch` does not get a branch from `run`. Worth a deliberate
+>   decision rather than leaving it implicit.
+>
+> Three more the earlier fixes surfaced, each load-bearing in a way it was not
+> before:
+>
+> * `_INPLACE_WORDS` is a substring match, so a contract saying *"do not mutate
+>   the caller's list"* stands the mutation rung down for the whole file. That
+>   was inert while nothing could reach `contract_text`; threading the prose
+>   through made it live, and reliable negation in prose is its own design
+>   question.
+> * `delivery.token_env` is read by nothing, because no mode talks to a forge.
+>   A dead key implying a forge integration is the same species as the default
+>   that was just fixed.
+> * `typecheck.py`'s claim that "the verdict does not depend on which tools the
+>   operator happens to have" holds for six names. `_DEPRECATED_TYPING` knows
+>   `List, Dict, Set, Tuple, FrozenSet, Type` and nothing else, so on a machine
+>   without ruff, `from typing import Mapping` is reported by nothing.
 
 |                |                                                                                  |
 | -------------- | -------------------------------------------------------------------------------- |

@@ -1239,6 +1239,114 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   verifier entirely to a rule that matched on resemblance. The refusal still
   names both models as the operator spelled them, because a normalised name in
   the message points at a config line that does not exist.
+- **A delivery mode is a promise, and all three made the same one** (pressure
+  test 2026-08-29, §4). `delivery.mode` defaulted to `pull_request`, and every
+  mode committed onto the checked-out branch: one commit, one ref, HEAD advanced,
+  nothing pushed and nothing branched. `handoff` came back as the literal word
+  `pull_request`. Now `branch` builds the commit as objects — a scratch index
+  seeded from HEAD, `commit-tree` parented on it, `update-ref` on a new
+  `mcgyvr/<contract-id>` — so the operator's HEAD, index and working tree are
+  read and never written, and the handoff carries the pasteable
+  `git push -u <remote> <branch>` beside `Delivery.branch`. `none` still commits
+  onto the checked-out branch. `pull_request` is retired through a declarative
+  `Field.retired`, so the loader's message says what the value was actually
+  doing rather than that it is unknown. Building a forge client was rejected:
+  it would make the seam that must be certain about what it writes also own
+  network transport, credentials and one forge's API shape, none of it reachable
+  from a test that does not mock the acceptance boundary (ADR-0014). So was
+  `checkout -b` / `commit` / `checkout -`, which reaches the destination by
+  moving the operator's HEAD twice through states they never asked for.
+- **A rebind is a defence only where it runs before the mutation** (pressure
+  test 2026-08-29, §4). `param-mutation` collected rebinds with `ast.walk`,
+  which has neither order nor control flow, so a rebind anywhere in a function —
+  in dead code, in a branch that returns, textually after the mutation —
+  cleared every mutation in it. The canonical `if target is None: target = []`
+  followed by `target.append(extra)` mutates the caller's list whenever the
+  caller passed one, and was accepted. The walk is now in execution order and
+  threads which names may still be the caller's object on *some* path to here;
+  a branch merge is a union, so a rebind defends only where no path skips it,
+  and an arm that cannot fall through contributes nothing. Swept against the old
+  implementation over `src/`, `tests/` and `tools/`: 67 hits identical, one
+  addition — a bench task's own reference solution, which is the canonical shape
+  and is legitimate only because its contract orders in-place work.
+  - That is why the `contract_text` stand-down was threaded rather than deleted.
+    It had no caller: `LanguageAdapter.structural_checks` took no contract, so a
+    contract asking for in-place work was unsatisfiable. `Contract.prose` — the
+    two fields the worker is given — now flows through `Gate.run` to the
+    adapter, from both call sites that hold a contract, so the commit-time gate
+    is not a stricter bar than the sandbox one. It is passed as text and not as
+    a `Contract`, so an adapter cannot start judging by `risk` or `verification`
+    (#94).
+- **A module that cannot be imported is not a style note** (pressure test
+  2026-08-29, §4). `UP035` was demoted by code, and it covers two different
+  things: `typing`→`collections.abc`, which is style, and
+  `collections`→`collections.abc`, which is an `ImportError` on 3.10 and later —
+  and `requires-python` is `>=3.12`. So a worker file holding
+  `from collections import Mapping` was accepted with zero findings, and reached
+  the verifier under the heading saying no check is asking for it to be fixed.
+  The demotion is now withdrawn per *line* rather than per code. Ruff's two
+  UP035 diagnostics are identical in code, rule, message, severity, url and
+  offered fix — they differ only in filename and end column, so a message-text
+  discriminator was impossible rather than merely fragile, and that fact is
+  pinned by a test that fails the day ruff diverges. The discriminator is an AST
+  family over `ImportFrom` nodes naming `collections`, reported on `structure`
+  so a ruff-less install rejects too, with 3.9's `_collections_abc.__all__`
+  written out rather than introspected — the verdict is about the worker's file,
+  not about mcgyvr's own interpreter.
+- **A rung that could not run does not get a commit.** `deliver._judged`
+  returned `GateResult.findings` and dropped `inconclusive`, but `accepted` is
+  `not findings and not inconclusive`, and ADR-0034 says a rung that ran and
+  cannot say what bar it applied rejects. So where `ruff` exited 2 — a malformed
+  `pyproject.toml`, a version mismatch, a crash — the commit-time gate recorded
+  an inconclusive rung, returned no findings, and the change was committed with
+  lint and format never applied and nothing on the `Delivery` saying so. That is
+  the one path (`mcgyvr run --commit`, `pending.resume` on a bare `str`) where
+  delivery's own gate run is the only gate, and it defeated the module's stated
+  floor: nothing a caller says can make un-judged bytes into a commit.
+- **A fixer that fixed what it could is not an error.** `mcgyvr run` treated
+  every non-zero tool exit as fatal and returned before the gate was reached.
+  `ruff check --fix` exits 1 whenever diagnostics remain after fixing, which is
+  the ordinary outcome for `lint_fix` — so a contract whose autofixes landed
+  exactly as its catalog guarantee describes was reported as an error, never
+  gated and never committed. The test is now the exit code against the set the
+  invocation reports under, and that set comes from the *task type*: `(0, 1)`
+  for `lint_fix` and `import_sort`, whose guarantees put an unfixable diagnostic
+  out of scope in as many words, and `(0,)` for `format`, whose "byte-identical
+  to what the project's own formatter produces" leaves no room for a file the
+  formatter declined to write. Everything else stays fatal — a fixer that exits
+  2 could not load its config, so it applied the guarantee to nothing and the
+  gate reading that same config is broken the same way. The residue is printed
+  rather than swallowed.
+- **A retry note is this attempt's account of this attempt.** `worker_attempt`
+  only ever wrote a note, never cleared one, so an attempt that produced none —
+  an unreadable reply, or a reviewer-side failure — left the previous attempt's
+  note standing and attempt 3 was prompted with attempt 1's gate findings, which
+  the worker had already been asked to fix once. `tools/missions/attempt.py` was
+  the correct spelling of the same loop; the two now agree.
+- **The mission runner read a delivered file back the way nothing wrote it.**
+  `tools/missions/run.py` decoded strictly immediately after `deliver`
+  committed, while delivery deliberately writes through `surrogateescape` and
+  refuses only lone surrogates. A target holding a byte that is not valid UTF-8
+  committed and then raised `UnicodeDecodeError` — after the commit, before the
+  record was written, which is exactly the failure the `DeliveryError` handler
+  twelve lines above exists to prevent.
+- **An append ends its lines the way the file does.** `scoped._appended` did
+  `source.rstrip("\n")`, which leaves the `\r` on a CRLF file, then joined LF
+  separators and an LF fragment onto it. The next formatter run normalised the
+  whole file, so a one-definition append was reported as having rewritten every
+  line. `repair._terminator` is now `mcgyvr.lines.terminator` and both callers
+  share it, rather than a second definition of where a line ends — which
+  `lines.py`'s own docstring names as a defect that has already cost this
+  project twice. The splice path has the same shape and is deliberately left
+  alone: its bytes are a pinned guarantee, and a guard test now says so.
+- **The pinned fallback kept the target's envelope rule.** `parse_pinned`'s
+  not-honoured fallback called `parse_reply` without `target`, and with no
+  target any `{"content": "..."}` object in the fence is unwrapped — so a
+  contract whose target is a `.json` file that legitimately *is* such an object
+  had it silently truncated to that field. The structural fence read is now
+  `_fenced`, and `parse_pinned` applies both rules itself: whether to open the
+  envelope is decided by whether the object is bound for a language the gate
+  owns, and #174 still runs last, on the file rather than on the envelope.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable

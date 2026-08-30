@@ -761,8 +761,19 @@ def run_task(
             # tree is what the next contract's sandbox archives and what the
             # whole-tree run reads, so it is also what the record should say was
             # delivered.
-            files[delivery.path] = (plan.worktree / delivery.path).read_text(
-                encoding="utf-8"
+            #
+            # Through `surrogateescape`, as every other reader in the project
+            # does (`deliver.Accepted.read`, `pending.resume`, `gate.changeset`)
+            # — because `deliver._encoded` is the writer, and it refuses only a
+            # *lone* surrogate. A target holding a byte that is not valid UTF-8
+            # is therefore committed and then unreadable by a strict decode, and
+            # `UnicodeDecodeError` is not `DeliveryError`: it would leave the
+            # run after this commit and before `_write_record`, which is the
+            # very shape the handler above catches `DeliveryError` to avoid.
+            files[delivery.path] = (
+                (plan.worktree / delivery.path)
+                .read_bytes()
+                .decode("utf-8", "surrogateescape")
             )
             # Committed, not just written: the next contract's sandbox is
             # ``git archive HEAD`` of this worktree, and an uncommitted file

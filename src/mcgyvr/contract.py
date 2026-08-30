@@ -671,6 +671,24 @@ class Contract:
         """
         return tuple(tuple(shlex.split(command)) for command in self.demonstration)
 
+    @property
+    def prose(self) -> str:
+        """What this contract asked for, in its own words, for a rung to read.
+
+        ``task`` and ``interface`` and nothing else: they are the two fields
+        that state the work, they are the two a worker is given, and a gate
+        rung standing itself down on the strength of something the worker never
+        saw would be excusing a change nobody asked for.
+
+        It exists because ``param-mutation`` has a stand-down for a contract
+        that *ordered* in-place work — "sort the rows in place" — and until
+        this there was no accessor to hand it, so the rung rejected the worker
+        for obeying the contract and the contract could not be satisfied at
+        all. Joined here rather than at each gate call site so the two callers
+        cannot come to disagree about which fields count.
+        """
+        return f"{self.task}\n{self.interface}"
+
     def worker_view(self) -> dict[str, Any]:
         """Exactly the fields a worker prompt may be built from.
 

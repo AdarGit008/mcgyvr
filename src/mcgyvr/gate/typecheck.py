@@ -63,6 +63,31 @@ which a finding can be said out loud without also being fatal. Both sides are
 answered here, so the verdict does not depend on which tools the operator
 happens to have.
 
+**A demotion is per fault, not per lint code.** UP035 is one code over two
+unrelated faults. ``from typing import Mapping`` is the deprecated spelling
+above: the module imports, the code runs, and demoting it is the whole point.
+``from collections import Mapping`` is not a spelling — ``collections``
+re-exported the abstract base classes as a compatibility shim through 3.9 and
+stopped in 3.10, so the line raises ``ImportError`` on every interpreter this
+project supports and nothing in the module runs at all. Demoting *that* is a
+gate accepting a module it could have proven unimportable, and telling the
+reviewer, in :func:`~mcgyvr.verify.gate_summary`'s own words, that no check is
+asking for it to be fixed. So ``unimportable`` is a family of its own here —
+not ported, found — and it carries the same two-sided answer as the two that
+were: it is an AST family so a machine without ruff still rejects it, and it
+withdraws the UP035 demotion on the lines it found so a machine *with* ruff
+does not say the same fault twice with opposite verdicts.
+
+*Why the AST and not ruff's message.* Ruff's words for the two halves are
+identical — "Import from ``collections.abc`` instead: ``Mapping``" — as are
+the rule name, the severity, the documentation url and the fix it offers; the
+two diagnostics differ in the filename and the end column and in nothing else
+(pinned in ``tests/test_unimportable_is_not_style.py``). A message rule could
+not separate them even in principle, and one keyed on the imported *name*
+would reject ``from typing import Mapping`` too. The module an import names is
+the fault, it is one field on one node, and it does not move when a linter
+rewords itself.
+
 local-ai's third family, ``forbidden-construct`` (bare except, mutable default,
 unasked-for IO), is deliberately **not** ported. Its first two members already
 exist in ``_HazardVisitor`` as rejecting findings, and demoting them to style
@@ -118,6 +143,12 @@ STYLE = "style"
 #: Kept deliberately narrow: it is the family ported below, named in the other
 #: vocabulary, and nothing else. A gate that says one thing twice must not mean
 #: something different each time.
+#:
+#: The demotion is withdrawn per *line* by :func:`unimportable_lines`: UP035
+#: covers a second fault that is not style at all, and a code in this set is
+#: only demoted where the line it sits on is not one of those. Membership here
+#: says "this code can carry a style fault", never "every report of this code
+#: is one".
 STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
 #: Wall-clock ceiling for one type-check pass. A checker reads a repository's
@@ -301,7 +332,11 @@ _MUTATING_METHODS = frozenset(
 
 #: Wording in a contract that *asks* for mutation. A contract that says "sort
 #: the list in place" has told the worker to do the thing this family rejects,
-#: and rejecting it anyway would make the contract unsatisfiable.
+#: and rejecting it anyway would make the contract unsatisfiable. Not
+#: hypothetical: ``tools/bundle/python/tasks/t11`` says "keep appending to it in
+#: place and returning that same list", and its own reference solution is the
+#: ``if tags is None: tags = []`` shape this family now flags. Whether that task
+#: can be solved at all rests on the prose reaching here.
 _INPLACE_WORDS = ("in place", "in-place", "mutate", "mutation")
 
 #: PEP 585 aliases whose builtin-generic form is the pinned one.
@@ -312,6 +347,106 @@ _DEPRECATED_TYPING = frozenset({"List", "Dict", "Set", "Tuple", "FrozenSet", "Ty
 #: change, and ``*args``/``**kwargs`` are built fresh at every call site.
 _NOT_CALLER_OWNED = frozenset({"self", "cls"})
 
+#: The abstract base classes ``collections`` re-exported for compatibility
+#: until 3.9 and stopped re-exporting in 3.10 — ``_collections_abc.__all__`` as
+#: it stood in 3.9, the list the shim was keyed on. Written out rather than
+#: read from the running interpreter, and it is a closed list either way: the
+#: removal has already happened, so nothing will ever join it, and introspecting
+#: ``collections`` here would make the gate's verdict a fact about whichever
+#: Python mcgyvr happens to run under instead of a fact about the worker's
+#: file. ``Buffer`` is *not* here: it arrived in ``collections.abc`` in 3.12 and
+#: was never in ``collections`` to lose.
+_MOVED_TO_COLLECTIONS_ABC = frozenset(
+    {
+        "AsyncGenerator",
+        "AsyncIterable",
+        "AsyncIterator",
+        "Awaitable",
+        "ByteString",
+        "Callable",
+        "Collection",
+        "Container",
+        "Coroutine",
+        "Generator",
+        "Hashable",
+        "ItemsView",
+        "Iterable",
+        "Iterator",
+        "KeysView",
+        "Mapping",
+        "MappingView",
+        "MutableMapping",
+        "MutableSequence",
+        "MutableSet",
+        "Reversible",
+        "Sequence",
+        "Set",
+        "Sized",
+        "ValuesView",
+    }
+)
+
+
+def unimportable_lines(source: str | None) -> dict[int, str]:
+    """Lines in ``source`` holding an import that cannot resolve, and why.
+
+    Keyed by the line ruff and :mod:`ast` both attribute the statement to — the
+    ``from`` line, including where the import spans several lines — so the lint
+    rung can look a diagnostic's row up here and withdraw its demotion without
+    re-deriving anything.
+
+    Takes source rather than a parsed tree, unlike :func:`compliance_findings`,
+    because the one caller that is not :meth:`~PythonAdapter.structural_checks`
+    is the lint rung, which works from a linter's JSON and has no tree to hand.
+    Tolerating ``None`` and unparseable text here rather than at each call site
+    keeps that single answer in one place: **nothing found**, deliberately, and
+    not "nothing is wrong". A file that will not parse has already been
+    rejected by the syntax rung, and a second finding for one fault would
+    charge the worker twice — the same rule the ``note`` severity follows in
+    :func:`_diagnostics`.
+    """
+    if source is None:
+        return {}
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return {}
+    return _unimportable(tree)
+
+
+def _unimportable(tree: ast.Module) -> dict[int, str]:
+    """``from collections import <an ABC>``, by line.
+
+    Only the ``from`` form. ``import collections`` followed by
+    ``collections.Mapping`` is an ``AttributeError`` when the attribute is
+    read, not an ``ImportError`` when the module is loaded, and this family
+    claims the second — a check whose message named the wrong exception would
+    be worse than one that stayed narrow.
+    """
+    hits: dict[int, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or node.module != "collections":
+            continue
+        moved = [a.name for a in node.names if a.name in _MOVED_TO_COLLECTIONS_ABC]
+        if moved:
+            hits[node.lineno] = _unimportable_verdict(moved)
+    return hits
+
+
+def _unimportable_verdict(names: Sequence[str]) -> str:
+    """Every moved name on the statement, because the import fails on the first.
+
+    A worker told about one of two bad names fixes one of them and comes back
+    to the same rejection, which costs a whole attempt to learn what the gate
+    already knew.
+    """
+    return (
+        f"'from collections import {', '.join(names)}' raises ImportError on "
+        f"Python 3.10 and later — collections re-exported the collections.abc "
+        f"names as a shim until 3.9 and stopped; import them from "
+        f"collections.abc"
+    )
+
 
 def compliance_findings(
     tree: ast.Module,
@@ -320,17 +455,27 @@ def compliance_findings(
     *,
     contract_text: str = "",
 ) -> list[Finding]:
-    """The two AST families, attributed to worker-added lines.
+    """The three AST families, attributed to worker-added lines.
 
     Takes the parsed tree rather than the source because the caller
     (:meth:`~mcgyvr.gate.adapters.PythonAdapter.structural_checks`) has already
     parsed it, and a third parse of the same file per gate run buys nothing.
 
-    ``contract_text`` is the contract's own prose. It stands the mutation
-    family down when the contract asked for in-place behaviour, which is the
-    difference between a correctness check and a house rule: the caller is
-    expected to pass ``contract.task`` and ``contract.interface`` joined, and
-    a caller that has no contract to hand gets the strict reading.
+    ``contract_text`` is the contract's own prose —
+    :attr:`~mcgyvr.contract.Contract.prose`, which is ``task`` and
+    ``interface`` joined. It stands the mutation family down when the contract
+    asked for in-place behaviour, which is the difference between a correctness
+    check and a house rule, and a caller that has no contract to hand gets the
+    strict reading. It does *not* stand ``unimportable`` down, and there is no
+    wording that could: a contract cannot ask for a module that will not load.
+
+    It reaches here from :meth:`~mcgyvr.gate.Gate.run` through
+    :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`. It did not
+    used to: the parameter existed and the adapter had nowhere to take one
+    from, so the stand-down was unreachable from every call site in the tree
+    and a contract ordering in-place work was unsatisfiable. Threaded rather
+    than deleted because the alternative is a gate that can be given a contract
+    it will then reject the worker for obeying.
     """
     style = [
         Finding(check=STYLE, path=path, line=line, code="TYPE-FORM", message=message)
@@ -345,6 +490,16 @@ def compliance_findings(
             message=message,
         )
         for line, message in _param_mutation(tree, contract_text)
+    ]
+    correctness += [
+        Finding(
+            check=CORRECTNESS,
+            path=path,
+            line=line,
+            code="UNIMPORTABLE",
+            message=message,
+        )
+        for line, message in sorted(_unimportable(tree).items())
     ]
     return [f for f in (*correctness, *style) if f.line in added_lines]
 
@@ -379,11 +534,14 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
     A heuristic by design, and local-ai's note on why is worth keeping: it
     tracks direct mutation of parameters, of their elements, and of ``for``
     aliases into them, and stands down for a parameter rebound to a new object
-    first — ``items = list(items)`` is the sanctioned defensive copy, and a
-    parameter that has been rebound is no longer the caller's object. Aliasing
-    through other locals is not tracked. The contract's acceptance suite
-    remains the real catch; this is the backstop for contracts whose tests do
-    not look.
+    **before** the mutation — ``items = list(items)`` is the sanctioned
+    defensive copy, and after it the name is no longer the caller's object.
+    *Before* is the load-bearing word and :func:`_mutations_in` is where it is
+    enforced; asking only whether the name was rebound somewhere accepted the
+    canonical ``if x is None: x = []`` and accepted a copy written after the
+    line it was meant to protect. Aliasing through other locals is still not
+    tracked. The contract's acceptance suite remains the real catch; this is
+    the backstop for contracts whose tests do not look.
     """
     if any(word in contract_text.lower() for word in _INPLACE_WORDS):
         return []
@@ -401,26 +559,338 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
 def _mutations_in(
     func: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> list[tuple[int, str]]:
-    tracked = _caller_owned(func)
-    if not tracked:
+    """Every mutation some path reaches while the object is still the caller's.
+
+    The body is walked in **execution order** rather than with
+    :func:`ast.walk`, and that is the whole of this family. The rebind is the
+    sanctioned defence — after ``items = list(items)`` the rest of the function
+    is working on a list the caller does not hold — but a rebind defends only
+    what it runs *before*. Asking instead whether the name is rebound anywhere
+    in the body accepted three shapes that leave the caller's object exposed:
+    the copy written after the mutation, the copy in a branch that does not
+    reach it, and
+
+    .. code-block:: python
+
+        if target is None:
+            target = []
+        target.append(extra)
+
+    which is the most common way the fault is written and the one that reads
+    most like its own fix. The rebind runs only for the caller that passed
+    nothing; every caller that passed a list has it appended to.
+
+    So the state threaded through the walk is *which names may still be the
+    caller's object on some path to here*, and the merge at a branch is a
+    **union**: a name is still owned after an ``if`` if it is owned after
+    either arm. A rebind on a path that cannot fall through — a branch that
+    returns or raises — is not merged in, because nothing leaves it. Rebinds
+    inside a loop or an ``except`` handler do not survive the block: a loop can
+    run zero times and a handler runs only when something raised.
+
+    Every approximation points the same way. Where the walk cannot tell, the
+    name stays owned and the mutation is reported, because the alternative is a
+    rung certifying a function it did not follow. What is still not tracked is
+    aliasing through another local — ``other = items`` then ``other.append(x)``
+    passes — which is the heuristic local-ai shipped, and the reason the
+    contract's own acceptance suite remains the real catch rather than this.
+    """
+    owned = _parameters(func)
+    if not owned:
         return []
     hits: list[tuple[int, str]] = []
-    for node in ast.walk(func):
+    _scan(func.body, owned, hits)
+    return hits
+
+
+def _parameters(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """The declared parameters that are the caller's objects to begin with.
+
+    A receiver (``self``/``cls``) and the packed ``*args``/``**kwargs`` never
+    are: the tuple and the dict are built fresh at every call site, so
+    ``kwargs.pop(...)`` is a local edit and rejecting it would fail a correct
+    and idiomatic function.
+    """
+    args = func.args
+    return {
+        arg.arg
+        for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)
+        if arg.arg not in _NOT_CALLER_OWNED
+    }
+
+
+def _scan(
+    body: Sequence[ast.stmt], owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """Run a block statement by statement; return what is still the caller's."""
+    for statement in body:
+        owned = _scan_statement(statement, owned, hits)
+    return owned
+
+
+def _scan_statement(
+    node: ast.stmt, owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """One statement: report what it mutates, then say what it rebound.
+
+    Dispatch is explicit per statement type rather than generic, because the
+    two questions a statement answers here are different for each of them —
+    *which of its parts run now* and *which of its parts run on every path out*
+    — and a generic walk cannot tell them apart. That is the bug this replaces.
+    """
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        return _scan_nested_function(node, owned, hits)
+    if isinstance(node, ast.ClassDef):
+        for expr in (
+            *node.decorator_list,
+            *node.bases,
+            *(keyword.value for keyword in node.keywords),
+        ):
+            _report(expr, owned, hits)
+        _scan(node.body, owned, hits)
+        return owned - {node.name}
+    if isinstance(node, ast.If):
+        return _scan_branches(node.test, [node.body, node.orelse], owned, hits)
+    if isinstance(node, ast.For | ast.AsyncFor):
+        return _scan_for(node, owned, hits)
+    if isinstance(node, ast.While):
+        _report(node.test, owned, hits)
+        _scan(node.body, owned, hits)  # zero iterations is a path; discard it
+        _scan(node.orelse, owned, hits)
+        return owned
+    if isinstance(node, ast.With | ast.AsyncWith):
+        return _scan_with(node, owned, hits)
+    if isinstance(node, ast.Try | ast.TryStar):
+        return _scan_try(node, owned, hits)
+    if isinstance(node, ast.Match):
+        return _scan_match(node, owned, hits)
+    if isinstance(node, ast.Assign):
+        for expr in (node.value, *node.targets):
+            _report(expr, owned, hits)
+        hits += _writes_into(node.lineno, node.targets, owned, "assignment into")
+        return owned - set().union(*map(_target_names, node.targets), set())
+    if isinstance(node, ast.AnnAssign):
+        if node.value is None:  # a bare `x: int` declares; it does not bind
+            return owned
+        for expr in (node.value, node.target):
+            _report(expr, owned, hits)
+        hits += _writes_into(node.lineno, [node.target], owned, "assignment into")
+        return owned - _target_names(node.target)
+    if isinstance(node, ast.AugAssign):
+        for expr in (node.value, node.target):
+            _report(expr, owned, hits)
+        hits += _writes_into(node.lineno, [node.target], owned, "assignment into")
+        return owned - _target_names(node.target)
+    if isinstance(node, ast.Delete):
+        for expr in node.targets:
+            _report(expr, owned, hits)
+        hits += _writes_into(node.lineno, node.targets, owned, "del on")
+        return owned - set().union(*map(_target_names, node.targets), set())
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.expr):
+            _report(child, owned, hits)
+    return owned
+
+
+def _scan_nested_function(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    owned: set[str],
+    hits: list[tuple[int, str]],
+) -> set[str]:
+    """A nested ``def``: decorators and defaults now, the body against today's state.
+
+    The body is scanned rather than skipped because a closure that mutates the
+    parameter it closed over is the same hazard reached one level down, and it
+    is scanned with the enclosing state at the point of definition because that
+    is the only state this walk can know. Names the inner function binds itself
+    are dropped first: an inner parameter that shadows an outer one is a
+    different object, and it is judged when :func:`_param_mutation` reaches
+    that function on its own.
+    """
+    args = node.args
+    shadowed = {
+        arg.arg
+        for arg in (
+            *args.posonlyargs,
+            *args.args,
+            *args.kwonlyargs,
+            *(extra for extra in (args.vararg, args.kwarg) if extra is not None),
+        )
+    }
+    for expr in (
+        *node.decorator_list,
+        *args.defaults,
+        *(default for default in args.kw_defaults if default is not None),
+    ):
+        _report(expr, owned, hits)
+    _scan(node.body, owned - shadowed, hits)
+    return owned - {node.name}
+
+
+def _scan_branches(
+    test: ast.expr | None,
+    arms: Sequence[Sequence[ast.stmt]],
+    owned: set[str],
+    hits: list[tuple[int, str]],
+) -> set[str]:
+    """Scan every arm from the same state, and union what reaches the far side.
+
+    Union, not intersection, is the direction that makes a rebind a defence
+    only where it is unavoidable: a name that is still the caller's on *any*
+    arm is still the caller's after the branch. An arm that cannot fall through
+    contributes nothing, which is what lets ``else: return ...`` leave a
+    single-armed rebind standing.
+    """
+    if test is not None:
+        _report(test, owned, hits)
+    reached: list[set[str]] = []
+    for arm in arms:
+        if not arm:  # an absent `else` is the path that changes nothing
+            reached.append(owned)
+            continue
+        after = _scan(arm, owned, hits)
+        if _falls_through(arm):
+            reached.append(after)
+    return set().union(*reached, set()) if reached else owned
+
+
+def _scan_for(
+    node: ast.For | ast.AsyncFor, owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """A ``for``: the target aliases into what is iterated, or rebinds away from it.
+
+    Iterating a tracked object hands the body the caller's own elements, so the
+    target joins the set; iterating anything else rebinds the target away from
+    whatever it named. Nothing the body rebinds survives the loop, because a
+    loop that runs zero times reaches the code after it with the state it
+    started in.
+    """
+    _report(node.iter, owned, hits)
+    names = _target_names(node.target)
+    after = owned | names if _root_name(node.iter) in owned else owned - names
+    _scan(node.body, after, hits)
+    _scan(node.orelse, after, hits)
+    return after
+
+
+def _scan_with(
+    node: ast.With | ast.AsyncWith, owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """A ``with``: its body always runs, so a rebind in it does survive."""
+    bound: set[str] = set()
+    for item in node.items:
+        _report(item.context_expr, owned, hits)
+        if item.optional_vars is not None:
+            bound |= _target_names(item.optional_vars)
+    return _scan(node.body, owned - bound, hits)
+
+
+def _scan_try(
+    node: ast.Try | ast.TryStar, owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """A ``try``: every handler starts from the state the ``try`` was entered in.
+
+    An exception can be raised at any point in the body, including before a
+    rebind the body was going to perform, so a handler may not assume the body
+    got that far. That is why ``except ...: items = list(items)`` alone does
+    not defend a mutation after the block: the path where nothing raised did
+    not copy anything.
+    """
+    after_body = _scan(node.body, owned, hits)
+    after_body = _scan(node.orelse, after_body, hits)
+    reached: list[set[str]] = []
+    if _falls_through(node.orelse or node.body):
+        reached.append(after_body)
+    for handler in node.handlers:
+        if handler.type is not None:
+            _report(handler.type, owned, hits)
+        caught = owned - ({handler.name} if handler.name else set())
+        after_handler = _scan(handler.body, caught, hits)
+        if _falls_through(handler.body):
+            reached.append(after_handler)
+    after = set().union(*reached, set()) if reached else owned
+    # `finally` runs on the way out of every one of those paths and on the way
+    # out of the ones that raised again, so it is read against all of them.
+    return _scan(node.finalbody, after | owned, hits) if node.finalbody else after
+
+
+def _scan_match(
+    node: ast.Match, owned: set[str], hits: list[tuple[int, str]]
+) -> set[str]:
+    """A ``match``: one arm per case, plus the path where nothing matched.
+
+    That last path is dropped only for a final unguarded ``case _``, which
+    cannot fail to match — otherwise a ``match`` whose every case rebinds would
+    still be reached, unchanged, by a subject none of them accepted.
+    """
+    _report(node.subject, owned, hits)
+    reached: list[set[str]] = []
+    for case in node.cases:
+        inside = owned - _pattern_names(case.pattern)
+        if case.guard is not None:
+            _report(case.guard, inside, hits)
+        after = _scan(case.body, inside, hits)
+        if _falls_through(case.body):
+            reached.append(after)
+    if not node.cases or not _always_matches(node.cases[-1]):
+        reached.append(owned)
+    return set().union(*reached, set()) if reached else owned
+
+
+def _always_matches(case: ast.match_case) -> bool:
+    """Whether this case is the irrefutable ``case _`` with no guard."""
+    return (
+        case.guard is None
+        and isinstance(case.pattern, ast.MatchAs)
+        and case.pattern.pattern is None
+    )
+
+
+def _pattern_names(pattern: ast.pattern) -> set[str]:
+    """Every name a ``match`` pattern binds — captures, stars and mapping rests."""
+    names: set[str] = set()
+    for node in ast.walk(pattern):
+        for attribute in ("name", "rest"):
+            bound = getattr(node, attribute, None)
+            if isinstance(bound, str):
+                names.add(bound)
+    return names
+
+
+def _falls_through(body: Sequence[ast.stmt]) -> bool:
+    """Whether control can reach the statement after this block.
+
+    Deliberately shallow: ``return``, ``raise``, ``break`` and ``continue`` at
+    the end, and an ``if`` whose arms all end that way. Answering *false* where
+    the truth is *true* would drop a real path from the merge and stand the
+    rung down on it, so the unknown answer is *true* — the mutation is
+    reported, and a conservative read of a block this walk did not follow costs
+    a finding rather than a silent pass.
+    """
+    if not body:
+        return True
+    last = body[-1]
+    if isinstance(last, ast.Return | ast.Raise | ast.Break | ast.Continue):
+        return False
+    if isinstance(last, ast.If):
+        return _falls_through(last.body) or _falls_through(last.orelse)
+    if isinstance(last, ast.With | ast.AsyncWith):
+        return _falls_through(last.body)
+    return True
+
+
+def _report(node: ast.expr, owned: set[str], hits: list[tuple[int, str]]) -> None:
+    """Record every mutating method call this expression makes on an owned name."""
+    for sub in ast.walk(node):
         if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr in _MUTATING_METHODS
-            and _root_name(node.func.value) in tracked
+            isinstance(sub, ast.Call)
+            and isinstance(sub.func, ast.Attribute)
+            and sub.func.attr in _MUTATING_METHODS
+            and _root_name(sub.func.value) in owned
         ):
             hits.append(
-                (node.lineno, _verdict(f".{node.func.attr}() on", node.func.value))
+                (sub.lineno, _verdict(f".{sub.func.attr}() on", sub.func.value))
             )
-        elif isinstance(node, ast.Assign | ast.AugAssign):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            hits += _writes_into(node.lineno, targets, tracked, "assignment into")
-        elif isinstance(node, ast.Delete):
-            hits += _writes_into(node.lineno, node.targets, tracked, "del on")
-    return hits
 
 
 def _writes_into(
@@ -445,52 +915,6 @@ def _verdict(what: str, node: ast.expr) -> str:
         f"{what} parameter '{_root_name(node)}' — the caller still owns that "
         f"object and its next read is wrong"
     )
-
-
-def _caller_owned(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
-    """Parameter names that still refer to the caller's own objects.
-
-    Three things take a name out of the set. A receiver (``self``/``cls``) and
-    the packed ``*args``/``**kwargs`` are never the caller's object to begin
-    with — the tuple and dict are built fresh per call, so ``kwargs.pop(...)``
-    is a local edit and rejecting it would fail a correct and idiomatic
-    function. A name rebound anywhere in the body (assignment, ``with ... as``,
-    tuple unpacking, augmented assignment) has stopped pointing at the input.
-    And a ``for`` target cuts both ways: iterating a tracked object aliases the
-    target *into* it, while iterating anything else rebinds the target away.
-    """
-    args = func.args
-    tracked = {
-        arg.arg
-        for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)
-        if arg.arg not in _NOT_CALLER_OWNED
-    }
-    if not tracked:
-        return tracked
-
-    rebound: set[str] = set()
-    for node in ast.walk(func):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                rebound |= _target_names(target)
-        elif isinstance(node, ast.AnnAssign | ast.AugAssign) and isinstance(
-            node.target, ast.Name
-        ):
-            rebound.add(node.target.id)
-        elif isinstance(node, ast.With | ast.AsyncWith):
-            for item in node.items:
-                if item.optional_vars is not None:
-                    rebound |= _target_names(item.optional_vars)
-    tracked -= rebound
-
-    for node in ast.walk(func):
-        if isinstance(node, ast.For | ast.AsyncFor):
-            names = _target_names(node.target)
-            if _root_name(node.iter) in tracked:
-                tracked |= names - rebound
-            else:
-                tracked -= names
-    return tracked
 
 
 def _target_names(target: ast.expr) -> set[str]:

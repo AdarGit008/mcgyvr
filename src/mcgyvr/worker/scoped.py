@@ -38,8 +38,10 @@ decorator twice and the second one applies to nothing anybody wrote.
 match and writing the fragment over the file deletes the file; finding no match
 and refusing throws away work that was done correctly. Appending is the only
 outcome that loses neither. It goes on at module level with the two blank lines
-a formatter would put there, so a scoped addition does not fail the gate's
-style check on whitespace it never chose.
+a formatter would put there — and with the file's own line ending, not ``\\n``,
+so a scoped addition does not fail the gate's style check on whitespace it never
+chose, nor arrive as a whole-file reformat because half the file now ends its
+lines differently from the other half.
 
 **Only module-level definitions are spliced.** The worker's fragment comes back
 at column zero; writing it over a method's line span would put a dedented body
@@ -62,7 +64,7 @@ from __future__ import annotations
 
 import ast
 
-from mcgyvr.lines import parser_lines
+from mcgyvr.lines import LINE_END, parser_lines, terminator
 from mcgyvr.runner import StopReason
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -199,6 +201,26 @@ def _appended(source: str, fragment: str) -> str:
     would spend an attempt on whitespace the worker was never shown. An empty
     file gets none of them — a file that starts with two blank lines is a file
     the formatter would immediately change back.
+
+    Those blank lines, and the fragment's own, end the way *this file's* lines
+    end rather than with ``\\n``. :func:`~mcgyvr.worker.reply.parse_reply`
+    normalises a reply to ``\\n`` on entry as a stated transformation, so a
+    fragment appended verbatim to a CRLF file leaves a file with two kinds of
+    line ending: nothing fails to parse, but the next ``ruff format`` or
+    :func:`mcgyvr.cleanup.tidy` normalises the whole file, and a change that
+    added one definition is recorded as having rewritten every line.
+    :func:`mcgyvr.lines.terminator` is where that derivation lives, because
+    ``repair`` makes the same splice and B4 was the price of answering "where
+    does a line end" twice.
+
+    Only the *append* re-terminates. A splice into a file that has the node
+    writes the fragment between the head and the tail as they already were —
+    the module's whole claim — and rewriting bytes outside the named node to
+    tidy their endings would break it.
     """
-    head = source.rstrip("\n")
-    return f"{head}\n\n\n{fragment}" if head else fragment
+    ending = terminator(source)
+    body = LINE_END.sub(ending, fragment)
+    # Every trailing terminator, not just `\n`: a CRLF file left its `\r`
+    # behind under `rstrip("\n")`, dangling with no `\n` after it.
+    head = source.rstrip("\r\n")
+    return f"{head}{ending * 3}{body}" if head else body

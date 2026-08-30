@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,7 +24,10 @@ from mcgyvr.initialize import InitError, initialize
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
+    from mcgyvr.deliver import Accepted
+    from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
+    from mcgyvr.route import Try
     from mcgyvr.sandbox.base import Sandbox
 
 
@@ -695,6 +699,37 @@ def _run(args: argparse.Namespace) -> int:
     down either way, and a commit is a write to a repository they did not hand
     over for one — so ``--commit`` is what makes the difference, and its absence
     prints the verdict and the diff instead.
+
+    Two paths, chosen by the contract rather than by a flag. A deterministic
+    contract names a program and is run here; anything else climbs a ladder and
+    is :func:`_climb`'s. The split is the contract's ``task_type`` because that
+    is where the catalog already records which family work of this kind may
+    *begin* on, and a flag that let a caller override it would be a second,
+    quieter answer to the question ``starts_on`` exists to settle.
+
+    **A tool step has three outcomes here, not two.** It read any non-zero exit
+    as fatal, and ``ruff check --fix`` — which is what ``lint_fix`` binds —
+    exits **1** whenever a diagnostic remains after fixing. That is the ordinary
+    outcome, and it is the outcome ``lint_fix``'s own guarantee describes: "a
+    diagnostic the linter will not fix itself is explicitly out of scope for
+    this type". So a contract carried out exactly as the catalog promises came
+    back as ``error: <the linter's dump>``, was never gated and never committed.
+
+    The three: the program **could not run** (126/127, an environment issue —
+    the work is still doable on a dearer family); the program **ran and did the
+    job its type describes** (:attr:`~mcgyvr.drive.ToolOutcome.performed`, which
+    is where any residue it reported goes on to the gate, because the gate is
+    the thing that judges a result and stopping here means the result is never
+    judged); and the program **ran and failed** (fatal — a fixer that could not
+    load its config applied the guarantee to nothing, and the gate reading that
+    same config is broken in the same way).
+
+    The test is the exit code, against the set of codes that invocation reports
+    under, which is ADR-0034 clause 2 one layer out from the gate. Ignoring the
+    exit code entirely was the cheaper alternative and is the wrong one twice
+    over: it would carry an untouched change to a gate that cannot judge it, and
+    it would drop the linter's own account of what it will not fix, which is
+    printed here instead.
     """
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
@@ -714,17 +749,7 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
     if not contract.is_deterministic:
-        # The ladder path needs a config, a source map and a reachable backend.
-        # `mcgyvr.drive.worker_attempt` is that path and is driven by its tests;
-        # what is not yet decided is which of `mcgyvr run`'s flags select a rung,
-        # and inventing that here would be inventing policy in a CLI.
-        print(
-            f"error: {contract.id} is a {contract.task_type!r} contract, which "
-            f"starts on the {contract.type.starts_on.name!r} family. This "
-            f"command drives the deterministic floor only.",
-            file=sys.stderr,
-        )
-        return 1
+        return _climb(args, contract, repo)
 
     steps = tool_steps(contract)
     if not steps:
@@ -752,11 +777,27 @@ def _run(args: argparse.Namespace) -> int:
                 if not outcome.ran:
                     print(f"error: {outcome.environment_issue}", file=sys.stderr)
                     return 1
-                if not outcome.ok:
-                    assert outcome.result is not None  # `ran` is `result is not None`
+                assert outcome.result is not None  # `ran` is `result is not None`
+                if not outcome.performed:
                     detail = (outcome.result.stderr or outcome.result.stdout).strip()
                     print(f"error: {detail}", file=sys.stderr)
                     return 1
+                if not outcome.ok:
+                    # Reported, not swallowed. The tool did what its type
+                    # guarantees and is telling us what it will not do — for
+                    # `lint_fix`, "a diagnostic the linter will not fix itself
+                    # is explicitly out of scope for this type". Printing it is
+                    # how the operator learns there is work left that no
+                    # deterministic rung is going to take, and it goes to stdout
+                    # beside the command rather than to stderr, because nothing
+                    # here failed.
+                    left = (outcome.result.stdout or outcome.result.stderr).strip()
+                    print(
+                        f"  note: {step.tool.program} applied its fixes and left "
+                        f"what it does not fix (exit {outcome.result.exit_code}); "
+                        f"the gate judges what remains:"
+                    )
+                    print(textwrap.indent(left, "    "))
             result = gate_workspace(contract, sandbox)
             return _report_run(args, contract, sandbox, repo, result)
     except DriveError as exc:
@@ -767,6 +808,161 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
 
+def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
+    """Drive a model-executed contract up the ladder a config describes.
+
+    **Which flag selects a rung: none, and that is the answer rather than a
+    deferral.** Rung selection is already owned, in one place, by data this
+    command does not get to second-guess. The contract's ``task_type`` names the
+    family work of its kind may begin on; :func:`~mcgyvr.escalate.ascent` walks
+    the catalog's families upward from there; :func:`~mcgyvr.route.plan` takes
+    each family's rungs in the order the operator wrote them into ``ladder.tiers``
+    and gives each the attempts its tier declares; and ``budgets.max_escalations``
+    with ``budgets.max_attempts`` bound how far the walk gets. A ``--rung`` flag
+    would be a fourth party to a decision three files already settle, and the
+    first time it disagreed with the ladder the operator would have two orderings
+    and no way to tell which one ran. What ``run`` was actually missing is
+    therefore not a policy knob but the two *inputs* the ladder needs and this
+    command had nowhere to take them from: a config, and the source map resolved
+    from it.
+
+    Hence ``--config`` and nothing else. It resolves the same way every other
+    command's does — ``$MCGYVR_CONFIG``, then the working directory, then the
+    user config dir — because a second resolution order for the same file is a
+    second file as far as an operator debugging one is concerned.
+
+    **An install that cannot run this contract is refused before a sandbox is
+    opened.** :attr:`~mcgyvr.escalate.Ascent.reason` already carries the sentence
+    each empty family wrote about itself — which rung was skipped, which variable
+    is unset — and ``escalate`` would reach the same conclusion on its own. Doing
+    it here is what keeps a container from being built for a task that was never
+    going to dispatch.
+    """
+    from mcgyvr.drive import DriveError, worker_attempt
+    from mcgyvr.escalate import ascent, escalate
+    from mcgyvr.pool import source_map
+    from mcgyvr.route import RouteError
+    from mcgyvr.runner import RunnerError
+    from mcgyvr.sandbox.base import SandboxError, open_sandbox
+
+    path = Path(args.config) if args.config else resolve_config_path()
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    # Structural resolution, no probe: a live-reachability sweep costs one
+    # timeout per source and answers a question the dispatch below is about to
+    # ask for real. `mcgyvr pool --probe` is where an operator asks it in
+    # advance, and paying for it here would charge every run for a diagnosis.
+    pool = source_map(config)
+    try:
+        route = ascent(config, pool, contract)
+    except RouteError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if not route:
+        print(
+            f"error: {contract.id} is a {contract.task_type!r} contract and "
+            f"starts on the {route.floor.name!r} family; nothing in {config.path} "
+            f"can run it. {route.reason}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        sandbox = open_sandbox(
+            repo,
+            mode=args.sandbox,
+            image=config.get("sandbox.image"),
+            setup=config.get("sandbox.setup") or (),
+            # The worker runs outside the sandbox and the sandbox has to be able
+            # to reach it: a container with no route to the source is a task that
+            # gates fine and never gets an answer to gate.
+            endpoints=tuple(source.base_url for source in config.sources.values()),
+        )
+    except SandboxError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    # Which rung is being driven right now, for the one error that cannot say so
+    # itself. `runner` reports the URL it could not reach because a transport
+    # knows nothing of ladders, and the rung is the word the operator needs to
+    # find the tier to fix. `escalate` does not catch a raising attempt, on
+    # purpose, so this is the only place the pairing still exists.
+    in_flight: list[str] = []
+
+    try:
+        with sandbox:
+            for note in sandbox.notes:
+                print(f"note: {note}")
+            driver = worker_attempt(config, pool, contract, sandbox)
+
+            def attempt(this: Try) -> Judgement:
+                in_flight.append(this.rung.name)
+                return driver(this)
+
+            outcome = escalate(config, pool, contract, attempt)
+            return _report_climb(args, contract, sandbox, repo, outcome)
+    except RunnerError as exc:
+        rung = in_flight[-1] if in_flight else route.rungs[0]
+        print(
+            f"error: rung {rung!r} did not answer, so {contract.id} was not "
+            f"driven: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    except (DriveError, SandboxError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _report_climb(
+    args: argparse.Namespace,
+    contract: Contract,
+    sandbox: Sandbox,
+    repo: Path,
+    outcome: Delivered | Halted,
+) -> int:
+    """Print what the climb spent and where it ended, and commit when asked.
+
+    Every attempt is printed, including the ones that failed. A ladder walk that
+    reported only its answer would leave an operator unable to tell one rung
+    accepting immediately from three rungs spent and the dearest one succeeding,
+    which is the difference the whole escalation policy is about.
+    """
+    from mcgyvr.escalate import Delivered
+
+    for step in outcome.history:
+        print(f"  {step.rung} #{step.attempt}: {step.verdict.value} — {step.detail}")
+
+    if not isinstance(outcome, Delivered):
+        print(f"\n{contract.id}: {outcome.outcome.value}", file=sys.stderr)
+        print(f"error: {outcome.detail}", file=sys.stderr)
+        return 1
+
+    print(
+        f"\n{contract.id}: accepted on {outcome.rung} ({outcome.assurance.value}) "
+        f"after {outcome.attempts_spent} attempt(s) and "
+        f"{outcome.escalations} escalation(s)"
+    )
+    bound = outcome.judgement.accepted
+    if bound is None:
+        # `judge` only reaches PASSED through a gate that accepted, and
+        # `worker_attempt` binds on exactly that branch. Refusing rather than
+        # asserting because the alternative to a bound value is not a fallback:
+        # there is nothing to deliver, and a commit assembled from anything else
+        # would be bytes no gate read.
+        print(
+            f"error: {contract.id} was accepted on {outcome.rung} without bound "
+            f"content, so there is nothing a delivery could re-judge.",
+            file=sys.stderr,
+        )
+        return 1
+    return _commit(args, contract, repo, sandbox.source_base_commit(), bound)
+
+
 def _report_run(
     args: argparse.Namespace,
     contract: Contract,
@@ -775,7 +971,7 @@ def _report_run(
     result: GateResult,
 ) -> int:
     """Print the gate verdict, and commit it when asked."""
-    from mcgyvr.deliver import Accepted, DeliveryError, deliver
+    from mcgyvr.deliver import Accepted, DeliveryError
 
     print(f"\n{contract.id}: gate {'accepted' if result.accepted else 'rejected'}")
     for finding in result.findings:
@@ -785,18 +981,45 @@ def _report_run(
     if not result.accepted:
         return 1
 
+    try:
+        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
+    except DeliveryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return _commit(args, contract, repo, sandbox.source_base_commit(), bound)
+
+
+def _commit(
+    args: argparse.Namespace,
+    contract: Contract,
+    repo: Path,
+    base: str,
+    bound: Accepted,
+) -> int:
+    """Deliver an accepted change into the user's repository, when asked to.
+
+    Shared by both halves of ``run`` so that "what ``--commit`` does" has one
+    answer. ``bound`` is an :class:`~mcgyvr.deliver.Accepted` in both cases and
+    never a string: the deterministic path mints it off the workspace the gate
+    read, the ladder path carries the one its attempt minted there, and delivery
+    re-judges either in the repository the commit lands in.
+
+    No ``config`` is passed to :func:`~mcgyvr.deliver.deliver`, on either path
+    and deliberately. ``deliver`` reads a config's ``delivery.mode`` to decide
+    whether the commit lands on a branch of its own, and reads *no* config as a
+    commit onto the checked-out branch — which is what ``mcgyvr run --commit``
+    is: a person at a terminal saying "commit this", in the tree they are looking
+    at. Handing over the ladder's config because the ladder path happens to have
+    one would make the same flag mean two things depending on the contract.
+    """
+    from mcgyvr.deliver import DeliveryError, deliver
+
     if not args.commit:
         print(f"\nNot committed (no --commit). The change is in {contract.target}.")
         return 0
 
     try:
-        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
-        delivery = deliver(
-            repo=repo,
-            contract=contract,
-            content=bound,
-            base=sandbox.source_base_commit(),
-        )
+        delivery = deliver(repo=repo, contract=contract, content=bound, base=base)
     except DeliveryError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1117,9 +1340,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     run = sub.add_parser(
         "run",
-        help="execute a contract on the deterministic floor and gate the result",
+        help="execute a contract — on the deterministic floor or up the ladder",
     )
     run.add_argument("contract", help="contract file to execute (YAML or JSON)")
+    run.add_argument(
+        "--config",
+        default=None,
+        metavar="PATH",
+        help=(
+            "ladder to climb when the contract is not deterministic. Which rung "
+            "runs is this file's — the tier order, each tier's `attempts` and the "
+            "`budgets` ceilings — never a flag "
+            f"(default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+        ),
+    )
     run.add_argument(
         "--repo",
         default=".",

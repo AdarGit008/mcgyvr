@@ -82,7 +82,7 @@ def test_defaults_render_as_values_not_blanks() -> None:
 def test_enum_choices_are_named() -> None:
     rendered = docgen.render_reference()
     assert "one of `ollama`, `openai`" in rendered
-    assert "one of `pull_request`, `branch`, `none`" in rendered
+    assert "one of `branch`, `none`" in rendered
 
 
 def test_credential_keys_are_documented_as_names_not_values() -> None:

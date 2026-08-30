@@ -53,6 +53,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.cleanup import tidy
+from mcgyvr.consensus import best_of
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
 from mcgyvr.gate import Gate, GateResult
@@ -90,6 +92,23 @@ class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
 
 
+class _UnreadableDrawError(DriveError):
+    """One draw's reply could not be read, carried out of the sampler.
+
+    Private, and never seen outside :func:`worker_attempt`. It exists because of
+    a mismatch the first real caller of :func:`~mcgyvr.consensus.best_of`
+    exposes: ``sample`` is typed ``Callable[[int], str]`` and has no way to say
+    "this draw produced nothing usable" — an exception it raises is deliberately
+    not caught, on the grounds that "a draw that could not be made is not a
+    verdict". For a sampler that dispatches to a model that is the *common*
+    case: a truncated reply, a refusal in place of a file, prose where a fenced
+    block was asked for. Raising out is the only thing the signature permits, so
+    the whole attempt ends with the refusal in its detail — the behaviour a
+    single-draw attempt has always had, at the cost that at ``n > 1`` the
+    verdicts of the draws already gated are discarded with it.
+    """
+
+
 @dataclass(frozen=True)
 class ToolOutcome:
     """What running one deterministic step came to.
@@ -105,6 +124,14 @@ class ToolOutcome:
     ``result`` is ``None`` only when the program did not run. A caller reading
     ``ok`` alone gets the safe answer in both failing cases; a caller deciding
     *whose* fault it was reads :attr:`environment_issue`.
+
+    The middle state has two halves and :attr:`ok` cannot tell them apart,
+    which is what :attr:`performed` is for. ``ruff check --fix`` exits **1**
+    whenever a diagnostic remains after fixing — the ordinary outcome of a
+    ``lint_fix`` contract, and the exact shape that type's guarantee describes.
+    A caller reading ``not ok`` as fatal reported a contract carried out to the
+    letter as an error and never reached the gate that was supposed to judge
+    the result.
     """
 
     step: ToolStep
@@ -127,6 +154,34 @@ class ToolOutcome:
         <mcgyvr.gate.changeset.ChangeSet.detect>` is what answers it.
         """
         return self.result is not None and self.result.ok
+
+    @property
+    def performed(self) -> bool:
+        """Whether the program ran and did the work its task type describes.
+
+        Wider than :attr:`ok` by exactly one thing: an exit code the invocation
+        uses to *report* rather than to *fail*
+        (:attr:`~mcgyvr.deterministic.Tool.reporting`, whose measured table
+        says which). For a fixer that is 1 — "I applied every autofix I have,
+        and here is what I will not fix" — and the catalog puts that residue
+        out of the type's scope in as many words, so a caller that stopped
+        there stopped on the contract having been satisfied.
+
+        **This is not "non-fatal".** A tool that could not load its config
+        exits 2 having applied nothing, and that stays outside the set: there
+        is no result for a gate to judge, and a gate reading the same config is
+        broken the same way. Nor does it soften a timeout —
+        :attr:`~mcgyvr.sandbox.base.CommandResult.ok` excludes one and so does
+        this, because a command killed at its ceiling did not finish whatever
+        it was part-way through writing.
+
+        A caller with something to say about the residue asks ``performed and
+        not ok``. Proceeding is not the same as reporting that nothing
+        happened.
+        """
+        if self.result is None or self.result.timed_out:
+            return False
+        return self.result.exit_code in self.step.tool.reporting
 
 
 def run_tool_step(
@@ -249,8 +304,8 @@ class Recording:
                 "exists to close (§9)."
             )
 
-    def attempt_id(self, contract: str, rung: str, attempt: int) -> str:
-        """The id one attempt's row is keyed by.
+    def attempt_id(self, contract: str, rung: str, attempt: int, draw: int = 0) -> str:
+        """The id one dispatch's row is keyed by.
 
         The orchestrator is part of it, and that is not decoration.
         :func:`~mcgyvr.telemetry.fold` keys attempts by this string and a repeat
@@ -259,8 +314,19 @@ class Recording:
         is keeping reachable, would have written one row that erased the other.
         The rest is derived rather than random so a row can be found again from
         a report naming the contract, the rung and the attempt.
+
+        ``draw`` is here for the same reason the orchestrator is. An attempt
+        that asks its rung for several candidates (``breadth.draws``) makes one
+        dispatch per draw, and a key that named only the attempt would have let
+        each row supersede the last: n dispatches paid for, one recorded, and
+        the telemetry saying breadth costs what a single draw costs. The first
+        draw is left unsuffixed so that every row an unconfigured install writes
+        is byte-identical to the ones written before breadth existed — a
+        superseding key must not change meaning under a stream that already
+        holds rows.
         """
-        return f"{self.orchestrator}:{contract}:{rung}:{attempt}"
+        row = f"{self.orchestrator}:{contract}:{rung}:{attempt}"
+        return row if draw == 0 else f"{row}#{draw}"
 
 
 def worker_attempt(
@@ -289,19 +355,70 @@ def worker_attempt(
     judging a tree it did not produce — a ``finally`` that tidies up is one
     exception away from not having run.
 
-    **The retry note comes from the last judgement on the same rung.**
+    **The retry note comes from the last judgement on the same rung — the last
+    one, not the last one that had something to say.**
     :func:`~mcgyvr.route.climb` owns how many attempts a rung gets, and its
     ``Result`` carries a verdict rather than notes, so the note is held here,
     per rung, and handed to ``build_prompt``. ``mcgyvr.attempt.run`` is the
     standalone spelling of the same loop, for a caller that is not climbing;
     running both would be two loops counting one budget.
 
+    The write is unconditional and the map holds ``RetryNotes | None``, which
+    is ``tools/missions/attempt.py``'s spelling and is the right one. The guard
+    it replaces — ``if judgement.retry is not None`` — could store a note and
+    never clear one, and two attempts produce none: the ``ReplyError`` branch
+    below returns before the assignment is reached, and a ``reviewer_failed``
+    judgement reaches it carrying ``retry=None`` because the gate passed and a
+    verifier that produced no verdict left nothing to quote. Under the guard,
+    the attempt after either of those was prompted with the note from the
+    attempt before, which the worker has already been asked to fix once.
+
+    That is worse than sending nothing rather than merely stale, because of
+    what the prompt does with it: ``render_user_message`` renders a note under
+    "YOUR PREVIOUS ATTEMPT WAS REJECTED. Fix exactly these and change nothing
+    else — every other check passed". Against an attempt that was never gated,
+    all three claims are false, and the last of them is a claim about a gate
+    run that did not happen. So the rule is that a note is *this* attempt's
+    account of *this* attempt: an attempt with nothing to say says nothing, and
+    the next one starts from the evidence rather than from a memory of it.
+
+    The alternative was to keep the guard and give the parse failure a note of
+    its own — which the sibling does, in its ``_unparsed``. It is rejected here
+    on two counts: it fixes one of the two producers of ``retry=None`` and
+    leaves ``reviewer_failed`` waved through the same guard, and the note it
+    would invent is not the gate's finding a note is supposed to be. The guard
+    was the defect, not the branch that stepped over it.
+
     **A reply that cannot be read is a failed attempt, not an exception.** The
     parser refuses by name — truncated, no fenced block, a refusal in place of
     a file — and every one of those is something the next attempt could do
     differently, which is the definition of a failure rather than a fault.
+
+    **How many answers the attempt asks for is ``breadth.draws``'s, and the
+    default asks once.** Every attempt goes through
+    :func:`~mcgyvr.consensus.best_of`, including the unconfigured one, rather
+    than through a single-dispatch branch beside it. A lever the ordinary
+    install skips is a lever the ordinary install never proves, and ``n = 1``
+    through ``best_of`` is the same behaviour by construction: one draw, one
+    verdict, and the draw is the answer. What it costs is that the workspace is
+    reset after the last draw as it is after every other one, so the attempt
+    ends with the sandbox holding the base — which is why the accepted bytes
+    leave here as the binding ``best_of`` minted in the tree its gate read,
+    rather than being re-read off a workspace that no longer holds them.
+
+    **A style-only rejection is cleaned before it is judged, when
+    ``cleanup.enabled`` says so.** The ordering is the whole of it: the cleanup
+    goes between the gate and :func:`~mcgyvr.escalate.judge`, so what is judged
+    is the file that came *out* of it. Running it afterwards would mean deciding
+    whether to escalate on a verdict about bytes nobody was still holding, and
+    running it before the gate would mean tidying a change nothing had yet found
+    a problem with. Off by default, and the default is the behaviour that
+    existed: the gate's rejection stands, the note goes to the next attempt, and
+    a model is asked about the whitespace.
     """
-    notes: dict[str, RetryNotes] = {}
+    notes: dict[str, RetryNotes | None] = {}
+    draws = int(config.get("breadth.draws", 1))
+    tidying = bool(config.get("cleanup.enabled", False))
 
     def attempt(this: Try) -> Judgement:
         family = family_of(config, this.rung.name)
@@ -309,61 +426,150 @@ def worker_attempt(
             contract, adapters=adapters, retry=notes.get(this.rung.name)
         )
 
-        def send() -> Completion:
-            return dispatch_prompt(
-                pool, this.rung.name, prompt, contract, capacity=this.capacity
-            )
+        def send(draw: int) -> Completion:
+            def once() -> Completion:
+                return dispatch_prompt(
+                    pool, this.rung.name, prompt, contract, capacity=this.capacity
+                )
 
-        if recording is None:
-            completion = send()
-        else:
-            completion = observe(
-                send,
+            if recording is None:
+                return once()
+            return observe(
+                once,
                 path=recording.path,
                 attempt_id=recording.attempt_id(
-                    contract.id, this.rung.name, this.attempt
+                    contract.id, this.rung.name, this.attempt, draw
                 ),
                 orchestrator=recording.orchestrator,
                 rung=this.rung.name,
                 model=this.rung.model,
             )
-        parsed = parse_reply(
-            completion.text,
-            output_schema=contract.output_schema,
-            stop_reason=completion.stop_reason,
-            target=contract.target,
-        )
-        if isinstance(parsed, ReplyError):
+
+        def sample(draw: int) -> str:
+            completion = send(draw)
+            parsed = parse_reply(
+                completion.text,
+                output_schema=contract.output_schema,
+                stop_reason=completion.stop_reason,
+                target=contract.target,
+            )
+            if isinstance(parsed, ReplyError):
+                raise _UnreadableDrawError(f"the reply could not be read: {parsed}")
+            return parsed.content
+
+        def judge_draw(workspace: Path) -> GateResult:
+            # The workspace handed over is this sandbox's, because this sandbox
+            # is what `best_of` was given — and it is ignored, because the gate
+            # cannot be run from a path. A contract's acceptance commands are
+            # arbitrary shell and run inside a sandbox and nowhere else
+            # (ADR-0005), so the thing that judges is `gate_workspace`, which
+            # takes the sandbox. The parameter is checked rather than silently
+            # dropped: a mismatch would mean the draws are being written
+            # somewhere other than where they are being judged.
+            if workspace != sandbox.workspace:
+                raise DriveError(
+                    f"a draw was written into {workspace} and this attempt gates "
+                    f"in {sandbox.workspace}; the verdict would be about a tree "
+                    f"the draw is not in."
+                )
+            return gate_workspace(contract, sandbox, adapters=adapters)
+
+        # Before the writes rather than after the last one, which is the same
+        # bargain `gate_in_sandbox` makes and for the same reason: `best_of`
+        # tidies up in a `finally`, and a `finally` is one exception away from
+        # not having run. An attempt that inherited the previous one's tree
+        # would judge a change it did not produce.
+        sandbox.reset()
+        try:
+            picked = best_of(
+                repo=sandbox.workspace,
+                contract=contract,
+                sample=sample,
+                gate=judge_draw,
+                n=draws,
+                sandbox=sandbox,
+            )
+        except _UnreadableDrawError as exc:
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
-            return Judgement(
+            judgement = Judgement(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
-                detail=f"the reply could not be read: {parsed}",
+                detail=str(exc),
             )
+        else:
+            gate, bound = picked.gate, picked.winner
+            if tidying:
+                gate, bound = _cleaned(
+                    contract, sandbox, gate, bound, adapters=adapters
+                )
+            judgement = judge(contract, family, gate, verifier=verifier)
+            if gate.accepted:
+                # The winner's own binding, minted by `best_of` one line after
+                # its gate and one line before its reset — in the tree the
+                # verdict was reached in, which is the only moment it exists.
+                # Reading the workspace here instead would answer for whatever
+                # the last draw left behind, and after the reset for the base
+                # itself. A binding minted from a string the caller happens to
+                # be holding would be true by construction and would check
+                # nothing. Where a cleanup rewrote the file, `_cleaned` has
+                # replaced both halves together.
+                judgement = replace(judgement, accepted=bound)
 
-        gate = gate_in_sandbox(contract, sandbox, parsed.content, adapters=adapters)
-        judgement = judge(contract, family, gate, verifier=verifier)
-        if gate.accepted:
-            # Read back off the workspace rather than carried from `parsed`,
-            # even though nothing here rewrites the tree between the two. The
-            # point is that a step which *did* — `repair` is written to, and its
-            # documented loop is exactly this one with a repair in the middle —
-            # cannot make the two disagree without this line noticing. A binding
-            # minted from the caller's own string would be true by construction
-            # and would check nothing.
-            judgement = replace(
-                judgement,
-                accepted=Accepted.read(
-                    repo=sandbox.workspace, contract=contract, result=gate
-                ),
-            )
-        if judgement.retry is not None:
-            notes[this.rung.name] = judgement.retry
+        notes[this.rung.name] = judgement.retry
         return judgement
 
     return attempt
+
+
+def _cleaned(
+    contract: Contract,
+    sandbox: Sandbox,
+    result: GateResult,
+    bound: Accepted,
+    *,
+    adapters: Sequence[LanguageAdapter] | None = None,
+) -> tuple[GateResult, Accepted]:
+    """Tidy the winning draw, and re-judge it when the tidy-up changed it.
+
+    The verdict and the binding move together or not at all, which is the whole
+    reason this is one function rather than two lines at the call site. A
+    :class:`~mcgyvr.cleanup.Cleanup` reports :attr:`~mcgyvr.cleanup.Cleanup.regate`
+    when the bytes it hands back were rewritten, and its own
+    :attr:`~mcgyvr.cleanup.Cleanup.accepted` is the verdict about the bytes that
+    went *in* — deliberately, because behind a format rejection the gate stopped
+    before its typecheck, semantic and acceptance rungs and this module has no
+    idea what they would have said. Carrying that verdict forward beside the new
+    file is exactly the substitution the whole port was audited for.
+
+    So the answer to ``regate`` is a gate run, not a re-read. ``gate_in_sandbox``
+    writes the cleaned bytes into the workspace and judges what is now there,
+    and the binding is minted from that same tree — so the pair that leaves here
+    is a verdict and the file it was computed over, as the pair that arrived was.
+
+    ``tidy`` is handed :attr:`~mcgyvr.deliver.Accepted.content` rather than a
+    string carried from the reply, and ``repo`` is the sandbox workspace rather
+    than the user's checkout: the tree whose formatter configuration decides what
+    clean means has to be the tree the gate checked, or the cleanup tidies a file
+    into a shape the gate then complains about.
+
+    One pass, not a loop. ``ruff format`` is a fixed point, so a second cleanup
+    over the first one's output would rewrite nothing; a loop would be a retry
+    budget nobody declared, inside an attempt that already has one.
+    """
+    cleanup = tidy(
+        content=bound.content,
+        result=result,
+        target=contract.target,
+        repo=sandbox.workspace,
+    )
+    if not cleanup.regate:
+        return result, bound
+    regated = gate_in_sandbox(contract, sandbox, cleanup.content, adapters=adapters)
+    return regated, Accepted.read(
+        repo=sandbox.workspace, contract=contract, result=regated
+    )
 
 
 def gate_in_sandbox(
@@ -413,6 +619,14 @@ def gate_workspace(
     insisted on being handed content would have to read the file back out and
     write it again — two more chances for the bytes to stop being the bytes,
     which is the defect class B6 came from.
+
+    "Against ``contract``" now includes the contract's own words. Two rungs
+    could only ever be as right as what the contract asked for — the acceptance
+    commands, and ``param-mutation``, which rejects a function for mutating its
+    caller's object and has to stand down where the contract *ordered* that.
+    Only the first was wired; the second's stand-down existed with no parameter
+    anywhere between here and it, so a contract saying "sort the rows in place"
+    was unsatisfiable by any change a worker could write.
     """
     acceptance = None
     if contract.acceptance_commands or contract.demonstration_commands:
@@ -425,4 +639,5 @@ def gate_workspace(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
+        contract_text=contract.prose,
     )

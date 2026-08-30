@@ -265,8 +265,14 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
             "image": None,
             "setup": [],
         },
-        "delivery": {"mode": "pull_request", "token_env": None},
+        "delivery": {"mode": "branch", "token_env": None},
         "budgets": {"max_escalations": 1, "task_timeout_s": 900},
+        # Written out at its default rather than left for the renderer to show
+        # commented. An omitted key renders as `# draws:  # unset`, which is
+        # true of the file and false of the behaviour: the loader fills 1 in.
+        # A knob whose off position is a number is better read than inferred.
+        "breadth": {"draws": 1},
+        "cleanup": {"enabled": False},
     }
 
 
