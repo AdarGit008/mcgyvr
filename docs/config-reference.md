@@ -69,6 +69,7 @@ The rungs work climbs, and what each is bound to.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `tiers` | list of blocks | **yes** | — | The rungs, cheapest first. A higher rung must be measurably better than the one below or it is not a rung — binding a faster-but-weaker model above a slower-but-stronger one inverts the ladder and makes escalation actively harmful. |
+| `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across rungs or queues on one. `none` is today's behaviour: the cheapest rung at or above the contract's floor, queued behind whoever is already there. `idle` takes the cheapest such rung that has a free slot — the floor is the only bound and nothing bounds it above, so when every cheaper rung is full this reaches a priced api rung rather than wait, which is a spend decision the knob makes deliberately. `full` spreads across the eligible rungs regardless of load. It is a knob rather than a behaviour because the right answer is a property of the machines: two interchangeable rigs should share a batch, but a throughput rig feeding an intelligence rig must not — the second is sized to drain the first's failure tail, and fanning volume onto it eats exactly the capacity that drain needs. |
 
 ### `ladder.tiers`
 

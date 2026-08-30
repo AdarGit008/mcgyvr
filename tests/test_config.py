@@ -208,6 +208,31 @@ def test_dotted_reads_reach_into_lists() -> None:
     assert config.require("ladder.tiers.1.model") == "qwen2.5-coder:14b"
 
 
+# --- fan-out is a knob, and its default is no fan-out ---------------------
+
+
+def test_fanout_defaults_to_none_when_the_key_is_absent() -> None:
+    """Absent means today's behaviour: a batch queues on the cheapest rung."""
+    config = parse(LOCAL_ONLY)
+    assert config.ladder.fanout == "none"
+    assert config.data["ladder"]["fanout"] == "none"
+
+
+@pytest.mark.parametrize("mode", ["none", "idle", "full"])
+def test_each_fanout_mode_parses_and_reaches_the_ladder(mode: str) -> None:
+    """The router reads `config.ladder.fanout`, so the value has to land there."""
+    config = parse(LOCAL_ONLY.replace("ladder:\n", f"ladder:\n  fanout: {mode}\n"))
+    assert config.ladder.fanout == mode
+
+
+def test_an_unknown_fanout_mode_lists_the_valid_values() -> None:
+    with pytest.raises(ConfigSchemaError) as exc:
+        parse(LOCAL_ONLY.replace("ladder:\n", "ladder:\n  fanout: spread\n"))
+    message = str(exc.value)
+    assert "ladder.fanout" in message
+    assert "none" in message and "idle" in message and "full" in message
+
+
 # --- an unknown key fails -------------------------------------------------
 
 
