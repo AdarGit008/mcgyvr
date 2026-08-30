@@ -63,6 +63,31 @@ which a finding can be said out loud without also being fatal. Both sides are
 answered here, so the verdict does not depend on which tools the operator
 happens to have.
 
+**A demotion is per fault, not per lint code.** UP035 is one code over two
+unrelated faults. ``from typing import Mapping`` is the deprecated spelling
+above: the module imports, the code runs, and demoting it is the whole point.
+``from collections import Mapping`` is not a spelling — ``collections``
+re-exported the abstract base classes as a compatibility shim through 3.9 and
+stopped in 3.10, so the line raises ``ImportError`` on every interpreter this
+project supports and nothing in the module runs at all. Demoting *that* is a
+gate accepting a module it could have proven unimportable, and telling the
+reviewer, in :func:`~mcgyvr.verify.gate_summary`'s own words, that no check is
+asking for it to be fixed. So ``unimportable`` is a family of its own here —
+not ported, found — and it carries the same two-sided answer as the two that
+were: it is an AST family so a machine without ruff still rejects it, and it
+withdraws the UP035 demotion on the lines it found so a machine *with* ruff
+does not say the same fault twice with opposite verdicts.
+
+*Why the AST and not ruff's message.* Ruff's words for the two halves are
+identical — "Import from ``collections.abc`` instead: ``Mapping``" — as are
+the rule name, the severity, the documentation url and the fix it offers; the
+two diagnostics differ in the filename and the end column and in nothing else
+(pinned in ``tests/test_unimportable_is_not_style.py``). A message rule could
+not separate them even in principle, and one keyed on the imported *name*
+would reject ``from typing import Mapping`` too. The module an import names is
+the fault, it is one field on one node, and it does not move when a linter
+rewords itself.
+
 local-ai's third family, ``forbidden-construct`` (bare except, mutable default,
 unasked-for IO), is deliberately **not** ported. Its first two members already
 exist in ``_HazardVisitor`` as rejecting findings, and demoting them to style
@@ -118,6 +143,12 @@ STYLE = "style"
 #: Kept deliberately narrow: it is the family ported below, named in the other
 #: vocabulary, and nothing else. A gate that says one thing twice must not mean
 #: something different each time.
+#:
+#: The demotion is withdrawn per *line* by :func:`unimportable_lines`: UP035
+#: covers a second fault that is not style at all, and a code in this set is
+#: only demoted where the line it sits on is not one of those. Membership here
+#: says "this code can carry a style fault", never "every report of this code
+#: is one".
 STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
 #: Wall-clock ceiling for one type-check pass. A checker reads a repository's
@@ -312,6 +343,106 @@ _DEPRECATED_TYPING = frozenset({"List", "Dict", "Set", "Tuple", "FrozenSet", "Ty
 #: change, and ``*args``/``**kwargs`` are built fresh at every call site.
 _NOT_CALLER_OWNED = frozenset({"self", "cls"})
 
+#: The abstract base classes ``collections`` re-exported for compatibility
+#: until 3.9 and stopped re-exporting in 3.10 — ``_collections_abc.__all__`` as
+#: it stood in 3.9, the list the shim was keyed on. Written out rather than
+#: read from the running interpreter, and it is a closed list either way: the
+#: removal has already happened, so nothing will ever join it, and introspecting
+#: ``collections`` here would make the gate's verdict a fact about whichever
+#: Python mcgyvr happens to run under instead of a fact about the worker's
+#: file. ``Buffer`` is *not* here: it arrived in ``collections.abc`` in 3.12 and
+#: was never in ``collections`` to lose.
+_MOVED_TO_COLLECTIONS_ABC = frozenset(
+    {
+        "AsyncGenerator",
+        "AsyncIterable",
+        "AsyncIterator",
+        "Awaitable",
+        "ByteString",
+        "Callable",
+        "Collection",
+        "Container",
+        "Coroutine",
+        "Generator",
+        "Hashable",
+        "ItemsView",
+        "Iterable",
+        "Iterator",
+        "KeysView",
+        "Mapping",
+        "MappingView",
+        "MutableMapping",
+        "MutableSequence",
+        "MutableSet",
+        "Reversible",
+        "Sequence",
+        "Set",
+        "Sized",
+        "ValuesView",
+    }
+)
+
+
+def unimportable_lines(source: str | None) -> dict[int, str]:
+    """Lines in ``source`` holding an import that cannot resolve, and why.
+
+    Keyed by the line ruff and :mod:`ast` both attribute the statement to — the
+    ``from`` line, including where the import spans several lines — so the lint
+    rung can look a diagnostic's row up here and withdraw its demotion without
+    re-deriving anything.
+
+    Takes source rather than a parsed tree, unlike :func:`compliance_findings`,
+    because the one caller that is not :meth:`~PythonAdapter.structural_checks`
+    is the lint rung, which works from a linter's JSON and has no tree to hand.
+    Tolerating ``None`` and unparseable text here rather than at each call site
+    keeps that single answer in one place: **nothing found**, deliberately, and
+    not "nothing is wrong". A file that will not parse has already been
+    rejected by the syntax rung, and a second finding for one fault would
+    charge the worker twice — the same rule the ``note`` severity follows in
+    :func:`_diagnostics`.
+    """
+    if source is None:
+        return {}
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return {}
+    return _unimportable(tree)
+
+
+def _unimportable(tree: ast.Module) -> dict[int, str]:
+    """``from collections import <an ABC>``, by line.
+
+    Only the ``from`` form. ``import collections`` followed by
+    ``collections.Mapping`` is an ``AttributeError`` when the attribute is
+    read, not an ``ImportError`` when the module is loaded, and this family
+    claims the second — a check whose message named the wrong exception would
+    be worse than one that stayed narrow.
+    """
+    hits: dict[int, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or node.module != "collections":
+            continue
+        moved = [a.name for a in node.names if a.name in _MOVED_TO_COLLECTIONS_ABC]
+        if moved:
+            hits[node.lineno] = _unimportable_verdict(moved)
+    return hits
+
+
+def _unimportable_verdict(names: Sequence[str]) -> str:
+    """Every moved name on the statement, because the import fails on the first.
+
+    A worker told about one of two bad names fixes one of them and comes back
+    to the same rejection, which costs a whole attempt to learn what the gate
+    already knew.
+    """
+    return (
+        f"'from collections import {', '.join(names)}' raises ImportError on "
+        f"Python 3.10 and later — collections re-exported the collections.abc "
+        f"names as a shim until 3.9 and stopped; import them from "
+        f"collections.abc"
+    )
+
 
 def compliance_findings(
     tree: ast.Module,
@@ -320,7 +451,7 @@ def compliance_findings(
     *,
     contract_text: str = "",
 ) -> list[Finding]:
-    """The two AST families, attributed to worker-added lines.
+    """The three AST families, attributed to worker-added lines.
 
     Takes the parsed tree rather than the source because the caller
     (:meth:`~mcgyvr.gate.adapters.PythonAdapter.structural_checks`) has already
@@ -330,7 +461,9 @@ def compliance_findings(
     family down when the contract asked for in-place behaviour, which is the
     difference between a correctness check and a house rule: the caller is
     expected to pass ``contract.task`` and ``contract.interface`` joined, and
-    a caller that has no contract to hand gets the strict reading.
+    a caller that has no contract to hand gets the strict reading. It does
+    *not* stand ``unimportable`` down, and there is no wording that could: a
+    contract cannot ask for a module that will not load.
     """
     style = [
         Finding(check=STYLE, path=path, line=line, code="TYPE-FORM", message=message)
@@ -345,6 +478,16 @@ def compliance_findings(
             message=message,
         )
         for line, message in _param_mutation(tree, contract_text)
+    ]
+    correctness += [
+        Finding(
+            check=CORRECTNESS,
+            path=path,
+            line=line,
+            code="UNIMPORTABLE",
+            message=message,
+        )
+        for line, message in sorted(_unimportable(tree).items())
     ]
     return [f for f in (*correctness, *style) if f.line in added_lines]
 
