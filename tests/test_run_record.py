@@ -11,15 +11,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from mcgyvr.record import Attempt, write_record
 
-REQUIRED = {"rung", "host", "model", "unit", "wall_clock_s", "verdict", "attempts_charged"}
+REQUIRED = {
+    "rung",
+    "host",
+    "model",
+    "unit",
+    "wall_clock_s",
+    "verdict",
+    "attempts_charged",
+}
 
 
-def attempt(**overrides) -> Attempt:
-    row = {
+def attempt(**overrides: object) -> Attempt:
+    row: dict[str, object] = {
         "rung": "local_moe",
         "host": "desktop-1",
         "model": "qwen3-coder-30b",
@@ -29,20 +35,25 @@ def attempt(**overrides) -> Attempt:
         "attempts_charged": 1,
     }
     row.update(overrides)
-    return Attempt(**row)
+    # A dict of mixed-type overrides can't be matched field-by-field against
+    # Attempt's distinct str/float/int params; the house pattern (see
+    # test_orchestrator_decompose.py) accepts that here.
+    return Attempt(**row)  # type: ignore[arg-type]
 
 
-def rows(path: Path) -> list[dict]:
+def rows(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
 def test_each_attempt_records_rung_host_and_wall_clock(tmp_path: Path) -> None:
     path = write_record((attempt(),), root=tmp_path)
-    assert REQUIRED <= rows(path)[0].keys()
+    assert rows(path)[0].keys() >= REQUIRED
 
 
 def test_a_declined_rung_is_recorded_and_charged_to_nothing(tmp_path: Path) -> None:
-    path = write_record((attempt(verdict="DECLINED", attempts_charged=0),), root=tmp_path)
+    path = write_record(
+        (attempt(verdict="DECLINED", attempts_charged=0),), root=tmp_path
+    )
     row = rows(path)[0]
     assert row["verdict"] == "DECLINED"
     assert row["attempts_charged"] == 0

@@ -531,6 +531,15 @@ def dispatch(
     which is right for a single request and wrong for a batch; that is what
     :func:`~mcgyvr.capacity.run_batch` exists to prevent by handing every job
     the capacity it must dispatch under.
+
+    The rung is named to the capacity as well as to the pool, because a rung may
+    declare a width of its own and this is the only place that knows which rung
+    is dispatching. Held against the source alone, a rung's declared width was a
+    number the config could state and nothing could ever reach: a rig whose
+    source line says 1 and whose rung says 16 ran one request at a time, and
+    every report agreed the width was 16. A rung that declares nothing is held
+    against its source's slots exactly as before —
+    :meth:`~mcgyvr.capacity.Capacity.hold` decides that fallback, not this.
     """
     endpoint = source_map.bind(rung)
     step = source_map.get(rung)
@@ -538,7 +547,7 @@ def dispatch(
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
         return runner_for(endpoint).generate(step.model, request)
-    with capacity.hold(endpoint):
+    with capacity.hold(endpoint, rung=rung):
         return runner_for(endpoint).generate(step.model, request)
 
 
@@ -559,6 +568,11 @@ def dispatch_role(
     the same machine: a verifier sharing a card with the ladder competes with
     it for slots, and a bound that only counted ladder traffic would be
     describing a different machine than the one under load.
+
+    No rung is named, and none can be: a role is a binding to a source and a
+    model with no step of the ladder behind it, so the source's own width is
+    the only width there is to hold it to. Passing a rung here would have to
+    invent one.
     """
     binding = source_map.role(role)
     if binding is None:
