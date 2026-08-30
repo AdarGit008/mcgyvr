@@ -94,8 +94,10 @@ purpose, catching a capacity and a source map built from two different configs �
 and opens slots against the *enforced* one. :attr:`limits` keeps meaning what is
 enforced, because that is what its callers read it for: a rung is as wide as the
 slots it can actually take, which is what :func:`mcgyvr.escalate.ascent` asks it.
-The declaration is :meth:`declared`'s, and the sources where the two numbers
-differ are exactly the sources :meth:`confirmed` answers True for.
+The declaration is :meth:`declared`'s. The two numbers differ only where a probe
+widened a source, which makes those sources a *subset* of the confirmed ones and
+not the same set: :meth:`confirmed` says a machine answered, and a machine that
+answered with exactly the declared width confirmed it without changing it.
 
 **The bound is host-wide, not per-process (#185).** The rigs a source names are
 shared machines, and this repository's own workflow runs lanes as parallel
@@ -159,10 +161,32 @@ reservations are what this capacity counts.
 
 And they are exactly as narrow as that sounds: this process, this capacity, the
 choices it was told about. Another mcgyvr process contending for the same slot
-files is not counted here, and neither is a dispatch that reached :meth:`hold`
-without being reserved first. That is not a gap to be closed — the *bound* is
-the flock and is shared; this is bookkeeping for spreading the choices one batch
-is making, and it only has to be right about those.
+files is not counted here. That is not a gap to be closed — the *bound* is the
+flock and is shared; this is bookkeeping for spreading the choices one batch is
+making, and it only has to be right about those.
+
+**A hold that never reserved is still load, so the two counts are added and
+made not to overlap.** Most holds do not come through a reservation:
+:func:`mcgyvr.runner.dispatch` and :func:`~mcgyvr.runner.dispatch_role` take a
+slot directly, so a verifier occupies a rig without anything having chosen a
+rung for it. :meth:`load` is therefore ``in_use + reserved``, and the double
+count that sum invites is removed at its source rather than papered over: when
+:meth:`hold` grants a slot to a thread that already holds a reservation for that
+source, the reservation is *consumed* for as long as the slot is held, so the
+one dispatch is counted once — as a slot — and is counted as a reservation again
+when the slot goes back. ``max(in_use, reserved)`` was the earlier rule and it
+is only right when every hold was reserved first: a verifier holding one slot of
+a two-wide rig while a routed climb has reserved the same rig and is between
+attempts reads as a load of 1, and a caller computing ``width - load`` then aims
+a third dispatch at a rig with nothing free, where it blocks in :meth:`hold`.
+
+Consuming the reservation is keyed by *thread*, which is what makes "the same
+dispatch" answerable at all: a reservation is taken by the caller that chooses a
+rung (:func:`mcgyvr.route.climb` does, under :meth:`deciding`) and the slot for
+it is taken by that same caller on that same thread. A thread cannot hold one
+source twice — :meth:`hold` refuses that as a deadlock — so one reservation
+covers at most one slot at a time, and a hold on a thread that reserved nothing
+consumes nothing and counts in full.
 """
 
 from __future__ import annotations
@@ -348,8 +372,10 @@ class Capacity:
             )
         # What the config said, for the sources where that is not what is
         # enforced. Only a probe can separate the two — nothing else may widen a
-        # bound — so the pairs that differ are exactly the confirmed ones, and
-        # every other source declares what it enforces. Kept because an
+        # bound — so a source whose two numbers differ is always a confirmed
+        # one, but not the other way round: a probe reporting exactly the
+        # declared width confirms it and widens nothing, and an unconfirmed
+        # source always declares what it enforces. Kept because an
         # `Endpoint` carries the declaration, and :meth:`hold` has to be able to
         # check the number it was handed against the number of the same kind.
         self._declared = dict(self._limits)
@@ -397,6 +423,12 @@ class Capacity:
         # yet — the module docstring's reservations. Zero for every bounded
         # source rather than absent, so a read is a lookup and never a default.
         self._reserved = dict.fromkeys(self._limits, 0)
+        # Of the slots granted, how many are a reservation being spent rather
+        # than a second dispatch. Subtracted in :meth:`load` so that granted and
+        # reserved can be added without counting one attempt twice; see the
+        # module docstring for why the sum, and not the greater of the two, is
+        # what a caller computing `width - load` needs.
+        self._covered = dict.fromkeys(self._limits, 0)
         self._peak = dict.fromkeys(self._limits, 0)
         # Tracked alongside the per-source peaks rather than derived from them:
         # a maximum of sums is not the sum of maxima, and it is the moment two
@@ -405,9 +437,12 @@ class Capacity:
         self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._limits, 0)
         self._waited = dict.fromkeys(self._limits, 0.0)
-        # Which sources *this* thread is currently holding. Thread-local rather
-        # than shared, because the question it answers is "would this caller
-        # block against itself", which is a per-thread question.
+        # Which sources *this* thread is currently holding, which reservations
+        # it took and has not given back, and which of its holds are spending
+        # one of them. Thread-local rather than shared, because all three
+        # questions are per-thread: "would this caller block against itself",
+        # and "is this slot the one this caller reserved" — a reservation and
+        # the slot it was taken for are always the same thread's.
         self._holding = threading.local()
 
     @classmethod
@@ -520,11 +555,20 @@ class Capacity:
         an endpoint that states something else came from a different config —
         which is the only thing that check was ever able to catch.
 
-        Equal to ``limits[source]`` except where a machine reported a wider
-        width, so the two differ exactly where :meth:`confirmed` is True. A
-        report and a guess that happen to agree are still two different kinds of
-        fact, and that difference is :meth:`confirmed`'s to report, not this
-        one's.
+        Equal to ``limits[source]`` except where a machine reported a *wider*
+        width, which makes the sources where the two numbers differ a subset of
+        the confirmed ones rather than the same set. :meth:`confirmed` says a
+        machine answered, and :meth:`of` confirms a source whenever the probe
+        answered at all — including when the report equalled the declaration —
+        so a confirmed source can have one number here and not two. A caller
+        reading ``confirmed`` as "the widened-versus-declared distinction
+        applies to this source" is therefore wrong for every source the probe
+        agreed with; the way to ask that question is to compare the two numbers.
+
+        A report and a guess that happen to agree are still two different kinds
+        of fact, which is why the confirmation is kept for a source this method
+        answers the same as ``limits`` — that difference is :meth:`confirmed`'s
+        to report, not this one's.
         """
         self._bounded(source)
         return self._declared[source]
@@ -535,21 +579,40 @@ class Capacity:
         return sum(self._limits.values())
 
     def in_use(self, source: str) -> int:
-        """How many slots of ``source`` are held right now."""
+        """How many slots of ``source`` are held right now.
+
+        Refuses a source this capacity does not bound, in :meth:`_bounded`'s
+        words and not with a bare ``KeyError``: a caller here is holding a view
+        of the ladder built from another config, which is the same mistake
+        :meth:`load`, :meth:`declared` and :meth:`confirmed` name, and one
+        reader raising a different exception for it would leave that mistake
+        unhandled wherever the others are caught.
+        """
+        self._bounded(source)
         with self._lock:
             return self._in_use[source]
 
     def load(self, source: str) -> int:
-        """How busy ``source`` is: slots granted, or attempts reserved for it.
+        """How busy ``source`` is: slots granted plus attempts reserved for it.
 
-        The greater of the two rather than their sum, because the two overlap.
-        An attempt reserved when its rung was chosen stays reserved while it
-        holds the slot it was later granted, so adding them would count one
-        dispatch twice and report a source as full at half its width. Neither
-        number alone is the load either: granted under-reports a batch that is
-        still choosing, which is exactly when this gets asked, and reserved
-        misses every dispatch that was never routed through a caller that
-        reserves.
+        Their sum, because a load has to count every dispatch aimed at the
+        source and the two counts hold different ones. Granted alone
+        under-reports a batch that is still choosing, which is exactly when this
+        gets asked; reserved alone misses every dispatch that never went through
+        a caller that reserves, which is most of them —
+        :func:`mcgyvr.runner.dispatch` and
+        :func:`~mcgyvr.runner.dispatch_role` take a slot directly, so a verifier
+        occupies a rig without anything having chosen a rung for it.
+
+        Adding them is honest because the overlap is removed where it is
+        created rather than here: :meth:`hold` consumes the reserving thread's
+        reservation for as long as it holds the slot, so a reserved attempt that
+        has been admitted is counted once, as a slot. ``max(in_use, reserved)``
+        was the earlier rule and it under-counts whenever both kinds of hold are
+        on one source — a verifier holding one slot of a two-wide rig while a
+        routed climb has reserved it and is between attempts reads as 1, and a
+        caller computing ``width - load`` sends a third dispatch at a rig with
+        nothing free.
 
         This process and this capacity, and nothing else. Another mcgyvr
         process contending for the same slot files is not counted here and is
@@ -558,7 +621,12 @@ class Capacity:
         """
         self._bounded(source)
         with self._lock:
-            return max(self._in_use[source], self._reserved[source])
+            # Floored rather than subtracted straight, so that a reservation
+            # given back by a thread that is still holding the slot it covered
+            # cannot read as *less* load than the slot alone. The counters
+            # cannot say a source is emptier than what is provably held.
+            waiting = self._reserved[source] - self._covered[source]
+            return self._in_use[source] + max(0, waiting)
 
     def reserve(self, source: str) -> None:
         """Count one attempt as headed for ``source``, before it has a slot.
@@ -575,10 +643,18 @@ class Capacity:
         asks ``source in capacity.limits`` first — the same question
         :meth:`load` is guarded by, and the answer is a fact about the two
         configs rather than about the source.
+
+        The reserving thread is remembered as well as the count, because
+        :meth:`hold` has to be able to tell a slot taken *for* a reservation
+        from a second dispatch — see the module docstring. That is the only use
+        of it: the count :meth:`load` reads is the shared one, and a reservation
+        is not owned by the thread that took it in any sense a caller can see.
         """
         self._bounded(source)
         with self._lock:
             self._reserved[source] += 1
+            mine = self._reservations()
+            mine[source] = mine.get(source, 0) + 1
 
     def release(self, source: str) -> None:
         """Stop counting one attempt on ``source``. Never raises.
@@ -590,8 +666,18 @@ class Capacity:
         *while another one is unwinding*, so a release with no reservation
         behind it is floored at zero rather than going negative, and a source
         this capacity does not bound is ignored rather than named.
+
+        A release from a thread that never reserved is floored the same way, and
+        forgets nothing about the thread that did: the per-thread record exists
+        only so that a hold can recognise its own reservation, and an unmatched
+        release is already a mistake being tolerated rather than a state to keep
+        books for.
         """
         with self._lock:
+            mine = self._reservations()
+            held = mine.get(source, 0)
+            if held > 0:
+                mine[source] = held - 1
             current = self._reserved.get(source, 0)
             if current > 0:
                 self._reserved[source] = current - 1
@@ -740,12 +826,25 @@ class Capacity:
             self._peak[source] = max(self._peak[source], self._in_use[source])
             self._in_flight += 1
             self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
+            # This is the dispatch the reservation was taken for, if this
+            # thread took one: it chose the rung and is now being admitted to
+            # it. Counting the reservation as spent for the length of the hold
+            # is what lets :meth:`load` add granted and reserved without
+            # counting this dispatch twice — and it is given back on the way
+            # out, because a climb between two attempts on one rung has still
+            # chosen that rung. The guard above means this thread holds no
+            # other slot on this source, so one reservation covers one slot.
+            covering = self._reservations().get(source, 0) > 0
+            if covering:
+                self._covered[source] += 1
         try:
             yield
         finally:
             with self._lock:
                 self._in_use[source] -= 1
                 self._in_flight -= 1
+                if covering:
+                    self._covered[source] -= 1
             held.discard(source)
             os.close(fd)  # closing the descriptor is what releases the flock
 
@@ -806,6 +905,22 @@ class Capacity:
             sources = set()
             self._holding.sources = sources
         return sources
+
+    def _reservations(self) -> dict[str, int]:
+        """The reservations this thread took and has not released, by source.
+
+        Beside :meth:`_held` and in the same thread-local for the same reason:
+        both answer a question about the caller rather than about the source.
+        This one is read only by :meth:`hold`, to recognise the reservation the
+        slot it is granting was taken for; the count that anyone can *see* is
+        the shared ``_reserved``, which this is a per-thread breakdown of and
+        never a second opinion about.
+        """
+        mine: dict[str, int] | None = getattr(self._holding, "reserved", None)
+        if mine is None:
+            mine = {}
+            self._holding.reserved = mine
+        return mine
 
 
 @dataclass(frozen=True)

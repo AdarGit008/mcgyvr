@@ -1074,6 +1074,33 @@ def test_full_fanout_leaves_the_cross_family_choice_unasked(
         assert route.rungs == ("local_qwen-7b", "local_qwen-14b", "api_big")
 
 
+def test_idle_passes_over_a_rung_another_climb_has_reserved_but_not_yet_taken(
+    key: None, locks: None
+) -> None:
+    """A slot spoken for is not a free slot, and the entry decision must see that.
+
+    The rig's one slot is not held by anybody: a peer of this batch chose that
+    rung a moment ago and is between choosing and dispatching, which is where
+    every member of a batch is at once when the batch starts. Reading only the
+    slots granted would show the rig idle, send this contract at it too, and
+    stack the pair on one machine — the funnel ``fanout`` exists to end, met at
+    the cross-family seam instead of the within-family one.
+
+    The reverse case is what makes this worth pinning rather than obvious: the
+    reservation must *not* be counted twice when the climb that made it is also
+    holding the slot, or a two-wide rig would read as full with one dispatch on
+    it. ``tests/test_capacity.py`` holds both halves of that arithmetic; this
+    asserts the half of it ``idle`` acts on.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    with capacity.reserving("workstation"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung == "local_qwen-14b"
+
+
 def test_a_rung_whose_load_cannot_be_read_stops_the_walk_rather_than_being_skipped(
     key: None, locks: None
 ) -> None:
@@ -1169,6 +1196,32 @@ def test_idle_dispatches_on_the_api_rung_when_every_local_rung_is_full(
     assert result.entered == (API,), "the saturated family was never entered"
     assert [a.verdict for a in result.history] == [Verdict.PASSED]
     assert not any(a.verdict is Verdict.FAILED for a in result.history)
+
+
+def test_a_raised_entry_gives_every_reservation_back_when_the_climb_is_done(
+    key: None, locks: None
+) -> None:
+    """A reservation leaked by the entry decision narrows a source permanently.
+
+    ``idle`` names a rung before anything is reserved and the climb reserves the
+    rung it takes, so the counts either balance or they drift one way forever —
+    a source that reads as busy for the life of the process, sending every later
+    contract of the batch somewhere dearer for a slot that is free. Asserted
+    after the local rigs have been given back, so the only thing left to see is
+    bookkeeping.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+    attempts = Dispatching(pool, Verdict.PASSED)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        result = delivered(
+            escalate(config, pool, contract(), attempts, capacity=capacity)
+        )
+
+    assert result.rung == "api_big", "the raised entry the leak would come from"
+    assert capacity.load("vendor") == 0, "the priced source is idle again"
+    assert capacity.load("workstation") == capacity.load("spare") == 0
 
 
 def test_a_raised_entry_is_not_charged_to_the_escalation_budget(

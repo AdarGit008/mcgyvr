@@ -45,7 +45,10 @@ answer the two halves of one question and neither restates the other.
 Computing the answer and discarding it was the earlier state and it made
 ``ladder.fanout: idle`` a switch wired to nothing: the schema's ``doc`` told
 operators the mode reaches a priced rung rather than waits, and setting it
-changed no dispatch at all.
+changed no dispatch at all. The choice is a read and not yet a claim, though:
+what a concurrent batch can lose in the window between naming a free rung here
+and reserving one down in :func:`~mcgyvr.route.climb` is written down in
+:func:`_idle_entry`, with the change in :mod:`mcgyvr.route` that would close it.
 
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
@@ -609,19 +612,35 @@ class Ascent:
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
+
+        **One snapshot, and not a commitment.** The whole walk reads its loads
+        inside :meth:`~mcgyvr.capacity.Capacity.deciding`, so the rungs are
+        priced against one another as they stood at a single moment; without it
+        a cheap rung could be read before another thread reserved it and a dear
+        one after, and the answer would be "cheapest free" for a ladder that was
+        never in that state. Nothing slow runs in there — these are counter
+        reads — which is the condition ``deciding`` sets on its borrowers.
+
+        A snapshot is still not a claim: naming a rung reserves nothing, and
+        between this answer and the moment a climb reserves anything, another
+        thread may take the slot this named. :func:`_idle_entry` is where that
+        window is described, and what it costs.
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
-        for each in self.plans:
-            for step in each.climbable:
-                width = self.widths.get(step.rung.name)
-                load = (
-                    None if step.machine is None else step.machine.load(self.capacity)
-                )
-                if width is None or load is None:
-                    return None
-                if load < width:
-                    return step.rung.name
+        with self.capacity.deciding():
+            for each in self.plans:
+                for step in each.climbable:
+                    width = self.widths.get(step.rung.name)
+                    load = (
+                        None
+                        if step.machine is None
+                        else step.machine.load(self.capacity)
+                    )
+                    if width is None or load is None:
+                        return None
+                    if load < width:
+                        return step.rung.name
         return None
 
     @property
@@ -929,6 +948,39 @@ def _idle_entry(route: Ascent) -> Family | None:
     there is nothing to raise and the ascent stands as built.
     :attr:`Ascent.next_free_rung` is the single answer this reads; the four
     reasons it declines to give one are its own and are not restated here.
+
+    **The window this does not close, and what it costs.** Choosing a family
+    here commits to nothing. The read is one snapshot — that much
+    :attr:`Ascent.next_free_rung` guarantees — but the reservation for the rung
+    a climb takes is made much later, inside :func:`~mcgyvr.route.climb`'s own
+    :meth:`~mcgyvr.capacity.Capacity.deciding` section. In between, every member
+    of a batch that reaches this point sees the same free api slot, every one of
+    them raises its entry into the priced family, and they then queue on it —
+    *paying* for a rung they could have waited for locally for nothing. It is
+    the funnel :mod:`mcgyvr.route` describes as narrowed to microseconds and not
+    closed, with money rather than throughput as the cost, and it is open here.
+
+    **Why it is not closed from this side.** Reserving the named rung's machine
+    inside the snapshot would hold it against the other members, but
+    :func:`~mcgyvr.route.climb` reserves again for the rung it picks, so the
+    source would count two attempts for one dispatch for the length of the entry
+    family's climb — and a source narrowed by a phantom reservation sends the
+    next member somewhere dearer for a slot that is free. Holding it and
+    releasing it by hand afterwards adds the other failure: a reservation leaked
+    on a path that raised is forever, and the source is narrower for the life of
+    the process.
+
+    **What would close it**, and it is a change in :mod:`mcgyvr.route`: let a
+    caller hand ``climb`` a rung it has *already* reserved —
+    ``climb(plan, attempt, capacity=..., claimed=<rung name>)`` — and have the
+    claim step, for that first step only, drop the rungs cheaper than the named
+    one and take it *without* claiming it again, leaving ``climb``'s existing
+    ``finally`` release to give the caller's reservation back exactly once. Then
+    this function reserves the machine it named inside the very
+    ``deciding`` section that read the loads and hands the name down, so the
+    read and the commitment are one decision, with one reservation and one
+    release. Until that exists, the entry decision is a read, and this docstring
+    is the record of what a batch can lose to it.
 
     **A raised entry is free, and a climbed one is not.** An escalation is what
     a *failure* buys: ``budgets.max_escalations`` bounds how far work climbs

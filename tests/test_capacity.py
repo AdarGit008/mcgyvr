@@ -681,6 +681,25 @@ def test_the_declared_width_stays_readable_beside_the_enforced_one() -> None:
     assert capacity.declared("fast") == capacity.limits["fast"] == 2
 
 
+def test_a_confirmed_source_the_probe_agreed_with_has_one_number_and_not_two() -> None:
+    """Confirmation is a machine answering, never "these two numbers differ".
+
+    `of` confirms a source whenever the probe answered, and a probe reporting
+    exactly the declared width answered — so this source is confirmed and its
+    declaration is also what is enforced. Anyone reading `confirmed` as "the
+    widened-versus-declared distinction applies here" is wrong for every source
+    the probe agreed with, which on a correctly declared fleet is all of them.
+    The widened sources are a subset of the confirmed ones; the way to ask
+    whether a source was widened is to compare the two numbers, as this does.
+    """
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"fast": 2, "local": 8}))
+
+    assert capacity.confirmed("fast") is True, "the rig answered, and agreed"
+    assert capacity.declared("fast") == capacity.limits["fast"] == 2
+    assert capacity.confirmed("local") is True, "the rig answered, and widened"
+    assert capacity.declared("local") != capacity.limits["local"]
+
+
 def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> None:
     """The guard is narrowed to the declaration, not deleted.
 
@@ -739,12 +758,15 @@ def test_reservations_are_this_capacitys_and_not_the_process_s() -> None:
 
 
 def test_one_dispatch_counts_once_whether_it_is_reserved_granted_or_both() -> None:
-    """Reserved and granted overlap, so the load is the greater and not the sum.
+    """Granted and reserved are added, so the reservation is spent while it holds.
 
-    An attempt is reserved when its rung is chosen and keeps that reservation
-    while it holds the slot it was granted. Summing would report a source as
-    full at half its width, which is the same funnel the count exists to end,
-    arrived at from the other direction.
+    An attempt is reserved when its rung is chosen and would otherwise keep that
+    reservation while it holds the slot it was granted, so a sum would count it
+    twice and report a source as full at half its width — the same funnel the
+    count exists to end, arrived at from the other direction. The overlap is
+    removed where it is created: the slot this thread is granted spends the
+    reservation this thread took, and gives it back when the slot goes back,
+    because a climb between two attempts on one rung has still chosen that rung.
     """
     capacity = Capacity({"local": 3})
 
@@ -753,9 +775,53 @@ def test_one_dispatch_counts_once_whether_it_is_reserved_granted_or_both() -> No
         with capacity.hold(LOCAL):
             assert capacity.in_use("local") == 1
             assert capacity.load("local") == 1, "one dispatch, counted once"
-        assert capacity.load("local") == 1
+        assert capacity.load("local") == 1, "and still chosen between attempts"
 
     assert capacity.load("local") == 0
+
+
+def test_a_slot_taken_without_a_reservation_still_counts_against_the_width() -> None:
+    """The over-admission `max(in_use, reserved)` let through, in its own shape.
+
+    Most holds never reserve: `runner.dispatch` and `dispatch_role` take a slot
+    directly, so a verifier occupies a rig that nothing chose a rung for. Put
+    one of those on a two-wide source beside a routed climb that has reserved
+    the same source and is between attempts, and the greater of the two counts
+    is 1 — one slot held, one attempt reserved, and no way for either number to
+    know it is not describing the other's dispatch. A caller reading
+    ``width - load`` then sees a free slot and sends a third dispatch at a rig
+    that has none, where it blocks inside `hold` behind work it was told was not
+    there.
+
+    Two threads and not one, because that is the arrangement: the reservation is
+    the climbing thread's and the unreserved slot is somebody else's. A hold by
+    the *reserving* thread is the same dispatch and is counted once, which the
+    test above pins.
+    """
+    capacity = Capacity({"fast": 2})
+    taken = threading.Event()
+    finish = threading.Event()
+
+    def verifier() -> None:
+        with capacity.hold(FAST):
+            taken.set()
+            finish.wait(timeout=BARRIER_TIMEOUT_S)
+
+    holder = threading.Thread(target=verifier)
+    holder.start()
+    try:
+        assert taken.wait(timeout=BARRIER_TIMEOUT_S), "the slot was never taken"
+        capacity.reserve("fast")
+
+        assert capacity.in_use("fast") == 1, "the verifier's, which reserved nothing"
+        assert capacity.load("fast") == 2, "and the climb's, which holds nothing yet"
+        assert capacity.limits["fast"] - capacity.load("fast") == 0, "nothing free"
+    finally:
+        capacity.release("fast")
+        finish.set()
+        holder.join(timeout=BARRIER_TIMEOUT_S)
+
+    assert capacity.load("fast") == 0
 
 
 def test_a_reservation_is_given_back_however_the_block_leaves() -> None:
@@ -795,6 +861,25 @@ def test_reading_the_load_of_a_source_this_capacity_does_not_bound_is_refused() 
 
     with pytest.raises(CapacityError):
         capacity.load("nowhere")
+
+
+def test_reading_the_slots_in_use_of_an_unbounded_source_is_refused_by_name() -> None:
+    """Every reader refuses an unknown source in one exception and one wording.
+
+    `in_use` reached its dict directly and raised a bare ``KeyError: 'nowhere'``,
+    which is the one failure a caller holding a ladder view from another config
+    cannot catch beside the rest: it is not a `CapacityError`, it names no
+    config mismatch, and it lists no known sources. The reason those words exist
+    is that the caller's mistake is never about the source.
+    """
+    capacity = Capacity({"local": 3})
+
+    with pytest.raises(CapacityError) as caught:
+        capacity.in_use("nowhere")
+
+    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "different configs" in str(caught.value)
+    assert "Known sources: local" in str(caught.value)
 
 
 def test_choosing_under_deciding_spreads_a_batch_instead_of_stacking_it() -> None:
