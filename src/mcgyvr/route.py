@@ -69,8 +69,23 @@ module as it was: a batch of contracts sharing a task type shares a floor
 family, so every one of them takes the cheapest rung and queues there while a
 peer serving the same model sits idle — and raising ``max_parallel`` does not
 fix that, it widens the rig that was already the only one being used. Under
-``full`` :func:`climb` starts on the rung with the most *free slots* rather than
-on the first one.
+``full`` and under ``idle`` alike, :func:`climb` starts on the cheapest rung of
+its plan that has a free slot rather than on the cheapest rung outright.
+
+**Fan-out is a scheduling decision — which rung goes first — and it is not a
+spend decision.** That is the invariant of the whole knob, and it is the one
+this module had wrong. A rung the climb started *above* is not dropped: it stays
+on the walk and is tried like any other, so a fan-out climb spends the same
+attempts on the same rungs as ``none`` and ends in the same exhaustion, with the
+same history and the same escalation arithmetic. Dropping them was arithmetic
+rather than routing — :func:`mcgyvr.escalate.permit` charges an escalation per
+rung actually *spent*, so a family whose cheap rungs had been discarded ran out
+of ladder while still holding a move nothing had paid for, and that leftover move
+funded a dispatch into a *priced* family: ``full`` bought an api call that
+``none`` refused at the escalation ceiling. ``full`` is a throughput knob and
+must never be able to do that; only ``idle`` may reach a priced rung, and only
+deliberately. "Start higher" and "discard what is below" are different things,
+and only the first of them is scheduling.
 
 Free slots — ``width - load`` — and not the smallest load, because the question
 a fan-out asks is "which of these can take this dispatch now", and an absolute
@@ -83,25 +98,30 @@ through the knob. It is the same rule
 :attr:`mcgyvr.escalate.Ascent.next_free_rung` states as ``load < width``, and
 one question answered two ways at two seams would be worse than either answer.
 
-**And it chooses once.** From the rung it starts on, the climb walks the plan's
-remaining rungs upward and stops. Re-choosing by load at every step would order
-the whole *walk* by load, so a rung that failed could be followed by a weaker
-model — which inverts the one thing a ladder asserts, each rung being measurably
-better than the one below it, and which ``docs/config-reference.md`` calls
-actively harmful. Nor would it be free: :func:`mcgyvr.escalate.permit` charges an
-escalation per new rung, so a task at ``max_escalations: 1`` would spend its only
-move going downhill. The rungs cheaper than the start are not revisited later
-for the same reason — they were passed over for being busy rather than for
-failing, and returning to them is still a descent.
+**And it chooses once.** The start rung is read from load; from there the walk
+is the plan's own price order, over every rung the start did not take. Asking
+again after each failure would order the whole *walk* by load, and a walk
+ordered by load is a walk with no ladder in it at all — the rung a failure
+escalates to would be whichever machine happened to be quiet, which inverts the
+one thing a ladder asserts, each rung being measurably better than the one
+below it, and which ``docs/config-reference.md`` calls actively harmful.
+
+That walk does pass back through the rungs the start skipped over, because they
+are the cheap end of the price order, and that is deliberate. Trying a rung a
+dearer one has already failed at looks like a descent, and the alternative was
+measured and is worse: a climb that skipped them would spend less of its family
+than ``none`` would and hand the leftover escalation budget to a dearer family —
+the defect above. Every rung ``none`` would have tried is tried, exactly once,
+for exactly its own attempts; only the order differs, and only in the family
+fan-out was asked about.
 
 :func:`plan` still orders by price and nothing may make it do otherwise, because
 price order is what a ladder means and a plan that put a busy rung last would be
-deciding, from inside one family, that load outranks price. A tie in free slots
-goes to the cheaper rung, so on an idle ladder of equally wide rungs ``full`` is
-``none`` exactly; where the widths differ it starts on the widest, which is the
-spreading that was asked for and is one more reason the mode is opt-in.
-Preferring a free peer that serves the same model costs nothing that could be
-called an escalation.
+deciding, from inside one family, that load outranks price. Load breaks a tie —
+between rungs that will all admit the work, the cheapest wins, so on an idle
+ladder every mode starts where ``none`` starts however the widths differ — and
+load never reorders the ladder, which is what preferring a roomier rung over a
+cheaper free one would have been.
 
 ``idle`` is honoured here for the half of it that is #24's. Its choice is the
 cheapest rung *at or above the floor* with a free slot, and that question has
@@ -119,11 +139,18 @@ about. Leaving both halves out of this file was the earlier reading of the
 boundary and it made the mode a switch wired to nothing: entering a family whose
 cheapest rung was full still picked that full rung.
 
-``idle`` is not ``full`` with a threshold. ``full`` takes the roomiest rung and
-``idle`` takes the first one that will admit work, which on a ladder of unequal
-widths are different rungs — see :func:`_next_index`. And busy is never a verdict
-under either: a rung this module passed over for a free peer was not tried and
-did not fail, so no amount of load can fund an escalation.
+**``idle`` and ``full`` are one rule here and differ only in reach.** Inside a
+family both take the cheapest rung that will admit work — see
+:func:`_next_index` — and that identity is deliberate rather than an oversight:
+within one family there is exactly one useful question, "which of these will
+take this dispatch now", and answering it two ways would be two rules to keep
+true where one is enough. What differs is how far each may look: ``idle`` may
+raise the family a climb *enters*, which is a spend decision and is
+:func:`mcgyvr.escalate.escalate`'s, while ``full`` never leaves the family it
+was handed. And busy is never a verdict under either: passing a rung over
+records nothing about it, so a climb that succeeds where it started leaves the
+rung below unjudged — and what load can no longer do is change the *count*, the
+rungs a family spends being the same rungs under all three modes.
 
 **What is deliberately not here.** Risk floors raising where work may start are
 #16's; this module reads the type's floor from the catalog and applies nothing
@@ -206,11 +233,15 @@ class Fanout(StrEnum):
     second is sized to drain the first's failure tail.
 
     ``FULL`` and ``IDLE`` both change which rung of a plan a climb starts on,
-    and they choose differently: ``FULL`` takes the roomiest rung, ``IDLE`` the
-    cheapest one with a slot to spare. Only the *cross-family* half of ``IDLE``
-    is missing here — a choice that may reach from the floor family into a
-    priced one is #43's to make and not #24's, so it is carried and not acted on
-    here. See the module docstring.
+    and inside a family they choose the same way: the cheapest rung with a slot
+    to spare. That they are identical here is the decision and not an
+    oversight — one family admits one useful question, "which of these will take
+    this dispatch now" — and what separates them is reach. ``IDLE`` may also
+    raise the *family* a climb enters, which can land on a priced api rung and
+    is therefore #43's to make and not #24's, so it is carried here and acted on
+    in :func:`mcgyvr.escalate.escalate`; ``FULL`` never leaves the family it was
+    handed, which is what keeps a throughput knob from buying an api call. See
+    the module docstring.
     """
 
     NONE = "none"
@@ -265,11 +296,13 @@ class Machine:
         """How busy this machine is, or ``None`` if this capacity cannot say.
 
         :meth:`~mcgyvr.capacity.Capacity.load` is the answer, which is the
-        greater of the slots that capacity has granted and the attempts reserved
-        against it — neither alone is the load, because granted under-reports a
-        batch that is mid-choice, which is exactly when this gets asked, and
-        reserved misses every dispatch that was never routed through a caller
-        that reserves.
+        slots that capacity has granted *plus* the attempts reserved against it
+        — neither alone is the load, because granted under-reports a batch that
+        is mid-choice, which is exactly when this gets asked, and reserved
+        misses every dispatch that was never routed through a caller that
+        reserves. A reserved attempt that has since been admitted is counted
+        once and not twice: :meth:`~mcgyvr.capacity.Capacity.hold` consumes the
+        reserving thread's reservation for the length of the slot.
 
         **This process, this capacity, and only the choices it was told about.**
         Another mcgyvr process contending for the same host-wide slot files
@@ -786,60 +819,56 @@ def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity) -> int:
     Under ``none`` this is ``0`` — the cheapest rung still standing, byte for
     byte the order this module has always walked.
 
-    Under ``full`` it is the rung with the most *free slots*, and a tie is
-    broken by price because ``max`` returns the first maximum: on an idle
-    ladder of equally wide rungs every rung ties, so ``full`` there is ``none``
-    there and nothing was reordered by load that load had nothing to say about.
+    Under ``full`` and ``idle`` it is the *cheapest rung with at least one free
+    slot*: the walk goes up the price order and stops at the first rung that
+    will admit this dispatch now. One rule for the two modes, because within a
+    family there is one question worth asking and both modes are asking it;
+    they part company over *reach*, not over rungs, and that half of ``idle``
+    is :func:`mcgyvr.escalate.escalate`'s. ``full`` once took the *roomiest*
+    rung instead, which read load as an ordering rather than as a threshold and
+    so let a wide dear rung outrank a free cheap one — a price ladder reordered
+    by capacity, and on an idle ladder it cost a lone task its cheapest rung for
+    no contention at all.
 
-    Under ``idle`` it is the *cheapest rung with at least one free slot*, and
-    that is a different question from ``full``'s rather than a softer version of
-    it. ``idle`` takes the first rung that will admit this dispatch now;
-    ``full`` takes the roomiest one, which on an unequal ladder is often dearer
-    than a cheaper rung with a single slot to spare. Where they disagree,
-    neither is wrong — they are answering the two different questions the two
-    modes were asked. When no rung has a free slot the answer is ``0``, which
-    queues on the cheapest exactly as ``none`` does: within one family there is
-    nowhere cheaper to wait, and the rung a queue would spill into is in another
-    family and so is :attr:`mcgyvr.escalate.Ascent.next_free_rung`'s to name.
+    When no rung has a free slot the answer is ``0``, which queues on the
+    cheapest exactly as ``none`` does: within one family there is nowhere
+    cheaper to wait, and the rung a queue would spill into is in another family
+    and so is :attr:`mcgyvr.escalate.Ascent.next_free_rung`'s to name.
 
-    Free slots and not the smallest load, under both load-aware modes. The two
-    only agree when every rung is the same width, and where they disagree the
-    load is wrong: a four-wide rig with two dispatches on it has two slots free,
-    a single-slot rig holding one dispatch has none, and it is the
+    Free slots — ``width - load`` — and not the smallest load. The two only
+    agree when every rung is the same width, and where they disagree the load is
+    wrong: a four-wide rig with two dispatches on it has two slots free, a
+    single-slot rig holding one dispatch has none, and it is the
     *emptier-looking* second one that a climb ordered by load would queue on.
     See the module docstring; and :attr:`mcgyvr.escalate.Ascent.next_free_rung`,
     which states the same rule as ``load < width`` for the half of ``idle`` that
     crosses families.
 
     :func:`climb` asks this once, for the rung it starts on. Asking again after
-    a failure would order the whole walk by load, and a walk ordered by load can
-    descend to a weaker model than the one that just failed.
+    a failure would order the whole walk by load, and a walk ordered by load has
+    no ladder left in it: the rung a failure escalated to would be whichever
+    machine happened to be quiet.
 
     Falls back to price order when a load cannot be read — a step bound to no
-    machine, or a machine this capacity does not bound. Under ``full`` that
-    means every rung, because a partial view would order the ladder by which
-    rungs a capacity happened to know about, which is not a fact about load at
-    all; under ``idle`` it means every rung *cheaper than the one chosen*, since
-    an unreadable rung stops the walk rather than being stepped over — "cheapest
+    machine, or a machine this capacity does not bound. An unreadable rung stops
+    the walk where it stands rather than being stepped over, so what falls back
+    is every rung *cheaper than any rung that could have been chosen*: "cheapest
     free" is only knowable if every cheaper rung could be priced, and an unknown
-    belongs on the cheap side. That is the rule ``next_free_rung`` states in the
-    same words, and one question answered two ways at two seams would be worse
-    than either answer. A climb with no capacity at all never gets here;
-    :func:`_claim_next` answers that one, and answers it the same way.
+    belongs on the cheap side, never on the side that spends. That is the rule
+    ``next_free_rung`` states in the same words, and one question answered two
+    ways at two seams would be worse than either answer. A climb with no
+    capacity at all never gets here; :func:`_claim_next` answers that one, and
+    answers it the same way.
     """
     if mode is Fanout.NONE:
         return 0
-    free: list[int] = []
     for index, step in enumerate(remaining):
         slots = None if step.machine is None else step.machine.free(capacity)
         if slots is None:
             return 0
-        if mode is Fanout.IDLE and slots > 0:
+        if slots > 0:
             return index
-        free.append(slots)
-    if mode is Fanout.IDLE:
-        return 0
-    return max(range(len(free)), key=free.__getitem__)
+    return 0
 
 
 def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> Step:
@@ -854,13 +883,18 @@ def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) 
     section borrows the very lock :meth:`~mcgyvr.capacity.Capacity.hold` keeps
     its counters under.
 
-    The rungs *cheaper* than the one chosen are dropped rather than left on
-    ``remaining`` for later. They were passed over for having no free slot, and
-    a climb that came back to one of them after a dearer rung had failed would
-    be trying a weaker model to fix work a stronger one could not — a descent,
-    whatever order it was reached in. Under ``none`` the index is ``0`` and
-    nothing is dropped; under the two load-aware modes it is ``0`` whenever the
-    cheapest rung is the one chosen, which on an idle ladder is always.
+    **The chosen rung is taken out and no other rung is.** The rungs *cheaper*
+    than it stay on ``remaining``, in price order, and later iterations take
+    them like any other rung. Dropping them was the earlier decision and it was
+    wrong: passing a rung over is a statement about a queue at one instant, and
+    deleting it is a statement about what this family is worth — which is spend,
+    and fan-out does not make spend decisions. It showed up as one:
+    :func:`mcgyvr.escalate.permit` charges an escalation per rung actually
+    spent, so a family short of the rungs it was dropped ran out early with
+    escalation budget unspent, and that budget bought a priced api rung that the
+    same ladder under ``none`` was refused. What survives of the old rule is the
+    part that was really about ladders — the *start* is chosen once, and the
+    walk after it is price order rather than a fresh load reading.
 
     Without a capacity there is nothing to read and nothing to count, so the
     walk is the plan's own order and ``climb(capacity=None)`` counts nothing —
@@ -870,8 +904,7 @@ def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) 
     if capacity is None:
         return remaining.pop(0)
     with capacity.deciding():
-        del remaining[: _next_index(remaining, mode, capacity)]
-        step = remaining.pop(0)
+        step = remaining.pop(_next_index(remaining, mode, capacity))
         if step.machine is not None:
             step.machine.claim(capacity)
     return step
@@ -921,22 +954,27 @@ def climb(
     which is the right place for that to happen.
 
     ``capacity`` is also what makes load-aware fan-out possible, and this is the
-    only place in the module load is read. Under :attr:`Fanout.FULL` the rung
-    the climb *starts* on is the one with the most free slots rather than the
-    top of the plan; under :attr:`Fanout.IDLE` it is the cheapest rung of the
-    plan that has a free slot, which is the top of the plan whenever the top has
-    one and is the top again when no rung does. Under :attr:`Fanout.NONE` the
-    start is the top of the plan, unchanged. In every case the walk from there
-    is price order upward and stops at the dearest rung, each rung keeps its own
-    budget, and ``permit`` is asked before each attempt — fan-out decides where a
-    climb begins, never how many attempts it may make.
+    only place in the module load is read. Under :attr:`Fanout.FULL` and
+    :attr:`Fanout.IDLE` alike the rung the climb *starts* on is the cheapest
+    rung of the plan with a free slot — which is the top of the plan whenever
+    the top has one, and is the top again when no rung does. Under
+    :attr:`Fanout.NONE` the start is the top of the plan, unchanged. In every
+    case each rung keeps its own budget and ``permit`` is asked before each
+    attempt: fan-out decides where a climb begins, never how many attempts it
+    may make.
 
-    The rungs below the start are not walked, and that is the decision rather
-    than an omission. They were passed over for having no free slot, so trying
-    one after a dearer rung has failed would be answering a failure with a
-    weaker model, which is what a ladder exists to rule out. Nor is being passed
-    over a failure: such a rung produces no verdict and no history entry, so a
-    busy ladder cannot fund an escalation the way a failing one does.
+    **And never which rungs it makes them on.** Every rung of the plan is
+    walked under every mode — the start rung first, then the rest in the plan's
+    price order, which passes back down through the rungs the start skipped
+    before going on up. So a fan-out climb and a ``none`` climb of the same plan
+    spend the same attempts on the same rungs and reach the same
+    :class:`Exhausted`; only the order differs. Dropping the skipped rungs
+    instead would make a busy ladder cost *less* than a quiet one, and the
+    difference is not a saving — it is escalation budget left over for a dearer
+    family to spend, which is how ``full`` came to buy an api call that ``none``
+    refused. Being passed over is still not a verdict: a rung the climb never
+    reaches, because something below it passed, has no history entry and cannot
+    fund anything.
     """
     history: list[Attempted] = []
     if not plan.steps:
@@ -967,9 +1005,9 @@ def climb(
 
     remaining = list(steps)
     # Fan-out is asked once, for the rung this climb starts on; from there the
-    # walk is the plan's own price order. Re-asking it per rung would order the
-    # whole walk by load, and a walk ordered by load can answer a failure with a
-    # weaker model — see :func:`_next_index`.
+    # walk is the plan's own price order over everything still standing. Re-asking
+    # it per rung would order the whole walk by load, and a walk ordered by load
+    # has no ladder left in it — see :func:`_next_index`.
     choosing = plan.fanout
     while remaining:
         step = _claim_next(remaining, choosing, capacity)
@@ -1032,33 +1070,33 @@ def climb(
 def _exhausted_detail(plan: Plan, history: list[Attempted], declined_only: bool) -> str:
     """One sentence saying what was tried, for a caller reporting upward.
 
-    The rungs named are the ones actually attempted, which under ``none`` is
-    every rung of the plan and under the two load-aware modes is the start rung
-    and everything above it. A rung the climb never reached is named separately
-    and as what it is — untried, and so unjudged — because listing it beside the
-    attempts would make a busy machine read as a family that could not do the
-    work, which is the one thing an exhaustion must not be able to say by
-    accident.
+    The rungs named are the ones actually attempted, in the order they were
+    attempted — which under fan-out is the start rung first and the rungs it
+    began above after it, and which is every rung of the plan under all three
+    modes, because :func:`climb` exhausts ``remaining`` before it gets here.
+
+    This once carried an aside naming the rungs a climb had *skipped* and
+    blaming "no free slot when this climb chose where to start". The clause went
+    when the skipping did — :func:`_claim_next` no longer drops the rungs below
+    its start, so under every mode a family reaches an exhaustion having tried
+    all of its rungs, and the aside had become a fixed reason printed for an
+    empty set. It had also been printing that reason for rungs that were merely
+    narrower, which is a fabricated cause: an exhaustion that invents why a rung
+    went untried is worse than one that says nothing, because a caller acts on
+    it. Nothing replaces it. A plan whose steps were handed a budget of zero is
+    the one remaining way a rung can go unattempted, and it is not reachable
+    from :func:`plan` — both ``attempts`` schemas floor at 1 — so such a rung is
+    simply absent from the list of what was tried, which is true.
     """
     tried = tuple(dict.fromkeys(a.rung for a in history))
     rungs = ", ".join(tried)
-    skipped = tuple(name for name in plan.rungs if name not in set(tried))
-    aside = (
-        ""
-        if not skipped
-        else (
-            f" Not tried and so not judged: {', '.join(skipped)} — no free slot "
-            f"when this climb chose where to start."
-        )
-    )
     if declined_only:
-        every = "every rung" if not skipped else "every rung this climb tried"
         return (
-            f"{every} of the {plan.family.name!r} family declined this "
-            f"contract ({rungs}); no attempt was spent.{aside}"
+            f"every rung of the {plan.family.name!r} family declined this "
+            f"contract ({rungs}); no attempt was spent."
         )
     spent = sum(1 for a in history if a.verdict is not Verdict.DECLINED)
     return (
         f"the {plan.family.name!r} family is spent: {spent} attempt(s) across "
-        f"{rungs} and none produced an acceptable result.{aside}"
+        f"{rungs} and none produced an acceptable result."
     )
