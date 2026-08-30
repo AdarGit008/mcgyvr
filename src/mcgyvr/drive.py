@@ -50,11 +50,12 @@ already settles in one place a second place to be settled differently.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.cleanup import tidy
-from mcgyvr.consensus import best_of
+from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
 from mcgyvr.gate import Gate, GateResult
@@ -63,6 +64,7 @@ from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.route import Try, Verdict, family_of
 from mcgyvr.runner import Completion, Request, dispatch
 from mcgyvr.telemetry import observe
+from mcgyvr.verify import VERIFIER_ROLE, verify
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -73,10 +75,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
-    from mcgyvr.escalate import Review
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.pool import SourceMap
     from mcgyvr.sandbox.base import CommandResult, Sandbox
+    from mcgyvr.verify import Ask
     from mcgyvr.worker.prompt import WorkerPrompt
 
 
@@ -90,23 +92,6 @@ class UnrunnableStepError(DriveError):
 
 class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
-
-
-class _UnreadableDrawError(DriveError):
-    """One draw's reply could not be read, carried out of the sampler.
-
-    Private, and never seen outside :func:`worker_attempt`. It exists because of
-    a mismatch the first real caller of :func:`~mcgyvr.consensus.best_of`
-    exposes: ``sample`` is typed ``Callable[[int], str]`` and has no way to say
-    "this draw produced nothing usable" — an exception it raises is deliberately
-    not caught, on the grounds that "a draw that could not be made is not a
-    verdict". For a sampler that dispatches to a model that is the *common*
-    case: a truncated reply, a refusal in place of a file, prose where a fenced
-    block was asked for. Raising out is the only thing the signature permits, so
-    the whole attempt ends with the refusal in its detail — the behaviour a
-    single-draw attempt has always had, at the cost that at ``n > 1`` the
-    verdicts of the draws already gated are discarded with it.
-    """
 
 
 @dataclass(frozen=True)
@@ -336,7 +321,7 @@ def worker_attempt(
     sandbox: Sandbox,
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
-    verifier: Callable[[], Review] | None = None,
+    reviewer: Ask | None = None,
     recording: Recording | None = None,
 ) -> Callable[[Try], Judgement]:
     """The attempt function :func:`~mcgyvr.escalate.escalate` has always taken.
@@ -392,7 +377,12 @@ def worker_attempt(
     **A reply that cannot be read is a failed attempt, not an exception.** The
     parser refuses by name — truncated, no fenced block, a refusal in place of
     a file — and every one of those is something the next attempt could do
-    differently, which is the definition of a failure rather than a fault.
+    differently, which is the definition of a failure rather than a fault. It
+    reaches :func:`~mcgyvr.consensus.best_of` as an
+    :class:`~mcgyvr.consensus.Unusable` draw, so at ``n > 1`` one unreadable
+    reply costs its own draw and not the verdicts of the draws beside it; the
+    attempt fails only when :class:`~mcgyvr.consensus.NoUsableDrawError` says every
+    draw refused, which for the default single draw is the same thing.
 
     **How many answers the attempt asks for is ``breadth.draws``'s, and the
     default asks once.** Every attempt goes through
@@ -415,8 +405,33 @@ def worker_attempt(
     a problem with. Off by default, and the default is the behaviour that
     existed: the gate's rejection stands, the note goes to the next attempt, and
     a model is asked about the whitespace.
+
+    **``reviewer`` is the verifier seam, not a finished verdict function.** It
+    is an :data:`~mcgyvr.verify.Ask` — one prompt in, one reply out — and the
+    :class:`~mcgyvr.escalate.Review` :func:`~mcgyvr.escalate.judge` wants is
+    assembled per attempt from it, because :func:`~mcgyvr.verify.verify` needs
+    the gate that has just run, the bytes it read and the name of the model
+    that wrote them. The parameter this replaces asked the caller for a
+    ``Callable[[], Review]``, and that is why nothing in production ever passed
+    one: a caller standing outside the attempt has none of those three things.
+    :func:`~mcgyvr.verify.reviewer_for` is where an install's ``verifier`` role
+    becomes one of these, and ``None`` stays the ordinary answer — a keyless
+    install accepts on the gate and ``judge`` labels it ``UNVERIFIED``.
+
+    The pre-change file goes with it, read off the workspace in the moment
+    between the reset and the first draw. A reviewer shown only the new content
+    of an edited file is being asked to judge a change it cannot see, and the
+    contract's own ``target_content`` — what ``build_prompt`` falls back to — is
+    the orchestrator's copy from when the contract was written and is empty on a
+    hand-authored one.
     """
     notes: dict[str, RetryNotes | None] = {}
+    # Asked once, and only when there is a reviewer to name: `role_model`
+    # raises for a role declared but unusable, and an install that is not
+    # verifying has not asked that question. An empty name is left to `verify`,
+    # which refuses it — a review is worth the distance between two names, and
+    # an unnamed reviewer establishes no distance.
+    reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
     draws = int(config.get("breadth.draws", 1))
     tidying = bool(config.get("cleanup.enabled", False))
 
@@ -445,7 +460,7 @@ def worker_attempt(
                 model=this.rung.model,
             )
 
-        def sample(draw: int) -> str:
+        def sample(draw: int) -> str | Unusable:
             completion = send(draw)
             parsed = parse_reply(
                 completion.text,
@@ -454,7 +469,11 @@ def worker_attempt(
                 target=contract.target,
             )
             if isinstance(parsed, ReplyError):
-                raise _UnreadableDrawError(f"the reply could not be read: {parsed}")
+                # A refusal, not a raise: at `n > 1` the draws already gated
+                # keep their verdicts, and a reply that could not be read is
+                # the ordinary failure this rung is being measured on rather
+                # than something that ends the attempt from underneath it.
+                return Unusable(f"the reply could not be read: {parsed}")
             return parsed.content
 
         def judge_draw(workspace: Path) -> GateResult:
@@ -480,6 +499,9 @@ def worker_attempt(
         # not having run. An attempt that inherited the previous one's tree
         # would judge a change it did not produce.
         sandbox.reset()
+        # Read here, in the one moment the base is on disk: the workspace has
+        # just been reset and no draw has been written over it yet.
+        original = _base_content(sandbox, contract) if reviewer is not None else None
         try:
             picked = best_of(
                 repo=sandbox.workspace,
@@ -489,7 +511,7 @@ def worker_attempt(
                 n=draws,
                 sandbox=sandbox,
             )
-        except _UnreadableDrawError as exc:
+        except NoUsableDrawError as exc:
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
@@ -504,7 +526,36 @@ def worker_attempt(
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters
                 )
-            judgement = judge(contract, family, gate, verifier=verifier)
+            judgement = judge(
+                contract,
+                family,
+                gate,
+                # Built here rather than handed in, because `verify` needs
+                # three things only this moment holds: the gate that has just
+                # run, the bytes it read, and which model wrote them. The
+                # parameter this replaces was a `Callable[[], Review]`
+                # assembled before the attempt, which is why it never had a
+                # production caller — there was nothing a caller could build it
+                # out of. What crosses the seam is the reviewer itself, and
+                # `judge` still decides whether to ask it: `partial` binds
+                # arguments and dispatches nothing, so a rejected gate costs no
+                # verifier spend, exactly as before.
+                verifier=(
+                    None
+                    if reviewer is None
+                    else partial(
+                        verify,
+                        contract,
+                        family=family,
+                        gate=gate,
+                        change=bound.content,
+                        builder=this.rung.model,
+                        reviewer=reviewer_model or "",
+                        ask=reviewer,
+                        original=original,
+                    )
+                ),
+            )
             if gate.accepted:
                 # The winner's own binding, minted by `best_of` one line after
                 # its gate and one line before its reset — in the tree the
@@ -521,6 +572,34 @@ def worker_attempt(
         return judgement
 
     return attempt
+
+
+def _base_content(sandbox: Sandbox, contract: Contract) -> str:
+    """The target as it stands before this attempt writes anything.
+
+    What a reviewer needs to judge an *edit*: without it
+    :func:`~mcgyvr.verify.build_prompt` says the original was not supplied and
+    asks the model to judge the change on its own, which for a change to an
+    existing file is most of the question missing. ``""`` is the other real
+    answer and the block below renders it as one — the target is not there, so
+    the change creates it.
+
+    Taken from the workspace rather than from ``contract.target_content``,
+    which is what ``build_prompt`` falls back to. That field is the
+    orchestrator's copy of the file as it stood when the contract was written,
+    and a hand-authored contract does not carry it at all; this is the tree the
+    gate diffed against a moment ago, in this attempt, which is the only
+    original the verdict is actually about.
+
+    Decoded the way every other reader in the project decodes worker-adjacent
+    bytes: ``surrogateescape``, so a file holding a byte no decoder can read
+    still reaches the reviewer as the rest of its content rather than raising
+    out of an attempt that has not failed.
+    """
+    target = sandbox.workspace / contract.target
+    if not target.is_file():
+        return ""
+    return target.read_bytes().decode("utf-8", "surrogateescape")
 
 
 def _cleaned(
