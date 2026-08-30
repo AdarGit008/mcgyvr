@@ -9,12 +9,25 @@
 > | Finding | State |
 > | --- | --- |
 > | B1-B9, and 11 more found reproducing them | Fixed — `16a31cbc`, PR #381 |
-> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is built and tested and is not yet reachable from a flag. |
-> | **E** · eight boundaries held by nothing | Closed for the five that were breached — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
+> | **C** · levers, not a driver | Closed — `src/mcgyvr/drive.py` and `mcgyvr run`, PR #383. §6 step 5's two pieces exist and have a production caller; a deterministic contract now runs to a commit from a command. The ladder path (`worker_attempt`) is built and tested and is not yet reachable from a flag. |
+> | **E** · eight boundaries held by nothing | Closed for the five that were breached, PR #383 — #94 on the retry path *and* at the reviewer, D20 at the config and both sinks, §9's globals (now zero in `src/`), the seam's accessor hole, and the orchestrator id, which is now part of the attempt id and not only a field beside it. |
 > | **A** · surrogate-escaped content | Fixed in `16a31cbc` — all four writers |
 > | **D** · tests pinning states the system cannot produce | Fixed in `16a31cbc` — `cleanup` tidies a format-only rejection deliberately |
-> | **B** · nothing owns the bytes | Closed. The tree owns them and one seam commits. B6's delivery-time re-check, then phase 1 (the second delivery routed through `deliver`), phase 2 (`Judgement.value` and the three `value` fields under it deleted), phase 3 (`RepairOutcome.content` deleted, `Consensus` carries `Accepted` bindings minted per draw, `Cleanup.regate` true whenever bytes were rewritten). A guard in `tests/test_pattern_b_tree_owns_bytes.py` fails a new `content` field that carries no digest. |
+> | **B** · nothing owns the bytes | Closed, PR #383. The tree owns them and one seam commits. B6's delivery-time re-check, then phase 1 (the second delivery routed through `deliver`), phase 2 (`Judgement.value` and the three `value` fields under it deleted), phase 3 (`RepairOutcome.content` deleted, `Consensus` carries `Accepted` bindings minted per draw, `Cleanup.regate` true whenever bytes were rewritten). A guard in `tests/test_pattern_b_tree_owns_bytes.py` fails a new `content` field that carries no digest. |
 > | §4's seven items, and the ~48 major | Open. |
+>
+> **Where to start next.** §6's order of work is spent: steps 1-5 are the rows
+> above. What is left is §4, and its first item is the one with a live consequence
+> — `verify.py:368` compares `strip().casefold()`, so `qwen2.5-coder` and
+> `qwen2.5-coder:latest` are different models to the self-verification refusal and
+> the same weights to Ollama. Nothing else in the codebase cross-checks
+> `verifier.model` against the ladder's tiers. It is defeatable by a tag, a
+> provider prefix, a zero-width space or a homoglyph.
+>
+> Two things are built and unreached, and either is a smaller piece of work than
+> §4: `worker_attempt` has no flag on `mcgyvr run`, and `consensus.best_of` and
+> `cleanup.tidy` still have no production caller — which is why phase 3 had to
+> reason about their shape rather than about a call site.
 
 |                |                                                                                  |
 | -------------- | -------------------------------------------------------------------------------- |
