@@ -49,6 +49,7 @@ them rather than documenting them and hoping:
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `budgets` | block | no | — | The ceilings that bound one task's cost. |
 | `breadth` | block | no | — | How many answers one attempt asks for. Separate from `budgets` because breadth is not a ceiling: it is what a single attempt spends, and every budget in this file still counts that attempt once. |
+| `cleanup` | block | no | — | What may be fixed without asking a model. |
 
 ## `sources`
 
@@ -139,3 +140,11 @@ How many answers one attempt asks for. Separate from `budgets` because breadth i
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `draws` | number (min 1) | no | `1` | How many candidates one attempt asks its rung for before the gate picks between them. Draws are not attempts: they share one prompt and one attempt's budget, and the gate ranks the answers rather than the next attempt being told what the last one got wrong. The default of 1 is ADR-0008 unchanged — one draw, one verdict, and the draw is the answer. Raising it is most defensible on a cheap rung that is often almost right, where three draws are still cheaper than escalating; a lever whose whole benefit is fewer crossings into the api family cannot be evaluated before the telemetry that counts crossings, which is why this is something to ask for rather than something you are given. |
+
+## `cleanup`
+
+What may be fixed without asking a model.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `enabled` | boolean | no | `false` | Reformat a change the gate rejected only on formatting, and judge it again, instead of spending an attempt asking a model to insert a space. The formatter is the one the gate already checks with, so a cleanup produces the shape the format rung asks for rather than a second opinion about it, and it costs no tokens by construction. Off by default because it rewrites a file after the gate has spoken about it: the bytes that come back are not the bytes the worker sent, and an operator reading a diff should have said yes to that. Nothing else is ever tidied — a lint code, a failed acceptance command or a rung that could not say what bar it applied leaves the change exactly as the worker wrote it. |

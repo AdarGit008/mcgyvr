@@ -272,6 +272,7 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
         # true of the file and false of the behaviour: the loader fills 1 in.
         # A knob whose off position is a number is better read than inferred.
         "breadth": {"draws": 1},
+        "cleanup": {"enabled": False},
     }
 
 

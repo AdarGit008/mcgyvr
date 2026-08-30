@@ -356,6 +356,25 @@ BREADTH_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+CLEANUP_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enabled",
+        "bool",
+        "Reformat a change the gate rejected only on formatting, and judge it "
+        "again, instead of spending an attempt asking a model to insert a "
+        "space. The formatter is the one the gate already checks with, so a "
+        "cleanup produces the shape the format rung asks for rather than a "
+        "second opinion about it, and it costs no tokens by construction. Off "
+        "by default because it rewrites a file after the gate has spoken about "
+        "it: the bytes that come back are not the bytes the worker sent, and an "
+        "operator reading a diff should have said yes to that. Nothing else is "
+        "ever tidied — a lint code, a failed acceptance command or a rung that "
+        "could not say what bar it applied leaves the change exactly as the "
+        "worker wrote it.",
+        default=False,
+    ),
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "version",
@@ -414,6 +433,12 @@ SCHEMA: tuple[Field, ...] = (
         "because breadth is not a ceiling: it is what a single attempt spends, "
         "and every budget in this file still counts that attempt once.",
         block=BREADTH_FIELDS,
+    ),
+    Field(
+        "cleanup",
+        "block",
+        "What may be fixed without asking a model.",
+        block=CLEANUP_FIELDS,
     ),
 )
 
