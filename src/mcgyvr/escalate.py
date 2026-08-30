@@ -34,6 +34,19 @@ it was asked about, and this is already the view "every family this contract
 may climb, from its floor upward". ``full`` spreads *within* a family and stays
 :func:`~mcgyvr.route.climb`'s; this module adds nothing to it.
 
+**And the name is acted on, because a mode that changes no dispatch is a false
+entry in the published reference.** :func:`escalate` *enters* at the family of
+:attr:`Ascent.next_free_rung` — it rebuilds the ascent with that family as its
+floor, which is choosing where to begin and not reordering anything, since the
+rungs of whichever family is entered are still :func:`~mcgyvr.route.plan`'s own
+price order. Within that family the cheapest rung with a free slot is
+:func:`~mcgyvr.route.climb`'s to take, under the same ``idle``, so the two seams
+answer the two halves of one question and neither restates the other.
+Computing the answer and discarding it was the earlier state and it made
+``ladder.fanout: idle`` a switch wired to nothing: the schema's ``doc`` told
+operators the mode reaches a priced rung rather than waits, and setting it
+changed no dispatch at all.
+
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
 verdict, spent no attempt and funded no escalation, because
@@ -41,7 +54,12 @@ verdict, spent no attempt and funded no escalation, because
 not a failure. So an api rung reached under ``idle`` and an api rung reached by
 escalation are the same rung with two different histories — one was chosen
 before anything ran, the other was climbed to after something failed — and only
-the second says the local family could not do the work.
+the second says the local family could not do the work. That difference is what
+keeps a raised entry off ``budgets.max_escalations``: the count is over rungs
+that *ran*, so a rung entered at costs nothing until it produces a verdict, and
+a contract whose floor family was saturated at the moment it started still has
+its whole escalation budget to climb with. :func:`_idle_entry` is where that is
+written down.
 
 **Two ceilings bound the task, and they bound different things.**
 ``budgets.max_escalations`` bounds how far the work *climbs* — a cheap rung that
@@ -783,8 +801,24 @@ def escalate(
     :func:`~mcgyvr.route.climb` refuses to catch it for exactly that reason;
     here it is caught and recorded as :attr:`Outcome.ERROR` naming the rung,
     so a caller can hand it to :func:`disposition` instead of a traceback.
+
+    Under ``ladder.fanout: idle`` the climb *enters* at the family of
+    :attr:`Ascent.next_free_rung` rather than at the contract's floor, which is
+    the whole of what that mode decides across families and the reason it is
+    computed here rather than in :mod:`mcgyvr.route`. It is expressed by
+    building the ascent a second time with that family as its ``floor``, so a
+    raised entry is the same shape as any other floor: the cheaper families are
+    *absent* from the ascent rather than skipped inside it, which is what keeps
+    "each family is entered at most once" a fact about the shape. Choosing an
+    entry family is not reordering a plan — the rungs within whichever family is
+    entered stay in the price order :func:`~mcgyvr.route.plan` put them in, and
+    which of them a climb starts on is still :func:`~mcgyvr.route.climb`'s.
+    See :func:`_idle_entry` for why the raised entry costs no escalation.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
+    entry = _idle_entry(route)
+    if entry is not None:
+        route = ascent(config, pool, contract, floor=entry, capacity=capacity)
     ceiling = route.ceiling
     budget = route.budget
 
@@ -885,6 +919,53 @@ def escalate(
         escalations=escalations,
         detail=_halt_detail(outcome, route, attempts_spent, escalations),
     )
+
+
+def _idle_entry(route: Ascent) -> Family | None:
+    """Which family ``idle`` would enter, when that is dearer than the floor.
+
+    ``None`` under every other mode, without a capacity, and whenever the
+    cheapest free rung is already in the floor family — three cases in which
+    there is nothing to raise and the ascent stands as built.
+    :attr:`Ascent.next_free_rung` is the single answer this reads; the four
+    reasons it declines to give one are its own and are not restated here.
+
+    **A raised entry is free, and a climbed one is not.** An escalation is what
+    a *failure* buys: ``budgets.max_escalations`` bounds how far work climbs
+    after something could not do it, and the record that funds a move is a
+    verdict. Entering high because everything cheaper was full is not that.
+    Nothing was tried, nothing failed, and the rungs below were passed over
+    rather than judged — so charging the entry would let a busy ladder spend a
+    budget that only a failure is entitled to spend, and would silently halve
+    the ladder of every contract whose floor family happened to be saturated
+    when it started.
+
+    **The code path that keeps it free.** :func:`escalate` counts moves off
+    ``spent_rungs``, which is appended to only in ``observed`` and only for a
+    verdict that was not a decline — so it holds rungs that *ran*, never rungs
+    that were reached. Raising the entry drops the cheaper families from the
+    ascent entirely, so the first rung the climb reaches finds ``spent_rungs``
+    empty: ``permit``'s ``moving`` is ``bool(spent_rungs)`` and is therefore
+    False for it, and ``escalations`` is ``len(spent_rungs) - 1`` floored at
+    zero, which is zero. Nothing has to remember not to charge it, because
+    there is nothing in the count for it to be charged against. What the raised
+    entry does *not* do is shorten the climb from there: :attr:`Ascent.rungs`
+    now holds the entry family's rungs and everything above, so
+    :attr:`Ascent.most_rungs` still offers ``max_escalations`` moves from the
+    rung work actually starts on.
+
+    The same rule read from the other side: a rung reached by escalation and the
+    same rung reached under ``idle`` are one rung with two histories. Only the
+    first is preceded by a failure, and only the first is charged.
+    """
+    named = route.next_free_rung
+    if named is None:
+        return None
+    for each in route.plans:
+        if named in each.rungs:
+            return each.family if each.family.rank > route.floor.rank else None
+    # Unreachable: the name came from one of these plans' own steps.
+    raise RouteError(f"{named!r} is not a rung of the ascent that named it")
 
 
 def _spent_outcome(history: list[Attempted], attempts_spent: int) -> Outcome:

@@ -36,9 +36,15 @@ that only checked the failing check was present.
 *Where an idle ladder sends work* is the sixth statement, and it arrived with
 ``ladder.fanout``. It is held against real slots — :meth:`Capacity.hold` under
 an isolated lock dir — rather than a stubbed load, because a stub would be the
-test agreeing with itself about what "no free slot" means. The assertions are
-about the rung ``idle`` *names*: naming one dispatches nothing, so the same
-tests also hold the rule that a busy rung is passed over rather than failed.
+test agreeing with itself about what "no free slot" means. Half of it is about
+the rung ``idle`` *names*: naming one dispatches nothing, so those tests also
+hold the rule that a busy rung is passed over rather than failed. The other half
+is about where the work then actually goes, and it is the half whose absence was
+the defect — ``next_free_rung`` was computed and nothing consumed it, so the
+mode changed no dispatch while the published config reference said it did.
+:class:`Dispatching` closes that by taking a real slot on whatever rung it is
+handed, and the escalation budget is asserted at zero so that a raised entry
+cannot be charged to it and pass anyway.
 
 Nothing here dispatches, gates or verifies. Every input is constructed, which
 is the whole reason :func:`~mcgyvr.escalate.escalate` takes an attempt function
@@ -1086,6 +1092,191 @@ def test_a_rung_whose_load_cannot_be_read_stops_the_walk_rather_than_being_skipp
         route = ascent(config, pool, contract(), capacity=capacity)
 
         assert route.next_free_rung is None
+
+
+class Dispatching:
+    """An attempt that really takes a slot on the rung it was sent to.
+
+    The end-to-end half of these tests: naming a rung proves nothing about
+    where work goes, so this one binds the rung to an endpoint at the execution
+    seam and holds a slot on it, which is what a real caller does and is the
+    only thing that can tell "chose api_big" apart from "dispatched on api_big".
+
+    ``timeout=0`` is a claim rather than a wait, and it is what turns a
+    misrouted dispatch into a failure instead of a hang: a climb that sends work
+    to a rung with no free slot raises here, where a real dispatch would queue
+    silently. When the slots were filled by :func:`holding` on this same thread,
+    ``hold``'s nested-dispatch guard refuses first and the timeout is never
+    reached — two different refusals, and either of them is the test failing
+    loudly rather than blocking. A test that let it block would hang instead of
+    failing, and one that never held a slot at all would only be agreeing with
+    the routing about where the routing had sent it.
+    """
+
+    def __init__(self, pool: SourceMap, *verdicts: Verdict) -> None:
+        self._pool = pool
+        self._verdicts = list(verdicts)
+        self.seen: list[str] = []
+
+    def __call__(self, this: Try) -> Judgement[str]:
+        endpoint = self._pool.bind(this.rung.name)
+        assert this.capacity is not None, "escalate must hand the capacity down"
+        with this.capacity.hold(endpoint, timeout=0):
+            self.seen.append(this.rung.name)
+        if not self._verdicts:
+            raise AssertionError(
+                f"an unscripted attempt was made on {this.rung.name!r}"
+            )
+        verdict = self._verdicts.pop(0)
+        if verdict is Verdict.PASSED:
+            return Judgement(
+                verdict=Verdict.PASSED,
+                value=f"{this.rung.name}#{this.attempt}",
+                assurance=Assurance.UNVERIFIED,
+            )
+        return Judgement(verdict=Verdict.FAILED, detail="the gate rejected it")
+
+
+def test_idle_dispatches_on_the_api_rung_when_every_local_rung_is_full(
+    key: None, locks: None
+) -> None:
+    """The knob doing the thing its published `doc` promises, end to end.
+
+    Every earlier test in this section asserts the rung ``idle`` *names*. This
+    one asserts the work lands there: both local rigs are held at their only
+    slot, and the attempt function takes a real slot on whatever rung it is
+    handed, with ``timeout=0`` so a dispatch aimed at a full rig raises rather
+    than queueing quietly. Before this was wired ``escalate`` computed
+    ``next_free_rung`` and climbed from the floor anyway, so setting
+    ``ladder.fanout: idle`` changed no dispatch at all and
+    ``docs/config-reference.md`` published a mode that did nothing.
+
+    Nothing failed to get here. The history holds one entry, it is the api rung
+    and it passed — no local rung reached a verdict, because a rung with no free
+    slot was passed over rather than tried, and a queue is not a failure.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+    attempts = Dispatching(pool, Verdict.PASSED)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        result = delivered(
+            escalate(config, pool, contract(), attempts, capacity=capacity)
+        )
+
+    assert attempts.seen == ["api_big"], "the work went where the mode named"
+    assert result.rung == "api_big"
+    assert result.entered == (API,), "the saturated family was never entered"
+    assert [a.verdict for a in result.history] == [Verdict.PASSED]
+    assert not any(a.verdict is Verdict.FAILED for a in result.history)
+
+
+def test_a_raised_entry_is_not_charged_to_the_escalation_budget(
+    key: None, locks: None
+) -> None:
+    """An escalation is what a *failure* buys, and nothing failed here.
+
+    ``max_escalations: 0`` forbids every move, so this run has no budget at all
+    to climb with — and it still reaches ``api_big``, because entering high
+    because everything cheaper was full is not a move. Charging it would make
+    ``idle`` silently halve the ladder of every contract whose floor family was
+    busy at the moment it started, which is a budget spent on a queue rather
+    than on a failure.
+
+    Held at zero rather than at the default of one on purpose: at one the
+    assertion would pass just as well against an implementation that charged
+    the entry and had a spare move to pay with.
+    """
+    config, pool = mapped(with_budgets(narrow("idle"), max_escalations=0))
+    capacity = Capacity.of(config)
+    attempts = Dispatching(pool, Verdict.PASSED)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        result = delivered(
+            escalate(config, pool, contract(), attempts, capacity=capacity)
+        )
+
+    assert result.rung == "api_big"
+    assert result.escalations == 0, "arriving is not climbing"
+    assert result.attempts_spent == 1
+
+
+def test_the_same_budget_still_refuses_a_move_that_a_failure_asked_for(
+    key: None, locks: None
+) -> None:
+    """The other half of the pair: the ceiling is real, and it still bites.
+
+    Same config and same ``max_escalations: 0`` as the raised-entry test, with
+    only the ladder's load changed — nothing is held, so ``idle`` enters at the
+    floor and the cheapest rung runs. When it fails, moving to the next rung is
+    an escalation in the full sense: something was tried and could not do the
+    work. That move is refused, which is what shows the previous test asserted a
+    budget that was genuinely there to be spent rather than one that was never
+    consulted.
+    """
+    config, pool = mapped(with_budgets(narrow("idle"), max_escalations=0))
+    capacity = Capacity.of(config)
+    attempts = Dispatching(pool, Verdict.FAILED)
+
+    result = halted(escalate(config, pool, contract(), attempts, capacity=capacity))
+
+    assert attempts.seen == ["local_qwen-7b"], "the floor rung, and only it"
+    assert result.outcome is Outcome.ESCALATION_CEILING
+    assert result.escalations == 0
+
+
+def test_idle_still_runs_on_the_cheapest_rung_when_the_ladder_is_idle(
+    key: None, locks: None
+) -> None:
+    """Turning the knob on buys nothing until something is actually busy.
+
+    The mode is about which rung a *saturated* ladder offers. With every rung
+    free the cheapest one is also the first that will admit work, so the priced
+    family is neither entered nor touched — a mode that started dear on an empty
+    ladder would be buying capacity nobody was competing for.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+    attempts = Dispatching(pool, Verdict.PASSED)
+
+    result = delivered(escalate(config, pool, contract(), attempts, capacity=capacity))
+
+    assert attempts.seen == ["local_qwen-7b"]
+    assert result.entered == (LOCAL,)
+    assert result.escalations == 0
+    spent = {u.source: u.acquisitions for u in capacity.usage()}
+    assert spent["vendor"] == 0, "the priced rung was never dispatched to"
+
+
+def test_the_default_queues_locally_and_never_reaches_the_api_family(
+    key: None, locks: None
+) -> None:
+    """``none`` is the default and a full local ladder is still where work goes.
+
+    The same load that sends ``idle`` to ``api_big`` sends ``none`` to the
+    cheapest local rung, to wait — because under ``none`` a full rung is queued
+    on, and :meth:`~mcgyvr.capacity.Capacity.hold` blocks rather than raising.
+    This is the rule that keeps a queue from funding the priced family, and it
+    is the reason the mode is opt-in rather than the behaviour.
+
+    The attempt function here records the routing rather than taking a slot: a
+    dispatch on this rung would rightly wait for the slot the test itself is
+    holding, and a test that waited would hang instead of asserting. That a
+    real dispatch queues rather than fails is
+    ``tests/test_capacity_fanout.py``'s to hold, and it does.
+    """
+    config, pool = mapped(narrow())
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.PASSED)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        result = delivered(
+            escalate(config, pool, contract(), attempts, capacity=capacity)
+        )
+
+    assert attempts.rungs == ["local_qwen-7b"], "the cheapest rung, queued on"
+    assert result.entered == (LOCAL,)
+    assert "api_big" not in attempts.rungs
 
 
 def test_a_printed_ascent_under_idle_still_names_no_machine(
