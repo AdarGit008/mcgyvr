@@ -88,7 +88,10 @@ target neither rule can run, and the object would be written verbatim into a
 file this module cannot name; that is the one outcome that is wrong under
 either reading, and it is exactly where the envelope is opened. A caller that
 wants one opened against a known target says so by pinning a schema, which is
-not a guess: that shape was asked for.
+not a guess: that shape was asked for. And when a backend ignores the pin, the
+target goes on deciding — :func:`parse_pinned` opens what came back only where
+the target could not hold it as a file, so pinning a schema never turns a real
+``.json`` file into one of its own fields.
 
 Ported from local-ai's ``extract_code`` (``docs/port-from-local-ai.md``, D14).
 Its second half — a regex that digs a Python triple-quoted string out of
@@ -332,24 +335,23 @@ def _refusal(target: str) -> ReplyError:
     )
 
 
-def parse_reply(
-    text: str,
-    *,
-    output_schema: str = WHOLE_FILE,
-    stop_reason: StopReason = StopReason.COMPLETE,
-    target: str | None = None,
+def _fenced(
+    text: str, *, output_schema: str, stop_reason: StopReason
 ) -> ParsedFile | ReplyError:
-    """Extract one file's content from a worker's reply, or refuse by name.
+    """The reply's one fenced block, with nothing judged about where it goes.
 
-    ``stop_reason`` defaults to ``COMPLETE`` so the parser is testable on bare
-    strings, but a caller holding a real
-    :class:`~mcgyvr.runner.Completion` must pass its actual reason — that is
-    the only evidence that the text is all of the text.
+    Every structural rule and no target rule: one fence or a named refusal, the
+    width rule, the empty block, and the two refusals :func:`_unreadable`
+    decides before the text is read at all. What it does *not* do is open an
+    envelope or apply #174, because both of those are answers about a
+    destination and this function has not been told one.
 
-    ``target`` is the path the content is destined for, and the refusal check
-    (#174) runs only when it is given: the same bytes are a refusal in one file
-    and a legitimate file in another, and nothing in the reply says which. A
-    caller that omits it gets the structural rules alone.
+    Split out for :func:`parse_pinned`'s fallback, which needs the block before
+    either target rule has run: it defers #174 to judge the file rather than the
+    carrier holding it, and it opens the envelope against the field the caller
+    pinned rather than the default one. Writing it a second fence hunt would be
+    a second chance to disagree about where a fence closes, which is the one
+    thing this module cannot afford two answers to.
     """
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
@@ -381,12 +383,6 @@ def parse_reply(
         index = closed_at + 1
 
     if not blocks:
-        # No fence at all — but a reply that is one JSON object carrying a file
-        # did carry a file, and with no target to judge it against the only
-        # other outcome available is to lose work that was done correctly.
-        carried = _carried_file(text) if target is None else None
-        if carried is not None:
-            return ParsedFile(content=_as_file(carried))
         return ReplyError(
             "no-fenced-block",
             "the reply contains no fenced block, so there is no file content "
@@ -407,17 +403,54 @@ def parse_reply(
             "empty-block",
             "the reply's fenced block is empty, which is not a file",
         )
-    if target is None:
-        # The same carrier, fenced. The info string is kept as it arrived —
-        # ```json over a carrier is a correct label for what was in the fence,
-        # and this field reports what the worker said rather than what the file
-        # turned out to be.
-        carried = _carried_file(content)
-        if carried is not None:
-            return ParsedFile(content=_as_file(carried), info_string=info)
-    if target is not None and _carries_no_code(content, target):
-        return _refusal(target)
+    # The info string is kept as it arrived — ```json over a carrier is a
+    # correct label for what was in the fence, and this field reports what the
+    # worker said rather than what the file turned out to be.
     return ParsedFile(content=content + "\n", info_string=info)
+
+
+def parse_reply(
+    text: str,
+    *,
+    output_schema: str = WHOLE_FILE,
+    stop_reason: StopReason = StopReason.COMPLETE,
+    target: str | None = None,
+) -> ParsedFile | ReplyError:
+    """Extract one file's content from a worker's reply, or refuse by name.
+
+    ``stop_reason`` defaults to ``COMPLETE`` so the parser is testable on bare
+    strings, but a caller holding a real
+    :class:`~mcgyvr.runner.Completion` must pass its actual reason — that is
+    the only evidence that the text is all of the text.
+
+    ``target`` is the path the content is destined for, and it decides both
+    judgements this module makes about a destination: the refusal check (#174)
+    runs only when it is given, and the envelope is opened only when it is not.
+    The same bytes are a refusal in one file and a legitimate file in another,
+    and nothing in the reply says which. A caller that omits it gets the
+    structural rules, plus the one envelope rule that is right under either
+    reading.
+    """
+    parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
+    if isinstance(parsed, ReplyError):
+        if parsed.code == "no-fenced-block" and target is None:
+            # No fence at all — but a reply that is one JSON object carrying a
+            # file did carry a file, and with no target to judge it against the
+            # only other outcome available is to lose work that was done
+            # correctly.
+            carried = _carried_file(text)
+            if carried is not None:
+                return ParsedFile(content=_as_file(carried))
+        return parsed
+    if target is None:
+        # The same carrier, fenced.
+        carried = _carried_file(parsed.content)
+        if carried is not None:
+            return ParsedFile(content=_as_file(carried), info_string=parsed.info_string)
+        return parsed
+    if _carries_no_code(parsed.content, target):
+        return _refusal(target)
+    return parsed
 
 
 def parse_pinned(
@@ -451,7 +484,10 @@ def parse_pinned(
 
     ``target`` still decides #174, and the judgement is made on the *file*
     rather than on the carrier holding it. A worker that declined inside a
-    schema-shaped answer has declined.
+    schema-shaped answer has declined. It also still decides what an envelope
+    is: on the fallback path the object that came back is opened only where the
+    target could not hold it as a file, so a ``.json`` file whose own content is
+    an object with the pinned field arrives whole rather than as that field.
     """
     if response_schema is None:
         return parse_reply(
@@ -466,16 +502,33 @@ def parse_pinned(
     info = ""
     carried = _carried_file(text, field)
     if carried is None:
-        # The schema was not honoured. Read the reply the ordinary way, but
-        # without the target: the carrier may still have arrived inside a
-        # fence, and #174 would refuse it as a data blob before anything looked
-        # inside. That judgement is made below instead, on what the carrier
-        # holds.
-        parsed = parse_reply(text, output_schema=output_schema, stop_reason=stop_reason)
+        # The schema was not honoured, so this is an ordinary reply and both of
+        # `target`'s rules apply — but not where `parse_reply` applies them, so
+        # the block is taken structurally and each rule is made here.
+        #
+        # #174 is *deferred*, not dropped: the carrier may have arrived inside a
+        # fence, and the check would refuse it as a data blob before anything
+        # looked inside. It runs below, on the file rather than on the envelope.
+        # (An earlier version bought that by passing no target at all, which
+        # also gave up the other rule — with a target, nothing is unwrapped —
+        # and silently truncated a `.json` file whose own content is an object
+        # with a `content` key to that field's value.)
+        #
+        # Whether this is an envelope at all is still the target's answer, and
+        # it is the same answer #174 gives: a JSON object bound for a file whose
+        # language the gate owns is not a file in that language, so it is opened
+        # and judged on what came out; the same object bound for a `.json` file
+        # *is* the file. With no target neither rule can run and the envelope is
+        # opened on the bytes alone, which is the one case wrong under either
+        # reading. The field is the pinned one, never `_ENVELOPE_FIELD`: a
+        # schema that spells it `file` did not ask for `content`.
+        parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
         if isinstance(parsed, ReplyError):
             return parsed
         info = parsed.info_string
-        carried = _carried_file(parsed.content, field) or parsed.content
+        carried = parsed.content
+        if target is None or _carries_no_code(carried, target):
+            carried = _carried_file(carried, field) or carried
 
     content = _as_file(carried)
     if target is not None and _carries_no_code(content, target):
