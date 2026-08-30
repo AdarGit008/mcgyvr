@@ -49,6 +49,13 @@
 >   `n > 1` it loses real work, since draw 0 can pass the gate and be thrown away
 >   because draw 1 came back truncated. The fix is a sampler that can return "no
 >   candidate", so an unusable draw scores last instead of ending the attempt.
+>   **Closed.** `sample` is `Callable[[int], str | Unusable]`. An unusable draw
+>   is not written, not gated and not ranked — a synthetic rejection would put
+>   "the gate refused this" into the record of a gate run that never happened —
+>   and it is recorded in `Consensus.unusable` in the sampler's own words, with
+>   `len()` still counting every draw that was paid for. Only a run in which
+>   every draw refused raises, as `NoUsableDrawError`, which is the single-draw
+>   behaviour unchanged.
 > * **`best_of`'s `repo` and `sandbox` are mutually exclusive and the signature
 >   does not say so**; a caller mid-attempt, the exact caller the docstring says
 >   should pass its own sandbox, must still supply a dead `repo`.
@@ -60,7 +67,19 @@
 >   `mcgyvr run` passes `None`, so every ladder acceptance is labelled
 >   `unverified` even on an install with `verifier.enabled: true` and a bound
 >   role. `verify.reviewer_for` exists and is unwired — a fourth gap of the same
->   shape as the three just closed.
+>   shape as the three just closed. **Closed**, and it contradicted its own
+>   signature the way the other three did: a `Callable[[], Review]` cannot be
+>   built by a caller standing outside the attempt, because `verify` needs the
+>   gate that has just run, the bytes it read and the model that wrote them.
+>   `worker_attempt` takes the reviewer seam itself (`reviewer: Ask | None`) and
+>   assembles the review per attempt; `mcgyvr run` passes `reviewer_for(pool)`
+>   when `verifier.enabled` — the one place that flag is read, since `source_map`
+>   binds the role whenever a source and a model are declared — and refuses
+>   before the sandbox is opened when verification is asked for and the role
+>   cannot run. The pre-change file is read off the workspace and passed with
+>   it: `build_prompt`'s fallback is `contract.target_content`, which is the
+>   orchestrator's copy and is empty on a hand-authored contract, so a review of
+>   an edit would have opened "ORIGINAL FILE: not supplied".
 > * **`mcgyvr run` never consults `delivery.mode`**, deliberately: `--commit` is
 >   a person saying commit this, in the tree they are looking at. That keeps one
 >   flag meaning one thing, and it means an operator who set

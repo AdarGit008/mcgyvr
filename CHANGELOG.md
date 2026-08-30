@@ -1373,7 +1373,38 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   healthy backend; the outage above spent five hours proving it 51 times.
   Row-level behaviour is unchanged — a failed draw is still a row, and the
   resume fills what the abort left. `--abort-after-dead-tasks 0` disables it.
-
+- **The verifier had a policy, a prompt, a parser and no caller.** `mcgyvr run`
+  passed `verifier=None`, so every ladder acceptance was labelled `unverified`
+  even on an install with `verifier.enabled: true` and a bound role, and
+  `verify.reviewer_for` — the function whose whole job is to be that argument —
+  had no caller at all. Wiring it contradicted the parameter, the fourth lever
+  of the same shape as the three the reach work closed: a `Callable[[], Review]`
+  cannot be assembled outside the attempt, because `verify` needs the gate that
+  has just run, the bytes it read and the name of the model that wrote them.
+  `worker_attempt` takes the reviewer seam itself now and builds the review per
+  attempt, so `judge` still decides whether to ask and a rejected gate still
+  costs no verifier spend. `verifier.enabled` is read in exactly one place —
+  `source_map` binds the role whenever a source and a model are declared, so the
+  flag is the operator's switch — and an install told to verify whose role
+  cannot run is refused before the sandbox is opened rather than delivering on a
+  warrant it did not get. The reviewer is shown the pre-change file too, read
+  off the workspace between the reset and the first draw: `build_prompt` falls
+  back to `contract.target_content`, which a hand-authored contract does not
+  carry, so every review of an edit would otherwise have opened "ORIGINAL FILE:
+  not supplied" — the reviewer judging a change to a file it never saw.
+- **A draw that produced nothing is not a verdict.** `consensus.best_of`'s
+  sampler was `Callable[[int], str]`, which offers a real caller two answers and
+  both are wrong: fabricate a string, which is then gated and reported as a
+  candidate the gate rejected when there was never a candidate, or raise and
+  discard the verdicts of every draw already gated. An unreadable model reply —
+  truncated, prose where a fenced block was asked for, a refusal in place of a
+  file — is the common case, so at `breadth.draws: 3` a draw that had passed the
+  gate was thrown away because the next one came back truncated. The sampler may
+  now answer `Unusable`: that draw is recorded in `Consensus.unusable` rather
+  than written, gated or ranked, `len()` still counts every draw that was paid
+  for, and only a run in which every draw refused raises — `NoUsableDrawError`,
+  which the driver turns into the failed attempt a single unreadable draw has
+  always produced.
 ### Changed
 - `src/mcgyvr/propose.py` states `MIN_QUALITY_GAIN`'s provenance where the
   constant lives: it is a rung-separation floor, #189 borrowed it as an adoption
