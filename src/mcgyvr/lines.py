@@ -46,3 +46,20 @@ def parser_lines(source: str) -> list[str]:
     if start < len(source):
         cut.append(source[start:])  # a last line nobody ended
     return cut
+
+
+def terminator(source: str) -> str:
+    """The line ending ``source`` already uses, or ``\\n`` for a file with none.
+
+    A line written *into* a file has to end the way that file's other lines end.
+    A ``\\n`` spliced into a CRLF file leaves a mixed-ending file behind, which
+    the next formatter normalises — so a change that added one import, or one
+    definition, is recorded as having rewritten every line in the file.
+
+    Here rather than beside either caller for the reason this module exists:
+    :func:`mcgyvr.repair._insert_imports` and
+    :func:`mcgyvr.worker.scoped._appended` are the same splice written twice,
+    and B4 was already the cost of two answers to "where does a line end".
+    """
+    found = LINE_END.search(source)
+    return found.group(0) if found else "\n"

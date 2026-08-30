@@ -79,7 +79,7 @@ from mcgyvr.gate.adapter import ToolUnavailableError, plain_env, require_tool
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
-from mcgyvr.lines import LINE_END, parser_lines
+from mcgyvr.lines import parser_lines, terminator
 
 #: ruff reports on 0 (clean) and 1 (diagnostics, or fixes applied with some
 #: left); anything else is ruff telling us it did not do the job. Same split
@@ -491,25 +491,13 @@ def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> No
         return
     lines = parser_lines(source)
     present = {line.strip() for line in lines}
-    ending = _terminator(source)
+    ending = terminator(source)
     fresh = [f"{line}{ending}" for line in imports if line not in present]
     if not fresh:
         return
     anchor = _import_anchor(tree)
     lines[anchor:anchor] = fresh
     _write_text(path, "".join(lines))
-
-
-def _terminator(source: str) -> str:
-    """The line ending ``source`` already uses, or ``\\n`` for a file with none.
-
-    An inserted line has to end the way the file's other lines end. A ``\\n``
-    spliced into a CRLF file leaves a mixed-ending file behind, which the next
-    formatter normalises — so a repair that added one import is recorded as
-    having rewritten every line in the file.
-    """
-    found = LINE_END.search(source)
-    return found.group(0) if found else "\n"
 
 
 def _import_anchor(tree: ast.Module) -> int:
