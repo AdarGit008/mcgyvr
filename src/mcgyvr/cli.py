@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -705,6 +706,30 @@ def _run(args: argparse.Namespace) -> int:
     is where the catalog already records which family work of this kind may
     *begin* on, and a flag that let a caller override it would be a second,
     quieter answer to the question ``starts_on`` exists to settle.
+
+    **A tool step has three outcomes here, not two.** It read any non-zero exit
+    as fatal, and ``ruff check --fix`` — which is what ``lint_fix`` binds —
+    exits **1** whenever a diagnostic remains after fixing. That is the ordinary
+    outcome, and it is the outcome ``lint_fix``'s own guarantee describes: "a
+    diagnostic the linter will not fix itself is explicitly out of scope for
+    this type". So a contract carried out exactly as the catalog promises came
+    back as ``error: <the linter's dump>``, was never gated and never committed.
+
+    The three: the program **could not run** (126/127, an environment issue —
+    the work is still doable on a dearer family); the program **ran and did the
+    job its type describes** (:attr:`~mcgyvr.drive.ToolOutcome.performed`, which
+    is where any residue it reported goes on to the gate, because the gate is
+    the thing that judges a result and stopping here means the result is never
+    judged); and the program **ran and failed** (fatal — a fixer that could not
+    load its config applied the guarantee to nothing, and the gate reading that
+    same config is broken in the same way).
+
+    The test is the exit code, against the set of codes that invocation reports
+    under, which is ADR-0034 clause 2 one layer out from the gate. Ignoring the
+    exit code entirely was the cheaper alternative and is the wrong one twice
+    over: it would carry an untouched change to a gate that cannot judge it, and
+    it would drop the linter's own account of what it will not fix, which is
+    printed here instead.
     """
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
@@ -752,11 +777,27 @@ def _run(args: argparse.Namespace) -> int:
                 if not outcome.ran:
                     print(f"error: {outcome.environment_issue}", file=sys.stderr)
                     return 1
-                if not outcome.ok:
-                    assert outcome.result is not None  # `ran` is `result is not None`
+                assert outcome.result is not None  # `ran` is `result is not None`
+                if not outcome.performed:
                     detail = (outcome.result.stderr or outcome.result.stdout).strip()
                     print(f"error: {detail}", file=sys.stderr)
                     return 1
+                if not outcome.ok:
+                    # Reported, not swallowed. The tool did what its type
+                    # guarantees and is telling us what it will not do — for
+                    # `lint_fix`, "a diagnostic the linter will not fix itself
+                    # is explicitly out of scope for this type". Printing it is
+                    # how the operator learns there is work left that no
+                    # deterministic rung is going to take, and it goes to stdout
+                    # beside the command rather than to stderr, because nothing
+                    # here failed.
+                    left = (outcome.result.stdout or outcome.result.stderr).strip()
+                    print(
+                        f"  note: {step.tool.program} applied its fixes and left "
+                        f"what it does not fix (exit {outcome.result.exit_code}); "
+                        f"the gate judges what remains:"
+                    )
+                    print(textwrap.indent(left, "    "))
             result = gate_workspace(contract, sandbox)
             return _report_run(args, contract, sandbox, repo, result)
     except DriveError as exc:
