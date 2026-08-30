@@ -505,3 +505,208 @@ def test_an_install_that_asked_for_nothing_draws_once(
     assert code == 0
     assert seen == [1], f"an unconfigured install asked for {seen} draw(s)"
     assert len(sent) == 1
+
+
+# --------------------------------------------------------------------------
+# 3 · `cleanup.tidy` has a production caller
+# --------------------------------------------------------------------------
+
+#: Right answer, wrong shape: `RETRY` is there, so the contract's acceptance
+#: command is satisfied, and every line the worker wrote is one `ruff format`
+#: would reflow. The gate files that under `findings` and rejects — the single
+#: case `cleanup` exists for, arriving as a rejection rather than as the
+#: observation its bucket name suggests.
+MESSY = "RETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
+
+#: What `ruff format` makes of it, and what the repository must end up holding.
+TIDIED = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
+
+#: Misformatted *and* wrong. The unused import is two lint findings, which no
+#: formatter answers, and they arrive in the same `findings` tuple as the
+#: format one.
+MESSY_AND_BROKEN = "import  os\n\nRETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
+
+TIDYING = (
+    LADDER
+    + """
+cleanup:
+  enabled: true
+"""
+)
+
+
+def _tidies_seen(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every target :func:`mcgyvr.cleanup.tidy` is asked to clean.
+
+    As with the breadth spy, reaching for the name in the driver's namespace is
+    itself the assertion while there is no caller.
+    """
+    import mcgyvr.drive as drive
+
+    real = drive.tidy  # type: ignore[attr-defined]
+    seen: list[str] = []
+
+    def spy(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs["target"])
+        return real(**kwargs)
+
+    monkeypatch.setattr(drive, "tidy", spy)
+    return seen
+
+
+def test_a_format_only_rejection_is_cleaned_rather_than_sent_back_to_a_model(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole economic argument for the lever, at a call site that pays it.
+
+    Without this the run costs a second dispatch — a full context and an attempt
+    off the ceiling — to insert a space. With it the formatter does the work for
+    no tokens, and the single dispatch this run makes is asserted so that a
+    cleanup which somehow reached a model would fail here rather than look like
+    a success.
+
+    The exit code is what proves the caller honoured :attr:`Cleanup.regate`
+    rather than :attr:`Cleanup.accepted`. Behind a format rejection the gate
+    stopped before its acceptance rung, so ``accepted`` is ``False`` and stays
+    ``False``; only a gate re-run over the rewritten bytes can reach 0.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, TIDYING)
+    sent = _answers(monkeypatch, _fenced(MESSY))
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+            "--commit",
+        ]
+    )
+
+    assert code == 0
+    assert len(sent) == 1, f"a model was asked {len(sent)} times about whitespace"
+    assert (repo / TARGET).read_text(encoding="utf-8") == TIDIED
+
+
+def test_the_bytes_that_were_delivered_are_the_bytes_that_were_re_gated(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What lands is the rewritten file, never the one the worker actually sent.
+
+    Split from the test above because the two fail differently and the failure
+    modes are the interesting part. A caller that re-gated and then delivered the
+    binding it was already holding would commit ``MESSY``; a caller that
+    delivered the cleaned string without re-gating would commit ``TIDIED`` under
+    a verdict about ``MESSY``. Only the first of those is visible in the
+    repository, so it is asserted there, and the second is what the exit code
+    above rules out.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, TIDYING)
+    _answers(monkeypatch, _fenced(MESSY))
+
+    main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+            "--commit",
+        ]
+    )
+
+    landed = (repo / TARGET).read_text(encoding="utf-8")
+    assert landed != MESSY, "the file the worker sent was committed unrewritten"
+    assert landed == TIDIED
+
+
+def test_enabling_the_cleanup_does_not_tidy_a_correctness_rejection(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Style is cleaned; correctness is rejected, and the knob does not blur that.
+
+    The reply is misformatted *and* carries an unused import, so the rejection is
+    not one the formatter raised and the bytes must come back untouched. A
+    cleanup that rewrote them would hand the next attempt a file the worker never
+    wrote, and every retry note about "your change" would be about somebody
+    else's.
+
+    Asserted through the repository because that is where the damage would be:
+    the run must fail and write nothing, not tidy its way to a commit. The
+    dispatch is counted alongside, because "failed and wrote nothing" is also
+    what an install that could not read its own config does, and the two must
+    not be the same passing test.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, TIDYING)
+    before = (repo / TARGET).read_bytes()
+    sent = _answers(monkeypatch, _fenced(MESSY_AND_BROKEN))
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+            "--commit",
+        ]
+    )
+
+    assert code == 1
+    assert len(sent) == 1, "the rung was never asked, so nothing was cleaned or not"
+    assert (repo / TARGET).read_bytes() == before
+
+
+def test_an_install_that_asked_for_nothing_is_not_tidied(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The knob is off, and off means the formatter is never reached.
+
+    ``tidy`` rewrites a change after the gate has spoken about it, which is a
+    rewrite of somebody's file on a verdict they cannot see. That is worth having
+    and it is not worth having by default, so an install that asked for nothing
+    gets the rejection the gate reached and no fourth party touching the bytes.
+
+    Spying rather than inferring: the format-only rejection already failed the
+    run before this lever existed, so an assertion on the exit code alone would
+    have passed against no caller at all.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path)
+    seen = _tidies_seen(monkeypatch)
+    _answers(monkeypatch, _fenced(MESSY))
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+            "--commit",
+        ]
+    )
+
+    assert code == 1
+    assert seen == [], f"an unconfigured install reformatted {seen}"
+    assert (repo / TARGET).read_text(encoding="utf-8") == BASE
