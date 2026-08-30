@@ -1188,6 +1188,40 @@ Format: [Keep a Changelog](https://keepachangelog.com).
     `role_model` now. The guard itself had three bypasses (`import mcgyvr.pool`,
     a relative import, and `.role()` needing no import at all) and reported on
     spelling; it catches all three, and a test feeds it modules that must fail.
+- **Pattern B — nothing owned the bytes** (pressure test 2026-08-29). Five
+  modules wrote file content and disagreed about where truth lives. The rule
+  they now hold: *the tree is the owner, content never travels as a value, and
+  one seam commits.*
+  - **Two deliveries, and the second applied no bar.** `tools/missions/run.py`
+    imported nothing from `deliver`: it read a `str` carried four hops from
+    `judge`, wrote it with its own `_place` and committed it with its own
+    `_commit_delivery` — no re-gate, no digest, no repository lock. It was also
+    the implementation with the mileage on it. It delivers through
+    `deliver.deliver` now, and a guard test fails a third commit site.
+  - **The channel that string travelled in is gone.** `Judgement.value`,
+    `route.Result.value`, `route.Accepted.value` and `Delivered.value`, along
+    with every `[T]` that existed only to carry them. `drive.worker_attempt`
+    mints instead of carrying: it reads the bytes back off `sandbox.workspace`
+    after the gate, because a binding minted from the caller's own string is
+    true by construction and checks nothing.
+  - **`RepairOutcome.content`** was a second copy of a tree `repair` mutates in
+    place, added for a caller that would hand it to `deliver`; that caller is
+    gone and nothing read the field. `repaired` — which paths differ from what
+    the worker left — is the claim that survives.
+  - **`Consensus` carries `Accepted` bindings, not a string.** `best_of` resets
+    the workspace after every draw including the winning one, so the winner was
+    in no tree anywhere. The reset stays — a losing draw must leak nowhere
+    (#D22) — and each draw is now bound where its verdict was reached, one line
+    after its gate and one before its reset. `Consensus.winner` is the bytes and
+    the verdict as one value; there is no `content` field to offer instead.
+  - **`Cleanup.regate`** read `cleaned and not accepted`, so the branch where a
+    rewrite went unannounced was the branch where the gate said *yes* — an
+    accepted change carried onward under a verdict reached on bytes the
+    formatter had already replaced. It is true whenever bytes were rewritten.
+  - `deliver.Accepted` is the one value allowed to carry content, and only
+    because `Accepted.read` mints it off the tree the gate judged and pairs it
+    with a digest. A guard test fails any new dataclass carrying `content`
+    beside no digest; three pre-verdict types are listed with an argument each.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable
