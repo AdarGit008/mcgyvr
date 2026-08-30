@@ -340,3 +340,164 @@ def test_a_backend_that_does_not_answer_is_reported_against_its_rung(
     assert "could not reach" in stderr, (
         f"the transport's own words were lost: {stderr!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# 2 · `consensus.best_of` has a production caller
+# --------------------------------------------------------------------------
+
+#: Three draws for one attempt. Only the last carries the name the contract's
+#: acceptance command greps for, so the gate can separate them and the ranking
+#: has something to rank.
+DRAWS = (
+    "def fetch(url):\n    return url.upper()\n",
+    "def fetch(url):\n    return url.strip()\n",
+    "RETRY = 3\n\n\ndef fetch(url):\n    return url\n",
+)
+
+BREADTH = (
+    LADDER
+    + """
+breadth:
+  draws: 3
+"""
+)
+
+
+def _breadth_seen(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Record every ``n`` :func:`mcgyvr.consensus.best_of` is asked for.
+
+    A spy over the real function rather than a stand-in for it: what is being
+    asserted is that the driver goes through this lever and with which breadth,
+    and a fake that returned a :class:`~mcgyvr.consensus.Consensus` of its own
+    would assert only that the driver can read one.
+
+    Reaching for ``drive.best_of`` is itself the assertion when there is no
+    caller: the name is not there to patch.
+    """
+    import mcgyvr.drive as drive
+
+    real = drive.best_of
+    seen: list[int] = []
+
+    def spy(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs.get("n", 1))
+        return real(**kwargs)
+
+    monkeypatch.setattr(drive, "best_of", spy)
+    return seen
+
+
+def test_breadth_is_asked_for_in_the_config_and_the_gate_picks_the_winner(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three draws for one attempt, ranked by what the gate found, and one delivered.
+
+    ADR-0008's measurement — "given that a gate-passing candidate exists among N,
+    at what index does it first appear?" — needs a run that actually draws N. The
+    two draws that miss the contract's acceptance command are gated and beaten;
+    the third is what lands in the repository.
+
+    The committed bytes are asserted exactly, because the invariant that makes
+    breadth safe is that no rejected draw survives its own workspace reset: a
+    delivery carrying any of the first two would be committing a candidate that
+    lost.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, BREADTH)
+    sent = _answers(monkeypatch, *(_fenced(draw) for draw in DRAWS))
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+            "--commit",
+        ]
+    )
+
+    assert code == 0
+    assert len(sent) == 3, f"the rung was asked {len(sent)} time(s), not three"
+    assert (repo / TARGET).read_text(encoding="utf-8") == DRAWS[2]
+
+
+def test_breadth_is_draws_within_one_attempt_and_not_more_attempts(
+    repo: Path,
+    contract: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Three dispatches, one attempt — the distinction the whole lever rests on.
+
+    Breadth and retry both spend a dispatch and are otherwise nothing alike. A
+    retry is a second attempt with the last one's findings in the prompt, counted
+    against ``budgets.max_attempts`` and capable of escalating; a draw is the
+    same prompt asked again, inside one attempt, with the gate choosing between
+    the answers. An implementation that reached breadth by looping the *attempt*
+    would satisfy the test above and would have quietly raised the ceiling every
+    budget in the config is written against.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, BREADTH)
+    _answers(monkeypatch, *(_fenced(draw) for draw in DRAWS))
+
+    main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    stdout = capsys.readouterr().out
+    assert "after 1 attempt(s)" in stdout, (
+        f"three draws were counted as more than one attempt: {stdout!r}"
+    )
+
+
+def test_an_install_that_asked_for_nothing_draws_once(
+    repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default is one draw, and it is reached through the same lever.
+
+    ADR-0008's rule is unchanged for an install that configured nothing: one
+    draw, one verdict, and the draw is the answer. What this pins is that the
+    default is ``n = 1`` *through* :func:`~mcgyvr.consensus.best_of` rather than
+    a second, quieter code path beside it — a lever with a branch that skips it
+    on the default setting is a lever the ordinary install never proves.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path)
+    seen = _breadth_seen(monkeypatch)
+    sent = _answers(monkeypatch, _fenced(DRAWS[2]))
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 0
+    assert seen == [1], f"an unconfigured install asked for {seen} draw(s)"
+    assert len(sent) == 1
