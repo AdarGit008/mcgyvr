@@ -840,10 +840,11 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     """
     from mcgyvr.drive import DriveError, worker_attempt
     from mcgyvr.escalate import ascent, escalate
-    from mcgyvr.pool import source_map
+    from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.runner import RunnerError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.verify import reviewer_for
 
     path = Path(args.config) if args.config else resolve_config_path()
     try:
@@ -867,6 +868,24 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
             f"error: {contract.id} is a {contract.task_type!r} contract and "
             f"starts on the {route.floor.name!r} family; nothing in {config.path} "
             f"can run it. {route.reason}",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Before the sandbox, for the reason the paragraph above gives: an install
+    # that was told to verify and cannot is refused while refusing is still
+    # free. `verifier.enabled` is read here and nowhere else — `source_map`
+    # binds the role whenever a source and a model are declared, so the flag is
+    # the operator's switch and this is the caller that acts on it. `None` is
+    # not a downgrade there: it is `verifier.enabled: false`, which asks for
+    # acceptance on the deterministic gate alone.
+    try:
+        reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
+    except SourceUnavailableError as exc:
+        print(
+            f"error: verification is enabled and the verifier role cannot run: "
+            f"{exc}. Bind it to a usable source, or set "
+            f"`verifier.enabled: false` to accept on the deterministic gate.",
             file=sys.stderr,
         )
         return 1
@@ -897,7 +916,7 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
-            driver = worker_attempt(config, pool, contract, sandbox)
+            driver = worker_attempt(config, pool, contract, sandbox, reviewer=reviewer)
 
             def attempt(this: Try) -> Judgement:
                 in_flight.append(this.rung.name)

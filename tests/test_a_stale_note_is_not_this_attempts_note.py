@@ -56,7 +56,6 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.escalate import Review
 from mcgyvr.pool import Rung, source_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
@@ -85,6 +84,10 @@ ladder:
     - name: local_qwen-7b
       source: workstation
       model: qwen2.5-coder:7b
+verifier:
+  enabled: true
+  source: workstation
+  model: qwen2.5-coder:14b
 """
 
 CONTRACT = """
@@ -242,12 +245,19 @@ def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
     the gate has since stopped reporting.
     """
 
-    def unusable() -> Review:
-        return Review.unusable("the reviewer returned an empty body")
+    def unusable(prompt: str) -> str:
+        """A reply that names no outcome, which `verify` reads as no verdict.
+
+        The reviewer seam rather than a finished ``Review``: ``worker_attempt``
+        takes an ``Ask`` now, so what is stubbed here is the one thing a test
+        cannot have — the model — and everything between it and the judgement
+        is the code under test.
+        """
+        return "The change looks broadly reasonable to me."
 
     sent = _driven(monkeypatch, REJECTED, ACCEPTED, ACCEPTED)
 
-    first, second, _third = _attempts(repo, 3, verifier=unusable)
+    first, second, _third = _attempts(repo, 3, reviewer=unusable)
 
     assert first.retry is not None, "the premise did not hold: the gate accepted"
     assert second.reviewer_failed, (

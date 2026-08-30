@@ -710,3 +710,330 @@ def test_an_install_that_asked_for_nothing_is_not_tidied(
     assert code == 1
     assert seen == [], f"an unconfigured install reformatted {seen}"
     assert (repo / TARGET).read_text(encoding="utf-8") == BASE
+
+
+# --------------------------------------------------------------------------
+# 4 · `reviewer_for` is reachable from `mcgyvr run`
+# --------------------------------------------------------------------------
+#
+# The fourth lever of the same shape as the three above, found by wiring them:
+# `worker_attempt` took a `verifier` and `mcgyvr run` passed `None`, so every
+# ladder acceptance was labelled `unverified` even on an install with
+# `verifier.enabled: true` and a bound role — and `verify.reviewer_for`, which
+# exists to be that argument, had no caller at all.
+#
+# Wiring it contradicted the signature the same way wiring `best_of` did. A
+# `Callable[[], Review]` cannot be built by a caller standing outside the
+# attempt: `verify` needs the gate that just ran, the bytes it read and the
+# model that wrote them, and none of those exist yet where the old parameter
+# had to be supplied. What crosses the seam is the reviewer itself.
+
+VERIFYING = (
+    LADDER
+    + """
+verifier:
+  enabled: true
+  source: workstation
+  model: qwen2.5-coder:14b
+"""
+)
+
+#: The same install with the rung allowed a second attempt, so a refusal has
+#: somewhere to go. The default of 1 is escalate-rather-than-retry, and what is
+#: being asserted below is what the *next attempt on this rung* is told.
+VERIFYING_TWICE = VERIFYING.replace(
+    "      model: qwen2.5-coder:7b\n",
+    "      model: qwen2.5-coder:7b\n      attempts: 2\n",
+)
+
+#: Verification asked for and bound to a source that cannot authenticate. The
+#: ladder is untouched — the rung still runs — so the only thing wrong with this
+#: install is the verifier, which is what makes the refusal legible.
+VERIFIER_UNUSABLE = """
+version: 1
+sources:
+  workstation:
+    base_url: http://localhost:11434
+    api: ollama
+    max_parallel: 2
+  hosted:
+    base_url: https://api.example.invalid
+    api: openai
+    max_parallel: 1
+    api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
+ladder:
+  tiers:
+    - name: local_qwen-7b
+      source: workstation
+      model: qwen2.5-coder:7b
+verifier:
+  enabled: true
+  source: hosted
+  model: big-model
+"""
+
+
+def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
+    """Answer each *reviewer* dispatch from a script; return the prompts sent.
+
+    Patched at :func:`mcgyvr.verify.dispatch_role`, one seam below
+    :func:`~mcgyvr.verify.reviewer_for`, so the role lookup, the independence
+    check and the verdict parser all run for real. An empty script is the
+    assertion that no reviewer was asked, and it fails loudly rather than
+    returning a default: a verifier that was asked when it should not have been
+    is spend, and spend is the thing the ordering in ``judge`` exists to prevent.
+    """
+    import mcgyvr.verify as verify
+
+    asked: list[str] = []
+    scripted = list(replies)
+
+    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+        asked.append(request.prompt)
+        if not scripted:
+            raise AssertionError(f"an unscripted dispatch was made to {role!r}")
+        return _completion(scripted.pop(0))
+
+    monkeypatch.setattr(verify, "dispatch_role", fake_dispatch_role)
+    return asked
+
+
+def test_a_bound_verifier_is_asked_and_the_acceptance_is_labelled_verified(
+    repo: Path,
+    contract: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The label an operator reads is the difference this lever makes.
+
+    ``unverified`` and ``verified`` are the same delivery with different
+    warrants, and before this the second was unreachable from the command line
+    however the install was configured. The reviewer's prompt is asserted too,
+    because a review of the wrong bytes would print the same word: what it has
+    to carry is the change as applied, not the reply the worker sent.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, VERIFYING)
+    written = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
+    _answers(monkeypatch, _fenced(written))
+    reviewed = _reviews(monkeypatch, "APPROVE — the retry budget is stated and named.")
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "(verified)" in out, (
+        f"the acceptance was not labelled verified on an install with a bound "
+        f"verifier, so `reviewer_for` was still not reached.\noutput: {out}"
+    )
+    assert len(reviewed) == 1, f"the reviewer was asked {len(reviewed)} time(s)"
+    assert written in reviewed[0], (
+        f"the reviewer was not shown the change as applied.\nprompt: {reviewed[0]}"
+    )
+    assert f"ORIGINAL FILE before the change ({TARGET})" in reviewed[0], (
+        f"the reviewer was told the original was not supplied, on an edit to a "
+        f"file that is committed in the repository.\nprompt: {reviewed[0]}"
+    )
+    assert BASE in reviewed[0], (
+        f"the original block did not carry the file the change replaced.\n"
+        f"prompt: {reviewed[0]}"
+    )
+
+
+def test_a_reviewer_that_refuses_costs_the_attempt_and_tells_the_next_one_why(
+    repo: Path,
+    contract: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A gate that passed and a reviewer that did not is a failed attempt.
+
+    The half that matters beyond the verdict is the note: ``judge`` builds the
+    retry note out of the reviewer's own words, and this is the first run in
+    which a worker can be told them. Attempt 2's prompt has to carry the
+    remediation, and the acceptance that follows has to be verified — a second
+    attempt accepted as ``unverified`` would mean the reviewer refused and was
+    then never asked again.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, VERIFYING_TWICE)
+    first = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
+    second = "RETRY = 3\n\n\ndef fetch(url, retries=RETRY):\n    return url\n"
+    sent = _answers(monkeypatch, _fenced(first), _fenced(second))
+    reviewed = _reviews(
+        monkeypatch,
+        "REMEDIATE: RETRY is declared and never used by fetch.",
+        "APPROVE_WITH_NOTES: the budget is now applied at the call site.",
+    )
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 0
+    assert len(sent) == 2, f"the rung was asked {len(sent)} time(s), not two"
+    assert len(reviewed) == 2, f"the reviewer was asked {len(reviewed)} time(s)"
+    assert "RETRY is declared and never used" in sent[1], (
+        f"attempt 2 was not told what the reviewer refused over, so the refusal "
+        f"cost an attempt and bought nothing.\nprompt: {sent[1]}"
+    )
+    assert "(verified)" in capsys.readouterr().out
+
+
+def test_an_install_that_did_not_enable_verification_asks_no_reviewer(
+    repo: Path,
+    contract: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The keyless install is unchanged, and that is the control on the other two.
+
+    ``verifier.enabled`` defaults to false and this ladder never mentions it, so
+    the acceptance is labelled ``unverified`` and nothing is dispatched to a
+    role. Without this, "the verifier is wired" and "the verifier is always
+    asked" would look the same from outside.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path)
+    _answers(monkeypatch, _fenced("RETRY = 3\n\n\ndef fetch(url):\n    return url\n"))
+    reviewed = _reviews(monkeypatch)
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 0
+    assert reviewed == [], "a role was dispatched to on an install with no verifier"
+    assert "(unverified)" in capsys.readouterr().out
+
+
+def test_verification_asked_for_and_unusable_is_refused_before_the_sandbox(
+    repo: Path,
+    contract: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An install told to verify that cannot is stopped, not quietly downgraded.
+
+    ``source_map`` reports a role declared on an unusable source by raising when
+    it is asked, which is the distinction that matters here: "no verifier" is an
+    ordinary install and "the verifier is misconfigured" is a task that would
+    deliver work on a warrant the operator asked for and did not get. It is
+    refused before the sandbox is opened, where refusing still costs nothing.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, VERIFIER_UNUSABLE)
+    _answers(monkeypatch)
+    _reviews(monkeypatch)
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "verifier.enabled: false" in err, (
+        f"the refusal did not name the way out of it.\nstderr: {err}"
+    )
+
+
+#: A target that is not in the repository, so the change creates it. The other
+#: half of the original block: `""` and `None` are different absences, and only
+#: one of them is "there is nothing to show".
+NEW_FILE = "src/pkg/backoff.py"
+
+NEW_FILE_CONTRACT = f"""
+id: backoff
+task_type: function_implementation
+task: Add a backoff helper in its own module.
+target: {NEW_FILE}
+stop_conditions: ["The backoff curve is not stated."]
+acceptance: ["sh -c 'grep -q backoff {NEW_FILE}'"]
+scope:
+  allow: ["src/**"]
+"""
+
+
+def test_a_change_that_creates_a_file_says_so_rather_than_saying_nothing(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An absent original is stated as an absence with a reason.
+
+    ``_original_block`` already distinguishes the two: ``""`` is a change that
+    creates a file and ``None`` is a caller that supplied nothing. Reading the
+    workspace is what makes the first one reachable — before this, every run
+    took the second branch, and a reviewer judging a new module was told the
+    original "was not supplied" as though something had been withheld.
+    """
+    from mcgyvr.cli import main
+
+    config = _config(tmp_path, VERIFYING)
+    contract = tmp_path / "backoff.yaml"
+    contract.write_text(NEW_FILE_CONTRACT, encoding="utf-8")
+    _answers(monkeypatch, _fenced("def backoff(attempt):\n    return 2**attempt\n"))
+    reviewed = _reviews(monkeypatch, "APPROVE the module is new and self-contained.")
+
+    code = main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 0
+    assert "ORIGINAL FILE: none — the change creates a new file." in reviewed[0], (
+        f"a created file was reported as an original nobody supplied.\n"
+        f"prompt: {reviewed[0]}"
+    )
