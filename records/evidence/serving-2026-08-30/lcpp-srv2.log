@@ -1,0 +1,26 @@
+journal: records/evidence/serving-2026-08-30/lcpp-srv2.jsonl
+[srv2] snapshot
+[srv2] d3b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] d3b-lcpp-srv2 — concurrency ramp
+[srv2] d4b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] d4b-lcpp-srv2 — concurrency ramp
+[srv2] d7b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] d7b-lcpp-srv2 — concurrency ramp
+[srv2] docr7b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] docr7b-lcpp-srv2 — concurrency ramp
+[srv2] d8b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] d8b-lcpp-srv2 — concurrency ramp
+[srv2] d14b-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] d14b-lcpp-srv2 — concurrency ramp
+[srv2] m_dsv2-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_dsv2-lcpp-srv2 — concurrency ramp
+[srv2] m_oss20-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_oss20-lcpp-srv2 — concurrency ramp
+[srv2] m_qc30-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_qc30-lcpp-srv2 — concurrency ramp
+[srv2] m_q36iq3-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_q36iq3-lcpp-srv2 — concurrency ramp
+[srv2] m_qc30q4-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_qc30q4-lcpp-srv2 — concurrency ramp
+[srv2] m_kat-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_kat-lcpp-srv2 — concurrency ramp
