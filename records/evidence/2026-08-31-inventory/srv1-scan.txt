@@ -1,0 +1,142 @@
+########## srv1 — 2026-08-31T06:27:24Z ##########
+=== CPU ===
+CPU(s):                                  6
+Model name:                              Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz
+Thread(s) per core:                      1
+Core(s) per socket:                      6
+Socket(s):                               1
+CPU(s) scaling MHz:                      69%
+CPU max MHz:                             4800.0000
+=== RAM total ===
+               total        used        free      shared  buff/cache   available
+Mem:              15           0          12           0           1          14
+Swap:              7           0           7
+=== DIMMs ===
+	Error Correction Type: None
+	Locator: ChannelA-DIMM0
+	Bank Locator: BANK 0
+	Type: Unknown
+	Size: 8 GB
+	Locator: ChannelA-DIMM1
+	Bank Locator: BANK 1
+	Type: DDR4
+	Speed: 3600 MT/s
+	Manufacturer: 029E
+	Part Number: CMK16GX4M2Z3600C18  
+	Configured Memory Speed: 3600 MT/s
+	Locator: ChannelB-DIMM0
+	Bank Locator: BANK 2
+	Type: Unknown
+	Size: 8 GB
+	Locator: ChannelB-DIMM1
+	Bank Locator: BANK 3
+	Type: DDR4
+	Speed: 3600 MT/s
+	Manufacturer: 029E
+	Part Number: CMK16GX4M2Z3600C18  
+	Configured Memory Speed: 3600 MT/s
+=== swap ===
+NAME      TYPE SIZE USED PRIO
+/swap.img file   8G   0B   -1
+=== GPU ===
+name, memory.total [MiB], memory.used [MiB], memory.reserved [MiB], memory.free [MiB], driver_version, compute_cap
+NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 1 MiB, 399 MiB, 5745 MiB, 580.173.02, 7.5
+=== GPU compute apps ===
+pid, used_gpu_memory [MiB], process_name
+=== disk ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  196G   83G  103G  45% /
+/dev/nvme0n1p3  718G  377G  305G  56% /home
+=== MODELS TREE ===
+--- /home/adaramir/models
+303G	/home/adaramir/models
+7947142640  /home/adaramir/models/dense/nemotron-4b-bf16/model.safetensors
+3982036144  /home/adaramir/models/dense/nemotron-4b-fp8/model-00001-of-00002.safetensors
+1285019664  /home/adaramir/models/dense/nemotron-4b-fp8/model-00002-of-00002.safetensors
+4683074464  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_M.gguf
+4457769888  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_S.gguf
+8988111072  /home/adaramir/models/dense/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+ 986048800  /home/adaramir/models/dense/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf
+19851336672  /home/adaramir/models/dense/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf
+1929903360  /home/adaramir/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+4218473248  /home/adaramir/models/dense/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf
+2497281312  /home/adaramir/models/dense/Qwen3-4B-Q4_K_M.gguf
+5027784512  /home/adaramir/models/dense/Qwen3-8B-Q4_K_M.gguf
+3233023264  /home/adaramir/models/moe/4b-Q4_K_M.gguf
+8905109984  /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf
+11416548832  /home/adaramir/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf
+13793422144  /home/adaramir/models/moe/gpt-oss-20b.gguf
+12109566624  /home/adaramir/models/moe/gpt-oss-20b-MXFP4.gguf
+18134220160  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP.gguf
+21166758464  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev.Q4_K_M.gguf
+4917354688  /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf
+4996910688  /home/adaramir/models/moe/nemotron-30b-awq/model-00001-of-00004.safetensors
+4998055856  /home/adaramir/models/moe/nemotron-30b-awq/model-00002-of-00004.safetensors
+4998123680  /home/adaramir/models/moe/nemotron-30b-awq/model-00003-of-00004.safetensors
+2848914848  /home/adaramir/models/moe/nemotron-30b-awq/model-00004-of-00004.safetensors
+18744024640  /home/adaramir/models/moe/North-Mini-Code-1.0-Q4_K_M.gguf
+18010755296  /home/adaramir/models/moe/nvidia_Nemotron-3-Nano-30B-A3B-IQ2_XXS.gguf
+18134220000  /home/adaramir/models/moe/Ornith-1.0-35B_Q3_K_M.gguf
+11522702304  /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ2_M.gguf
+13211155424  /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf
+12848766112  /home/adaramir/models/moe/Qwen3-Coder-30B-A3B-Instruct-UD-IQ3_XXS.gguf
+18556688736  /home/adaramir/models/moe/qwen3-coder-30b.gguf
+36282685440  /home/adaramir/models/moe/Qwen3-Coder-Next-UD-Q3_K_XL.gguf
+--- /usr/share/ollama/.ollama/models
+12G	/usr/share/ollama/.ollama/models
+--- /home/adaramir/.ollama/models
+12K	/home/adaramir/.ollama/models
+=== ollama list ===
+NAME                  ID              SIZE      MODIFIED    
+nemotron-3-nano:4b    6cc467f05439    2.8 GB    3 weeks ago    
+qwen2.5-coder:7b      dae161e27b0e    4.7 GB    5 weeks ago    
+qwen2.5-coder:3b      f72c60cabf62    1.9 GB    5 weeks ago    
+qwen2.5-coder:1.5b    d7372fd82851    986 MB    5 weeks ago    
+llama3.2:3b           a80c4f17acd5    2.0 GB    5 weeks ago    
+=== HF cache ===
+45G	/home/adaramir/.cache/huggingface/hub
+CACHEDIR.TAG
+models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ
+models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ
+models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ
+models--bartowski--Ling-3.0-tiny-GGUF
+models--ggml-org--gpt-oss-20b-GGUF
+models--nvidia--NVIDIA-Nemotron-3-Nano-4B-FP8
+models--thewimo--Qwen3-4B-AWQ
+models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF
+models--unsloth--Qwen3.6-35B-A3B-GGUF
+models--unsloth--gemma-4-26B-A4B-it-GGUF
+models--unsloth--gpt-oss-20b-GGUF
+45G	/home/adaramir/.cache/huggingface/hub
+CACHEDIR.TAG
+models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ
+models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ
+models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ
+models--bartowski--Ling-3.0-tiny-GGUF
+models--ggml-org--gpt-oss-20b-GGUF
+models--nvidia--NVIDIA-Nemotron-3-Nano-4B-FP8
+models--thewimo--Qwen3-4B-AWQ
+models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF
+models--unsloth--Qwen3.6-35B-A3B-GGUF
+models--unsloth--gemma-4-26B-A4B-it-GGUF
+models--unsloth--gpt-oss-20b-GGUF
+=== ENGINES ===
+vllm: 0.26.0
+docker images: ghcr.io/ggml-org/llama.cpp:server-cuda 6.98GB
+ghcr.io/ggml-org/llama.cpp:server-cuda-b10481 6.98GB
+vllm/vllm-openai:latest 28.1GB
+vllm/vllm-openai:v0.26.0 28.1GB
+llama-server: bash: line 29: llama-server: command not found
+=== SERVICES ===
+  docker.service              loaded active running Docker Application Container Engine
+  ollama.service              loaded active running Ollama Service
+ollama: enabled=enabled
+ active=active
+llama-moe: enabled=disabled
+n/a active=inactive
+n/a
+cpu-turbo: enabled=not-found
+n/a active=inactive
+n/a
+=== UPTIME ===
+ 06:27:31 up 37 min,  1 user,  load average: 0.08, 0.02, 0.01

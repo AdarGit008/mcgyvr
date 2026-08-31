@@ -53,3 +53,15 @@ resuming: 6 entries already measured
 [srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
 [srv1] m_gemma4-lcpp-srv1 — concurrency ramp
 [srv1] m_q36iq2-lcpp-srv1 (llamacpp) — yielding the card
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+resuming: 5 entries already measured
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d4b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] docr7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_ling-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_dsv2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_dsv2-lcpp-srv1 — concurrency ramp
+[srv1] m_dsv2-lcpp-srv1 — ramp_failed: [2, 4, 8] measured nothing
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
