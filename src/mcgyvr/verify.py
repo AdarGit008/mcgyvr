@@ -336,7 +336,7 @@ def build_prompt(
     orchestrator already had is a cost paid for nothing.
     """
     view = contract.worker_view()
-    pre = original if original is not None else (view["target_content"] or None)
+    pre = original if original is not None else view["target_content"]
     outcomes = " | ".join(outcome.value for outcome in Outcome)
     return "\n\n".join(
         [
@@ -540,15 +540,18 @@ def verify(
     prompt = build_prompt(contract, gate=gate, change=change, original=original)
     try:
         reply = ask(prompt)
+        verdict = read_verdict(reply)
     except Exception as exc:
         # Deliberately everything the seam can raise: a transport error, a
-        # backend that answered rubbish, a quality caveat. They differ in how
-        # they are fixed and not in what they mean here, which is that the
-        # reviewer produced no verdict — a reviewer-side failure, never the
-        # builder's, and `judge` records it as exactly that.
+        # backend that answered rubbish, a quality caveat, a reply that is not
+        # even text. They differ in how they are fixed and not in what they
+        # mean here, which is that the reviewer produced no verdict — a
+        # reviewer-side failure, never the builder's, and `judge` records it as
+        # exactly that. The read sits inside the same protection as the ask, so
+        # a reply that cannot be read is the same category as a reply that
+        # never arrived.
         return Review.unusable(f"the reviewer {reviewer!r} could not be asked: {exc}")
 
-    verdict = read_verdict(reply)
     if verdict is None:
         opening = next((line for line in reply.splitlines() if line.strip()), "")
         return Review.unusable(
