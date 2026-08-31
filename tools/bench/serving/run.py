@@ -189,6 +189,75 @@ SURVEY_ROW_DISPOSITION: dict[str, tuple[str, ...]] = {
 }
 
 
+def barren_levels(measured: dict[str, Any]) -> list[dict[str, Any]]:
+    """The levels of a ramp at which no request succeeded.
+
+    ``contract.ramp`` records per-request failures as ``errors`` and returns
+    normally, so a level at which everything failed is indistinguishable, to the
+    caller, from one that was merely slow -- unless it is asked. This asks.
+    """
+    # Only mappings are judged. A ramp stub may carry a bare level -- an `n`
+    # with no row behind it -- and a level this cannot read is not a level this
+    # can call barren; claiming otherwise would refuse cells over the shape of
+    # their record rather than over what they measured.
+    return [
+        level
+        for level in (measured.get("levels") or [])
+        if isinstance(level, dict) and not level.get("ok")
+    ]
+
+
+def barren_downgrades_the_outcome(
+    row: dict[str, Any], measured: dict[str, Any], host: str, label: str
+) -> None:
+    """**A level that measured nothing is not a slow level.**
+
+    A ramp in which whole levels produced no successful request raises nothing,
+    so the row would keep the ``ok`` it was built with. Measured on srv1
+    2026-08-30: the host lost power 137 s into ``m_dsv2-lcpp-srv1``'s n=2 level;
+    n=2 timed out and n=4 and n=8 failed at connection level against a machine
+    that was off. The cell was recorded ``ok`` with one valid point out of four,
+    and ``--retry-failed`` -- which keys on this very field -- skipped it as
+    good.
+
+    ``saturation_n`` already refused that cell ("only level n=1 survived"), so
+    the condition was computed and then not allowed to reach the outcome. It
+    reaches it here.
+    """
+    barren = barren_levels(measured)
+    if not barren:
+        return
+    row["outcome"] = "ramp_failed"
+    row["refusal"] = {
+        "reasons": ["level_measured_nothing"],
+        "stage": "ramp",
+        "kind": "BarrenLevel",
+        "prose": (
+            f"{label} on {host}: "
+            + ", ".join(
+                f"n={lv.get('n')} completed {lv.get('ok')} of "
+                f"{(lv.get('ok') or 0) + (lv.get('errors') or 0)} requests"
+                + (
+                    f" ({', '.join(lv.get('error_kinds') or [])})"
+                    if lv.get("error_kinds")
+                    else ""
+                )
+                for lv in barren
+            )
+            + ". A level with no successful request states no rate, so this "
+            "cell has no curve at the levels it was asked for. Recorded as "
+            "`ramp_failed` rather than `ok` so that `--retry-failed` "
+            "re-measures it and no ladder reads a partial curve as a "
+            "measurement."
+        ),
+    }
+    print(
+        f"[{host}] {label} — ramp_failed: "
+        f"{[lv.get('n') for lv in barren]} measured nothing",
+        flush=True,
+    )
+
+
 def run(
     config: dict[str, Any],
     journal: Path | None = None,
@@ -522,6 +591,7 @@ def run(
                         None if expected is None else saturated.get("n") == expected
                     )
                     row["concurrency"] = measured
+                    barren_downgrades_the_outcome(row, measured, host, label)
                     if measured["matches_expected"] is False:
                         print(
                             f"[{host}] {label} — saturation_n "
