@@ -188,7 +188,10 @@ def _carries_no_code(body: str, target: str) -> bool:
     # excluded: a module whose whole body is a docstring is a real file.
     try:
         blob = json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError is what a deeply nested document raises, and it is
+        # not a ValueError — a hostile reply can otherwise escape a reader
+        # whose whole job is to refuse by name rather than raise.
         blob = None
     if isinstance(blob, dict | list):
         return True
@@ -215,7 +218,7 @@ def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
         return None
     try:
         carrier = json.loads(stripped)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(carrier, dict):
         return None
