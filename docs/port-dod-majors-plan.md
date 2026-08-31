@@ -77,3 +77,6 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
   - `7c65c8b3` B2 + B7/X8 + B12 + X2 in `deliver.py` — detached/rebase refusal, created-dir undo, symlink refusal, glob-target refusal.
   - `a13a5c35` F5 + F6 in `worker/scoped.py` — CRLF fragment re-termination, whole-file re-emit refusal.
   - Full gate clean: `2374 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
+- 2026-08-31 — **Phase 2 complete** (5 findings, 1 commit):
+  - `ecb439ea` A1 + A3 + A2 + A4 + A5 in `telemetry.py` — torn-line/stump repair and counted writes, per-line decode, position-ordered fold, shared-id rows kept, required correction author.
+  - Full gate clean: `2381 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
