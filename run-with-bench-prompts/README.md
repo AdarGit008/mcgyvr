@@ -66,6 +66,22 @@ comparison is void.**
   with the reason printed, rather than silently truncating the tail. This doubles KV
   per sequence, which moves the memory axis the sweep measures.
 
+## Pinned images
+
+Both images are pinned and printed on every `CONFIG` row as `img=`, so a result
+file says which binary produced it:
+
+| engine | pin | override |
+|---|---|---|
+| vLLM | `vllm/vllm-openai:v0.26.0` | `VLLM_IMG=` |
+| llama.cpp | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10644` | `LCP_IMG=` |
+
+`lcpsweep28.py` used the floating `:server-cuda` tag, so two runs a month apart
+could not be compared — the binary could differ with nothing in the record to say
+so. b10644 is the build the 2026-08-28 setup-selection sweep actually ran
+(`drivers/run-srv1.sh`, `run-srv2.sh`), which is the sweep this supersedes.
+Override by environment, never by editing the line.
+
 ## Calibration
 
 `TOK_PER_FIELD = 32` is an estimate. Run one cell at `n=1`, read `warm_ptok=`, and

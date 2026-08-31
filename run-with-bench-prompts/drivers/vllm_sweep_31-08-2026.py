@@ -1,4 +1,4 @@
-import json, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
+import json, os, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
 
 # sweep-2026-08-31 vLLM driver.  Supersedes vllmsweep28.py.
 # args: tag model_ref cells...   cell = util:maxlen:seqs:kvdtype:levels
@@ -28,7 +28,8 @@ import json, subprocess, sys, time, urllib.request, threading, socket, re, rando
 # ---------------------------------------------------------------------------
 TAG, MODEL = sys.argv[1], sys.argv[2]
 CELLS = sys.argv[3:]
-IMG = "vllm/vllm-openai:v0.26.0"
+# Pinned. Override deliberately with VLLM_IMG=..., never by editing this line.
+IMG = os.environ.get("VLLM_IMG", "vllm/vllm-openai:v0.26.0")
 PORT, H = 8095, socket.gethostname()
 
 PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]   # p10..p90
@@ -138,7 +139,8 @@ for cell in CELLS:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
         sh("docker rm -f vsweep")
         continue
-    print(f"{H}\t{lab}\tCONFIG\tvram={vram}\twarm_ptok={warm[0][2]}", flush=True)
+    print(f"{H}\t{lab}\tCONFIG\timg={IMG}\tvram={vram}\twarm_ptok={warm[0][2]}",
+          flush=True)
     for n in levels:
         out = [None] * n
         th = [threading.Thread(target=post, args=(out, i)) for i in range(n)]

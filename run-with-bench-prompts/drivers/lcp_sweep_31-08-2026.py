@@ -1,4 +1,4 @@
-import json, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
+import json, os, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
 
 # sweep-2026-08-31 llama.cpp driver.  Supersedes lcpsweep28.py.
 # args: model_path mount_dir tag cells...   cell = np:ctx_slot:ncpumoe:levels
@@ -24,7 +24,10 @@ MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
 
 MODEL, MDIR, TAG = sys.argv[1], sys.argv[2], sys.argv[3]
 CELLS = sys.argv[4:]
-IMG = "ghcr.io/ggml-org/llama.cpp:server-cuda"
+# Pinned to the build the 2026-08-28 setup-selection sweep ran (run-srv1.sh /
+# run-srv2.sh). lcpsweep28.py used the floating :server-cuda tag, so two runs a
+# month apart could not be compared. Override with LCP_IMG=..., never by edit.
+IMG = os.environ.get("LCP_IMG", "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644")
 PORT, H = 8094, socket.gethostname()
 
 UID = itertools.count()
@@ -124,7 +127,8 @@ for cell in CELLS:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
         sh("docker rm -f lcps")
         continue
-    print(f"{H}\t{lab}\tCONFIG\treal_ctx_slot={real_slot.group(1) if real_slot else '?'}"
+    print(f"{H}\t{lab}\tCONFIG\timg={IMG}"
+          f"\treal_ctx_slot={real_slot.group(1) if real_slot else '?'}"
           f"\tvram={vram}\twarm_ptok={warm[0][2]}", flush=True)
     for n in levels:
         out = [None] * n
