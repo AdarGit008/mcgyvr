@@ -1,4 +1,13 @@
-import json, os, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
+import itertools
+import json
+import os
+import random
+import socket
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
 
 # sweep-2026-08-31 vLLM driver.  Supersedes vllmsweep28.py.
 # args: tag model_ref cells...   cell = util:maxlen:seqs:kvdtype:levels
@@ -118,16 +127,18 @@ for cell in CELLS:
               flush=True)
         sh("docker rm -f vsweep")
         continue
+    probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
     ok = False
     for _ in range(450):
-        if sh(f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y") == "Y":
+        if sh(probe) == "Y":
             ok = True
             break
         if "vsweep" not in sh("docker ps --format '{{.Names}}'"):
             break
         time.sleep(2)
     if not ok:
-        why = sh("docker logs vsweep 2>&1 | grep -iE 'error|not supported|memory|architect' | tail -2")
+        why = sh("docker logs vsweep 2>&1 | "
+                 "grep -iE 'error|not supported|memory|architect' | tail -2")
         why = " | ".join(why.splitlines())[:400]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f vsweep")
@@ -160,6 +171,7 @@ for cell in CELLS:
         lat = sorted(o[1] for o in out)
         print(f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
               f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
-              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}\twall={wall:.1f}", flush=True)
+              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
+              f"\twall={wall:.1f}", flush=True)
     sh("docker rm -f vsweep")
     time.sleep(2)

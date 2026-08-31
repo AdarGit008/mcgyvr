@@ -1,4 +1,14 @@
-import json, os, subprocess, sys, time, urllib.request, threading, socket, re, random, itertools
+import itertools
+import json
+import os
+import random
+import re
+import socket
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
 
 # sweep-2026-08-31 llama.cpp driver.  Supersedes lcpsweep28.py.
 # args: model_path mount_dir tag cells...   cell = np:ctx_slot:ncpumoe:levels
@@ -102,19 +112,22 @@ for cell in CELLS:
         continue
     sh("docker rm -f lcps")
     extra = f"--n-cpu-moe {ncm}" if ncm != "0" else ""
-    sh(f'docker run -d --name lcps --gpus all -v {MDIR}:/models:ro -p {PORT}:8080 {IMG} '
+    sh(f'docker run -d --name lcps --gpus all -v {MDIR}:/models:ro '
+       f'-p {PORT}:8080 {IMG} '
        f'-m /models/{MODEL.split("/")[-1]} -ngl 99 -np {np_} -c {total_c} {extra} '
        f'-fa on --no-warmup --host 0.0.0.0 --port 8080')
+    probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
     ok = False
     for _ in range(400):
-        if sh(f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y") == "Y":
+        if sh(probe) == "Y":
             ok = True
             break
         if "lcps" not in sh("docker ps --format '{{.Names}}'"):
             break
         time.sleep(2)
     if not ok:
-        why = sh("docker logs lcps 2>&1 | grep -iE 'error|out of memory' | tail -1")[:110]
+        why = sh("docker logs lcps 2>&1 | "
+                 "grep -iE 'error|out of memory' | tail -1")[:110]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f lcps")
         continue
@@ -149,6 +162,7 @@ for cell in CELLS:
         lat = sorted(o[1] for o in out)
         print(f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
               f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
-              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}\twall={wall:.1f}", flush=True)
+              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
+              f"\twall={wall:.1f}", flush=True)
     sh("docker rm -f lcps")
     time.sleep(2)
