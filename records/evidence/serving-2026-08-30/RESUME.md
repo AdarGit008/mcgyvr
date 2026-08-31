@@ -1,13 +1,15 @@
 # Resuming the 2026-08-30 concurrency run
 
-18 cells measured, 6 outstanding. Everything needed to finish is committed.
+**29 cells declared, 25 measured, 4 outstanding.** (The header said "18 measured,
+6 outstanding" until 2026-08-31; 18+6 does not reach 29, and 18 corresponds to no
+state of this tree at any commit -- it omitted srv1's five llama.cpp cells.)
 This file is both the runbook and a prompt you can paste into a fresh session.
 
 ---
 
 ## Paste this
 
-> Finish the 2026-08-30 serving concurrency run in this repo. Six cells are
+> Finish the 2026-08-30 serving concurrency run in this repo. Four cells are
 > outstanding; 18 are measured and committed. Read
 > `records/evidence/serving-2026-08-30/RESUME.md` first — it names the cells,
 > the two traps that will silently corrupt a resume, and the exact commands.
@@ -32,8 +34,18 @@ for h in srv1 srv2; do
 done
 ```
 
-Expect `UP`, and `17 MiB` used with `401 MiB` reserved on srv1 / `380 MiB` on
-srv2. A timeout means stop — see §5.
+Expect `UP`, and a near-idle card: single-digit MiB used, ~400 MiB reserved on
+srv1 / ~380 MiB on srv2. A timeout means stop — see §5.
+
+**Do not gate on those figures exactly.** Measured 2026-08-30: 401/380 reserved
+with 17 MiB used. Measured 2026-08-31 after both rigs rebooted, same driver on
+srv1 (580.173.02): **399/377 reserved with 1 MiB used**. The GSP reserve drifts
+a couple of MiB across boots and the 17 MiB was a desktop session these headless
+boots do not have. The carveout is fixed in magnitude, not bit-stable; a card in
+the wrong state is off by hundreds of MiB, not by two. `CARD` in
+`tests/test_card_memory_accounting.py` still pins 401/380 — a 2 MiB drift on a
+6 GB card changes no conclusion in §8, and re-pinning measured constants to
+whatever this boot happens to say is how a measurement becomes a tautology.
 
 ## 2. Status check: what is actually done
 
@@ -70,46 +82,88 @@ for host in ("srv1", "srv2"):
 PY
 ```
 
-## 3. The six cells
+## 3. The outstanding cells
 
-| host | cell | why | action |
+| host | cell | state | action |
 |---|---|---|---|
-| srv1 | `m_dsv2-lcpp-srv1` | host lost power 137 s into n=2; n=2/4/8 barren | **drop row**, re-measure |
-| srv1 | `m_gemma4-lcpp-srv1` | link died at n=8; n=8 barren | **drop row**, re-measure |
-| srv1 | `m_q36iq2-lcpp-srv1` | never started | resume |
-| srv1 | `m_oss20-lcpp-srv1` | never started | resume |
-| srv2 | `m_kat-lcpp-srv2` | never started | resume |
-| srv2 | `m_next-lcpp-srv2` | never started | resume |
+| srv1 | `m_gemma4-lcpp-srv1` | `ok` with n=8 barren, written before `d75d90fb` | `--retry-failed` (see §4) |
+| srv1 | `m_q36iq2-lcpp-srv1` | **`refused`** — `backend_would_not_yield_card` | `--retry-failed` |
+| srv1 | `m_oss20-lcpp-srv1` | **`refused`** — same | `--retry-failed` |
+| srv2 | `m_next-lcpp-srv2` | never ran | `--resume` |
 
-All six are infrastructure losses. None indicates anything about a model or a
-config.
+`m_kat-lcpp-srv2` was measured 2026-08-31 and is no longer outstanding.
 
-## 4. Trap: two cells are stamped `ok` and resume will skip them
+**Corrections to what this section used to say.**
 
-`--retry-failed` re-measures entries whose outcome is not `ok`.
-`m_dsv2-lcpp-srv1` and `m_gemma4-lcpp-srv1` both read `ok` because they were
-written before the barren-level downgrade landed (`d75d90fb`). **The fix does
-not rewrite existing rows.** Drop them so `--resume` re-runs them:
+*"never started" was wrong for two cells.* `m_q36iq2` and `m_oss20` carry explicit
+`refused` rows with `reasons: ["backend_would_not_yield_card"]`. Both are stamped
+21:49 and 21:52, inside srv1's 21:28:31--22:10:43 dead window, and both report
+`ollama=None MiB, vllm=None MiB` -- the probe returned nothing because the host
+was off. The prose blames a co-resident engine for holding a card on a machine
+with no power. **Operationally this matters: `completed()` counts a `refused` row
+as done, so a plain `--resume` skips them forever. `--retry-failed` is not
+optional for these two.**
 
-```bash
-cd records/evidence/serving-2026-08-30
-cp lcpp-srv1.jsonl lcpp-srv1.jsonl.bak            # keep the record of the loss
-python3 - <<'PY'
-import json
-keep = []
-for line in open("lcpp-srv1.jsonl"):
-    if not line.strip():
-        continue
-    r = json.loads(line)
-    if r.get("label") in ("m_dsv2-lcpp-srv1", "m_gemma4-lcpp-srv1"):
-        continue
-    keep.append(line)
-open("lcpp-srv1.jsonl", "w").writelines(keep)
-print(f"kept {len(keep)} rows")
-PY
+*"All six are infrastructure losses. None indicates anything about a model or a
+config" was false, and it was the most expensive sentence in this file.*
+`m_dsv2-lcpp-srv1` froze srv1 **six times** across 2026-08-30 and 2026-08-31, at
+n=2, on separate boots, at `parallel 8` and at `parallel 2`. The boots end
+mid-log-stream with no shutdown, no OOM kill, no Xid and no MCE. Measured at the
+moment of one freeze: 13.6 GB RAM free, card at 1,462 of 6,144 MiB, 54 C, 42 W --
+RAM, card and GPU thermals are all uninvolved. The cause is sustained all-core
+CPU load from `n_cpu_moe: 99` expert offload; srv1's package power limits were
+`4095 W` (unlimited) and it drew 90-120 W sustained on a 95 W part. Setting
+PL1 95 W / PL2 120 W **in BIOS** (OS-level RAPL writes are overridden) took it
+from dying at 61-85 s to completing a full ladder.
+
+**Do not re-run an `n_cpu_moe` cell on srv1 without confirming the BIOS power
+limits are in place.** `cat /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw`
+must read `95000000`, not `4095000000`.
+
+*A note on `m_dsv2-lcpp-srv1`'s standing row.* It reports `ok` with a complete
+four-level curve and zero errors at `parallel 8` -- but its `ended_at`
+(12:16:13Z) brackets an srv1 outage that began 11:58:44Z. The level data may have
+been collected before the freeze or partly after the host returned; the row
+cannot say which. Treat it as provisional and re-measure when convenient.
+
+## 4. The barren-`ok` trap, and why you no longer edit the journal
+
+`--retry-failed` re-measures entries whose outcome is not `ok`. A row written
+before the barren-level downgrade landed (`d75d90fb`) can read `ok` while
+carrying a level that measured nothing, and the fix does not rewrite existing
+rows -- so such a row was skipped as good.
+
+**This file used to tell you to delete those rows by hand. Do not.** That
+procedure ran on 2026-08-31 and turned the tree green while five cells were
+outstanding -- the exact state the guard exists to refuse -- because the test
+that judges the grid only judges rows that are present.
+
+`completed()` now re-scores the curve instead of trusting the stored string:
+
+```python
+# tools/bench/serving/run.py
+if retry_failed:
+    rows = {
+        k: v for k, v in rows.items()
+        if v.get("outcome") == "ok"
+        and not barren_levels(v.get("concurrency") or {})
+    }
 ```
 
-Re-run the §2 status check afterwards and confirm both now read `NEVER RAN`.
+So `m_gemma4-lcpp-srv1` is re-measured by `--retry-failed` with the journal left
+append-only. Nothing needs dropping. Verify with:
+
+```bash
+uv run --no-sync python -c "
+import importlib.util,sys
+sp=importlib.util.spec_from_file_location('sr','tools/bench/serving/run.py')
+m=importlib.util.module_from_spec(sp); sys.modules['sr']=m; sp.loader.exec_module(m)
+from pathlib import Path
+d=m.completed(Path('records/evidence/serving-2026-08-30/lcpp-srv1.jsonl'), True)
+print(sorted(k.split(chr(0))[1] for k in d))"
+```
+
+`m_gemma4-lcpp-srv1` must NOT appear in that list.
 
 ## 5. Resume
 
@@ -157,16 +211,40 @@ noise — the run request predicted it for one model and guessed wrong about why
 ## 7. Done looks like
 
 - §2 reports 0 outstanding on both hosts.
-- `uv run --no-sync python -m pytest tests/ -q` is **green**. It is currently
-  red on `test_the_recorded_run_measured_the_grid_it_was_asked_for`, by design:
-  `m_dsv2-lcpp-srv1` holds a one-point curve. That red clears when the cell is
-  re-measured and must not be silenced any other way.
-- `ruff check tools/ tests/` clean.
+- `uv run --no-sync python -m pytest tests/ -q` is **green** when the grid is
+  complete. It is currently red on **two** assertions in
+  `tests/test_card_memory_accounting.py`, by design, and they agree with each
+  other and with §2:
+
+  - `test_the_recorded_run_measured_the_grid_it_was_asked_for` — every cell whose
+    **latest** row says `ok` carries a rate at every n. Fails on
+    `m_gemma4-lcpp-srv1`, whose n=8 is barren.
+  - `test_every_declared_cell_is_present_in_its_journal` — every declared cell
+    has a clean `ok` row. Names all four outstanding cells.
+
+  Both read the journal **last-write-wins per label**, the way `run.completed()`
+  does. That matters: an append-only journal must be able to keep the record of
+  a failure it later fixed. Judging superseded rows is what made the old §4
+  remedy "delete the row", and deleting rows is what turned the tree green over
+  five outstanding cells on 2026-08-31.
+
+  Both clear when the four cells are measured, and must not be silenced any
+  other way.
+
+- `uv run --no-sync ruff check tools/ tests/` clean. **`ruff` is not on `PATH`**
+  — it lives in `.venv/bin` and the bare `ruff check` in earlier drafts of this
+  file exits `command not found`, which a pipeline reading only the last lines
+  reports as success.
 
 ## 8. What is already settled — do not re-derive
 
-- **vLLM 7.37–7.67x** n=1→n=8, flat across 1.5B..7B. Complete, committed.
-- **llama.cpp 2.22–2.74x** on card, **1.41–1.47x** offloaded.
+- **vLLM 7.37–7.67x** n=1→n=8 **on srv2 only**, flat across 1.5B..7B. On srv1
+  the same ladder is **2.42–3.11x** from n=1 and **3.76–3.91x** anchored at n=2
+  (§6). The unqualified figure here was srv2's, carried without a host.
+- **llama.cpp 2.22–3.67x** on card across 11 cells — ten span 2.22–2.74x and
+  `d7b-lcpp-srv2` is the 3.67x outlier, which the old range omitted.
+  **1.11–1.74x** offloaded across all six `n_cpu_moe: 99` cells; the old
+  "1.41–1.47x" was the three middle cells with both extremes dropped.
 - **CPU offload is the cause, not MoE.** `m_ling-lcpp-srv1` — a MoE small
   enough to stay resident on srv1's 6 GB card — scales 2.27x, like dense.
 - **`--parallel` defaults to 4 slots**, which makes n=8 run as two batches of 4
@@ -177,6 +255,17 @@ noise — the run request predicted it for one model and guessed wrong about why
 - **A card has four buckets:** `total = reserved + used + free`. The reserve is
   GSP firmware — 401 MiB srv1, 380 MiB srv2, fixed, not proportional. Weigh
   full-GPU cells against total-less-reserve.
-- **`--cpu-offload-gb` is inert on vLLM for AWQ.** Three launches at 0/4/6 GiB
-  each loaded 9.38 GiB and each OOMed. Do not treat it as a discount; a gate
-  that did was written and removed the same day.
+- **`--cpu-offload-gb` is architecture-dependent, not inert.** It relocates
+  weights to host RAM when vLLM selects the **V1** model runner, and is accepted
+  and ignored under **V2**. Measured 2026-08-31 on one model, one host, one
+  flag: V2 → weights 1.95 GiB on card, KV 87,584 tokens, Shmem 14 MB; V1 →
+  weights 0.93 GiB, KV 117,152 tokens, Shmem 1.5 GB, with
+  `Total CPU offloaded parameters: 1.01` in the log. Qwen2/AWQ takes V2 on both
+  rigs, which is why every cell here saw no effect. Verify with the
+  `uva.py` offloader log line, never with free RAM -- reading a checkpoint
+  drains `MemAvailable` on its own.
+  **The "three launches at 0/4/6 GiB" this bullet used to cite exist in no log,
+  journal, or commit anywhere in `records/`.** The one committed
+  `Model loading took 9.38 GiB` line is a 2026-08-23 control run with no
+  `cpu_offload_gb` in its arguments. The gate still refuses correctly for these
+  AWQ cells; only its stated reason was wrong.
