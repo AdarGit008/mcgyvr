@@ -65,6 +65,19 @@ def ceiling(host: str) -> int:
     return CARD[host]["total"] - CARD[host]["reserved"]
 
 
+def _barren_levels(measured: dict[str, Any]) -> list[dict[str, Any]]:
+    """`run.barren_levels`, imported by path so this test does not pin a layout.
+
+    A level states no rate if nothing succeeded (`ok` is 0) or if replies
+    arrived and none could be counted (`counted` is 0).
+    """
+    return [
+        level
+        for level in (measured.get("levels") or [])
+        if isinstance(level, dict) and not (level.get("ok") and level.get("counted"))
+    ]
+
+
 def _run_configs() -> list[tuple[Path, dict[str, Any]]]:
     """The 2026-08-30 vLLM configs, one per host."""
     found = []
@@ -222,10 +235,20 @@ def test_the_recorded_run_measured_the_grid_it_was_asked_for() -> None:
     assert journals, f"no journal under {EVIDENCE}"
     measured = 0
     for journal in journals:
+        # LAST WRITE WINS, per label -- the journal is append-only (run.py:93)
+        # and every consumer reads it that way (`run.completed()` builds the
+        # same dict). Judging superseded rows would make an append-only journal
+        # unable to hold the record of a failure it later fixed, which is the
+        # opposite of what append-only is for: on 2026-08-31 that is exactly why
+        # the documented remedy was to DELETE rows, and deleting them turned the
+        # tree green over outstanding cells.
+        last: dict[str, dict[str, Any]] = {}
         for line in journal.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
+            if line.strip():
+                row = json.loads(line)
+                if row.get("label"):
+                    last[str(row["label"])] = row
+        for row in last.values():
             if row.get("outcome") != "ok":
                 continue
             where = f"{journal.name}:{row.get('label')}"
@@ -245,6 +268,62 @@ def test_the_recorded_run_measured_the_grid_it_was_asked_for() -> None:
                 )
             measured += 1
     assert measured, "no cell reported `ok`, so nothing above was asserted"
+
+
+@pytest.mark.skipif(not EVIDENCE.is_dir(), reason="the run's evidence is absent")
+def test_every_declared_cell_is_present_in_its_journal() -> None:
+    """The other half of the assertion above, and the half that was missing.
+
+    The test above judges the rows that ARE in a journal. It cannot see a row
+    that is not there, so a cell deleted from a journal reads as green -- and
+    deleting rows is exactly what the documented resume procedure does, to
+    force a re-measure of a cell that was stamped `ok` before the barren-level
+    downgrade landed. Between the drop and the re-measure the tree therefore
+    went green while six cells were outstanding, which is the state the whole
+    guard exists to refuse. An absent cell is a cell that did not run.
+
+    A cell that could not launch belongs in the config's `_refused` with a
+    reason; that is a recorded result and does not count as missing.
+    """
+    checked = 0
+    missing: list[str] = []
+    for journal in sorted(EVIDENCE.glob("*.jsonl")):
+        backend, _, host = journal.stem.partition("-")
+        config = CONFIGS / f"srv-{backend}-n1248-{host}.json"
+        assert config.is_file(), (
+            f"{journal.name}: no config at {config.name}. The journal and the "
+            "config that asked for it are matched by name; a rename that broke "
+            "the pairing would silently stop checking this journal."
+        )
+        document = json.loads(config.read_text(encoding="utf-8"))
+        declared = [
+            str(entry.get("label")) for entry in document.get("models") or []
+        ]
+        assert declared, f"{config.name}: declares no models"
+        refused = set(document.get("_refused") or {})
+        # `outcome: ok` is not sufficient on its own -- a row written before the
+        # barren-level downgrade (d75d90fb) can be `ok` while carrying a level
+        # that measured nothing. Judge the curve, the same way `run.completed()`
+        # and RESUME.md's status check do, so all three report one number.
+        ok = {
+            row.get("label")
+            for line in journal.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+            for row in [json.loads(line)]
+            if row.get("outcome") == "ok"
+            and not _barren_levels(row.get("concurrency") or {})
+        }
+        for label in declared:
+            if label not in ok and label not in refused:
+                missing.append(f"{journal.name}:{label}")
+        checked += 1
+    assert checked, f"no journal under {EVIDENCE}, so nothing above was asserted"
+    assert not missing, (
+        f"{len(missing)} declared cells carry no `ok` row: {missing}. Either "
+        "the run is not finished, or rows were dropped to force a re-measure "
+        "and the re-measure has not happened yet. A journal missing a cell is "
+        "not a measured grid."
+    )
 
 
 @pytest.mark.skipif(not EVIDENCE.is_dir(), reason="the run's evidence is absent")
