@@ -80,3 +80,6 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
 - 2026-08-31 — **Phase 2 complete** (5 findings, 1 commit):
   - `ecb439ea` A1 + A3 + A2 + A4 + A5 in `telemetry.py` — torn-line/stump repair and counted writes, per-line decode, position-ordered fold, shared-id rows kept, required correction author.
   - Full gate clean: `2381 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
+- 2026-08-31 — **Phase 3 complete** (6 findings, 1 commit):
+  - `7754e508` D2 + R9 + S13 + D7 in `gate/typecheck.py` & `gate/runner.py`, C5 + C4 in `verify.py` — absolute-path attribution, timeout-as-skip, symmetric STYLE routing, shadow-aware mutation walk, protected verdict read, empty target_content kept.
+  - Full gate clean: `2389 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
