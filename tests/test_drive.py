@@ -20,7 +20,9 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr.availability import Verdict as AvailabilityVerdict
 from mcgyvr.contract import loads as load_contract
+from mcgyvr.cooldown import Cooldown
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.drive import (
     PromptTooLargeError,
@@ -754,3 +756,98 @@ def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="orchestrator id"):
         Recording(path=tmp_path / "t.jsonl", orchestrator="  ")
+
+
+# --- the cooldown lever, wired -------------------------------------------------
+
+
+def _cooldown() -> Cooldown:
+    """A cooldown whose liveness half is a stub, as ``mcgyvr run`` builds one.
+
+    The driver discovers liveness by dispatching, so the probe half must not
+    touch the network; it only ever answers "live". Removal can then only come
+    from the dispatch failures the cooldown records.
+    """
+
+    def live(endpoint: object, timeout_s: float) -> AvailabilityVerdict:
+        return AvailabilityVerdict(
+            source=endpoint.source,  # type: ignore[attr-defined]
+            live=True,
+            reason="",
+            how="stub probe, no network",
+            elapsed_s=0.0,
+        )
+
+    return Cooldown(probe=live)
+
+
+def test_a_cooling_source_is_declined_without_a_dispatch(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The lever fires inside a task: a cooling rung is walked past for free.
+
+    Three consecutive dispatch failures arm the cooldown, and the next attempt
+    on that source is declined before a prompt is built — so ``escalate`` walks
+    to the next rung instead of spending another attempt on a source that has
+    just failed three times.
+    """
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try, Verdict
+
+    config = parse_config(LADDER)
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)
+    sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
+    cooldown = _cooldown()
+    for _ in range(3):
+        cooldown.record_failure("workstation")
+
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
+        judgement = attempt(
+            Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1)
+        )
+
+    assert judgement.verdict is Verdict.DECLINED, (
+        f"a cooling source was not declined: {judgement}"
+    )
+    assert "cooling" in judgement.detail
+    assert not sent, f"a cooling rung was still dispatched: {sent}"
+
+
+def test_a_dispatch_failure_feeds_the_cooldown(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A transport failure is recorded, and three of them arm the lever."""
+    import mcgyvr.drive as drive
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try
+    from mcgyvr.runner import RunnerError
+
+    config = parse_config(LADDER)
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)
+    cooldown = _cooldown()
+
+    def boom(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+        raise RunnerError("the source answered and failed the generation")
+
+    monkeypatch.setattr(drive, "dispatch", boom)
+    endpoint = pool.bind("local_qwen-7b")
+
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
+        with pytest.raises(RunnerError):
+            attempt(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+
+    # One failure is a hiccup; three consecutive arm the removal.
+    assert cooldown.unavailable([endpoint]) == {}
+    cooldown.record_failure("workstation")
+    cooldown.record_failure("workstation")
+    assert "workstation" in cooldown.unavailable([endpoint]), (
+        "three consecutive dispatch failures did not arm the cooldown"
+    )

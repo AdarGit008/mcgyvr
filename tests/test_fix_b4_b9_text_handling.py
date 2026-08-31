@@ -61,6 +61,7 @@ from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.pending import PendingError, stash
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, StopReason
+from mcgyvr.sandbox import Sandbox
 from mcgyvr.worker.reply import ParsedFile, parse_reply
 from mcgyvr.worker.scoped import apply_scoped
 
@@ -343,8 +344,8 @@ def test_best_of_gates_the_bytes_it_returns(repo: Path, contract: Contract) -> N
     content = _off_the_wire("\\udc80")
     seen: list[bytes] = []
 
-    def gate(workspace: Path) -> GateResult:
-        seen.append((workspace / TARGET).read_bytes())
+    def gate(sandbox: Sandbox) -> GateResult:
+        seen.append((sandbox.workspace / TARGET).read_bytes())
         return GateResult()
 
     result = best_of(

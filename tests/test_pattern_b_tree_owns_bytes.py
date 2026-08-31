@@ -67,6 +67,7 @@ from mcgyvr.deliver import Accepted
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import GateResult
 from mcgyvr.repair import RepairOutcome
+from mcgyvr.sandbox import Sandbox
 
 CONTRACT = """
 id: fetch-retry
@@ -164,8 +165,8 @@ def test_the_winning_draw_arrives_bound_to_the_tree_it_was_judged_in(
     def sample(index: int) -> str:
         return draws[index]
 
-    def gate(workspace: Path) -> GateResult:
-        text = (workspace / contract.target).read_text()
+    def gate(sandbox: Sandbox) -> GateResult:
+        text = (sandbox.workspace / contract.target).read_text()
         if "winner" in text:
             return GateResult()
         return GateResult(

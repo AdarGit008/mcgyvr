@@ -360,6 +360,20 @@ scope:
   allow: ["src/**"]
 """
 
+# The negation case: the prose names mutation and forbids it.
+FORBIDS_MUTATION = """
+id: tidy-rows
+task_type: function_implementation
+task: Return the rows in order, and do not mutate the caller's list.
+interface: tidy(rows) returns a sorted copy and never mutates rows.
+target: src/pkg/rows.py
+stop_conditions:
+  - The rows are not comparable to each other.
+acceptance: ["true"]
+scope:
+  allow: ["src/**"]
+"""
+
 
 def _git(repo: Path, *args: str) -> None:
     import os
@@ -503,6 +517,30 @@ def test_a_contract_that_asks_for_a_copy_does_not_stand_the_rung_down(
     assert not result.accepted, (
         "the contract asked for a sorted copy, the worker sorted the caller's "
         "list in place, and the gate accepted it"
+    )
+    assert any(f.code == PARAM_MUTATION for f in result.findings), (
+        f"the change was rejected, but not for the mutation: {result.findings}"
+    )
+
+
+def test_a_contract_that_forbids_mutation_does_not_stand_the_rung_down(
+    repo: Path,
+) -> None:
+    """ "do not mutate" is a prohibition, not an ask — the substring trap.
+
+    The pressure test's reach leftovers caught this: ``_INPLACE_WORDS`` was a
+    substring match, so a contract saying "do not mutate the caller's list"
+    stood the rung down for the whole file — the one contract that most needs
+    the backstop. The negation cancels the ask.
+    """
+    contract = load_contract(FORBIDS_MUTATION)
+
+    with TempDirSandbox(repo) as sandbox:
+        result = gate_in_sandbox(contract, sandbox, MUTATES_IN_PLACE)
+
+    assert not result.accepted, (
+        "the contract forbade mutation, the worker mutated the caller's list, "
+        "and the gate accepted it because the word 'mutate' stood the rung down"
     )
     assert any(f.code == PARAM_MUTATION for f in result.findings), (
         f"the change was rejected, but not for the mutation: {result.findings}"

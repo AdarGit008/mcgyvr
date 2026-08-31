@@ -288,17 +288,6 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
             ),
         ),
     ),
-    Field(
-        "token_env",
-        "env_name",
-        "NAME of the environment variable holding a forge token, recorded for "
-        "tooling you drive after a delivery. Nothing in mcgyvr reads it: no "
-        "mode talks to a forge, so a token here is a note to yourself, not a "
-        "credential mcgyvr will spend.",
-        bind_hint=(
-            "set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself"
-        ),
-    ),
 )
 
 BUDGET_FIELDS: tuple[Field, ...] = (
@@ -693,7 +682,7 @@ def _reject_credential_key(name: str, path: str) -> None:
         raise CredentialInConfigError(
             f"{_join(path, name)}: a credential cannot be expressed in the "
             f"config. Name the environment variable that holds it instead "
-            f"(`api_key_env` on a source, `token_env` on delivery), and keep "
+            f"(`api_key_env` on a source), and keep "
             f"the value in your environment."
         )
 

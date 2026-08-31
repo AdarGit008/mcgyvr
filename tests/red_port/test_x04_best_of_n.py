@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.gate import Finding, GateResult
+from mcgyvr.sandbox import Sandbox
 from tests.red_port.conftest import git, required
 
 BEHAVIOR = (
@@ -87,7 +88,7 @@ def _marked(index: int) -> str:
     return f"def fetch(url):\n    # sample-{index}\n    return url\n"
 
 
-def _gate_on_tree(wanted: str) -> Callable[[Path], GateResult]:
+def _gate_on_tree(wanted: str) -> Callable[[Sandbox], GateResult]:
     """A gate whose verdict depends on what is in the tree, not on what it was told.
 
     This is the whole reason the samples are written before they are judged: a gate
@@ -96,8 +97,8 @@ def _gate_on_tree(wanted: str) -> Callable[[Path], GateResult]:
     change was run" would go unasserted.
     """
 
-    def gate(workspace: Path) -> GateResult:
-        text = (workspace / TARGET).read_text()
+    def gate(sandbox: Sandbox) -> GateResult:
+        text = (sandbox.workspace / TARGET).read_text()
         if wanted in text:
             return GateResult()
         return GateResult(

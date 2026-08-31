@@ -110,7 +110,7 @@ a credential, and there is no place in this codebase to put any of the three.
 Pretending otherwise is what the finding was.
 
 *The rejected alternative is a client.* Delivery could push and open the pull
-request — a remote, ``delivery.token_env`` resolved to a forge token, an HTTP
+request — a remote, a forge token, an HTTP
 call. It is rejected because the seam that must be certain about what it writes
 would become the seam that also owns network transport, credential handling and
 one forge's API shape, all of it unreachable from any test that does not either

@@ -337,10 +337,22 @@ _MUTATING_METHODS = frozenset(
 #: place and returning that same list", and its own reference solution is the
 #: ``if tags is None: tags = []`` shape this family now flags. Whether that task
 #: can be solved at all rests on the prose reaching here.
-_INPLACE_WORDS = ("in place", "in-place", "mutate", "mutation")
+#:
+#: Word-boundary rather than substring, because the opposite wording must not
+#: stand the rung down: "do not mutate the caller's list" *forbids* the very
+#: thing this family flags, and a substring match would read it as an ask.
+#: ``permutation`` is the same trap from the other side — it contains
+#: "mutation" and has nothing to do with it. :func:`_asks_for_mutation` does the
+#: matching, so the negation lives beside the ask it cancels.
+_INPLACE_ASK = re.compile(r"\bin[- ]place\b|\bmutat(?:e|es|ion|ing)\b", re.IGNORECASE)
 
-#: PEP 585 aliases whose builtin-generic form is the pinned one.
-_DEPRECATED_TYPING = frozenset({"List", "Dict", "Set", "Tuple", "FrozenSet", "Type"})
+#: A negation within the three words before an ask turns it into a prohibition.
+#: "Three words" is the window because the negation and the ask are never far
+#: apart in prose worth trusting: "do not mutate", "never mutate", "without
+#: mutation", "no mutation".
+_NEGATION = frozenset(
+    {"not", "no", "never", "without", "don't", "dont", "cannot", "can't"}
+)
 
 #: Bound by the language rather than by the caller, so mutating them is not the
 #: caller's problem: a method's receiver is the object the method exists to
@@ -385,6 +397,42 @@ _MOVED_TO_COLLECTIONS_ABC = frozenset(
         "ValuesView",
     }
 )
+
+#: ``typing`` aliases mapped to the form the codebase pins, so the AST half of
+#: the rung can report them on a machine without ruff. The six builtin
+#: generics are joined by the ``collections`` and ``collections.abc`` aliases
+#: and a few from ``re`` and ``contextlib``, because the gate's verdict must
+#: not depend on which tools the operator happens to have: without this, a
+#: ``from typing import Mapping`` was reported by nothing, and a module
+#: importing a 3.10-removed name sailed past the AST half of the rung. It is a
+#: mapping rather than a set because the pinned form is not always
+#: ``name.lower()`` — ``Mapping`` pins to ``collections.abc.Mapping``, not
+#: ``mapping``.
+_DEPRECATED_TYPING: dict[str, str] = {
+    # The ``collections.abc`` names map to themselves, and the explicit
+    # entries override where the two lists disagree. ``Set`` is the one name
+    # in both: ``typing.Set`` is the builtin ``set`` (``typing.Set[int]``
+    # is ``set[int]``), while ``collections.Set`` is the 3.9 shim for
+    # ``collections.abc.Set`` — the first is this family's ``typing`` pin and
+    # the second is :func:`_unimportable`'s, so the ``**`` spread must not
+    # win. Ordering the spread first makes every explicit entry authoritative.
+    **{name: f"collections.abc.{name}" for name in _MOVED_TO_COLLECTIONS_ABC},
+    "List": "list",
+    "Dict": "dict",
+    "Set": "set",
+    "Tuple": "tuple",
+    "FrozenSet": "frozenset",
+    "Type": "type",
+    "DefaultDict": "collections.defaultdict",
+    "Deque": "collections.deque",
+    "OrderedDict": "collections.OrderedDict",
+    "Counter": "collections.Counter",
+    "ChainMap": "collections.ChainMap",
+    "ContextManager": "contextlib.AbstractContextManager",
+    "AsyncContextManager": "contextlib.AbstractAsyncContextManager",
+    "Pattern": "re.Pattern",
+    "Match": "re.Match",
+}
 
 
 def unimportable_lines(source: str | None) -> dict[int, str]:
@@ -525,7 +573,25 @@ def _type_form(tree: ast.Module) -> list[tuple[int, str]]:
 
 
 def _pinned_form(alias: str) -> str:
-    return f"typing.{alias} — the pinned form is {alias.lower()}[...]"
+    return f"typing.{alias} — the pinned form is {_DEPRECATED_TYPING[alias]}[...]"
+
+
+def _asks_for_mutation(contract_text: str) -> bool:
+    """Whether the prose asks for in-place mutation, rather than forbids it.
+
+    Word-boundary rather than substring, and negation-aware. "Sort the rows in
+    place" stands the rung down; "do not mutate the caller's list" does not —
+    it orders the worker to keep its hands off the caller's object, which is
+    the exact behaviour the rung exists to check, and standing down for it
+    would remove the backstop from the one contract that needs it. A negation
+    within the three words before the ask cancels it.
+    """
+    for match in _INPLACE_ASK.finditer(contract_text):
+        before = contract_text[: match.start()].lower()
+        preceding = re.findall(r"[a-z']+", before)[-3:]
+        if not any(word in _NEGATION for word in preceding):
+            return True
+    return False
 
 
 def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str]]:
@@ -543,7 +609,7 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
     tracked. The contract's acceptance suite remains the real catch; this is
     the backstop for contracts whose tests do not look.
     """
-    if any(word in contract_text.lower() for word in _INPLACE_WORDS):
+    if _asks_for_mutation(contract_text):
         return []
     hits: list[tuple[int, str]] = []
     for node in ast.walk(tree):

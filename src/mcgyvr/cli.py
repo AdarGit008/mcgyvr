@@ -838,6 +838,8 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     it here is what keeps a container from being built for a task that was never
     going to dispatch.
     """
+    from mcgyvr.availability import Verdict as AvailabilityVerdict
+    from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.pool import SourceUnavailableError, source_map
@@ -858,6 +860,24 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     # ask for real. `mcgyvr pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     pool = source_map(config)
+
+    # The cooldown learns from dispatch failures, not from a probe, so its
+    # liveness half is a stub that always reports live. Probing here would
+    # charge every run for a diagnosis the dispatch below is about to make for
+    # real, and `mcgyvr pool --probe` is where an operator asks it in advance.
+    # The probe parameter is typed `object` rather than `Endpoint` because the
+    # seam guard forbids importing `Endpoint` above the seam, and `object` is
+    # accepted contravariantly.
+    def _always_live(endpoint: object, timeout_s: float) -> AvailabilityVerdict:
+        return AvailabilityVerdict(
+            source=endpoint.source,  # type: ignore[attr-defined]
+            live=True,
+            reason="",
+            how="stub probe, no network",
+            elapsed_s=0.0,
+        )
+
+    cooldown = Cooldown(probe=_always_live)
     try:
         route = ascent(config, pool, contract)
     except RouteError as exc:
@@ -916,7 +936,14 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
-            driver = worker_attempt(config, pool, contract, sandbox, reviewer=reviewer)
+            driver = worker_attempt(
+                config,
+                pool,
+                contract,
+                sandbox,
+                reviewer=reviewer,
+                cooldown=cooldown,
+            )
 
             def attempt(this: Try) -> Judgement:
                 in_flight.append(this.rung.name)

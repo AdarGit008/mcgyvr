@@ -121,7 +121,6 @@ How accepted work gets back to you.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `mode` | one of `branch`, `none` | no | `branch` | Where an accepted change is committed. `branch` puts it on a new local branch named after the contract and leaves the branch you have checked out, your index and your working tree exactly as they were — the delivery tells you the `git push` to run. `none` commits onto the branch you have checked out. Nothing here pushes or opens a pull request: mcgyvr reaches your repository through `git` and has no forge, so the last step off this machine is yours. |
-| `token_env` | env var name | no | unset | NAME of the environment variable holding a forge token, recorded for tooling you drive after a delivery. Nothing in mcgyvr reads it: no mode talks to a forge, so a token here is a note to yourself, not a credential mcgyvr will spend. To bind it: set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself. |
 
 ## `budgets`
 

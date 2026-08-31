@@ -167,7 +167,19 @@ class Cooldown:
         This is what makes the count *consecutive*. Without it, a source that
         failed twice in the first minute and twice in the tenth would be taken out
         on evidence that was never about the same fault.
+
+        A cooldown already armed is not cancelled. Three consecutive failures
+        earn the sentence, and a success arriving during it came from a dispatch
+        started *before* those failures — it is not evidence the source
+        recovered, and clearing the sentence would let a healthy rung that
+        happened to be in flight wipe a broken one's just-earned removal, which
+        is the single-host install's form of this defect. The count resets; the
+        sentence stands.
         """
+        record = self._records.get(source)
+        if record is not None and record.until > 0.0:
+            record.failures = 0
+            return
         self._records.pop(source, None)
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:

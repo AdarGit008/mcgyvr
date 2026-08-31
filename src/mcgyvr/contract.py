@@ -629,6 +629,7 @@ class Contract:
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(_RUNNING_ALLOWANCE, 2)
+    max_output_tokens_declared: bool = True
 
     @property
     def type(self) -> CatalogTaskType:
@@ -758,7 +759,11 @@ class Contract:
             "risk": self.risk,
             "verification": {"policy": self.verification.policy},
             "limits": {
-                "max_output_tokens": self.limits.max_output_tokens,
+                "max_output_tokens": (
+                    self.limits.max_output_tokens
+                    if self.max_output_tokens_declared
+                    else None
+                ),
                 "attempts": self.limits.attempts,
             },
         }
@@ -831,14 +836,15 @@ def parse(text: str, path: Path | None = None) -> Contract:
         )
 
     data = _block(raw, SCHEMA, "")
-    if data["limits"]["max_output_tokens"] is None:
+    declared_cap = data["limits"]["max_output_tokens"] is not None
+    if not declared_cap:
         # The one key the schema cannot default statically: how big a reply may
         # be depends on what the reply has to be. Filled before
         # `_cross_validate`, so the cap is checked against the prompt budget on
         # the same terms whether it was declared or derived.
         data["limits"]["max_output_tokens"] = output_cap(data["task_type"])
     _cross_validate(data)
-    return _build(data)
+    return _build(data, max_output_tokens_declared=declared_cap)
 
 
 def dumps(contract: Contract) -> str:
@@ -846,7 +852,7 @@ def dumps(contract: Contract) -> str:
     return json.dumps(contract.as_dict(), indent=2)
 
 
-def _build(data: Mapping[str, Any]) -> Contract:
+def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Contract:
     """Assemble the validated mapping into a Contract."""
     return Contract(
         id=data["id"],
@@ -873,6 +879,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
             max_output_tokens=data["limits"]["max_output_tokens"],
             attempts=data["limits"]["attempts"],
         ),
+        max_output_tokens_declared=max_output_tokens_declared,
     )
 
 
