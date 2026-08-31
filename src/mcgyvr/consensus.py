@@ -28,10 +28,10 @@ wall clock against ``budgets.task_timeout_s`` — and no tokens at all. It is an
 amendment to ADR-0008 and wants recording as one.
 
 **Selection is not delivery, and the winner still travels bound.** No draw is
-left in a tree: the workspace each was judged in is reset after it and torn down
-at the end, so a rejected draw leaks nowhere. That is the invariant that makes
-breadth safe to run at all — every draw has to be written into a tree to be
-gated, and a leaked one would be committed by delivery (#D22) as part of the
+left in a tree: the workspace each was judged in is restored after it and torn
+down at the end, so a rejected draw leaks nowhere. That is the invariant that
+makes breadth safe to run at all — every draw has to be written into a tree to
+be gated, and a leaked one would be committed by delivery (#D22) as part of the
 change that won.
 
 The reset is why the bytes cannot simply stay put, and it is also where the
@@ -225,9 +225,10 @@ def best_of(
     Passing ``sandbox`` draws in a caller's own workspace — a caller mid-attempt
     already holds one and should pass it, and then a ``repo`` would be dead —
     while passing ``repo`` opens an ephemeral temp-directory workspace populated
-    from its ``HEAD`` and removed afterwards. Either way the workspace is reset
-    after every draw, so the caller's tree — and the next draw — see nothing of
-    the last one.
+    from its ``HEAD`` and removed afterwards. After every draw the workspace is
+    returned to the state it was handed over in: a caller's own sandbox keeps
+    the work it already held, every draw starts from that same state, and no
+    draw sees the last one's bytes.
     """
     if n < 1:
         raise ConsensusError(f"a rung takes at least one draw; {n} were asked for")
@@ -242,9 +243,17 @@ def best_of(
             "draw in a fresh one opened from its HEAD"
         )
     if sandbox is not None:
-        return _draw(sandbox, contract, sample, gate, n)
-    with TempDirSandbox(repo) as staged:  # type: ignore[arg-type]
-        return _draw(staged, contract, sample, gate, n)
+        checkpoint = sandbox.checkpoint()
+        try:
+            return _draw(sandbox, contract, sample, gate, n, checkpoint=checkpoint)
+        finally:
+            # Whether the draws finished, all refused, or a gate raised, the
+            # caller gets its sandbox back with ``HEAD`` at the base and the
+            # working tree at the state it handed over.
+            sandbox.drop_checkpoint()
+    assert repo is not None  # the `sandbox is None and repo is None` guard above
+    with TempDirSandbox(repo) as staged:
+        return _draw(staged, contract, sample, gate, n, checkpoint=None)
 
 
 def _draw(
@@ -253,8 +262,15 @@ def _draw(
     sample: Callable[[int], str | Unusable],
     gate: Callable[[Sandbox], GateResult],
     n: int,
+    *,
+    checkpoint: str | None,
 ) -> Consensus:
-    """Write each draw into ``space``, judge it, bind it, and undo it."""
+    """Write each draw into ``space``, judge it, bind it, and undo it.
+
+    ``checkpoint`` is the commit the workspace is restored to after every draw.
+    ``None`` means the sandbox is ephemeral and owned by this call, so the
+    ordinary :meth:`~mcgyvr.sandbox.base.Sandbox.reset` to the base is used.
+    """
     drawn: list[Accepted] = []
     verdicts: list[GateResult] = []
     refused: list[str] = []
@@ -290,9 +306,13 @@ def _draw(
             # In `finally` rather than after the verdict: a gate that raises
             # must not leave one draw's bytes in the workspace the next draw —
             # or the caller's own attempt, when the sandbox is theirs — is
-            # judged in. `Sandbox.reset` is what makes N draws cost one
-            # workspace and N-1 resets (ADR-0008).
-            space.reset()
+            # judged in. Restoring to the entry checkpoint — the caller's own
+            # state, not the base — is what makes N draws cost one workspace
+            # and N-1 restores (ADR-0008) without wiping what the caller held.
+            if checkpoint is not None:
+                space.restore_to(checkpoint)
+            else:
+                space.reset()
 
     if not verdicts:
         # Every draw refused. There is no winner and no honest way to invent

@@ -1,10 +1,10 @@
-"""§4 — `max_waves` bounds re-planning, not the depth of a correct plan.
+"""§4 — `max_replans` bounds re-planning, not the depth of a correct plan.
 
 The pressure test's T1-E found that :func:`~mcgyvr.waves.run_waves` read
-``max_waves`` as a bound on *total waves*: a correct, failure-free plan whose
+``max_replans`` as a bound on *total waves*: a correct, failure-free plan whose
 dependency chain is deeper than the default of 3 was silently truncated, and its
 tail reported ``blocked`` as if it had been waiting on something. The
-``DEFAULT_MAX_WAVES`` docstring states the opposite — "how many times a plan may
+``DEFAULT_MAX_REPLANS`` docstring states the opposite — "how many times a plan may
 be re-planned before the remainder is reported" — and the rationale is spend:
 each wave that re-plans pays the decomposer. A wave that simply runs the next
 ready contract pays nothing, so there is no reason to cap it.
@@ -13,8 +13,8 @@ Three assertions, one for each half of the defect:
 
 * a failure-free chain deeper than the default runs to completion, with no
   re-planner attached at all (nothing can be spending the decomposer);
-* the re-planner is what ``max_waves`` bounds — a plan that keeps failing is
-  re-planned exactly ``max_waves`` times, then the remainder is reported;
+* the re-planner is what ``max_replans`` bounds — a plan that keeps failing is
+  re-planned exactly ``max_replans`` times, then the remainder is reported;
 * when that budget runs out, a contract whose dependency *failed* is reported
   with the accurate reason ("did not land"), never "not reached" — because no
   number of further waves would have run it.
@@ -55,7 +55,7 @@ def chain(ids: list[str]) -> list[Contract]:
 
 
 def test_a_failure_free_plan_deeper_than_the_default_is_not_truncated() -> None:
-    """A correct 10-deep chain runs all ten, with the default ``max_waves``.
+    """A correct 10-deep chain runs all ten, with the default ``max_replans``.
 
     No ``replan`` is supplied, so nothing can be spending the decomposer — the
     rationale the bound is documented under cannot apply, and truncating the
@@ -76,11 +76,11 @@ def test_a_failure_free_plan_deeper_than_the_default_is_not_truncated() -> None:
     assert run.waves == 10, f"a 10-deep chain should take 10 waves, not {run.waves}"
 
 
-def test_the_re_planner_is_what_max_waves_bounds() -> None:
-    """A plan that keeps failing is re-planned exactly ``max_waves`` times.
+def test_the_re_planner_is_what_max_replans_bounds() -> None:
+    """A plan that keeps failing is re-planned exactly ``max_replans`` times.
 
     Every attempt fails, so every wave has a failure to re-plan around. The
-    bound is on the re-planner, not on the waves: with ``max_waves=2`` the
+    bound is on the re-planner, not on the waves: with ``max_replans=2`` the
     re-planner is called twice, and the remainder is then reported rather than
     run.
     """
@@ -93,11 +93,11 @@ def test_the_re_planner_is_what_max_waves_bounds() -> None:
         return (contract(f"attempt-{len(calls)}"),)
 
     run = run_waves(
-        [contract("attempt-0")], lambda _: False, replan=replan, max_waves=2
+        [contract("attempt-0")], lambda _: False, replan=replan, max_replans=2
     )
 
     assert len(calls) == 2, (
-        f"the re-planner should be called max_waves times, not {len(calls)}"
+        f"the re-planner should be called max_replans times, not {len(calls)}"
     )
     assert len(run.failed) == 3, (
         f"three attempts were run (initial + two re-plans), so three failed: "
@@ -131,7 +131,7 @@ def test_a_contract_whose_dependency_failed_is_not_reported_not_reached() -> Non
         # budget ends and the tail is reported.
         return False
 
-    run = run_waves([a, b, c], attempt, replan=replan, max_waves=1)
+    run = run_waves([a, b, c], attempt, replan=replan, max_replans=1)
 
     reasons = dict(run.blocked)
     assert "did not land" in reasons.get("b", ""), (

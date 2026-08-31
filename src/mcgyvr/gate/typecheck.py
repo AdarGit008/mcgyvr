@@ -351,7 +351,7 @@ _INPLACE_ASK = re.compile(r"\bin[- ]place\b|\bmutat(?:e|es|ion|ing)\b", re.IGNOR
 #: apart in prose worth trusting: "do not mutate", "never mutate", "without
 #: mutation", "no mutation".
 _NEGATION = frozenset(
-    {"not", "no", "never", "without", "don't", "dont", "cannot", "can't"}
+    {"not", "no", "never", "without", "don't", "dont", "cannot", "can't", "cant"}
 )
 
 #: Bound by the language rather than by the caller, so mutating them is not the

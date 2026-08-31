@@ -47,7 +47,7 @@ from typing import Protocol
 
 from mcgyvr.contract import Contract
 
-DEFAULT_MAX_WAVES = 3
+DEFAULT_MAX_REPLANS = 3
 """How many times a plan may be re-planned before the remainder is reported.
 
 A bound on re-planning rather than on the plan's depth: each wave that
@@ -172,7 +172,7 @@ def run_waves(
     attempt: Attempt,
     *,
     replan: Replan | None = None,
-    max_waves: int = DEFAULT_MAX_WAVES,
+    max_replans: int = DEFAULT_MAX_REPLANS,
 ) -> WaveRun:
     """Run ``contracts`` in the order their dependencies require.
 
@@ -232,11 +232,11 @@ def run_waves(
         failed.update(fell_over)
 
         if fell_over and replan is not None:
-            if replans >= max_waves:
+            if replans >= max_replans:
                 blocked.update(
                     (
                         task,
-                        _stopped_reason(contract, landed, failed, replans, max_waves),
+                        _stopped_reason(contract, landed, failed, replans, max_replans),
                     )
                     for task, contract in pending.items()
                 )
@@ -431,7 +431,7 @@ def _stopped_reason(
     landed: set[str],
     failed: Mapping[str, str],
     replans: int,
-    max_waves: int,
+    max_replans: int,
 ) -> str:
     """Why a contract was never attempted when the re-plan budget ran out.
 
@@ -450,7 +450,7 @@ def _stopped_reason(
             f"not attempted: {', '.join(dead)} did not land, and a contract "
             f"whose input was never written can only be rejected"
         )
-    return f"not reached: the run stopped after {replans} of {max_waves} re-plans"
+    return f"not reached: the run stopped after {replans} of {max_replans} re-plans"
 
 
 def _blocked_reason(
