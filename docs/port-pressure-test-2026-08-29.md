@@ -19,7 +19,10 @@
 > | **§4** · `param-mutation` is order-blind | Fixed — PR #385. The walk is in execution order and a branch merge is a union, so a rebind defends only where no path skips it. `contract_text` is threaded from `Contract.prose` and the stand-down is reachable. |
 > | **§4** · `UP035` demoted wholesale | Fixed — PR #385. The demotion is withdrawn per line, not per code. An AST family over `ImportFrom` naming `collections` rejects on `structure`, so a ruff-less install rejects too; the `typing` half stays demoted. |
 > | **Reach** · three levers built against callers nobody had written | Closed — PR #385. `mcgyvr run` climbs the ladder behind one new `--config` flag (no `--rung`: `starts_on`, `ascent`, `plan` and the budgets already settle that), `best_of` draws every attempt with `breadth.draws` defaulting to 1, and `tidy` sits between the gate and `judge` behind `cleanup.enabled: false`, honouring `regate` with a full re-gate and a fresh `Accepted.read`. |
-> | §4's remaining three items, and the ~48 major | Closed — the wrap branch (`green/port-dod-wrap`). `max_waves` now bounds re-planning, not plan depth; `record_success` resets the failure count without cancelling an armed cooldown, and the cooldown is wired into `worker_attempt` so it fires inside a task; and the emitted contract form carries the *declared* output cap (null when derived), so `sha256(dumps(contract))` no longer reads `data/task-catalog.json`. The ~48 major are enumerated in §8. |
+> | §4's remaining three items | Closed — the wrap branch (`green/port-dod-wrap`). `max_waves` now bounds re-planning, not plan depth; `record_success` resets the failure count without cancelling an armed cooldown, and the cooldown is wired into `worker_attempt` so it fires inside a task; and the emitted contract form carries the *declared* output cap (null when derived), so `sha256(dumps(contract))` no longer reads `data/task-catalog.json`. |
+> | The ~48 major | Enumerated in §8, **not closed** — most rows there are still Open. Deferred to a follow-up branch; see the decision below. |
+>
+> **Decision — 2026-08-31 (deferral, recorded).** The ~48 major findings are enumerated in §8, not fixed. They stay Open there — including the reach leftover `G1`/`S3` (`consensus._draw` still runs `space.reset()` after every draw, wiping a caller-supplied sandbox) — and are deferred to a follow-up branch (`green/port-dod-majors`) rather than shipped under a "Closed" banner. This wrap branch closes the three §4 items — the waves bound (`E2`/`E3`), the cooldown (`F4`/`S8`), and the contract digest (`E1`) — and the reach leftovers it fixed (`best_of` repo-XOR-sandbox, gate-takes-sandbox, `token_env` removal, `_INPLACE_WORDS` negation, `_DEPRECATED_TYPING`), and nothing more of §8.
 >
 > **Where to start next.** §6's order of work is spent, and so are four of §4's
 > seven items — the self-verification refusal (`verify.model_identity`), the
@@ -193,9 +196,9 @@ code, and the severity is the reporter's own.
 
 | # | Finding | Where | State |
 | - | - | - | - |
-| E1 | The emitted contract form (and `sha256(dumps(contract))`) now depends on `data/task-catalog.json` | `contract.py:789` | **Open — §4** |
-| E2 | `max_waves` bounds total waves, not re-planning — a failure-free 4-deep chain is truncated | `waves.py:174` | **Open — §4** |
-| E3 | When the wave budget runs out, a contract whose dependency *failed* is labelled "not reached" (can never run at any budget) | `waves.py:206-208` | **Open — §4** |
+| E1 | The emitted contract form (and `sha256(dumps(contract))`) now depends on `data/task-catalog.json` | `contract.py:789` | Closed — wrap branch |
+| E2 | `max_waves` bounds total waves, not re-planning — a failure-free 4-deep chain is truncated | `waves.py:174` | Closed — wrap branch |
+| E3 | When the wave budget runs out, a contract whose dependency *failed* is labelled "not reached" (can never run at any budget) | `waves.py:206-208` | Closed — wrap branch |
 | E4 | `docstring` is the only type whose cap moved *down* (512), and it is the type least bound to reply size (`whole_file`) | `contract.py:166-170,201-232` | Open |
 | E5 | `depends_on` order is preserved into `dumps`, so two semantically identical contracts get two identities | `contract.py:685` | Open |
 | E6 | An `attempt` that raises propagates and destroys the `WaveRun` — earlier waves' record is lost | `waves.py:181` | Open |
@@ -207,7 +210,7 @@ code, and the severity is the reporter's own.
 | F1 | `_definition` returns the first module-level match; Python binds the last — the splice lands on an `@overload` stub | `worker/scoped.py:161-166` | Open |
 | F2 | `parse_pinned`'s fallback unwraps a `.json` target's object and deletes the other keys | `worker/reply.py:474` | Open |
 | F3 | `_schema_field`'s carrier derivation mis-reads or refuses schemas a backend honoured correctly | `worker/reply.py:225-252` | Open |
-| F4 | The cooldown lever is inert on a single-host install — `record_success` pops the whole record | `cooldown.py:171` | **Open — §4** |
+| F4 | The cooldown lever is inert on a single-host install — `record_success` pops the whole record | `cooldown.py:171` | Closed — wrap branch |
 | F5 | A scoped edit in a CRLF repo spends an attempt on a format diff whose two sides render identically | `worker/scoped.py:157-158` | Open |
 | F6 | A reply that re-emits the whole file duplicates every top-level statement (costs an attempt as lint, wrong note) | `worker/scoped.py:158` | Open |
 | F7 | `params_b` became a required key while `schema_version` stayed 1 — bare `KeyError` | `capability.py:275` | Open |
@@ -237,7 +240,7 @@ code, and the severity is the reporter's own.
 | S5 | The port did not produce a driver; 28 of 35 entry points have no production caller | `cli.py:680-996` | Closed — `drive.py` + `mcgyvr run`, PR #383/#385 |
 | S6 | `telemetry.observe` cannot wrap an attempt (type is `Callable[[], Completion]`); on mismatch the answer is destroyed and nothing recorded | `telemetry.py:105,163` | Open |
 | S7 | No shared error vocabulary — exceptions cross every seam uncaught and `disposition` cannot see them | `escalate.py:696` | Open |
-| S8 | `cooldown.Cooldown` can never fire inside a task — `source_map` probes once, `escalate` holds the map | `cooldown.py:102` | **Open — §4** |
+| S8 | `cooldown.Cooldown` can never fire inside a task — `source_map` probes once, `escalate` holds the map | `cooldown.py:102` | Closed — wrap branch |
 | S9 | `pending.resume` collapses `verify.py`'s three-state `Review` to a bool, misreporting `UNUSABLE` as a refusal | `pending.py:233` | Open |
 | S10 | `worker/scoped.apply_scoped(node=…)` has no producer — nothing in the codebase names a definition | `worker/scoped.py` | Open |
 | S11 | `output_schema: unified_diff` loads, prompts with no format instruction, and is refused after the dispatch is paid for | `worker/prompt.py:81` | Open |
@@ -286,8 +289,9 @@ code, and the severity is the reporter's own.
 That is the "~48 major": the count is approximate because the teams overlapped
 (A2/R5, G1/S3, B4/X3, B7/X8 are the same defect seen from two angles) and because
 several were closed by the same PRs that closed the criticals and the patterns.
-The still-open rows are the work this branch is cut to finish, together with the
-three §4 items and the reach leftovers named above.
+The three §4 items and the reach leftovers named above are closed by the wrap
+branch; the still-open rows below remain Open, and the ~48 major are deferred
+to a follow-up branch (`green/port-dod-majors`) — not closed by this one.
 
 ## 1. The one thing to know
 
