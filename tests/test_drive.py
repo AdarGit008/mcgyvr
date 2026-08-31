@@ -704,8 +704,9 @@ def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
     assert record["orchestrator"] == "agent-a"
     assert record["rung"] == "local_qwen-7b"
     assert record["ok"] is True
-    # The orchestrator is part of the id, not only a field beside it: `fold`
-    # keys on the id, so a shared id is a row that erases another's.
+    # The orchestrator is part of the id, not only a field beside it: a
+    # correction keys on the id, so a shared id would bind a correction to
+    # the wrong attempt's row.
     assert record["attempt_id"] == "agent-a:impl:local_qwen-7b:1"
 
 

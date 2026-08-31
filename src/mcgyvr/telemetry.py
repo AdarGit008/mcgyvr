@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -192,8 +193,8 @@ def correct(
     path: Path,
     attempt_id: str,
     outcome: str,
+    orchestrator: str,
     detail: str = "",
-    orchestrator: str | None = None,
 ) -> None:
     """Append how one attempt's work finally landed, leaving its record alone.
 
@@ -205,17 +206,16 @@ def correct(
     fact rewrites.
 
     ``orchestrator`` is the one applying the correction, which under §9 need not
-    be the one that ran the attempt. It is optional because a correction is keyed
-    by an attempt that already names its own writer, and it is never folded onto
-    that attempt — a later reader must not find the wrong orchestrator's name on
-    a row it did not run.
+    be the one that ran the attempt. It is required, not optional, because a
+    correction that names no known attempt has no attempt row to borrow an
+    author from: the one place an orphan could be anonymous is the one place a
+    reader most needs to know who wrote it.
     """
     record = _stamp(CORRECTION_KIND, attempt_id) | {
         "outcome": outcome,
         "detail": detail,
+        "applied_by": orchestrator,
     }
-    if orchestrator is not None:
-        record["applied_by"] = orchestrator
     _append(path, record)
 
 
@@ -224,42 +224,47 @@ def fold(*, path: Path) -> list[Record]:
 
     This is what a report or a learning loop reads; the raw lines are for
     forensics. Each correction is applied onto the attempt whose id it names,
-    latest-wins, ordered by timestamp and then by position in the file — the
-    position is the tiebreak because two corrections written in the same tick,
-    or by hosts whose clocks disagree, still have an order on disk, and picking
-    an arbitrary one of them would make the fold's answer depend on the sort's
-    internals.
+    latest-wins, where "latest" is position in the file — the order the writes
+    actually happened. A correction's own ``ts`` is wall-clock metadata a reader
+    can inspect, not a ranking: two hosts writing one sink have two clocks, and
+    the file's order is the only order they share. A repeat attempt id is a
+    collision, not a supersede — every attempt row survives, and a correction
+    binds to the latest row carrying its id.
 
     A correction naming no known attempt comes back verbatim at the end rather
     than being dropped. It is a mistake somebody made, and a mistake that is
     visible costs one question; a mistake that deletes itself costs the trust in
     every other number in the file.
     """
-    attempts: dict[str, Record] = {}
-    order: list[str] = []
+    attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
     for position, record in enumerate(_read(path)):
         if record.get("record_kind") == CORRECTION_KIND:
             corrections.append((position, record))
             continue
-        attempt_id = str(record.get("attempt_id", ""))
-        if attempt_id not in attempts:
-            order.append(attempt_id)
-        attempts[attempt_id] = record  # a re-logged attempt id supersedes
+        attempts.append(record)
+
+    # A correction binds to the latest attempt row carrying its id — the one a
+    # corrector most plausibly just corrected — but a repeat id never makes a
+    # row disappear.
+    latest: dict[str, int] = {}
+    for index, record in enumerate(attempts):
+        latest[str(record.get("attempt_id", ""))] = index
 
     orphans: list[Record] = []
-    for _, correction in sorted(corrections, key=_when):
-        base = attempts.get(str(correction.get("attempt_id", "")))
-        if base is None:
+    for _, correction in sorted(corrections, key=lambda entry: entry[0]):
+        match = latest.get(str(correction.get("attempt_id", "")))
+        if match is None:
             orphans.append(correction)
             continue
+        base = attempts[match]
         for key in _CORRECTABLE:
             # ``None`` is "this correction does not say", which leaves whatever
             # an earlier one said standing. Absence is not a retraction.
             if correction.get(key) is not None:
                 base[key] = correction[key]
 
-    return [attempts[attempt_id] for attempt_id in order] + orphans
+    return attempts + orphans
 
 
 def _stamp(kind: str, attempt_id: str) -> Record:
@@ -282,54 +287,88 @@ def _since(started: float) -> float:
     return round(time.monotonic() - started, 6)
 
 
-def _when(entry: tuple[int, Record]) -> tuple[float, int]:
-    """A correction's place in the fold: its own clock first, the file's second."""
-    position, record = entry
-    stamped = record.get("ts")
-    return (float(stamped) if isinstance(stamped, int | float) else 0.0, position)
-
-
 def _append(path: Path, record: Record) -> None:
     """Add one line to the sink, whole, under an exclusive lock.
 
     The lock and the append mode do two different jobs, and both are needed for
-    the concurrency §9 asks for: ``a`` puts every write at the end of the file as
-    it is *now*, so a writer that waited does not overwrite what it waited for,
-    and the ``flock`` keeps two writers from interleaving parts of two lines. The
-    lock is taken around the write and released by the flush and close, so it is
-    held for the length of one line and never across a caller's work.
+    the concurrency §9 asks for: ``O_APPEND`` puts every write at the end of the
+    file as it is *now*, so a writer that waited does not overwrite what it
+    waited for, and the ``flock`` keeps two writers from interleaving parts of
+    two lines. Two more rules keep one line from destroying the next: the file
+    is checked to end on a line boundary first — a torn line left by a crash is
+    terminated, not glued onto — and the write is counted, because a short write
+    on a full disk is a failure to signal, not a stump to leave behind.
     """
-    line = json.dumps(record) + "\n"
+    line = (json.dumps(record) + "\n").encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as sink:
-        fcntl.flock(sink.fileno(), fcntl.LOCK_EX)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
         try:
-            sink.write(line)
-            sink.flush()
+            _terminate_stump(fd)
+            _write_all(fd, line)
         finally:
-            fcntl.flock(sink.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+def _terminate_stump(fd: int) -> None:
+    """End the file on a line boundary if it does not already end on one.
+
+    A write that crashed, or that a full disk accepted only half of, leaves
+    bytes with no trailing newline. The next record must not be glued onto them,
+    so the stump is terminated before the new line is written.
+    """
+    end = os.lseek(fd, 0, os.SEEK_END)
+    if end == 0:
+        return
+    os.lseek(fd, end - 1, os.SEEK_SET)
+    if os.read(fd, 1) != b"\n":
+        os.write(fd, b"\n")
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    """Write ``data`` whole, raising if the sink accepts less than all of it.
+
+    A regular file on a full disk can take a short write without an error from
+    ``os.write``; the only way to know the line is intact is to count. A partial
+    line is the exact stump this module's append-only shape exists to survive,
+    and it is survivable only if the writer does not silently declare victory.
+    """
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError(
+                f"telemetry sink accepted {len(data) - len(view)} of {len(data)} bytes"
+            )
+        view = view[written:]
 
 
 def _read(path: Path) -> list[Record]:
     """Every record in the sink, in file order. A sink that does not exist is empty.
 
-    A line that will not parse is skipped rather than raising. The append-only
-    shape is chosen because it survives a crash mid-write, and it only actually
-    survives one if the reader does too: a torn last line is already lost, and
-    letting it take every record before it as well would give up the property
-    the shape was chosen for.
+    A line that will not decode or parse is skipped rather than raising. The
+    append-only shape is chosen because it survives a crash mid-write, and it
+    only actually survives one if the reader does too: a torn last line is
+    already lost, and letting it take every record before it as well would give
+    up the property the shape was chosen for. An undecodable byte is the same
+    case one step earlier — the line is decoded on its own, so one bad byte
+    loses one line, not the whole sink.
     """
     try:
-        text = path.read_text(encoding="utf-8")
+        raw = path.read_bytes()
     except FileNotFoundError:
         return []
     records: list[Record] = []
-    for line in text.splitlines():
+    for line in raw.splitlines():
         if not line.strip():
             continue
         try:
-            parsed = json.loads(line)
-        except json.JSONDecodeError:
+            text = line.decode("utf-8")
+            parsed = json.loads(text)
+        except (UnicodeDecodeError, json.JSONDecodeError):
             continue
         if isinstance(parsed, dict):
             records.append(parsed)
