@@ -21,6 +21,28 @@ API rung is not prevented by a check that could be forgotten; there is nowhere
 in the shape for it to happen. A floor is a floor in the same way: families
 below it are absent from the ascent rather than skipped inside it.
 
+**An idle ladder spills upward, and only when told to.** ``ladder.fanout``
+is a knob and ``none`` is its default, which is this module as it was: every
+contract of a batch takes the cheapest rung of its floor family and queues
+there. Under ``idle`` :attr:`Ascent.next_free_rung` names the cheapest rung *at
+or above the floor* with a free slot instead, which is a choice that can cross
+families — when every local rung is full the cheapest free rung is a priced api
+one, so a saturated local ladder buys capacity rather than waits. That is the
+whole reason the mode is opt-in, and it is why the choice is here and not in
+:mod:`mcgyvr.route`: #24's boundary is that nothing there looks past the family
+it was asked about, and this is already the view "every family this contract
+may climb, from its floor upward". ``full`` spreads *within* a family and stays
+:func:`~mcgyvr.route.climb`'s; this module adds nothing to it.
+
+**Busy is not a verdict, and the record is the difference.** A rung that
+:attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
+verdict, spent no attempt and funded no escalation, because
+:meth:`~mcgyvr.capacity.Capacity.hold` blocks rather than raising and a queue is
+not a failure. So an api rung reached under ``idle`` and an api rung reached by
+escalation are the same rung with two different histories — one was chosen
+before anything ran, the other was climbed to after something failed — and only
+the second says the local family could not do the work.
+
 **Two ceilings bound the task, and they bound different things.**
 ``budgets.max_escalations`` bounds how far the work *climbs* — a cheap rung that
 fails and then escalates costs more than starting higher, so the ceiling is on
@@ -84,8 +106,8 @@ interleaved ladder executes in an order the config file does not show.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
@@ -94,6 +116,7 @@ from mcgyvr.route import (
     Accepted,
     Attempted,
     Exhaustion,
+    Fanout,
     Plan,
     Result,
     RouteError,
@@ -101,6 +124,7 @@ from mcgyvr.route import (
     Try,
     Verdict,
     climb,
+    fanout_of,
     plan,
 )
 
@@ -428,11 +452,29 @@ class Ascent:
     family and this extends to the whole climb: the families, their rungs, the
     attempts each is allowed and the two ceilings are all decided from the
     config, the pool and the contract alone.
+
+    ``fanout`` is the configured mode, carried the way
+    :attr:`~mcgyvr.route.Plan.fanout` carries it, so that an ascent can answer
+    where an idle ladder would send work without being handed a
+    :class:`~mcgyvr.config.Config` again.
+
+    ``capacity`` and ``widths`` are the two halves of "has a free slot", and
+    they are split because they change at different rates. A width is a
+    property of how a backend was started and :class:`~mcgyvr.capacity.Capacity`
+    settles it once, so it is read when the ascent is built; load is only true
+    at the moment it is asked for, so it is read then. Neither is part of the
+    decision this record holds — two ascents that differ only in which capacity
+    they were handed are the same ascent — so both stay out of ``repr`` and out
+    of comparison, and the families, rungs, attempts and ceilings that *are* the
+    decision print exactly as they did before.
     """
 
     floor: Family
     plans: tuple[Plan, ...]
     ceiling: Ceiling
+    fanout: Fanout = Fanout.NONE
+    capacity: Capacity | None = field(default=None, repr=False, compare=False)
+    widths: Mapping[str, int] = field(default_factory=dict, repr=False, compare=False)
 
     def __bool__(self) -> bool:
         """Whether there is anything here to climb.
@@ -509,6 +551,59 @@ class Ascent:
         return min(len(self.rungs), self.ceiling.escalations + 1)
 
     @property
+    def next_free_rung(self) -> str | None:
+        """The cheapest rung at or above the floor with a free slot, under ``idle``.
+
+        This is the whole of what ``ladder.fanout: idle`` decides. The floor
+        bounds it and nothing else does: when every cheaper rung is full this
+        names a priced api rung rather than wait, which is a spend decision the
+        knob makes deliberately and the reason it is opt-in.
+
+        **Never below the floor, structurally.** :attr:`plans` holds only
+        families at or above it, so a cheaper rung is not skipped here — there
+        is nowhere in the shape for it to be considered, however idle it is.
+        Risk raises a floor (#16) and load may not lower it.
+
+        **Nothing is spent naming a rung.** A rung passed over here was not
+        tried, so it reached no verdict, consumed no attempt and funded no
+        escalation; a rung named here was chosen before anything ran, which is
+        what makes it different from the same rung climbed to after a failure.
+
+        ``None`` means "no answer, keep price order", which is ``none``'s
+        behaviour and never an error. It is the answer in four cases: the mode
+        is not ``idle`` — the question belongs to the operator who asked for it,
+        and answering it under a mode that declined it would offer a decision
+        nobody wanted; no capacity was handed in, so there is no load to read;
+        every rung at or above the floor is full, and waiting is then the only
+        honest answer; or a rung's load could not be read at all.
+
+        That last case stops the walk rather than stepping over the rung.
+        "Cheapest free" is only knowable if every cheaper rung could be priced,
+        so answering past an unreadable one would spend money to route around
+        ignorance — and an unknown belongs on the cheap side. A load is
+        unreadable when a step is bound to no machine, or when the capacity in
+        hand does not bound that machine, which is a capacity and a plan built
+        from different configs.
+
+        The load is read here rather than stored when the ascent was built,
+        because a reading taken before the batch started is only true until the
+        batch starts; this is the closest a caller can get to the moment it acts.
+        """
+        if self.fanout is not Fanout.IDLE or self.capacity is None:
+            return None
+        for each in self.plans:
+            for step in each.climbable:
+                width = self.widths.get(step.rung.name)
+                load = (
+                    None if step.machine is None else step.machine.load(self.capacity)
+                )
+                if width is None or load is None:
+                    return None
+                if load < width:
+                    return step.rung.name
+        return None
+
+    @property
     def reason(self) -> str:
         """Why nothing can run, in the words each family gave for being empty."""
         return " ".join(f"{p.family.name}: {p.reason}" for p in self.plans if p.reason)
@@ -520,6 +615,7 @@ def ascent(
     contract: Contract,
     *,
     floor: Family | None = None,
+    capacity: Capacity | None = None,
 ) -> Ascent:
     """The families this contract may climb, from its floor upward.
 
@@ -527,6 +623,14 @@ def ascent(
     are absent rather than skipped, and each family appears once in strictly
     increasing rank — which is what makes "entered at most once" a fact about
     the shape rather than a rule something has to remember to apply.
+
+    ``capacity`` changes none of that: the families, their rungs and both
+    ceilings are what they were without one, and every mode's ladder is the same
+    ladder. What it adds is a question the ascent can then answer —
+    :attr:`Ascent.next_free_rung`, which is ``idle``'s choice and which crosses
+    families, so it belongs to the view that spans them rather than to
+    :func:`~mcgyvr.route.plan`. It is passed down to each plan as well, at the
+    seam that documents accepting one and doing nothing with it.
     """
     known = catalog()
     start = floor if floor is not None else contract.type.starts_on
@@ -535,12 +639,43 @@ def ascent(
     return Ascent(
         floor=start,
         plans=tuple(
-            plan(config, pool, contract, family=family)
+            plan(config, pool, contract, family=family, capacity=capacity)
             for family in known.families
             if family.rank >= start.rank
         ),
         ceiling=Ceiling.of(config),
+        fanout=fanout_of(config),
+        capacity=capacity,
+        widths=_widths(config, capacity),
     )
+
+
+def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
+    """How wide each rung's machine is, keyed by the rung rather than the machine.
+
+    The static half of "has a free slot". A width is a property of how a backend
+    was started, so :class:`~mcgyvr.capacity.Capacity` settles it once and this
+    reads it once; only the load has to be read at the moment the question is
+    asked.
+
+    The source name is read inside this function and does not leave it: #20's
+    rule is that nothing above the execution seam learns where work runs, and a
+    width keyed by a rung is a fact about the ladder rather than about a host.
+    Asking :class:`~mcgyvr.route.Machine` how busy it is stays the one way load
+    is read, for the same reason.
+
+    A rung whose source this capacity does not bound is absent rather than given
+    a guessed width, because an unknown width is not a free slot and
+    :attr:`Ascent.next_free_rung` must be able to tell the two apart.
+    """
+    if capacity is None:
+        return {}
+    limits = capacity.limits
+    return {
+        tier.name: limits[tier.source]
+        for tier in config.ladder.tiers
+        if tier.source in limits
+    }
 
 
 # --- terminal outcomes -----------------------------------------------------
@@ -623,7 +758,7 @@ def escalate(
     as it happens: an attempt that was declined adds nothing to either count,
     so a ladder of rungs that all step aside is walked in full at no cost.
     """
-    route = ascent(config, pool, contract, floor=floor)
+    route = ascent(config, pool, contract, floor=floor, capacity=capacity)
     ceiling = route.ceiling
     budget = route.budget
 

@@ -33,6 +33,13 @@ name: an observation and an environment issue are both real entries on a gate
 result that must not reach the worker, and neither would be caught by a test
 that only checked the failing check was present.
 
+*Where an idle ladder sends work* is the sixth statement, and it arrived with
+``ladder.fanout``. It is held against real slots — :meth:`Capacity.hold` under
+an isolated lock dir — rather than a stubbed load, because a stub would be the
+test agreeing with itself about what "no free slot" means. The assertions are
+about the rung ``idle`` *names*: naming one dispatches nothing, so the same
+tests also hold the rule that a busy rung is passed over rather than failed.
+
 Nothing here dispatches, gates or verifies. Every input is constructed, which
 is the whole reason :func:`~mcgyvr.escalate.escalate` takes an attempt function
 and :func:`~mcgyvr.escalate.judge` takes a gate result.
@@ -40,11 +47,14 @@ and :func:`~mcgyvr.escalate.judge` takes a gate result.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from mcgyvr.capacity import Capacity
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
@@ -158,6 +168,14 @@ DETERMINISTIC = catalog().family("deterministic")
 def key(monkeypatch: pytest.MonkeyPatch) -> None:
     """A credential for the api source, assembled rather than written literally."""
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
+
+
+@pytest.fixture
+def locks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slot files are host-wide by design (#185); tests must not share them."""
+    monkeypatch.setattr(
+        "mcgyvr.capacity._default_lock_dir", lambda: tmp_path / "capacity-locks"
+    )
 
 
 def mapped(text: str) -> tuple[Config, SourceMap]:
@@ -855,6 +873,242 @@ def test_capacity_reaches_every_rung_of_every_family(key: None) -> None:
 
     assert len(attempts.seen) == 3
     assert all(t.capacity is capacity for t in attempts.seen)
+
+
+# --- where an idle ladder sends work ---------------------------------------
+
+NARROW = """
+version: 1
+sources:
+  workstation:
+    base_url: http://localhost:11434
+    api: ollama
+    max_parallel: 1
+  spare:
+    base_url: http://192.168.1.20:8000
+    api: openai
+    max_parallel: 1
+  vendor:
+    base_url: https://api.example.com/v1
+    api: openai
+    max_parallel: 4
+    api_key_env: EXAMPLE_API_KEY
+ladder:
+{fanout}  tiers:
+    - name: local_qwen-7b
+      source: workstation
+      model: qwen2.5-coder:7b
+    - name: local_qwen-14b
+      source: spare
+      model: qwen2.5-coder:14b
+    - name: api_big
+      source: vendor
+      model: vendor-large
+"""
+
+
+def narrow(mode: str = "") -> str:
+    """`MIXED`'s ladder at one slot per local source, with ``fanout`` set or not.
+
+    One slot each is what lets these tests make load real without helper
+    threads: a single held slot is then a full rig, and
+    :meth:`~mcgyvr.capacity.Capacity.hold` refuses only a thread that already
+    holds the *same* source, so this thread can fill both local rigs at once and
+    no test here depends on a thread arriving in time.
+
+    The mode is a substitution rather than a second literal so that the only
+    difference between the default case and a mode case is the one line under
+    test, and no assertion can be quietly explained by a config that also
+    drifted somewhere else.
+    """
+    return NARROW.format(fanout=f"  fanout: {mode}\n" if mode else "")
+
+
+@contextmanager
+def holding(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
+    """Really hold one slot on each of ``rungs`` for the body of the block.
+
+    Real slots rather than a stubbed load, for the reason ``test_capacity.py``
+    gives about asserting a bound with the implementation's own bookkeeping: the
+    thing under test is whether a rung with no free slot is passed over, and a
+    stub would be the test agreeing with itself about what "no free slot" means.
+    """
+    with ExitStack() as stack:
+        for rung in rungs:
+            stack.enter_context(capacity.hold(pool.bind(rung)))
+        yield
+
+
+def test_idle_names_the_cheapest_rung_when_nothing_is_busy(
+    key: None, locks: None
+) -> None:
+    """``idle`` on an idle ladder is ``none`` on an idle ladder, exactly.
+
+    The mode is about which rung a *busy* ladder offers. With every rung free
+    the cheapest one is also the freest, so nothing has been reordered by load
+    that load had anything to say about — and a mode that started dear on an
+    empty ladder would be buying capacity nobody was competing for.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    route = ascent(config, pool, contract(), capacity=capacity)
+
+    assert route.next_free_rung == "local_qwen-7b"
+
+
+def test_idle_passes_over_a_saturated_rung_for_the_next_cheapest(
+    key: None, locks: None
+) -> None:
+    """The cheapest rung with a free slot, and the busy one is not spent to learn it.
+
+    The ladder is unchanged: the busy rung is still on it, with its full budget,
+    because it was passed over and not tried. A ladder that got shorter here
+    would have turned a queue into a verdict.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    with holding(capacity, pool, "local_qwen-7b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung == "local_qwen-14b"
+        assert route.rungs == ("local_qwen-7b", "local_qwen-14b", "api_big")
+        assert route.budget == 3
+
+
+def test_idle_crosses_into_a_priced_family_when_every_cheaper_rung_is_full(
+    key: None, locks: None
+) -> None:
+    """The spend decision the knob is opt-in for, and the record that justifies it.
+
+    Both local rigs are full, so the cheapest rung at or above this contract's
+    floor with a free slot is a priced one. It was *chosen*: nothing was
+    dispatched to reach it, nothing failed, and the paid source has not been
+    touched — which is what separates this from the escalation it looks like
+    from outside.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung == "api_big"
+        spent = {u.source: u.acquisitions for u in capacity.usage()}
+        assert spent["vendor"] == 0, "naming a rung buys nothing"
+
+
+def test_idle_never_names_a_rung_below_the_floor_however_free_it_is(
+    key: None, locks: None
+) -> None:
+    """Risk raises a floor (#16) and load may not lower it.
+
+    Every local rung is idle here and every one of them is ineligible, because
+    the floor is above them. The families cheaper than the floor are absent from
+    the ascent rather than skipped inside it, so this is a property of the shape
+    and not of a check that could be forgotten.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    route = ascent(config, pool, contract(), floor=API, capacity=capacity)
+
+    assert route.next_free_rung == "api_big"
+    assert "local_qwen-7b" not in route.rungs
+
+
+def test_the_default_fanout_asks_nothing_about_load_and_climbs_as_it_did(
+    key: None, locks: None
+) -> None:
+    """``none`` is the default and it is unaffected, capacity in hand or not.
+
+    Both local rigs are full and the answer is still no answer: under ``none``
+    the question is not the operator's to have asked, and answering it would
+    offer a spend decision they declined. The ascent itself is the ascent it is
+    without a capacity — same families, same rungs, same budget.
+    """
+    config, pool = mapped(narrow())
+    capacity = Capacity.of(config)
+    without = ascent(config, pool, contract())
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung is None
+        assert route.families == without.families
+        assert route.rungs == without.rungs
+        assert route.budget == without.budget
+        assert route.most_rungs == without.most_rungs
+
+
+def test_full_fanout_leaves_the_cross_family_choice_unasked(
+    key: None, locks: None
+) -> None:
+    """``full`` spreads inside a family, and that choice stays :func:`climb`'s.
+
+    This module adds nothing to it: a busy cheapest rung under ``full`` is a
+    tie-break for the rungs of one family, not a licence to reach into the next
+    one up.
+    """
+    config, pool = mapped(narrow("full"))
+    capacity = Capacity.of(config)
+
+    with holding(capacity, pool, "local_qwen-7b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung is None
+        assert route.rungs == ("local_qwen-7b", "local_qwen-14b", "api_big")
+
+
+def test_a_rung_whose_load_cannot_be_read_stops_the_walk_rather_than_being_skipped(
+    key: None, locks: None
+) -> None:
+    """An unknown belongs on the cheap side: nothing spends to route around it.
+
+    This capacity bounds the cheapest rung and no other, which is a capacity and
+    a pool built from different configs. The cheapest rung is full, and the next
+    two cannot be read — so "the cheapest rung with a free slot" is not
+    knowable, and stepping over the unreadable ones would buy a priced rung on
+    the strength of not knowing.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity({"workstation": 1})
+
+    with holding(capacity, pool, "local_qwen-7b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung is None
+
+
+def test_a_printed_ascent_under_idle_still_names_no_machine(
+    key: None, locks: None
+) -> None:
+    """A capacity says how busy a box is; it never says which box (#20).
+
+    ``next_free_rung`` is a rung name, which is a ladder-level name an operator
+    chose. The source and host names behind it are read where load is, below the
+    seam, and none of them reaches anything that gets printed. ``vendor`` is not
+    in the list because the api rung's *model* is legitimately called
+    ``vendor-large``.
+    """
+    config, pool = mapped(narrow("idle"))
+    capacity = Capacity.of(config)
+
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        route = ascent(config, pool, contract(), capacity=capacity)
+
+        assert route.next_free_rung == "api_big"
+        rendered = repr(route)
+        elsewhere = (
+            "localhost",
+            "192.168.1.20",
+            "api.example.com",
+            "workstation",
+            "spare",
+        )
+        for where in elsewhere:
+            assert where not in rendered
 
 
 # --- the decision is readable without running anything ---------------------
