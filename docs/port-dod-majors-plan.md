@@ -72,4 +72,8 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
 ## Status log
 
 - 2026-08-31 — branch created; plan written.
-- 2026-08-31 — F5/F6 closed in `worker/scoped.py`: a CRLF splice re-terminates its fragment to the source's terminator (head/tail untouched), and a reply that re-emits the whole file is refused as `scope-mismatch` naming the extra statements. RED tests: `tests/red_port/test_dod_scoped_crlf.py`, `tests/red_port/test_dod_scoped_wholefile.py`.
+- 2026-08-31 — **Phase 1 complete** (8 findings, 3 commits):
+  - `7c09e2b1` B4/X3 + B6 in `pending.py` — crash-safe entry swap (tombstone) and re-validated stored target.
+  - `7c65c8b3` B2 + B7/X8 + B12 + X2 in `deliver.py` — detached/rebase refusal, created-dir undo, symlink refusal, glob-target refusal.
+  - `a13a5c35` F5 + F6 in `worker/scoped.py` — CRLF fragment re-termination, whole-file re-emit refusal.
+  - Full gate clean: `2374 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
