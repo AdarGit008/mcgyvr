@@ -51,14 +51,28 @@ def _run_module() -> Any:
 run_module = _run_module()
 
 
-def level(n: int, ok: int, errors: int = 0, kinds: tuple[str, ...] = ()) -> dict:
-    """One ramp level as ``contract.ramp`` emits it."""
+def level(
+    n: int,
+    ok: int,
+    errors: int = 0,
+    kinds: tuple[str, ...] = (),
+    counted: int | None = None,
+) -> dict:
+    """One ramp level as ``contract.ramp`` emits it.
+
+    ``counted`` defaults to ``ok`` because that is what the engine produces when
+    every reply carries a ``usage`` block. Pass it explicitly to build the other
+    shape -- replies that arrived and could not be counted -- which states no
+    rate and is barren for that reason rather than for failing.
+    """
+    counted = ok if counted is None else counted
     return {
         "n": n,
         "ok": ok,
+        "counted": counted,
         "errors": errors,
         "error_kinds": list(kinds),
-        "tokens_per_s": 10.0 * n if ok else None,
+        "tokens_per_s": 10.0 * n if counted else None,
     }
 
 
@@ -137,9 +151,38 @@ def test_the_downgrade_uses_a_vocabulary_word() -> None:
 
 def test_an_empty_ramp_is_not_silently_whole() -> None:
     """A ramp that emitted no levels at all states no rate either. It must not
-    pass for want of anything to iterate."""
+    pass for want of anything to iterate.
+
+    The assertions here used to be ``barren_levels(...) == []`` -- which is the
+    OPPOSITE of what this test is named for. `barren_levels` has nothing to
+    return for an empty ramp, so an empty list is the honest answer from it; the
+    refusal has to come from the downgrade, and it did not. The test pinned the
+    hole open under a name that said it was closed."""
     assert run_module.barren_levels({}) == []
     assert run_module.barren_levels({"levels": []}) == []
+    for measured in ({}, {"levels": []}):
+        row = {"outcome": "ok"}
+        run_module.barren_downgrades_the_outcome(row, measured, "srv1", "cell")
+        assert row["outcome"] == "ramp_failed", (
+            "a ramp that recorded no levels kept its `ok`, so `--retry-failed` "
+            "would skip a cell that measured nothing"
+        )
+        assert row["refusal"]["reasons"] == ["ramp_measured_nothing"]
+
+
+def test_a_level_that_arrived_but_could_not_be_counted_is_barren() -> None:
+    """The second branch by which a level states no rate. `contract._level`
+    counts replies (`ok`) and countable replies (`counted`) separately and sets
+    `tokens_per_s` to None unless `counted` is non-empty -- so a level can have
+    every request succeed and still carry no rate."""
+    level = {"n": 8, "ok": 8, "counted": 0, "errors": 0, "tokens_per_s": None}
+    assert run_module.barren_levels({"levels": [level]}) == [level]
+    row = {"outcome": "ok"}
+    run_module.barren_downgrades_the_outcome(
+        row, {"levels": [level]}, "srv1", "cell"
+    )
+    assert row["outcome"] == "ramp_failed"
+    assert "stated a token count" in row["refusal"]["prose"]
 
 
 def test_resume_keys_on_the_field_this_downgrades() -> None:

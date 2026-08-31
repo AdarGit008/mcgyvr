@@ -155,7 +155,19 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
     # `--retry-failed` resurrected a superseded measurement and counted the cell
     # done — reporting `ok` for a cell whose most recent answer was a refusal.
     if retry_failed:
-        rows = {k: v for k, v in rows.items() if v.get("outcome") == "ok"}
+        # The stored `outcome` is not sufficient on its own. A row written
+        # before the barren-level downgrade landed (d75d90fb) can read `ok`
+        # while carrying a level that measured nothing -- and this filter,
+        # trusting the string, skipped it as good. That is what made the
+        # documented remedy "delete the row by hand", which in turn turned the
+        # tree green over five outstanding cells on 2026-08-31. Re-score the
+        # curve here instead, and the journal never needs editing.
+        rows = {
+            k: v
+            for k, v in rows.items()
+            if v.get("outcome") == "ok"
+            and not barren_levels(v.get("concurrency") or {})
+        }
     return rows
 
 
@@ -190,11 +202,21 @@ SURVEY_ROW_DISPOSITION: dict[str, tuple[str, ...]] = {
 
 
 def barren_levels(measured: dict[str, Any]) -> list[dict[str, Any]]:
-    """The levels of a ramp at which no request succeeded.
+    """The levels of a ramp that state no rate.
 
     ``contract.ramp`` records per-request failures as ``errors`` and returns
     normally, so a level at which everything failed is indistinguishable, to the
     caller, from one that was merely slow -- unless it is asked. This asks.
+
+    **Two ways a level can state no rate, and both are judged here.** The first
+    is that nothing succeeded: ``ok`` is 0. The second is that replies arrived
+    and none of them could be counted -- ``contract._level`` tracks ``good``
+    (replies) and ``counted`` (replies carrying a ``usage`` block) separately,
+    and sets ``tokens_per_s`` to None unless ``counted`` is non-empty. Judging
+    only ``ok`` left that second branch open: a level with ``ok: 8`` and
+    ``counted: 0`` carries no rate, was not called barren, kept the cell's
+    ``ok``, and was skipped by ``--retry-failed`` -- the same defect this
+    function exists to close, on the other of the two branches that produce it.
     """
     # Only mappings are judged. A ramp stub may carry a bare level -- an `n`
     # with no row behind it -- and a level this cannot read is not a level this
@@ -203,7 +225,7 @@ def barren_levels(measured: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         level
         for level in (measured.get("levels") or [])
-        if isinstance(level, dict) and not level.get("ok")
+        if isinstance(level, dict) and not (level.get("ok") and level.get("counted"))
     ]
 
 
@@ -224,6 +246,23 @@ def barren_downgrades_the_outcome(
     the condition was computed and then not allowed to reach the outcome. It
     reaches it here.
     """
+    # A ramp that emitted NO levels states no rate either, and there is nothing
+    # for `barren_levels` to return -- so it would keep its `ok` for want of
+    # anything to iterate. That is the same hole, entered from the empty side.
+    if not (measured.get("levels") or []):
+        row["outcome"] = "ramp_failed"
+        row["refusal"] = {
+            "reasons": ["ramp_measured_nothing"],
+            "stage": "ramp",
+            "kind": "EmptyRamp",
+            "prose": (
+                f"{label} on {host}: the ramp recorded no levels at all, so the "
+                "cell states no rate at any n. Recorded as `ramp_failed` rather "
+                "than `ok` so that `--retry-failed` re-measures it."
+            ),
+        }
+        print(f"[{host}] {label} — ramp_failed: no levels recorded", flush=True)
+        return
     barren = barren_levels(measured)
     if not barren:
         return
@@ -237,6 +276,11 @@ def barren_downgrades_the_outcome(
             + ", ".join(
                 f"n={lv.get('n')} completed {lv.get('ok')} of "
                 f"{(lv.get('ok') or 0) + (lv.get('errors') or 0)} requests"
+                + (
+                    f", {lv.get('counted')} of which stated a token count"
+                    if lv.get("ok") and not lv.get("counted")
+                    else ""
+                )
                 + (
                     f" ({', '.join(lv.get('error_kinds') or [])})"
                     if lv.get("error_kinds")
@@ -319,6 +363,16 @@ def run(
                 f"starting with `_` are documentation and are ignored on "
                 f"purpose; anything else is an entry that believes it declared "
                 f"something. Known keys: {sorted(known)}."
+            )
+        levels = (entry.get("concurrency") or {}).get("levels")
+        if levels is not None and not levels:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} declares "
+                "`concurrency.levels: []`. An empty list is not a request to "
+                f"measure nothing -- it used to fall through to "
+                f"{list(contract.RAMP_LEVELS)}, so a typo silently ramped past "
+                "the declared batch width and recorded the resulting queueing "
+                "plateau as a measurement. Declare the levels or omit the key."
             )
         stray = set(entry.get("hosts") or []) - set(hosts)
         if stray:
@@ -577,7 +631,11 @@ def run(
                     measured = contract.ramp(
                         base,
                         str(spec["id"]),
-                        tuple(concurrency.get("levels") or contract.RAMP_LEVELS),
+                        tuple(
+                            contract.RAMP_LEVELS
+                            if concurrency.get("levels") is None
+                            else concurrency["levels"]
+                        ),
                         # #327: where the per-level card and load are read.
                         host=host,
                     )
