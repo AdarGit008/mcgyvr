@@ -25,11 +25,11 @@ import urllib.request
 #     scaffold cached, so both sides now cache.
 #  2. ignore_eos is GONE. Output length is the sampled n_predict and the model
 #     may stop earlier, exactly as in production.
-PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]   # p10..p90
-COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]     # p10..p90
-SYS_TOK = 190          # measured scaffold size; the shared, cacheable prefix
-TOK_PER_FIELD = 32     # calibration knob: tune until reported ptok= ~= 688
-HDR_TOK = 60           # approx tokens in the task-body header lines
+PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
+COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
+SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
+TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
+HDR_TOK = 60  # approx tokens in the task-body header lines
 MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
 
 MODEL, MDIR, TAG = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -71,7 +71,7 @@ def mkprompt():
         for k in range(nfield)
     )
     body = (
-        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16 ** 8):08x}\n"
+        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16**8):08x}\n"
         f"Signature: def option_pairs(rows: list[dict], strict: bool = False) -> dict\n"
         f"Fields:\n{fields}\n\n"
         f"Implement it now.\n"
@@ -85,17 +85,25 @@ def sh(c):
 
 def post(out, idx):
     prompt, want = mkprompt()
-    b = json.dumps({"prompt": prompt, "n_predict": want, "temperature": 0,
-                    "cache_prompt": True}).encode()
-    r = urllib.request.Request(f"http://localhost:{PORT}/completion", data=b,
-                               headers={"Content-Type": "application/json"})
+    b = json.dumps(
+        {"prompt": prompt, "n_predict": want, "temperature": 0, "cache_prompt": True}
+    ).encode()
+    r = urllib.request.Request(
+        f"http://localhost:{PORT}/completion",
+        data=b,
+        headers={"Content-Type": "application/json"},
+    )
     t0 = time.time()
     try:
         with urllib.request.urlopen(r, timeout=3600) as f:
             d = json.load(f)
         tm = d.get("timings", {})
-        out[idx] = (tm.get("predicted_n", 0), time.time() - t0,
-                    tm.get("prompt_n", d.get("tokens_evaluated", 0)), want)
+        out[idx] = (
+            tm.get("predicted_n", 0),
+            time.time() - t0,
+            tm.get("prompt_n", d.get("tokens_evaluated", 0)),
+            want,
+        )
     except Exception:
         out[idx] = (0, time.time() - t0, 0, want)
 
@@ -106,16 +114,20 @@ for cell in CELLS:
     total_c = int(np_) * int(ctxslot)
     lab = f"{TAG} np={np_} ctx_slot={ctxslot} c={total_c} ncmoe={ncm}"
     if int(ctxslot) < MAXLEN_NEED:
-        print(f"{H}\t{lab}\tSKIP\tctx_slot {ctxslot} < {MAXLEN_NEED} "
-              f"(worst sampled prompt+reply); raise it or the tail truncates",
-              flush=True)
+        print(
+            f"{H}\t{lab}\tSKIP\tctx_slot {ctxslot} < {MAXLEN_NEED} "
+            f"(worst sampled prompt+reply); raise it or the tail truncates",
+            flush=True,
+        )
         continue
     sh("docker rm -f lcps")
     extra = f"--n-cpu-moe {ncm}" if ncm != "0" else ""
-    sh(f'docker run -d --name lcps --gpus all -v {MDIR}:/models:ro '
-       f'-p {PORT}:8080 {IMG} '
-       f'-m /models/{MODEL.split("/")[-1]} -ngl 99 -np {np_} -c {total_c} {extra} '
-       f'-fa on --no-warmup --host 0.0.0.0 --port 8080')
+    sh(
+        f"docker run -d --name lcps --gpus all -v {MDIR}:/models:ro "
+        f"-p {PORT}:8080 {IMG} "
+        f"-m /models/{MODEL.split('/')[-1]} -ngl 99 -np {np_} -c {total_c} {extra} "
+        f"-fa on --no-warmup --host 0.0.0.0 --port 8080"
+    )
     probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
     ok = False
     for _ in range(400):
@@ -126,8 +138,9 @@ for cell in CELLS:
             break
         time.sleep(2)
     if not ok:
-        why = sh("docker logs lcps 2>&1 | "
-                 "grep -iE 'error|out of memory' | tail -1")[:110]
+        why = sh("docker logs lcps 2>&1 | grep -iE 'error|out of memory' | tail -1")[
+            :110
+        ]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f lcps")
         continue
@@ -140,9 +153,12 @@ for cell in CELLS:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
         sh("docker rm -f lcps")
         continue
-    print(f"{H}\t{lab}\tCONFIG\timg={IMG}"
-          f"\treal_ctx_slot={real_slot.group(1) if real_slot else '?'}"
-          f"\tvram={vram}\twarm_ptok={warm[0][2]}", flush=True)
+    print(
+        f"{H}\t{lab}\tCONFIG\timg={IMG}"
+        f"\treal_ctx_slot={real_slot.group(1) if real_slot else '?'}"
+        f"\tvram={vram}\twarm_ptok={warm[0][2]}",
+        flush=True,
+    )
     for n in levels:
         out = [None] * n
         th = [threading.Thread(target=post, args=(out, i)) for i in range(n)]
@@ -160,9 +176,12 @@ for cell in CELLS:
         short = sum(1 for o in out if 0 < o[0] < o[3])
         fail = sum(1 for o in out if o[0] == 0)
         lat = sorted(o[1] for o in out)
-        print(f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
-              f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
-              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
-              f"\twall={wall:.1f}", flush=True)
+        print(
+            f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
+            f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
+            f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
+            f"\twall={wall:.1f}",
+            flush=True,
+        )
     sh("docker rm -f lcps")
     time.sleep(2)

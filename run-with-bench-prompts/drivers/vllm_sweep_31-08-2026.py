@@ -41,11 +41,11 @@ CELLS = sys.argv[3:]
 IMG = os.environ.get("VLLM_IMG", "vllm/vllm-openai:v0.26.0")
 PORT, H = 8095, socket.gethostname()
 
-PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]   # p10..p90
-COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]     # p10..p90
-SYS_TOK = 190          # measured scaffold size; the shared, cacheable prefix
-TOK_PER_FIELD = 32     # calibration knob: tune until reported ptok= ~= 688
-HDR_TOK = 60           # approx tokens in the task-body header lines
+PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
+COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
+SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
+TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
+HDR_TOK = 60  # approx tokens in the task-body header lines
 MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
 
 UID = itertools.count()
@@ -79,7 +79,7 @@ def mkprompt():
         for k in range(nfield)
     )
     body = (
-        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16 ** 8):08x}\n"
+        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16**8):08x}\n"
         f"Signature: def option_pairs(rows: list[dict], strict: bool = False) -> dict\n"
         f"Fields:\n{fields}\n\n"
         f"Implement it now.\n"
@@ -93,16 +93,24 @@ def sh(c):
 
 def post(out, idx):
     prompt, want = mkprompt()
-    b = json.dumps({"model": MODEL, "prompt": prompt, "max_tokens": want,
-                    "temperature": 0}).encode()
-    r = urllib.request.Request(f"http://localhost:{PORT}/v1/completions", data=b,
-                               headers={"Content-Type": "application/json"})
+    b = json.dumps(
+        {"model": MODEL, "prompt": prompt, "max_tokens": want, "temperature": 0}
+    ).encode()
+    r = urllib.request.Request(
+        f"http://localhost:{PORT}/v1/completions",
+        data=b,
+        headers={"Content-Type": "application/json"},
+    )
     t0 = time.time()
     try:
         with urllib.request.urlopen(r, timeout=3600) as f:
             d = json.load(f)
-        out[idx] = (d["usage"]["completion_tokens"], time.time() - t0,
-                    d["usage"]["prompt_tokens"], want)
+        out[idx] = (
+            d["usage"]["completion_tokens"],
+            time.time() - t0,
+            d["usage"]["prompt_tokens"],
+            want,
+        )
     except Exception:
         out[idx] = (0, time.time() - t0, 0, want)
 
@@ -112,19 +120,23 @@ for cell in CELLS:
     levels = [int(x) for x in lv.split(",")]
     sh("docker rm -f vsweep")
     kvflag = f"--kv-cache-dtype {kv}" if kv != "auto" else ""
-    cmd = (f'docker run -d --name vsweep --runtime=nvidia --gpus all '
-           f'-v $HOME/.cache/huggingface:/root/.cache/huggingface '
-           f'-v $HOME/models:/models:ro '
-           f'-v $HOME/ggufs:/ggufs:ro '
-           f'-p {PORT}:8000 --ipc=host {IMG} {MODEL} --port 8000 '
-           f'--gpu-memory-utilization {util} --max-model-len {maxlen} '
-           f'--max-num-seqs {seqs} {kvflag}')
+    cmd = (
+        f"docker run -d --name vsweep --runtime=nvidia --gpus all "
+        f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
+        f"-v $HOME/models:/models:ro "
+        f"-v $HOME/ggufs:/ggufs:ro "
+        f"-p {PORT}:8000 --ipc=host {IMG} {MODEL} --port 8000 "
+        f"--gpu-memory-utilization {util} --max-model-len {maxlen} "
+        f"--max-num-seqs {seqs} {kvflag}"
+    )
     sh(cmd)
     lab = f"{TAG} util={util} len={maxlen} seqs={seqs} kv={kv}"
     if int(maxlen) < MAXLEN_NEED:
-        print(f"{H}\t{lab}\tSKIP\tmax-model-len {maxlen} < {MAXLEN_NEED} "
-              f"(worst sampled prompt+reply); raise it or the tail truncates",
-              flush=True)
+        print(
+            f"{H}\t{lab}\tSKIP\tmax-model-len {maxlen} < {MAXLEN_NEED} "
+            f"(worst sampled prompt+reply); raise it or the tail truncates",
+            flush=True,
+        )
         sh("docker rm -f vsweep")
         continue
     probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
@@ -137,8 +149,10 @@ for cell in CELLS:
             break
         time.sleep(2)
     if not ok:
-        why = sh("docker logs vsweep 2>&1 | "
-                 "grep -iE 'error|not supported|memory|architect' | tail -2")
+        why = sh(
+            "docker logs vsweep 2>&1 | "
+            "grep -iE 'error|not supported|memory|architect' | tail -2"
+        )
         why = " | ".join(why.splitlines())[:400]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f vsweep")
@@ -150,8 +164,10 @@ for cell in CELLS:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
         sh("docker rm -f vsweep")
         continue
-    print(f"{H}\t{lab}\tCONFIG\timg={IMG}\tvram={vram}\twarm_ptok={warm[0][2]}",
-          flush=True)
+    print(
+        f"{H}\t{lab}\tCONFIG\timg={IMG}\tvram={vram}\twarm_ptok={warm[0][2]}",
+        flush=True,
+    )
     for n in levels:
         out = [None] * n
         th = [threading.Thread(target=post, args=(out, i)) for i in range(n)]
@@ -169,9 +185,12 @@ for cell in CELLS:
         short = sum(1 for o in out if 0 < o[0] < o[3])
         fail = sum(1 for o in out if o[0] == 0)
         lat = sorted(o[1] for o in out)
-        print(f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
-              f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
-              f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
-              f"\twall={wall:.1f}", flush=True)
+        print(
+            f"{H}\t{lab}\tn={n}\tagg={gen / wall:.1f}\tp50={lat[len(lat) // 2]:.2f}"
+            f"\tprefill={pin / wall:.1f}\tptok={pin // n}\totok={gen // n}"
+            f"\tearly_stop={short}/{n}\tfailed={fail}/{n}"
+            f"\twall={wall:.1f}",
+            flush=True,
+        )
     sh("docker rm -f vsweep")
     time.sleep(2)
