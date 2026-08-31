@@ -74,6 +74,7 @@ from mcgyvr.contract import Contract, ContractError
 from mcgyvr.contract import dumps as dump_contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deliver import Accepted, Delivery, deliver
+from mcgyvr.escalate import Opinion, Review
 
 #: The contract, as the JSON the direct-mode API emits and the loader accepts.
 CONTRACT_FILE = "contract.json"
@@ -298,7 +299,7 @@ def resume(
     store: Path | str,
     repo: Path | str,
     task: str,
-    verify: Callable[[str], bool],
+    verify: Callable[[str], Review | bool],
     base: str = "HEAD",
     config: Config | None = None,
 ) -> Resumed:
@@ -336,12 +337,31 @@ def resume(
     content = _read_exact(entry / FILES / target, task)
 
     try:
-        approved = bool(verify(content))
+        review = verify(content)
     except Exception as exc:  # the verifier is a network call; failing is normal
         return Resumed(
             False, task=task, reason=f"verification is still unreachable: {exc}"
         )
-    if not approved:
+    if isinstance(review, Review):
+        # The three states are not two: an unusable review is a verifier that
+        # could not be asked, which is not the same thing as one that declined.
+        # Collapsing both to a bool delivered on both.
+        if review.opinion is Opinion.UNUSABLE:
+            return Resumed(
+                False,
+                task=task,
+                reason=(
+                    "verification is still unreachable: "
+                    f"{review.detail or 'no verdict'}"
+                ),
+            )
+        if review.opinion is not Opinion.AGREED:
+            return Resumed(
+                False,
+                task=task,
+                reason="verification declined the stashed work; it stays pending",
+            )
+    elif not review:  # a bare falsy bool is a decline, kept for older callers
         return Resumed(
             False,
             task=task,

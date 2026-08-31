@@ -222,7 +222,17 @@ def run_waves(
 
         fell_over: dict[str, str] = {}
         for contract in ready:
-            outcome = attempt(contract)
+            try:
+                outcome = attempt(contract)
+            except Exception as exc:
+                # An attempt that raises is still an attempt that did not land,
+                # and the waves that already ran are still worth reporting. The
+                # raise is caught and named rather than let destroy the run.
+                fell_over[contract.id] = (
+                    f"the attempt raised {type(exc).__name__}: {exc}"
+                )
+                del pending[contract.id]
+                continue
             del pending[contract.id]
             if _landed(outcome):
                 completed.append(contract.id)
