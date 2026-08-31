@@ -72,3 +72,4 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
 ## Status log
 
 - 2026-08-31 — branch created; plan written.
+- 2026-08-31 — F5/F6 closed in `worker/scoped.py`: a CRLF splice re-terminates its fragment to the source's terminator (head/tail untouched), and a reply that re-emits the whole file is refused as `scope-mismatch` naming the extra statements. RED tests: `tests/red_port/test_dod_scoped_crlf.py`, `tests/red_port/test_dod_scoped_wholefile.py`.

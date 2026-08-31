@@ -136,6 +136,23 @@ def apply_scoped(
             f"{node!r} and put something else where it was",
         )
 
+    # A scoped reply is one definition and nothing else. A worker that ignores
+    # that and re-emits the whole file still parses, still contains the named
+    # definition, and would splice the entire fragment over the node's line
+    # span — every other top-level statement comes back twice, once from the
+    # carried head/tail and once from the fragment. It still parses, so the
+    # only honest outcome is a named refusal naming what else arrived.
+    extras = [statement for statement in emitted.body if statement is not written]
+    if extras:
+        return ReplyError(
+            "scope-mismatch",
+            f"the reply re-emitted the whole file rather than just {node!r}: "
+            f"besides it, the reply also carries {_describe(extras)}; a scoped "
+            f"reply is one definition and nothing else, and splicing the whole "
+            f"file over one node's lines would write every other statement "
+            f"twice",
+        )
+
     existing = _definition(tree.body, node)
     if existing is None:
         if _defined_anywhere(tree, node):
@@ -158,7 +175,14 @@ def apply_scoped(
         start = min(decorator.lineno for decorator in existing.decorator_list)
 
     lines = parser_lines(source)
-    return "".join(lines[: start - 1]) + fragment + "".join(lines[end:])
+    # The head and tail are the bytes they already were. The fragment is not:
+    # ``parse_reply`` normalised it to ``\n`` on entry, so a CRLF file would
+    # otherwise end up with the node on LF and everything around it on CRLF — a
+    # mixed-ending file the next formatter rewrites whole. Re-terminate the
+    # fragment the way ``_appended`` does, and only the fragment.
+    ending = terminator(source)
+    body = LINE_END.sub(ending, fragment)
+    return "".join(lines[: start - 1]) + body + "".join(lines[end:])
 
 
 def _definition(body: list[ast.stmt], name: str) -> _Definition | None:
@@ -193,6 +217,28 @@ def _named(body: list[ast.stmt]) -> str:
     return ", ".join(repr(name) for name in names)
 
 
+def _describe(body: list[ast.stmt]) -> str:
+    """What ``body`` holds at module level, so a refusal can name the extras.
+
+    Definitions are named by their own name; everything else is named by what
+    kind of statement it is, because a refusal that says only "something else"
+    sends the reader back into the reply to find out what came along.
+    """
+    parts: list[str] = []
+    for statement in body:
+        if isinstance(statement, _Definition):
+            parts.append(repr(statement.name))
+        elif isinstance(statement, ast.Import | ast.ImportFrom):
+            parts.append("an import")
+        elif isinstance(statement, ast.Assign | ast.AnnAssign | ast.AugAssign):
+            parts.append("an assignment")
+        elif isinstance(statement, ast.Expr):
+            parts.append("an expression statement")
+        else:
+            parts.append(f"a {type(statement).__name__}")
+    return ", ".join(parts)
+
+
 def _appended(source: str, fragment: str) -> str:
     """``source`` with ``fragment`` added at the end, losing nothing.
 
@@ -213,10 +259,10 @@ def _appended(source: str, fragment: str) -> str:
     ``repair`` makes the same splice and B4 was the price of answering "where
     does a line end" twice.
 
-    Only the *append* re-terminates. A splice into a file that has the node
-    writes the fragment between the head and the tail as they already were —
-    the module's whole claim — and rewriting bytes outside the named node to
-    tidy their endings would break it.
+    The splice into a file that has the node does the same for its fragment:
+    the head and tail are the bytes they already were, and only the fragment's
+    own line endings are re-derived, so a CRLF file gets a CRLF node without
+    any byte outside the named node being rewritten.
     """
     ending = terminator(source)
     body = LINE_END.sub(ending, fragment)

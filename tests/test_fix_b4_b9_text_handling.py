@@ -58,6 +58,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate import ChangeSet, Finding, Gate, GateResult
 from mcgyvr.gate.adapter import ToolFailedError
 from mcgyvr.gate.adapters import PythonAdapter
+from mcgyvr.lines import LINE_END
 from mcgyvr.pending import PendingError, stash
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, StopReason
@@ -253,8 +254,9 @@ def test_the_three_terminators_the_parser_does_count_still_split_the_file(
         source=head + node + tail, reply=_reply(REPLACEMENT), node="fetch"
     )
 
-    assert merged == head + REPLACEMENT + tail, (
-        f"a file whose lines end with {newline!r} was spliced at the wrong offset"
+    assert merged == head + LINE_END.sub(newline, REPLACEMENT) + tail, (
+        f"a file whose lines end with {newline!r} was spliced at the wrong "
+        f"offset, or the fragment was left on the wrong ending"
     )
 
 

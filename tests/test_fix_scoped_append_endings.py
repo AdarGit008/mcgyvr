@@ -37,10 +37,11 @@ a triple-quoted string.
 passes the CRLF statement and breaks every file this project actually edits. An
 empty file must still get the fragment and no leading blank lines, which is the
 one branch ``_appended``'s docstring already argues for. And the *splice* path is
-asserted unchanged: ``apply_scoped`` replacing a node that exists carries the
-head and tail across as the strings they already were, and
-``test_fix_b4_b9_text_handling`` pins its bytes — a "normalise the whole file"
-fix would pass everything here and break that.
+asserted to re-terminate only its fragment: ``apply_scoped`` replacing a node
+that exists carries the head and tail across as the strings they already were,
+derives the file's terminator for the fragment alone, and
+``test_fix_b4_b9_text_handling`` pins the head and tail bytes — a "normalise the
+whole file" fix would pass everything here and break that.
 """
 
 from __future__ import annotations
@@ -194,15 +195,15 @@ def test_an_empty_file_gets_the_fragment_and_no_blank_lines() -> None:
     )
 
 
-def test_a_splice_into_a_crlf_file_is_not_re_terminated() -> None:
-    """The append is what changed; the splice is not, and must not be.
+def test_a_splice_into_a_crlf_file_reterminates_only_the_fragment() -> None:
+    """The splice re-terminates its fragment, and nothing else.
 
     ``apply_scoped`` replacing a node the file *has* carries the head and tail
-    across as the strings they already were and writes the worker's fragment
-    between them verbatim. ``test_fix_b4_b9_text_handling`` pins those bytes
-    exactly. This is the guard against a fix that "normalises the file" — it
-    would pass every statement above and quietly start rewriting bytes outside
-    the named node, which is the one property this module claims.
+    across as the strings they already were; the worker's fragment arrives LF
+    because ``parse_reply`` normalises it on entry, so it is re-terminated to
+    the file's own ending before the splice. Only the fragment is touched —
+    ``test_fix_b4_b9_text_handling`` pins the head and tail bytes exactly, and
+    a fix that "normalises the file" instead would pass here and break that.
     """
     replacement = "def fetch(url):\n    return url.strip()\n"
     source = CRLF.decode("utf-8")
@@ -210,6 +211,7 @@ def test_a_splice_into_a_crlf_file_is_not_re_terminated() -> None:
 
     merged = apply_scoped(source=source, reply=_reply(replacement), node="fetch")
 
-    assert merged == head + replacement, (
-        "a splice rewrote bytes outside the node it was scoped to"
+    assert merged == head + "def fetch(url):\r\n    return url.strip()\r\n", (
+        "a splice rewrote bytes outside the node it was scoped to, or left the "
+        "fragment on LF so the file holds two kinds of line ending"
     )
