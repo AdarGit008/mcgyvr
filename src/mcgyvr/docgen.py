@@ -40,7 +40,7 @@ MARKER = (
 # from a checkout, never from an installed wheel, so deriving the path is
 # honest here in a way it would not be in shipped code.
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REFERENCE_PATH = Path("docs/config-reference.md")
+REFERENCE_PATH = Path("archive/docs/config-reference.md")
 
 # What each kind accepts, as the loader enforces it. These describe the
 # validator's behaviour, so they belong to the renderer rather than to any
@@ -233,7 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--output",
         default=str(REPO_ROOT / REFERENCE_PATH),
-        help="where to write (default: the checkout's docs/config-reference.md)",
+        help="where to write (default: the checkout's archive/docs/config-reference.md)",
     )
     args = parser.parse_args(argv)
 

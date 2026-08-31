@@ -57,7 +57,7 @@ one attempt spent, a reason to say. Two vocabularies for that would be two
 things for a caller to get right.
 
 Ported from local-ai's ``mvp/orchestrator/apply.py`` (``merge_back``,
-``docs/port-from-local-ai.md``, D14).
+``archive/docs/port-from-local-ai.md``, D14).
 """
 
 from __future__ import annotations
