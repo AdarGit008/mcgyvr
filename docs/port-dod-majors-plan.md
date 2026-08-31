@@ -83,3 +83,6 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
 - 2026-08-31 — **Phase 3 complete** (6 findings, 1 commit):
   - `7754e508` D2 + R9 + S13 + D7 in `gate/typecheck.py` & `gate/runner.py`, C5 + C4 in `verify.py` — absolute-path attribution, timeout-as-skip, symmetric STYLE routing, shadow-aware mutation walk, protected verdict read, empty target_content kept.
   - Full gate clean: `2389 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
+- 2026-08-31 — **Phase 4 complete** (6 findings, 1 commit):
+  - `6c588af4` D3 + D4 + D8 + R8 in `repair.py`, X5 + X6 in `worker/reply.py` — shebang-safe splice, existing-dependency-only imports, bounded ruff subprocesses, sandbox seam, deep-reply refusal by name.
+  - Full gate clean: `2395 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
