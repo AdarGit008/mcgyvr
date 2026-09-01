@@ -2,7 +2,7 @@
 
 mcgyvr can plan a ladder, build a prompt, dispatch, parse a reply and gate the
 result. It cannot finish: nothing in ``src/`` writes a worker's output to a tree or
-commits it. ``config.delivery.mode`` and ``config.delivery.token_env`` are validated
+commits it. ``config.delivery.mode`` is validated
 at load and read by nothing. So this is the lever that turns a library of seams into
 something that completes a task, and every other RED test in this package is
 downstream of it.

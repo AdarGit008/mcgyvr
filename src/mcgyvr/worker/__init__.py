@@ -35,7 +35,6 @@ from mcgyvr.worker.reply import (
     parse_pinned,
     parse_reply,
 )
-from mcgyvr.worker.scoped import apply_scoped
 
 __all__ = [
     "MAX_BUNDLE_BYTES",
@@ -48,7 +47,6 @@ __all__ = [
     "ParsedFile",
     "ReplyError",
     "WorkerPrompt",
-    "apply_scoped",
     "build_prompt",
     "bundle_for",
     "load_bundle",

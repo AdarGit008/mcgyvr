@@ -41,6 +41,7 @@ import pytest
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.contract import loads
 from mcgyvr.gate import Finding, GateResult
+from mcgyvr.sandbox import Sandbox
 
 _IDENTITY = {
     "GIT_AUTHOR_NAME": "t",
@@ -96,8 +97,8 @@ def _reads_the_tree(seen: list[str]):  # type: ignore[no-untyped-def]
     "skipped" from "gated and rejected".
     """
 
-    def gate(workspace: Path) -> GateResult:
-        content = (workspace / TARGET).read_text(encoding="utf-8")
+    def gate(sandbox: Sandbox) -> GateResult:
+        content = (sandbox.workspace / TARGET).read_text(encoding="utf-8")
         seen.append(content)
         if "RETRY" in content:
             return GateResult()

@@ -1,20 +1,9 @@
 """Text the port's writers hand to each other, and the places it was mangled.
 
-Three defects from the 2026-08-29 pressure test, all of the same family: a piece
+Two defects from the 2026-08-29 pressure test, both of the same family: a piece
 of code that has an idea about what text is, and a neighbour with a different
-one. None of them is caught by a type, because every one of them is ``str`` on
+one. Neither is caught by a type, because every one of them is ``str`` on
 both sides.
-
-**B4 — a line is not what ``str.splitlines`` says it is.**
-:func:`~mcgyvr.worker.scoped.apply_scoped` splices by AST line span, and AST line
-numbers count the three terminators the tokenizer knows: ``\\n``, ``\\r\\n``,
-``\\r``. ``str.splitlines`` counts eleven. The eight extra — ``\\x0b \\x0c \\x1c
-\\x1d \\x1e \\x85 \\u2028 \\u2029`` — are all legal inside a string literal, and
-one of them anywhere above the spliced node shifts every index by one: the head
-loses a line and the old node's tail is resurrected under the new one. The file
-still parses. That is why this is asserted as whole-file byte equality and not
-as "the new body is in there" — the corrupt file contains the new body too,
-followed by the old one undoing it.
 
 **B9 — the repo's own byte convention.** mcgyvr reads and writes file content
 through ``utf-8``/``surrogateescape`` on purpose, and documents it at
@@ -44,7 +33,6 @@ constructed value and the returned one disagreed.
 
 from __future__ import annotations
 
-import ast
 import json
 import subprocess
 from pathlib import Path
@@ -61,8 +49,8 @@ from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.pending import PendingError, stash
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, StopReason
+from mcgyvr.sandbox import Sandbox
 from mcgyvr.worker.reply import ParsedFile, parse_reply
-from mcgyvr.worker.scoped import apply_scoped
 
 TARGET = "src/pkg/fetch.py"
 
@@ -79,57 +67,6 @@ scope:
 limits:
   attempts: 5
 """
-
-#: Every character ``str.splitlines`` breaks on and the Python tokenizer does
-#: not. Each one is its own parametrisation because they arrive from different
-#: places — a form feed from a pasted listing, a NEL from a transcoded file, a
-#: line separator from JSON — and a fix that handled seven of them would look
-#: exactly like a fix that handled eight.
-NOT_LINE_TERMINATORS = (
-    "\x0b",
-    "\x0c",
-    "\x1c",
-    "\x1d",
-    "\x1e",
-    "\x85",
-    "\u2028",
-    "\u2029",
-)
-
-#: The three the tokenizer *does* count, asserted alongside so that narrowing
-#: the split cannot go one step too far and stop seeing a CRLF file's lines.
-LINE_TERMINATORS = ("\n", "\r\n", "\r")
-
-#: What a worker sends back for the node being spliced. Always ``\\n``-ended
-#: whatever the file it lands in uses, because ``parse_reply`` normalises line
-#: endings before anything sees the content — the variable under test is the
-#: source file's terminators, not the reply's.
-REPLACEMENT = "def fetch(url):\n    return url.strip()\n"
-
-
-def _scoped_source(separator: str, newline: str = "\n") -> tuple[str, str, str]:
-    """A file with ``separator`` inside a string literal above the spliced node.
-
-    Returned in three pieces — head, node, tail — because the assertion this
-    exists for is that the merge equals head + *replacement* + tail. Building
-    the expected file out of the same strings the input was built from is what
-    makes "and nothing else changed" checkable rather than eyeballed.
-    """
-    head = (
-        f'"""Fetching helpers."""{newline}'
-        f"{newline}"
-        f'BANNER = "top{separator}bottom"{newline}'
-        f"{newline}"
-        f"{newline}"
-    )
-    node = f"def fetch(url):{newline}    return url{newline}"
-    tail = f"{newline}{newline}def host(url):{newline}    return url.lower(){newline}"
-    return head, node, tail
-
-
-def _reply(content: str) -> str:
-    """``content`` as a worker sends it: one fenced block and nothing else."""
-    return f"```python\n{content}```\n"
 
 
 def _off_the_wire(escape: str) -> str:
@@ -197,64 +134,6 @@ def _gate_over(repo: Path, content: str) -> GateResult:
     """What the real gate says about ``content`` written to the contract's target."""
     (repo / TARGET).write_text(content, encoding="utf-8")
     return Gate().run(ChangeSet.detect(repo))
-
-
-# --------------------------------------------------------------------------
-# B4 — the splice indexes lines the parser does not count
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("separator", NOT_LINE_TERMINATORS)
-def test_a_character_the_tokenizer_does_not_break_on_does_not_shift_the_splice(
-    separator: str,
-) -> None:
-    """One of these above the node, and the merge writes the wrong file.
-
-    Byte equality against the file rebuilt from its own pieces, because every
-    weaker assertion passes on the corrupt output: the new body *is* present,
-    the file *does* parse, and the neighbours are *mostly* there. What is wrong
-    is that a blank line above the node was eaten and the node's old body came
-    back underneath its replacement, undoing the change that was asked for.
-    """
-    head, node, tail = _scoped_source(separator)
-
-    merged = apply_scoped(
-        source=head + node + tail, reply=_reply(REPLACEMENT), node="fetch"
-    )
-
-    assert isinstance(merged, str), f"the merge refused instead of splicing: {merged}"
-    assert merged == head + REPLACEMENT + tail, (
-        f"a {separator!r} inside a string literal shifted the splice: the merge is "
-        f"not the file with only its named node replaced"
-    )
-    assert "return url.strip()" in merged, "the worker's new body did not land"
-    assert "    return url\n" not in merged, (
-        "the node's old body survived under its replacement, so the change was "
-        "applied and then immediately undone"
-    )
-    ast.parse(merged)  # the corruption this rules out parses; so must the fix
-
-
-@pytest.mark.parametrize("newline", LINE_TERMINATORS)
-def test_the_three_terminators_the_parser_does_count_still_split_the_file(
-    newline: str,
-) -> None:
-    """The other half of B4: narrowing the split must not narrow it to ``\\n``.
-
-    ``ast`` line numbers are assigned after universal-newline translation, so a
-    file written with CRLF or with bare CR has exactly the lines the parser
-    counts, and the splice has to see the same ones. A fix that split on ``\\n``
-    alone would pass every test above and corrupt every file from Windows.
-    """
-    head, node, tail = _scoped_source("", newline=newline)
-
-    merged = apply_scoped(
-        source=head + node + tail, reply=_reply(REPLACEMENT), node="fetch"
-    )
-
-    assert merged == head + REPLACEMENT + tail, (
-        f"a file whose lines end with {newline!r} was spliced at the wrong offset"
-    )
 
 
 # --------------------------------------------------------------------------
@@ -343,8 +222,8 @@ def test_best_of_gates_the_bytes_it_returns(repo: Path, contract: Contract) -> N
     content = _off_the_wire("\\udc80")
     seen: list[bytes] = []
 
-    def gate(workspace: Path) -> GateResult:
-        seen.append((workspace / TARGET).read_bytes())
+    def gate(sandbox: Sandbox) -> GateResult:
+        seen.append((sandbox.workspace / TARGET).read_bytes())
         return GateResult()
 
     result = best_of(

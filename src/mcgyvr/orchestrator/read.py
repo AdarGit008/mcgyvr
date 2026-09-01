@@ -295,7 +295,8 @@ def budget_for_model(model: str) -> int:
     if entry is None:
         return _SIZE_BUDGETS[0][1]
     return next(
-        budget for ceiling, budget in _SIZE_BUDGETS if entry.params_b <= ceiling
+        (budget for ceiling, budget in _SIZE_BUDGETS if entry.params_b <= ceiling),
+        _SIZE_BUDGETS[0][1],
     )
 
 

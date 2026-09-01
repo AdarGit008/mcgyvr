@@ -47,12 +47,15 @@ from typing import Protocol
 
 from mcgyvr.contract import Contract
 
-DEFAULT_MAX_WAVES = 3
+DEFAULT_MAX_REPLANS = 3
 """How many times a plan may be re-planned before the remainder is reported.
 
-A bound rather than a convergence check: each wave that re-plans spends the
-decomposer, so a plan that is not getting closer has to stop costing something.
-What is left over is reported by name, never retried quietly.
+A bound on re-planning rather than on the plan's depth: each wave that
+re-plans spends the decomposer, so a plan that is not getting closer has to
+stop costing something. A wave that simply runs the next ready contract spends
+nothing, so a correct plan of any depth runs to completion — the chain is
+bounded by its own ``depends_on``, not by this number. What is left over after
+the budget is spent is reported by name, never retried quietly.
 """
 
 
@@ -169,7 +172,7 @@ def run_waves(
     attempt: Attempt,
     *,
     replan: Replan | None = None,
-    max_waves: int = DEFAULT_MAX_WAVES,
+    max_replans: int = DEFAULT_MAX_REPLANS,
 ) -> WaveRun:
     """Run ``contracts`` in the order their dependencies require.
 
@@ -204,8 +207,9 @@ def run_waves(
     failed: dict[str, str] = {}
     blocked: dict[str, str] = {}
     waves = 0
+    replans = 0
 
-    while pending and waves < max_waves:
+    while pending:
         waves += 1
         ready = [c for c in pending.values() if landed.issuperset(c.depends_on)]
         if not ready:
@@ -218,7 +222,17 @@ def run_waves(
 
         fell_over: dict[str, str] = {}
         for contract in ready:
-            outcome = attempt(contract)
+            try:
+                outcome = attempt(contract)
+            except Exception as exc:
+                # An attempt that raises is still an attempt that did not land,
+                # and the waves that already ran are still worth reporting. The
+                # raise is caught and named rather than let destroy the run.
+                fell_over[contract.id] = (
+                    f"the attempt raised {type(exc).__name__}: {exc}"
+                )
+                del pending[contract.id]
+                continue
             del pending[contract.id]
             if _landed(outcome):
                 completed.append(contract.id)
@@ -227,20 +241,23 @@ def run_waves(
                 fell_over[contract.id] = _reason(outcome)
         failed.update(fell_over)
 
-        if fell_over and replan is not None and waves < max_waves:
+        if fell_over and replan is not None:
+            if replans >= max_replans:
+                blocked.update(
+                    (
+                        task,
+                        _stopped_reason(contract, landed, failed, replans, max_replans),
+                    )
+                    for task, contract in pending.items()
+                )
+                pending.clear()
+                break
+            replans += 1
             previous = PreviousAttempt(tuple(completed), tuple(fell_over.items()))
             for fresh in replan(previous):
                 if fresh.id in landed or fresh.id in failed or fresh.id in pending:
                     continue
                 pending[fresh.id] = fresh
-
-    # A plan that ran out of waves has not failed and has not been refused: it
-    # was not reached. Said in those words, because "would this have worked
-    # with one more wave" is the question a shorter sentence would hide.
-    blocked.update(
-        (task, f"not reached: the run stopped after {waves} of {max_waves} waves")
-        for task in pending
-    )
 
     return WaveRun(
         completed=tuple(completed),
@@ -417,6 +434,33 @@ def _reason(outcome: object) -> str:
         if prose:
             return prose
     return coded or "the attempt reported a failure without stating a reason"
+
+
+def _stopped_reason(
+    contract: Contract,
+    landed: set[str],
+    failed: Mapping[str, str],
+    replans: int,
+    max_replans: int,
+) -> str:
+    """Why a contract was never attempted when the re-plan budget ran out.
+
+    Two cases, kept apart because they mean different things. A contract whose
+    dependency failed can never run at any budget — its input was never written
+    — so it gets the same sentence the no-ready path gives it. Anything else
+    was simply not reached, and is said so in those words because "would this
+    have worked with one more re-plan" is the question a shorter sentence
+    would hide.
+    """
+    dead = [
+        need for need in contract.depends_on if need in failed and need not in landed
+    ]
+    if dead:
+        return (
+            f"not attempted: {', '.join(dead)} did not land, and a contract "
+            f"whose input was never written can only be rejected"
+        )
+    return f"not reached: the run stopped after {replans} of {max_replans} re-plans"
 
 
 def _blocked_reason(

@@ -63,6 +63,28 @@ attempt and without being recorded as a failure, which is why
 :class:`Exhaustion` distinguishes a family whose rungs all declined from one
 whose attempts were spent.
 
+**Fan-out breaks a tie inside a family; it never reorders the ladder.**
+``ladder.fanout`` is the knob and ``none`` is its default, which is this
+module as it was: a batch of contracts sharing a task type shares a floor
+family, so every one of them takes the cheapest rung and queues there while a
+peer serving the same model sits idle — and raising ``max_parallel`` does not
+fix that, it widens the rig that was already the only one being used. Under
+``full`` :func:`climb` starts on the *least-loaded* rung of the plan instead of
+the first. :func:`plan` still orders by price and nothing may make it do
+otherwise, because price order is what a ladder means and a plan that put a
+busy rung last would be deciding, from inside one family, that load outranks
+price. A tie goes to the cheaper rung, so ``full`` on an idle ladder is
+``none`` on an idle ladder exactly, and preferring a free peer that serves the
+same model costs nothing that could be called an escalation.
+
+``idle`` is not honoured here, and reads as ``none`` from inside this file.
+Its choice is the cheapest rung *at or above the floor* with a free slot, which
+may be a priced api rung — a spend decision that crosses families, and #24's
+boundary is that nothing here looks at a family other than the one it was asked
+about. :func:`mcgyvr.escalate.ascent` already holds the view that mode needs.
+And busy is never a verdict: a rung this module passed over for a free peer was
+not tried and did not fail, so no amount of load can fund an escalation.
+
 **What is deliberately not here.** Risk floors raising where work may start are
 #16's; this module reads the type's floor from the catalog and applies nothing
 on top of it. Draws per rung — trying a rung twice at temperature and taking the
@@ -77,6 +99,7 @@ where it first becomes observable.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -133,12 +156,124 @@ class Exhaustion(StrEnum):
     WITHHELD = "withheld"
 
 
+class Fanout(StrEnum):
+    """How a batch of contracts spreads over the rungs it may run on.
+
+    The three modes of ``ladder.fanout``, mirrored here as an enum so that a
+    plan carries a decided value rather than a string a caller has to remember
+    the spellings of. It is a knob and not a behaviour because the right answer
+    is a property of the machines: two interchangeable rigs should share a
+    batch, and a throughput rig feeding an intelligence rig must not, since the
+    second is sized to drain the first's failure tail.
+
+    Only ``FULL`` changes anything in this module. ``IDLE``'s choice may cross
+    from the floor family into a priced one, which is #43's to make and not
+    #24's, so it is carried and not acted on here — see the module docstring.
+    """
+
+    NONE = "none"
+    IDLE = "idle"
+    FULL = "full"
+
+
+# How many attempts this process currently has in flight on each source, by
+# source name. Module state, deliberately, and it is the smallest thing that
+# makes ``full`` mean anything. :meth:`~mcgyvr.capacity.Capacity.in_use` counts
+# slots that have been *granted*, and every member of a batch chooses its rung
+# before any of them has been granted one — so six climbs reading only that
+# number would read six zeroes, all choose the cheapest rung, and queue on it,
+# which is the funnel the knob exists to end. Counting an attempt from the
+# moment it is chosen rather than from the moment it is admitted is what makes
+# the spread a fact instead of a race between threads. It is keyed by source
+# name and not by :class:`Machine`, because every contract of a batch plans
+# separately and would otherwise count its own machines and nobody else's.
+_in_flight: dict[str, int] = {}
+_in_flight_lock = threading.Lock()
+
+
+class Machine:
+    """What a rung runs on, as a question rather than as a name (#20).
+
+    Load is a property of the machine and of nothing else: two rungs bound to
+    one source are two names for one queue, so a fan-out that compared rungs
+    would "spread" a batch across a single box. But a plan is a thing that gets
+    printed, and #20's rule is that nothing above the execution seam learns
+    where work runs — a :class:`~mcgyvr.pool.Rung` says a name and a model and
+    deliberately nothing else, which is what lets a rung be re-pointed at
+    another machine without anything above noticing.
+
+    Both hold if the plan carries the *question* instead of the answer, which is
+    the same move :func:`climb` makes with ``permit`` and with its attempt
+    function. The source name stays private, this renders as ``<machine>``
+    wherever a plan is printed, and the only thing anyone above can do with one
+    is ask how busy it is. Rungs sharing a source share an instance, so "same
+    box" is answerable without anyone being told which box.
+    """
+
+    __slots__ = ("_source",)
+
+    def __init__(self, source: str) -> None:
+        self._source = source
+
+    def __repr__(self) -> str:
+        return "<machine>"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Machine):
+            return NotImplemented
+        return self._source == other._source
+
+    def __hash__(self) -> int:
+        return hash(self._source)
+
+    def load(self, capacity: Capacity) -> int | None:
+        """How busy this machine is, or ``None`` if this capacity cannot say.
+
+        The greater of the slots ``capacity`` has granted and the attempts this
+        process has started on it, because neither alone is the load: granted
+        under-reports a batch that is mid-choice, which is exactly when this is
+        asked, and started misses every dispatch that did not come through
+        :func:`climb` — another process's share of the same host-wide slot files
+        included (#185).
+
+        ``None`` when the capacity does not bound this source at all, which is a
+        capacity and a plan built from different configs; it is an ordinary
+        answer here rather than an error, because the caller's response is to
+        keep price order rather than to fail a climb over a number nobody asked
+        for. A caller about to *act* on the answer reads it under
+        :data:`_in_flight_lock`, as :func:`_claim_next` does, because choosing
+        and claiming have to be one decision.
+        """
+        if self._source not in capacity.limits:
+            return None
+        return max(capacity.in_use(self._source), _in_flight.get(self._source, 0))
+
+    def claim(self) -> None:
+        """Count one more attempt in flight here. Called under the module lock."""
+        _in_flight[self._source] = _in_flight.get(self._source, 0) + 1
+
+    def release(self) -> None:
+        """Stop counting one. Called under the module lock, always in a finally."""
+        left = _in_flight.get(self._source, 0) - 1
+        if left > 0:
+            _in_flight[self._source] = left
+        else:
+            _in_flight.pop(self._source, None)
+
+
 @dataclass(frozen=True)
 class Step:
-    """One rung of a plan, with the number of attempts it is allowed."""
+    """One rung of a plan, with the number of attempts it is allowed.
+
+    ``machine`` is what the rung runs on, as a :class:`Machine` — a thing that
+    answers "how busy" and names nothing. ``None`` for a step nobody bound to a
+    machine, which is a step no load can be read for and which is therefore
+    taken in price order whatever the fan-out mode says.
+    """
 
     rung: Rung
     attempts: int
+    machine: Machine | None = None
 
 
 class Planned:
@@ -217,11 +352,18 @@ class Plan(Planned):
     mean inventing a rung name :meth:`~mcgyvr.pool.SourceMap.bind` cannot
     honour, and every caller that reads ``rung`` would have to learn that it
     sometimes means nothing.
+
+    ``fanout`` is the mode the ladder was configured with, carried on the plan
+    so that :func:`climb` can honour it without being handed a
+    :class:`~mcgyvr.config.Config`. It says nothing about the order of
+    ``steps``, which is price order under every mode — only about which of them
+    a climb starts on.
     """
 
     family: Family
     steps: tuple[Step | ToolStep, ...]
     reason: str = ""
+    fanout: Fanout = Fanout.NONE
 
     def __bool__(self) -> bool:
         return bool(self.steps)
@@ -402,6 +544,7 @@ def plan(
     contract: Contract,
     *,
     family: Family | None = None,
+    capacity: Capacity | None = None,
 ) -> Plan:
     """The rungs of one family this contract may be tried on, in order.
 
@@ -412,11 +555,24 @@ def plan(
     family is entered at most once" in a module that cannot see the other half.
     An install whose floor family is empty gets an empty plan that names the
     situation, which is the input #43 acts on.
+
+    ``capacity`` is accepted and changes nothing, which is the point of its
+    being accepted at all. A caller holding one reaches for this seam first, and
+    the guarantee worth being able to state at it is that the ladder it gets
+    back is the same ladder: load may break a tie between rungs, and it may
+    never rewrite the order they are written in. The load-aware choice is
+    :func:`climb`'s instead, for a reason beyond tidiness — load read here would
+    be a reading from before the batch started, and the only moment it is true
+    is the moment an attempt is about to be made. What this function does carry
+    is the *mode*, so that a climb can honour ``ladder.fanout`` without being
+    handed a whole config.
     """
     chosen = family if family is not None else contract.type.starts_on
     rungs = by_family(config, pool).get(chosen)
     if rungs is None:  # a Family from another catalog than the one loaded here
         raise RouteError(f"{chosen.name!r} is not a family of the loaded catalog")
+
+    mode = fanout_of(config)
 
     if chosen.rank == 0:
         # The deterministic floor is planned from the task type, not from the
@@ -432,18 +588,43 @@ def plan(
             return Plan(family=chosen, steps=tools)
 
     if not rungs:
-        return Plan(family=chosen, steps=(), reason=_why_empty(config, chosen, pool))
+        return Plan(
+            family=chosen,
+            steps=(),
+            reason=_why_empty(config, chosen, pool),
+            fanout=mode,
+        )
 
+    machines = _machines(config, rungs)
     steps = tuple(
         Step(
             rung=rung,
             attempts=attempts_for(
                 chosen, _configured_attempts(config, rung.name), contract
             ),
+            machine=machines[rung.name],
         )
         for rung in rungs
     )
-    return Plan(family=chosen, steps=steps)
+    return Plan(family=chosen, steps=steps, fanout=mode)
+
+
+def fanout_of(config: Config) -> Fanout:
+    """The configured fan-out mode, as a decided value rather than a string.
+
+    Raises rather than falling back to the default for a mode nobody declared:
+    the schema's ``choices`` already refuse an unknown one at parse, so reaching
+    this means a config was assembled by hand, and quietly routing it as ``none``
+    would answer a question about spreading a batch by not spreading it.
+    """
+    declared = config.ladder.fanout
+    try:
+        return Fanout(declared)
+    except ValueError as exc:
+        offered = ", ".join(m.value for m in Fanout)
+        raise RouteError(
+            f"{declared!r} is not a fan-out mode. Offered: {offered}"
+        ) from exc
 
 
 def _configured_attempts(config: Config, rung: str) -> int:
@@ -451,6 +632,23 @@ def _configured_attempts(config: Config, rung: str) -> int:
     if tier is None:  # unreachable: the rung came from the pool, which came from here
         raise RouteError(f"no rung named {rung!r} in the ladder")
     return tier.attempts
+
+
+def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
+    """One :class:`Machine` per source, shared by every rung bound to it.
+
+    Shared on purpose: a ladder with two rungs on one box is one queue, and
+    handing each rung its own machine would let a fan-out "spread" a batch
+    across a box it never left.
+    """
+    made: dict[str, Machine] = {}
+    by_rung: dict[str, Machine] = {}
+    for rung in rungs:
+        tier = config.ladder.get(rung.name)
+        if tier is None:  # unreachable: the rung came from the pool, from here
+            raise RouteError(f"no rung named {rung.name!r} in the ladder")
+        by_rung[rung.name] = made.setdefault(tier.source, Machine(tier.source))
+    return by_rung
 
 
 def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
@@ -492,6 +690,58 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     )
 
 
+# --- which rung a climb takes next -----------------------------------------
+
+
+def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> int:
+    """Which of the rungs still untried to take next: the first, unless ``full``.
+
+    Under every mode but ``full`` this is ``0`` — the cheapest rung still
+    standing, byte for byte the order this module has always walked. Under
+    ``full`` it is the least-loaded of them, and a tie is broken by price
+    because ``min`` returns the first minimum: on an idle ladder every rung ties
+    at zero, so ``full`` there is ``none`` there and nothing was reordered by
+    load that load had nothing to say about.
+
+    Falls back to price order when the loads cannot all be read — no capacity to
+    read them from, a step bound to no machine, or a machine this capacity does
+    not bound. A partial view would order the ladder by which rungs a capacity
+    happened to know about, which is not a fact about load at all.
+    """
+    if mode is not Fanout.FULL or capacity is None:
+        return 0
+    loads: list[int] = []
+    for step in remaining:
+        load = None if step.machine is None else step.machine.load(capacity)
+        if load is None:
+            return 0
+        loads.append(load)
+    return min(range(len(loads)), key=loads.__getitem__)
+
+
+def _claim_next(remaining: list[Step], mode: Fanout, capacity: Capacity | None) -> Step:
+    """Take the next step off ``remaining`` and count it as in flight.
+
+    Choosing and counting are one decision and so happen under one lock: a
+    climb that read the loads, released the lock and only then said which rung
+    it had taken would leave a window in which every member of a batch reads
+    the same zeroes — the funnel again, narrowed to microseconds but not closed.
+    """
+    with _in_flight_lock:
+        step = remaining.pop(_next_index(remaining, mode, capacity))
+        if step.machine is not None:
+            step.machine.claim()
+    return step
+
+
+def _release(machine: Machine | None) -> None:
+    """Stop counting an attempt that has ended, however it ended."""
+    if machine is None:
+        return
+    with _in_flight_lock:
+        machine.release()
+
+
 # --- executing a plan ------------------------------------------------------
 
 
@@ -527,6 +777,16 @@ def climb(
     happened was a bug or a dead socket. :func:`~mcgyvr.capacity.run_batch`
     already turns a raising job into a named failure beside its neighbours,
     which is the right place for that to happen.
+
+    ``capacity`` is also what makes ``full`` fan-out possible, and this is the
+    only place in the module load is read. Under :attr:`Fanout.FULL` each rung
+    is taken in order of how busy its machine is rather than off the top of the
+    plan; under every other mode the walk is the plan's own order, unchanged.
+    Either way *every* rung is walked, each keeps its own budget, and ``permit``
+    is asked before each attempt — fan-out decides which rung is tried first,
+    never how many may be tried. Nor can it fail one: a rung passed over for a
+    free peer produces no verdict and no history entry, so a busy ladder cannot
+    fund an escalation the way a failing one does.
     """
     history: list[Attempted] = []
     if not plan.steps:
@@ -555,45 +815,53 @@ def climb(
             f"({named})."
         )
 
-    for step in steps:
-        for number in range(1, step.attempts + 1):
-            if permit is not None and not permit(step, number):
-                return Exhausted(
-                    family=plan.family,
-                    reason=Exhaustion.WITHHELD,
-                    history=tuple(history),
-                    detail=(
-                        f"the climb stopped at {step.rung.name!r} attempt "
-                        f"{number}: the caller's budget did not fund it."
-                    ),
+    remaining = list(steps)
+    while remaining:
+        step = _claim_next(remaining, plan.fanout, capacity)
+        try:
+            for number in range(1, step.attempts + 1):
+                if permit is not None and not permit(step, number):
+                    return Exhausted(
+                        family=plan.family,
+                        reason=Exhaustion.WITHHELD,
+                        history=tuple(history),
+                        detail=(
+                            f"the climb stopped at {step.rung.name!r} attempt "
+                            f"{number}: the caller's budget did not fund it."
+                        ),
+                    )
+                result = attempt(
+                    Try(
+                        rung=step.rung,
+                        attempt=number,
+                        of=step.attempts,
+                        capacity=capacity,
+                    )
                 )
-            result = attempt(
-                Try(
-                    rung=step.rung,
-                    attempt=number,
-                    of=step.attempts,
-                    capacity=capacity,
+                history.append(
+                    Attempted(
+                        rung=step.rung.name,
+                        attempt=number,
+                        verdict=result.verdict,
+                        detail=result.detail,
+                    )
                 )
-            )
-            history.append(
-                Attempted(
-                    rung=step.rung.name,
-                    attempt=number,
-                    verdict=result.verdict,
-                    detail=result.detail,
-                )
-            )
-            if result.verdict is Verdict.PASSED:
-                return Accepted(
-                    family=plan.family,
-                    rung=step.rung.name,
-                    history=tuple(history),
-                )
-            if result.verdict is Verdict.DECLINED:
-                # A decline is about the contract, not about this attempt, so
-                # trying the same rung again would ask a question already
-                # answered. It costs the rung's remaining budget nothing.
-                break
+                if result.verdict is Verdict.PASSED:
+                    return Accepted(
+                        family=plan.family,
+                        rung=step.rung.name,
+                        history=tuple(history),
+                    )
+                if result.verdict is Verdict.DECLINED:
+                    # A decline is about the contract, not about this attempt,
+                    # so trying the same rung again would ask a question already
+                    # answered. It costs the rung's remaining budget nothing.
+                    break
+        finally:
+            # However this rung ended — passed, declined, withheld, spent or
+            # raised — it is no longer in flight, and a count that leaked would
+            # make the machine look busy to every later climb in this process.
+            _release(step.machine)
 
     declined_only = all(a.verdict is Verdict.DECLINED for a in history)
     return Exhausted(

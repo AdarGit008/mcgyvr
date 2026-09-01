@@ -48,6 +48,47 @@ the declaration; it cannot enforce the server. :func:`mcgyvr.propose.propose`
 says so where an operator will read it, and :attr:`Usage.waited_seconds` is where
 the symptom shows up afterwards.
 
+**Where the width comes from.** ``max_parallel`` is a declaration, and a
+declaration is a guess: :func:`mcgyvr.initialize.initialize` writes ``1``
+because it cannot know whether a backend was started with its parallel-slot
+setting on, which is honest and leaves CON-04's measured 8.5x at sixteen
+concurrent requests on a batching server unused. Some backends will answer the
+question — llama.cpp states its slot count on ``GET /slots`` and
+``/props.total_slots`` — so :meth:`Capacity.of` takes an optional
+:class:`WidthProbe`, and three rules follow from it:
+
+* A reported width **larger** than the declared one wins. The declaration was a
+  guess and the report is a fact, and the fact is the whole return on asking.
+* A reported ``None`` is an ordinary answer — "this backend does not say" — and
+  not an error, nor the same as a source being down. ollama serves its
+  parallelism from ``OLLAMA_NUM_PARALLEL`` in a unit file and exposes no
+  endpoint for it; at ``0`` it decides per model at load time against free VRAM,
+  so the width is not even a per-machine constant. The declaration stands, and
+  :meth:`Capacity.confirmed` reports that it was never confirmed — because a
+  number a rig stated and a number an operator typed must not look alike to
+  anyone reading a report when only one of the two is evidence.
+* A reported width **smaller** than the declared one is refused, not lowered.
+  This is the CON-02 paragraph above made visible: quietly correcting the bound
+  would leave the config still wrong, the operator still guessing, and the next
+  rig still able to serialize a batch in silence. Refusing names the
+  disagreement at the one moment both numbers are in hand. It is deliberately
+  the same rule as :meth:`Capacity.hold`'s "two answers to one question",
+  pointed at the machine rather than at a stale config.
+
+The probe is a *parameter*. Nothing here opens a socket, for the same reason
+:mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
+builds nothing: who actually asks a rig is #22's, and this module's job is to
+know what to do with the answer.
+
+One consequence is not yet resolved and is written down rather than papered
+over: a confirmed width wider than the declared one leaves
+:attr:`~mcgyvr.pool.Endpoint.max_parallel` carrying the superseded number, which
+:meth:`hold` refuses as a stale config. Nothing supplies a real probe yet, so
+nothing hits it today; whoever wires #22 must rebuild the source map from the
+confirmed widths, or teach ``hold`` that a confirmed width outranks a carried
+declaration. Loosening that check speculatively here would weaken the only guard
+against two configs, to fix a collision no caller can currently cause.
+
 **The bound is host-wide, not per-process (#185).** The rigs a source names are
 shared machines, and this repository's own workflow runs lanes as parallel
 worktrees — each its own process. A bound held in process memory is silently
@@ -99,12 +140,13 @@ import re
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Protocol as TypingProtocol
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -138,6 +180,25 @@ def _slot_stem(base_url: str) -> str:
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
     slug = _SLUG.sub("-", normalized).strip("-")[-40:]
     return f"{slug}.{digest}"
+
+
+class WidthProbe(TypingProtocol):
+    """Anything that can ask a source how many requests it will really serve.
+
+    The whole of the width half of #22's surface as this module sees it, and a
+    structural type rather than an import so that building a capacity never
+    drags in a network stack — the same idiom, for the same reason, as
+    :class:`~mcgyvr.pool.SourceProbe`.
+
+    Implementations must not raise. ``None`` is the answer for a backend that
+    does not report its parallelism, which is an ordinary state of affairs and
+    not a failure; a source that is *down* is :class:`~mcgyvr.pool.SourceProbe`'s
+    question and is answered there, in words, as a skipped rung.
+    """
+
+    def width(self, source: str) -> int | None:
+        """How many requests ``source`` will serve at once, or ``None`` if unsaid."""
+        ...
 
 
 class CapacityError(Exception):
@@ -221,7 +282,11 @@ class Capacity:
     """
 
     def __init__(
-        self, limits: Mapping[str, int], *, lock_dir: Path | None = None
+        self,
+        limits: Mapping[str, int],
+        *,
+        lock_dir: Path | None = None,
+        confirmed: Iterable[str] = (),
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -232,6 +297,20 @@ class Capacity:
                     f"the ladder, not at zero capacity."
                 )
         self._limits = dict(limits)
+        # Which of those numbers a machine stated rather than an operator
+        # guessed. Kept beside the limits and not inside them because it is not
+        # a bound — nothing enforces it — but it is the difference between a
+        # capacity report that is evidence and one that is a restatement of the
+        # config; see :meth:`confirmed`. Empty by default, so a capacity built
+        # by hand claims nothing it was not told.
+        self._confirmed = frozenset(confirmed)
+        unknown = ", ".join(sorted(self._confirmed - set(self._limits)))
+        if unknown:
+            raise CapacityError(
+                f"confirmed width(s) for source(s) {unknown}, which this "
+                f"capacity does not bound. A confirmation is a fact about a "
+                f"source's limit, so there has to be a limit for it to be about."
+            )
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         self._lock = threading.Lock()
         self._in_use = dict.fromkeys(self._limits, 0)
@@ -249,22 +328,90 @@ class Capacity:
         self._holding = threading.local()
 
     @classmethod
-    def of(cls, config: Config) -> Capacity:
-        """The capacities this config declares, for every source it declares.
+    def of(cls, config: Config, *, probe: WidthProbe | None = None) -> Capacity:
+        """The capacities this config declares, checked against ``probe`` if given.
 
         Every source, not only the ones the ladder currently uses: a role
         binding (orchestrator, verifier) dispatches against a source that need
         not appear in any tier, and a capacity that did not cover it would raise
         at the moment it was first used.
+
+        Without a probe every width is the declared one and nothing is
+        confirmed — the behaviour this had before there was anything to ask, and
+        still the ordinary case, since ollama does not report its parallelism at
+        all. With one, the module docstring's three rules apply: a larger report
+        wins, ``None`` leaves the declaration standing and unconfirmed, and a
+        smaller report raises rather than silently lowering the bound.
+
+        The probe is asked once, here, rather than at each :meth:`hold`. A width
+        is a property of how the backend was started, so re-asking it per
+        dispatch would spend a round trip on a number that does not move, and —
+        worse — would let the bound change underneath a batch that is already
+        queued against it.
         """
-        return cls(
-            {name: source.max_parallel for name, source in config.sources.items()}
-        )
+        limits: dict[str, int] = {}
+        confirmed: list[str] = []
+        for name, source in config.sources.items():
+            declared = source.max_parallel
+            reported = None if probe is None else probe.width(name)
+            if reported is None:
+                # Nobody asked, or the backend does not say. Two different
+                # reasons, one state of knowledge, and neither is evidence.
+                limits[name] = declared
+                continue
+            if reported < declared:
+                raise CapacityError(
+                    f"source {name!r} declares {declared} but reports "
+                    f"{reported}. Two answers to one question, and this time the "
+                    f"machine gave one of them, so the config is the one that is "
+                    f"wrong. Enforcing the declaration would not make the rig "
+                    f"wider: a backend handed more concurrent requests than it "
+                    f"has slots serializes them rather than refusing, so the "
+                    f"over-declaration would show up as a rig that is merely "
+                    f"slow and never as a config that is merely wrong. Declare "
+                    f"{reported}, or start the backend with {declared} slots."
+                )
+            limits[name] = reported
+            confirmed.append(name)
+        return cls(limits, confirmed=confirmed)
 
     @property
     def limits(self) -> Mapping[str, int]:
-        """The declared capacity of each source."""
+        """The enforced capacity of each source.
+
+        The declared number, or the reported one where a probe stated a wider
+        width. Which of the two a given source got is :meth:`confirmed`'s
+        question, deliberately not answerable from this mapping: a bound is a
+        bound whatever its provenance, and a caller enforcing one should not
+        have to care where it came from.
+        """
         return dict(self._limits)
+
+    def confirmed(self, source: str) -> bool:
+        """Whether ``source``'s width was reported by the machine or assumed.
+
+        The difference is evidence. A width a rig stated is a fact about that
+        rig; a width taken from ``max_parallel`` is what an operator guessed
+        when they wrote the config — or what
+        :func:`mcgyvr.initialize.initialize` guessed on their behalf, which is
+        always ``1``. A report showing "4" without saying which kind of 4 it is
+        invites planning against a number nobody checked, so the two are kept
+        apart here rather than in whatever renders them.
+
+        A source the probe answered ``None`` for and a source there was no probe
+        for are both unconfirmed. "The backend does not say" and "nobody asked"
+        are different reasons for the same state of knowledge, and this method
+        reports the state of knowledge.
+        """
+        if source not in self._limits:
+            known = ", ".join(sorted(self._limits)) or "none"
+            raise CapacityError(
+                f"no declared capacity for source {source!r}, so there is "
+                f"nothing about it to have confirmed. Answering False here "
+                f"would claim this capacity knows the source and merely could "
+                f"not confirm its width. Known sources: {known}"
+            )
+        return source in self._confirmed
 
     @property
     def total(self) -> int:

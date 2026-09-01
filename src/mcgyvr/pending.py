@@ -63,6 +63,7 @@ import json
 import re
 import shutil
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -73,6 +74,7 @@ from mcgyvr.contract import Contract, ContractError
 from mcgyvr.contract import dumps as dump_contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deliver import Accepted, Delivery, deliver
+from mcgyvr.escalate import Opinion, Review
 
 #: The contract, as the JSON the direct-mode API emits and the loader accepts.
 CONTRACT_FILE = "contract.json"
@@ -102,6 +104,11 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 #: and renamed into place, so the superseded one survives until its replacement
 #: is complete.
 _STAGING = ".staging-"
+
+#: Where the superseded entry waits while its replacement is renamed into place.
+#: Dot-prefixed so :func:`listing` never mistakes it for a live entry. A crash
+#: between the two renames leaves the old work here rather than destroying it.
+_TOMBSTONE = ".tombstone-"
 
 
 class PendingError(Exception):
@@ -206,6 +213,7 @@ def stash(
     rel = _relative(contract.target)
     entry = root / _slug(contract.id)
     staging = root / f"{_STAGING}{entry.name}"
+    tombstone = root / f"{_TOMBSTONE}{entry.name}"
     bound = content if isinstance(content, Accepted) else None
     text = bound.content if bound is not None else str(content)
 
@@ -244,10 +252,22 @@ def stash(
         # entry does not exist as far as any reader is concerned.
         (staging / META_FILE).write_text(_meta_json(record), encoding="utf-8")
 
-        shutil.rmtree(entry, ignore_errors=True)
+        # The superseded entry is never destroyed before its replacement exists.
+        # Park it at a tombstone, rename the new entry into place, and only then
+        # clear the tombstone. A crash between the two renames strands the old
+        # work under the tombstone path rather than deleting it.
+        shutil.rmtree(tombstone, ignore_errors=True)
+        if entry.exists():
+            entry.rename(tombstone)
         staging.rename(entry)
+        shutil.rmtree(tombstone, ignore_errors=True)
     except (OSError, UnicodeEncodeError) as exc:
         shutil.rmtree(staging, ignore_errors=True)
+        # If the old entry was parked and the replacement never landed, put it
+        # back: a stash that fails must not lose what it found there.
+        if not entry.exists() and tombstone.exists():
+            with suppress(OSError):
+                tombstone.rename(entry)
         raise PendingError(f"cannot stash {contract.id} under {root}: {exc}") from exc
     return record
 
@@ -279,7 +299,7 @@ def resume(
     store: Path | str,
     repo: Path | str,
     task: str,
-    verify: Callable[[str], bool],
+    verify: Callable[[str], Review | bool],
     base: str = "HEAD",
     config: Config | None = None,
 ) -> Resumed:
@@ -309,15 +329,39 @@ def resume(
         return Resumed(False, task=task, reason=f"nothing is pending for {task!r}")
 
     contract = _contract(entry, task)
-    content = _read_exact(entry / FILES / record.target, task)
+    # ``record.target`` came out of meta.json, a plain file an operator can edit
+    # or an entry can arrive carrying. Re-validate it before it becomes a path,
+    # so a tampered target refuses the read instead of steering it out of the
+    # entry.
+    target = _relative(record.target)
+    content = _read_exact(entry / FILES / target, task)
 
     try:
-        approved = bool(verify(content))
+        review = verify(content)
     except Exception as exc:  # the verifier is a network call; failing is normal
         return Resumed(
             False, task=task, reason=f"verification is still unreachable: {exc}"
         )
-    if not approved:
+    if isinstance(review, Review):
+        # The three states are not two: an unusable review is a verifier that
+        # could not be asked, which is not the same thing as one that declined.
+        # Collapsing both to a bool delivered on both.
+        if review.opinion is Opinion.UNUSABLE:
+            return Resumed(
+                False,
+                task=task,
+                reason=(
+                    "verification is still unreachable: "
+                    f"{review.detail or 'no verdict'}"
+                ),
+            )
+        if review.opinion is not Opinion.AGREED:
+            return Resumed(
+                False,
+                task=task,
+                reason="verification declined the stashed work; it stays pending",
+            )
+    elif not review:  # a bare falsy bool is a decline, kept for older callers
         return Resumed(
             False,
             task=task,

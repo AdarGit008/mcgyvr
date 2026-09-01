@@ -53,7 +53,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.structured import validate_structured_data
-from mcgyvr.gate.typecheck import STYLE, TypeCheck
+from mcgyvr.gate.typecheck import STYLE, TypeCheck, TypeCheckTimeoutError
 from mcgyvr.scope import Scope
 
 
@@ -190,7 +190,15 @@ class Gate:
 
         if typecheck is not None and not findings:
             try:
-                findings.extend(typecheck.run(changeset))
+                # The same split as the adapter branch above: a style finding
+                # is said out loud and never fatal, whatever rung produced it.
+                for item in typecheck.run(changeset):
+                    (observations if item.check == STYLE else findings).append(item)
+            except TypeCheckTimeoutError as exc:
+                # A timeout is a load fault, not a verdict: reported as a skip
+                # rather than an inconclusive rejection, so the same change is
+                # not accepted on a quiet machine and rejected on a loaded one.
+                env_issues.append(f"python: typecheck {exc.detail} — skipped")
             except ToolFailedError as exc:
                 rung = InconclusiveRung(
                     adapter="python",

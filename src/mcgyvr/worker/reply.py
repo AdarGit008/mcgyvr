@@ -93,7 +93,7 @@ target goes on deciding — :func:`parse_pinned` opens what came back only where
 the target could not hold it as a file, so pinning a schema never turns a real
 ``.json`` file into one of its own fields.
 
-Ported from local-ai's ``extract_code`` (``archive/docs/port-from-local-ai.md``, D14).
+Ported from local-ai's ``extract_code`` (``docs/port-from-local-ai.md``, D14).
 Its second half — a regex that digs a Python triple-quoted string out of
 *invalid* JSON — is deliberately not here: text that is not JSON is not read as
 JSON, or this module has gone back to guessing.
@@ -188,7 +188,10 @@ def _carries_no_code(body: str, target: str) -> bool:
     # excluded: a module whose whole body is a docstring is a real file.
     try:
         blob = json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError is what a deeply nested document raises, and it is
+        # not a ValueError — a hostile reply can otherwise escape a reader
+        # whose whole job is to refuse by name rather than raise.
         blob = None
     if isinstance(blob, dict | list):
         return True
@@ -215,7 +218,7 @@ def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
         return None
     try:
         carrier = json.loads(stripped)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(carrier, dict):
         return None
@@ -233,7 +236,9 @@ def _schema_field(schema: dict[str, Any]) -> str:
     of the answer would be this module deciding what the caller asked for. The
     first required string property wins, then a lone string property, then
     :data:`_ENVELOPE_FIELD` — a schema this cannot read is not an error here,
-    since the reply is parsed either way.
+    since the reply is parsed either way. A property whose type is an array
+    containing ``"string"`` — the JSON-Schema spelling of a nullable string —
+    is a string property too.
     """
     properties = schema.get("properties")
     if not isinstance(properties, dict):
@@ -241,9 +246,7 @@ def _schema_field(schema: dict[str, Any]) -> str:
     strings = [
         name
         for name, spec in properties.items()
-        if isinstance(name, str)
-        and isinstance(spec, dict)
-        and spec.get("type") == "string"
+        if isinstance(name, str) and isinstance(spec, dict) and _is_string_type(spec)
     ]
     required = schema.get("required")
     if isinstance(required, list):
@@ -253,6 +256,14 @@ def _schema_field(schema: dict[str, Any]) -> str:
     if len(strings) == 1:
         return strings[0]
     return _ENVELOPE_FIELD
+
+
+def _is_string_type(spec: dict[str, Any]) -> bool:
+    """Whether ``spec`` declares a string: as a scalar, or as a member of an array."""
+    kind = spec.get("type")
+    if isinstance(kind, str):
+        return kind == "string"
+    return isinstance(kind, list) and "string" in kind
 
 
 def _as_file(content: str) -> str:

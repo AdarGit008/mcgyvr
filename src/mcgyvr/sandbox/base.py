@@ -240,6 +240,56 @@ class Sandbox(ABC):
         _git(self.workspace, "reset", "--hard", self._base_commit)
         _git(self.workspace, "clean", "-fdx")
 
+    def checkpoint(self) -> str:
+        """Commit the workspace's current state and return the commit to restore to.
+
+        A snapshot for a caller that is about to write and reset and wants to
+        come back to exactly this state — a best-of draw loop, say. Paired with
+        :meth:`drop_checkpoint`, which returns ``HEAD`` to the base once the
+        caller is done, leaving the working tree where it was.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "add", "-A")
+        _git(
+            self.workspace,
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "mcgyvr checkpoint",
+            env={**os.environ, **_GIT_IDENTITY},
+        )
+        return _git(self.workspace, "rev-parse", "HEAD").decode("ascii").strip()
+
+    def restore_to(self, checkpoint: str) -> None:
+        """Return the workspace to a :meth:`checkpoint` snapshot, dropping the rest.
+
+        Everything since the snapshot — tracked edits, new files, deletions —
+        is discarded. Ignored files are deliberately left alone: the snapshot
+        does not commit them (``git add -A`` honours ``.gitignore``), so a
+        caller's ignored files are part of the state to preserve, not draw
+        by-product to sweep.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "reset", "--hard", checkpoint)
+        _git(self.workspace, "clean", "-fd")
+
+    def drop_checkpoint(self) -> None:
+        """Return ``HEAD`` to the base commit, keeping the working tree as it is.
+
+        The reverse of :meth:`checkpoint`: the snapshot commit is left for git to
+        collect, ``HEAD`` moves back to the base, and the working tree — the
+        caller's state, restored by :meth:`restore_to` — stays put as uncommitted
+        changes again.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "reset", "--mixed", self._base_commit)
+
     def base_changeset_ref(self) -> str:
         """The base ref the gate diffs the worker's change against.
 

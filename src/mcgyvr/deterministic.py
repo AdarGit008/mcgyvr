@@ -273,12 +273,14 @@ class ToolStep:
 class Degradation:
     """One contract that could not run on the floor its own type declares.
 
-    Four named facts and then the reason, because this is the record an
-    operator reads when the bill is larger than it should be: *this* contract,
-    of *this* type, was supposed to run on *that* family and is being paid for
-    by *this* one instead. A single sentence could carry any one of the four
-    and still leave the reader unable to act on it, which is why they are
-    fields rather than prose.
+    Four named facts, then the reason when there is one, because this is the
+    record an operator reads when the bill is larger than it should be: *this*
+    contract, of *this* type, was supposed to run on *that* family and is being
+    paid for by *this* one instead. ``reason`` is empty when the work degraded
+    onto a rung, and names why nothing above the floor could run it when it did
+    not — the two must read differently, or a halt is reported as a bill. A
+    single sentence could carry any one of the facts and still leave the reader
+    unable to act on it, which is why they are fields rather than prose.
     """
 
     contract: str
@@ -286,8 +288,15 @@ class Degradation:
     left: str
     landed: str
     missing: str
+    reason: str = ""
 
     def __str__(self) -> str:
+        if self.reason:
+            return (
+                f"{self.task_type} contract {self.contract!r} left the "
+                f"{self.left!r} family: {self.missing}, and nothing above it "
+                f"can run the work ({self.reason}); no model is paying for it."
+            )
         return (
             f"{self.task_type} contract {self.contract!r} left the "
             f"{self.left!r} family: {self.missing}, so the work is routed to "
@@ -301,7 +310,7 @@ class Degradation:
         against a path its caller supplies, and a routing decision has neither.
         The caller that has both appends this.
         """
-        return {
+        record = {
             "event": "degraded",
             "contract": self.contract,
             "task_type": self.task_type,
@@ -309,6 +318,9 @@ class Degradation:
             "landed": self.landed,
             "missing": self.missing,
         }
+        if self.reason:
+            record["reason"] = self.reason
+        return record
 
 
 @dataclass(frozen=True)
@@ -443,6 +455,7 @@ def route(
                 left=floor.name,
                 landed=onward.family.name,
                 missing=_why_missing(contract, tool),
+                reason=onward.reason if not onward.steps else "",
             ),
         ),
     )
@@ -510,19 +523,26 @@ def _cheapest_above(
     )
 
 
+# The extensions the gate's default adapters own, restated here so a routing
+# decision does not import them — importing :mod:`mcgyvr.gate.adapters` (or
+# :mod:`mcgyvr.worker.reply`, whose package pulls in the gate's prompt builder)
+# drags tree-sitter and the whole gate package into a process that is only
+# planning (G4). Declared as a duplicate in ``tests/test_four_lenses.py``; the
+# copies must agree.
+_PY_EXTENSIONS = (".py", ".pyi")
+_JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")
+
+
 def _language_of(target: str) -> str | None:
-    """Which language's toolchain owns ``target``, by the gate's ownership rule.
+    """Which language's toolchain owns ``target``, by extension alone.
 
-    The adapters are constructed inside the call rather than at import, because
-    a routing decision must not drag the gate's parsers into a process that is
-    only planning — the same restraint :mod:`mcgyvr.escalate` shows by keeping
-    :class:`~mcgyvr.gate.GateResult` under ``TYPE_CHECKING``. The pair is the
-    gate's own default set (:class:`~mcgyvr.gate.Gate`), so a language the gate
-    can judge is a language this can route.
+    The same ownership the gate's default adapters use, answered without
+    importing them: the adapters drag the gate package and its tree-sitter
+    parsers into a process that is only planning (G4), and the ownership
+    question is a suffix match, not a parser.
     """
-    from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
-
-    for adapter in (PythonAdapter(), JavaScriptAdapter()):
-        if adapter.owns(target):
-            return adapter.name
+    if target.endswith(_PY_EXTENSIONS):
+        return "python"
+    if target.endswith(_JS_EXTENSIONS):
+        return "js/ts"
     return None

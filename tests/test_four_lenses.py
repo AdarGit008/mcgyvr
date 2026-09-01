@@ -108,6 +108,10 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # JavaScript, silently.
     "_TS_EXTENSIONS": True,
     "_TSX_EXTENSIONS": True,
+    # Must agree: deterministic.py restates the gate's Python extensions rather
+    # than importing them (G4 — importing the adapters drags tree-sitter into a
+    # planning-only process), and worker/reply.py carries the same pair.
+    "_PY_EXTENSIONS": True,
     # Must agree. Both rigs clone the same frames for the same corpus.
     "CLONE_DEPTH": True,
     "REMOTES": True,
@@ -155,7 +159,8 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "TIMEOUT_S": False,  # unrelated tools, unrelated ceilings
     "_CACHE": False,
     "_DRIVER": False,
-    "_JS_EXTENSIONS": False,  # reply.py's is the whole family; the others are JS only
+    # reply.py and deterministic.py carry the whole family; symbols.py is JS only
+    "_JS_EXTENSIONS": False,
     "__all__": False,  # every package has one
 }
 

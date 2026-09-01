@@ -488,7 +488,9 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
             repo=repo,
             contract=contract,
             sample=lambda _: "X = '\ud800'\n",
-            gate=lambda ws: Gate().run(ChangeSet.detect(ws, "HEAD"), contract.scope),
+            gate=lambda sandbox: Gate().run(
+                ChangeSet.detect(sandbox.workspace, "HEAD"), contract.scope
+            ),
             n=1,
         )
 

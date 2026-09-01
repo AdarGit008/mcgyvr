@@ -70,7 +70,12 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
-from mcgyvr.availability import PROBE_TIMEOUT_S, Availability, ProbeFn, Verdict
+from mcgyvr.availability import (
+    PROBE_TIMEOUT_S,
+    Availability,
+    AvailabilityVerdict,
+    ProbeFn,
+)
 from mcgyvr.pool import Endpoint
 
 # How many failures in a row before a source is taken out. Three, from local-ai's
@@ -138,7 +143,7 @@ class Cooldown:
         self._records: dict[str, _Record] = {}
 
     @property
-    def verdicts(self) -> Mapping[str, Verdict]:
+    def verdicts(self) -> Mapping[str, AvailabilityVerdict]:
         """Every liveness verdict reached so far — the wrapped cache, unchanged.
 
         Delegated rather than reimplemented so anything reporting on probes reads
@@ -167,7 +172,19 @@ class Cooldown:
         This is what makes the count *consecutive*. Without it, a source that
         failed twice in the first minute and twice in the tenth would be taken out
         on evidence that was never about the same fault.
+
+        A cooldown already armed is not cancelled. Three consecutive failures
+        earn the sentence, and a success arriving during it came from a dispatch
+        started *before* those failures — it is not evidence the source
+        recovered, and clearing the sentence would let a healthy rung that
+        happened to be in flight wipe a broken one's just-earned removal, which
+        is the single-host install's form of this defect. The count resets; the
+        sentence stands.
         """
+        record = self._records.get(source)
+        if record is not None and record.until > 0.0:
+            record.failures = 0
+            return
         self._records.pop(source, None)
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:

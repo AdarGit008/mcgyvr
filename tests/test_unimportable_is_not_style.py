@@ -236,6 +236,52 @@ def test_the_verdict_does_not_depend_on_ruff_being_installed(
     )
 
 
+def test_a_ruff_less_install_still_reports_the_deprecated_spelling(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without ruff, ``from typing import Mapping`` is still a style note.
+
+    The AST family owns the style axis independently of the linter — the
+    claim this file quotes, "so the verdict does not depend on which tools the
+    operator happens to have". It held for six builtin generics and not for
+    the ``collections.abc`` aliases: on a machine without ruff, a deprecated
+    ``Mapping`` import produced nothing. It is not a rejection — the spelling
+    is correct code in the wrong dialect — but it must be *reported*.
+    """
+    changed = worker_wrote(repo, "widths.py", DEPRECATED_SPELLING)
+    monkeypatch.setenv("PATH", str(repo / "no-tools-here"))
+
+    result = Gate().run(changed)
+
+    assert result.accepted, (
+        f"a deprecated spelling is style, not a rejection: {result.findings}"
+    )
+    assert any(f.code == "TYPE-FORM" for f in result.observations), (
+        f"with no linter on PATH the deprecated spelling was reported by "
+        f"nothing: {result.observations}"
+    )
+
+
+def test_the_typing_pin_for_set_is_the_builtin_not_the_abc() -> None:
+    """``typing.Set`` is ``set``, not ``collections.abc.Set``.
+
+    The two maps the AST family builds collide on one name: ``Set`` is in the
+    ``typing`` pin table (as the builtin ``set``) *and* in
+    ``_MOVED_TO_COLLECTIONS_ABC`` (the 3.9 ``collections`` shim, whose pin is
+    ``collections.abc.Set``). ``typing.Set[int]`` is ``set[int]`` — the concrete,
+    mutable type — so a merge that let the shim's ``Set`` overwrite the typing
+    pin would tell a worker to reach for the abstract, read-only ABC instead.
+    The explicit typing entry must win.
+    """
+    from mcgyvr.gate import typecheck
+
+    assert typecheck._DEPRECATED_TYPING["Set"] == "set", (
+        f"the typing pin for Set is not the builtin: "
+        f"{typecheck._DEPRECATED_TYPING['Set']!r}"
+    )
+    assert "set[" in typecheck._pinned_form("Set")
+
+
 def test_ruffs_own_words_do_not_separate_the_two_halves(tmp_path: Path) -> None:
     """The premise behind choosing the AST over the message text.
 

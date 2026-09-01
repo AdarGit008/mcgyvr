@@ -185,7 +185,7 @@ def test_a_failed_wave_is_re_planned_with_the_failures_named() -> None:
         handed.append(repr((args, kwargs)))
         return (replanned,)
 
-    _driver()(contracts=(failing, passing), attempt=run, replan=replan, max_waves=2)
+    _driver()(contracts=(failing, passing), attempt=run, replan=replan, max_replans=2)
 
     assert handed, "a wave failed and nothing was re-planned"
     said = handed[0]

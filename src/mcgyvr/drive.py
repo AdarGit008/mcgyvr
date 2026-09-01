@@ -62,7 +62,7 @@ from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.route import Try, Verdict, family_of
-from mcgyvr.runner import Completion, Request, dispatch
+from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
 from mcgyvr.worker.prompt import build_prompt
@@ -74,6 +74,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
+    from mcgyvr.cooldown import Cooldown
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.pool import SourceMap
@@ -323,6 +324,7 @@ def worker_attempt(
     adapters: Sequence[LanguageAdapter] | None = None,
     reviewer: Ask | None = None,
     recording: Recording | None = None,
+    cooldown: Cooldown | None = None,
 ) -> Callable[[Try], Judgement]:
     """The attempt function :func:`~mcgyvr.escalate.escalate` has always taken.
 
@@ -437,15 +439,55 @@ def worker_attempt(
 
     def attempt(this: Try) -> Judgement:
         family = family_of(config, this.rung.name)
-        prompt = build_prompt(
-            contract, adapters=adapters, retry=notes.get(this.rung.name)
-        )
+        if cooldown is not None:
+            # Ask before a prompt is built or a sandbox is opened: a rung on a
+            # source that has just failed several dispatches in a row is
+            # declined rather than tried, and the decline costs nothing because
+            # `escalate` walks past a declined rung without spending an attempt.
+            # The liveness half is a stub here (the caller supplies one), so the
+            # only reasons that reach this are the failures the dispatches have
+            # already paid for.
+            endpoint = pool.bind(this.rung.name)
+            cooling = cooldown.unavailable([endpoint])
+            if endpoint.source in cooling:
+                return Judgement(
+                    verdict=Verdict.DECLINED,
+                    policy=required_policy(contract, family),
+                    detail=(
+                        f"rung {this.rung.name!r} is on source {endpoint.source!r}, "
+                        f"which is cooling down: {cooling[endpoint.source]}"
+                    ),
+                )
 
         def send(draw: int) -> Completion:
             def once() -> Completion:
-                return dispatch_prompt(
-                    pool, this.rung.name, prompt, contract, capacity=this.capacity
-                )
+                if cooldown is None:
+                    return dispatch_prompt(
+                        pool,
+                        this.rung.name,
+                        prompt,
+                        contract,
+                        capacity=this.capacity,
+                    )
+                endpoint = pool.bind(this.rung.name)
+                try:
+                    completion = dispatch_prompt(
+                        pool,
+                        this.rung.name,
+                        prompt,
+                        contract,
+                        capacity=this.capacity,
+                    )
+                except RunnerError:
+                    # The dispatch is what the cooldown learns from: a source
+                    # that answered and failed the generation is the fault this
+                    # lever exists for. A prompt that did not fit is a contract
+                    # fault and raises `DriveError`, which must not count against
+                    # the source.
+                    cooldown.record_failure(endpoint.source)
+                    raise
+                cooldown.record_success(endpoint.source)
+                return completion
 
             if recording is None:
                 return once()
@@ -476,22 +518,13 @@ def worker_attempt(
                 return Unusable(f"the reply could not be read: {parsed}")
             return parsed.content
 
-        def judge_draw(workspace: Path) -> GateResult:
-            # The workspace handed over is this sandbox's, because this sandbox
-            # is what `best_of` was given — and it is ignored, because the gate
-            # cannot be run from a path. A contract's acceptance commands are
-            # arbitrary shell and run inside a sandbox and nowhere else
-            # (ADR-0005), so the thing that judges is `gate_workspace`, which
-            # takes the sandbox. The parameter is checked rather than silently
-            # dropped: a mismatch would mean the draws are being written
-            # somewhere other than where they are being judged.
-            if workspace != sandbox.workspace:
-                raise DriveError(
-                    f"a draw was written into {workspace} and this attempt gates "
-                    f"in {sandbox.workspace}; the verdict would be about a tree "
-                    f"the draw is not in."
-                )
-            return gate_workspace(contract, sandbox, adapters=adapters)
+        def judge_draw(space: Sandbox) -> GateResult:
+            # The gate is handed the sandbox, not a bare path, because a
+            # contract's acceptance commands are arbitrary shell and run inside
+            # a sandbox and nowhere else (ADR-0005). `gate_workspace` takes the
+            # sandbox and judges whatever is in it right now, so the draw
+            # `best_of` just wrote is what the verdict is about.
+            return gate_workspace(contract, space, adapters=adapters)
 
         # Before the writes rather than after the last one, which is the same
         # bargain `gate_in_sandbox` makes and for the same reason: `best_of`
@@ -501,10 +534,17 @@ def worker_attempt(
         sandbox.reset()
         # Read here, in the one moment the base is on disk: the workspace has
         # just been reset and no draw has been written over it yet.
-        original = _base_content(sandbox, contract) if reviewer is not None else None
+        original = _base_content(sandbox, contract)
+        # The worker prompt needs the file it is changing. A decomposed
+        # contract carries it as `target_content`; a hand-authored one does
+        # not, so fall back to the workspace's own copy (K6).
+        prompt = build_prompt(
+            replace(contract, target_content=contract.target_content or original),
+            adapters=adapters,
+            retry=notes.get(this.rung.name),
+        )
         try:
             picked = best_of(
-                repo=sandbox.workspace,
                 contract=contract,
                 sample=sample,
                 gate=judge_draw,

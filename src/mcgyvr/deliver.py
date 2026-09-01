@@ -110,7 +110,7 @@ a credential, and there is no place in this codebase to put any of the three.
 Pretending otherwise is what the finding was.
 
 *The rejected alternative is a client.* Delivery could push and open the pull
-request — a remote, ``delivery.token_env`` resolved to a forge token, an HTTP
+request — a remote, a forge token, an HTTP
 call. It is rejected because the seam that must be certain about what it writes
 would become the seam that also owns network transport, credential handling and
 one forge's API shape, all of it unreachable from any test that does not either
@@ -160,6 +160,7 @@ import contextlib
 import fcntl
 import hashlib
 import os
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -181,6 +182,12 @@ from mcgyvr.orchestrator.repo import AttachedRepo
 # repository with no commit yet has no base to diff against, and the empty tree
 # makes a first-ever delivery one code path with every other.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+#: Characters that make a target a pattern rather than one file's destination.
+#: Mirrors the contract loader's glob refusal, but is enforced here too so the
+#: seam itself refuses a pattern a caller assembled in code or read back from a
+#: record. A single-file delivery has no answer to a pattern.
+_GLOB_META = re.compile(r"[*?\[\]]")
 
 #: ``config.delivery.mode``: commit onto the branch the operator has checked
 #: out. Also the answer when no config is supplied at all — see :func:`_mode`.
@@ -503,6 +510,7 @@ def deliver(
     change that is merely unacceptable comes back as a refusal instead.
     """
     root = _root(repo)
+    _refuse_pattern_target(contract)
     rel = _target(root, contract)
     mode = _mode(config)
     text, refused, bound = _verdict(content, accepted)
@@ -511,6 +519,10 @@ def deliver(
     with _exclusive(root):
         resolved = _resolve(root, base)
         call = _Call(root=root, path=rel, base=resolved, mode=mode)
+
+        hazard = _checkout_hazard(root)
+        if hazard is not None:
+            return call.refuse(hazard)
 
         if refused:
             # Cheapest first, and nothing has been touched yet: a rejected change
@@ -549,6 +561,7 @@ def deliver(
 
         target = root / rel
         before = _snapshot(target)
+        created = _missing_dirs(target)
         staged = False
         # Not "did it commit" — "is the tree where the commit landed". Under
         # ``none`` the two are the same thing. Under ``branch`` the commit is in
@@ -657,6 +670,7 @@ def deliver(
             # not.
             if not landed_here:
                 _restore(target, before)
+                _remove_created(created)
                 if staged:
                     _git(root, "reset", "--quiet", "--", rel)
 
@@ -727,6 +741,23 @@ def _root(repo: Path | str | AttachedRepo) -> Path:
     if not (root / ".git").exists():
         raise DeliveryError(f"{root} is not a git repository; nothing can be delivered")
     return root
+
+
+def _refuse_pattern_target(contract: Contract) -> None:
+    """Refuse a target that names a set of files, not one file.
+
+    Contract loading already rejects a glob target for a model-run task type;
+    this is the same refusal at the delivery seam, for a contract assembled in
+    code or read back from a record. A single-file delivery has no answer to a
+    pattern, and writing it as a literal filename would commit a path nobody
+    named.
+    """
+    if _GLOB_META.search(contract.target):
+        raise DeliveryError(
+            f"{contract.id} targets {contract.target!r}, which is a pattern. "
+            f"A single-file delivery cannot take a pattern target; name one "
+            f"literal path."
+        )
 
 
 def _verdict(
@@ -1014,12 +1045,38 @@ def _target(root: Path, contract: Contract) -> str:
     if not named:
         raise DeliveryError(f"{contract.id} names no target to deliver")
     anchor = root.resolve()
+    _refuse_symlinked(anchor, named, contract.id)
     resolved = (anchor / named).resolve()
     if anchor not in resolved.parents:
         raise DeliveryError(
             f"{contract.id} targets {named!r}, which is outside the repository"
         )
     return resolved.relative_to(anchor).as_posix()
+
+
+def _refuse_symlinked(anchor: Path, named: str, identity: str) -> None:
+    """Refuse a target that is, or crosses, a symlink.
+
+    ``.resolve()`` follows symlinks, so a symlink at the target — or at any
+    parent component — would steer the write to a different file and leave the
+    commit naming a path the tree does not hold. Walk the literal components
+    with ``lstat`` semantics (``Path.is_symlink``) instead and refuse before
+    anything is written.
+    """
+    walked = anchor
+    for part in Path(named).parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            walked = walked.parent
+            continue
+        walked = walked / part
+        if walked.is_symlink():
+            raise DeliveryError(
+                f"{identity} targets {named!r}, which crosses the symlink "
+                f"{part!r}; a symlink is not a file the tree holds, so "
+                f"delivery refuses to write through it"
+            )
 
 
 def _named_base(base: str) -> None:
@@ -1055,6 +1112,43 @@ def _resolve(root: Path, base: str) -> str:
     if base != "HEAD":
         return base
     return _head(root) or _EMPTY_TREE
+
+
+def _checkout_hazard(root: Path) -> str | None:
+    """A checkout state a commit would be silently lost in, or ``None``.
+
+    ``none`` mode commits onto whatever ``HEAD`` names. A detached ``HEAD``
+    names a commit no branch ref points at, and a rebase, merge, cherry-pick or
+    bisect left partway through means the commit would land on a half-built or
+    moving state. Both are states the operator can fix — check out a branch, or
+    finish the operation — so this returns a reason to refuse rather than
+    raising.
+    """
+    branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    if branch == "HEAD":
+        return (
+            "HEAD is detached in "
+            f"{root.name}: a commit here would have no branch to hold it. "
+            "Check out a branch before delivering, or set `delivery.mode: "
+            f"{ON_A_BRANCH}` to commit onto a new branch and leave the "
+            "checkout alone."
+        )
+    git_dir = _git_dir(root)
+    labels = {
+        "rebase-merge": "rebase",
+        "rebase-apply": "rebase",
+        "MERGE_HEAD": "merge",
+        "CHERRY_PICK_HEAD": "cherry-pick",
+        "BISECT_LOG": "bisect",
+    }
+    for name, label in labels.items():
+        if (git_dir / name).exists():
+            return (
+                f"{name} is present in {root.name}'s git directory, so a "
+                f"{label} is in progress. Finish or abort it before "
+                f"delivering."
+            )
+    return None
 
 
 def _uncommitted(root: Path, rel: str) -> tuple[str, ...]:
@@ -1266,6 +1360,36 @@ def _write(path: Path, payload: bytes) -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
+
+
+def _missing_dirs(path: Path) -> tuple[Path, ...]:
+    """The path's missing parent directories, deepest first.
+
+    Walked from ``path.parent`` upward and collected until an existing
+    directory is reached. Returned deepest-first so the caller can remove them
+    bottom-up: a child must be empty before its parent can be removed.
+    """
+    missing: list[Path] = []
+    parent = path.parent
+    while not parent.exists():
+        missing.append(parent)
+        if parent == parent.parent:
+            break
+        parent = parent.parent
+    return tuple(missing)
+
+
+def _remove_created(dirs: Sequence[Path]) -> None:
+    """Remove directories a write created, empty ones only, best-effort.
+
+    ``rmdir`` refuses a non-empty directory, which is the safety wanted here:
+    a directory that gained content since the write must not be swept away.
+    Failure is swallowed — the undo is best-effort and must not mask the reason
+    the delivery is refusing.
+    """
+    for directory in dirs:
+        with contextlib.suppress(OSError):
+            directory.rmdir()
 
 
 def _restore(path: Path, before: bytes | None) -> None:

@@ -265,7 +265,7 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
             "image": None,
             "setup": [],
         },
-        "delivery": {"mode": "branch", "token_env": None},
+        "delivery": {"mode": "branch"},
         "budgets": {"max_escalations": 1, "task_timeout_s": 900},
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is

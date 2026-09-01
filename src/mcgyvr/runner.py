@@ -34,7 +34,7 @@ caller can observe:
   ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
   server that implements it answers with the object instead of prose — a whole
-  class of parse failure that then never happens (``archive/docs/port-from-local-ai.md``,
+  class of parse failure that then never happens (``docs/port-from-local-ai.md``,
   D13). Ollama's native path does not carry it: ``/api/generate`` spells the
   same idea ``format``, which older builds accept only as the string ``json``,
   so sending a schema there turns a working dispatch into a rejected request on

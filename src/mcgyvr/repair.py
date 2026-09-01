@@ -73,6 +73,7 @@ import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mcgyvr.contract import Contract, Dependency
 from mcgyvr.gate.adapter import ToolUnavailableError, plain_env, require_tool
@@ -81,12 +82,20 @@ from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.lines import parser_lines, terminator
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.sandbox.base import Sandbox
+
 #: ruff reports on 0 (clean) and 1 (diagnostics, or fixes applied with some
 #: left); anything else is ruff telling us it did not do the job. Same split
 #: the adapters make (:func:`mcgyvr.gate.adapter.trusted_stdout`) — read here
 #: rather than reused, because an untrustworthy repair is an environment issue
 #: and not, as it is for a gate rung, a reason to refuse the change.
 _REPORTING = frozenset({0, 1})
+
+#: Wall-clock ceiling for one ruff invocation. A repair is a best-effort tidy-up
+#: and must never be the thing that hangs an attempt loop; a ruff that does not
+#: finish in this budget is recorded as an environment issue, not waited on.
+RUFF_TIMEOUT_S = 120.0
 
 #: Directory prefixes that are a packaging root rather than a package. ``src``
 #: carries no ``__init__.py`` and is never importable, so ``src/pkg/x.py`` is
@@ -131,14 +140,28 @@ class RepairOutcome:
         return bool(self.repaired)
 
 
-def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutcome:
+class RepairError(Exception):
+    """A repair call was misconfigured — a caller error, not an environment fault."""
+
+
+def repair(
+    *,
+    repo: Path | None = None,
+    sandbox: Sandbox | None = None,
+    contract: Contract,
+    base: str = "HEAD",
+) -> RepairOutcome:
     """Apply every fix a tool can make to the worker's change, in place.
 
-    ``base`` is the pre-worker tree, the same one the gate measured the change
-    against, so the files touched here are exactly the files the gate judged.
-    Nothing outside ``contract.scope`` is opened, and no model is reached at any
-    point — this module imports nothing from :mod:`mcgyvr.runner` and calls no
-    dispatcher, which is the whole economic argument for the lever.
+    Exactly one of ``repo`` and ``sandbox`` says where the repair happens. A
+    caller mid-attempt already holds the sandbox the gate just judged, and
+    passing it derives the workspace and its base from the sandbox rather than
+    making the caller thread two values it already has; passing ``repo`` repairs
+    that tree against ``base``, which is the pre-worker tree the gate measured
+    the change against. Nothing outside ``contract.scope`` is opened, and no
+    model is reached at any point — this module imports nothing from
+    :mod:`mcgyvr.runner` and calls no dispatcher, which is the whole economic
+    argument for the lever.
 
     The order is deliberate: imports are inserted **first**, then the fixer,
     then the formatter. The insertion is the only step that writes new code, so
@@ -150,6 +173,21 @@ def repair(*, repo: Path, contract: Contract, base: str = "HEAD") -> RepairOutco
     there — the string it was holding when it called this stopped being the
     change the moment the formatter ran.
     """
+    if sandbox is not None and repo is not None:
+        raise RepairError(
+            "pass `sandbox` or `repo`, not both: a sandbox is a workspace, so "
+            "the `repo` beside it would be read by nothing"
+        )
+    if sandbox is None and repo is None:
+        raise RepairError(
+            "pass `sandbox` to repair in a caller's own workspace, or `repo` "
+            "to repair a tree against a named base"
+        )
+    if sandbox is not None:
+        repo = sandbox.workspace
+        base = sandbox.base_changeset_ref()
+    assert repo is not None  # the neither/nor guard above
+
     issues: list[str] = []
     try:
         changeset = ChangeSet.detect(repo, base)
@@ -312,14 +350,19 @@ def _run_ruff(
     a path has said not to rewrite it. ``--`` because a worker-created filename
     may begin with a dash.
     """
-    proc = subprocess.run(
-        [ruff, *args, "--", *paths],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=plain_env(),
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [ruff, *args, "--", *paths],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=plain_env(),
+            timeout=RUFF_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        issues.append(f"repair: {RUFF} {args[0]} timed out after {RUFF_TIMEOUT_S:g}s")
+        return
     if proc.returncode not in _REPORTING:
         issues.append(
             f"repair: {RUFF} {args[0]} exited {proc.returncode} — "
@@ -346,7 +389,7 @@ def _insert_declared_imports(
     a module for it would turn a legible rejection into an import that does not
     resolve.
     """
-    index = _declared_modules(deps)
+    index = _declared_modules(repo, deps)
     if not index:
         return
     for path, names in _undefined_names(repo, ruff, paths, issues).items():
@@ -357,17 +400,22 @@ def _insert_declared_imports(
             _insert_imports(repo / path, wanted, issues)
 
 
-def _declared_modules(deps: Sequence[Dependency]) -> dict[str, str]:
-    """Name → module, over every dependency the contract states.
+def _declared_modules(repo: Path, deps: Sequence[Dependency]) -> dict[str, str]:
+    """Name → module, over every dependency the contract states and that exists.
 
     First declaration wins, matching the order the contract lists them in: two
     dependencies exporting one name is the contract's ambiguity to resolve, and
-    picking the later one would make the repair depend on iteration order.
+    picking the later one would make the repair depend on iteration order. A
+    dependency whose file is not in the repository is skipped: an import of it
+    cannot resolve, and writing one turns a legible rejection into an
+    acceptance plus a ``ModuleNotFoundError`` at run time.
     """
     index: dict[str, str] = {}
     for dep in deps:
         module = _module_of(dep.path)
         if module is None:
+            continue
+        if not (repo / dep.path).is_file():
             continue
         for name in _declared_names(dep.signature):
             index.setdefault(name, module)
@@ -433,23 +481,30 @@ def _undefined_names(
     names worth an import. JSON rather than the human format for the same
     reason the lint rung uses it — a message layout is not an interface.
     """
-    proc = subprocess.run(
-        [
-            ruff,
-            "check",
-            "--select",
-            "F821",
-            "--output-format=json",
-            "--force-exclude",
-            "--",
-            *paths,
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=plain_env(),
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                ruff,
+                "check",
+                "--select",
+                "F821",
+                "--output-format=json",
+                "--force-exclude",
+                "--",
+                *paths,
+            ],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=plain_env(),
+            timeout=RUFF_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        issues.append(
+            f"repair: {RUFF} check --select F821 timed out after {RUFF_TIMEOUT_S:g}s"
+        )
+        return {}
     if proc.returncode not in _REPORTING:
         issues.append(
             f"repair: {RUFF} check --select F821 exited {proc.returncode} — "
@@ -495,22 +550,25 @@ def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> No
     fresh = [f"{line}{ending}" for line in imports if line not in present]
     if not fresh:
         return
-    anchor = _import_anchor(tree)
+    anchor = _import_anchor(tree, source)
     lines[anchor:anchor] = fresh
     _write_text(path, "".join(lines))
 
 
-def _import_anchor(tree: ast.Module) -> int:
+def _import_anchor(tree: ast.Module, source: str) -> int:
     """The line index to insert imports at: after the docstring and imports.
 
     Placing them at line 0 would push a module docstring down a line and demote
     it to a plain string expression — valid Python that has quietly deleted the
     module's documentation. Stopping at the first statement that is neither
     keeps the block where a reader expects it, and where ``__future__`` imports
-    (which must come first) already are.
+    (which must come first) already are. A shebang is the same trap one line
+    earlier and is invisible to the parser entirely — ``ast`` reads ``#!`` as a
+    comment, so the anchor starts below it rather than at 0, or the import
+    lands *above* the shebang and the executable stops being one.
     """
     body = list(tree.body)
-    anchor = 0
+    anchor = 1 if source.startswith("#!") else 0
     if body and _is_docstring(body[0]):
         anchor = body[0].end_lineno or anchor
         body = body[1:]

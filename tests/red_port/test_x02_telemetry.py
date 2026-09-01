@@ -239,7 +239,13 @@ def test_a_correction_is_appended_and_never_rewrites_the_attempts_own_record(
     )
     before = sink.read_bytes()
 
-    correct(path=sink, attempt_id="a1", outcome="merged", detail="landed after review")
+    correct(
+        path=sink,
+        attempt_id="a1",
+        outcome="merged",
+        detail="landed after review",
+        orchestrator="orch-a",
+    )
 
     after = sink.read_bytes()
     assert after.startswith(before), (
@@ -271,15 +277,26 @@ def test_folding_is_latest_wins_per_attempt_and_keeps_an_unmatched_correction(
         orchestrator="orch-a",
         rung="local/qwen",
     )
-    correct(path=sink, attempt_id="a1", outcome="merged", detail="landed after review")
+    correct(
+        path=sink,
+        attempt_id="a1",
+        outcome="merged",
+        detail="landed after review",
+        orchestrator="orch-a",
+    )
     correct(
         path=sink,
         attempt_id="a1",
         outcome="reverted",
         detail="backed out an hour later",
+        orchestrator="orch-a",
     )
     correct(
-        path=sink, attempt_id="ghost-1", outcome="merged", detail="names no attempt"
+        path=sink,
+        attempt_id="ghost-1",
+        outcome="merged",
+        detail="names no attempt",
+        orchestrator="orch-a",
     )
 
     folded = fold(path=sink)

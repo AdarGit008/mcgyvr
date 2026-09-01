@@ -136,7 +136,7 @@ _CREDENTIAL_REFUSED = frozenset({401, 403})
 
 
 @dataclass(frozen=True)
-class Verdict:
+class AvailabilityVerdict:
     """What one probe found, and how it found it.
 
     ``reason`` is written to be read by whoever sees a shortened ladder, because
@@ -153,7 +153,7 @@ class Verdict:
     elapsed_s: float
 
 
-ProbeFn = Callable[[Endpoint, float], Verdict]
+ProbeFn = Callable[[Endpoint, float], AvailabilityVerdict]
 
 
 class Availability:
@@ -178,14 +178,14 @@ class Availability:
             raise ValueError(f"timeout_s must be positive, got {timeout_s}")
         self._timeout_s = timeout_s
         self._probe = probe or probe_endpoint
-        self._verdicts: dict[str, Verdict] = {}
+        self._verdicts: dict[str, AvailabilityVerdict] = {}
 
     @property
-    def verdicts(self) -> Mapping[str, Verdict]:
+    def verdicts(self) -> Mapping[str, AvailabilityVerdict]:
         """Every verdict reached so far, by source name."""
         return dict(self._verdicts)
 
-    def check(self, endpoint: Endpoint) -> Verdict:
+    def check(self, endpoint: Endpoint) -> AvailabilityVerdict:
         """The verdict for this endpoint's source, probing only if unseen."""
         cached = self._verdicts.get(endpoint.source)
         if cached is not None:
@@ -194,7 +194,9 @@ class Availability:
         self._verdicts[endpoint.source] = verdict
         return verdict
 
-    def check_all(self, endpoints: Sequence[Endpoint]) -> Mapping[str, Verdict]:
+    def check_all(
+        self, endpoints: Sequence[Endpoint]
+    ) -> Mapping[str, AvailabilityVerdict]:
         """Probe every unseen source at once; return the verdict for each.
 
         Concurrent because the cost being managed is wall clock: ``n`` dead
@@ -228,13 +230,15 @@ class Availability:
         }
 
 
-def probe_endpoint(endpoint: Endpoint, timeout_s: float = PROBE_TIMEOUT_S) -> Verdict:
+def probe_endpoint(
+    endpoint: Endpoint, timeout_s: float = PROBE_TIMEOUT_S
+) -> AvailabilityVerdict:
     """Ask one endpoint whether it is there. Never raises.
 
-    Every outcome is a :class:`Verdict`, including the ones that would ordinarily
-    be exceptions: a probe that raised would have to be wrapped at every call
-    site, and the whole point is that an unreachable source is an ordinary state
-    of the world rather than an error in the program.
+    Every outcome is a :class:`AvailabilityVerdict`, including the ones that
+    would ordinarily be exceptions: a probe that raised would have to be wrapped
+    at every call site, and the whole point is that an unreachable source is an
+    ordinary state of the world rather than an error in the program.
     """
     path = _LIST_PATH[endpoint.protocol]
     url = endpoint.base_url.rstrip("/") + path
@@ -273,7 +277,9 @@ def probe_endpoint(endpoint: Endpoint, timeout_s: float = PROBE_TIMEOUT_S) -> Ve
     return _from_status(endpoint, status, url, started)
 
 
-def _from_status(endpoint: Endpoint, status: int, url: str, started: float) -> Verdict:
+def _from_status(
+    endpoint: Endpoint, status: int, url: str, started: float
+) -> AvailabilityVerdict:
     """Read an HTTP status as a liveness verdict.
 
     The asymmetry is deliberate and is argued in the module docstring: a
@@ -321,8 +327,8 @@ def _from_status(endpoint: Endpoint, status: int, url: str, started: float) -> V
 
 def _verdict(
     endpoint: Endpoint, live: bool, reason: str, how: str, started: float
-) -> Verdict:
-    return Verdict(
+) -> AvailabilityVerdict:
+    return AvailabilityVerdict(
         source=endpoint.source,
         live=live,
         reason=reason,

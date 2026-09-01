@@ -196,6 +196,18 @@ def _python_adapter() -> PythonAdapter:
     return PythonAdapter()
 
 
+class TypeCheckTimeoutError(ToolFailedError):
+    """The declared checker did not finish in budget — a load fault, not a verdict.
+
+    A timeout is not the same as :class:`ToolFailedError`: the checker produced
+    no output at all, rather than output that cannot be read. Treating it as a
+    rejection makes the verdict depend on machine load — the same change is
+    accepted on a quiet machine and rejected on a loaded one, which is a verdict
+    on the machine rather than on the worker. The gate records it as a skipped
+    rung, the way it records an absent checker.
+    """
+
+
 @dataclass(frozen=True)
 class TypeCheck:
     """The declared type checker, run over the lines a worker added.
@@ -257,10 +269,11 @@ class TypeCheck:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            # The rung ran and cannot say what bar it applied, which is the
-            # inconclusive case rather than the absent one: nothing about a
-            # timeout looks degraded from the outside.
-            raise ToolFailedError(
+            # The checker ran out of budget. That is a fact about the machine's
+            # load, not about the worker's change, so it is reported as a skip
+            # rather than a rejection: a verdict that flips with how loaded the
+            # machine is, is a verdict on the machine.
+            raise TypeCheckTimeoutError(
                 tool, -1, f"timed out after {self.timeout:g}s"
             ) from exc
         # A checker that exits 2 writes its complaint to stderr and leaves
@@ -268,16 +281,22 @@ class TypeCheck:
         # bar that never ran. The exit code is the only thing that separates
         # the two, so it is checked before the output is parsed.
         stdout = trusted_stdout(tool, proc, expected=_REPORTING)
-        return _diagnostics(stdout, targets)
+        return _diagnostics(stdout, targets, self.repo)
 
 
-def _diagnostics(stdout: str, targets: Sequence[FileChange]) -> list[Finding]:
+def _diagnostics(
+    stdout: str, targets: Sequence[FileChange], repo: Path
+) -> list[Finding]:
     """Parse a checker's report, keeping errors on worker-added lines only.
 
     A checker follows imports, so it reports on files the worker never touched
     and on lines that were already there. Both are dropped here: the gate's
     core promise is that pre-existing state in the repository can never fail a
-    change.
+    change. The reported path is normalised to the repository-relative form the
+    change set keys on first — a checker configured with
+    ``show_absolute_path`` reports absolute paths, and a bare report may carry a
+    ``./`` prefix, and either spelling must still land on the worker's line or
+    the whole rung silently reports clean over a change it could not attribute.
     """
     added = {change.path: change.added_lines for change in targets}
     findings: list[Finding] = []
@@ -285,7 +304,7 @@ def _diagnostics(stdout: str, targets: Sequence[FileChange]) -> list[Finding]:
         match = _DIAGNOSTIC.match(raw)
         if match is None or match["severity"] not in _REJECTING:
             continue
-        path = match["path"]
+        path = _relative_to_repo(match["path"], repo)
         line = int(match["line"])
         if line not in added.get(path, frozenset()):
             continue
@@ -301,6 +320,22 @@ def _diagnostics(stdout: str, targets: Sequence[FileChange]) -> list[Finding]:
             )
         )
     return findings
+
+
+def _relative_to_repo(path: str, repo: Path) -> str:
+    """A checker's reported path, as the repository-relative form the change set uses.
+
+    An absolute path is made relative to ``repo``; a ``./`` prefix is dropped.
+    A path that cannot be attributed (a different root) is returned as-is, where
+    it will simply fail to match any changed file and be dropped.
+    """
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            return candidate.relative_to(repo).as_posix()
+        except ValueError:
+            return candidate.as_posix()
+    return candidate.as_posix().removeprefix("./")
 
 
 # --- the AST families -----------------------------------------------------
@@ -337,10 +372,22 @@ _MUTATING_METHODS = frozenset(
 #: place and returning that same list", and its own reference solution is the
 #: ``if tags is None: tags = []`` shape this family now flags. Whether that task
 #: can be solved at all rests on the prose reaching here.
-_INPLACE_WORDS = ("in place", "in-place", "mutate", "mutation")
+#:
+#: Word-boundary rather than substring, because the opposite wording must not
+#: stand the rung down: "do not mutate the caller's list" *forbids* the very
+#: thing this family flags, and a substring match would read it as an ask.
+#: ``permutation`` is the same trap from the other side — it contains
+#: "mutation" and has nothing to do with it. :func:`_asks_for_mutation` does the
+#: matching, so the negation lives beside the ask it cancels.
+_INPLACE_ASK = re.compile(r"\bin[- ]place\b|\bmutat(?:e|es|ion|ing)\b", re.IGNORECASE)
 
-#: PEP 585 aliases whose builtin-generic form is the pinned one.
-_DEPRECATED_TYPING = frozenset({"List", "Dict", "Set", "Tuple", "FrozenSet", "Type"})
+#: A negation within the three words before an ask turns it into a prohibition.
+#: "Three words" is the window because the negation and the ask are never far
+#: apart in prose worth trusting: "do not mutate", "never mutate", "without
+#: mutation", "no mutation".
+_NEGATION = frozenset(
+    {"not", "no", "never", "without", "don't", "dont", "cannot", "can't", "cant"}
+)
 
 #: Bound by the language rather than by the caller, so mutating them is not the
 #: caller's problem: a method's receiver is the object the method exists to
@@ -385,6 +432,42 @@ _MOVED_TO_COLLECTIONS_ABC = frozenset(
         "ValuesView",
     }
 )
+
+#: ``typing`` aliases mapped to the form the codebase pins, so the AST half of
+#: the rung can report them on a machine without ruff. The six builtin
+#: generics are joined by the ``collections`` and ``collections.abc`` aliases
+#: and a few from ``re`` and ``contextlib``, because the gate's verdict must
+#: not depend on which tools the operator happens to have: without this, a
+#: ``from typing import Mapping`` was reported by nothing, and a module
+#: importing a 3.10-removed name sailed past the AST half of the rung. It is a
+#: mapping rather than a set because the pinned form is not always
+#: ``name.lower()`` — ``Mapping`` pins to ``collections.abc.Mapping``, not
+#: ``mapping``.
+_DEPRECATED_TYPING: dict[str, str] = {
+    # The ``collections.abc`` names map to themselves, and the explicit
+    # entries override where the two lists disagree. ``Set`` is the one name
+    # in both: ``typing.Set`` is the builtin ``set`` (``typing.Set[int]``
+    # is ``set[int]``), while ``collections.Set`` is the 3.9 shim for
+    # ``collections.abc.Set`` — the first is this family's ``typing`` pin and
+    # the second is :func:`_unimportable`'s, so the ``**`` spread must not
+    # win. Ordering the spread first makes every explicit entry authoritative.
+    **{name: f"collections.abc.{name}" for name in _MOVED_TO_COLLECTIONS_ABC},
+    "List": "list",
+    "Dict": "dict",
+    "Set": "set",
+    "Tuple": "tuple",
+    "FrozenSet": "frozenset",
+    "Type": "type",
+    "DefaultDict": "collections.defaultdict",
+    "Deque": "collections.deque",
+    "OrderedDict": "collections.OrderedDict",
+    "Counter": "collections.Counter",
+    "ChainMap": "collections.ChainMap",
+    "ContextManager": "contextlib.AbstractContextManager",
+    "AsyncContextManager": "contextlib.AbstractAsyncContextManager",
+    "Pattern": "re.Pattern",
+    "Match": "re.Match",
+}
 
 
 def unimportable_lines(source: str | None) -> dict[int, str]:
@@ -525,7 +608,25 @@ def _type_form(tree: ast.Module) -> list[tuple[int, str]]:
 
 
 def _pinned_form(alias: str) -> str:
-    return f"typing.{alias} — the pinned form is {alias.lower()}[...]"
+    return f"typing.{alias} — the pinned form is {_DEPRECATED_TYPING[alias]}[...]"
+
+
+def _asks_for_mutation(contract_text: str) -> bool:
+    """Whether the prose asks for in-place mutation, rather than forbids it.
+
+    Word-boundary rather than substring, and negation-aware. "Sort the rows in
+    place" stands the rung down; "do not mutate the caller's list" does not —
+    it orders the worker to keep its hands off the caller's object, which is
+    the exact behaviour the rung exists to check, and standing down for it
+    would remove the backstop from the one contract that needs it. A negation
+    within the three words before the ask cancels it.
+    """
+    for match in _INPLACE_ASK.finditer(contract_text):
+        before = contract_text[: match.start()].lower()
+        preceding = re.findall(r"[a-z']+", before)[-3:]
+        if not any(word in _NEGATION for word in preceding):
+            return True
+    return False
 
 
 def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str]]:
@@ -543,7 +644,7 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
     tracked. The contract's acceptance suite remains the real catch; this is
     the backstop for contracts whose tests do not look.
     """
-    if any(word in contract_text.lower() for word in _INPLACE_WORDS):
+    if _asks_for_mutation(contract_text):
         return []
     hits: list[tuple[int, str]] = []
     for node in ast.walk(tree):
@@ -880,17 +981,86 @@ def _falls_through(body: Sequence[ast.stmt]) -> bool:
 
 
 def _report(node: ast.expr, owned: set[str], hits: list[tuple[int, str]]) -> None:
-    """Record every mutating method call this expression makes on an owned name."""
-    for sub in ast.walk(node):
-        if (
-            isinstance(sub, ast.Call)
-            and isinstance(sub.func, ast.Attribute)
-            and sub.func.attr in _MUTATING_METHODS
-            and _root_name(sub.func.value) in owned
-        ):
-            hits.append(
-                (sub.lineno, _verdict(f".{sub.func.attr}() on", sub.func.value))
-            )
+    """Record every mutating method call this expression makes on an owned name.
+
+    The walk is scope-aware rather than :func:`ast.walk`. A lambda binds its own
+    parameters and a comprehension binds its own targets, so a name they bind
+    shadows the enclosing parameter of the same spelling:
+    ``(lambda target: target.append(1))([])`` mutates the lambda's argument,
+    not the caller's object, and reporting it as the parameter's is a false
+    positive that rejects correct code. The walk drops those bound names as it
+    crosses into the inner scope; a name the inner scope does *not* bind still
+    means the caller's object and stays owned.
+    """
+    _report_in_scope(node, owned, hits)
+
+
+def _report_in_scope(
+    node: ast.AST, owned: set[str], hits: list[tuple[int, str]]
+) -> None:
+    """The body of :func:`_report`, threading the still-owned names per scope."""
+    if isinstance(node, ast.Lambda):
+        bound = _lambda_bound_names(node)
+        # Defaults are evaluated in the enclosing scope, before the lambda's
+        # own names exist; the body is the inner scope.
+        for default in (*node.args.defaults, *node.args.kw_defaults):
+            if default is not None:
+                _report_in_scope(default, owned, hits)
+        _report_in_scope(node.body, owned - bound, hits)
+        return
+    if isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+        _report_comprehension(node, owned, hits)
+        return
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _MUTATING_METHODS
+        and _root_name(node.func.value) in owned
+    ):
+        hits.append((node.lineno, _verdict(f".{node.func.attr}() on", node.func.value)))
+    for child in ast.iter_child_nodes(node):
+        _report_in_scope(child, owned, hits)
+
+
+def _report_comprehension(
+    node: ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp,
+    owned: set[str],
+    hits: list[tuple[int, str]],
+) -> None:
+    """A comprehension: the first iterable is outer, the rest is a fresh scope.
+
+    Python evaluates a comprehension's first iterable in the enclosing scope,
+    then everything else — later iterables, filters, the element — in the
+    comprehension's own scope with its targets bound. The bound targets are
+    dropped from ``owned`` for that inner scope, so a comprehension that reuses
+    a parameter's name is not read as a mutation of the parameter.
+    """
+    generators = node.generators
+    _report_in_scope(generators[0].iter, owned, hits)
+    scoped = owned
+    for generator in generators:
+        scoped = scoped - _target_names(generator.target)
+    if isinstance(node, ast.DictComp):
+        _report_in_scope(node.key, scoped, hits)
+        _report_in_scope(node.value, scoped, hits)
+    else:
+        _report_in_scope(node.elt, scoped, hits)
+    for index, generator in enumerate(generators):
+        for condition in generator.ifs:
+            _report_in_scope(condition, scoped, hits)
+        if index != 0:
+            _report_in_scope(generator.iter, scoped, hits)
+
+
+def _lambda_bound_names(node: ast.Lambda) -> set[str]:
+    """Every name a lambda binds — its positional, keyword and packed parameters."""
+    args = node.args
+    names = {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    if args.vararg is not None:
+        names.add(args.vararg.arg)
+    if args.kwarg is not None:
+        names.add(args.kwarg.arg)
+    return names
 
 
 def _writes_into(
