@@ -1,90 +1,122 @@
-# mcgyvr
+# Prompt Realism — the sweeps measured a workload we do not run (2026-08-31)
 
-Offload scoped coding work from your agent to a configurable worker ladder —
-deterministic tools, local models, API models — and get back a gated,
-verified change.
+**Question.** Every serving number in `records/` was produced by sending one fixed
+11-token prompt and a flat 475-token reply. Real mcgyvr traffic is the other shape.
+How wrong is the measurement, and what does the honest one look like?
 
-mcgyvr is a **skill** you install into a TUI/CLI agent harness (Claude CLI,
-hermes, pi). Your agent stays the orchestrator of your session; mcgyvr owns
-everything below the task contract: decomposition, execution on whatever
-workers you have, a deterministic acceptance gate, verification, and a PR.
+**Status: drivers only. No runs yet.** This directory holds the corrected drivers and
+the derivation behind them. Results land here when the sweep runs.
 
-**North star: value per token.** Not "percent offloaded". The cheapest tier
-that can actually do the job.
+## The finding
 
-> **Status:** pre-v1, under construction. Scope of record is the
-> [issue tree](https://github.com/AdarGit008/mcgyvr/issues); superseded
-> decision records are in [`archive/docs/archive/`](archive/docs/archive/). Functionality is
-> read from code, never from docs.
+Prior drivers (`vllmsweep28.py`, `lcpsweep28.py`, and every ancestor back to
+2026-08-24) sent:
 
-## How it works
+- `PROMPT = "Write a Python function that merges two sorted lists."` — ~11 tokens,
+  **byte-identical on every request of every level of every cell**
+- `max_tokens/n_predict = 475` with `ignore_eos`, so every reply was exactly 475 tokens
+
+That is **1:43 prompt:output**. Measured from `measurements/**/results.jsonl`
+(n=21342 dedup'd rows, `results.jsonl` only — `gate-rescore.jsonl` and
+`regrade.jsonl` are the same records rescored):
+
+| | prior sweeps | real traffic |
+|---|---|---|
+| prompt tokens | ~11, one shared string | mean 719, p50 688, p95 ~1035, max 2414 |
+| output tokens | 475 flat, `ignore_eos` | mean 236, p50 189, p95 ~583, max 2048 |
+| prompt:output | **1 : 43** | **3 : 1** |
+
+So `agg=` in every prior record is a **decode-throughput ceiling**, and decode is the
+minority of real work. This was disclosed, not hidden — `gen_rows.py:23` and
+`build.py:311` both carry `workload="475-tok, ignore_eos, temp0, fixed prompt"` —
+but it was never corrected.
+
+## What the new drivers do
+
+`drivers/vllm_sweep_31-08-2026.py` and `drivers/lcp_sweep_31-08-2026.py` share a
+byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the two files, the cross-engine
+comparison is void.**
+
+That hash is over *source text*, so a `ruff format` pass moves it even when the
+workload is identical — it did exactly that in 90635351. The durable check is a
+digest of the generated prompts, which no formatter can change:
 
 ```
-your agent (any harness)
-      │  prompt + repo, or contracts directly
-      ▼
-  orchestrator ── deterministic index (ripgrep + tree-sitter, zero tokens)
-      │           targeted reads → task contracts
-      ▼
-  worker ladder ── deterministic tools → local models → API models
-      │            (source pool: multi-endpoint, concurrent, backend-neutral)
-      ▼
-  sandbox ─────── one container per task, torn down after
-      │            worker writes → acceptance gate → verification
-      ▼
-  branch → PR
+python3 - <<'EOF'
+import hashlib, itertools, threading, random
+def load(p):
+    src = open(p).read()
+    ns = {"itertools": itertools, "threading": threading, "random": random}
+    exec(src[src.index("PROMPT_DECILES"):src.index("def sh(")], ns)
+    return ns["mkprompt"]
+for f in ["drivers/vllm_sweep_31-08-2026.py", "drivers/lcp_sweep_31-08-2026.py"]:
+    mk = load(f)
+    blob = "".join(f"{w}\x00{t}\x1e" for t, w in (mk() for _ in range(200)))
+    print(f, hashlib.sha256(blob.encode()).hexdigest()[:24])
+EOF
 ```
 
-Two ways in:
+Both must print `2f2bb7932a0b660653def819`.
 
-- **Delegated** — your agent forwards a prompt and a repo; mcgyvr decomposes
-  it into contracts itself.
-- **Direct** — your agent writes task contracts and hands them over. The
-  contract schema is public API.
+1. **Lengths sampled from the measured deciles**, seeded by request id — so request
+   *k* always draws the same length, reproducible across levels and reruns, without
+   collapsing to a constant. Verified over 512 requests: prompt mean 699 / p50 688,
+   output mean 226 / p50 189, ratio 3.1:1.
+2. **`ignore_eos` removed.** The sampled length is a ceiling; the model may stop
+   earlier, as in production. `truncated=` therefore no longer means anything and is
+   replaced by `early_stop=` (model chose to stop) and `failed=` (request errored) —
+   the old single counter conflated the two and would report a failure as a short reply.
+3. **A real shared prefix.** `bench-scaffold-ablation-3b-2026-08-11` measures the
+   scaffold directly: stock p50 929 vs noscaffold p50 739 (py), 936 vs 729 (ts) —
+   **~190–207 tokens identical on every request**. `SYSTEM` reproduces that, followed
+   by a unique task body. Prefix caching then gets the hits it gets in production:
+   not zero (unique-at-head is too pessimistic), not total (one fixed prompt — the old bug).
+4. **`prefill=` is reported.** Prior drivers could not measure prefill at all; the
+   prompt was ~11 tokens. `ptok=` and `otok=` are reported per level so every row
+   self-describes its own workload.
 
-Either way the orchestrator always runs its deterministic exploration first;
-context your agent supplies is an accelerator on top of that, never a
-substitute for it.
+## Two changes that move results on their own
 
-## Install
+- **`cache_prompt: False` → `True`** in the llama.cpp driver. `lcpsweep28.py:18`
+  disabled prompt reuse while the vLLM driver left automatic prefix caching **on** —
+  the two engines were never measured under the same caching rules. With one fixed
+  prompt that was a wash; with a real shared scaffold it is not. Both now cache.
+- **Context 1024 → 2048.** Worst sampled prompt (887) + worst sampled reply (460) =
+  1347 > the 1024 every prior cell used. Both drivers hard-`SKIP` a cell under 1347
+  with the reason printed, rather than silently truncating the tail. This doubles KV
+  per sequence, which moves the memory axis the sweep measures.
 
-Not yet installable. See the issue tree.
+## Pinned images
 
-## Configure
+Both images are pinned and printed on every `CONFIG` row as `img=`, so a result
+file says which binary produced it:
 
-One file, written for you by `mcgyvr init` — it detects your hardware and
-proposes worker bindings from a shipped capability table
-([`data/capability-table.json`](data/capability-table.json)); it does not
-benchmark your machine. Edit it after.
+| engine | pin | override |
+|---|---|---|
+| vLLM | `vllm/vllm-openai:v0.26.0` | `VLLM_IMG=` |
+| llama.cpp | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10644` | `LCP_IMG=` |
 
-No API key is required. Without one, mcgyvr runs local-only: deterministic
-tools and local models, with the gate as the acceptance bar.
+`lcpsweep28.py` used the floating `:server-cuda` tag, so two runs a month apart
+could not be compared — the binary could differ with nothing in the record to say
+so. b10644 is the build the 2026-08-28 setup-selection sweep actually ran
+(`drivers/run-srv1.sh`, `run-srv2.sh`), which is the sweep this supersedes.
+Override by environment, never by editing the line.
 
-## Requirements
+## Calibration
 
-- Python 3.12+
-- Docker (recommended — one sandbox per task; falls back to an ephemeral
-  temp directory when absent)
-- At least one worker: a local inference endpoint (Ollama, vLLM,
-  llama.cpp/llama-server, LM Studio, TGI) and/or an API provider
+`TOK_PER_FIELD = 32` is an estimate. Run one cell at `n=1`, read `warm_ptok=`, and
+tune until it lands near 688 before running anything long.
 
-## Repo layout
+## Run list (pending)
 
-| Path | Purpose |
-|------|---------|
-| `src/mcgyvr/` | The package |
-| `data/` | Capability table and its provenance |
-| `archive/docs/config-reference.md` | Every config key — generated from the schema, not hand-written |
-| `archive/docs/archive/` | Decision records, claims, session records, plan #302 — history, not authority |
-| `records/` | Measurements, corpora, evidence |
+```
+srv2 vllm:  vllm-15b-s128 0.9:2048:128:fp8:1,2,4,8,16,32
+            vllm-3b-s128  0.9:2048:128:fp8:1,2,4,8,16,32
+            vllm-q3-4b    0.9:2048:128:fp8:1,2,4,8,16,32
+srv1 vllm:  vllm-14b      0.9:2048:64:fp8:1,2,4,8,16,32
+srv2 lcp:   q3-8b-Q4      32:2048:0:1,2,4,8,16,32
+srv1 lcp:   14b-Q4-kvu    8:2048:0:1,2,4,8,16,32
+```
 
-## Prior work
-
-mcgyvr supersedes [`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai),
-an MVP that answered the questions this design rests on:
-worker context policy, the acceptance-gate check set, the single-file worker
-output protocol, and the model measurements now vendored in `data/`.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+srv1's 14B is expected to refuse at 2048 — `results-srv1-fixall.txt` already shows
+CUDA OOM at 11.63 GiB with ctx 1024. That refusal is a result, not a failure.

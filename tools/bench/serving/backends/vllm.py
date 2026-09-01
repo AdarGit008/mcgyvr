@@ -717,7 +717,11 @@ def claim(
     """
     serve = serve or {}
     expect = expect or {}
-    ignored = {key: value for key, value in declared.items() if value}
+    # `levels` is READ below, so it is not an ignored declaration. Everything
+    # else this backend does not model still is, and still says so.
+    ignored = {
+        key: value for key, value in declared.items() if value and key != "levels"
+    }
     # BEFORE anything ACTS. A pin naming a field this backend does not compute
     # is a config that believes it is pinned and is not — and the check has to
     # precede `_start`, which stops the running server and relaunches it. Placed
@@ -736,6 +740,29 @@ def claim(
     # #325: the whole claim on a timeline, not only its launch as a delta.
     # `start_seconds` below says how long the launch took; this says WHEN the
     # claim ran, so a ramp phase's minutes can be attributed row by row.
+    # **The width the ramp will offer, against the width the engine was given.**
+    # BEFORE anything ACTS: `_start` stops the running server, so a config error
+    # raised after it has already destroyed the previous cell in order to
+    # complain about a typo.
+    #
+    # This engine has no `/props total_slots`. Until now nothing here read
+    # `concurrency.levels` at all -- `grep -n levels backends/vllm.py` returned
+    # nothing -- so `max_num_seqs 8` against a 32-wide ramp launched happily,
+    # queued 24 of every 32 requests at the scheduler, and recorded the
+    # resulting plateau as a measured saturation with `outcome: ok`. The
+    # llama.cpp half of the same campaign was protected; this half was not.
+    levels = tuple(declared.get("levels") or serve.get("levels") or ())
+    width = serve.get("max_num_seqs")
+    if levels and width is not None and int(width) < max(levels):
+        raise contract.NotCleanError(
+            f"{model} on {host}: max_num_seqs={int(width)} is below the widest "
+            f"level this cell will offer (n={max(levels)}). vLLM admits "
+            f"{int(width)} sequences per scheduler step and queues the rest, so "
+            "the aggregate flatlines while latency climbs -- a configuration "
+            "artifact shaped exactly like hardware saturation, and this engine "
+            "has no /props to catch it afterwards. Set max_num_seqs to the top "
+            "of the ladder. Nothing was measured, and nothing was restarted."
+        )
     claim_started_at = contract.now()
     running = _running_config(base)
     if running and running.get("model") == model and _matches(running, serve):
@@ -751,6 +778,46 @@ def claim(
     card = contract.card_state(contract.ssh(host, contract.CARD_STATE_COMMAND))
     config = _running_config(base)
     served = inventory(host, base)
+    # **Two readbacks this engine does have**, against the plan doc's premise
+    # that it has none. `launched_width` reads `--max-num-seqs` off the running
+    # process argv (`provenance: observed`); `kv_capacity` reads what the engine
+    # printed about the pool it actually allocated. The first catches a flag
+    # that did not take, the second catches a flag that took and did not fit.
+    observed_width = launched_width(host)
+    capacity = (
+        kv_capacity(_launch_log(host, str(started.get("launcher") or launcher(host))))
+        if started.get("restarted")
+        else kv_capacity(None)
+    )
+    if (
+        levels
+        and observed_width.get("value") is not None
+        and int(observed_width["value"]) < max(levels)
+    ):
+        raise contract.NotCleanError(
+            f"{model} on {host} is running at max_num_seqs="
+            f"{int(observed_width['value'])} (read from "
+            f"{observed_width.get('source')}), below the widest level this cell "
+            f"will offer (n={max(levels)}). The width this run asked for is not "
+            "the width the engine is serving at, so the ramp would record a "
+            "scheduler queue as a plateau. Nothing was measured."
+        )
+    if (
+        levels
+        and capacity.get("max_concurrency") is not None
+        and capacity["max_concurrency"] < max(levels)
+    ):
+        raise contract.NotCleanError(
+            f"{model} on {host} allocated {capacity['kv_cache_tokens']:,} KV "
+            f"tokens, which the engine itself states is "
+            f"{capacity['max_concurrency']}x concurrency at "
+            f"{capacity['per_request_tokens']} tokens per request -- below the "
+            f"widest level this cell will offer (n={max(levels)}). The card "
+            "cannot hold that many full-length sequences whatever max_num_seqs "
+            "says, so the excess queues on KV blocks and the aggregate "
+            "flatlines. Lower max_model_len, raise gpu_memory_utilization, or "
+            "shorten the ladder. Nothing was measured."
+        )
     # **#345, the claim side.** The same question the other backend's `claim`
     # asks of the card since #335: not "did it come up" but "what is on this card, and
     # where". `allocation_present` above is a threshold over the card's TOTAL,
@@ -775,6 +842,12 @@ def claim(
         "resident_placements": placed,
         # ADR-0027 D2: null carries the reason it is null, never a blank.
         "resident_placements_refused": placed_refused,
+        # Recorded whether or not they gated anything above: the width the
+        # engine is serving at, and the pool it allocated. A curve is read
+        # against these two numbers, and a later reader cannot recover either
+        # one from the row without them.
+        "launched_width": observed_width,
+        "kv_capacity": capacity,
     }
     check["ok"] = bool(
         model in served
@@ -1414,6 +1487,44 @@ def _ways_out(serve: dict[str, Any], budget_mib: int) -> str:
     )
 
 
+#: What the engine says it allocated, in its own words, at startup.
+#: `GPU KV cache size: 131,104 tokens` is the pool; `Maximum concurrency for
+#: 2048 tokens per request: 64.01x` is that pool divided by `max_model_len`
+#: -- the engine's own statement of how many full-length sequences it can hold
+#: at once. Both are printed once, at start, and scroll off the tail of a busy
+#: log, so a capacity that cannot be read is null and not a refusal.
+_KV_TOKENS = re.compile(r"GPU KV cache size:\s*([\d,]+)\s*tokens")
+_MAX_CONCURRENCY = re.compile(
+    r"Maximum concurrency for\s*([\d,]+)\s*tokens per request:\s*([\d.]+)x"
+)
+
+
+def kv_capacity(text: str | None) -> dict[str, Any]:
+    """The KV pool and the concurrency it affords, read off the engine's log.
+
+    **Why this is read at all.** ``max_num_seqs`` is the width the scheduler is
+    *allowed*; this is the width the card can actually *hold*. They are
+    different numbers and the smaller one binds. A cell launched at
+    ``max_num_seqs 32`` whose KV pool fits 9 full-length sequences serves the
+    other 23 in a second batch, and the aggregate flatlines exactly as hardware
+    saturation does -- the same defect the other engine catches by reading its
+    slot count back off ``/props``, which this engine does not publish.
+
+    Null when the lines are absent. A server that was already up when the claim
+    arrived has a log tail full of requests rather than its own startup, and a
+    capacity nobody could read must not become a refusal that was never true.
+    """
+    tokens = _KV_TOKENS.search(text or "")
+    concurrency = _MAX_CONCURRENCY.search(text or "")
+    return {
+        "kv_cache_tokens": int(tokens.group(1).replace(",", "")) if tokens else None,
+        "per_request_tokens": (
+            int(concurrency.group(1).replace(",", "")) if concurrency else None
+        ),
+        "max_concurrency": float(concurrency.group(2)) if concurrency else None,
+    }
+
+
 def _launch_log(host: str, how: str) -> str:
     """The engine's own last words, read before anything removes them (#352).
 
@@ -1781,6 +1892,38 @@ def declared_slots(
             "no width could be read from the running server and this run did "
             "not dispatch one"
         ),
+    }
+
+
+_RUNNING = re.compile(r"^vllm:num_requests_running(?:\{[^}]*\})?\s+([\d.]+)", re.M)
+_WAITING = re.compile(r"^vllm:num_requests_waiting(?:\{[^}]*\})?\s+([\d.]+)", re.M)
+
+
+def in_flight(base: str) -> dict[str, Any] | None:
+    """How many requests this engine is running, and how many are queued.
+
+    **The readback this engine was said not to have.** ``max_num_seqs`` is on
+    no endpoint, which is true and was taken to mean the width could not be
+    observed at all -- so an n=32 ramp against an 8-wide server was
+    indistinguishable from saturation. It is not on the config surface, but it
+    is on the metrics surface, live: ``vllm:num_requests_running`` is what the
+    scheduler admitted, ``vllm:num_requests_waiting`` is what it did not. Asked
+    while a level is in flight, the pair says whether the width ever opened.
+
+    ``None`` on any failure. This is an observation offered beside a
+    measurement, not a gate: a metrics endpoint that did not answer must not
+    turn a good curve into a refusal.
+    """
+    text = contract.get_text(contract.url(base, "/metrics"), timeout=5.0)
+    if text is None:
+        return None
+    running = _RUNNING.search(text)
+    waiting = _WAITING.search(text)
+    if running is None and waiting is None:
+        return None
+    return {
+        "running": int(float(running.group(1))) if running else None,
+        "waiting": int(float(waiting.group(1))) if waiting else None,
     }
 
 

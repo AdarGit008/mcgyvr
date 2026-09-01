@@ -302,6 +302,76 @@ def barren_downgrades_the_outcome(
     )
 
 
+def check_entries(entries: list[dict[str, Any]], hosts: list[str]) -> None:
+    """Everything a config can get wrong that costs nothing to catch here.
+
+    Extracted from :func:`run` so each refusal is reachable by a test
+    without a rig: every one of them precedes the first ssh, and a guard
+    nobody can exercise is the shape of guard that stops holding.
+    """
+    known = {
+        "label",
+        "backend",
+        "id",
+        "family",
+        "hosts",
+        "serve",
+        "expect",
+        "placement",
+        "concurrency",
+        "coresident",
+        "coresident_with",
+    }
+    for entry in entries:
+        unknown = {k for k in entry if not k.startswith("_")} - known
+        if unknown:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} sets "
+                f"{sorted(unknown)}, which this survey reads nowhere. Keys "
+                f"starting with `_` are documentation and are ignored on "
+                f"purpose; anything else is an entry that believes it declared "
+                f"something. Known keys: {sorted(known)}."
+            )
+        levels = (entry.get("concurrency") or {}).get("levels")
+        if levels is not None and not levels:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} declares "
+                "`concurrency.levels: []`. An empty list is not a request to "
+                f"measure nothing -- it used to fall through to "
+                f"{list(contract.RAMP_LEVELS)}, so a typo silently ramped past "
+                "the declared batch width and recorded the resulting queueing "
+                "plateau as a measurement. Declare the levels or omit the key."
+            )
+        # **The batch width against the ladder, at config time.** The backend
+        # raises this too, but only once it has the host -- and a typo caught
+        # here costs nothing, while the same typo caught there has already
+        # spent a claim and a launch. `max_num_seqs` is vLLM's; an entry that
+        # does not declare one is not checked, which is every llama.cpp entry
+        # (they declare `parallel`, checked in that backend against the same
+        # ladder).
+        width = (entry.get("serve") or {}).get("max_num_seqs")
+        offered = tuple(contract.RAMP_LEVELS if levels is None else levels)
+        measures = (entry.get("concurrency") or {}).get("measure")
+        if width is not None and measures and offered and int(width) < max(offered):
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} declares "
+                f"serve.max_num_seqs {int(width)} and a ramp to n={max(offered)}. "
+                "The engine admits max_num_seqs sequences per scheduler step "
+                "and queues the rest, so the levels above the width would "
+                "record a queue as a plateau -- `outcome: ok`, a curve that "
+                "flatlines, and nothing to say which. Set max_num_seqs to the "
+                "top of the ladder."
+            )
+        stray = set(entry.get("hosts") or []) - set(hosts)
+        if stray:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} names host(s) "
+                f"{sorted(stray)}, which are not in this run's hosts {hosts}. "
+                "An entry pinned to a host that is not being surveyed is silently "
+                "skipped, so the run would report success having measured nothing."
+            )
+
+
 def run(
     config: dict[str, Any],
     journal: Path | None = None,
@@ -341,47 +411,7 @@ def run(
     # SOLO under the label `coresident-3b-beside-1.5b`, with
     # `coresidency_arranged: null` instead of a refusal. Same silent-nothing
     # class E6 was written against, one level up.
-    known = {
-        "label",
-        "backend",
-        "id",
-        "family",
-        "hosts",
-        "serve",
-        "expect",
-        "placement",
-        "concurrency",
-        "coresident",
-        "coresident_with",
-    }
-    for entry in entries:
-        unknown = {k for k in entry if not k.startswith("_")} - known
-        if unknown:
-            raise contract.NotCleanError(
-                f"config entry {entry.get('label') or entry['id']!r} sets "
-                f"{sorted(unknown)}, which this survey reads nowhere. Keys "
-                f"starting with `_` are documentation and are ignored on "
-                f"purpose; anything else is an entry that believes it declared "
-                f"something. Known keys: {sorted(known)}."
-            )
-        levels = (entry.get("concurrency") or {}).get("levels")
-        if levels is not None and not levels:
-            raise contract.NotCleanError(
-                f"config entry {entry.get('label') or entry['id']!r} declares "
-                "`concurrency.levels: []`. An empty list is not a request to "
-                f"measure nothing -- it used to fall through to "
-                f"{list(contract.RAMP_LEVELS)}, so a typo silently ramped past "
-                "the declared batch width and recorded the resulting queueing "
-                "plateau as a measurement. Declare the levels or omit the key."
-            )
-        stray = set(entry.get("hosts") or []) - set(hosts)
-        if stray:
-            raise contract.NotCleanError(
-                f"config entry {entry.get('label') or entry['id']!r} names host(s) "
-                f"{sorted(stray)}, which are not in this run's hosts {hosts}. "
-                "An entry pinned to a host that is not being surveyed is silently "
-                "skipped, so the run would report success having measured nothing."
-            )
+    check_entries(entries, hosts)
     names = config.get("backends") or contract.available_backends()
     backends = {str(name): contract.load_backend(str(name)) for name in names}
     for entry in entries:
@@ -548,6 +578,17 @@ def run(
                     claim_kwargs["coresident"] = True
                 if spec.get("coresident_with"):
                     claim_kwargs["coresident_with"] = spec["coresident_with"]
+                # The ladder this cell will offer, forwarded so the backend can
+                # check its batch width against it before launching. llama.cpp
+                # reads the same numbers from `serve.levels`, which its configs
+                # declare; the vLLM configs do not, and nothing in that backend
+                # read `concurrency.levels` at all until now.
+                if name == "vllm" and (spec.get("concurrency") or {}).get("measure"):
+                    claim_kwargs["levels"] = list(
+                        contract.RAMP_LEVELS
+                        if (spec.get("concurrency") or {}).get("levels") is None
+                        else spec["concurrency"]["levels"]
+                    )
                 claimed = backend.claim(
                     host,
                     entry["present"][name]["base"] or f"http://{host}:{backend.PORT}",
@@ -638,6 +679,16 @@ def run(
                         ),
                         # #327: where the per-level card and load are read.
                         host=host,
+                        # And where the SERVER is asked what it is doing, while
+                        # it does it. A backend that cannot answer offers no
+                        # probe and the levels carry `in_flight: null`; the one
+                        # that can turns "the curve flatlined" into "the curve
+                        # flatlined at a width that never opened".
+                        probe=(
+                            (lambda b=base, e=backend: e.in_flight(b))
+                            if hasattr(backend, "in_flight")
+                            else None
+                        ),
                     )
                     # D1: what the curve did, and what the server said, are
                     # two quantities. `saturation_n` is measured here; the

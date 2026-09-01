@@ -556,7 +556,9 @@ def test_the_curve_reads_the_same_in_any_order_it_was_run(
     """
     throughput = {1: 100.0, 2: 200.0, 3: 300.0, 4: 400.0}
 
-    def level(_base: str, _model: str, n: int, reader: Any = None) -> dict[str, Any]:
+    def level(
+        _base: str, _model: str, n: int, reader: Any = None, probe: Any = None
+    ) -> dict[str, Any]:
         return {
             "n": n,
             "wall_s": 1.0,

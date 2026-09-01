@@ -317,6 +317,16 @@ PROVENANCE: dict[str, dict[str, str]] = {
         "kind": "derived",
         "note": "ends at 384, the level that read below 256 on srv2",
     },
+    "PROBE_INTERVAL_S": {
+        "run": "records/evidence/2026-08-24-config-sweep",
+        "date": "2026-08-31",
+        "kind": "invariant",
+        "note": "reads no rate: it samples an endpoint beside the measurement "
+        "and never enters it. Sized against the levels in that run, whose "
+        "shortest is tens of seconds, so a 2 s period samples every level "
+        "many times over while adding one GET per period to a server that is "
+        "already serving n streams",
+    },
     "RAMP_REPEATS": {
         "run": "records/evidence/2026-08-23-cross-rig",
         "date": "2026-08-24",
@@ -909,6 +919,40 @@ def level_state(raw: str | None, client: list[float] | None) -> dict[str, Any]:
     }
 
 
+#: How often the in-flight probe asks, while a level runs. Two seconds against
+#: levels that run tens of seconds to minutes: enough samples to catch a width
+#: that never opened, few enough that the probe is not itself load.
+PROBE_INTERVAL_S = 2.0
+
+
+def in_flight(samples: list[dict[str, Any]], offered: int) -> dict[str, Any] | None:
+    """What the server said it was doing while the level was in flight.
+
+    **The question this answers.** A ramp that offers n=32 to a server admitting
+    8 at a time measures four sequential batches and records their aggregate as
+    one level. The curve flatlines, `outcome` stays `ok`, and nothing in the row
+    says which of the two happened -- saturation, or a queue. `max_running` is
+    the most the server ever ran at once; if it is below `offered`, the level
+    was never the width it is labelled.
+
+    `null` when nothing was sampled, which is the warm-up level and any engine
+    with no endpoint to ask. An unasked question is not an answer of zero.
+    """
+    if not samples:
+        return None
+    running = [int(s["running"]) for s in samples if s.get("running") is not None]
+    waiting = [int(s["waiting"]) for s in samples if s.get("waiting") is not None]
+    return {
+        "samples": len(samples),
+        "max_running": max(running) if running else None,
+        "max_waiting": max(waiting) if waiting else None,
+        "offered": offered,
+        # The finding, precomputed, because the comparison is the whole point
+        # and a reader who has to do it themselves will not.
+        "reached_offered": (max(running) >= offered) if running else None,
+    }
+
+
 def read_level_state(host: str) -> str | None:
     """The level reader's one ssh (#327): card and load in one round trip.
 
@@ -997,6 +1041,18 @@ def get_json(target: str, timeout: float = 10.0) -> Any | None:
         return None
 
 
+def get_text(target: str, timeout: float = 10.0) -> str | None:
+    """GET a document that is not JSON -- a Prometheus exposition, say -- or
+    ``None`` on any failure at all. Same contract as :func:`get_json`, one
+    decode less: what answers here is text by design, and parsing it belongs to
+    the caller that knows what it asked for."""
+    try:
+        with urllib.request.urlopen(target, timeout=timeout) as response:
+            return str(response.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
 # --- the ramp ---------------------------------------------------------------
 #
 # Shared because it belongs to no engine: OpenAI-compatible chat completions and
@@ -1010,6 +1066,7 @@ def ramp(
     *,
     host: str | None = None,
     reader: Callable[[], str | None] | None = None,
+    probe: Callable[[], dict[str, Any] | None] | None = None,
     order: str = "ascending",
     seed: int | None = None,
 ) -> dict[str, Any]:
@@ -1056,7 +1113,7 @@ def ramp(
     # losing repeat has already been paid for. Discarding it made the one
     # measurement that could settle it unrecoverable afterwards.
     attempts = [
-        [_level(base, model, n, reader=read) for _ in range(RAMP_REPEATS)]
+        [_level(base, model, n, reader=read, probe=probe) for _ in range(RAMP_REPEATS)]
         for n in levels_run
     ]
     # #327: every reader below -- the n=1 baseline, the plateau scans, the
@@ -1367,6 +1424,7 @@ def _level(
     model: str,
     n: int,
     reader: Callable[[], str | None] | None = None,
+    probe: Callable[[], dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """One level: ``n`` simultaneous completions, what they cost, and the
     state of both machines at its end (#327).
@@ -1374,6 +1432,13 @@ def _level(
     ``reader`` is the one ssh the level pays for; ``None`` reads nothing (the
     warm-up), and the row then carries the state blocks as ``null`` with the
     command they would have needed.
+
+    ``probe`` is asked WHILE the level runs, which ``reader`` cannot be: it is
+    read at the level's end, when every request has returned and a server's
+    in-flight count is zero by definition. An engine that reports how many
+    requests it is running versus queueing answers the one question a plateau
+    cannot -- whether the level was ever offered the concurrency it claims --
+    and it has to be asked mid-flight or not at all.
     """
     out: list[dict[str, Any]] = []
     lock = threading.Lock()
@@ -1384,11 +1449,31 @@ def _level(
         threading.Thread(target=_one, args=(base, model, out, lock, budget))
         for _ in range(n)
     ]
+    # What the server said about itself while the level was in flight. The
+    # sampler is a daemon so a probe that hangs cannot hold the ramp; it stops
+    # when the requests do, and its readings are kept as the extremes -- the
+    # most the server ever ran at once, and the most it ever had waiting.
+    samples: list[dict[str, Any]] = []
+    running = threading.Event()
+
+    def sample() -> None:
+        while not running.is_set():
+            reading = probe() if probe is not None else None
+            if reading is not None:
+                samples.append(reading)
+            running.wait(PROBE_INTERVAL_S)
+
+    sampler = threading.Thread(target=sample, daemon=True) if probe else None
     begin = time.monotonic()
     for thread in threads:
         thread.start()
+    if sampler is not None:
+        sampler.start()
     for thread in threads:
         thread.join()
+    running.set()
+    if sampler is not None:
+        sampler.join(timeout=PROBE_INTERVAL_S * 2)
     wall = time.monotonic() - begin
     good = [row for row in out if "error" not in row]
     # A reply that arrived without a `usage` block is NOT a reply that generated
@@ -1417,6 +1502,11 @@ def _level(
             round(sum(latencies) / len(latencies), 3) if latencies else None
         ),
         "latency_max_s": round(max(latencies), 3) if latencies else None,
+        # **Concurrency, observed rather than assumed.** `n` is what was
+        # offered; this is what the server said it was doing. `null` when
+        # nothing was asked (the warm-up, or an engine with no such endpoint) --
+        # never zero, which is a reading and not an absence.
+        "in_flight": in_flight(samples, n),
         **state,
     }
 
