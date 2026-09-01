@@ -19,7 +19,7 @@ is not cooling still clears the streak, which is what makes the count
 
 from __future__ import annotations
 
-from mcgyvr.availability import Verdict
+from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.cooldown import Cooldown
 from mcgyvr.pool import Endpoint, Protocol
 
@@ -35,9 +35,9 @@ class _Clock:
         self.now += seconds
 
 
-def _live(endpoint: Endpoint, timeout_s: float) -> Verdict:
+def _live(endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:
     """Always-live probe, so removal can only come from the failure record."""
-    return Verdict(
+    return AvailabilityVerdict(
         source=endpoint.source,
         live=True,
         reason="",

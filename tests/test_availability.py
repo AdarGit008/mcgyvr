@@ -29,8 +29,8 @@ import pytest
 
 from mcgyvr.availability import (
     Availability,
+    AvailabilityVerdict,
     ProbeFn,
-    Verdict,
     probe_endpoint,
 )
 from mcgyvr.config import parse
@@ -120,12 +120,12 @@ def endpoint(source: str = "local", protocol: Protocol = Protocol.OPENAI) -> End
     )
 
 
-def live(_endpoint: Endpoint, _timeout: float) -> Verdict:
-    return Verdict(_endpoint.source, True, "", "stub: live", 0.0)
+def live(_endpoint: Endpoint, _timeout: float) -> AvailabilityVerdict:
+    return AvailabilityVerdict(_endpoint.source, True, "", "stub: live", 0.0)
 
 
-def dead(_endpoint: Endpoint, _timeout: float) -> Verdict:
-    return Verdict(
+def dead(_endpoint: Endpoint, _timeout: float) -> AvailabilityVerdict:
+    return AvailabilityVerdict(
         _endpoint.source,
         False,
         f"source {_endpoint.source!r} did not answer",
@@ -141,7 +141,7 @@ class Counting:
         self.calls: list[str] = []
         self._verdict: ProbeFn = verdict
 
-    def __call__(self, target: Endpoint, timeout: float) -> Verdict:
+    def __call__(self, target: Endpoint, timeout: float) -> AvailabilityVerdict:
         self.calls.append(target.source)
         return self._verdict(target, timeout)
 
@@ -190,7 +190,7 @@ def test_dead_sources_are_probed_concurrently() -> None:
     not measuring one. Serial execution would take 1.2s against a bound of 0.6.
     """
 
-    def slow(target: Endpoint, _timeout: float) -> Verdict:
+    def slow(target: Endpoint, _timeout: float) -> AvailabilityVerdict:
         time.sleep(0.2)
         return dead(target, _timeout)
 

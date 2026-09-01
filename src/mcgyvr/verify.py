@@ -121,14 +121,15 @@ class ReviewerUnavailableError(RuntimeError):
     """
 
 
-class Outcome(StrEnum):
+class ReviewOutcome(StrEnum):
     """The four words a review may open with, and nothing else.
 
-    Not :class:`mcgyvr.escalate.Outcome`, which says how a whole *task* ended.
-    These are the vocabulary one reviewer is given, kept verbatim from local-ai
-    so that a prompt written against either project reads the same: a closed set
-    is what makes "the verdict is the first token" checkable at all, where free
-    prose would have to be interpreted.
+    Named distinctly from :class:`mcgyvr.escalate.Outcome` — which says how a
+    whole *task* ended — so the two never share a bare import name on the
+    composition path. These are the vocabulary one reviewer is given, kept
+    verbatim from local-ai so that a prompt written against either project
+    reads the same: a closed set is what makes "the verdict is the first token"
+    checkable at all, where free prose would have to be interpreted.
     """
 
     APPROVE = "APPROVE"
@@ -143,19 +144,19 @@ class Outcome(StrEnum):
 # ESCALATE is a refusal and not an unusable answer, because the reviewer did
 # give a verdict; who should try next is `mcgyvr.escalate`'s to decide from a
 # failed attempt, and a review that could route work would be deciding it twice.
-_OPINION: dict[Outcome, Opinion] = {
-    Outcome.APPROVE: Opinion.AGREED,
-    Outcome.APPROVE_WITH_NOTES: Opinion.AGREED,
-    Outcome.REMEDIATE: Opinion.REFUSED,
-    Outcome.ESCALATE: Opinion.REFUSED,
+_OPINION: dict[ReviewOutcome, Opinion] = {
+    ReviewOutcome.APPROVE: Opinion.AGREED,
+    ReviewOutcome.APPROVE_WITH_NOTES: Opinion.AGREED,
+    ReviewOutcome.REMEDIATE: Opinion.REFUSED,
+    ReviewOutcome.ESCALATE: Opinion.REFUSED,
 }
 
 
 @dataclass(frozen=True)
-class Verdict:
+class ReviewVerdict:
     """A reply that could be read: the outcome it opened with, and its notes."""
 
-    outcome: Outcome
+    outcome: ReviewOutcome
     notes: str = ""
 
     def as_review(self) -> Review:
@@ -177,9 +178,9 @@ class Verdict:
 # declaration order would read the fuller verdict as a bare approval with an odd
 # suffix. `[ _]` accepts the spaced spelling, which is what a model writes when
 # it repeats the token back as English.
-_TOKENS: tuple[tuple[Outcome, re.Pattern[str]], ...] = tuple(
+_TOKENS: tuple[tuple[ReviewOutcome, re.Pattern[str]], ...] = tuple(
     (outcome, re.compile(outcome.value.replace("_", "[ _]") + r"\b", re.IGNORECASE))
-    for outcome in sorted(Outcome, key=lambda o: -len(o.value))
+    for outcome in sorted(ReviewOutcome, key=lambda o: -len(o.value))
 )
 
 #: Punctuation a model puts between its verdict and its reasons. Stripped from
@@ -190,7 +191,7 @@ _TOKENS: tuple[tuple[Outcome, re.Pattern[str]], ...] = tuple(
 _NOTE_SEPARATORS = " \t:;.,-—\u2013"
 
 
-def read_verdict(reply: str) -> Verdict | None:
+def read_verdict(reply: str) -> ReviewVerdict | None:
     """The verdict a reply opens with, or ``None`` when it opens with none.
 
     Anchored at the start of the first non-empty line, and nowhere else: a
@@ -214,7 +215,7 @@ def read_verdict(reply: str) -> Verdict | None:
                 continue
             head = opening[found.end() :].lstrip(_NOTE_SEPARATORS)
             tail = "\n".join(lines[index + 1 :]).strip()
-            return Verdict(
+            return ReviewVerdict(
                 outcome=outcome,
                 notes="\n".join(part for part in (head, tail) if part),
             )
@@ -337,7 +338,7 @@ def build_prompt(
     """
     view = contract.worker_view()
     pre = original if original is not None else view["target_content"]
-    outcomes = " | ".join(outcome.value for outcome in Outcome)
+    outcomes = " | ".join(outcome.value for outcome in ReviewOutcome)
     return "\n\n".join(
         [
             "You are an independent code verifier. Judge the change below "

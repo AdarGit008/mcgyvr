@@ -837,7 +837,7 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     it here is what keeps a container from being built for a task that was never
     going to dispatch.
     """
-    from mcgyvr.availability import Verdict as AvailabilityVerdict
+    from mcgyvr.availability import AvailabilityVerdict
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, worker_attempt
     from mcgyvr.escalate import ascent, escalate

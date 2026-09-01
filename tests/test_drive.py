@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.availability import Verdict as AvailabilityVerdict
+from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.cooldown import Cooldown
 from mcgyvr.deterministic import tool_steps

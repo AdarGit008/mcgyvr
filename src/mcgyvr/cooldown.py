@@ -70,7 +70,12 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
-from mcgyvr.availability import PROBE_TIMEOUT_S, Availability, ProbeFn, Verdict
+from mcgyvr.availability import (
+    PROBE_TIMEOUT_S,
+    Availability,
+    AvailabilityVerdict,
+    ProbeFn,
+)
 from mcgyvr.pool import Endpoint
 
 # How many failures in a row before a source is taken out. Three, from local-ai's
@@ -138,7 +143,7 @@ class Cooldown:
         self._records: dict[str, _Record] = {}
 
     @property
-    def verdicts(self) -> Mapping[str, Verdict]:
+    def verdicts(self) -> Mapping[str, AvailabilityVerdict]:
         """Every liveness verdict reached so far — the wrapped cache, unchanged.
 
         Delegated rather than reimplemented so anything reporting on probes reads

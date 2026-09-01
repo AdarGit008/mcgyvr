@@ -55,7 +55,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.availability import Verdict
+from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.pool import Endpoint, Protocol
 from tests.red_port.conftest import required
 
@@ -110,9 +110,9 @@ class _LiveProbe:
     def __init__(self) -> None:
         self.asked: list[str] = []
 
-    def __call__(self, endpoint: Endpoint, timeout_s: float) -> Verdict:
+    def __call__(self, endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:
         self.asked.append(endpoint.source)
-        return Verdict(
+        return AvailabilityVerdict(
             source=endpoint.source,
             live=True,
             reason="",
