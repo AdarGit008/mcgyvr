@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -104,6 +105,18 @@ class Field:
     block: tuple[Field, ...] = ()
     min_value: int | None = None
     bind_hint: str = ""
+
+    retired: tuple[tuple[str, str], ...] = ()
+    """Enum values this build recognises and refuses, each with why and what to
+    set instead.
+
+    Distinct from simply dropping the value out of ``choices``, which is what
+    was tried first. That produces "not a valid value. Valid: ...", which is
+    true and unhelpful: a value that used to work — and, in the one case here,
+    used to be the *default* — was doing something other than what its name
+    said, and an operator who wrote it deserves to be told which behaviour they
+    were actually getting. A retired value is still recognised, so the message
+    can be specific; it is refused, so the config cannot resolve to it."""
 
 
 SOURCE_FIELDS: tuple[Field, ...] = (
@@ -272,19 +285,26 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
         "enum",
-        "How accepted work is handed back. `pull_request` proposes it; "
-        "`branch` stops after pushing; `none` leaves it committed locally. "
-        "mcgyvr does not silently mutate a working tree it was pointed at.",
-        default="pull_request",
-        choices=("pull_request", "branch", "none"),
-    ),
-    Field(
-        "token_env",
-        "env_name",
-        "NAME of the environment variable holding the forge token. Absent "
-        "falls back to the ambient `gh` CLI credentials.",
-        bind_hint=(
-            "set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself"
+        "Where an accepted change is committed. `branch` puts it on a new "
+        "local branch named after the contract and leaves the branch you have "
+        "checked out, your index and your working tree exactly as they were — "
+        "the delivery tells you the `git push` to run. `none` commits onto the "
+        "branch you have checked out. Nothing here pushes or opens a pull "
+        "request: mcgyvr reaches your repository through `git` and has no "
+        "forge, so the last step off this machine is yours.",
+        default="branch",
+        choices=("branch", "none"),
+        retired=(
+            (
+                "pull_request",
+                "is no longer a mode. It never opened one — every mode "
+                "committed straight to your checked-out branch, and the pull "
+                "request was recorded as owed to something that does not "
+                "exist. Opening one needs a forge and a credential this build "
+                "has nowhere to put. Set `branch` for a commit on a branch of "
+                "its own plus the push to run, or `none` to commit onto the "
+                "branch you have checked out.",
+            ),
         ),
     ),
 )
@@ -321,6 +341,45 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Wall-clock ceiling for one task, including acceptance commands.",
         default=900,
         min_value=1,
+    ),
+)
+
+BREADTH_FIELDS: tuple[Field, ...] = (
+    Field(
+        "draws",
+        "int",
+        "How many candidates one attempt asks its rung for before the gate "
+        "picks between them. Draws are not attempts: they share one prompt and "
+        "one attempt's budget, and the gate ranks the answers rather than the "
+        "next attempt being told what the last one got wrong. The default of 1 "
+        "is ADR-0008 unchanged — one draw, one verdict, and the draw is the "
+        "answer. Raising it is most defensible on a cheap rung that is often "
+        "almost right, where three draws are still cheaper than escalating; a "
+        "lever whose whole benefit is fewer crossings into the api family "
+        "cannot be evaluated before the telemetry that counts crossings, which "
+        "is why this is something to ask for rather than something you are "
+        "given.",
+        default=1,
+        min_value=1,
+    ),
+)
+
+CLEANUP_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enabled",
+        "bool",
+        "Reformat a change the gate rejected only on formatting, and judge it "
+        "again, instead of spending an attempt asking a model to insert a "
+        "space. The formatter is the one the gate already checks with, so a "
+        "cleanup produces the shape the format rung asks for rather than a "
+        "second opinion about it, and it costs no tokens by construction. Off "
+        "by default because it rewrites a file after the gate has spoken about "
+        "it: the bytes that come back are not the bytes the worker sent, and an "
+        "operator reading a diff should have said yes to that. Nothing else is "
+        "ever tidied — a lint code, a failed acceptance command or a rung that "
+        "could not say what bar it applied leaves the change exactly as the "
+        "worker wrote it.",
+        default=False,
     ),
 )
 
@@ -374,6 +433,20 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "The ceilings that bound one task's cost.",
         block=BUDGET_FIELDS,
+    ),
+    Field(
+        "breadth",
+        "block",
+        "How many answers one attempt asks for. Separate from `budgets` "
+        "because breadth is not a ceiling: it is what a single attempt spends, "
+        "and every budget in this file still counts that attempt once.",
+        block=BREADTH_FIELDS,
+    ),
+    Field(
+        "cleanup",
+        "block",
+        "What may be fixed without asking a model.",
+        block=CLEANUP_FIELDS,
     ),
 )
 
@@ -629,7 +702,7 @@ def _reject_credential_key(name: str, path: str) -> None:
         raise CredentialInConfigError(
             f"{_join(path, name)}: a credential cannot be expressed in the "
             f"config. Name the environment variable that holds it instead "
-            f"(`api_key_env` on a source, `token_env` on delivery), and keep "
+            f"(`api_key_env` on a source), and keep "
             f"the value in your environment."
         )
 
@@ -696,11 +769,15 @@ def _value(raw: object, spec: Field, path: str) -> Any:
                 f"empty value is not the same as an unset one."
             )
         _reject_credential_literal(value, path)
-        if spec.kind == "enum" and value not in spec.choices:
-            raise ConfigSchemaError(
-                f"{path}: {value!r} is not a valid value. Valid: "
-                f"{', '.join(spec.choices)}"
-            )
+        if spec.kind == "enum":
+            for name, why in spec.retired:
+                if value == name:
+                    raise ConfigSchemaError(f"{path}: `{value}` {why}")
+            if value not in spec.choices:
+                raise ConfigSchemaError(
+                    f"{path}: {value!r} is not a valid value. Valid: "
+                    f"{', '.join(spec.choices)}"
+                )
         if spec.kind == "url" and not value.startswith(("http://", "https://")):
             raise ConfigSchemaError(
                 f"{path}: {value!r} is not a URL — it needs a scheme, e.g. "
@@ -772,6 +849,35 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     return result
 
 
+def _refuse_userinfo(name: str, base_url: str) -> None:
+    """Refuse a ``base_url`` that carries a credential in its userinfo.
+
+    ``https://user:key@host`` is a credential written into the config file,
+    which :meth:`Config.secret` refuses in the one place it is asked for — "put
+    it in a git-ignored .env; never write the value into the config file". The
+    same rule, held where the value enters rather than where it is read.
+
+    Refusing here is what makes the rule cheap everywhere else. A ``base_url``
+    is interpolated into roughly a dozen operator-facing strings — every runner
+    transport error, every availability verdict, ``mcgyvr sources``, the init
+    summary — and a credential that cannot be in the value cannot be in any of
+    them. Scrubbing each sink instead would have to be got right once per sink
+    and again for every sink added later, which is the shape of defect this
+    check exists to make impossible rather than to keep catching.
+    """
+    userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
+    if not userinfo:
+        return
+    raise ConfigSchemaError(
+        f"sources.{name}.base_url: carries credentials in the URL "
+        f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
+        f"probe verdicts and `mcgyvr sources`, so a key written here reaches "
+        f"logs and terminals that a key in the environment never does. Remove "
+        f"the `user:password@` part and name the variable holding it with "
+        f"`api_key_env`."
+    )
+
+
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject configs that satisfy the schema but contradict themselves."""
     sources: Mapping[str, Any] = data["sources"]
@@ -780,6 +886,9 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             "sources: no source is declared. mcgyvr needs at least one "
             "endpoint to dispatch work to."
         )
+
+    for name, block in sources.items():
+        _refuse_userinfo(name, str(block["base_url"]))
 
     seen: set[str] = set()
     for index, tier in enumerate(data["ladder"]["tiers"]):

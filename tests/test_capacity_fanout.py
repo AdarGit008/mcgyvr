@@ -67,7 +67,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
 from mcgyvr.pool import SourceMap, source_map
-from mcgyvr.route import Result, Try, climb, plan
+from mcgyvr.route import Accepted, Result, Try, climb, plan
 
 # How long a job waits for its group to assemble before giving up. Nothing
 # asserts on it: if the routing under test fans out, the rendezvous latches as
@@ -244,7 +244,7 @@ def climbing(
     """
 
     def job(capacity: Capacity) -> str:
-        def attempt(step: Try) -> Result[str]:
+        def attempt(step: Try) -> Result:
             endpoint = pool.bind(step.rung.name)
             assert step.capacity is not None, "climb must hand the capacity down"
             with step.capacity.hold(endpoint):
@@ -257,10 +257,12 @@ def climbing(
                         )
                 finally:
                     observer.leave(endpoint.source)
-            return Result.passed(endpoint.source)
+            return Result.passed()
 
         result = climb(plan(config, pool, contract()), attempt, capacity=capacity)
-        return str(getattr(result, "value", "") or "")
+        if isinstance(result, Accepted):
+            return pool.bind(result.rung).source
+        return ""
 
     return job
 

@@ -27,6 +27,22 @@ definitions and text hits become line anchors, each widened to a bounded window
 and merged with its neighbours so an overlap is read once. A candidate that
 matched only on its filename has no line anchor, so its window is the file head —
 the imports and top-level shape that stand in for "what is this file".
+
+**Who the budget is for.** :func:`explore` takes the budget as a number, which
+leaves every caller to invent one; :func:`explore_for` takes the *model* and sizes
+it. The two are not interchangeable questions. A 1.5B whose useful window collapses
+long before its declared one and a 14B that could have read four times as much
+cannot both be served by one constant, and which of them is being served wrong
+changes with the rung — so a ladder that escalates to a larger model and hands it
+the same context has escalated the model and not the question.
+
+What does *not* change with the budget is which regions exist. Planning belongs to
+the index and the shortlist, so a smaller budget reads less of the same plan and
+never a different plan, and the regions it could not reach are deferred with their
+cost. That is the property to hold on to while porting a budget in: the cheap way
+to make context smaller is to cut the text, and every such implementation would
+still look like it was following the model while quietly handing a worker half a
+function.
 """
 
 from __future__ import annotations
@@ -35,6 +51,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from mcgyvr.capability import shipped_table
 from mcgyvr.orchestrator.context import VerifiedContext
 from mcgyvr.orchestrator.index import Index, IndexedFile
 from mcgyvr.orchestrator.resolve import (
@@ -49,6 +66,19 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 # the assumption that a resolved shortlist needs sampling, not wholesale reading.
 # The caller sets it; this is only the floor of "enough to look".
 _DEFAULT_BUDGET = 2000
+
+# Model size in billions of parameters → exploration budget in estimated tokens,
+# smallest rung first. Ported verbatim from local-ai's `context_prune.py:18-29`,
+# and the numbers are inherited rather than measured: they come from the
+# lost-in-the-middle result that a small model's *usable* window is a fraction of
+# its declared one, not from a run on this rate card. What is measured here is only
+# the ordering — the rate card's own `params_b`, which is why the size comes from
+# the capability table rather than from a caller's guess.
+#
+# Two rungs is the shape local-ai shipped and it is kept, because a third would be
+# a number nobody has taken. #117 measures the estimator these are denominated in;
+# a bench arm varying only this is what would earn a finer table.
+_SIZE_BUDGETS: tuple[tuple[float, int], ...] = ((3.0, 4096), (float("inf"), 8192))
 
 # A region's shape: how many lines it spans, and how many of those sit *above*
 # the anchor so the line that matched has context leading into it.
@@ -244,6 +274,62 @@ def explore(
         deferred=tuple(deferred),
         exhausted=bool(deferred),
         saved=saved,
+    )
+
+
+def budget_for_model(model: str) -> int:
+    """The exploration budget, in estimated tokens, for the model being dispatched to.
+
+    ``model`` is an id from the capability table — the rate card is where a model's
+    size is already recorded and measured, so nothing here asks a caller to declare
+    it and nothing contacts a backend to find out.
+
+    A model the table does not hold gets the *smallest* budget, which is the
+    conservative answer rather than the timid one. An unmeasured model is not
+    evidence for a large window, and the two ways of being wrong are not
+    symmetrical: under-reading for a large model costs a deferral the plan states
+    plainly, while over-filling a small one degrades the answer with nothing
+    anywhere saying so. That asymmetry is the whole reason this lever exists.
+    """
+    entry = shipped_table().get(model)
+    if entry is None:
+        return _SIZE_BUDGETS[0][1]
+    return next(
+        (budget for ceiling, budget in _SIZE_BUDGETS if entry.params_b <= ceiling),
+        _SIZE_BUDGETS[0][1],
+    )
+
+
+def explore_for(
+    index: Index,
+    resolution: Resolution,
+    *,
+    model: str,
+    context: int = _DEFAULT_CONTEXT,
+    estimate: Callable[[str], int] | None = None,
+    supplied: VerifiedContext | None = None,
+) -> Exploration:
+    """:func:`explore`, with the budget sized for the model that will read it.
+
+    The same exploration in every other respect, and deliberately so: this adds a
+    budget and nothing else. Region planning, the best-first prefix, the deferral
+    of what does not fit and the audit trail on the returned
+    :class:`Exploration` are all unchanged, because the model the context is *for*
+    is not an input to which regions matter — that is the index's and the
+    shortlist's answer, and a budget reaching into it would be a budget deciding
+    what is relevant.
+
+    Everything else is passed through rather than fixed here, so that sizing the
+    budget by model and supplying already-held context (#51) are choices a caller
+    makes independently instead of a menu of two.
+    """
+    return explore(
+        index,
+        resolution,
+        budget=budget_for_model(model),
+        context=context,
+        estimate=estimate,
+        supplied=supplied,
     )
 
 

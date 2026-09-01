@@ -71,11 +71,16 @@ from mcgyvr.sandbox.base import CommandResult, Sandbox
 # The check name every acceptance finding carries, so a caller can group by it.
 CHECK = "acceptance"
 
-# Conventional shell exit codes for a command that never ran: 127 when the
-# binary is not found, 126 when it is found but cannot be executed. Both are
-# "could not run" — an environment fault — as opposed to a code a program
-# returns to say it ran and failed, which is the worker's.
-_DID_NOT_RUN = frozenset({126, 127})
+#: Conventional shell exit codes for a command that never ran: 127 when the
+#: binary is not found, 126 when it is found but cannot be executed. Both are
+#: "could not run" — an environment fault — as opposed to a code a program
+#: returns to say it ran and failed, which is the worker's.
+#:
+#: Public because :mod:`mcgyvr.drive` draws the same distinction over the
+#: deterministic floor's programs, and two definitions of "did not run" is the
+#: shape of defect that produced B4: the rule is stated here, where the gate's
+#: environment-issue channel is defined, and read there.
+DID_NOT_RUN = frozenset({126, 127})
 
 # How much of a failing command's output to carry. Kept from the tail, so the
 # failing part survives even when the passes before it are voluminous.
@@ -202,7 +207,7 @@ class Acceptance:
             return _Outcome.ALTERED_TREE, result
         if result.timed_out:
             return _Outcome.TIMED_OUT, result
-        if result.exit_code in _DID_NOT_RUN:
+        if result.exit_code in DID_NOT_RUN:
             return _Outcome.DID_NOT_RUN, result
         if result.exit_code != 0:
             return _Outcome.FAILED, result
@@ -229,6 +234,7 @@ def _as_finding(
         return Finding(
             check=CHECK,
             path=label,
+            names_a_file=False,
             code="tree-altering",
             message=(
                 "acceptance command modified the working tree — an acceptance "
@@ -245,6 +251,7 @@ def _as_finding(
         return Finding(
             check=CHECK,
             path=label,
+            names_a_file=False,
             code="timeout",
             message=(
                 f"acceptance command exceeded the task's time limit; {baseline}, "
@@ -255,6 +262,7 @@ def _as_finding(
         return Finding(
             check=CHECK,
             path=label,
+            names_a_file=False,
             code="demonstration-failed",
             message=(
                 f"demonstrating command still fails after the change "
@@ -267,6 +275,7 @@ def _as_finding(
     return Finding(
         check=CHECK,
         path=label,
+        names_a_file=False,
         code="failed",
         message=f"acceptance command failed (exit {result.exit_code})\n"
         + _excerpt(result),

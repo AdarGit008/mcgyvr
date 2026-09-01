@@ -26,6 +26,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from mcgyvr.contract import Contract
+
 
 class TokenCount(StrEnum):
     """How a prompt's token count was arrived at. Reported, never assumed.
@@ -139,4 +141,49 @@ def check_prompt_fits(
         "prompt-too-large",
         f"prompt is {basis}, but the rung allows {budget} "
         f"({context_window} window minus {output_reserve} reserved for output)",
+    )
+
+
+def check_contract_fits(
+    contract: Contract, prompt: str, context_window: int
+) -> PreflightIssue | None:
+    """Refuse a contract whose prompt and its own reply cannot share a window.
+
+    The contract already states how large its reply may be
+    (``limits.max_output_tokens``, sized to the task type by
+    :func:`~mcgyvr.contract.output_cap`), so whether the two fit together is
+    knowable from the contract, the prompt text and the rung — with no backend
+    reached and no attempt spent. A refusal that arrives here therefore arrives
+    at zero spend, which is what makes it worth having: the same request sent
+    is a rung's tokens burnt for a rejection that was certain before it left.
+
+    Returned rather than raised, and naming both halves of the budget it
+    enforced, because the three answers a caller has to tell apart — "this
+    prompt is too big for this rung", "this rung is fine", "the check did not
+    run" — are one repairable case and two that are not. Only the first is
+    fixed by re-decomposing into smaller contracts, and a bare falsy result
+    would hide which one happened.
+
+    The verifier's copy of this question — the original file, plus a change no
+    larger than the cap, against the verifier's own window — is the same
+    arithmetic, and is deliberately not written here: nothing in mcgyvr yet
+    declares a verifier's context window, and a number invented for it would be
+    exactly the unsourced constant this project refuses elsewhere.
+    """
+    # Imported, rather than re-derived, because `estimate_tokens` is the one
+    # proxy in the system: a second copy of "four characters to a token" here
+    # could drift from the one the read plan and the decomposer already spend
+    # against, and two budgets sized "the same way" would then disagree.
+    #
+    # Imported here rather than at module scope because the two packages point
+    # at each other — `mcgyvr.orchestrator`'s init builds the decomposer, which
+    # imports the gate's adapters — so at module scope every `import
+    # mcgyvr.gate` would build the whole orchestrator to reach one arithmetic
+    # helper.
+    from mcgyvr.orchestrator.read import estimate_tokens
+
+    return check_prompt_fits(
+        estimate_tokens(prompt),
+        context_window,
+        contract.limits.max_output_tokens,
     )

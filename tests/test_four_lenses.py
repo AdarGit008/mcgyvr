@@ -91,6 +91,10 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # JavaScript, silently.
     "_TS_EXTENSIONS": True,
     "_TSX_EXTENSIONS": True,
+    # Must agree: deterministic.py restates the gate's Python extensions rather
+    # than importing them (G4 — importing the adapters drags tree-sitter into a
+    # planning-only process), and worker/reply.py carries the same pair.
+    "_PY_EXTENSIONS": True,
     # Must agree. Both rigs clone the same frames for the same corpus.
     "CLONE_DEPTH": True,
     "REMOTES": True,
@@ -138,7 +142,8 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "TIMEOUT_S": False,  # unrelated tools, unrelated ceilings
     "_CACHE": False,
     "_DRIVER": False,
-    "_JS_EXTENSIONS": False,  # reply.py's is the whole family; the others are JS only
+    # reply.py and deterministic.py carry the whole family; symbols.py is JS only
+    "_JS_EXTENSIONS": False,
     "__all__": False,  # every package has one
 }
 
@@ -261,7 +266,11 @@ RUNG_COVERAGE: dict[str, tuple[str, ...]] = {
     "scope": ("scope",),
     "secrets": ("secret",),
     "structured": ("structured-data",),
-    "adapters": ("syntax", "structure", "lint", "format"),
+    # `style` is the adapters rung too, not a sixth category: D17 split the lint
+    # rung's output by severity, so the same run now emits `lint` for what
+    # rejects and `style` for what is reported and does not. Both come from the
+    # adapter the bar already names.
+    "adapters": ("syntax", "structure", "lint", "format", "style"),
     "acceptance": ("acceptance",),
 }
 
@@ -335,8 +344,15 @@ def test_declared_rungs_name_emitted_checks() -> None:
 
     covered = {c for checks in RUNG_COVERAGE.values() for c in checks}
     # `semantic` is absent from the bar by decision (ADR-0011), not by accident,
-    # so it is the one emitted check the bar is allowed not to cover.
-    uncovered = sorted(set(emitted) - covered - {"semantic"})
+    # so it is one emitted check the bar is allowed not to cover.
+    #
+    # `typecheck` (D17) is the second, and it is the same shape: the rung runs
+    # only when a caller hands `Gate.run` a `TypeCheck`, and `tools/bench/score.py`
+    # does not — it passes `semantic=None` and no typecheck at all. So the gate
+    # *can* emit it while no bench run *does*, and adding it to `GATE_RUNGS`
+    # would declare a bar that no recorded rate was measured against.
+    opt_in = {"semantic", "typecheck"}
+    uncovered = sorted(set(emitted) - covered - opt_in)
     assert not uncovered, (
         f"the gate emits {uncovered}, which no declared rung covers — a "
         "rejection would be attributed to a bar that does not name it"

@@ -75,6 +75,41 @@ acceptance command (#146), not a pattern match here — and #132 is the measure 
 how often no such command is declared, which is the condition under which this
 whole class goes unnoticed.
 
+**An envelope is opened only where leaving it closed would write it into a
+file.** A worker told to answer in JSON — or one that has simply decided JSON
+is tidier — sends ``{"content": "..."}``, and that is a reply that carried a
+file and named the field it is in. Whether such an object *is* the file or
+merely carries it is not answerable from the bytes, so the answer comes from
+where every other content judgement here comes from: the target. With one, both
+readings are already handled correctly — ``{"status": "blocked"}`` destined for
+a ``.py`` file is #174's refusal, and the same object destined for a ``.json``
+file is a real file — so nothing is unwrapped and nothing is guessed. With no
+target neither rule can run, and the object would be written verbatim into a
+file this module cannot name; that is the one outcome that is wrong under
+either reading, and it is exactly where the envelope is opened. A caller that
+wants one opened against a known target says so by pinning a schema, which is
+not a guess: that shape was asked for. And when a backend ignores the pin, the
+target goes on deciding — :func:`parse_pinned` opens what came back only where
+the target could not hold it as a file, so pinning a schema never turns a real
+``.json`` file into one of its own fields.
+
+Ported from local-ai's ``extract_code`` (``docs/port-from-local-ai.md``, D14).
+Its second half — a regex that digs a Python triple-quoted string out of
+*invalid* JSON — is deliberately not here: text that is not JSON is not read as
+JSON, or this module has gone back to guessing.
+
+**A pinned schema replaces the fence hunt rather than adding to it.** A
+:class:`~mcgyvr.runner.Request` may carry a ``response_schema`` (D13), and a
+backend that honours one answers with the object and no prose — nothing to hunt
+for, and none of the ways a hunt is spent: a second block explaining the first,
+a fence closed at the wrong width, an apology that fenced itself. Backends that
+ignore it are the ordinary case on this ladder's cheap rungs, so
+:func:`parse_pinned` falls back to the reader above rather than refusing, and
+the two shapes produce the same :class:`ParsedFile` byte for byte, trailing
+newline included. Two readers that disagreed about the bytes would hand the gate
+a different file depending on which server answered, which would make a run's
+reproducibility a property of the backend.
+
 Line endings are normalised to ``\\n`` on entry — a stated transformation, so a
 CRLF reply parses identically to an LF one instead of failing on a fence line
 that carries a stray carriage return.
@@ -85,12 +120,19 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from mcgyvr.runner import StopReason
 
 # The shape this module implements. A contract declaring anything else is
 # refused rather than best-effort parsed.
 WHOLE_FILE = "whole_file"
+
+# The field a carrier object is assumed to hold the file in when the schema
+# does not say otherwise. It is local-ai's name for it and the one the bundles
+# would ask for; a schema that names a different field is read from the schema
+# rather than from this constant.
+_ENVELOPE_FIELD = "content"
 
 # An opening fence: up to three spaces of indent (CommonMark's allowance), at
 # least three backticks, an optional info string. Tildes are deliberately not
@@ -146,7 +188,10 @@ def _carries_no_code(body: str, target: str) -> bool:
     # excluded: a module whose whole body is a docstring is a real file.
     try:
         blob = json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError is what a deeply nested document raises, and it is
+        # not a ValueError — a hostile reply can otherwise escape a reader
+        # whose whole job is to refuse by name rather than raise.
         blob = None
     if isinstance(blob, dict | list):
         return True
@@ -159,6 +204,77 @@ def _carries_no_code(body: str, target: str) -> bool:
         if not line.startswith(leaders):
             return False
     return True
+
+
+def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
+    """The file a ``{"<field>": "..."}`` carrier holds, or ``None`` if not one.
+
+    Strict JSON only, and only an object whose ``field`` is a non-empty string.
+    Everything looser — an object without that field, a list, a number, a
+    triple-quoted near-miss — is left to the caller to judge as the text it is.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        carrier = json.loads(stripped)
+    except (ValueError, RecursionError):
+        return None
+    if not isinstance(carrier, dict):
+        return None
+    carried = carrier.get(field)
+    if not isinstance(carried, str) or not carried.strip():
+        return None
+    return carried
+
+
+def _schema_field(schema: dict[str, Any]) -> str:
+    """Which property of ``schema`` holds the file.
+
+    Read from the schema rather than fixed, because the schema is the caller's:
+    pinning one that spells the field ``file`` and then reading ``content`` out
+    of the answer would be this module deciding what the caller asked for. The
+    first required string property wins, then a lone string property, then
+    :data:`_ENVELOPE_FIELD` — a schema this cannot read is not an error here,
+    since the reply is parsed either way. A property whose type is an array
+    containing ``"string"`` — the JSON-Schema spelling of a nullable string —
+    is a string property too.
+    """
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return _ENVELOPE_FIELD
+    strings = [
+        name
+        for name, spec in properties.items()
+        if isinstance(name, str) and isinstance(spec, dict) and _is_string_type(spec)
+    ]
+    required = schema.get("required")
+    if isinstance(required, list):
+        for name in required:
+            if isinstance(name, str) and name in strings:
+                return name
+    if len(strings) == 1:
+        return strings[0]
+    return _ENVELOPE_FIELD
+
+
+def _is_string_type(spec: dict[str, Any]) -> bool:
+    """Whether ``spec`` declares a string: as a scalar, or as a member of an array."""
+    kind = spec.get("type")
+    if isinstance(kind, str):
+        return kind == "string"
+    return isinstance(kind, list) and "string" in kind
+
+
+def _as_file(content: str) -> str:
+    """``content`` with the trailing newline a file ends with.
+
+    Appended only when it is missing, which is what makes an unwrapped envelope
+    and a fenced block carrying the same file compare equal: the fenced path
+    ends its last body line the same way, so a carrier whose string already ends
+    in ``\\n`` must not collect a second one.
+    """
+    return content if content.endswith("\n") else content + "\n"
 
 
 def _is_close(line: str, width: int) -> bool:
@@ -196,24 +312,13 @@ class ReplyError:
         return f"reply[{self.code}]: {self.message}"
 
 
-def parse_reply(
-    text: str,
-    *,
-    output_schema: str = WHOLE_FILE,
-    stop_reason: StopReason = StopReason.COMPLETE,
-    target: str | None = None,
-) -> ParsedFile | ReplyError:
-    """Extract one file's content from a worker's reply, or refuse by name.
+def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | None:
+    """The two refusals decided before a reply is read at all.
 
-    ``stop_reason`` defaults to ``COMPLETE`` so the parser is testable on bare
-    strings, but a caller holding a real
-    :class:`~mcgyvr.runner.Completion` must pass its actual reason — that is
-    the only evidence that the text is all of the text.
-
-    ``target`` is the path the content is destined for, and the refusal check
-    (#174) runs only when it is given: the same bytes are a refusal in one file
-    and a legitimate file in another, and nothing in the reply says which. A
-    caller that omits it gets the structural rules alone.
+    Shared so that :func:`parse_pinned` cannot reach a different conclusion
+    about a truncated reply or an unsupported schema than :func:`parse_reply`
+    does. Both are facts about the dispatch rather than about the text, and a
+    second copy of them would be a second chance to disagree.
     """
     if output_schema != WHOLE_FILE:
         return ReplyError(
@@ -228,6 +333,40 @@ def parse_reply(
             f"not known to be a whole file; a truncated file can parse cleanly "
             f"and still be missing its tail",
         )
+    return None
+
+
+def _refusal(target: str) -> ReplyError:
+    """#174's named outcome, in one place because two readers reach it."""
+    return ReplyError(
+        "refusal",
+        f"the reply's fenced block carries no code — it is a refusal "
+        f"dressed as {target!r}, and writing it would record this rung as "
+        f"having done the task; escalate rather than retrying this rung",
+    )
+
+
+def _fenced(
+    text: str, *, output_schema: str, stop_reason: StopReason
+) -> ParsedFile | ReplyError:
+    """The reply's one fenced block, with nothing judged about where it goes.
+
+    Every structural rule and no target rule: one fence or a named refusal, the
+    width rule, the empty block, and the two refusals :func:`_unreadable`
+    decides before the text is read at all. What it does *not* do is open an
+    envelope or apply #174, because both of those are answers about a
+    destination and this function has not been told one.
+
+    Split out for :func:`parse_pinned`'s fallback, which needs the block before
+    either target rule has run: it defers #174 to judge the file rather than the
+    carrier holding it, and it opens the envelope against the field the caller
+    pinned rather than the default one. Writing it a second fence hunt would be
+    a second chance to disagree about where a fence closes, which is the one
+    thing this module cannot afford two answers to.
+    """
+    unreadable = _unreadable(output_schema, stop_reason)
+    if unreadable is not None:
+        return unreadable
 
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     blocks: list[tuple[str, list[str]]] = []
@@ -275,11 +414,134 @@ def parse_reply(
             "empty-block",
             "the reply's fenced block is empty, which is not a file",
         )
-    if target is not None and _carries_no_code(content, target):
-        return ReplyError(
-            "refusal",
-            f"the reply's fenced block carries no code — it is a refusal "
-            f"dressed as {target!r}, and writing it would record this rung as "
-            f"having done the task; escalate rather than retrying this rung",
-        )
+    # The info string is kept as it arrived — ```json over a carrier is a
+    # correct label for what was in the fence, and this field reports what the
+    # worker said rather than what the file turned out to be.
     return ParsedFile(content=content + "\n", info_string=info)
+
+
+def parse_reply(
+    text: str,
+    *,
+    output_schema: str = WHOLE_FILE,
+    stop_reason: StopReason = StopReason.COMPLETE,
+    target: str | None = None,
+) -> ParsedFile | ReplyError:
+    """Extract one file's content from a worker's reply, or refuse by name.
+
+    ``stop_reason`` defaults to ``COMPLETE`` so the parser is testable on bare
+    strings, but a caller holding a real
+    :class:`~mcgyvr.runner.Completion` must pass its actual reason — that is
+    the only evidence that the text is all of the text.
+
+    ``target`` is the path the content is destined for, and it decides both
+    judgements this module makes about a destination: the refusal check (#174)
+    runs only when it is given, and the envelope is opened only when it is not.
+    The same bytes are a refusal in one file and a legitimate file in another,
+    and nothing in the reply says which. A caller that omits it gets the
+    structural rules, plus the one envelope rule that is right under either
+    reading.
+    """
+    parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
+    if isinstance(parsed, ReplyError):
+        if parsed.code == "no-fenced-block" and target is None:
+            # No fence at all — but a reply that is one JSON object carrying a
+            # file did carry a file, and with no target to judge it against the
+            # only other outcome available is to lose work that was done
+            # correctly.
+            carried = _carried_file(text)
+            if carried is not None:
+                return ParsedFile(content=_as_file(carried))
+        return parsed
+    if target is None:
+        # The same carrier, fenced.
+        carried = _carried_file(parsed.content)
+        if carried is not None:
+            return ParsedFile(content=_as_file(carried), info_string=parsed.info_string)
+        return parsed
+    if _carries_no_code(parsed.content, target):
+        return _refusal(target)
+    return parsed
+
+
+def parse_pinned(
+    text: str,
+    *,
+    response_schema: dict[str, Any] | None,
+    output_schema: str = WHOLE_FILE,
+    stop_reason: StopReason = StopReason.COMPLETE,
+    target: str | None = None,
+) -> ParsedFile | ReplyError:
+    """Read a reply to a request that pinned a response schema.
+
+    ``response_schema`` is the schema the request carried
+    (:attr:`~mcgyvr.runner.Request.response_schema`), passed through whether or
+    not one was set: ``None`` means nothing was pinned and this is
+    :func:`parse_reply` unchanged, so a caller holding a request has one reader
+    rather than a branch it could get backwards.
+
+    With a schema, the carrier is tried first and the fence hunt is the
+    *fallback* rather than the other way round. Trying the fence first would
+    make the pinned path depend on the reply happening not to contain one,
+    which is the guess this module exists to avoid; trying the carrier first
+    depends only on the reply being the object that was asked for.
+
+    A backend that ignored the schema — Ollama's native path, an older
+    llama-server, anything behind a proxy that drops unknown fields — reaches
+    the fenced reader and its file comes out identical, trailing newline
+    included. That is what keeps ``response_schema`` settable on the rungs
+    where it would help most: pinning one can save an attempt and can never
+    cost one.
+
+    ``target`` still decides #174, and the judgement is made on the *file*
+    rather than on the carrier holding it. A worker that declined inside a
+    schema-shaped answer has declined. It also still decides what an envelope
+    is: on the fallback path the object that came back is opened only where the
+    target could not hold it as a file, so a ``.json`` file whose own content is
+    an object with the pinned field arrives whole rather than as that field.
+    """
+    if response_schema is None:
+        return parse_reply(
+            text, output_schema=output_schema, stop_reason=stop_reason, target=target
+        )
+
+    unreadable = _unreadable(output_schema, stop_reason)
+    if unreadable is not None:
+        return unreadable
+
+    field = _schema_field(response_schema)
+    info = ""
+    carried = _carried_file(text, field)
+    if carried is None:
+        # The schema was not honoured, so this is an ordinary reply and both of
+        # `target`'s rules apply — but not where `parse_reply` applies them, so
+        # the block is taken structurally and each rule is made here.
+        #
+        # #174 is *deferred*, not dropped: the carrier may have arrived inside a
+        # fence, and the check would refuse it as a data blob before anything
+        # looked inside. It runs below, on the file rather than on the envelope.
+        # (An earlier version bought that by passing no target at all, which
+        # also gave up the other rule — with a target, nothing is unwrapped —
+        # and silently truncated a `.json` file whose own content is an object
+        # with a `content` key to that field's value.)
+        #
+        # Whether this is an envelope at all is still the target's answer, and
+        # it is the same answer #174 gives: a JSON object bound for a file whose
+        # language the gate owns is not a file in that language, so it is opened
+        # and judged on what came out; the same object bound for a `.json` file
+        # *is* the file. With no target neither rule can run and the envelope is
+        # opened on the bytes alone, which is the one case wrong under either
+        # reading. The field is the pinned one, never `_ENVELOPE_FIELD`: a
+        # schema that spells it `file` did not ask for `content`.
+        parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
+        if isinstance(parsed, ReplyError):
+            return parsed
+        info = parsed.info_string
+        carried = parsed.content
+        if target is None or _carries_no_code(carried, target):
+            carried = _carried_file(carried, field) or carried
+
+    content = _as_file(carried)
+    if target is not None and _carries_no_code(content, target):
+        return _refusal(target)
+    return ParsedFile(content=content, info_string=info)

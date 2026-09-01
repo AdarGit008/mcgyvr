@@ -1079,7 +1079,274 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   reports realized counts per steering cell. Offline invariants pinned in
   `tests/test_bench_gate.py`.
 
+- The orchestration core ported from local-ai as **library code**: nineteen
+  levers, each stated first as a behaviour test in `tests/red_port/` and then
+  implemented. The port's finding was that mcgyvr was a library of seams with
+  no assembled driver — `escalate()`'s `attempt`, `decompose()`'s `propose`
+  and `judge()`'s `verifier` were unbound parameters, and
+  `runner.dispatch_role` had no caller at all.
+  **That finding still stands after the port.** These levers are not wired
+  together: 28 of 35 public entry points have no production caller,
+  `runner.dispatch` among them, and there is still no `run` subcommand. A task
+  can be driven to a commit only by writing the orchestration `src/` does not
+  contain. An adversarial review of this work
+  (`docs/port-pressure-test-2026-08-29.md`) found nine critical defects that a
+  passing suite does not reach — read it before building on any of this.
+  - `deliver.py` writes an accepted change into the repository it was attached
+    to and commits it, re-confirming at commit time what acceptance
+    established at build time. It refuses a dirty tree, diffs against the
+    sandbox base commit rather than the attach revision, and restores a
+    byte-exact snapshot on every non-committing exit. `config.delivery.*` was
+    validated and read by nothing; it is now read.
+  - `telemetry.py` records every attempt exactly once, whether it returned or
+    raised, as append-only JSONL with corrections folded latest-wins. No
+    module-level state and an `flock`ed whole-line write, so several
+    orchestrators can share a sink.
+  - `verify.py` gives `dispatch_role` its first caller: the verifier prompt,
+    the anchored first-token parse, and the refusal to let a model judge its
+    own output. The semantic rung stays non-blocking and reaches the reviewer
+    as notes, which is what #129 measured and chose.
+  - `repair.py` fixes what a gate rejection can fix deterministically and
+    re-runs the gate, so a repairable failure costs no model call.
+  - `deterministic.py` binds the tier-0 floor in the *plan*. All four
+    deterministic task types previously planned nothing to run on their own
+    floor, so each was a model call for work `ruff` does for free. The floor
+    now plans a tool — but **nothing executes one**, and binding it regressed
+    `escalate()`, which raises on all four types where it previously fell
+    through to a model. Both are open; see the pressure-test report.
+  - Also: `waves.py` (DAG waves on `depends_on`), `pending.py` (stash and
+    resume work stranded by an unreachable verifier), `cooldown.py`,
+    `consensus.py`, `cleanup.py`, `attempt.py` (a retry is told what the
+    previous one got wrong), `gate/typecheck.py`, `worker/scoped.py`, and
+    per-task-type output caps.
+  Verified against 18 regression tests pinning what mcgyvr already did better
+  than local-ai — sandbox isolation, context assembly, availability probing,
+  failing-test-first acceptance, secret scanning, determinism. None regressed.
+
+- **The driver (`src/mcgyvr/drive.py`) and `mcgyvr run`** — the two seams the
+  2026-08-29 pressure test named as standing between the port and a working
+  orchestrator, and the command that roots them. `run_tool_step` executes a
+  deterministic `ToolStep` inside a sandbox, which `deterministic.py` planned
+  in full and said was "the caller's" to run — there was no caller, so the
+  cheapest family in the catalog planned commands nothing executed.
+  `dispatch_prompt` turns a `WorkerPrompt` into a `Request`, which is the first
+  time `contract.limits.max_output_tokens` reaches anything and the first
+  production caller `runner.dispatch` has had. `worker_attempt` is the attempt
+  function `escalate`, `climb` and `judge` were each written to receive: prompt,
+  dispatch, parse, apply, gate, judge, with the retry note carried from the last
+  judgement on the same rung so `climb` keeps owning how many attempts a rung
+  gets. `mcgyvr run CONTRACT --repo PATH` drives a deterministic contract to a
+  gate verdict, and to a commit with `--commit`.
+- `Contract.acceptance_commands` and `Contract.demonstration_commands` — the
+  contract's command strings as argv. Nothing split one into the other, so a
+  contract's acceptance bar was declared, validated at load, and executed by no
+  code path.
+- `drive.Recording` — where attempt records go and which orchestrator is
+  writing them, giving `telemetry.observe` its first caller. The orchestrator id
+  is a value the caller constructs, never derived from the process, and it is
+  part of the attempt id rather than only a field beside it: `fold` keys
+  attempts by that id and a repeat supersedes, so two orchestrators on one
+  contract and one rung would otherwise have written one row that erased the
+  other (§9).
+- `gate.findings.Finding.for_model` and `Finding.names_a_file` — one rendering
+  for the operator and one for anything a model reads. An acceptance finding
+  carries the command it ran in `path`, and `acceptance` is a contract field
+  #94 keeps off every model-facing surface.
+- `pool.SourceMap.role_model` — which model a role runs, for callers above the
+  seam. `role()` returns a `RoleBinding`, which carries an `Endpoint`, which
+  carries `credential()`.
+
 ### Fixed
+
+- **Pattern E — five declared boundaries that nothing was holding** (pressure
+  test 2026-08-29).
+  - **#94 on the retry path.** `RetryNotes.of` rendered findings with `str()`,
+    which prints the finding's path first — and an acceptance finding's path is
+    the command. So `contract.acceptance`, excluded from `worker_view()` on
+    purpose, reached the worker prompt of every retried task. `verify.gate_summary`
+    handed the reviewer the same command, one function below a docstring saying a
+    reviewer "cannot be shown `acceptance`". Both render through `for_model()`
+    now, and the rule is declared by the check that raises the finding rather
+    than relearned by each consumer.
+  - **D20 at the port's own sinks.** A `base_url` may carry userinfo, and a URL
+    is quoted in every runner transport error, every availability verdict and
+    `mcgyvr sources` — so a key written into the config reached logs a key in the
+    environment never does. It is refused at load, where `Config.secret` already
+    says a credential belongs in the environment; `redact.safe_url` and
+    `redact.scrub` are the second line, for URLs that reach a message without
+    passing the loader, and telemetry's `error_detail` is scrubbed because the
+    exception it quotes is the caller's.
+  - **§9's no-global-mutable-state.** `capability.shipped_table` and
+    `catalog.catalog` held their value in a module variable — a name anything in
+    the process could reassign, silently re-answering every capability question
+    or re-keying every contract digest. Both are memoised; `sandbox.base`'s exit
+    latch is too, because a rule that allows one legitimate `global` allows the
+    next one that claims to be. There are now zero `global` statements in `src/`.
+  - **The seam.** `verify.reviewer_for` asked `source_map.role(VERIFIER_ROLE) is
+    None` — a yes/no question answered with a live credential — and imported
+    neither forbidden name, which is how the import guard missed it. It asks
+    `role_model` now. The guard itself had three bypasses (`import mcgyvr.pool`,
+    a relative import, and `.role()` needing no import at all) and reported on
+    spelling; it catches all three, and a test feeds it modules that must fail.
+- **Pattern B — nothing owned the bytes** (pressure test 2026-08-29). Five
+  modules wrote file content and disagreed about where truth lives. The rule
+  they now hold: *the tree is the owner, content never travels as a value, and
+  one seam commits.*
+  - **Two deliveries, and the second applied no bar.** `tools/missions/run.py`
+    imported nothing from `deliver`: it read a `str` carried four hops from
+    `judge`, wrote it with its own `_place` and committed it with its own
+    `_commit_delivery` — no re-gate, no digest, no repository lock. It was also
+    the implementation with the mileage on it. It delivers through
+    `deliver.deliver` now, and a guard test fails a third commit site.
+  - **The channel that string travelled in is gone.** `Judgement.value`,
+    `route.Result.value`, `route.Accepted.value` and `Delivered.value`, along
+    with every `[T]` that existed only to carry them. `drive.worker_attempt`
+    mints instead of carrying: it reads the bytes back off `sandbox.workspace`
+    after the gate, because a binding minted from the caller's own string is
+    true by construction and checks nothing.
+  - **`RepairOutcome.content`** was a second copy of a tree `repair` mutates in
+    place, added for a caller that would hand it to `deliver`; that caller is
+    gone and nothing read the field. `repaired` — which paths differ from what
+    the worker left — is the claim that survives.
+  - **`Consensus` carries `Accepted` bindings, not a string.** `best_of` resets
+    the workspace after every draw including the winning one, so the winner was
+    in no tree anywhere. The reset stays — a losing draw must leak nowhere
+    (#D22) — and each draw is now bound where its verdict was reached, one line
+    after its gate and one before its reset. `Consensus.winner` is the bytes and
+    the verdict as one value; there is no `content` field to offer instead.
+  - **`Cleanup.regate`** read `cleaned and not accepted`, so the branch where a
+    rewrite went unannounced was the branch where the gate said *yes* — an
+    accepted change carried onward under a verdict reached on bytes the
+    formatter had already replaced. It is true whenever bytes were rewritten.
+  - `deliver.Accepted` is the one value allowed to carry content, and only
+    because `Accepted.read` mints it off the tree the gate judged and pairs it
+    with a digest. A guard test fails any new dataclass carrying `content`
+    beside no digest; three pre-verdict types are listed with an argument each.
+- **The self-verification refusal is no longer defeatable by spelling**
+  (pressure test 2026-08-29, §4's first item). A model does not review its own
+  output, and that rule was decided by `strip().casefold()` on two names read
+  out of a config file — which catches a different capitalisation and nothing
+  else. `qwen2.5-coder` and `qwen2.5-coder:latest` are one pull of one blob and
+  compared unequal, so the accidental case was a working install's, not an
+  attacker's; a provider prefix, a registry path, a zero-width space, a Cyrillic
+  homoglyph and a non-breaking hyphen were the deliberate ones.
+  `verify.model_identity` is now what the two names are compared through: NFKC,
+  invisibles dropped, confusables folded to Latin, the routing prefix and a
+  trailing `:latest` removed, separators removed. It normalises only what a
+  registry itself treats as noise and never guesses at similarity — `mistral`
+  beside `mixtral` is two models, and so is `qwen2.5-coder:32b` reviewing
+  `qwen2.5-coder:7b`, which is the ordinary local install and would lose its
+  verifier entirely to a rule that matched on resemblance. The refusal still
+  names both models as the operator spelled them, because a normalised name in
+  the message points at a config line that does not exist.
+- **A delivery mode is a promise, and all three made the same one** (pressure
+  test 2026-08-29, §4). `delivery.mode` defaulted to `pull_request`, and every
+  mode committed onto the checked-out branch: one commit, one ref, HEAD advanced,
+  nothing pushed and nothing branched. `handoff` came back as the literal word
+  `pull_request`. Now `branch` builds the commit as objects — a scratch index
+  seeded from HEAD, `commit-tree` parented on it, `update-ref` on a new
+  `mcgyvr/<contract-id>` — so the operator's HEAD, index and working tree are
+  read and never written, and the handoff carries the pasteable
+  `git push -u <remote> <branch>` beside `Delivery.branch`. `none` still commits
+  onto the checked-out branch. `pull_request` is retired through a declarative
+  `Field.retired`, so the loader's message says what the value was actually
+  doing rather than that it is unknown. Building a forge client was rejected:
+  it would make the seam that must be certain about what it writes also own
+  network transport, credentials and one forge's API shape, none of it reachable
+  from a test that does not mock the acceptance boundary (ADR-0014). So was
+  `checkout -b` / `commit` / `checkout -`, which reaches the destination by
+  moving the operator's HEAD twice through states they never asked for.
+- **A rebind is a defence only where it runs before the mutation** (pressure
+  test 2026-08-29, §4). `param-mutation` collected rebinds with `ast.walk`,
+  which has neither order nor control flow, so a rebind anywhere in a function —
+  in dead code, in a branch that returns, textually after the mutation —
+  cleared every mutation in it. The canonical `if target is None: target = []`
+  followed by `target.append(extra)` mutates the caller's list whenever the
+  caller passed one, and was accepted. The walk is now in execution order and
+  threads which names may still be the caller's object on *some* path to here;
+  a branch merge is a union, so a rebind defends only where no path skips it,
+  and an arm that cannot fall through contributes nothing. Swept against the old
+  implementation over `src/`, `tests/` and `tools/`: 67 hits identical, one
+  addition — a bench task's own reference solution, which is the canonical shape
+  and is legitimate only because its contract orders in-place work.
+  - That is why the `contract_text` stand-down was threaded rather than deleted.
+    It had no caller: `LanguageAdapter.structural_checks` took no contract, so a
+    contract asking for in-place work was unsatisfiable. `Contract.prose` — the
+    two fields the worker is given — now flows through `Gate.run` to the
+    adapter, from both call sites that hold a contract, so the commit-time gate
+    is not a stricter bar than the sandbox one. It is passed as text and not as
+    a `Contract`, so an adapter cannot start judging by `risk` or `verification`
+    (#94).
+- **A module that cannot be imported is not a style note** (pressure test
+  2026-08-29, §4). `UP035` was demoted by code, and it covers two different
+  things: `typing`→`collections.abc`, which is style, and
+  `collections`→`collections.abc`, which is an `ImportError` on 3.10 and later —
+  and `requires-python` is `>=3.12`. So a worker file holding
+  `from collections import Mapping` was accepted with zero findings, and reached
+  the verifier under the heading saying no check is asking for it to be fixed.
+  The demotion is now withdrawn per *line* rather than per code. Ruff's two
+  UP035 diagnostics are identical in code, rule, message, severity, url and
+  offered fix — they differ only in filename and end column, so a message-text
+  discriminator was impossible rather than merely fragile, and that fact is
+  pinned by a test that fails the day ruff diverges. The discriminator is an AST
+  family over `ImportFrom` nodes naming `collections`, reported on `structure`
+  so a ruff-less install rejects too, with 3.9's `_collections_abc.__all__`
+  written out rather than introspected — the verdict is about the worker's file,
+  not about mcgyvr's own interpreter.
+- **A rung that could not run does not get a commit.** `deliver._judged`
+  returned `GateResult.findings` and dropped `inconclusive`, but `accepted` is
+  `not findings and not inconclusive`, and ADR-0034 says a rung that ran and
+  cannot say what bar it applied rejects. So where `ruff` exited 2 — a malformed
+  `pyproject.toml`, a version mismatch, a crash — the commit-time gate recorded
+  an inconclusive rung, returned no findings, and the change was committed with
+  lint and format never applied and nothing on the `Delivery` saying so. That is
+  the one path (`mcgyvr run --commit`, `pending.resume` on a bare `str`) where
+  delivery's own gate run is the only gate, and it defeated the module's stated
+  floor: nothing a caller says can make un-judged bytes into a commit.
+- **A fixer that fixed what it could is not an error.** `mcgyvr run` treated
+  every non-zero tool exit as fatal and returned before the gate was reached.
+  `ruff check --fix` exits 1 whenever diagnostics remain after fixing, which is
+  the ordinary outcome for `lint_fix` — so a contract whose autofixes landed
+  exactly as its catalog guarantee describes was reported as an error, never
+  gated and never committed. The test is now the exit code against the set the
+  invocation reports under, and that set comes from the *task type*: `(0, 1)`
+  for `lint_fix` and `import_sort`, whose guarantees put an unfixable diagnostic
+  out of scope in as many words, and `(0,)` for `format`, whose "byte-identical
+  to what the project's own formatter produces" leaves no room for a file the
+  formatter declined to write. Everything else stays fatal — a fixer that exits
+  2 could not load its config, so it applied the guarantee to nothing and the
+  gate reading that same config is broken the same way. The residue is printed
+  rather than swallowed.
+- **A retry note is this attempt's account of this attempt.** `worker_attempt`
+  only ever wrote a note, never cleared one, so an attempt that produced none —
+  an unreadable reply, or a reviewer-side failure — left the previous attempt's
+  note standing and attempt 3 was prompted with attempt 1's gate findings, which
+  the worker had already been asked to fix once. `tools/missions/attempt.py` was
+  the correct spelling of the same loop; the two now agree.
+- **The mission runner read a delivered file back the way nothing wrote it.**
+  `tools/missions/run.py` decoded strictly immediately after `deliver`
+  committed, while delivery deliberately writes through `surrogateescape` and
+  refuses only lone surrogates. A target holding a byte that is not valid UTF-8
+  committed and then raised `UnicodeDecodeError` — after the commit, before the
+  record was written, which is exactly the failure the `DeliveryError` handler
+  twelve lines above exists to prevent.
+- **An append ends its lines the way the file does.** `scoped._appended` did
+  `source.rstrip("\n")`, which leaves the `\r` on a CRLF file, then joined LF
+  separators and an LF fragment onto it. The next formatter run normalised the
+  whole file, so a one-definition append was reported as having rewritten every
+  line. `repair._terminator` is now `mcgyvr.lines.terminator` and both callers
+  share it, rather than a second definition of where a line ends — which
+  `lines.py`'s own docstring names as a defect that has already cost this
+  project twice. The splice path has the same shape and is deliberately left
+  alone: its bytes are a pinned guarantee, and a guard test now says so.
+- **The pinned fallback kept the target's envelope rule.** `parse_pinned`'s
+  not-honoured fallback called `parse_reply` without `target`, and with no
+  target any `{"content": "..."}` object in the fence is unwrapped — so a
+  contract whose target is a `.json` file that legitimately *is* such an object
+  had it silently truncated to that field. The structural fence read is now
+  `_fenced`, and `parse_pinned` applies both rules itself: whether to open the
+  envelope is decided by whether the object is bound for a language the gate
+  owns, and #174 still runs last, on the file rather than on the envelope.
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable
@@ -1106,7 +1373,38 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   healthy backend; the outage above spent five hours proving it 51 times.
   Row-level behaviour is unchanged — a failed draw is still a row, and the
   resume fills what the abort left. `--abort-after-dead-tasks 0` disables it.
-
+- **The verifier had a policy, a prompt, a parser and no caller.** `mcgyvr run`
+  passed `verifier=None`, so every ladder acceptance was labelled `unverified`
+  even on an install with `verifier.enabled: true` and a bound role, and
+  `verify.reviewer_for` — the function whose whole job is to be that argument —
+  had no caller at all. Wiring it contradicted the parameter, the fourth lever
+  of the same shape as the three the reach work closed: a `Callable[[], Review]`
+  cannot be assembled outside the attempt, because `verify` needs the gate that
+  has just run, the bytes it read and the name of the model that wrote them.
+  `worker_attempt` takes the reviewer seam itself now and builds the review per
+  attempt, so `judge` still decides whether to ask and a rejected gate still
+  costs no verifier spend. `verifier.enabled` is read in exactly one place —
+  `source_map` binds the role whenever a source and a model are declared, so the
+  flag is the operator's switch — and an install told to verify whose role
+  cannot run is refused before the sandbox is opened rather than delivering on a
+  warrant it did not get. The reviewer is shown the pre-change file too, read
+  off the workspace between the reset and the first draw: `build_prompt` falls
+  back to `contract.target_content`, which a hand-authored contract does not
+  carry, so every review of an edit would otherwise have opened "ORIGINAL FILE:
+  not supplied" — the reviewer judging a change to a file it never saw.
+- **A draw that produced nothing is not a verdict.** `consensus.best_of`'s
+  sampler was `Callable[[int], str]`, which offers a real caller two answers and
+  both are wrong: fabricate a string, which is then gated and reported as a
+  candidate the gate rejected when there was never a candidate, or raise and
+  discard the verdicts of every draw already gated. An unreadable model reply —
+  truncated, prose where a fenced block was asked for, a refusal in place of a
+  file — is the common case, so at `breadth.draws: 3` a draw that had passed the
+  gate was thrown away because the next one came back truncated. The sampler may
+  now answer `Unusable`: that draw is recorded in `Consensus.unusable` rather
+  than written, gated or ranked, `len()` still counts every draw that was paid
+  for, and only a run in which every draw refused raises — `NoUsableDrawError`,
+  which the driver turns into the failed attempt a single unreadable draw has
+  always produced.
 ### Changed
 - `src/mcgyvr/propose.py` states `MIN_QUALITY_GAIN`'s provenance where the
   constant lives: it is a rung-separation floor, #189 borrowed it as an adoption

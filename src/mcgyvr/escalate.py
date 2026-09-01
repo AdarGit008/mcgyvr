@@ -76,6 +76,21 @@ passing checks is spend that carries no information, and neither an observation
 (a finding the gate deliberately did not reject on) nor an environment issue (a
 tool that was not installed) is something the worker did or can fix.
 
+**How a task ended and what to do about it are two questions.**
+:class:`Outcome` answers the first and deliberately not the second, and every
+caller that has to decide whether the work may be tried somewhere else would
+otherwise re-derive the answer from the outcome's *name* — differently, in each
+caller, and silently. :func:`disposition` answers it once per outcome with a
+reason a human can act on, and :func:`may_reassign` is the single decision that
+reads it together with the budget. The split it draws is the one a caller acts
+on: the two ceilings are numbers an operator chose and can raise, so work they
+stopped may move; a spent ladder is a statement about what this install can do,
+and sending it to a dearer family that does not exist changes the bill and
+nothing else. Ported from local-ai's ``REASSIGNABLE`` set, and needed here
+before §9's ``main_out_queue`` can exist, because pushing work back for another
+orchestrator to take *is* a reassignment and cannot be written against a
+taxonomy that does not say which failures are eligible.
+
 **What is deliberately not here.** Parsing a model's reply into a
 :class:`Review` is #41's; this module fixes only *when* one is asked for and
 what follows from each answer. Reviewing the applied diff in fresh context is
@@ -94,7 +109,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.route import (
@@ -117,6 +132,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
+
+    # Aliased on import, because this module already binds the name `Accepted`
+    # to `mcgyvr.route.Accepted` — a *climb outcome*, unrelated to this one. The
+    # collision is real and pre-existing; spelling the delivery type differently
+    # here is cheaper than renaming either class, and it makes the two
+    # distinguishable at every use in this file rather than only at the import.
+    from mcgyvr.deliver import Accepted as BoundContent
     from mcgyvr.gate import GateResult
     from mcgyvr.pool import SourceMap
 
@@ -133,11 +155,13 @@ class Outcome(StrEnum):
     """How a task ended, in one machine-readable word.
 
     #43 asks that every terminal outcome be machine-readable rather than prose,
-    and these are the five. The distinctions are the ones a caller has to act
+    and these are the seven. The distinctions are the ones a caller has to act
     on differently: work that was accepted, a ladder that was genuinely tried
-    and could not, two different ceilings that stopped it early, and an install
-    that had nothing to run in the first place. Prose is carried alongside in
-    ``detail`` for a human; nothing branches on it.
+    and could not, two different ceilings that stopped it early, an install
+    that had nothing to run in the first place, a ladder that declined
+    throughout, and an exception that crossed the seam before any verdict was
+    reached. Prose is carried alongside in ``detail`` for a human; nothing
+    branches on it.
     """
 
     ACCEPTED = "accepted"
@@ -146,6 +170,7 @@ class Outcome(StrEnum):
     ATTEMPT_CEILING = "attempt_ceiling"
     NOTHING_TO_RUN = "nothing_to_run"
     DECLINED_THROUGHOUT = "declined_throughout"
+    ERROR = "error"
 
 
 class Assurance(StrEnum):
@@ -216,6 +241,13 @@ class RetryNotes:
     (:attr:`~mcgyvr.gate.GateResult.observations`), so quoting them would ask
     for changes that were never required; and an environment issue is a tool
     that was not installed, which is not something the worker did or can fix.
+
+    A fourth exclusion is not this class's to decide and is not applied here:
+    the lines are rendered with :meth:`~mcgyvr.gate.findings.Finding.for_model`
+    rather than ``str``, so an acceptance finding arrives without the command it
+    ran. ``acceptance`` is an orchestrator-only contract field (#94) and a note
+    is worker-facing text; rendering with ``str`` put the field the worker view
+    excludes into the second prompt of every retried task.
     """
 
     checks: tuple[str, ...]
@@ -228,7 +260,7 @@ class RetryNotes:
             return None
         return cls(
             checks=tuple(gate.by_check()),
-            lines=tuple(str(f) for f in gate.findings),
+            lines=tuple(f.for_model() for f in gate.findings),
         )
 
     @property
@@ -237,17 +269,32 @@ class RetryNotes:
 
 
 @dataclass(frozen=True)
-class Judgement[T]:
+class Judgement:
     """What one attempt came to, and what its acceptance would rest on.
 
     This is what an attempt function hands the driver, rather than a bare
     :class:`~mcgyvr.route.Result`, because a task-level answer has to say which
     bar was cleared and a routing verdict cannot carry that without
     :mod:`mcgyvr.route` learning what verification is.
+
+    **``accepted`` is the work, and it answers for its own bytes.** It is the
+    content read back out of the tree the gate judged
+    (:meth:`mcgyvr.deliver.Accepted.read`, which has no parameter to hand
+    content through), so a caller cannot be holding one thing while the verdict
+    is about another.
+
+    There is deliberately no second field. An earlier ``value: T`` carried
+    whatever the attempt function happened to be holding — the worker's reply as
+    a string — and nothing bound it to ``verdict``: a step that rewrote the
+    *tree* between the write and the gate left it stale, which is the port's
+    documented repair loop run as written. It had exactly one reader in the
+    repository, a second delivery implementation that wrote it and committed it
+    without re-gating. Both are gone, and with them the type parameter that
+    existed only to carry it (pattern B).
     """
 
     verdict: Verdict
-    value: T | None = None
+    accepted: BoundContent | None = None
     assurance: Assurance | None = None
     policy: str = GATE_ONLY
     upgraded: bool = False
@@ -255,9 +302,9 @@ class Judgement[T]:
     retry: RetryNotes | None = None
     detail: str = ""
 
-    def as_result(self) -> Result[T]:
+    def as_result(self) -> Result:
         """The routing verdict alone, for :func:`~mcgyvr.route.climb`."""
-        return Result(verdict=self.verdict, value=self.value, detail=self.detail)
+        return Result(verdict=self.verdict, detail=self.detail)
 
 
 # --- policy ----------------------------------------------------------------
@@ -281,14 +328,13 @@ def _rank(policy: str) -> int:
     return _POLICY_RANK.get(policy, _POLICY_RANK[MODEL])
 
 
-def judge[T](
+def judge(
     contract: Contract,
     family: Family,
     gate: GateResult,
-    value: T | None = None,
     *,
     verifier: Callable[[], Review] | None = None,
-) -> Judgement[T]:
+) -> Judgement:
     """Turn a gate run — and, only if it passed, a verifier — into a judgement.
 
     The ordering is the point and it is structural: ``verifier`` is not
@@ -315,7 +361,6 @@ def judge[T](
     if policy == GATE_ONLY:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.DETERMINISTIC,
             policy=policy,
             upgraded=upgraded,
@@ -328,7 +373,6 @@ def judge[T](
     if verifier is None:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.UNVERIFIED,
             policy=policy,
             upgraded=upgraded,
@@ -344,7 +388,6 @@ def judge[T](
     if review.opinion is Opinion.AGREED:
         return Judgement(
             verdict=Verdict.PASSED,
-            value=value,
             assurance=Assurance.VERIFIED,
             policy=policy,
             upgraded=upgraded,
@@ -437,7 +480,22 @@ class Ascent:
     widths: Mapping[str, int] = field(default_factory=dict, repr=False, compare=False)
 
     def __bool__(self) -> bool:
-        return any(self.plans)
+        """Whether there is anything here to climb.
+
+        The same question :meth:`__len__` answers, and therefore the same
+        answer. It was ``any(self.plans)`` — plan truthiness — until the floor
+        was bound to a program: an ascent whose only non-empty plan holds a
+        :class:`~mcgyvr.deterministic.ToolStep` was then true and empty at once,
+        so ``if route:`` entered a climb that ``for p in route.runnable``
+        immediately found nothing in. Python asks ``__bool__`` first and falls
+        back to ``__len__``, which makes disagreeing versions of one question
+        the sharpest kind of trap: the guard passes and the loop does not run.
+
+        "This ascent contains work" is a different and true statement about such
+        an ascent, and :attr:`plans` is where it is asked. It is not what a
+        caller reaching for truthiness means.
+        """
+        return bool(self.runnable)
 
     def __len__(self) -> int:
         return len(self.runnable)
@@ -449,8 +507,14 @@ class Ascent:
 
     @property
     def runnable(self) -> tuple[Plan, ...]:
-        """The families that actually offer a rung."""
-        return tuple(p for p in self.plans if p)
+        """The families that actually offer a rung.
+
+        A rung, not a step: since #81 bound the floor, the cheapest family can
+        hold a program, and a program is something to *run* and nothing to
+        *climb*. Counting it here would tell a caller the ladder can walk a
+        family whose only step :func:`~mcgyvr.route.climb` refuses.
+        """
+        return tuple(p for p in self.plans if p.climbable)
 
     @property
     def rungs(self) -> tuple[str, ...]:
@@ -458,8 +522,24 @@ class Ascent:
 
     @property
     def ladder_budget(self) -> int:
-        """The most attempts the configured rungs could spend between them."""
-        return sum(p.budget for p in self.plans)
+        """The most attempts the configured rungs could spend between them.
+
+        Summed over what each family can *climb*, so the floor's one program
+        does not appear: it is spent by :mod:`mcgyvr.deterministic` and never by
+        :func:`escalate`, and counting it would give the climb one attempt of
+        headroom past the end of the operator's ladder — the ceiling would stop
+        a task later than the config it was read from says.
+
+        Not the figure ``mcgyvr pool`` prints, and it never could be. That one
+        sums each rung's configured ``attempts`` with no contract in hand; every
+        step counted here has already been through
+        :func:`~mcgyvr.route.attempts_for`, which takes the lower of the rung's
+        budget and the contract's own ``limits.attempts``. The printed number is
+        the ladder's ceiling for any task; this is the ceiling for *this* task,
+        and where a contract asks for fewer attempts than the ladder offers the
+        two differ by design. This is the one that is enforced.
+        """
+        return sum(p.climb_budget for p in self.plans)
 
     @property
     def budget(self) -> int:
@@ -515,7 +595,7 @@ class Ascent:
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
         for each in self.plans:
-            for step in each.steps:
+            for step in each.climbable:
                 width = self.widths.get(step.rung.name)
                 load = (
                     None if step.machine is None else step.machine.load(self.capacity)
@@ -605,14 +685,19 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
 
 
 @dataclass(frozen=True)
-class Delivered[T]:
-    """A task that ended with a change accepted, and what that rests on."""
+class Delivered:
+    """A task that ended with a change accepted, and what that rests on.
+
+    The accepted bytes are reached through ``judgement.accepted``, which is a
+    binding minted from the tree its gate read. There is no bare content field:
+    one used to sit here and it was the port's only route for un-gated bytes
+    into a repository.
+    """
 
     family: Family
     rung: str
-    value: T | None
     assurance: Assurance
-    judgement: Judgement[T]
+    judgement: Judgement
     entered: tuple[Family, ...]
     history: tuple[Attempted, ...]
     attempts_spent: int
@@ -654,15 +739,33 @@ class Halted:
         return False
 
 
-def escalate[T](
+class _AttemptError(Exception):
+    """An attempt function raised instead of returning a judgement.
+
+    :func:`~mcgyvr.route.climb` lets a raising attempt propagate on purpose —
+    an exception is the absence of a verdict, and swallowing it there would
+    misreport "this family cannot do the work". This is the seam that turns it
+    into a verdict of its own: the rung being driven and the exception are
+    carried together so :func:`escalate` can name them in the terminal
+    :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
+    tell a dead socket from a bug it owns.
+    """
+
+    def __init__(self, rung: str, cause: BaseException) -> None:
+        super().__init__(rung)
+        self.rung = rung
+        self.cause = cause
+
+
+def escalate(
     config: Config,
     pool: SourceMap,
     contract: Contract,
-    attempt: Callable[[Try], Judgement[T]],
+    attempt: Callable[[Try], Judgement],
     *,
     capacity: Capacity | None = None,
     floor: Family | None = None,
-) -> Delivered[T] | Halted:
+) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
     ``attempt`` is the caller's, as it is one level down: it assembles a
@@ -675,6 +778,11 @@ def escalate[T](
     trimmed plan would have charged for it in advance. What is spent is counted
     as it happens: an attempt that was declined adds nothing to either count,
     so a ladder of rungs that all step aside is walked in full at no cost.
+
+    An attempt that raises is not a verdict and is not let escape the seam.
+    :func:`~mcgyvr.route.climb` refuses to catch it for exactly that reason;
+    here it is caught and recorded as :attr:`Outcome.ERROR` naming the rung,
+    so a caller can hand it to :func:`disposition` instead of a traceback.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
     ceiling = route.ceiling
@@ -683,7 +791,7 @@ def escalate[T](
     spent_rungs: list[str] = []
     attempts_spent = 0
     stopped_by: Outcome | None = None
-    accepted_judgement: Judgement[T] | None = None
+    accepted_judgement: Judgement | None = None
     history: list[Attempted] = []
     entered: list[Family] = []
 
@@ -703,9 +811,17 @@ def escalate[T](
             return False
         return True
 
-    def observed(this: Try) -> Result[T]:
+    def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
-        judgement = attempt(this)
+        try:
+            judgement = attempt(this)
+        except Exception as exc:
+            # An exception is not a verdict. `climb` lets a raising attempt
+            # propagate so it is not misread as "this family cannot do the
+            # work"; here is the seam that turns it into a terminal outcome of
+            # its own, carrying the rung so the operator knows which tier to
+            # fix.
+            raise _AttemptError(this.rung.name, exc) from exc
         if judgement.verdict is not Verdict.DECLINED:
             attempts_spent += 1
             if this.rung.name not in spent_rungs:
@@ -715,9 +831,29 @@ def escalate[T](
         return judgement.as_result()
 
     for each in route.plans:
-        if not each:
-            continue  # an empty family is not entered; its reason is kept
-        result = climb(each, observed, capacity=capacity, permit=permit)
+        if not each.climbable:
+            # Not entered, and its reason is kept for the halt detail. The test
+            # is `climbable` rather than truthiness because the two stopped
+            # agreeing when #81 bound the floor: a deterministic family holding
+            # a program is non-empty and still has nothing to climb, so a
+            # truthiness guard entered it and `climb` raised `RouteError` —
+            # which is not a `RunnerError`, so the mission loop did not catch
+            # it and the run ended with earlier contracts already committed.
+            continue
+        try:
+            result = climb(each, observed, capacity=capacity, permit=permit)
+        except _AttemptError as raised:
+            return Halted(
+                outcome=Outcome.ERROR,
+                entered=tuple(entered),
+                history=tuple(history),
+                attempts_spent=attempts_spent,
+                escalations=max(0, len(spent_rungs) - 1),
+                detail=(
+                    f"rung {raised.rung!r} raised "
+                    f"{type(raised.cause).__name__}: {raised.cause}"
+                ),
+            )
         history.extend(result.history)
         if result.history:
             entered.append(each.family)
@@ -726,7 +862,6 @@ def escalate[T](
             return Delivered(
                 family=result.family,
                 rung=result.rung,
-                value=result.value,
                 # An attempt that passed without saying what its acceptance
                 # rests on is read as unverified. Defaulting the other way is
                 # how a result comes to be reported as more assured than it is.
@@ -794,3 +929,122 @@ def _halt_detail(
         f"the ladder is spent: {attempts_spent} attempt(s) and {escalations} "
         f"escalation(s) across {climbed}, and none produced an acceptable change."
     )
+
+
+# --- what to do next -------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Disposition:
+    """Whether the work behind one outcome may be tried somewhere else, and why.
+
+    Two fields, kept together because either alone is a trap. A bool with no
+    reason tells an operator that the work stopped and not what would let it
+    continue; prose with no bool is re-read and re-interpreted at every call
+    site, which is the thing this axis exists to stop.
+    """
+
+    reassignable: bool
+    detail: str
+
+
+def disposition(outcome: Outcome) -> Disposition:
+    """What ``outcome`` says about trying this work somewhere else.
+
+    A match over the enum with :func:`~typing.assert_never` beneath it rather
+    than a lookup table, so an eighth :class:`Outcome` is a type error where it
+    is declared. A taxonomy with a hole in it is worse than no taxonomy: the
+    hole is found by a caller, at runtime, on the one path nobody exercised.
+    """
+    match outcome:
+        case Outcome.ACCEPTED:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "accepted: the change landed, so there is no work to move. "
+                    "Reassigning here buys a second answer to a question that "
+                    "already has one."
+                ),
+            )
+        case Outcome.ESCALATION_CEILING:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "escalation_ceiling: the climb stopped at "
+                    "budgets.max_escalations with rungs of the ascent never "
+                    "entered, so nothing here says the ladder cannot do the "
+                    "work — only that it was not allowed to try. Raise the "
+                    "ceiling, or hand the contract to someone who can pay for "
+                    "the moves."
+                ),
+            )
+        case Outcome.ATTEMPT_CEILING:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "attempt_ceiling: the task stopped at what it may spend, "
+                    "which bounds the bill and not the ladder's ability. The "
+                    "same contract may be attempted again against a budget "
+                    "that can pay for it."
+                ),
+            )
+        case Outcome.LADDER_SPENT:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "ladder_spent: every rung this install offers was tried "
+                    "and none produced an acceptable change, so there is no "
+                    "dearer family left to send the work to. The remedy is to "
+                    "bind a dearer rung or to narrow the contract — raising a "
+                    "number changes what it costs to fail, not whether it "
+                    "fails."
+                ),
+            )
+        case Outcome.NOTHING_TO_RUN:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "nothing_to_run: no family from the contract's floor "
+                    "upward offers a rung, so the pool stopped this and not "
+                    "the work. Until a rung is bound — a config line, a "
+                    "credential — moving the contract only relocates the same "
+                    "answer."
+                ),
+            )
+        case Outcome.DECLINED_THROUGHOUT:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "declined_throughout: every rung of every family stepped "
+                    "aside without spending an attempt, so no rung of this "
+                    "ladder claims the contract. Nothing dearer is being "
+                    "withheld; what is missing is a rung that accepts this "
+                    "work, or a contract the bound rungs recognise."
+                ),
+            )
+        case Outcome.ERROR:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "error: an exception crossed the seam before any verdict "
+                    "was reached, so the ladder was never given a chance to "
+                    "answer. The failure is in the attempt machinery, not in "
+                    "the work — address the cause and retry, or hand it to "
+                    "another orchestrator."
+                ),
+            )
+        case _:  # pragma: no cover - unreachable while the match is exhaustive
+            assert_never(outcome)
+
+
+def may_reassign(outcome: Outcome, budget_remaining: int) -> bool:
+    """Whether to hand this work on, given the kind of ending and what is left.
+
+    Two inputs, and both have to matter. Deciding on the budget alone is the
+    rule this project already had, and it sends work a ladder has already shown
+    it cannot do to a dearer family that cannot do it either — the bill is the
+    only thing that changes. Deciding on the kind alone spends money nobody
+    has: ``reassignable`` says the work *may* move, never that moving it is
+    free.
+    """
+    return disposition(outcome).reassignable and budget_remaining > 0

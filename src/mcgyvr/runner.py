@@ -30,6 +30,17 @@ caller can observe:
   contract's ``output_schema`` and belongs to #25's parser, "never a constant in
   a runner". So there is no ``stop`` parameter on :class:`Request` to fill in;
   the absence is the decision, and a test holds it.
+* **A response schema is asked for where it can be honoured, never assumed.**
+  ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
+  conform to. The OpenAI-compatible path sends it as ``response_format``, and a
+  server that implements it answers with the object instead of prose — a whole
+  class of parse failure that then never happens (``docs/port-from-local-ai.md``,
+  D13). Ollama's native path does not carry it: ``/api/generate`` spells the
+  same idea ``format``, which older builds accept only as the string ``json``,
+  so sending a schema there turns a working dispatch into a rejected request on
+  exactly the machines that path exists to reach. A pinned request still runs
+  there and still answers; it answers in prose, and the completion says so in a
+  note rather than leaving a caller to infer it from the shape of the text.
 * **Truncation is read, never inferred.** Ollama's ``done_reason`` and the
   OpenAI-compatible ``finish_reason`` are the only evidence used. Output that
   merely *looks* cut off is not truncation, and a response whose stop reason is
@@ -83,6 +94,7 @@ from typing import Any, ClassVar
 
 from mcgyvr.capacity import Capacity
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
+from mcgyvr.redact import safe_url
 
 # Local models on modest hardware are slow rather than broken: a 7B answering a
 # capped generation on a 6 GB card can take minutes. This is the ceiling on one
@@ -94,6 +106,12 @@ GENERATE_TIMEOUT_S = 120.0
 # backend's own explanation, short enough not to paste a model's whole answer
 # into a traceback.
 _ERROR_BODY_CHARS = 400
+
+# Every OpenAI-compatible server that implements `response_format` requires the
+# schema to carry a name, and none of them route on it. One constant rather than
+# a caller-supplied label, so that two requests pinning the same schema are the
+# same request on the wire.
+_RESPONSE_SCHEMA_NAME = "reply"
 
 CAV_01_NOTE = (
     "Served by Ollama's native /api/generate, which CAV-01 records as returning "
@@ -179,6 +197,14 @@ class Request:
     read as a measurement of the model rather than as work. It does not change
     what is sent; it decides whether a caveated path is allowed to serve it at
     all.
+
+    ``response_schema`` is a plain JSON Schema — the shape itself, not any
+    protocol's envelope around it, because the envelope differs per protocol and
+    is the runner's business. It is a *request*, never a guarantee: a server
+    that ignores it answers in prose, and every rung of a local ladder is
+    allowed to. So it changes what is asked for and nothing about what may be
+    believed, which is why :func:`~mcgyvr.worker.reply.parse_pinned` reads both
+    shapes and no caller has to know which arrived.
     """
 
     prompt: str
@@ -187,6 +213,7 @@ class Request:
     temperature: float = 0.0
     timeout_s: float = GENERATE_TIMEOUT_S
     quality_sensitive: bool = False
+    response_schema: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.max_output_tokens < 1:
@@ -287,6 +314,11 @@ class Runner(ABC):
     # decides both the flag on every completion and whether a
     # quality-sensitive request is refused.
     quality_safe: ClassVar[bool] = True
+    # Whether this protocol has a parameter for `Request.response_schema`. False
+    # is not a refusal — the request is sent without it and comes back as prose,
+    # with a note saying so — because a schema is an optimisation and refusing
+    # would make it a requirement.
+    honours_response_schema: ClassVar[bool] = False
 
     def __init__(self, endpoint: Endpoint) -> None:
         self.endpoint = endpoint
@@ -338,6 +370,14 @@ class Runner(ABC):
         notes: list[str] = []
         if not self.quality_safe:
             notes.append(CAV_01_NOTE)
+        if request.response_schema is not None and not self.honours_response_schema:
+            notes.append(
+                f"a response schema was pinned and the {self.protocol} path has "
+                f"no parameter to send it, so this reply is prose rather than "
+                f"the pinned object. It is still readable — the parser falls "
+                f"back to the fenced shape — but it was not schema-checked by "
+                f"the backend."
+            )
         if stop_reason is StopReason.TRUNCATED:
             notes.append(
                 f"the reply hit the {request.max_output_tokens}-token cap and "
@@ -442,6 +482,7 @@ class OpenAIRunner(Runner):
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI
     path: ClassVar[str] = "/v1/chat/completions"
+    honours_response_schema: ClassVar[bool] = True
 
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
         messages: list[dict[str, str]] = []
@@ -459,6 +500,22 @@ class OpenAIRunner(Runner):
             "temperature": request.temperature,
             "stream": False,
         }
+        if request.response_schema is not None:
+            # The key is absent unless a schema was pinned, rather than present
+            # and null: several local servers validate `response_format` by
+            # shape and reject the null, and an unpinned request must reach
+            # every backend this protocol exists to reach.
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": _RESPONSE_SCHEMA_NAME,
+                    # Constrained decoding where the server offers it. A server
+                    # that only advertises the field applies it as a hint, which
+                    # is why the reply is parsed and never trusted.
+                    "strict": True,
+                    "schema": request.response_schema,
+                },
+            }
         return payload
 
     def _parse(self, document: dict[str, Any]) -> _Parsed:
@@ -593,24 +650,26 @@ def _post_json(
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
         raise BackendError(
-            f"{url} answered HTTP {exc.code}: {detail or '(empty body)'}"
+            f"{safe_url(url)} answered HTTP {exc.code}: {detail or '(empty body)'}"
         ) from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
         # mean the same thing — nothing usable answered within the timeout.
         raise TransportError(
-            f"could not reach {url} within {timeout:g}s: {exc}"
+            f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
         ) from exc
 
     try:
         document = json.loads(raw)
     except ValueError as exc:
         raise ProtocolError(
-            f"{url} answered with something that is not JSON: "
+            f"{safe_url(url)} answered with something that is not JSON: "
             f"{raw.strip()[:_ERROR_BODY_CHARS] or '(empty body)'}"
         ) from exc
     if not isinstance(document, dict):
-        raise ProtocolError(f"{url} answered with JSON {type(document).__name__}")
+        raise ProtocolError(
+            f"{safe_url(url)} answered with JSON {type(document).__name__}"
+        )
     return document
 
 

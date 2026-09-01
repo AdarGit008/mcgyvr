@@ -39,6 +39,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import ClassVar
 
@@ -145,14 +146,19 @@ def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
 # os._exit — where atexit still runs registered reapers over whatever is
 # live. Each mode registers a cheap idempotent callable.
 _LIVE_REAPERS: dict[int, tuple[Callable[[], None], ...]] = {}
-_reaper_installed = False
 
 
+@cache
 def _install_reaper() -> None:
-    global _reaper_installed
-    if not _reaper_installed:
-        atexit.register(_reap_all)
-        _reaper_installed = True
+    """Register the exit reaper, once per process.
+
+    Memoised rather than latched behind a module flag. The registry above has
+    to be process-wide — there is one process exit to hook — but the *flag* did
+    not have to be rebindable, and §9's "no global mutable state" is checkable
+    only if the exceptions are zero: a guard that allows one legitimate
+    ``global`` allows the next one that claims to be legitimate.
+    """
+    atexit.register(_reap_all)
 
 
 def _reap_all() -> None:
@@ -187,6 +193,7 @@ class Sandbox(ABC):
         self._base = base
         self._workspace: Path | None = None
         self._base_commit: str | None = None
+        self._source_commit: str = ""
         self.notes: tuple[str, ...] = tuple(notes)
 
     # -- lifecycle --------------------------------------------------------
@@ -203,7 +210,8 @@ class Sandbox(ABC):
         self._workspace = Path(tempfile.mkdtemp(prefix=_WORKSPACE_PREFIX))
         _LIVE_REAPERS[id(self)] = (lambda: _remove_tree(self._workspace),)
         try:
-            self._base_commit = _populate(self._source, self._workspace, self._base)
+            populated = _populate(self._source, self._workspace, self._base)
+            self._base_commit, self._source_commit = populated
             self._start()
         except BaseException:
             # A failure mid-open must not leave a half-built sandbox behind.
@@ -232,11 +240,99 @@ class Sandbox(ABC):
         _git(self.workspace, "reset", "--hard", self._base_commit)
         _git(self.workspace, "clean", "-fdx")
 
+    def checkpoint(self) -> str:
+        """Commit the workspace's current state and return the commit to restore to.
+
+        A snapshot for a caller that is about to write and reset and wants to
+        come back to exactly this state — a best-of draw loop, say. Paired with
+        :meth:`drop_checkpoint`, which returns ``HEAD`` to the base once the
+        caller is done, leaving the working tree where it was.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "add", "-A")
+        _git(
+            self.workspace,
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "mcgyvr checkpoint",
+            env={**os.environ, **_GIT_IDENTITY},
+        )
+        return _git(self.workspace, "rev-parse", "HEAD").decode("ascii").strip()
+
+    def restore_to(self, checkpoint: str) -> None:
+        """Return the workspace to a :meth:`checkpoint` snapshot, dropping the rest.
+
+        Everything since the snapshot — tracked edits, new files, deletions —
+        is discarded. Ignored files are deliberately left alone: the snapshot
+        does not commit them (``git add -A`` honours ``.gitignore``), so a
+        caller's ignored files are part of the state to preserve, not draw
+        by-product to sweep.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "reset", "--hard", checkpoint)
+        _git(self.workspace, "clean", "-fd")
+
+    def drop_checkpoint(self) -> None:
+        """Return ``HEAD`` to the base commit, keeping the working tree as it is.
+
+        The reverse of :meth:`checkpoint`: the snapshot commit is left for git to
+        collect, ``HEAD`` moves back to the base, and the working tree — the
+        caller's state, restored by :meth:`restore_to` — stays put as uncommitted
+        changes again.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        _git(self.workspace, "reset", "--mixed", self._base_commit)
+
     def base_changeset_ref(self) -> str:
-        """The base ref the gate diffs the worker's change against."""
+        """The base ref the gate diffs the worker's change against.
+
+        A commit in the *workspace's* own repository — the one ``git init``
+        made here — and therefore meaningful only inside this workspace. It is
+        not a revision of the source repository and resolves nowhere else, so it
+        is not what :func:`mcgyvr.deliver.deliver` diffs against; that wants
+        :meth:`source_base_commit`.
+        """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         return self._base_commit
+
+    def source_base_commit(self) -> str:
+        """The revision of the *source* repository this workspace was built from.
+
+        The same question ``base`` asked at construction, answered as a concrete
+        commit: it is the revision the worker started from, and it is the one
+        value here that means anything back in the repository a delivery commits
+        into. :meth:`base_changeset_ref` is its workspace-local twin and the two
+        are never equal — a delivery handed the wrong one fails to resolve its
+        base, which is how this came to be exposed at all.
+
+        Raises when the source could name no commit — a non-git directory, or a
+        repository with nothing committed yet. Both are populated by copying, and
+        neither has a revision for a caller to diff against, so there is no
+        answer to give. It used to answer ``""``, and that turned out to be the
+        worse half of B7: ``deliver`` softened a falsy base to ``HEAD``, so the
+        one value meaning *there is no base* selected the one base that is a
+        moving name, and a delivery committed against wherever the branch had
+        got to. The two ends are fixed together — delivery refuses an empty base
+        by name, and this refuses to produce one.
+        """
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        if not self._source_commit:
+            raise SandboxError(
+                f"{self._source} names no revision this workspace was built from: "
+                f"it is not a git repository, or it has nothing committed yet. "
+                f"There is no base a delivery back into it could diff against, "
+                f"and HEAD is not a substitute — it is a moving name"
+            )
+        return self._source_commit
 
     def _register_reaper(self, reaper: Callable[[], None]) -> None:
         """Add a teardown callback the process-exit reaper runs on a hard crash.
@@ -277,8 +373,8 @@ class Sandbox(ABC):
 # --- workspace population (shared, host-side git) ------------------------
 
 
-def _populate(source: Path, workspace: Path, base: str) -> str:
-    """Fill ``workspace`` from ``source`` and commit it as the base.
+def _populate(source: Path, workspace: Path, base: str) -> tuple[str, str]:
+    """Fill ``workspace`` from ``source``, commit it, and name both bases.
 
     When ``source`` is a git repository the base tree is taken with
     ``git archive`` — exactly the tracked content of ``base``, no ``.git``,
@@ -287,7 +383,14 @@ def _populate(source: Path, workspace: Path, base: str) -> str:
     workspace then gets its own fresh git repository with a single base
     commit, which is what makes the worker's change a real diff and
     :meth:`Sandbox.reset` possible.
+
+    Two commits come back because they answer two different questions and
+    conflating them raises: the workspace's own base commit, which the gate
+    diffs against here, and the source revision that workspace was built from,
+    which is what a delivery back in the source repository can diff against. The
+    second is ``""`` when the source has no commit to name.
     """
+    revision = _source_commit(source, base)
     if (source / ".git").exists() and _has_commit(source, base):
         _archive_into(source, workspace, base)
     else:
@@ -308,7 +411,32 @@ def _populate(source: Path, workspace: Path, base: str) -> str:
         "mcgyvr sandbox base",
         env={**os.environ, **_GIT_IDENTITY},
     )
-    return _git(workspace, "rev-parse", "HEAD").decode("ascii").strip()
+    return _git(workspace, "rev-parse", "HEAD").decode("ascii").strip(), revision
+
+
+def _source_commit(source: Path, base: str) -> str:
+    """``base`` as a concrete commit in ``source``, or ``""`` if it names none.
+
+    Resolved at open rather than left as the caller's string, because ``HEAD``
+    is a moving name: a delivery diffing against ``HEAD`` after the run is
+    diffing against wherever the branch has got to, which is not where the
+    worker started.
+    """
+    proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(source),
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"{base}^{{commit}}",
+        ],
+        capture_output=True,
+    )
+    return (
+        proc.stdout.decode("ascii", "replace").strip() if proc.returncode == 0 else ""
+    )
 
 
 def _has_commit(source: Path, base: str) -> bool:

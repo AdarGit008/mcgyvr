@@ -68,7 +68,9 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     """Every default must be usable as-is, not a placeholder to be edited."""
     config = parse(LOCAL_ONLY)
     assert config.data["sandbox"]["mode"] == "docker"
-    assert config.data["delivery"]["mode"] == "pull_request"
+    # `branch` and not `pull_request`: the old default named a handback nothing
+    # here performs, and every mode committed to the checked-out branch instead.
+    assert config.data["delivery"]["mode"] == "branch"
     assert config.data["budgets"]["task_timeout_s"] > 0
     # Verification is off rather than on-and-unbound, so a keyless install
     # loads and runs without touching the config.

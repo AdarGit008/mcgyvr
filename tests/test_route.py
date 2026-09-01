@@ -48,6 +48,7 @@ from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
+from mcgyvr.deterministic import ToolStep
 from mcgyvr.pool import Endpoint, Rung, SourceMap, source_map
 from mcgyvr.route import (
     Accepted,
@@ -151,6 +152,19 @@ scope:
   allow: ["src/**"]
 """
 
+# A deterministic type whose floor binds no program: ADR-0025 holds eslint at
+# `recommended`, which has no import-order rule, so nothing sorts imports in
+# js/ts. This is the contract that still reaches the empty-plan path now that
+# the floor binds tools for the types that have them.
+UNBOUND_DETERMINISTIC_CONTRACT = """
+id: tidy-imports
+task_type: import_sort
+task: Sort the imports.
+target: src/pkg/fetch.ts
+scope:
+  allow: ["src/**"]
+"""
+
 LOCAL = catalog().family("local")
 API = catalog().family("api")
 DETERMINISTIC = catalog().family("deterministic")
@@ -204,13 +218,22 @@ class Recorder:
     The script is consumed one verdict per call, and running past its end is
     itself a failure: a climb that tried more rungs than the test scripted has
     broken the budget the test is about, and a silent default would hide it.
+
+    A passing verdict carries a marker naming the rung and the attempt number
+    that produced it. It travels as the result's ``detail``, which
+    :func:`~mcgyvr.route.climb` copies into the :class:`~mcgyvr.route.Attempted`
+    row it appends — so a test can still say *which* attempt on *which* rung the
+    accepted climb came from, which is the only reason the marker exists. It
+    used to ride on a ``Result.value``; that channel is gone, because content
+    that travels beside a verdict without being bound to it is how un-gated
+    bytes reach a repository.
     """
 
     def __init__(self, *verdicts: Verdict) -> None:
         self._verdicts = list(verdicts)
         self.seen: list[Try] = []
 
-    def __call__(self, attempt: Try) -> Result[str]:
+    def __call__(self, attempt: Try) -> Result:
         self.seen.append(attempt)
         if not self._verdicts:
             raise AssertionError(
@@ -247,12 +270,12 @@ class DownProbe:
         }
 
 
-def accepted(result: Accepted[str] | Exhausted) -> Accepted[str]:
+def accepted(result: Accepted | Exhausted) -> Accepted:
     assert isinstance(result, Accepted), f"expected an accepted climb, got {result}"
     return result
 
 
-def exhausted(result: Accepted[str] | Exhausted) -> Exhausted:
+def exhausted(result: Accepted | Exhausted) -> Exhausted:
     assert isinstance(result, Exhausted), f"expected an exhausted family, got {result}"
     return result
 
@@ -399,19 +422,51 @@ def test_a_plan_never_contains_a_rung_of_another_family(key: None) -> None:
         made = plan(config, pool, contract(), family=family)
         assert made.family == family
         for step in made.steps:
+            # A deterministic step is a program and carries no rung, so it has no
+            # family to cross; `Plan.rungs` is the property that already draws
+            # that line, and reading it here keeps this test about rungs.
+            assert isinstance(step, Step)
             assert family_of(config, step.rung.name) == family
 
 
-def test_the_deterministic_family_plans_nothing_and_says_why_structurally() -> None:
-    """It is empty for a reason no config edit changes, and the words say so."""
+def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
+    """The floor binds a program, so a `format` contract plans one.
+
+    This test used to assert the opposite — that the family planned nothing and
+    said so structurally — and it was an accurate description of a hole. X07
+    measured the hole rather than reading the comment: 4 of 4 deterministic task
+    types planned nothing to run on their own floor, so every one of them was a
+    model call for work `ruff` does for free. The reason string it asserted is
+    still reachable, and the test below is what reaches it.
+    """
     config, pool = mapped(KEYLESS)
 
     made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
 
     assert made.family == DETERMINISTIC
+    assert made
+    assert made.rungs == (), "a program has no rung, and none should be invented"
+    assert [step.tool.program for step in made.steps if isinstance(step, ToolStep)] == [
+        "ruff"
+    ]
+
+
+def test_a_deterministic_type_with_no_program_for_its_target_still_says_why() -> None:
+    """The structural reason survives, narrowed to the case that now reaches it.
+
+    ADR-0025 holds eslint at `recommended`, which has no import-order rule, so
+    there is no js/ts import sorter to bind. That is a missing *program for a
+    type*, not a missing source for a rung, and the words have to send an
+    operator to the right file.
+    """
+    config, pool = mapped(KEYLESS)
+
+    made = plan(config, pool, contract(UNBOUND_DETERMINISTIC_CONTRACT))
+
+    assert made.family == DETERMINISTIC
     assert not made
-    assert "#81" in made.reason
     assert "tools, not a model on a source" in made.reason
+    assert "no tool is bound" in made.reason
 
 
 def test_an_empty_family_with_skipped_rungs_points_at_the_skip() -> None:
@@ -473,7 +528,12 @@ def test_a_passing_rung_ends_the_climb_and_the_dearer_rung_is_never_tried(
     result = accepted(climb(plan(config, pool, contract()), attempts))
 
     assert result.rung == "local_qwen-7b"
-    assert result.value == "local_qwen-7b#1"
+    assert result.history[-1] == Attempted(
+        rung="local_qwen-7b",
+        attempt=1,
+        verdict=Verdict.PASSED,
+        detail="local_qwen-7b#1",
+    )
     assert attempts.rungs == ["local_qwen-7b"]
 
 
@@ -548,7 +608,7 @@ def test_a_decline_beside_a_failure_is_a_spent_family_not_a_declined_one(
 
 def test_an_empty_plan_is_exhausted_with_no_rung_and_carries_the_reason() -> None:
     config, pool = mapped(KEYLESS)
-    made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
+    made = plan(config, pool, contract(UNBOUND_DETERMINISTIC_CONTRACT))
     attempts = Recorder()
 
     result = exhausted(climb(made, attempts))
@@ -634,7 +694,7 @@ def test_an_attempt_that_raises_is_not_swallowed_into_an_exhaustion() -> None:
     """A verdict is a judgement; an exception is the absence of one."""
     config, pool = mapped(KEYLESS)
 
-    def explode(attempt: Try) -> Result[str]:
+    def explode(attempt: Try) -> Result:
         raise RuntimeError("the socket died")
 
     with pytest.raises(RuntimeError):
@@ -799,7 +859,7 @@ def test_a_raising_attempt_stops_counting_against_the_rung_it_raised_on(
     config, pool = mapped(with_fanout(MIXED, "full"))
     capacity = Capacity.of(config)
 
-    def explode(step: Try) -> Result[str]:
+    def explode(step: Try) -> Result:
         raise RuntimeError("the socket died mid-dispatch")
 
     with pytest.raises(RuntimeError):
@@ -837,7 +897,7 @@ def test_two_rungs_on_one_machine_are_one_queue() -> None:
     made = plan(config, pool, contract())
 
     assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
-    assert made.steps[0].machine is made.steps[1].machine
+    assert made.climbable[0].machine is made.climbable[1].machine
 
 
 def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
@@ -848,7 +908,7 @@ def test_a_plan_can_be_asked_how_busy_a_rung_is_without_naming_the_machine(
     capacity = Capacity.of(config)
 
     made = plan(config, pool, contract())
-    machine = made.steps[0].machine
+    machine = made.climbable[0].machine
     assert machine is not None
 
     rendered = repr(made)
@@ -867,7 +927,7 @@ def test_a_step_bound_to_no_machine_is_taken_in_price_order(lock_dir: None) -> N
     made = plan(config, pool, contract())
     bare = Plan(
         family=LOCAL,
-        steps=tuple(Step(step.rung, step.attempts) for step in made.steps),
+        steps=tuple(Step(step.rung, step.attempts) for step in made.climbable),
         fanout=Fanout.FULL,
     )
     attempts = Recorder(Verdict.PASSED)
@@ -893,7 +953,7 @@ def test_a_plan_reports_its_budget_before_anything_is_spent() -> None:
 
 def test_a_result_is_built_through_a_named_verdict() -> None:
     assert Result.passed("x").verdict is Verdict.PASSED
-    assert Result.passed("x").value == "x"
+    assert Result.passed("x").detail == "x"
     assert Result.failed("why").verdict is Verdict.FAILED
     assert Result.declined("why").detail == "why"
 

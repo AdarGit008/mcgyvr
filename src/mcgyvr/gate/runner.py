@@ -53,6 +53,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.structured import validate_structured_data
+from mcgyvr.gate.typecheck import STYLE, TypeCheck, TypeCheckTimeoutError
 from mcgyvr.scope import Scope
 
 
@@ -141,7 +142,19 @@ class Gate:
         *,
         semantic: SemanticCheck | None = None,
         acceptance: Acceptance | None = None,
+        typecheck: TypeCheck | None = None,
+        contract_text: str = "",
     ) -> GateResult:
+        """Judge one change set. ``contract_text`` is the contract's own prose.
+
+        Only one rung reads it — ``param-mutation``, which a contract can
+        order and therefore has to be able to stand down (see
+        :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`). It is
+        a plain string with an empty default because the gate must still reach
+        a verdict for a caller holding no contract, and that verdict is the
+        strict one: a rung that read an absent contract as permission would
+        stand down hardest exactly where the least is known.
+        """
         findings: list[Finding] = []
         observations: list[Finding] = []
 
@@ -170,9 +183,36 @@ class Gate:
         env_issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
         for adapter in self.adapters:
-            findings.extend(
-                self._run_adapter(adapter, changeset, env_issues, inconclusive)
-            )
+            for item in self._run_adapter(
+                adapter, changeset, env_issues, inconclusive, contract_text
+            ):
+                (observations if item.check == STYLE else findings).append(item)
+
+        if typecheck is not None and not findings:
+            try:
+                # The same split as the adapter branch above: a style finding
+                # is said out loud and never fatal, whatever rung produced it.
+                for item in typecheck.run(changeset):
+                    (observations if item.check == STYLE else findings).append(item)
+            except TypeCheckTimeoutError as exc:
+                # A timeout is a load fault, not a verdict: reported as a skip
+                # rather than an inconclusive rejection, so the same change is
+                # not accepted on a quiet machine and rejected on a loaded one.
+                env_issues.append(f"python: typecheck {exc.detail} — skipped")
+            except ToolFailedError as exc:
+                rung = InconclusiveRung(
+                    adapter="python",
+                    rung="typecheck",
+                    tool=exc.tool,
+                    exit_code=exc.exit_code,
+                    detail=exc.detail,
+                )
+                inconclusive.append(rung)
+                env_issues.append(str(rung))
+            except ToolUnavailableError as exc:
+                env_issues.append(
+                    f"python: {exc.tool} not installed — typecheck skipped"
+                )
 
         # 5 — semantic resolution (#123): the first rung that needs the
         # sandbox, and much the cheaper of the two that do. It resolves the
@@ -208,6 +248,7 @@ class Gate:
         changeset: ChangeSet,
         env_issues: list[str],
         inconclusive: list[InconclusiveRung],
+        contract_text: str = "",
     ) -> list[Finding]:
         repo = changeset.repo
         findings: list[Finding] = []
@@ -218,7 +259,9 @@ class Gate:
                 findings.extend(syntax)  # a file that can't parse is not linted
                 continue
             syntax_clean.append(change)
-            findings.extend(adapter.structural_checks(change, repo))
+            findings.extend(
+                adapter.structural_checks(change, repo, contract_text=contract_text)
+            )
 
         if not syntax_clean:
             return findings

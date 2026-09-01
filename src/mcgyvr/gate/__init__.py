@@ -32,6 +32,7 @@ from mcgyvr.gate.preflight import (
     PreflightIssue,
     TokenCount,
     check_clean_tree,
+    check_contract_fits,
     check_prompt_fits,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
@@ -59,5 +60,6 @@ __all__ = [
     "ToolFailedError",
     "ToolUnavailableError",
     "check_clean_tree",
+    "check_contract_fits",
     "check_prompt_fits",
 ]

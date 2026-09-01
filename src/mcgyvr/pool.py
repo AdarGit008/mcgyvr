@@ -279,6 +279,29 @@ class SourceMap:
             raise SourceUnavailableError(f"role {role!r} cannot run: {reason}")
         return None
 
+    def role_model(self, role: str) -> str | None:
+        """Which model ``role`` runs, or ``None`` when it has no source.
+
+        What a caller *above* the seam may ask about a role, and the reason
+        :meth:`role` is not that caller's method. A ``RoleBinding`` carries an
+        :class:`Endpoint`, and an endpoint carries ``credential()`` — so a
+        presence check written as ``source_map.role(VERIFIER_ROLE) is None``
+        put a live credential in the hands of a module that only wanted to know
+        whether a verifier existed. It imported neither forbidden name, which is
+        how the import guard missed it: the object arrived through an accessor,
+        not through an import.
+
+        The two questions above the seam actually asks are "is this role bound"
+        and "which model is it" — ``mcgyvr.cli`` prints the second, ``verify``
+        asks the first — and both are answered here without anything to dispatch
+        with. Raises the same :class:`SourceUnavailableError` as :meth:`role`
+        for a role declared but unusable, because a caller that cannot see the
+        endpoint still has to be able to tell "no verifier" from "the verifier
+        is misconfigured".
+        """
+        binding = self.role(role)
+        return None if binding is None else binding.model
+
 
 def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     """Resolve a config's ladder against its sources, degrading where it must.

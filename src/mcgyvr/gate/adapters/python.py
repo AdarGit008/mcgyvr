@@ -27,11 +27,20 @@ from mcgyvr.gate.adapter import (
 )
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.typecheck import (
+    STYLE,
+    STYLE_LINT_CODES,
+    compliance_findings,
+    unimportable_lines,
+)
 
 _EXTENSIONS = (".py", ".pyi")
 
-#: Both rungs are the same binary, and both are named in the fault it raises.
-_RUFF = "ruff"
+#: The Python toolchain binary, named once. Both gate rungs here are the same
+#: program, and `mcgyvr.repair` imports this rather than restating it: repairing
+#: with a different tool than the one that rejected would be a second opinion,
+#: and a second opinion cannot guarantee the re-run gate accepts.
+RUFF = "ruff"
 
 
 class PythonAdapter(LanguageAdapter):
@@ -49,6 +58,9 @@ class PythonAdapter(LanguageAdapter):
         try:
             ast.parse(source, filename=change.path)
         except SyntaxError as exc:
+            # Every other way source can fail to be Python arrives here, null
+            # bytes included ("source code string cannot contain null bytes"
+            # is a SyntaxError from 3.12, which is this project's floor).
             return [
                 Finding(
                     check="syntax",
@@ -57,25 +69,31 @@ class PythonAdapter(LanguageAdapter):
                     message=exc.msg,
                 )
             ]
+        except UnicodeEncodeError as exc:
+            return [_not_utf8(change.path, source, exc)]
         return []
 
-    def structural_checks(self, change: FileChange, repo: Path) -> list[Finding]:
+    def structural_checks(
+        self, change: FileChange, repo: Path, *, contract_text: str = ""
+    ) -> list[Finding]:
         source = _read(repo / change.path)
         if source is None:
             return []
         try:
             tree = ast.parse(source, filename=change.path)
-        except SyntaxError:
+        except (SyntaxError, UnicodeEncodeError):
             return []  # syntax pass already owns this; do not double-report
         visitor = _HazardVisitor(change.path, change.added_lines)
         visitor.visit(tree)
-        return visitor.findings
+        return visitor.findings + compliance_findings(
+            tree, change.path, change.added_lines, contract_text=contract_text
+        )
 
     def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool(_RUFF)
+        ruff = require_tool(RUFF)
         proc = subprocess.run(
             [
                 ruff,
@@ -95,16 +113,17 @@ class PythonAdapter(LanguageAdapter):
         # read below succeeds and yields no diagnostics — a clean pass under a
         # linter that never ran (#261). The exit code is the only thing that
         # separates the two, so it is checked first.
-        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
+        stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         try:
             diagnostics = json.loads(stdout or "[]")
         except json.JSONDecodeError as exc:
             # An expected exit code with unreadable output: not a shape ruff
             # produces today, and inconclusive rather than clean if it ever does.
             raise ToolFailedError(
-                _RUFF, proc.returncode, f"stdout is not JSON: {exc}"
+                RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
         added = _added_by_resolved_path(files, repo)
+        unimportable = _Unimportable(repo)
         findings: list[Finding] = []
         for diag in diagnostics:
             resolved = Path(diag["filename"]).resolve()
@@ -114,12 +133,22 @@ class PythonAdapter(LanguageAdapter):
                 continue
             path, added_lines = rel
             if row in added_lines:
+                code = diag.get("code")
+                # A demotable code is only demoted where the line it sits on is
+                # a style fault. UP035 is one code over two faults, and its
+                # other half — `from collections import Mapping` — is an
+                # ImportError that this line withdraws the demotion for. The
+                # AST family reports it too, on the same line and the same
+                # side of the verdict, so a machine with ruff and a machine
+                # without one reject the same change — and the two voices,
+                # where both are heard, are not saying opposite things.
+                demoted = code in STYLE_LINT_CODES and row not in unimportable.at(path)
                 findings.append(
                     Finding(
-                        check="lint",
+                        check=STYLE if demoted else "lint",
                         path=path,
                         line=row,
-                        code=diag.get("code"),
+                        code=code,
                         message=diag.get("message", "").strip(),
                     )
                 )
@@ -129,7 +158,7 @@ class PythonAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        ruff = require_tool(_RUFF)
+        ruff = require_tool(RUFF)
         proc = subprocess.run(
             [ruff, "format", "--diff", "--force-exclude", "--", *_paths(files)],
             cwd=repo,
@@ -140,7 +169,7 @@ class PythonAdapter(LanguageAdapter):
         # Same shape as lint, same reason: `ruff format --diff` exits 0 already
         # formatted, 1 would reformat, 2 failed — and on 2 the diff is empty,
         # which reads as "nothing to reflow" (#261).
-        stdout = trusted_stdout(_RUFF, proc, expected=(0, 1))
+        stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         if not stdout.strip():
             return []
         touched = _format_touched_lines(stdout)
@@ -274,6 +303,35 @@ def _is_mutable_literal(node: ast.expr) -> bool:
     return False
 
 
+class _Unimportable:
+    """Which lines of which file hold an import that cannot resolve.
+
+    One of these lives for the length of one :meth:`PythonAdapter.lint` call.
+    The lint rung is batched — one ruff invocation for every changed Python
+    file — so a diagnostic arrives with a path and a row and no source, and the
+    only way to ask what was imported there is to read and parse the file. That
+    is done once per path and only for paths ruff raised a *demotable* code on,
+    which on a normal change is none of them: the short circuit in
+    :meth:`PythonAdapter.lint` means an ordinary lint finding never opens a
+    file. A cache rather than a precomputation for the same reason.
+
+    Deliberately not shared with :meth:`PythonAdapter.structural_checks`, which
+    parses every changed file a few milliseconds earlier. Threading a tree
+    cache between two rungs would make the lint rung's answer depend on another
+    rung having run, and the rungs are run independently on purpose — each is
+    tried even when the one before it faulted.
+    """
+
+    def __init__(self, repo: Path) -> None:
+        self._repo = repo
+        self._seen: dict[str, frozenset[int]] = {}
+
+    def at(self, path: str) -> frozenset[int]:
+        if path not in self._seen:
+            self._seen[path] = frozenset(unimportable_lines(_read(self._repo / path)))
+        return self._seen[path]
+
+
 def _read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8", errors="surrogateescape")
@@ -283,6 +341,52 @@ def _read(path: Path) -> str | None:
 
 def _read_or_empty(path: Path) -> str:
     return _read(path) or ""
+
+
+#: Where ``surrogateescape`` parks a byte it could not decode: bytes ``0x80``
+#: to ``0xff`` land on ``U+DC80`` to ``U+DCFF``, so subtracting this base from
+#: the surrogate recovers the byte the file actually holds.
+_SURROGATE_BASE = 0xDC00
+
+
+def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
+    """The finding for source the parser will not even be handed.
+
+    :func:`_read` decodes with ``surrogateescape`` deliberately — that is the
+    byte convention the rest of mcgyvr is written to (:mod:`mcgyvr.pending`),
+    and it is what lets a file with an undecodable byte reach the gate at all
+    instead of raising on the way in. ``compile()`` refuses such a string:
+    ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is
+    not a ``SyntaxError``, so it used to leave this adapter and take the whole
+    gate run down with it — a crash where a verdict was owed.
+
+    A *syntax* finding, for the same reason a stray brace is one: Python source
+    is UTF-8 by definition (:pep:`3120`), so this is a file the parser cannot
+    accept — which is precisely what this rung reports, and precisely what has
+    to stop the file reaching lint, the type checker and the sandboxed rungs
+    below. Returning nothing would let a file no checker ever read pass clean.
+
+    The offending byte is named rather than the codec's message quoted. The
+    codec counts characters from the top of the file and a reviewer needs a
+    line, and its wording is about a *character* the file does not contain: the
+    surrogate is this decoder's placeholder for the byte, so the byte is what is
+    reported.
+    """
+    offending = ord(exc.object[exc.start])
+    detail = (
+        f"byte 0x{offending - _SURROGATE_BASE:02x}"
+        if 0xDC80 <= offending <= 0xDCFF
+        else f"the lone surrogate U+{offending:04X}"
+    )
+    return Finding(
+        check="syntax",
+        path=path,
+        # Characters up to the offending one, counted in newlines. `exc.start`
+        # indexes the very string handed to the parser, so this is the line the
+        # byte is on in the file as it is on disk.
+        line=source.count("\n", 0, exc.start) + 1,
+        message=f"{detail} is not valid utf-8, which Python source must be",
+    )
 
 
 # --- type-checker declarations (#114) --------------------------------------
@@ -328,10 +432,14 @@ def _has_toml_table(path: Path, name: str) -> bool:
     try:
         with path.open("rb") as handle:
             document = tomllib.load(handle)
-    except (OSError, tomllib.TOMLDecodeError):
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
         # An unparseable manifest is not a declaration. Nothing here raises:
         # a malformed file is the target's business, and the honest answer to
-        # "does it declare a checker" is no.
+        # "does it declare a checker" is no. `UnicodeDecodeError` is named
+        # separately because `tomllib` decodes the bytes itself and answers a
+        # non-UTF-8 manifest with that rather than with `TOMLDecodeError` — and
+        # it is a `ValueError`, so it walked straight out of a function whose
+        # only vocabulary downstream is a command or a refusal.
         return False
     tool = document.get("tool")
     return isinstance(tool, dict) and isinstance(tool.get(name), dict)

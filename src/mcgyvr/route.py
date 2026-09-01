@@ -48,10 +48,12 @@ known-in-advance result; :func:`attempts_for` returns 1 for it whatever the
 config says. But no configuration can put a rung in that family: a rung's family
 comes from whether its *source* needs a credential
 (:meth:`~mcgyvr.catalog.Catalog.family_of`), and the deterministic tier binds no
-source because it is a program, not a model. So :func:`plan` for the
-deterministic family is empty by construction today, and says so in words. #81
-is the tier itself; when it lands it supplies the step, and the budget rule here
-already covers it.
+source because it is a program, not a model. So :func:`plan` for that family
+answers from the task type instead (#81, :mod:`mcgyvr.deterministic`), and what
+it returns is a program — which is why a plan's steps are two types and why
+:attr:`Plan.climbable` exists. A caller that read ``bool(plan)`` as "there is
+something to climb" was right only while the floor was empty; it holds work and
+nothing climbable now, and :func:`climb` refuses the difference by name.
 
 **Declining is not failing.** An attempt may answer that this rung cannot do
 this contract at all — #81's rule, and the reason it exists is that a
@@ -109,6 +111,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
+    from mcgyvr.deterministic import ToolStep
     from mcgyvr.pool import Rung, SourceMap
 
 
@@ -215,6 +218,14 @@ class Machine:
     def __repr__(self) -> str:
         return "<machine>"
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Machine):
+            return NotImplemented
+        return self._source == other._source
+
+    def __hash__(self) -> int:
+        return hash(self._source)
+
     def load(self, capacity: Capacity) -> int | None:
         """How busy this machine is, or ``None`` if this capacity cannot say.
 
@@ -265,14 +276,82 @@ class Step:
     machine: Machine | None = None
 
 
+class Planned:
+    """Reading a tuple of steps as rungs and as programs, in one place.
+
+    Two types carry ``tuple[Step | ToolStep, ...]`` — :class:`Plan`, which is one
+    family's answer, and :class:`~mcgyvr.deterministic.Routed`, which is the
+    floor router's — and every question worth asking about that tuple is the
+    same question for both. It is stated here once because the alternative was
+    tried: ``Plan`` gained :attr:`climbable` when #81 bound the floor, ``Routed``
+    did not, and a caller holding the second had truthiness and nothing else —
+    which is precisely the misreading :attr:`climbable` was added to end.
+
+    A plain base rather than a dataclass one: it holds no field, only the four
+    readings of the field its subclasses declare, and a dataclass base would put
+    ``steps`` in both constructors' signatures from a class that cannot supply
+    one.
+    """
+
+    steps: tuple[Step | ToolStep, ...]
+
+    @property
+    def climbable(self) -> tuple[Step, ...]:
+        """The steps :func:`climb` can run: rungs, never programs.
+
+        The question every reader of a plan actually has, asked once here rather
+        than by each of them. ``bool(plan)`` answers "is there anything here",
+        which was the same question only while the floor was empty by
+        construction; since #81 bound it, a family can hold work and hold
+        nothing to climb, and a caller that kept using truthiness would enter a
+        family whose only step :func:`climb` refuses.
+        """
+        return tuple(step for step in self.steps if isinstance(step, Step))
+
+    @property
+    def programs(self) -> tuple[ToolStep, ...]:
+        """The steps that are a program rather than a rung.
+
+        The complement of :attr:`climbable`, and named so that a caller refusing
+        one can say which program it was holding rather than only that the plan
+        was the wrong shape.
+        """
+        return tuple(step for step in self.steps if not isinstance(step, Step))
+
+    @property
+    def budget(self) -> int:
+        """The most attempts these steps could spend between them."""
+        return sum(step.attempts for step in self.steps)
+
+    @property
+    def climb_budget(self) -> int:
+        """The most attempts :func:`climb` could spend on these steps.
+
+        Distinct from :attr:`budget` because a program's single attempt is spent
+        by :mod:`mcgyvr.deterministic` and never by the ladder. A caller
+        budgeting a climb wants this one; a caller reporting what the family
+        costs in total wants :attr:`budget`. Collapsing them would hand the
+        climb an attempt of headroom the operator's ladder does not offer.
+        """
+        return sum(step.attempts for step in self.climbable)
+
+
 @dataclass(frozen=True)
-class Plan:
-    """The rungs of one family a contract may be tried on, cheapest first.
+class Plan(Planned):
+    """What one family would run for a contract, cheapest first.
 
     Empty is an ordinary answer rather than an error: a keyless install
-    planning an ``api`` family has no rungs, and so does every plan for the
-    deterministic family. ``reason`` says which, in words, so that a caller
-    reporting "nothing ran" can say why without inspecting the config itself.
+    planning an ``api`` family has no rungs. ``reason`` says which, in words, so
+    that a caller reporting "nothing ran" can say why without inspecting the
+    config itself.
+
+    A step is a :class:`Step` — a rung a runner dispatches against — or, on the
+    deterministic floor, a :class:`~mcgyvr.deterministic.ToolStep`, which is a
+    program and has no rung to name. The two are deliberately different types
+    rather than one with an optional field: fitting a tool into ``Step`` would
+    mean inventing a rung name :meth:`~mcgyvr.pool.SourceMap.bind` cannot
+    honour, and every caller that reads ``rung`` would have to learn that it
+    sometimes means nothing.
 
     ``fanout`` is the mode the ladder was configured with, carried on the plan
     so that :func:`climb` can honour it without being handed a
@@ -282,7 +361,7 @@ class Plan:
     """
 
     family: Family
-    steps: tuple[Step, ...]
+    steps: tuple[Step | ToolStep, ...]
     reason: str = ""
     fanout: Fanout = Fanout.NONE
 
@@ -294,13 +373,13 @@ class Plan:
 
     @property
     def rungs(self) -> tuple[str, ...]:
-        """The rung names in the order they would be tried."""
-        return tuple(step.rung.name for step in self.steps)
+        """The rung names in the order they would be tried.
 
-    @property
-    def budget(self) -> int:
-        """The most attempts this plan could spend before the family is spent."""
-        return sum(step.attempts for step in self.steps)
+        A deterministic step contributes nothing here rather than a placeholder:
+        it has no rung, and a name invented for it would be a name no source map
+        could bind and no ladder entry could configure.
+        """
+        return tuple(step.rung.name for step in self.steps if isinstance(step, Step))
 
 
 @dataclass(frozen=True)
@@ -323,7 +402,7 @@ class Try:
 
 
 @dataclass(frozen=True)
-class Result[T]:
+class Result:
     """What an attempt function reports back.
 
     Built through :meth:`passed`, :meth:`failed` or :meth:`declined` rather than
@@ -332,19 +411,18 @@ class Result[T]:
     """
 
     verdict: Verdict
-    value: T | None = None
     detail: str = ""
 
     @classmethod
-    def passed(cls, value: T, detail: str = "") -> Result[T]:
-        return cls(verdict=Verdict.PASSED, value=value, detail=detail)
+    def passed(cls, detail: str = "") -> Result:
+        return cls(verdict=Verdict.PASSED, detail=detail)
 
     @classmethod
-    def failed(cls, detail: str = "") -> Result[T]:
+    def failed(cls, detail: str = "") -> Result:
         return cls(verdict=Verdict.FAILED, detail=detail)
 
     @classmethod
-    def declined(cls, detail: str = "") -> Result[T]:
+    def declined(cls, detail: str = "") -> Result:
         return cls(verdict=Verdict.DECLINED, detail=detail)
 
 
@@ -364,16 +442,19 @@ class Attempted:
 
 
 @dataclass(frozen=True)
-class Accepted[T]:
+class Accepted:
     """A climb that ended with a rung producing an acceptable result.
 
-    ``value`` is whatever the attempt function handed back — this module never
-    inspects it, which is what keeps routing testable without a model.
+    Names which rung and what it took to get there, and carries nothing the
+    attempt produced. It used to carry a ``value`` this module never inspected,
+    which is what kept routing testable without a model — the testability came
+    from not inspecting it, not from holding it, and the caller that needs the
+    accepted bytes reads them off the :class:`~mcgyvr.escalate.Judgement` that
+    bound them to a tree.
     """
 
     family: Family
     rung: str
-    value: T | None
     history: tuple[Attempted, ...]
 
     @property
@@ -490,7 +571,22 @@ def plan(
     rungs = by_family(config, pool).get(chosen)
     if rungs is None:  # a Family from another catalog than the one loaded here
         raise RouteError(f"{chosen.name!r} is not a family of the loaded catalog")
+
     mode = fanout_of(config)
+
+    if chosen.rank == 0:
+        # The deterministic floor is planned from the task type, not from the
+        # ladder: it binds no rung because its executor is a program, and until
+        # this branch existed every `starts_on: deterministic` type planned
+        # nothing at all — a model call for work a tool does for free. Imported
+        # here rather than at module scope because `mcgyvr.deterministic` reads
+        # `attempts_for` from this module; at module scope that is a cycle.
+        from mcgyvr.deterministic import tool_steps
+
+        tools = tool_steps(contract)
+        if tools:
+            return Plan(family=chosen, steps=tools)
+
     if not rungs:
         return Plan(
             family=chosen,
@@ -558,11 +654,14 @@ def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
 def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     """Why a family offers nothing, in the terms that make it actionable.
 
-    The deterministic family is empty for a structural reason that no config
-    edit will change, so saying "no rung is bound to it" would send an operator
-    to the wrong file. Every other family is empty either because nothing was
-    bound to it or because what was bound could not be offered, and the pool
-    already holds the reason for the second case.
+    The deterministic family is empty for a reason no config edit will change,
+    so saying "no rung is bound to it" would send an operator to the wrong file.
+    It is also, since the floor was bound, a much narrower case than it was:
+    :func:`plan` reaches this branch only when no program is bound for the
+    contract's type on its target, not merely because the family holds no rung.
+    Every other family is empty either because nothing was bound to it or
+    because what was bound could not be offered, and the pool already holds the
+    reason for the second case.
 
     Only *this family's* skipped rungs are quoted. A local rung that was skipped
     says nothing about why the api family is empty, and offering it as the
@@ -570,9 +669,10 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     """
     if family.rank == 0:
         return (
-            "the deterministic family binds no rung: it is tools, not a model on "
-            "a source. Its executor is the deterministic tier (#81), which is not "
-            "reached through the ladder."
+            "the deterministic family runs tools, not a model on a source, and no "
+            "tool is bound for this contract's task type on this target. It binds "
+            "no rung either, so there is no ladder entry to configure: what is "
+            "missing is a program for the type, not a source for a rung."
         )
     mine = [s for s in pool.skipped if family_of(config, s.name) == family]
     if mine:
@@ -645,13 +745,13 @@ def _release(machine: Machine | None) -> None:
 # --- executing a plan ------------------------------------------------------
 
 
-def climb[T](
+def climb(
     plan: Plan,
-    attempt: Callable[[Try], Result[T]],
+    attempt: Callable[[Try], Result],
     *,
     capacity: Capacity | None = None,
     permit: Callable[[Step, int], bool] | None = None,
-) -> Accepted[T] | Exhausted:
+) -> Accepted | Exhausted:
     """Try each rung of ``plan`` in turn until one passes or the family is spent.
 
     ``attempt`` is the caller's — it is what actually assembles a prompt,
@@ -697,7 +797,25 @@ def climb[T](
             detail=plan.reason,
         )
 
-    remaining = list(plan.steps)
+    # A tool is not climbed. Every shape this loop hands out — `Try`, `permit`'s
+    # argument, an `Attempted` row — is named after a rung, and a deterministic
+    # step has none: it is a program, executed by :mod:`mcgyvr.deterministic`.
+    # Refusing here rather than skipping keeps that a visible routing error
+    # instead of a plan that reports having run and spent nothing.
+    #
+    # The refusal is for a caller that reached for the wrong function, so it is
+    # not something a walk of the ascent should ever meet: `Plan.climbable` is
+    # what a caller asks before handing a plan over, and #43 asks it.
+    steps = plan.climbable
+    if plan.programs:
+        named = ", ".join(sorted({step.tool.task_type for step in plan.programs}))
+        raise RouteError(
+            f"the {plan.family.name!r} plan is a program, not a rung, so it is "
+            f"not climbed: run it through `mcgyvr.deterministic` instead "
+            f"({named})."
+        )
+
+    remaining = list(steps)
     while remaining:
         step = _claim_next(remaining, plan.fanout, capacity)
         try:
@@ -732,7 +850,6 @@ def climb[T](
                     return Accepted(
                         family=plan.family,
                         rung=step.rung.name,
-                        value=result.value,
                         history=tuple(history),
                     )
                 if result.verdict is Verdict.DECLINED:

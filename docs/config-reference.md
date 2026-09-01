@@ -48,6 +48,8 @@ them rather than documenting them and hoping:
 | `sandbox` | block | no | — | Where a task's commands run. |
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `budgets` | block | no | — | The ceilings that bound one task's cost. |
+| `breadth` | block | no | — | How many answers one attempt asks for. Separate from `budgets` because breadth is not a ceiling: it is what a single attempt spends, and every budget in this file still counts that attempt once. |
+| `cleanup` | block | no | — | What may be fixed without asking a model. |
 
 ## `sources`
 
@@ -119,8 +121,7 @@ How accepted work gets back to you.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `mode` | one of `pull_request`, `branch`, `none` | no | `pull_request` | How accepted work is handed back. `pull_request` proposes it; `branch` stops after pushing; `none` leaves it committed locally. mcgyvr does not silently mutate a working tree it was pointed at. |
-| `token_env` | env var name | no | unset | NAME of the environment variable holding the forge token. Absent falls back to the ambient `gh` CLI credentials. To bind it: set it to the variable's NAME (e.g. GITHUB_TOKEN), never the token itself. |
+| `mode` | one of `branch`, `none` | no | `branch` | Where an accepted change is committed. `branch` puts it on a new local branch named after the contract and leaves the branch you have checked out, your index and your working tree exactly as they were — the delivery tells you the `git push` to run. `none` commits onto the branch you have checked out. Nothing here pushes or opens a pull request: mcgyvr reaches your repository through `git` and has no forge, so the last step off this machine is yours. |
 
 ## `budgets`
 
@@ -131,3 +132,19 @@ The ceilings that bound one task's cost.
 | `max_escalations` | number (min 0) | no | `1` | How many rungs a task may climb before it is handed back unfinished. A cheap rung that fails and escalates costs more than starting higher, so this is a real ceiling, not a retry count. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total, across every rung and every family it climbs. Unset means the ladder's own budget bounds it — the sum of each reachable rung's `attempts`, which `mcgyvr pool` prints — so leaving it unset is not unbounded. Set it when you have raised a rung's `attempts` or `max_escalations` and want one number that still holds. A decline costs nothing against it: a rung that stepped aside spent no attempt. To bind it: set a whole number of attempts, or leave it unset to be bounded by the ladder's own budget (`mcgyvr pool` prints that number). |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
+
+## `breadth`
+
+How many answers one attempt asks for. Separate from `budgets` because breadth is not a ceiling: it is what a single attempt spends, and every budget in this file still counts that attempt once.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `draws` | number (min 1) | no | `1` | How many candidates one attempt asks its rung for before the gate picks between them. Draws are not attempts: they share one prompt and one attempt's budget, and the gate ranks the answers rather than the next attempt being told what the last one got wrong. The default of 1 is ADR-0008 unchanged — one draw, one verdict, and the draw is the answer. Raising it is most defensible on a cheap rung that is often almost right, where three draws are still cheaper than escalating; a lever whose whole benefit is fewer crossings into the api family cannot be evaluated before the telemetry that counts crossings, which is why this is something to ask for rather than something you are given. |
+
+## `cleanup`
+
+What may be fixed without asking a model.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `enabled` | boolean | no | `false` | Reformat a change the gate rejected only on formatting, and judge it again, instead of spending an attempt asking a model to insert a space. The formatter is the one the gate already checks with, so a cleanup produces the shape the format rung asks for rather than a second opinion about it, and it costs no tokens by construction. Off by default because it rewrites a file after the gate has spoken about it: the bytes that come back are not the bytes the worker sent, and an operator reading a diff should have said yes to that. Nothing else is ever tidied — a lint code, a failed acceptance command or a rung that could not say what bar it applied leaves the change exactly as the worker wrote it. |

@@ -304,7 +304,6 @@ def test_no_credential_is_ever_written_as_a_value(tmp_path: Path, table) -> None
     assert "never written in this file" in text
     # The env-name keys ship commented, so nothing binds a secret by accident.
     assert "# api_key_env:" in text
-    assert "# token_env:" in text
 
 
 def test_values_that_need_quoting_get_it(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]

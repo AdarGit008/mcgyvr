@@ -87,6 +87,10 @@ _REPLY_INSTRUCTIONS: dict[str, str] = {
 }
 
 
+class UnsupportedSchemaError(ValueError):
+    """The contract declared a shape this port has no instruction or parser for."""
+
+
 @dataclass(frozen=True)
 class WorkerPrompt:
     """One assembled dispatch, with what it cost and whether it fits."""
@@ -194,6 +198,12 @@ def build_prompt(
     retry that no longer fits its own contract's ceiling is exactly the case
     where saying so at zero cost is worth most.
     """
+    if contract.output_schema not in _REPLY_INSTRUCTIONS:
+        raise UnsupportedSchemaError(
+            f"output_schema {contract.output_schema!r} has no reply instruction "
+            f"and no parser; only {WHOLE_FILE!r} is implemented (ADR-0009). "
+            f"Refused before dispatch rather than after it."
+        )
     bundle = bundle_for(contract.target, adapters)
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
