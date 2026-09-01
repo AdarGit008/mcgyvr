@@ -20,10 +20,9 @@ from itertools import combinations
 
 import pytest
 
-from tests.sweeprows import RUN, artifact
+from tests.sweeprows import owed
 
-BEHAVIOUR = "run tools/runs/srv1-ncmoe-floor.sh"
-FLOOR = RUN / "srv1-ncmoe-floor.tsv"
+FLOOR = "srv1-ncmoe-floor.tsv"
 INPUTS = (
     "usable_mib",
     "cuda_ctx_mib",
@@ -36,7 +35,7 @@ INPUTS = (
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no per-arm floor")
 def test_each_arm_derives_its_floor_from_its_own_numbers() -> None:
-    sweep = artifact(FLOOR, BEHAVIOUR)
+    sweep = owed(FLOOR)
     stamps = {s["arm"]: s for s in sweep.stamps("FLOOR") if "arm" in s}
     assert len(stamps) >= 2, f"floors derived for only {sorted(stamps)}"
     for arm, stamp in stamps.items():
@@ -61,7 +60,7 @@ def test_each_arm_derives_its_floor_from_its_own_numbers() -> None:
 def test_two_arms_reporting_one_floor_did_not_reach_it_from_one_set_of_numbers() -> (
     None
 ):
-    sweep = artifact(FLOOR, BEHAVIOUR)
+    sweep = owed(FLOOR)
     stamps = {s["arm"]: s for s in sweep.stamps("FLOOR") if "arm" in s}
     for a, b in combinations(sorted(stamps), 2):
         if stamps[a].get("measured") != stamps[b].get("measured"):
@@ -77,7 +76,7 @@ def test_two_arms_reporting_one_floor_did_not_reach_it_from_one_set_of_numbers()
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no per-arm floor")
 def test_the_refusal_below_the_floor_is_the_measurement() -> None:
-    sweep = artifact(FLOOR, BEHAVIOUR)
+    sweep = owed(FLOOR)
     refusals = sweep.of_kind("REFUSED")
     assert refusals, "no cell was run below the predicted floor, so no edge was found"
     for row in refusals:

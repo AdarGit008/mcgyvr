@@ -21,17 +21,16 @@ from __future__ import annotations
 
 import pytest
 
-from tests.sweeprows import RUN, artifact
+from tests.sweeprows import owed
 
-BEHAVIOUR = "run tools/runs/srv1-moe-slots.sh"
-SLOTS = RUN / "srv1-moe-slots.tsv"
+SLOTS = "srv1-moe-slots.tsv"
 CRASH_MARKS = ("ggml_cuda_mul_mat_vec_q", "invalid argument")
 MIN_TRIALS = 60
 
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no re-crash on this boot")
 def test_the_unpatched_build_crashes_and_the_log_says_why() -> None:
-    sweep = artifact(SLOTS, BEHAVIOUR)
+    sweep = owed(SLOTS)
     crashes = [r for r in sweep.of_kind("CRASH") if r.fields.get("arm") == "L2"]
     assert crashes, "L2 (the unpatched arm) has no recorded crash on this boot"
     for row in crashes:
@@ -48,7 +47,7 @@ def test_the_unpatched_build_crashes_and_the_log_says_why() -> None:
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — crash boundary unlocated")
 def test_the_boundary_is_located_rather_than_poked() -> None:
-    sweep = artifact(SLOTS, BEHAVIOUR)
+    sweep = owed(SLOTS)
     widths = {
         int(r.fields["n"])
         for r in sweep.of_kind("CRASH")
@@ -69,7 +68,7 @@ def test_the_boundary_is_located_rather_than_poked() -> None:
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — patched build unsoaked")
 def test_the_patched_build_survives_the_widths_that_kill_the_unpatched_one() -> None:
-    sweep = artifact(SLOTS, BEHAVIOUR)
+    sweep = owed(SLOTS)
     killed = {
         (r.cell, int(r.fields["n"]))
         for r in sweep.of_kind("CRASH")
@@ -97,6 +96,6 @@ def test_the_patched_build_survives_the_widths_that_kill_the_unpatched_one() -> 
 def test_two_moe_checkpoints_with_different_expert_geometry_are_driven() -> None:
     """The failing kernel dispatches on expert ids, and the batch limit is
     per-quant-type. One checkpoint shows one window."""
-    sweep = artifact(SLOTS, BEHAVIOUR)
+    sweep = owed(SLOTS)
     cells = {r.cell for r in sweep.rows if r.kind in ("CRASH",) or r.n is not None}
     assert len(cells) >= 2, f"only {sorted(cells)} was driven"

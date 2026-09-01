@@ -32,16 +32,25 @@ from __future__ import annotations
 
 import pytest
 
-from tests.sweeprows import RUN, artifact
+from tests.sweeprows import owed
 
-BEHAVIOUR = "run tools/runs/srv1-build-ladder.sh"
-LADDER = RUN / "srv1-build-ladder.tsv"
+LADDER = "srv1-build-ladder.tsv"
 RUNGS = ("L0", "L1", "L2", "L3", "L4")
 
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — build ladder unbuilt")
 def test_every_rung_of_the_ladder_was_built_and_measured() -> None:
-    sweep = artifact(LADDER, BEHAVIOUR)
+    """The ladder's ``BENCH`` rows are the step-3 ``llama-bench`` numbers, one
+    row per rung, re-filed here beside the ``BUILD`` and ``KERNELS`` stamps so
+    the one-variable chain and the static mechanism check read in one place.
+
+    Same measurement as ``srv1-llama-bench.tsv``, not a second one — which is
+    why this file is stamped digest-free too
+    (``test_microbenchmarks_are_filed_where_no_cross_engine_claim_can_reach_them``)
+    and why the spread and ``-fa 0,1`` requirements are asserted only against the
+    instrument record. A rung quoted as a serving gain is the misreading
+    guideline 4 exists to block."""
+    sweep = owed(LADDER)
     built = {s.get("arm") for s in sweep.stamps("BUILD")}
     assert set(RUNGS) <= built, f"no build stamp for {sorted(set(RUNGS) - built)}"
     measured = {r.fields.get("arm") for r in sweep.of_kind("BENCH")}
@@ -59,7 +68,7 @@ def test_each_rung_differs_from_its_neighbour_in_exactly_one_declared_variable()
         "cpu_all_variants",
         "patched",
     )
-    sweep = artifact(LADDER, BEHAVIOUR)
+    sweep = owed(LADDER)
     stamps = {s["arm"]: s for s in sweep.stamps("BUILD") if "arm" in s}
     for lower, upper in (("L0", "L1"), ("L1", "L2"), ("L2", "L3")):
         assert lower in stamps and upper in stamps, f"{lower} or {upper} was not built"
@@ -77,7 +86,7 @@ def test_the_mechanism_is_confirmed_in_the_binary_before_any_throughput_is_quote
     """``cuobjdump`` on the built libraries. Free, and it can end the campaign
     early: an arch list that did not actually remove the tensor-core paths makes
     every downstream number unattributable."""
-    sweep = artifact(LADDER, BEHAVIOUR)
+    sweep = owed(LADDER)
     kernels = {s["arm"]: s for s in sweep.stamps("KERNELS") if "arm" in s}
     for rung in ("L0", "L1"):
         assert kernels.get(rung, {}).get("tensor_core_instructions") == "present", (

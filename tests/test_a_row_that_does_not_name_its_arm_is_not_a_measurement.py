@@ -19,7 +19,7 @@ import re
 
 import pytest
 
-from tests.sweeprows import RUN, artifact
+from tests.sweeprows import owed
 
 FLOATING = re.compile(r":(latest|main|server-cuda)$")
 PINNED = {
@@ -28,13 +28,13 @@ PINNED = {
 }
 LOCAL_PREFIX = "llamacpp:b10644-"
 RUN_FILES = ("srv1-lcpp-arms.tsv", "srv1-moe-slots.tsv", "srv1-vllm-arms.tsv")
-BEHAVIOUR = "run tools/runs/srv1-kernel-arms.sh"
+ARMS_TSV = "srv1-lcpp-arms.tsv"
 
 
 @pytest.mark.xfail(strict=True, reason="2026-09-01: owed — srv1 kernel-arms run")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_every_row_names_its_own_image_and_arm(name: str) -> None:
-    sweep = artifact(RUN / name, BEHAVIOUR)
+    sweep = owed(name)
     for row in sweep.rows:
         if row.kind == "SKIP":
             continue
@@ -52,7 +52,7 @@ def test_every_row_names_its_own_image_and_arm(name: str) -> None:
 
 @pytest.mark.xfail(strict=True, reason="2026-09-01: owed — srv1 kernel-arms run")
 def test_no_two_arms_share_a_label() -> None:
-    sweep = artifact(RUN / "srv1-lcpp-arms.tsv", BEHAVIOUR)
+    sweep = owed(ARMS_TSV)
     arms_per_label: dict[str, set[str]] = {}
     for row in sweep.levels():
         arms_per_label.setdefault(row.label, set()).add(row.fields.get("arm", ""))
@@ -65,7 +65,7 @@ def test_no_two_arms_share_a_label() -> None:
 
 @pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no local image build stamp")
 def test_a_locally_built_image_names_the_source_that_produced_it() -> None:
-    sweep = artifact(RUN / "srv1-lcpp-arms.tsv", BEHAVIOUR)
+    sweep = owed(ARMS_TSV)
     local = {
         r.fields.get("img", "")
         for r in sweep.rows

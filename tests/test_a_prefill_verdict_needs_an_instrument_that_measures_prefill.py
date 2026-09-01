@@ -19,16 +19,15 @@ from __future__ import annotations
 
 import pytest
 
-from tests.sweeprows import RUN, artifact
+from tests.sweeprows import owed
 
-BEHAVIOUR = "run tools/runs/srv1-llama-bench.sh"
-BENCH = RUN / "srv1-llama-bench.tsv"
+BENCH = "srv1-llama-bench.tsv"
 ARMS = ("L0", "L1", "L2", "L3", "A3")
 
 
 @pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no prefill microbenchmark")
 def test_prefill_is_timed_separately_and_not_derived_from_the_ladder() -> None:
-    sweep = artifact(BENCH, BEHAVIOUR)
+    sweep = owed(BENCH)
     assert sweep.stamp("TOOL").get("name") == "llama-bench", (
         "a prefill verdict from the sweep driver is a verdict about ptok/otok"
     )
@@ -49,7 +48,7 @@ def test_every_bench_row_reports_its_own_spread_over_at_least_nine_repetitions()
 ):
     """``-r 3`` and ``-r 9`` on one build read 55.7 and 86.4 t/s. A point estimate
     from three draws is a number, not a measurement."""
-    sweep = artifact(BENCH, BEHAVIOUR)
+    sweep = owed(BENCH)
     for row in sweep.of_kind("BENCH"):
         assert int(row.fields.get("reps", "0")) >= 9, (
             f"line {row.lineno}: {row.fields.get('reps')} repetitions"
@@ -62,7 +61,7 @@ def test_the_flash_attention_kernel_is_separated_from_the_matmul_kernel() -> Non
     """The arch change moves ``ggml_cuda_get_best_fattn_kernel`` on the same
     ``turing_mma_available`` test that moves MMQ. One number for both attributes
     a gain to whichever the reader already believed in."""
-    sweep = artifact(BENCH, BEHAVIOUR)
+    sweep = owed(BENCH)
     seen: dict[str, set[str]] = {}
     for row in sweep.of_kind("BENCH"):
         seen.setdefault(row.fields.get("arm", "?"), set()).add(

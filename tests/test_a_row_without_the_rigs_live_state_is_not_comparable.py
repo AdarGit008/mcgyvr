@@ -17,16 +17,15 @@ from __future__ import annotations
 
 import pytest
 
-from tests.sweeprows import RUN, artifact, rig_gaps
+from tests.sweeprows import owed, rig_gaps
 
 RUN_FILES = ("srv1-lcpp-arms.tsv", "srv1-moe-slots.tsv", "srv1-vllm-arms.tsv")
-BEHAVIOUR = "run tools/runs/srv1-kernel-arms.sh"
 
 
 @pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no per-row rig stamp")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_every_row_resolves_to_a_complete_rig_stamp(name: str) -> None:
-    sweep = artifact(RUN / name, BEHAVIOUR)
+    sweep = owed(name)
     bad = [
         (row.lineno, rig_gaps(sweep.stamped_before(row, "RIG")))
         for row in sweep.rows
@@ -40,7 +39,7 @@ def test_every_row_resolves_to_a_complete_rig_stamp(name: str) -> None:
 @pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no PL stamp at both ends")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_the_rig_read_the_same_at_the_end_as_at_the_start(name: str) -> None:
-    sweep = artifact(RUN / name, BEHAVIOUR)
+    sweep = owed(name)
     start, end = sweep.stamp("START"), sweep.stamp("END")
     assert end, (
         f"{name} has no ### END — the run did not close, or the pipe died with it"
