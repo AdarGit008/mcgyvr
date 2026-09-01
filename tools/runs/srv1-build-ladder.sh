@@ -18,12 +18,33 @@
 # script says so loudly and exits non-zero — no rig time is spent on a mechanism
 # that did not take.
 #
+# THE GATE IS PER ARCH IMAGE, AND IT JUDGES ONLY WHAT THE CARD CAN LOAD. A fat
+# binary holds one image per `-gencode` target and the device loads exactly one
+# of them, so counting `mma.sync` over the whole `cuobjdump` output answers a
+# question about images that never execute. Measured on this ladder's own
+# builds: L2 and L3 each report 137748 `mma.sync` lines and ALL 137748 are in
+# their sm_80 PTX image; their sm_61 image has none, and neither arm has any
+# SASS at all (the arch list is virtual-only). srv1 is compute capability 7.5,
+# so its driver can JIT sm_61 and cannot touch sm_80 — on the path srv1 actually
+# loads, mma.sync is ABSENT. The mechanism took. A whole-binary `grep -c` said
+# it had not and would have hard-stopped the campaign on a false positive.
+#
+# So: the counts are taken per arch image, SERVE_HOST's compute capability is
+# read off the card, the verdict comes from the single image that capability
+# selects (highest target <= cc; a PTX-only image is JITted, a SASS image is
+# loaded as it is), and the whole per-arch breakdown is written into the KERNELS
+# stamp so a reader recomputes the verdict rather than trusting one number.
+# There is no override flag. A gate that can be waved through is not a gate.
+#
 # What lands in the artifact (ARTIFACT-CONTRACT.md §5.5):
 #   ### WORKLOAD digest=none comparable_with=microbenchmark-only   (§2.1, §6.4)
 #   ### START / ### RIG / ### END                                  (guideline 7)
 #   ### BUILD arm=.. commit=.. image_sha256=.. cuda_architectures=.. force_mmq=..
 #             ggml_native=.. cpu_all_variants=.. patched=..         (§2.4)
-#   ### KERNELS arm=.. tensor_core_instructions=present|absent      (§2.5)
+#   ### KERNELS arm=.. tensor_core_instructions=present|absent
+#             device_cc=.. selected_arch=.. selected_kind=sass|ptx-jit
+#             selected_tensor_core_lines=.. mma_sync_ptx_by_arch=..
+#             hmma_sass_by_arch=..                                 (§2.5)
 #   one BENCH row per rung                                          (§6.4)
 #
 # TWO PASSES, IN THIS ORDER, ENFORCED. The BENCH rows are NOT measured here.
@@ -93,7 +114,7 @@ OUT=
 STAGE=all
 
 usage() {
-    sed -n '2,68p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,89p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -135,7 +156,9 @@ THIS_HOST=$(hostname)
 read -r -a ARM_LIST <<<"${RUN_ARMS:-L0 L1 L2 L3 L4 A3}"
 
 declare -A KERNEL_VERDICT=()
+declare -A KERNEL_SELECTED=()
 declare -A BUILT_TAG=()
+DEVICE_CC=
 
 # --------------------------------------------------------------------------
 # plumbing
@@ -287,6 +310,7 @@ write_context() {
     CTX=$(mktemp -d)
     mkdir -p "$CTX/patch"
     : >"$CTX/patch/.keep"
+    kernels_counter >"$CTX/kernels-count.sh"
     if [ "$(spec_get "$spec" patched)" = yes ]; then
         if [ ! -f "$MMVQ_PATCH" ]; then
             _fail "$arm is the patched rung and '$MMVQ_PATCH' does not exist (preflight said so). A rung built without its one variable is L2 wearing L3's label"
@@ -299,6 +323,86 @@ write_context() {
     else
         write_dockerfile_cuda >"$CTX/Dockerfile"
     fi
+}
+
+# kernels_counter — step 0's whole measurement, as one POSIX shell program on
+# stdout. It goes into the build context and runs inside the build stage, where
+# the CUDA toolkit lives; recount_kernels runs the SAME text against an image
+# that was built before this gate existed. One counter, two callers, one answer.
+#
+# WHY PER ARCH IMAGE. A fat binary holds one image per `-gencode` target and a
+# device loads exactly one of them, so a `grep -c` over the whole `cuobjdump`
+# output conflates images the device can load with images it cannot. Measured on
+# this ladder's own builds: L2 and L3 each report mma_sync_ptx=137748 and all
+# 137748 are in their sm_80 PTX image. srv1 is compute capability 7.5 and cannot
+# load sm_80 at all; on the sm_61 image it does JIT the count is 0. The old gate
+# read the 137748, called the mechanism un-taken and would have hard-stopped the
+# campaign on a mechanism that had in fact taken.
+#
+# `cuobjdump --dump-sass` prints the PTX images' HEADERS too, arch line and all,
+# so the section kind is tracked and only `Fatbin elf code:` sections are counted
+# as SASS. An arch that appears in the PTX dump and in no elf section is
+# virtual-only and is JITted; an arch with an elf section is loaded as it is.
+kernels_counter() {
+    cat <<'COUNTER'
+#!/bin/sh
+# kernels-count.sh LIB — one CUDA library in, one k=v block out. Every number
+# comes from cuobjdump; a dump that named no arch image is an error, not a zero.
+set -eu
+
+lib=${1:?usage: kernels-count.sh LIB}
+test -f "$lib"
+
+# scan WANTKIND REGEX — reads a cuobjdump dump on stdin and reports
+# "bytes=N images=N by_arch=sm_61:0,sm_80:137748 total=N", archs low to high.
+scan() {
+    awk -v want="$1" -v re="$2" '
+        { bytes += length($0) + 1 }
+        /^Fatbin ptx code:/ { kind = "ptx"; a = ""; next }
+        /^Fatbin elf code:/ { kind = "elf"; a = ""; next }
+        /^arch = / {
+            a = (kind == want) ? $3 : ""
+            if (a != "" && !(a in seen)) { seen[a] = 1; order[++n] = a; c[a] = 0 }
+            next
+        }
+        a != "" && $0 ~ re { c[a] += 1; total += 1 }
+        END {
+            for (i = 1; i <= n; i++)
+                for (j = i + 1; j <= n; j++) {
+                    x = order[i]; y = order[j]
+                    sub(/^[^0-9]*/, "", x)
+                    sub(/^[^0-9]*/, "", y)
+                    if (x + 0 > y + 0) { t = order[i]; order[i] = order[j]; order[j] = t }
+                }
+            s = ""
+            for (i = 1; i <= n; i++) s = s (i > 1 ? "," : "") order[i] ":" c[order[i]]
+            printf "bytes=%d images=%d by_arch=%s total=%d\n", \
+                bytes + 0, n + 0, (n ? s : "none"), total + 0
+        }
+    '
+}
+
+get() { printf '%s\n' "$1" | tr ' ' '\n' | sed -n "s/^$2=//p"; }
+
+ptx=$(cuobjdump --dump-ptx "$lib" | scan ptx 'mma\\.sync')
+sass=$(cuobjdump --dump-sass "$lib" | scan elf 'HMMA|IMMA')
+
+images=$(get "$ptx" images)
+[ "${images:-0}" -gt 0 ] || {
+    echo "kernels-count: cuobjdump --dump-ptx named no arch image in $lib" >&2
+    exit 1
+}
+
+printf 'cuda_library=present\n'
+printf 'mma_sync_ptx=%s\n' "$(get "$ptx" total)"
+printf 'hmma_sass=%s\n' "$(get "$sass" total)"
+printf 'ptx_bytes=%s\n' "$(get "$ptx" bytes)"
+printf 'sass_bytes=%s\n' "$(get "$sass" bytes)"
+printf 'ptx_images=%s\n' "$images"
+printf 'sass_images=%s\n' "$(get "$sass" images)"
+printf 'mma_sync_ptx_by_arch=%s\n' "$(get "$ptx" by_arch)"
+printf 'hmma_sass_by_arch=%s\n' "$(get "$sass" by_arch)"
+COUNTER
 }
 
 write_dockerfile_cuda() {
@@ -337,21 +441,11 @@ RUN cmake -B build -G Ninja \
       -DLLAMA_BUILD_TESTS=OFF \
       -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
  && cmake --build build --config Release -j "$JOBS" --target llama-server llama-bench
-# Step 0, inside the build that produced the library. PTX carries `mma.sync`;
-# SASS carries HMMA/IMMA. A virtual-only arch list emits no SASS at all, so the
-# PTX dump is the one required to be non-empty. Every count comes from the
-# binary; an unreadable dump fails the build rather than reporting a zero.
-RUN set -eu; \
-    lib=/src/build/bin/libggml-cuda.so; \
-    test -f "$lib"; \
-    cuobjdump --dump-ptx "$lib" > /tmp/ptx.txt; \
-    cuobjdump --dump-sass "$lib" > /tmp/sass.txt; \
-    test -s /tmp/ptx.txt; \
-    { echo "cuda_library=present"; \
-      echo "mma_sync_ptx=$(grep -c 'mma\.sync' /tmp/ptx.txt || true)"; \
-      echo "hmma_sass=$(grep -cE 'HMMA|IMMA' /tmp/sass.txt || true)"; \
-      echo "ptx_bytes=$(wc -c < /tmp/ptx.txt)"; \
-      echo "sass_bytes=$(wc -c < /tmp/sass.txt)"; } > /kernels.txt
+# Step 0, inside the build that produced the library, PER ARCH IMAGE. The whole
+# of the counting lives in kernels-count.sh so that the same code answers for a
+# fresh build and for an image built before this gate existed (recount_kernels).
+COPY kernels-count.sh /kernels-count.sh
+RUN sh /kernels-count.sh /src/build/bin/libggml-cuda.so > /kernels.txt
 
 FROM ${BASE_RUNTIME}
 ARG ARM
@@ -572,58 +666,175 @@ read_kernels() {
     quiet_on_host "$BUILD_HOST" docker run --rm --entrypoint cat "$1" /app/kernels.txt
 }
 
-# kernels_verdict KERNELSTXT — present / absent, from the counts and nothing
-# else. An unparseable count is a refusal, never an "absent".
-kernels_verdict() {
-    local txt=$1 lib mma hmma
-    lib=$(spec_get "$txt" cuda_library)
-    if [ "$lib" = absent ]; then
-        printf 'not-applicable'
-        return 0
-    fi
-    mma=$(spec_get "$txt" mma_sync_ptx)
-    hmma=$(spec_get "$txt" hmma_sass)
-    case ${mma:-x}${hmma:-x} in
-        *[!0-9]*)
-            _fail "kernels_verdict: cuobjdump counts read mma_sync_ptx='$mma' hmma_sass='$hmma'; that is not a pair of integers and no verdict can be read from it"
+# The recount, as one POSIX program. An image built before the per-arch gate
+# existed carries a `/app/kernels.txt` with only the conflated totals, and a
+# total cannot be split back into images after the fact. Rather than trust it or
+# rebuild the arm, step 0 is simply RE-RUN, now, against that image's own
+# library: the library is streamed out of the image (following its symlink), and
+# the same kernels_counter text is run over it inside the CUDA devel image, which
+# is where cuobjdump lives. Read-only, no GPU, nothing built, nothing served.
+# SC2016: the $-expansions belong to the remote shell that runs this text, not
+# to this one. Single quotes are exactly right.
+# shellcheck disable=SC2016
+RECOUNT_SH='
+set -eu
+tag=$1
+devel=$2
+counter=$3
+d=$(mktemp -d)
+trap "rm -rf \"$d\"" EXIT INT TERM
+printf "%s\n" "$counter" > "$d/kernels-count.sh"
+docker run --rm --entrypoint sh "$tag" -c "exec cat \"\$(readlink -f /app/libggml-cuda.so)\"" > "$d/lib.so"
+test -s "$d/lib.so"
+docker run --rm -v "$d:/dump:ro" --entrypoint sh "$devel" /dump/kernels-count.sh /dump/lib.so
+'
+
+# recount_kernels TAG — the same k=v block read_kernels would have returned, had
+# the image been built by this version of the recipe.
+recount_kernels() {
+    quiet_on_host "$BUILD_HOST" sh -c "$RECOUNT_SH" recount \
+        "$1" "$CUDA_DEVEL" "$(kernels_counter)"
+}
+
+# device_cc — the compute capability of the card the images are LOADED on, read
+# off that card. The gate is a question about the SELECTED path and this number
+# is what selects it, so it is measured on SERVE_HOST rather than assumed from
+# the host's name or from the arch list the build was given.
+device_cc() {
+    local cc
+    cc=$(quiet_on_host "$SERVE_HOST" nvidia-smi --query-gpu=compute_cap --format=csv,noheader) || cc=
+    cc=$(printf '%s' "${cc%%$'\n'*}" | tr -d '[:space:]')
+    case ${cc:-x} in
+        [0-9]*.[0-9]*) ;;
+        *)
+            _fail "device_cc: '$SERVE_HOST' reported compute_cap='$cc'. Which arch image the driver loads is decided by that number, so without it the gate cannot say what runs and will not guess"
             return 1
             ;;
     esac
-    if [ "$mma" -gt 0 ] || [ "$hmma" -gt 0 ]; then
-        printf 'present'
+    printf '%s' "$cc"
+}
+
+# reachable_image CC PTX_BY_ARCH SASS_BY_ARCH -> "ARCH KIND COUNT"
+#
+# Of the images in the fat binary, a device loads the highest whose target is
+# <= its own compute capability: an `sm_NN` SASS image runs as it is, a PTX-only
+# `compute_NN` image is JITted by the driver. Everything above the device's
+# capability is unreachable and says nothing about what executes. Returns 2 when
+# the library holds no image this device could load at all.
+reachable_image() {
+    local cc=$1 ptx=$2 sass=$3
+    local ccnum best=-1 best_arch=none best_kind=none best_count=0
+    local kind list pair arch cnt num
+    local -a pairs=()
+    ccnum=${cc//./}
+    case ${ccnum:-x} in
+        *[!0-9]*)
+            _fail "reachable_image: compute capability '$cc' is not a number like 7.5"
+            return 1
+            ;;
+    esac
+    # SASS first, so that at one arch a real image outranks the same arch's PTX:
+    # the driver runs the cubin and never reaches the JIT.
+    for kind in sass ptx-jit; do
+        if [ "$kind" = sass ]; then list=$sass; else list=$ptx; fi
+        [ -n "$list" ] && [ "$list" != none ] || continue
+        IFS=, read -r -a pairs <<<"$list"
+        for pair in "${pairs[@]}"; do
+            arch=${pair%%:*}
+            cnt=${pair#*:}
+            num=${arch#sm_}
+            case ${num:-x}${cnt:-x} in
+                *[!0-9]*)
+                    _fail "reachable_image: '$pair' is not sm_NN:COUNT, so the per-arch breakdown cannot be read and no image can be selected"
+                    return 1
+                    ;;
+            esac
+            [ "$num" -le "$ccnum" ] || continue
+            if [ "$num" -gt "$best" ]; then
+                best=$num
+                best_arch=$arch
+                best_kind=$kind
+                best_count=$cnt
+            fi
+        done
+    done
+    [ "$best" -ge 0 ] || return 2
+    printf '%s %s %s' "$best_arch" "$best_kind" "$best_count"
+}
+
+# kernels_verdict KERNELSTXT CC -> "VERDICT ARCH KIND COUNT"
+#
+# Guideline 6 asks what runs on the SELECTED path. The old form of this function
+# asked a different question — `grep -c` over the whole cuobjdump output — and
+# got a different answer: L2 and L3 each report mma_sync_ptx=137748, every one of
+# those lines is in their sm_80 PTX image, srv1 is cc 7.5 and cannot load sm_80,
+# and on the sm_61 image srv1 does JIT the count is 0. The mechanism had taken;
+# the gate would have stopped the campaign saying it had not. So the verdict is
+# read off the ONE image this device selects, and the whole per-arch breakdown is
+# stamped beside it so a reader recomputes rather than trusts.
+#
+# An unparseable record is a refusal, never an "absent".
+kernels_verdict() {
+    local txt=$1 cc=$2 lib ptx sass sel rc arch kind count
+    lib=$(spec_get "$txt" cuda_library)
+    if [ "$lib" = absent ]; then
+        printf 'not-applicable none none 0'
+        return 0
+    fi
+    ptx=$(spec_get "$txt" mma_sync_ptx_by_arch)
+    sass=$(spec_get "$txt" hmma_sass_by_arch)
+    if [ -z "$ptx" ]; then
+        _fail "kernels_verdict: this cuobjdump record carries no mma_sync_ptx_by_arch, so it cannot say WHICH arch image holds its counts. A total over every image in a fat binary is not a statement about the one the device loads, and no verdict is read from it"
+        return 1
+    fi
+    rc=0
+    sel=$(reachable_image "$cc" "$ptx" "$sass") || rc=$?
+    if [ "$rc" -eq 2 ]; then
+        _fail "kernels_verdict: the library holds ptx=[$ptx] sass=[$sass] and a compute-capability-$cc device can load none of them. That image cannot run on the serve host at all — a build error, not an 'absent'"
+        return 1
+    fi
+    [ "$rc" -eq 0 ] || return 1
+    read -r arch kind count <<<"$sel"
+    if [ "$count" -gt 0 ]; then
+        printf 'present %s %s %s' "$arch" "$kind" "$count"
     else
-        printf 'absent'
+        printf 'absent %s %s %s' "$arch" "$kind" "$count"
     fi
 }
 
 # The gate, guideline 6. Free, and it ends the campaign before rig time is spent.
+# Every verdict here is about the image SERVE_HOST's card actually selects; an
+# image the card cannot load is not evidence about anything it runs.
 gate_the_mechanism() {
-    local rung bad=
-    for rung in L0 L1; do
-        case ${KERNEL_VERDICT[$rung]:-unread} in
-            present) ;;
-            *) bad="${bad:+$bad; }$rung=${KERNEL_VERDICT[$rung]:-unread} (wanted present)" ;;
+    local rung want bad=
+    for rung in L0 L1 L2 L3; do
+        case $rung in
+            L0 | L1) want=present ;;
+            *) want=absent ;;
         esac
-    done
-    for rung in L2 L3; do
-        case ${KERNEL_VERDICT[$rung]:-unread} in
-            absent) ;;
-            *) bad="${bad:+$bad; }$rung=${KERNEL_VERDICT[$rung]:-unread} (wanted absent)" ;;
-        esac
+        [ "${KERNEL_VERDICT[$rung]:-unread}" = "$want" ] && continue
+        bad="${bad:+$bad; }$rung=${KERNEL_VERDICT[$rung]:-unread}"
+        bad="$bad on ${KERNEL_SELECTED[$rung]:-no selected image} (wanted $want)"
     done
     if [ -n "$bad" ]; then
         printf '\n' >&2
         say "=============================================================="
         say "STOP. The mechanism is not what the ladder claims: $bad"
-        say "L0/L1 must carry tensor-core instructions and L2/L3 must not."
-        say "If L2/L3 still contain mma.sync the arch spoof did not take, and"
-        say "no throughput number can be attributed to removing it"
-        say "(lcp-vllm-3-arm-run.md guideline 6). Not one second of rig time"
+        say "L0/L1 must carry tensor-core instructions on the image a cc"
+        say "$DEVICE_CC card loads, and L2/L3 must not. Each verdict above names"
+        say "that image; the KERNELS stamps carry the per-arch counts it came"
+        say "from, so it can be recomputed rather than believed."
+        say "If L2/L3 still contain mma.sync on the SELECTED path the arch spoof"
+        say "did not take, and no throughput number can be attributed to removing"
+        say "it (lcp-vllm-3-arm-run.md guideline 6). Not one second of rig time"
         say "is worth spending on the arms below until this reads clean."
         say "=============================================================="
         return 1
     fi
-    say "gate passed: L0/L1 present, L2/L3 absent. The ladder may be benched."
+    say "gate passed on the cc $DEVICE_CC path: L0/L1 present, L2/L3 absent."
+    for rung in L0 L1 L2 L3; do
+        say "  $rung: ${KERNEL_SELECTED[$rung]:-?} -> ${KERNEL_VERDICT[$rung]:-?}"
+    done
 }
 
 # --------------------------------------------------------------------------
@@ -707,6 +918,7 @@ project_bench() {
 
 main() {
     local arm spec tag kernels verdict commit image_id reused
+    local ksource sel_arch sel_kind sel_count
     local -a counts
 
     say "artifact: $OUT"
@@ -720,6 +932,20 @@ main() {
 
     preflight_patch || return 1
     preflight_instrument || return 1
+    # The gate needs the capability of the card that will LOAD these images, and
+    # it comes off that card. Read once, before anything is built, so a serve
+    # host that cannot answer stops the run for free.
+    for arm in "${ARM_LIST[@]}"; do
+        [ "$(spec_get "$(arm_spec "$arm")" backend)" = cuda ] || continue
+        if dry; then
+            plan_on_host "$SERVE_HOST" nvidia-smi --query-gpu=compute_cap --format=csv,noheader
+            say "the gate judges only the arch images that compute capability can load"
+        else
+            DEVICE_CC=$(device_cc) || return 1
+            say "gate target: $SERVE_HOST reports compute capability $DEVICE_CC"
+        fi
+        break
+    done
 
     if ! dry; then
         mkdir -p "$(dirname "$OUT")"
@@ -762,6 +988,7 @@ main() {
         fi
 
         kernels=$(read_kernels "$tag") || kernels=
+        ksource=cuobjdump
         if [ -z "$kernels" ]; then
             emit refused "$(arm_label "$arm" kernels)" \
                 "arm=$arm" "img=$tag" "checkpoint_quant=none" "tries=3" \
@@ -769,20 +996,45 @@ main() {
             say "$arm: no cuobjdump record in the image. Refused, not guessed."
             continue
         fi
-        verdict=$(kernels_verdict "$kernels")
+        # An image built before the per-arch gate carries only the conflated
+        # totals. A total cannot be split back into images, so step 0 is re-run
+        # against that image's own library rather than read wrong or rebuilt.
+        if [ "$(spec_get "$kernels" cuda_library)" = present ] &&
+            [ -z "$(spec_get "$kernels" mma_sync_ptx_by_arch)" ]; then
+            say "$arm: this image's /app/kernels.txt predates the per-arch gate"
+            say "$arm: re-running cuobjdump on its own library (no rebuild)"
+            kernels=$(recount_kernels "$tag") || kernels=
+            ksource=cuobjdump-recount
+            if [ -z "$kernels" ]; then
+                emit refused "$(arm_label "$arm" kernels)" \
+                    "arm=$arm" "img=$tag" "checkpoint_quant=none" "tries=1" \
+                    -- "the $arm image records only a whole-fat-binary mma.sync total, which says nothing about the arch image a cc $DEVICE_CC card loads, and the recount against its own library did not complete"
+                say "$arm: no per-arch record and the recount failed. Refused."
+                continue
+            fi
+        fi
+        verdict=$(kernels_verdict "$kernels" "$DEVICE_CC") || return 1
+        read -r verdict sel_arch sel_kind sel_count <<<"$verdict"
         KERNEL_VERDICT["$arm"]=$verdict
+        KERNEL_SELECTED["$arm"]="$sel_arch/$sel_kind lines=$sel_count"
         counts=("cuda_library=$(spec_get "$kernels" cuda_library)")
         if [ "$(spec_get "$kernels" cuda_library)" = present ]; then
             counts+=(
-                "mma_sync_ptx=$(spec_get "$kernels" mma_sync_ptx)"
-                "hmma_sass=$(spec_get "$kernels" hmma_sass)"
+                "device_cc=$DEVICE_CC"
+                "selected_arch=$sel_arch"
+                "selected_kind=$sel_kind"
+                "selected_tensor_core_lines=$sel_count"
+                "mma_sync_ptx_by_arch=$(spec_get "$kernels" mma_sync_ptx_by_arch)"
+                "hmma_sass_by_arch=$(spec_get "$kernels" hmma_sass_by_arch)"
+                "mma_sync_ptx_all_images=$(spec_get "$kernels" mma_sync_ptx)"
+                "hmma_sass_all_images=$(spec_get "$kernels" hmma_sass)"
                 "ptx_bytes=$(spec_get "$kernels" ptx_bytes)"
                 "sass_bytes=$(spec_get "$kernels" sass_bytes)"
             )
         fi
         emit stamp KERNELS "arm=$arm" "tensor_core_instructions=$verdict" \
-            "${counts[@]}" "source=cuobjdump"
-        say "$arm: tensor_core_instructions=$verdict"
+            "${counts[@]}" "source=$ksource"
+        say "$arm: tensor_core_instructions=$verdict on $sel_arch ($sel_kind), $sel_count line(s)"
 
         commit=$(quiet_on_host "$BUILD_HOST" docker run --rm --entrypoint cat "$tag" /app/commit.txt) || commit=
         image_id=$(quiet_on_host "$BUILD_HOST" docker image inspect --format '{{.Id}}' "$tag") || image_id=
@@ -817,7 +1069,8 @@ main() {
     done
 
     if dry; then
-        say "gate would run here: L0/L1 present, L2/L3 absent, else exit 1"
+        say "gate would run here, on the arch image the serve host's card"
+        say "selects: L0/L1 present, L2/L3 absent, else exit 1"
         if [ "$STAGE" = build ]; then
             say "--stage build: no BENCH row. Pass 2 (no --stage) copies them"
             say "from $BENCH_TSV after step 3 has written it."

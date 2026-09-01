@@ -279,6 +279,17 @@ cpu_all_variants patched`) in both files.
 
 **RIG-ONLY** — the values come from `cuobjdump` on the built libraries.
 
+The verdict is about the ONE arch image the serve host's card loads, not about
+the fat binary as a whole: L2 and L3 each hold 137748 `mma.sync` lines and every
+one of them is in an sm_80 image a compute-capability-7.5 card cannot load. So a
+CUDA arm's stamp also carries, and a reader may recompute the verdict from,
+`device_cc`, `selected_arch`, `selected_kind` (`sass` or `ptx-jit`),
+`selected_tensor_core_lines`, `mma_sync_ptx_by_arch`, `hmma_sass_by_arch`, and
+the whole-binary totals under `mma_sync_ptx_all_images` / `hmma_sass_all_images`.
+`source` is `cuobjdump` when the counts were baked in at build time and
+`cuobjdump-recount` when they were re-measured against an older image's own
+library.
+
 ### 2.6 `### BOUNDARY`
 `srv1-moe-slots.tsv` only, `stamp()` (last wins)
 (`test_a_crash_not_reproduced_...:63-66`).
