@@ -93,3 +93,8 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
   - `8393591a` S6/K5 in `telemetry.py` — `observe` wraps any attempt; completion-only fields ride along only on a `Completion`.
   - `5de7809d` S10 in `worker/scoped.py` — `apply_scoped` removed: nothing names a definition, and the port is whole-file only (ADR-0009).
   - Full gate clean: `2379 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
+- 2026-09-01 — **Phase 6 complete** (8 of 8 findings, 3 commits; F1 closed by S10's removal of `worker/scoped.py`):
+  - `31e9bfc6` F7 + F8 + F9 in `capability.py` & `orchestrator/read.py` — missing required key named, NaN size bounded to the smallest budget, shipped table frozen.
+  - `64be35e8` E5 + K6 in `contract.py` & `drive.py` — `depends_on` emitted sorted (order-independent identity), hand-authored contract's target read off the workspace.
+  - `369d6731` F3 + G2 + G4 in `worker/reply.py` & `deterministic.py` — array-typed schema fields derived, a nowhere-landing degradation says so, planning stops importing the gate.
+  - Full gate clean: `2387 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
