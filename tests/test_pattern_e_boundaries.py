@@ -281,7 +281,7 @@ def test_telemetry_does_not_write_a_credential_into_its_own_sink(
 
     with pytest.raises(RuntimeError):
         observe(
-            raises,  # type: ignore[arg-type]
+            raises,
             path=sink,
             attempt_id="a1",
             orchestrator="test",

@@ -52,9 +52,10 @@ concurrent callers in one process or across processes interleave whole lines and
 never halves of two.
 
 **What is deliberately not here.** No dispatch: :func:`observe` takes a callable
-that returns a completion or raises, because what has to be recorded is not a
-property of how the work was done — and a telemetry module that knew how to run
-an attempt could not record one it did not run. No derived quantities: a cost in
+and records whatever it returns — a completion or anything else — because what
+has to be recorded is not a property of how the work was done, and a telemetry
+module that knew how to run an attempt could not record one it did not run. No
+derived quantities: a cost in
 dollars, an overran-cap flag and a success rate are all computable from fields
 already on the row, and freezing one here would store today's price list as
 though it were a measurement. No reply text: this is a measurement stream, and
@@ -71,12 +72,11 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.redact import scrub
+from mcgyvr.runner import Completion
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
     from pathlib import Path
-
-    from mcgyvr.runner import Completion
 
 # One record is one JSON object. Deliberately not a dataclass on the way out:
 # a reader is looking at records written by versions of mcgyvr other than its
@@ -105,20 +105,23 @@ CORRECTION_KIND = "correction"
 _CORRECTABLE = ("outcome", "detail")
 
 
-def observe(
-    attempt: Callable[[], Completion],
+def observe[T](
+    attempt: Callable[[], T],
     *,
     path: Path,
     attempt_id: str,
     orchestrator: str,
     rung: str,
     model: str | None = None,
-) -> Completion:
+) -> T:
     """Run one attempt, append exactly one record for it, and hand back its answer.
 
-    The completion is returned unchanged — the same object, not a copy — so that
+    The answer is returned unchanged — the same object, not a copy — so that
     recording an attempt is never a decision about whether to record it: a call
-    site can be wrapped without its result changing identity or shape.
+    site can be wrapped without its result changing identity or shape. It need
+    not be a :class:`~mcgyvr.runner.Completion`: a deterministic-floor run
+    produces no completion, and its row simply omits the completion-only
+    fields.
 
     ``model`` is only read when the attempt raised. A completion names the model
     that actually answered, which is the better fact and wins whenever there is
@@ -163,6 +166,20 @@ def observe(
         # Their difference is the host-side cost of an attempt, which no single
         # measurement states.
         "elapsed_s": _since(started),
+    }
+    if isinstance(answer, Completion):
+        record |= _completion_fields(answer)
+    _append(path, record)
+    return answer
+
+
+def _completion_fields(answer: Completion) -> Record:
+    """The completion-only fields of a row, read from a real completion.
+
+    A deterministic attempt produces no completion, so these keys are absent
+    from its row — the same absence-is-honest rule that governs token counts.
+    """
+    fields: Record = {
         "latency_s": answer.latency_s,
         "model": answer.model,
         "source": answer.source,
@@ -173,7 +190,7 @@ def observe(
         "quality_safe": answer.quality_safe,
     }
     if answer.notes:
-        record["notes"] = list(answer.notes)
+        fields["notes"] = list(answer.notes)
     # The rule, in the one place it can be broken: a count the backend did not
     # report is left out of the row entirely. Writing ``None`` would be honest
     # too, but a key present in some rows and null in others invites a reader to
@@ -183,9 +200,8 @@ def observe(
         ("output_tokens", answer.output_tokens),
     ):
         if count is not None:
-            record[key] = count
-    _append(path, record)
-    return answer
+            fields[key] = count
+    return fields
 
 
 def correct(
