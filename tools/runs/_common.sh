@@ -52,7 +52,12 @@
 #                                §3 and resolved conflict §6.3 — a REFUSED row
 #                                carrying `checkpoint_quant`, `tries>=3` and a
 #                                reason over 40 characters. Guideline 8: a
-#                                refusal is a result.
+#                                refusal is a result. `checkpoint_quant` is
+#                                either a value read off the checkpoint or one
+#                                of exactly two sentinels — `none` (no
+#                                checkpoint was involved) or `unread` (one was,
+#                                and its quantisation was never read). A
+#                                home-made third spelling is rejected.
 #   retry3 CMD [ARG ...]         guideline 8 — three attempts before a refusal is
 #                                believed; sets RUN_TRIES to the attempt count
 #                                for `refused` to record.
@@ -583,7 +588,7 @@ retry3() {
 # `checkpoint_quant`, `tries>=3` and a reason of more than 40 characters
 # (test_two_backends_...:56-65, test_an_ncmoe_floor_...:83-86).
 refused() {
-    local label arg fields reason in_reason tries
+    local label arg fields reason in_reason tries quant
     [ "$#" -ge 2 ] || { _fail "refused: usage: refused LABEL [k=v ...] -- REASON..."; return 1; }
     label=$1
     shift
@@ -619,6 +624,39 @@ refused() {
             _fail "refused: no checkpoint_quant=. It carries what was read from quantization_config, not what a path implies (§6.3)"
             return 1
             ;;
+    esac
+    quant=${fields##* checkpoint_quant=}
+    quant=${quant%% *}
+    # THE SENTINEL VOCABULARY, and there are exactly two words in it.
+    # `refused()` demands checkpoint_quant on every refusal, but a build that
+    # never compiled and an image with no llama-bench in it have no checkpoint
+    # to read. Four spellings of that hole were in circulation across the eight
+    # scripts (`none`, `unread`, `unread-no-quantization_config`,
+    # `unread_the_loader_never_printed_it`), which is four ways for a reader to
+    # miss that they are the same fact. One vocabulary, documented in
+    # ARTIFACT-CONTRACT.md §6.3:
+    #
+    #   none     no checkpoint was involved at all. Nothing was loaded, so there
+    #            is nothing to read: a build failure, a missing binary, an image
+    #            with no cuobjdump record.
+    #   unread   a checkpoint WAS involved and its declared quantisation was
+    #            never read — the loader died before it printed, or the repo
+    #            carries no quantization_config. WHICH of those goes in the
+    #            reason, where a reader will look for it; it is not a third word.
+    #
+    # Anything else must be a value actually read off the checkpoint. A near-miss
+    # spelling is refused here rather than filed as if it were one.
+    case $quant in
+        none | unread) : ;;
+        '')
+            _fail "refused: checkpoint_quant= is empty. Use 'none' (no checkpoint was involved) or 'unread' (one was, and its quantisation was never read)"
+            return 1
+            ;;
+        unread* | unknown* | unrecorded* | 'n/a' | 'N/A' | - | NONE | None)
+            _fail "refused: checkpoint_quant='$quant' is a home-made sentinel. The vocabulary is exactly two words: 'none' (no checkpoint was involved) and 'unread' (one was, and its quantisation was never read). Which kind of unread it was belongs in the reason"
+            return 1
+            ;;
+        *) : ;;
     esac
     case " $fields " in
         *" tries="*)

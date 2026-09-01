@@ -353,7 +353,7 @@ Every entry cites the test line that reads it. "kinds" is where it must appear.
 | `arm` | `srv1-build-ladder` | `BENCH` — must cover `L0..L4` | `test_a_six_variable_diff_...:56-57` |
 | `img` | `srv1-lcpp-arms`, `srv1-moe-slots`, `srv1-vllm-arms` | **every row except `SKIP`** | `test_a_row_that_does_not_name_its_arm_...:42-50` |
 | `ptok` | `srv1-lcpp-arms` | level rows (skipped if absent) | `test_one_observation_...:88,92`; `sweeprows.py:183` |
-| `otok_req` | `srv1-lcpp-arms` | level rows carrying `ptok`. **The requested output budget** — a plan, equal across arms in one `(cell, n, rep)` group | `test_one_observation_...:92`; `sweeprows.py:169-183` |
+| `otok_req` | `srv1-lcpp-arms` **and nowhere else** | level rows carrying `ptok`. **The requested output budget** — a plan, equal across arms in one `(cell, n, rep)` group. This row is the whole scope: no other file owes it, and §7 defers here | `test_one_observation_...:92`; `sweeprows.py:169-183` |
 | `otok` | `srv1-lcpp-arms` | level rows. **Generated output** — an outcome; it is *expected* to differ across arms and nothing asserts otherwise (§6.2) | `sweeprows.py:152-167` |
 | `otok` | `srv1-moe-slots` | `L3` level rows at the killed widths; must be `> 1` (generated, not requested) | `test_a_crash_...:92` |
 | `agg` | `srv1-aa-null` | every level row | `test_one_observation_...:110` |
@@ -378,6 +378,7 @@ Every entry cites the test line that reads it. "kinds" is where it must appear.
 | `kv` | `srv1-vllm-arms` | `CONFIG`; equal on `B1` and `B2` when both launched | `test_two_backends_...:43,94` |
 | `kernel_observed` | `srv1-vllm-arms` | `CONFIG`; `"marlin" in value.lower()` for `B1`, `"exllama" in value.lower()` for `B2`. Read from the engine's `Using {Marlin,Exllama}LinearKernel for AutoGPTQLinearMethod`; an arm with no `CONFIG` is skipped | `test_two_backends_...:114-120` |
 | `checkpoint_quant` | `srv1-vllm-arms` | `REFUSED` with `arm=B2`; non-empty | `test_two_backends_...:57-60` |
+| `checkpoint_quant` | **every** `REFUSED` row in every file | `tools/runs/_common.sh:refused()` demands it campaign-wide. Either a value read off the checkpoint, or one of the two sentinels `none` / `unread` — see §6.3 | (emitter-side; only the vLLM row above is read by a test) |
 
 ### 3.1 The `img=` value grammar
 `test_a_row_that_does_not_name_its_arm_is_not_a_measurement.py:24-29,44-50`.
@@ -452,11 +453,38 @@ place, the `BEHAVIOUR` registry (`sweeprows.py:307-316`), reached through
 
 The seven shell scripts named — `srv1-kernel-arms.sh`, `srv1-moe-slots.sh`,
 `srv1-vllm-arms.sh`, `srv1-llama-bench.sh`, `srv1-build-ladder.sh`,
-`srv1-aa-null.sh`, `srv1-ncmoe-floor.sh` — do not exist; `tools/runs/` is absent
-from the tree today. Nothing asserts they exist; the strings are message text
-only. They map onto the campaign's step list
+`srv1-aa-null.sh`, `srv1-ncmoe-floor.sh` — now exist in `tools/runs/`, beside
+`_common.sh`, the one emitter they all source. Nothing asserts they exist; the
+strings are message text only. They map onto the campaign's step list
 (`lcp-vllm-3-arm-run.md:111-128`) one script per step, which is why the file is
 announced as the output of the step that produces it and not of the campaign.
+The enforced order across all eight is in `RUN-ORDER.md`, beside this file.
+
+### 4.3 One file, one owner-creator — `srv1-moe-slots.tsv`
+
+Two scripts write `srv1-moe-slots.tsv`: `srv1-moe-slots.sh` puts step 6's
+placement rows in it, `srv1-kernel-arms.sh --step crash` puts step 7's crash
+rows in it. §4 gives the file exactly one behaviour string —
+`run tools/runs/srv1-moe-slots.sh` — so that script is the **owner-creator** and
+the other is the **appender**, and the order is **step 6, then step 7**.
+
+| script | role | on the file |
+|---|---|---|
+| `srv1-moe-slots.sh` (step 6) | owner-creator | creates it, truncating any previous copy. Refuses to start if it already exists unless `--force` |
+| `srv1-kernel-arms.sh --step crash` (step 7) | appender | appends only. Refuses to start unless the file exists **and** already carries `### INSTRUMENT step=6` |
+
+Both checks run before any rig work, so an out-of-order invocation costs nothing
+and leaves nothing behind. This is enforced in the scripts, not documented at
+them: run the appender first and it exits non-zero having written no byte. The
+alternative — letting either create the file — produces a legal-looking artifact
+whose only `### WORKLOAD`/`### START` block came from the crash study and whose
+placement rows sit under an `### END`. `Sweep.stamp()` takes the last of each,
+so the parser would read that half file without complaint.
+
+Each writer emits its own `### WORKLOAD`, `### START`, `### RIG` and `### END`,
+and its own `### INSTRUMENT` naming which tool produced the rows that follow it.
+`stamp()` takes the last of each and `stamped_before()` the nearest preceding,
+so both blocks resolve when they are in the right order.
 
 ### 4.1 `placement-null.json`
 `test_placement_is_not_declared_output_neutral_without_a_measurement.py:50-89`.
@@ -808,6 +836,32 @@ hole it leaves. So B2 is exempt from `CONFIG`, and the exemption has a price.
   `CONFIG` has no engine log line to read. That skip is no longer a loophole,
   because the arm it excuses has already been made to produce a refusal.
 
+**`checkpoint_quant` is demanded on every refusal, and most refusals have no
+checkpoint.** `a_recorded_refusal()` is written for the vLLM pair, where the
+field carries what was read from `quantization_config`. But
+`tools/runs/_common.sh:refused()` applies the same bar to every script, and a
+build that never compiled, an image with no `llama-bench` in it and an arm whose
+`cuobjdump` record is missing all refuse without ever loading a checkpoint. Four
+spellings of that hole were in circulation across the eight scripts — `none`,
+`unread`, `unread-no-quantization_config`, `unread_the_loader_never_printed_it`
+— which is four ways for a reader to fail to notice they are the same fact.
+
+**The vocabulary is exactly two words**, enforced in `refused()`, which rejects
+anything that merely looks like a sentinel (`unread*`, `unknown*`,
+`unrecorded*`, `n/a`, `-`, an empty value):
+
+| value | means |
+|---|---|
+| `none` | **no checkpoint was involved.** Nothing was loaded, so there is nothing to read: a build failure, a missing binary, an image carrying no cuobjdump record. |
+| `unread` | **a checkpoint was involved and its declared quantisation was never read.** The loader died before printing `print_info: file type`, or the repo carries no `quantization_config`. |
+
+Anything else must be a value actually read off the checkpoint — GGUF's
+`print_info: file type` line, or `config.json`'s `quantization_config`
+(`lcp-vllm-3-arm-run.md:143-151`: a checkpoint's name is not evidence of its
+format). **Which kind of unread it was belongs in the reason**, which every
+refusal already owes 41 characters of, and where a reader will look for it. It
+is not a third word in the field.
+
 **Still live** (verified 2026-09-02, see `B2-CHECKPOINT.md`): `--linear-backend`
 does exist in v0.26.0 with `exllama` among its choices — the August AWQ refusal
 was the kernel rejecting uint4, not a missing flag — but srv1 holds **no GPTQ
@@ -848,6 +902,24 @@ routes to tests #5 *and* #6. So:
 The two files must not disagree; the ladder's rows are copied from the
 instrument's, never re-measured.
 
+**Which puts the ladder on both sides of step 3, so it runs twice, in order.**
+`srv1-build-ladder.sh` builds the images step 3 benches, and then copies step
+3's numbers back. One pass cannot do both. The order is enforced, not
+documented:
+
+| pass | invocation | step | writes |
+|---|---|---|---|
+| 1 | `srv1-build-ladder.sh --stage build` | 1 | builds, gates the mechanism, writes `### WORKLOAD/START/RIG/BUILD/KERNELS/END`. No `BENCH` row, and it says so. |
+| — | `srv1-llama-bench.sh` | 3 | the instrument record |
+| 2 | `srv1-build-ladder.sh` (`--stage all`, the default) | 3′ | reuses the images, truncates and rewrites the file **with** the `BENCH` rows |
+
+The default stage refuses to start when `srv1-llama-bench.tsv` is absent —
+checked before a single image is built, so an out-of-order run spends no build
+time and leaves no file — and it exits non-zero if any built rung ends with no
+row, because a ladder missing a rung is not a ladder. `--stage build` is the one
+way to get the stamps without the rows and it is explicit. Each pass truncates
+and rewrites, so pass 2 leaves one whole file rather than two half ones.
+
 ### 6.5 `srv1-moe-slots.tsv` and `srv1-vllm-arms.tsv` each carried two behaviour strings
 
 **Was.** `artifact()` was called on `srv1-moe-slots.tsv` with
@@ -865,9 +937,16 @@ it, not the campaign it belongs to.
 **Resolution.** One registry, `BEHAVIOUR` (`sweeprows.py:307-316`), reached
 through `owed(name)` (`:336-342`). Every test now takes its artifact by file name
 and cannot supply its own string. `srv1-moe-slots.tsv` → `srv1-moe-slots.sh`
-(the crash study, step 7); `srv1-vllm-arms.tsv` → `srv1-vllm-arms.sh` (the vLLM
+(the placement null, step 6); `srv1-vllm-arms.tsv` → `srv1-vllm-arms.sh` (the vLLM
 capability study, step 8); `srv1-lcpp-arms.tsv` → `srv1-kernel-arms.sh` (the
 serving sweep, step 4). Full table in §4.
+
+**And the string decides the owner.** `srv1-moe-slots.tsv` is written by two
+scripts, and the one behaviour string names `srv1-moe-slots.sh`. That script
+therefore creates the file and `srv1-kernel-arms.sh --step crash` only appends
+to it — enforced at both ends, §4.3. A reader told to `run
+tools/runs/srv1-moe-slots.sh` and finding that it refuses because the other
+script got there first would be back where §6.5 started.
 
 ### 6.6 A malformed stamp header read as an absent stamp
 
@@ -938,6 +1017,20 @@ underscore-joined stamp values.
   `### AB START ... uptime_since=2026-09-01 08:11:08` is `stamp("AB")` with a
   spaced value (§6.6, §6.7). No test does, and none should — the habit is not to
   be carried into this run's files.
-- Level rows in this run must carry `otok_req=` alongside `ptok=` and `otok=`
-  (§3, §6.2). The drivers print the requested cap nowhere today; it is the
-  `max_tokens` the client asked for, and it is what makes two arms comparable.
+- `otok_req` is scoped by §3 and by nothing else, and the scope is
+  **`srv1-lcpp-arms.tsv`** — the only file any test reads it from
+  (`test_one_observation_...:92` through `Row.requested()`,
+  `sweeprows.py:169-183`). This bullet used to say "every level row in this
+  run", which contradicted §3 and would have obliged the vLLM driver to emit a
+  field nothing reads. Read the scope in §3; it is stated once, there.
+
+  Where it IS emitted, it must sit alongside `ptok=` and `otok=` on the same
+  level row (§6.2): it is the `max_tokens` the client asked for, an input, and
+  `otok` is what came back. The drivers print the requested cap nowhere today,
+  so `srv1-kernel-arms.sh` recovers it by replaying the driver's own
+  `mkprompt()` call order. `srv1-aa-null.sh` emits it too, because it is the
+  same emitter driving the same workload, and nothing objects to a field no test
+  reads. `srv1-vllm-arms.sh` **omits** it: `vllm_sweep_31-08-2026.py` never lets
+  the budget out of `post()`, and reconstructing it would be a second
+  implementation of the workload standing in for a value this run did not
+  measure.

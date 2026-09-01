@@ -607,9 +607,9 @@ main() {
             emit refused "$label" \
                 "arm=$arm" "img=$IMG" "model=$MODEL" \
                 "linear_backend=$(arm_backend "$arm")" \
-                "checkpoint_quant=${CHECKPOINT_QUANT:-unread-no-quantization_config}" \
+                "checkpoint_quant=${CHECKPOINT_QUANT:-unread}" \
                 "tries=$tries" \
-                -- "the checkpoint this pair holds fixed was not established, so neither kernel was offered a layer to implement: ${VERIFY_WHY:-the fetch produced no snapshot directory}"
+                -- "the checkpoint this pair holds fixed was not established and its quantization_config was never read, so neither kernel was offered a layer to implement: ${VERIFY_WHY:-the fetch produced no snapshot directory}"
             if [ "$arm" = "B2" ]; then
                 b2_refused_line=$LAST_LINE
             fi

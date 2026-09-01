@@ -34,15 +34,26 @@
 # marker and row is appended the moment it is produced -- one open/append/close
 # per line, nothing buffered -- and measure.py appends its own rows as it goes.
 #
-# ONE FILE, TWO STEPS. srv1-moe-slots.tsv is also the crash study's file (step 7,
-# behaviour 8: the L2 boundary sweep and L3's 60 trials). That work is the
-# KERNEL question and is not this script's: lcp-vllm-3-arm-run.md's "Not worth
-# rig time" list puts ncmoe cells for the kernel question out of scope, and this
-# script's grid is exactly two placement cells of one model at one width. So
-# this script APPENDS and never truncates, and the ### INSTRUMENT marker it
-# writes names which tool produced the rows that follow it. The ### WORKLOAD
-# stamp the file owes (section 2.1) is emitted here because the file owes it;
-# the digest is computed by tests/sweeprows.py itself, never asserted.
+# ONE FILE, TWO STEPS -- AND THIS SCRIPT OWNS IT. srv1-moe-slots.tsv is also the
+# crash study's file (step 7, behaviour 8: the L2 boundary sweep and L3's 60
+# trials). That work is the KERNEL question and is not this script's:
+# lcp-vllm-3-arm-run.md's "Not worth rig time" list puts ncmoe cells for the
+# kernel question out of scope, and this script's grid is exactly two placement
+# cells of one model at one width.
+#
+# ARTIFACT-CONTRACT.md section 4 names `run tools/runs/srv1-moe-slots.sh` as the
+# one behaviour that produces this file, so THIS SCRIPT IS THE OWNER-CREATOR: it
+# creates the file, truncating any previous copy, and it must run FIRST.
+# tools/runs/srv1-kernel-arms.sh --step crash is the APPENDER: it refuses to run
+# until the step-6 block is on disk. The order is step 6 then step 7, it is
+# enforced at both ends, and out of order both ends fail loudly rather than
+# leaving half a file. See RUN-ORDER.md.
+#
+# Within this script every marker and row is appended the moment it is produced,
+# so a hard lock keeps what was measured. The ### INSTRUMENT marker names which
+# tool produced the rows that follow it. The ### WORKLOAD stamp the file owes
+# (section 2.1) is emitted here because the file owes it; the digest is computed
+# by tests/sweeprows.py itself, never asserted.
 #
 # NOTE the rows below are CONFIG / MEASURED / SELFNULL / PLACEMENT. None of them
 # is a level row and none is a CRASH row, so this script adds nothing to the
@@ -70,6 +81,10 @@
 #   --port N            host port for the container (default 8094).
 #   --run-prefix NAME   run-directory prefix under records/measurements.
 #   --out-dir DIR       artifact directory (default: the run's evidence dir).
+#   --force             overwrite an existing srv1-moe-slots.tsv. Without it an
+#                       existing file is an error: this script creates that
+#                       artifact, and a second step-6 pass appended under a
+#                       first one would file two placement nulls as one.
 #   --dry-run           print every cell's exact command line, run nothing.
 
 set -euo pipefail
@@ -96,6 +111,7 @@ CTX_SLOT=4096
 PORT=8094
 RUN_PREFIX=
 DRY_RUN=0
+FORCE=0
 CONTAINER=lcp-moe-slots
 HEALTH_TRIES=90
 NCMOE_A=0
@@ -125,8 +141,9 @@ while [ "$#" -gt 0 ]; do
         --port) PORT=${2:?--port needs an integer}; shift 2 ;;
         --run-prefix) RUN_PREFIX=${2:?--run-prefix needs a name}; shift 2 ;;
         --out-dir) OUT_DIR=${2:?--out-dir needs a path}; shift 2 ;;
+        --force) FORCE=1; shift ;;
         --dry-run) DRY_RUN=1; shift ;;
-        -h | --help) sed -n '52,74p' "$0"; exit 0 ;;
+        -h | --help) sed -n '63,88p' "$0"; exit 0 ;;
         *) die "unknown argument '$1'" ;;
     esac
 done
@@ -326,7 +343,12 @@ kv_get() {
 
 if [ "$DRY_RUN" -eq 1 ]; then
     printf '# srv1-moe-slots.sh --dry-run\n'
-    printf '# artifacts: %s (appended one line at a time)\n#            %s\n' "$OUT" "$JSON"
+    printf '# artifacts: %s (created here, then appended one line at a time)\n#            %s\n' "$OUT" "$JSON"
+    printf '# step 6 OWNS %s: it creates it. Step 7 (tools/runs/srv1-kernel-arms.sh\n' "$OUT_NAME"
+    printf '# --step crash) appends to it and refuses to run before this script has.\n'
+    if [ -e "$OUT" ] && [ "$FORCE" -eq 0 ]; then
+        printf '# NOTE: %s already exists. A real run would STOP here; pass --force to replace it.\n' "$OUT"
+    fi
     printf '# arm %s / img %s / cell %s / model %s\n' "$ARM" "$IMG" "$CELL" "$MODEL"
     printf '# two placement cells of one checkpoint at one width. That is the whole grid.\n'
     printf '\n## markers\n'
@@ -360,9 +382,22 @@ fi
 # --------------------------------------------------------------------------
 
 mkdir -p "$OUT_DIR" "$ROOT/$MEASUREMENTS"
+
+# ---- ownership, enforced --------------------------------------------------
+# ARTIFACT-CONTRACT.md section 4: `srv1-moe-slots.tsv` -> `srv1-moe-slots.sh`.
+# This script creates that file. Step 7 appends to it and checks that this block
+# is already there, so the order is 6-then-7 at both ends. If the file exists
+# already, either step 7 jumped the queue (its own guard should have stopped it)
+# or a previous step 6 is on disk -- and appending a second placement null under
+# the first would file two runs as one measurement.
+if [ -e "$OUT" ] && [ "$FORCE" -eq 0 ]; then
+    die "$OUT already exists. This script CREATES that artifact (step 6); tools/runs/srv1-kernel-arms.sh --step crash only appends to it (step 7). Either a previous step 6 wrote it, or step 7 ran out of order. Move the file aside, or pass --force to replace it -- but --force discards any step-7 crash rows already in it."
+fi
+: >"$OUT"
+
 trap teardown EXIT
 
-say "artifact: $OUT"
+say "artifact: $OUT (created by this script; step 7 appends to it)"
 emit workload_stamp "$DRIVER"
 # Which instrument produced the rows that follow. The WORKLOAD stamp above is
 # the file's (section 2.1) and names the serving driver; these rows are the

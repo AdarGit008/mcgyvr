@@ -26,12 +26,24 @@
 #   ### KERNELS arm=.. tensor_core_instructions=present|absent      (§2.5)
 #   one BENCH row per rung                                          (§6.4)
 #
-# The BENCH rows are NOT measured here. Resolved conflict §6.4: they are the
-# step-3 `llama-bench` numbers, copied out of `srv1-llama-bench.tsv` and
-# re-filed beside the stamps. If that file does not exist yet, this script emits
-# the stamps, says which rows are still owed, and leaves them out. Re-run it
-# after step 3 — the builds are reused, so the second pass is cheap. It never
-# invents a number.
+# TWO PASSES, IN THIS ORDER, ENFORCED. The BENCH rows are NOT measured here.
+# Resolved conflict §6.4: they are the step-3 `llama-bench` numbers, copied out
+# of `srv1-llama-bench.tsv` and re-filed beside the stamps. So this script runs
+# either side of step 3 and it must be told which:
+#
+#   pass 1   srv1-build-ladder.sh --stage build     campaign step 1
+#            Builds, gates the mechanism, writes the stamps. No BENCH rows: the
+#            instrument has not run yet. Exits 0 saying what is still owed.
+#   step 3   srv1-llama-bench.sh                    the instrument
+#   pass 2   srv1-build-ladder.sh                   (--stage all, the default)
+#            Reuses the images, re-writes the file WITH the BENCH rows.
+#
+# The default stage REFUSES TO START when `srv1-llama-bench.tsv` is absent —
+# checked before a single build, so an out-of-order run costs nothing and leaves
+# nothing — and it exits non-zero if any built rung ends up with no row. `--stage
+# build` is the only way to get the stamps without the rows, and it says so. The
+# artifact is truncated and rewritten by each pass, so pass 2 leaves one whole
+# file rather than two half ones. It never invents a number.
 #
 # Hosts are parameters. Nothing here assumes it is running on srv1 or on srv2.
 #
@@ -48,6 +60,9 @@
 #   RUN_HOST / RUN_REPO / RUN_RETRY_SLEEP           read by tools/runs/_common.sh
 #
 # Flags:
+#   --stage S     `build` = pass 1, before step 3: build, gate, stamp, no BENCH
+#                 rows. `all` (default) = pass 2, after step 3: everything,
+#                 and it fails loudly if the instrument record is not there.
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
 #   --out PATH    write somewhere other than the contract path (for rehearsal).
@@ -75,14 +90,20 @@ PROJECT_FA=${RUN_PROJECT_FA:-1}
 
 DRY_RUN=0
 OUT=
+STAGE=all
 
 usage() {
-    sed -n '2,50p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,68p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
     case $1 in
         --dry-run) DRY_RUN=1 ;;
+        --stage)
+            [ "$#" -ge 2 ] || { _fail "--stage needs build or all"; exit 2; }
+            STAGE=$2
+            shift
+            ;;
         --out)
             [ "$#" -ge 2 ] || { _fail "--out needs a path"; exit 2; }
             OUT=$2
@@ -99,6 +120,11 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
+
+case $STAGE in
+    build | all) : ;;
+    *) _fail "--stage must be 'build' (pass 1, before step 3) or 'all' (pass 2, the default); got '$STAGE'"; exit 2 ;;
+esac
 
 ROOT=$(_repo_root)
 [ -n "$OUT" ] || OUT="$ROOT/$RUN_REL/$ARTIFACT"
@@ -232,6 +258,25 @@ preflight_patch() {
     return 0
 }
 
+# The step-3 ordering, enforced. §6.4: the ladder's BENCH rows ARE the
+# llama-bench numbers, so the default stage cannot run before the instrument
+# has. Checked here, before a single image is built, so an out-of-order run
+# spends nothing and writes nothing. `--stage build` is the explicit pass-1
+# escape and is the only one.
+preflight_instrument() {
+    [ "$STAGE" = all ] || return 0
+    [ -f "$BENCH_TSV" ] && return 0
+    if dry; then
+        say "BLOCKER: --stage all needs the step-3 instrument record and"
+        say "'$BENCH_TSV' is absent. A real run stops here."
+        say "Order: srv1-build-ladder.sh --stage build, then srv1-llama-bench.sh,"
+        say "then srv1-build-ladder.sh. See RUN-ORDER.md."
+        return 0
+    fi
+    _fail "the ladder's BENCH rows ARE the step-3 llama-bench numbers (ARTIFACT-CONTRACT.md §6.4) and '$BENCH_TSV' does not exist, so there is nothing to copy. Run 'tools/runs/srv1-build-ladder.sh --stage build' for campaign step 1, then 'tools/runs/srv1-llama-bench.sh' for step 3, then this script again. Refusing now rather than writing a ladder with no rungs priced"
+    return 1
+}
+
 # write_context ARM SPEC — a self-contained docker context on stdin-able tar.
 # The `cuobjdump` of step 0 runs in the build stage, where the CUDA toolkit
 # lives, and its counts are copied into the image. Nothing is inferred from the
@@ -323,14 +368,14 @@ COPY --from=build /src/build/bin/ /app/
 COPY --from=build /kernels.txt /app/kernels.txt
 COPY --from=build /commit.txt /app/commit.txt
 ENV LD_LIBRARY_PATH=/app:$LD_LIBRARY_PATH
-LABEL org.mcgyvr.arm="${ARM}" \
-      org.mcgyvr.backend="cuda" \
-      org.mcgyvr.cuda_architectures="${ARCHS}" \
-      org.mcgyvr.force_mmq="${FORCE_MMQ}" \
-      org.mcgyvr.ggml_native="${NATIVE}" \
-      org.mcgyvr.cpu_all_variants="${ALLVAR}" \
-      org.mcgyvr.patched="${PATCHED}" \
-      org.mcgyvr.toolkit="${BASE_DEVEL}"
+LABEL org.mcgyvr.build.arm="${ARM}" \
+      org.mcgyvr.build.backend="cuda" \
+      org.mcgyvr.build.cuda_architectures="${ARCHS}" \
+      org.mcgyvr.build.force_mmq="${FORCE_MMQ}" \
+      org.mcgyvr.build.ggml_native="${NATIVE}" \
+      org.mcgyvr.build.cpu_all_variants="${ALLVAR}" \
+      org.mcgyvr.build.patched="${PATCHED}" \
+      org.mcgyvr.build.toolkit="${BASE_DEVEL}"
 EXPOSE 8080
 ENTRYPOINT ["/app/llama-server"]
 DOCKERFILE
@@ -389,14 +434,14 @@ COPY --from=build /kernels.txt /app/kernels.txt
 COPY --from=build /commit.txt /app/commit.txt
 ENV LD_LIBRARY_PATH=/app:$LD_LIBRARY_PATH
 ENV NVIDIA_DRIVER_CAPABILITIES=all
-LABEL org.mcgyvr.arm="${ARM}" \
-      org.mcgyvr.backend="vulkan" \
-      org.mcgyvr.cuda_architectures="none" \
-      org.mcgyvr.force_mmq="OFF" \
-      org.mcgyvr.ggml_native="${NATIVE}" \
-      org.mcgyvr.cpu_all_variants="${ALLVAR}" \
-      org.mcgyvr.patched="no" \
-      org.mcgyvr.toolkit="${BASE_DEVEL}"
+LABEL org.mcgyvr.build.arm="${ARM}" \
+      org.mcgyvr.build.backend="vulkan" \
+      org.mcgyvr.build.cuda_architectures="none" \
+      org.mcgyvr.build.force_mmq="OFF" \
+      org.mcgyvr.build.ggml_native="${NATIVE}" \
+      org.mcgyvr.build.cpu_all_variants="${ALLVAR}" \
+      org.mcgyvr.build.patched="no" \
+      org.mcgyvr.build.toolkit="${BASE_DEVEL}"
 EXPOSE 8080
 ENTRYPOINT ["/app/llama-server"]
 DOCKERFILE
@@ -406,9 +451,40 @@ DOCKERFILE
 # build / reuse / push
 # --------------------------------------------------------------------------
 
+# THE CROSS-SCRIPT LABEL CONTRACT. tools/runs/srv1-kernel-arms.sh reads
+# `org.mcgyvr.build.<key>` off every `llamacpp:b10644-*` image and REFUSES to
+# write a `### BUILD` stamp for a tag that does not carry one (ARTIFACT-CONTRACT
+# section 2.4, behaviour 3). This script is the producer of those images and
+# therefore of those labels. The keys it reads are:
+#
+#   commit  image_sha256  cuda_architectures  force_mmq  ggml_native
+#   cpu_all_variants  patched
+#
+# Five of them are build variables, known before the build, and are set by
+# `LABEL` in the Dockerfiles below. `commit` is NOT known before the build -- it
+# is what `git checkout` resolved to, and only the built image knows it -- so it
+# is applied afterwards by `label_build_facts`, read out of the image's own
+# /app/commit.txt. `image_sha256` cannot be a label at all: an image's id is a
+# hash of its own metadata, so a label naming it cannot exist. The consumer has
+# a documented, non-guessing fallback for exactly that key -- it asks docker for
+# `{{.Id}}` -- and that is the whole of the exception. Every other key is set
+# here.
 label_of() {
     quiet_on_host "$BUILD_HOST" docker image inspect \
-        --format "{{index .Config.Labels \"org.mcgyvr.$2\"}}" "$1" 2>/dev/null
+        --format "{{index .Config.Labels \"org.mcgyvr.build.$2\"}}" "$1" 2>/dev/null
+}
+
+# label_build_facts TAG COMMIT — a metadata-only second build FROM the image
+# just made, adding the one label that could not be known before it existed.
+# Idempotent: a reused image is relabelled with the same value it already has.
+label_build_facts() {
+    local tag=$1 commit=$2
+    printf '+ printf FROM %s / LABEL org.mcgyvr.build.commit=%s | %s\n' \
+        "$tag" "$commit" \
+        "$(plan_on_host "$BUILD_HOST" docker build -t "$tag" - | sed 's/^+ //')"
+    if dry; then return 0; fi
+    printf 'FROM %s\nLABEL org.mcgyvr.build.commit=%s\n' "$tag" "$commit" |
+        on_host "$BUILD_HOST" docker build -t "$tag" -
 }
 
 # image_matches TAG SPEC — true when a tag already on the build host was built
@@ -583,13 +659,19 @@ instrument_row() {
 
 project_bench() {
     local arm tag line src_host pp tg srcline saved missing=
-    if [ ! -f "$BENCH_TSV" ]; then
-        say "no instrument record at $BENCH_TSV."
-        say "The ladder's BENCH rows ARE the step-3 llama-bench numbers"
-        say "(ARTIFACT-CONTRACT.md §6.4) and are copied, never re-measured."
-        say "Run tools/runs/srv1-llama-bench.sh, then re-run this script: the"
-        say "images are reused, so the second pass costs a cuobjdump read."
+    if [ "$STAGE" = build ]; then
+        say "--stage build: pass 1, before step 3. No BENCH row is written,"
+        say "because the instrument has not run. This file is INCOMPLETE by"
+        say "design: it carries the stamps and no rung is priced."
+        say "Next: tools/runs/srv1-llama-bench.sh, then re-run this script with"
+        say "no --stage. The images are reused, so pass 2 is cheap."
         return 0
+    fi
+    if [ ! -f "$BENCH_TSV" ]; then
+        # preflight_instrument refuses this before anything is built; reaching
+        # here means the record was deleted mid-run.
+        _fail "$BENCH_TSV vanished between the preflight and the projection. Nothing is copied and nothing is invented"
+        return 1
     fi
     for arm in "${ARM_LIST[@]}"; do
         tag=${BUILT_TAG[$arm]:-}
@@ -614,6 +696,8 @@ project_bench() {
         say "the instrument record has no -p$PROJECT_PP -fa$PROJECT_FA row for:$missing"
         say "those rungs stay unprojected. A rung with no measurement is RED,"
         say "which is the correct reading of a rung that was not measured."
+        _fail "$BENCH_TSV prices no rung for:$missing. The ladder is not complete and this pass did not finish the artifact. Bench those arms (tools/runs/srv1-llama-bench.sh) and re-run"
+        return 1
     fi
 }
 
@@ -627,9 +711,15 @@ main() {
 
     say "artifact: $OUT"
     say "build host: $BUILD_HOST   serve host: $SERVE_HOST   arms: ${ARM_LIST[*]}"
+    if [ "$STAGE" = build ]; then
+        say "stage: build (pass 1, campaign step 1 — stamps only, no BENCH rows)"
+    else
+        say "stage: all (pass 2, after step 3 — stamps and BENCH rows)"
+    fi
     if dry; then say "--dry-run: printing the plan, reading no rig, writing no file"; fi
 
     preflight_patch || return 1
+    preflight_instrument || return 1
 
     if ! dry; then
         mkdir -p "$(dirname "$OUT")"
@@ -663,6 +753,8 @@ main() {
         # Step 0 for this arm, before anything is benched with it.
         if dry; then
             plan_on_host "$BUILD_HOST" docker run --rm --entrypoint cat "$tag" /app/kernels.txt
+            plan_on_host "$BUILD_HOST" docker run --rm --entrypoint cat "$tag" /app/commit.txt
+            label_build_facts "$tag" '<commit read from /app/commit.txt>'
             plan_on_host "$BUILD_HOST" docker image inspect --format '{{.Id}}' "$tag"
             push_arm "$tag"
             BUILT_TAG["$arm"]=$tag
@@ -699,6 +791,16 @@ main() {
             _fail "$arm: the image reports commit='$commit' id='$image_id'. A BUILD stamp that cannot name what it built resolves no tag (behaviour 3)"
             return 1
         fi
+        # The producer half of the label contract: tools/runs/srv1-kernel-arms.sh
+        # reads org.mcgyvr.build.commit off this tag and fails loudly without it.
+        if ! label_build_facts "$tag" "$commit"; then
+            _fail "$arm: could not apply org.mcgyvr.build.commit=$commit to $tag. tools/runs/srv1-kernel-arms.sh reads that label and refuses to stamp a ### BUILD without it, so the serving sweep would stop on this arm"
+            return 1
+        fi
+        # The relabel added a metadata layer, so the tag now names a new id.
+        image_id=$(quiet_on_host "$BUILD_HOST" docker image inspect --format '{{.Id}}' "$tag") || image_id=
+        image_id=${image_id#sha256:}
+        [ -n "$image_id" ] || { _fail "$arm: $tag has no image id after relabelling"; return 1; }
         emit stamp BUILD "arm=$arm" "commit=$commit" "image_sha256=$image_id" \
             "cuda_architectures=$(spec_get "$spec" cuda_architectures)" \
             "force_mmq=$(spec_get "$spec" force_mmq)" \
@@ -716,7 +818,13 @@ main() {
 
     if dry; then
         say "gate would run here: L0/L1 present, L2/L3 absent, else exit 1"
-        say "then one BENCH row per rung, copied from $BENCH_TSV"
+        if [ "$STAGE" = build ]; then
+            say "--stage build: no BENCH row. Pass 2 (no --stage) copies them"
+            say "from $BENCH_TSV after step 3 has written it."
+        else
+            say "then one BENCH row per rung, copied from $BENCH_TSV"
+            say "an arm with no row there makes this pass exit non-zero"
+        fi
         say "then ### END + the start==end re-read"
         return 0
     fi
@@ -727,11 +835,20 @@ main() {
         return 1
     fi
 
-    project_bench
+    if ! project_bench; then
+        emit end_stamp
+        rig_assert_unchanged || true
+        return 1
+    fi
 
     emit end_stamp
     rig_assert_unchanged
-    say "done: $OUT"
+    if [ "$STAGE" = build ]; then
+        say "pass 1 done: $OUT carries the stamps and owes every BENCH row."
+        say "Run tools/runs/srv1-llama-bench.sh (step 3), then this script again."
+    else
+        say "done: $OUT"
+    fi
 }
 
 main

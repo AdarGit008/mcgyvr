@@ -175,7 +175,10 @@ log_file_type() {
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
     out=$(_tok "$out")
     if [ -z "$out" ]; then
-        out=unread_the_loader_never_printed_it
+        # The one word for this, `_common.sh` `refused` and §6.3: a
+        # checkpoint WAS involved and its type was never read. Which flavour of
+        # unread goes in the reason, not in the field.
+        out=unread
     fi
     printf '%s' "$out"
 }

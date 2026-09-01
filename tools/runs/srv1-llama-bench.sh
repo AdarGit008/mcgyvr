@@ -308,8 +308,10 @@ bench_arm() {
     # llama-bench, and a locally built image can miss the target too. Checked
     # before the model is loaded, retried because guideline 8 asks for three.
     if ! retry3 docker run --rm --entrypoint test "$tag" -x /app/llama-bench; then
+        # `none`, not `unread`: no checkpoint was involved. The binary that
+        # would have loaded one is not in the image (_common.sh `refused`).
         emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
-            "arm=$arm" "img=$tag" "checkpoint_quant=unread" \
+            "arm=$arm" "img=$tag" "checkpoint_quant=none" \
             -- "the image $tag holds no executable /app/llama-bench, so this arm has no prefill instrument and no prefill number may be quoted for it"
         say "$arm: no llama-bench in the image. Refused, not synthesised."
         return 0
@@ -318,6 +320,8 @@ bench_arm() {
     json=$TMP/$arm.json
     if ! retry3 run_bench "$arm" "$json"; then
         reason=$(clean_reason "$(tail -n 3 "$TMP/$arm.err" 2>/dev/null || true)")
+        # `unread`: llama-bench was handed a checkpoint and died without ever
+        # printing what it was.
         emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
             "arm=$arm" "img=$tag" "checkpoint_quant=unread" \
             -- "llama-bench on $arm failed ${RUN_TRIES:-3} times and measured nothing; its last words were: ${reason:-(it printed nothing at all)}"

@@ -110,22 +110,60 @@ Shared parser and helpers: `tests/sweeprows.py`.
 
 ## Steps, in the order that loses least if srv1 locks
 
+Nine steps, ten invocations: **step 1 runs the ladder script twice**, once either
+side of step 3. The order below is not advisory — each script checks its own
+preconditions before it does any work and exits non-zero if they are not met, so
+running one out of turn costs nothing and writes nothing. `tools/runs/` holds
+one script per step; `records/evidence/2026-09-02-srv1-kernel-arms/RUN-ORDER.md`
+is the same list with the artifacts and the blockers against it.
+
 ```
-0  static     cuobjdump L0..L3                      free, can end the campaign early
-1  build      L0 L1 L2 L3 L4 A3                     srv2 builds, direct-push to srv1
-2  null       A/A on L3                             prices the instrument           #7
-3  bench      llama-bench -p 512,2048 -n 128 -r 9   prefill verdict                 #5 #6
-              -fa 0,1  x {L0,L1,L2,L3,L4,A3}
-4  serve      sweep driver, resident models only,   end-to-end at width             #3 #4 #7
-              levels 1,4,8, 5 interleaved reps
-5  correct    breadth/measure.py -> bench/null.py   per arm, self-null first        #11
-6  placement  Ling ncmoe 0 vs 99 through the same   tests the fingerprint fiat      #10
-7  crash      L2 boundary sweep n=1..12, then       regression, 60 trials           #8
-              L3 x 60 at each failing width
-8  vllm       B1 vs B2 on one GPTQ checkpoint       capability, not a ranking;      #12
-                                                    refusal is a result
-9  floor      per-arm ncmoe floor + refusal below   VRAM-bound, not copied          #9
+0+1  static+   srv1-build-ladder.sh --stage build    cuobjdump runs INSIDE each
+     build     L0 L1 L2 L3 L4 A3                     build; the gate can end the
+                                                     campaign before step 2      #6
+2    null      srv1-aa-null.sh        A/A on L3      prices the instrument       #7
+3    bench     srv1-llama-bench.sh                   prefill verdict             #5
+               -p 512,2048 -n 128 -r 9 -fa 0,1
+               x {L0,L1,L2,L3,L4,A3}
+3'   ladder    srv1-build-ladder.sh                  RE-RUN. The ladder's BENCH
+     pass 2    (default --stage all)                 rows ARE step 3's numbers,
+                                                     copied not re-measured
+                                                     (CONTRACT 6.4). Images are
+                                                     reused, so it is cheap. The
+                                                     default stage REFUSES to
+                                                     start before step 3 has
+                                                     written its file.           #6
+4    serve     srv1-kernel-arms.sh --step serve      end-to-end at width      #3 #4 #7
+               resident models only, levels 1,4,8,
+               5 interleaved reps
+5    correct   srv1-correctness.sh                   per arm, self-null first    #11
+               breadth/measure.py -> bench/null.py
+6    placement srv1-moe-slots.sh                     tests the fingerprint fiat  #10
+               Ling ncmoe 0 vs 99. CREATES
+               srv1-moe-slots.tsv (owner; step 7
+               only appends to it)
+7    crash     srv1-kernel-arms.sh --step crash      regression, 60 trials       #8
+               L2 boundary n=1..12, then L3 x 60
+               at each failing width. APPENDS to
+               step 6's file and refuses to run
+               before step 6 has written it
+8    vllm      srv1-vllm-arms.sh                     capability, not a ranking;  #12
+               B1 vs B2 on one GPTQ checkpoint       refusal is a result
+9    floor     srv1-ncmoe-floor.sh                   VRAM-bound, not copied      #9
+               per-arm ncmoe floor + refusal below
 ```
+
+Two orderings are enforced in code rather than trusted to this page:
+
+- **step 3 before the ladder's second pass.** `srv1-build-ladder.sh` with no
+  `--stage` will not start unless `srv1-llama-bench.tsv` exists, and exits
+  non-zero if any built rung ends with no `BENCH` row. `--stage build` is the
+  only way to get the stamps without the rows, and it says on stdout what it
+  still owes.
+- **step 6 before step 7.** `srv1-moe-slots.sh` creates `srv1-moe-slots.tsv` and
+  refuses to overwrite an existing one; `srv1-kernel-arms.sh --step crash`
+  appends to it and refuses to start until that file carries step 6's
+  `### INSTRUMENT step=6` marker.
 
 ## Blockers
 

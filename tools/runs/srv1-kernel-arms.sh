@@ -17,15 +17,25 @@
 #   srv1-moe-slots.tsv   step 7. L2's crash boundary over n=1..12, then L3 for
 #                        60 trials at every width L2 actually died on.
 #
-#   ONE FILE, TWO STEPS. `srv1-moe-slots.tsv` is shared with
+#   ONE FILE, TWO STEPS, ONE OWNER. `srv1-moe-slots.tsv` is shared with
 #   `tools/runs/srv1-moe-slots.sh`, which writes step 6's placement rows into it
 #   and reserves the crash study — step 7, behaviour 8, the L2 boundary and L3's
 #   60 trials — for this script, because that is the kernel question and not a
-#   placement one. So `--step crash` APPENDS and never truncates, exactly as
-#   that script does, and the two run in either order. Each writer emits its own
-#   `### WORKLOAD`, `### START` and `### END`; `Sweep.stamp()` takes the last of
-#   each and `stamped_before()` the nearest preceding, so both blocks resolve.
-#   `### INSTRUMENT` names which tool produced the rows that follow it.
+#   placement one.
+#
+#   ARTIFACT-CONTRACT.md section 4 names `run tools/runs/srv1-moe-slots.sh` as
+#   the one behaviour that produces that file, so THAT script is the
+#   owner-creator and THIS one is the appender. The order is step 6 then step 7
+#   and it is ENFORCED, not documented: `--step crash` refuses to start unless
+#   the file already exists and already carries step 6's `### INSTRUMENT step=6`
+#   marker. Running them the other way round would leave a file whose only
+#   `### WORKLOAD`/`### START` block came from the crash study and whose
+#   placement rows were then appended under a `### END` — half a file that the
+#   parser would read without complaint. So `--step crash` APPENDS and never
+#   truncates. Each writer emits its own `### WORKLOAD`, `### START` and
+#   `### END`; `Sweep.stamp()` takes the last of each and `stamped_before()` the
+#   nearest preceding, so both blocks resolve. `### INSTRUMENT` names which tool
+#   produced the rows that follow it.
 #
 # GUIDELINE 1 — interleaving. The 2026-09-01 A/B ran all of one arm then all of
 # the other, confounding arm with elapsed time and card temperature. Here the
@@ -92,7 +102,7 @@ LOGTAIL_PID=
 LOGTAIL_FLAG=
 
 usage() {
-    sed -n '2,60p' "$0" >&2
+    sed -n '2,71p' "$0" >&2
     exit "${1:-2}"
 }
 
@@ -274,7 +284,10 @@ log_file_type() { # LOGFILE
     if [ -z "$out" ]; then
         # The launch died before the loader printed. Saying so is a reading;
         # copying the quant out of the filename would not be.
-        out=unread_the_loader_never_printed_it
+        # The one word for this, `_common.sh` `refused` and §6.3: a
+        # checkpoint WAS involved and its type was never read. Which flavour of
+        # unread goes in the reason, not in the field.
+        out=unread
     fi
     printf '%s' "$out"
 }
@@ -604,7 +617,12 @@ crash_step() {
 
 crash_dry() {
     local cell
-    printf '# step 7 (crash) -> %s (appended; step 6 shares this file)\n' "$RUN_DIR/$SLOTS_TSV"
+    printf '# step 7 (crash) -> %s (APPENDED; step 6 creates this file)\n' "$RUN_DIR/$SLOTS_TSV"
+    printf '# precondition, enforced: that file must already exist and carry\n'
+    printf '#   "### INSTRUMENT step=6" from tools/runs/srv1-moe-slots.sh.\n'
+    if [ ! -e "$RUN_DIR/$SLOTS_TSV" ]; then
+        printf '#   NOT MET today: %s is absent. A real run would STOP here.\n' "$RUN_DIR/$SLOTS_TSV"
+    fi
     printf '# %s boundary sweep n=1..%s, then %s x %s trials at every width that actually died\n' \
         "$CRASH_ARM" "$CRASH_MAX_N" "$FIX_ARM" "$TRIALS"
     for cell in $CRASH_CELLS; do
@@ -649,18 +667,38 @@ guard() { # FILE
     fi
 }
 
+# The other half of the ownership rule, enforced. `srv1-moe-slots.tsv` belongs
+# to step 6 (`tools/runs/srv1-moe-slots.sh`, ARTIFACT-CONTRACT.md section 4);
+# this script only ever appends step 7's crash rows to it. Checked BEFORE any
+# work, so an out-of-order run costs no rig time and leaves no partial file.
+require_slots_owner() {
+    local f=$RUN_DIR/$SLOTS_TSV
+    if [ ! -e "$f" ]; then
+        _fail "$f does not exist, and this script does not create it. Step 6 owns that file: run 'tools/runs/srv1-moe-slots.sh --model <ling.gguf>' first, then re-run this with --step crash. Appending step 7's crash rows to a file with no step-6 block would file the crash study under the placement null's name"
+        exit 1
+    fi
+    if ! grep -qE '^### +INSTRUMENT( .*)? step=6( |$)' "$f"; then
+        _fail "$f exists but carries no '### INSTRUMENT step=6' marker, so step 6 (tools/runs/srv1-moe-slots.sh) has not written its placement block into it. That script is the owner-creator and must run first; this one only appends"
+        exit 1
+    fi
+}
+
 case $STEP in
     serve)
         guard "$RUN_DIR/$ARMS_TSV"
         serve_step >"$RUN_DIR/$ARMS_TSV"
         ;;
     crash)
-        # Appended, not truncated: step 6 writes its placement rows into the
-        # same file and neither step may erase the other.
+        # Appended, not truncated: step 6 created this file and wrote its
+        # placement rows into it, and neither step may erase the other.
+        require_slots_owner
         crash_step >>"$RUN_DIR/$SLOTS_TSV"
         ;;
     all)
+        # Both preconditions up front: --step all means steps 4 and 7 in one
+        # pass, and step 7 is still downstream of step 6.
         guard "$RUN_DIR/$ARMS_TSV"
+        require_slots_owner
         serve_step >"$RUN_DIR/$ARMS_TSV"
         crash_step >>"$RUN_DIR/$SLOTS_TSV"
         ;;
