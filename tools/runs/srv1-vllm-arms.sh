@@ -29,8 +29,16 @@
 # kernel that ran: `--cpu-offload-params experts` was accepted, hashed into the
 # compile cache key and silently ignored under the V2 runner.
 #
-# THE CHECKPOINT. srv1 holds no GPTQ file of any shape (2026-08-31 inventory),
-# so B2 sits behind a fetch. `Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4`:
+# THE CHECKPOINT. srv1 holds exactly one GPTQ checkpoint and it is the wrong
+# shape: `Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`, 7.9 G in three shards, verified
+# present on 2026-09-02 (the 2026-08-31 inventory does not list it, and an
+# earlier note in B2-CHECKPOINT.md that said srv1 held "no GPTQ checkpoint of any
+# shape" was WRONG — see that file's section (A)). It is MoE, so
+# `--linear-backend` would bind only its attention and dense projections while
+# the experts route through `--moe-backend`, and 7.9 G does not fit a 6144 MiB
+# card. So B2 still sits behind a fetch of a DENSE one — the conclusion is
+# unchanged, the reason for it was not what this header used to claim.
+# `Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4`:
 # 1.071 GiB of weights on a 6144 MiB card, dense Qwen2ForCausalLM. Its
 # quantisation parameters live in `config.json` under `quantization_config` —
 # these repos ship NO `quantize_config.json` (HTTP 404), so a script that checks
@@ -240,7 +248,7 @@ hf_bin() {
     elif [ "$DRY_RUN" -eq 1 ]; then
         printf 'hf'
     else
-        _fail "neither 'hf' nor 'huggingface-cli' is on PATH, and srv1 holds no GPTQ checkpoint of any shape (2026-08-31 inventory). B2 sits behind this fetch"
+        _fail "neither 'hf' nor 'huggingface-cli' is on PATH, and srv1's only GPTQ checkpoint is the MoE Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4, which this arm cannot use. B2 sits behind this fetch"
         return 1
     fi
 }
@@ -322,6 +330,9 @@ EOF
     echo
     echo "## 1. THE CHECKPOINT — fetched and verified BEFORE either launch."
     echo "##    A mismatch here is a REFUSED row for both arms, not a warning."
+    echo "##    Present already? The same command with the network switched off"
+    echo "##    resolves the cache and fetches nothing; only a miss downloads."
+    show "HF_HUB_OFFLINE=1 $(download_cmdline)"
     show "$(download_cmdline)"
     show "$(verify_cmdline '<snapshot-dir>')"
     echo
@@ -546,16 +557,67 @@ cleanup() {
     return "$status"
 }
 
+# hf_snapshot_path FILE — the snapshot directory, out of `hf download`'s stdout.
+#
+# THE PARSE THAT FABRICATED TWO REFUSALS. srv1 runs huggingface_hub 1.24.0, whose
+# `hf download` prints a TWO-LINE summary:
+#     ✓ Downloaded
+#       path: /home/adaramir/.cache/huggingface/hub/models--Qwen--...
+# The old `tail -n 1` therefore returned `  path: /home/...` — a sentence, not a
+# directory — the `[ -d ]` below failed, and B1 and B2 were both written REFUSED
+# with `checkpoint_quant=unread` while the checkpoint sat on the rig, complete
+# and conforming (gptq / bits=4 / group_size=128 / desc_act=false / sym=true).
+# A refusal that did not happen is the one unacceptable outcome in this repo, and
+# this one came out of a line-position assumption about a CLI's cosmetics.
+#
+# So the LABELLED field is read. A version that prints the bare path on one line
+# still parses, through the fallback; either way the answer has to be a directory
+# on this host before anything believes it.
+#
+# `huggingface-cli` is not a fallback for this. On 1.24.0 it writes NOTHING to
+# stdout (measured on srv1: 0 bytes, exit 1 offline), so there is no path in it
+# to read at all — which is also why hf_bin prefers `hf`.
+hf_snapshot_path() {
+    local p
+    p=$(sed -n 's/^[[:space:]]*path:[[:space:]]*//p' "$1" | head -n 1)
+    if [ -z "$p" ]; then
+        p=$(grep -v '^[[:space:]]*$' "$1" | tail -n 1)
+    fi
+    p=${p#"${p%%[![:space:]]*}"}
+    p=${p%"${p##*[![:space:]]}"}
+    printf '%s' "$p"
+}
+
 fetch_and_verify() {
     local bin out rc
     bin=$(hf_bin) || return 1
-    say "fetching $MODEL"
-    SNAPSHOT=$("$bin" download "$MODEL" 2>"$WORK/fetch.stderr" | tail -n 1) || {
-        say "the fetch failed: $(tail -n 3 "$WORK/fetch.stderr" | tr '\n' ' ')"
-        return 1
-    }
+    SNAPSHOT=""
+    # Already here? Ask the same tool with the network switched off. That resolves
+    # the cache through huggingface_hub's own logic rather than through this
+    # script guessing at its directory layout, and a checkpoint already on the rig
+    # then costs nothing: srv1 holds this one at
+    # ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4/
+    # snapshots/d45c7545dc428f013534f8bfd0441b3afffc0006 and re-fetching it would
+    # verify the same bytes it already verified.
+    if HF_HUB_OFFLINE=1 "$bin" download "$MODEL" \
+        >"$WORK/fetch.out" 2>"$WORK/fetch.stderr"; then
+        SNAPSHOT=$(hf_snapshot_path "$WORK/fetch.out")
+        if [ -n "$SNAPSHOT" ] && [ -d "$SNAPSHOT" ]; then
+            say "checkpoint already on this host, nothing fetched: $SNAPSHOT"
+        else
+            SNAPSHOT=""
+        fi
+    fi
+    if [ -z "$SNAPSHOT" ]; then
+        say "fetching $MODEL"
+        if ! "$bin" download "$MODEL" >"$WORK/fetch.out" 2>"$WORK/fetch.stderr"; then
+            say "the fetch failed: $(tail -n 3 "$WORK/fetch.stderr" | tr '\n' ' ')"
+            return 1
+        fi
+        SNAPSHOT=$(hf_snapshot_path "$WORK/fetch.out")
+    fi
     if [ -z "$SNAPSHOT" ] || [ ! -d "$SNAPSHOT" ]; then
-        say "'$bin download $MODEL' named no snapshot directory (got '${SNAPSHOT:-}')"
+        say "'$bin download $MODEL' named no snapshot directory. Its whole stdout was: $(tr '\n' ' ' <"$WORK/fetch.out" | tr -s ' ')"
         return 1
     fi
     say "verifying $SNAPSHOT — quantization_config, and every weight byte"
