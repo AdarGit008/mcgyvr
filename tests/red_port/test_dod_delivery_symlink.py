@@ -48,15 +48,11 @@ def test_delivery_refuses_a_symlinked_parent_component(
     )
 
 
-def test_delivery_refuses_a_symlinked_target_file(
-    repo: Path, contract: Any
-) -> None:
+def test_delivery_refuses_a_symlinked_target_file(repo: Path, contract: Any) -> None:
     """A symlink at the target itself must not be written through."""
     head = git(repo, "rev-parse", "HEAD").strip()
     targeted = replace(contract, target="src/pkg/linked.py")
-    (repo / "src" / "pkg" / "linked.py").symlink_to(
-        repo / "src" / "pkg" / "fetch.py"
-    )
+    (repo / "src" / "pkg" / "linked.py").symlink_to(repo / "src" / "pkg" / "fetch.py")
     new = "def fetch(url):\n    return url.strip()\n"
 
     with pytest.raises(DeliveryError, match="symlink"):

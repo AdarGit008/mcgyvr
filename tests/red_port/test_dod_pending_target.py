@@ -79,6 +79,4 @@ def test_a_tampered_target_is_refused_before_it_becomes_a_path(
     with pytest.raises(PendingError, match="repository-relative"):
         _resume()(store=store, repo=repo, task=contract.id, verify=approve)
 
-    assert shown == [], (
-        f"the tampered target was read before it was refused: {shown!r}"
-    )
+    assert shown == [], f"the tampered target was read before it was refused: {shown!r}"
