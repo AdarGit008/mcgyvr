@@ -50,8 +50,8 @@ Separately, and never on the same axis as the table above:
 
 | arm | build | isolates |
 |---|---|---|
-| `B1` | vLLM v0.26.0, default (Marlin) | tensor-core PTX on sm75 |
-| `B2` | vLLM v0.26.0, `--linear-backend exllama` | `__hfma2`, no `mma.sync` |
+| `B1` | vLLM v0.26.0, `--linear-backend marlin` | `MarlinLinearKernel`, tensor-core PTX on sm75 |
+| `B2` | vLLM v0.26.0, `--linear-backend exllama` | `ExllamaLinearKernel`, `__hfma2`, no `mma.sync` |
 
 `A1` vs `L2` moves six variables at once — arch list, `FORCE_MMQ`, `GGML_NATIVE`,
 the CPU-variant dispatch, the toolkit, the base image. The ladder exists so
@@ -129,14 +129,43 @@ Shared parser and helpers: `tests/sweeprows.py`.
 
 ## Blockers
 
-- **B2 has no valid checkpoint.** srv1's only GPTQ is `Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`,
-  a MoE; exllama has no fused-MoE path. A dense GPTQ 4-bit sym/g128/`desc_act=false`
-  file must be fetched and its `quantize_config.json` read — two checkpoints on
-  disk are already mislabelled.
-- **`--linear-backend exllama` is unverified against `vllm/vllm-openai:v0.26.0`,**
-  and srv1 has already recorded it refusing on an AWQ checkpoint. If the flag is
-  absent, the contrast becomes `--quantization gptq` vs `gptq_marlin`, which is
-  better anyway: same checkpoint, one variable.
+- **B2's checkpoint must be fetched.** srv1 holds no GPTQ checkpoint of any
+  shape: the 2026-08-31 inventory (`records/evidence/2026-08-31-inventory/srv1-scan.txt:51-122`)
+  covers `~/models` and both HF caches and lists none, and
+  `Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4` appears nowhere in this repo. A dense GPTQ
+  4-bit sym/g128/`desc_act=false` file must be fetched. Resolved candidate:
+  `Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4` — 1.071 GiB of weights, `bits 4 /
+  group_size 128 / desc_act false / sym true`, leaving ~4.1 GiB for KV on the
+  6144 MiB card. Its quantisation parameters live in `config.json` under
+  `quantization_config`; these repos ship **no** `quantize_config.json` (HTTP
+  404), so the instruction to read that filename was wrong — read `config.json`.
+  (`records/evidence/2026-09-02-srv1-kernel-arms/B2-CHECKPOINT.md`)
+- **A checkpoint's name is not evidence of its format.** Two logged mismatches on
+  the shared store: `~/models/moe/nemotron-30b-awq/` resolves as
+  `quantization=compressed-tensors` in two srv1 logs
+  (`records/evidence/2026-08-31-inventory/srv1-vllm-nemotronh-moe-loadtest.log:20`,
+  `srv1-vllm-nemotronh-offload12-mml1024.log:21`), and both
+  `~/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_{M,S}.gguf` are
+  qwen2-arch per `records/evidence/2026-08-27-spec-decoding/store/README.md`.
+  `checkpoint_quant` carries what was read from `quantization_config`, not what a
+  path implies.
+- **`--linear-backend exllama` is verified to exist in v0.26.0.** The flag is
+  captured in-repo at
+  `records/evidence/2026-08-24-knob-surface/declared-vllm-ffb2d59b1c05.json`
+  flag 255, read out of the pinned image digest, with `exllama` among its
+  choices. The August refusal was `ExllamaLinearKernel` rejecting `uint4` — the
+  AWQ scalar type — not the flag failing to parse; GPTQ 4-bit sym is `uint4b8`,
+  which it accepts. The proposed fallback is **invalid**: in v0.26.0 `gptq` and
+  `gptq_marlin` both map to `AutoGPTQConfig`, so `--quantization gptq` vs
+  `gptq_marlin` moves nothing and would print two flags while running one kernel.
+  The pair is `--linear-backend marlin` (B1) vs `--linear-backend exllama` (B2)
+  on one checkpoint, and `kernel_observed` comes from
+  `Using {Marlin,Exllama}LinearKernel for AutoGPTQLinearMethod` in the engine log.
+- **Unexecuted:** `AutoGPTQLinearMethod.__init__` calls
+  `verify_marlin_supported()` unconditionally, before the kernel chooser runs.
+  Source says it passes for `uint4b8`/`g128` on sm75; that path has not been run.
+  If B2 dies with a Marlin message rather than an Exllama one, this is the cause
+  — a REFUSED row with the reason, not a setup error.
 - **`server-cuda-b10644` may not contain `llama-bench`.** If not, `A1` cannot be
   microbenchmarked as shipped and `L0` is the mandatory baseline.
 - **The recorded 1.5–1.7x is `L2`'s, not `L3`'s.** The patch changes MoE kernel
