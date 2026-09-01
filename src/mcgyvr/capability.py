@@ -35,10 +35,12 @@ regression on the day it lands:
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from mcgyvr.catalog import catalog
@@ -143,11 +145,11 @@ class Model:
     vram_gb_working: float
     weights_gb: float
     quant: str
-    quality: list[Measurement]
-    throughput: list[Measurement]
+    quality: tuple[Measurement, ...]
+    throughput: tuple[Measurement, ...]
     requires_backend: str | None
     notes: str
-    capabilities: dict[str, float] = field(default_factory=dict)
+    capabilities: Mapping[str, float] = field(default_factory=dict)
 
     @property
     def is_measured(self) -> bool:
@@ -199,8 +201,8 @@ class Caveat:
 
 @dataclass(frozen=True)
 class CapabilityTable:
-    models: list[Model]
-    caveats: list[Caveat]
+    models: tuple[Model, ...]
+    caveats: tuple[Caveat, ...]
 
     def get(self, model_id: str) -> Model | None:
         return next((m for m in self.models if m.id == model_id), None)
@@ -227,8 +229,8 @@ class CapabilityTable:
         ]
 
 
-def _measurements(rows: list[dict[str, Any]], key: str) -> list[Measurement]:
-    return [
+def _measurements(rows: list[dict[str, Any]], key: str) -> tuple[Measurement, ...]:
+    return tuple(
         Measurement(
             value=float(row[key]),
             backend=str(row.get("backend", "")),
@@ -237,7 +239,7 @@ def _measurements(rows: list[dict[str, Any]], key: str) -> list[Measurement]:
         )
         for row in rows
         if key in row
-    ]
+    )
 
 
 def table_path() -> Path:
@@ -269,37 +271,49 @@ def load(path: Path | None = None) -> CapabilityTable:
             f"unsupported capability table schema_version {raw.get('schema_version')!r}"
         )
 
-    models = [
-        Model(
-            id=str(entry["id"]),
-            family=str(entry["family"]),
-            params_b=float(entry["params_b"]),
-            vram_gb_working=float(entry["vram_gb_working"]),
-            weights_gb=float(entry["weights_gb"]),
-            quant=str(entry.get("quant", "")),
-            quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
-            throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
-            requires_backend=entry.get("requires_backend"),
-            notes=str(entry.get("notes", "")),
-            capabilities={
-                str(dimension): float(score)
-                for dimension, score in entry.get("capabilities", {}).items()
-            },
+    try:
+        models = tuple(
+            Model(
+                id=str(entry["id"]),
+                family=str(entry["family"]),
+                params_b=float(entry["params_b"]),
+                vram_gb_working=float(entry["vram_gb_working"]),
+                weights_gb=float(entry["weights_gb"]),
+                quant=str(entry.get("quant", "")),
+                quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
+                throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
+                requires_backend=entry.get("requires_backend"),
+                notes=str(entry.get("notes", "")),
+                capabilities=MappingProxyType(
+                    {
+                        str(dimension): float(score)
+                        for dimension, score in entry.get("capabilities", {}).items()
+                    }
+                ),
+            )
+            for entry in raw.get("models", [])
         )
-        for entry in raw.get("models", [])
-    ]
+    except KeyError as exc:
+        raise CapabilityTableError(
+            f"a model entry is missing required key {exc.args[0]!r}"
+        ) from exc
     if not models:
         raise CapabilityTableError(f"{path} declares no models")
 
-    caveats = [
-        Caveat(
-            id=str(c["id"]),
-            severity=str(c["severity"]),
-            summary=str(c["summary"]),
-            consequence=str(c["consequence"]),
+    try:
+        caveats = tuple(
+            Caveat(
+                id=str(c["id"]),
+                severity=str(c["severity"]),
+                summary=str(c["summary"]),
+                consequence=str(c["consequence"]),
+            )
+            for c in raw.get("harness_caveats", [])
         )
-        for c in raw.get("harness_caveats", [])
-    ]
+    except KeyError as exc:
+        raise CapabilityTableError(
+            f"a harness caveat is missing required key {exc.args[0]!r}"
+        ) from exc
     return CapabilityTable(models=models, caveats=caveats)
 
 
