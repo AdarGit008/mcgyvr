@@ -109,23 +109,41 @@ first: q3 got 44,592 KV tokens (maxconc 21.8), q15 got 17,536 (maxconc 8.6) --
 and q15 is the *smaller* model. Whatever share the second server gets, it is
 not its util.
 
-**How util composes across co-resident servers is UNSETTLED.** Two readings each
-explain part of the data and neither explains all of it; three configurations
-were guessed wrong on 2026-09-01 before the guessing stopped. Do not reason it
-out -- read `maxconc` off each server's CONFIG row and tune against that. Two
-engine behaviours are established:
+**SETTLED: `util` is a per-server share of the whole card, and a resident
+neighbour does NOT shrink it.** Proven three times on srv1: co-resident q3 at
+util 0.55 got 14,448 KV tokens, byte-identical to its SOLO run at 0.55. The
+solo curve is linear -- q15 read 14,064 / 35,072 / 56,064 / 77,072 tokens at
+0.35 / 0.45 / 0.55 / 0.65, deltas of 21,008 and 20,992 and 21,008.
 
-- `ValueError: Free memory on device cuda:0 (1.12/11.63 GiB) on startup is less
-  than desired GPU memory utilization (0.9, 10.47 GiB)` -- a precondition on
-  FREE memory, checked before anything is allocated. It caps how high the
-  second server's util can go, which is what makes the composition question
-  bite.
-- `AssertionError: Error in memory profiling. Initial free memory 8.43 GiB,
-  current free memory 8.82 GiB` -- init reads LIVE free memory, so a neighbour
-  still tearing down makes the next launch refuse. `docker rm -f` returns before
-  the CUDA context is gone: **wait for `nvidia-smi --query-compute-apps` to come
-  back empty**, do not sleep and hope. Two of the three pass-1 refusals were
-  this, not the pair.
+What a neighbour does is raise the floor under the free-memory precondition,
+which caps how high a LATER server's util may be set:
+`ValueError: Free memory on device cuda:0 (3.11/5.61 GiB) on startup is less
+than desired GPU memory utilization (0.58, 3.25 GiB)`. With q15 resident at
+0.40, q3's ceiling is 3.11/5.61 = 0.554 -- so 0.55 runs and 0.58 refuses, three
+times out of three. That refusal is arithmetic, not chance.
+
+**So the ordering rule is SMALL-FIRST.** Give the small model its share while
+the card is empty; the large one still gets its full share afterwards.
+Large-first leaves the second server a budget smaller than the first already
+occupies and it gets nothing -- which is what starved q15 on srv2 and sent four
+splits into the bin before the rule was measured.
+
+**A LAUNCH NEAR THE MEMORY EDGE FAILS INTERMITTENTLY. Retry before believing a
+refusal.** The identical command on a verified-empty srv1, three times: one
+died at memory profiling, two came up with byte-identical 24,560 KV tokens.
+A single refusal is a coin flip; a success is exactly reproducible. This
+manufactured two false conclusions on 2026-09-01 -- `q3 came up at 0.46` (it
+cannot, alone) and `q15 refused at 0.40` (it works) -- on settings minutes
+apart that had already been shown to work. `vllm_cores_01-09-2026.py` retries
+three times and reports `tries=` on the CONFIG row.
+
+**Two servers must be launched SEQUENTIALLY, each healthy before the next
+starts.** vLLM profiles live free memory during init, so two starting together
+race and one dies on a util that works alone.
+
+**Solo floors below are single draws and should be re-measured with retry
+before they are trusted:** q15 refused at 0.25, q3 refused at 0.25/0.35/0.45.
+Given the 1-in-3 flake rate, each is one observation, not a floor.
 
 **A 7B does not co-reside on srv2 at len 2048.** q7 refused at util 0.55 and
 again at 0.65 on a verified-clean card: 5.3 GiB of weights leaves 0.01 GiB for

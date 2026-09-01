@@ -74,6 +74,8 @@ SPECS = [s.split("=") for s in sys.argv[7:]]
 IMG = os.environ.get("VLLM_IMG", "vllm/vllm-openai:v0.26.0")
 H = socket.gethostname()
 BASE_PORT = 8100
+# Attempts per server before a refusal is believed. See the RETRY note below.
+LAUNCH_TRIES = 3
 
 PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
 COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
@@ -223,7 +225,22 @@ if int(MAXLEN) < MAXLEN_NEED:
     print(f"{H}\t{PAIR}\tSKIP\tmax-model-len {MAXLEN} < {MAXLEN_NEED}", flush=True)
     sys.exit(0)
 
-servers = []
+# ONE AT A TIME, EACH FULLY UP BEFORE THE NEXT STARTS. vLLM profiles LIVE free
+# memory during init, so two servers starting together race: each sees memory
+# the other is mid-way through taking, and one of them dies on a util that
+# works perfectly when it launches alone. Measured 2026-09-01 on srv1 -- q15 at
+# 0.40 came up solo with 24,560 KV tokens and REFUSED at the same 0.40 when
+# launched alongside q3. This loop used to start every container and only then
+# wait for health, which is that race by construction.
+#
+# ORDER IS THE CALLER'S, AND IT SHOULD BE SMALL-FIRST. util is a per-server
+# share of the whole card -- a resident neighbour does NOT shrink it, proven by
+# co-resident q3 at 0.55 getting 14,448 KV tokens, byte-identical to its solo
+# run at 0.55. What a neighbour does is raise the floor under the free-memory
+# precondition, capping how high a LATER server's util may be set. So give the
+# small model its share first; large-first leaves the second server a budget
+# smaller than the first already occupies, and it gets nothing.
+servers, alive = [], []
 for i, spec in enumerate(SPECS):
     tag, model = spec[0], spec[1]
     util = spec[2] if len(spec) > 2 else UTIL
@@ -237,21 +254,41 @@ for i, spec in enumerate(SPECS):
         f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
         f"--max-num-seqs {SEQS} {kvflag}"
     )
-    servers.append(
-        {"tag": tag, "model": model, "name": name, "port": port, "util": util}
-    )
+    s = {"tag": tag, "model": model, "name": name, "port": port, "util": util}
+    servers.append(s)
 
-alive = []
-for s in servers:
-    ok = False
+    # RETRY: a launch near the memory edge fails INTERMITTENTLY. Measured on
+    # srv1 2026-09-01 -- the identical command on a verified-empty card, three
+    # times: one died at memory profiling, two came up with byte-identical
+    # 24,560 KV tokens. So a single refusal is a coin flip, not a capacity
+    # limit, and reading one as the other cost most of a day: `q3 at 0.46 came
+    # up` and `q15 at 0.40 refused` were both lucky draws, minutes apart, on
+    # settings that had already worked.
+    ok, attempts = False, 0
     probe = f"curl -sf -m 3 http://localhost:{s['port']}/health >/dev/null && echo Y"
-    for _ in range(450):
-        if sh(probe) == "Y":
-            ok = True
+    for attempts in range(1, LAUNCH_TRIES + 1):
+        for _ in range(450):
+            if sh(probe) == "Y":
+                ok = True
+                break
+            if s["name"] not in sh("docker ps --format '{{.Names}}'"):
+                break
+            time.sleep(2)
+        if ok or attempts == LAUNCH_TRIES:
             break
-        if s["name"] not in sh("docker ps --format '{{.Names}}'"):
-            break
-        time.sleep(2)
+        sh(f"docker rm -f {s['name']}")
+        for _ in range(30):
+            if not sh("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
+                break
+            time.sleep(2)
+        sh(
+            f"docker run -d --name {name} --runtime=nvidia --gpus all "
+            f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
+            f"-v $HOME/models:/models:ro -p {port}:8000 --ipc=host {IMG} {model} "
+            f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
+            f"--max-num-seqs {SEQS} {kvflag}"
+        )
+    s["attempts"] = attempts
     if not ok:
         # vLLM's last error line is `Engine core initialization failed. See
         # root cause above` -- the wrapper, not the cause. Ask for the cause
@@ -271,7 +308,8 @@ for s in servers:
         if not why:
             why = sh(f"docker logs {s['name']} 2>&1 | tail -3")
         print(
-            f"{H}\t{PAIR}\t{s['tag']}\tREFUSED\t{' | '.join(why.splitlines())[:400]}",
+            f"{H}\t{PAIR}\t{s['tag']}\tREFUSED\tafter {attempts} attempts: "
+            f"{' | '.join(why.splitlines())[:360]}",
             flush=True,
         )
         continue
@@ -316,7 +354,7 @@ for s in alive:
         f"{H}\t{PAIR}\t{s['tag']}\tCONFIG\timg={IMG}\tport={s['port']}"
         f"\tutil={s['util']}\tkv={KV}\tkv_tok={s['kvtok']}"
         f"\tmaxconc={s['conc'] if s['conc'] is None else round(s['conc'], 1)}"
-        f"\twarm_ptok={w[0][2]}\tpair_vram={vram}",
+        f"\twarm_ptok={w[0][2]}\tpair_vram={vram}\ttries={s['attempts']}",
         flush=True,
     )
 
