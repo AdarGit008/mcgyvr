@@ -8,8 +8,18 @@ whether a Vulkan build — whose backend detects tensor cores by querying
 `VK_KHR_cooperative_matrix` rather than reading an integer — makes the whole
 CUDA workaround unnecessary.
 
-**Decision it enables.** *Which engine and build srv1 should serve on, if it
-should serve at all.*
+**This is a capability question, not a controlled comparison.** Only the
+`L`-ladder is controlled: one variable per rung, inside one engine. The vLLM
+arms are not on that ladder and never join it. vLLM and llama.cpp differ in
+scheduler, batching, KV management and quantisation format, so a tok/s ratio
+between them measures two stacks, not two kernels. What vLLM is asked here is
+what it *can* do on TU116: which kernel it selects, whether a path that is not
+`mma.sync` exists at all, and what it refuses.
+
+**Decisions it enables.** *Which llama.cpp build srv1 should serve on* — from the
+`L`-ladder, controlled. And, separately, *what vLLM is capable of on this card* —
+a capability finding, whose honest answer may be "no viable non-tensor-core path
+exists here". Neither answers the other, and no arm ranks the two engines.
 
 **Status.** Not run. Every behaviour below is a strict, dated `xfail`; the run
 that closes one takes its marker off. Artifacts land in
@@ -35,6 +45,11 @@ srv1  GTX 1660 SUPER 6144 MiB  cc 7.5  TU116, no tensor cores  driver 580.173.02
 | `L4` | `L0` + `GGML_NATIVE=ON`, no `CPU_ALL_VARIANTS` | the CPU build flags alone |
 | `A3` | `GGML_VULKAN=ON` | a non-CUDA path — a **bound**, never an attribution |
 | `A1` | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10644` | what "stock" means to a user |
+
+Separately, and never on the same axis as the table above:
+
+| arm | build | isolates |
+|---|---|---|
 | `B1` | vLLM v0.26.0, default (Marlin) | tensor-core PTX on sm75 |
 | `B2` | vLLM v0.26.0, `--linear-backend exllama` | `__hfma2`, no `mma.sync` |
 
@@ -54,15 +69,21 @@ the CPU-variant dispatch, the toolkit, the base image. The ladder exists so
    and `prefill = pin/wall` over the same wall, so `prefill/agg ≡ ptok/otok`.
    Prefill verdicts come from `llama-bench -p N -r 9`.
 4. **Microbenchmarks carry no workload digest.** File them apart; never mix them
-   into a cross-engine claim.
-5. **Check the mechanism statically before spending rig time.** `cuobjdump` the
+   into a serving claim.
+5. **No number crosses the engine boundary.** The `L`/`A` arms and the `B` arms
+   are two studies sharing a rig and a workload. The shared workload makes rows
+   *honest* — same prompts, same token counts — it does not make them
+   *comparable*: vLLM pages its KV, batches continuously and reads GPTQ;
+   llama.cpp does none of those and reads GGUF. `B1` vs `B2` is the only vLLM
+   pair, and there is no `L`-vs-`B` row to write.
+6. **Check the mechanism statically before spending rig time.** `cuobjdump` the
    built libraries. If `mma.sync` is still on the selected paths in `L2`/`L3`, no
    throughput number can be attributed to removing it.
-6. **Stamp the rig on every row**, and re-read it at the end. A hard lock wipes
+7. **Stamp the rig on every row**, and re-read it at the end. A hard lock wipes
    the BIOS profile. Read `constraint_0_power_limit_uw`, never `..._max_power_uw`.
-7. **A refusal is a result.** Retry three times before believing it — a launch
+8. **A refusal is a result.** Retry three times before believing it — a launch
    near the memory edge is a 1-in-3 coin flip — and record the reason.
-8. **Score correctness with what exists**: `tools/breadth/measure.py --endpoint
+9. **Score correctness with what exists**: `tools/breadth/measure.py --endpoint
    ... --protocol openai --tier bench-py`, paired through `tools/bench/null.py`.
    Each arm is a new `serving_build`, so no committed bound in
    `tools/bench/reproducibility.json` covers it — every arm prices its own null
@@ -73,7 +94,7 @@ the CPU-variant dispatch, the toolkit, the base image. The ladder exists so
 | # | behaviour / question | test |
 |---|---|---|
 | 1 | The parser reads real artifacts, and the prior A/B cannot tell its arms apart | `tests/test_a_row_parser_that_reads_nothing_proves_nothing.py` |
-| 2 | One workload across every driver; microbenchmarks filed apart | `tests/test_one_workload_or_no_cross_engine_claim.py` |
+| 2 | One workload across every driver; microbenchmarks filed apart | `tests/test_one_workload_or_no_comparison.py` |
 | 3 | Every row names its arm and its image; local tags resolve to a build stamp | `tests/test_a_row_that_does_not_name_its_arm_is_not_a_measurement.py` |
 | 4 | Every row carries the live rig state; start equals end | `tests/test_a_row_without_the_rigs_live_state_is_not_comparable.py` |
 | 5 | Prefill is timed by an instrument that measures prefill, `-r 9`, `-fa 0,1` | `tests/test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py` |
@@ -101,7 +122,8 @@ Shared parser and helpers: `tests/sweeprows.py`.
 6  placement  Ling ncmoe 0 vs 99 through the same   tests the fingerprint fiat      #10
 7  crash      L2 boundary sweep n=1..12, then       regression, 60 trials           #8
               L3 x 60 at each failing width
-8  vllm       B1 vs B2 on one GPTQ checkpoint       refusal is a result             #12
+8  vllm       B1 vs B2 on one GPTQ checkpoint       capability, not a ranking;      #12
+                                                    refusal is a result
 9  floor      per-arm ncmoe floor + refusal below   VRAM-bound, not copied          #9
 ```
 
@@ -122,7 +144,8 @@ Shared parser and helpers: `tests/sweeprows.py`.
 
 ## Not worth rig time
 
-`prefill=` as an independent quantity · ncmoe cells for the *kernel* question
+Any llama.cpp-vs-vLLM ratio, at any width, on any model · `prefill=` as an
+independent quantity · ncmoe cells for the *kernel* question
 (the bottleneck moves to host RAM and srv1 hard-locks under that load) · the full
 n=1..32 ladder (srv1 already refuses d7b at np≥16) · `A3` across the whole grid
 (one model, `llama-bench`, as a bound) · re-deriving the fp8 KV 2.000x ratio or

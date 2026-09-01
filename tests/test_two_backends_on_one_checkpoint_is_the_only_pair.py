@@ -1,9 +1,15 @@
 """If the vLLM arms differ in two things, they measure neither.
 
-The hypothesis is that vLLM is 2.6x slower than llama.cpp on srv1 and 2.0x faster
-on srv2 because Marlin's sm75 path is ``mma.sync`` tensor-core PTX, which TU116
-executes microcoded. The clean contrast holds the checkpoint fixed and moves only
-the kernel.
+The question is a capability one and it is asked *inside vLLM only*: Marlin's
+sm75 path is ``mma.sync`` tensor-core PTX, which TU116 executes microcoded, so
+does vLLM offer this card a path that is not that, and what does it cost? The
+clean contrast holds the checkpoint fixed and moves only the kernel.
+
+The earlier reading that vLLM is 2.6x slower than llama.cpp on srv1 and 2.0x
+faster on srv2 is **not** this hypothesis and is not evidence for it. The two
+engines differ in scheduler, batching, KV management and quantisation format;
+that ratio measures two stacks. No row in this file may be compared with a
+llama.cpp row.
 
 Two facts constrain the design. srv1 has already recorded
 ``--linear-backend exllama`` refusing —

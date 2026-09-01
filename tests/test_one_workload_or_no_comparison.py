@@ -1,6 +1,12 @@
 """Every driver in this campaign draws the same prompts, or nothing measured by
 one may be compared with anything measured by another.
 
+Matched prompts are necessary and never sufficient. They make two rows *honest* —
+same text, same token counts — they do not make a llama.cpp row and a vLLM row
+comparable. Those are different stacks (scheduler, batching, KV, quant format)
+and no ratio across them attributes anything. What the digest guards is
+comparability *within* an engine, across drivers.
+
 The first test is green today and is the control: it recomputes the digest from
 the three drivers in the tree. The second is owed — it asks each run artifact to
 *name* the driver it ran under, so a reader can recompute rather than trust a
@@ -29,8 +35,8 @@ BEHAVIOUR = "run tools/runs/srv1-kernel-arms.sh"
 @pytest.mark.parametrize("name", DRIVERS)
 def test_every_driver_in_the_tree_generates_the_one_workload(name: str) -> None:
     assert workload_digest(REPO / name) == WORKLOAD_DIGEST, (
-        f"{name} draws different prompts. Every cross-engine number in this "
-        "campaign is void until it does not."
+        f"{name} draws different prompts. Every comparison in this campaign "
+        "is void until it does not."
     )
 
 

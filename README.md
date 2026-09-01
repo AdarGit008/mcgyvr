@@ -42,8 +42,10 @@ but it was never corrected.
 
 `vllm_sweep_31-08-2026.py`, `lcp_sweep_31-08-2026.py` and
 `vllm_cores_01-09-2026.py` share a
-byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the files, the cross-engine
-comparison is void.**
+byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the files, every
+comparison drawn from them is void.** Matched prompts are necessary and not
+sufficient: they never license a llama.cpp-vs-vLLM ratio, which measures two
+stacks (scheduler, batching, KV, quant format) rather than anything attributable.
 
 That hash is over *source text*, so a `ruff format` pass moves it even when the
 workload is identical — it did exactly that in 90635351. The durable check is a
