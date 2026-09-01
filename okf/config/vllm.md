@@ -130,6 +130,15 @@ engine behaviours are established:
 **A 7B does not co-reside on srv2 at len 2048.** q7 refused at util 0.55 and
 again at 0.65 on a verified-clean card: 5.3 GiB of weights leaves 0.01 GiB for
 KV, against the 0.05 GiB one 2048-token request needs.
+
+**Three vLLM servers do not fit on srv2 at len 2048.** q34b/q3/q15 at
+0.34/0.55/0.72 on a clean card with the teardown fix in place: q34b and q15 came
+up, q3 refused with `No available memory for the cache blocks`. Pass 1 failed
+the same way at 0.34/0.22/0.18. The arithmetic that makes this unsurprising is
+the context overhead above -- three CUDA contexts are ~2,940 MiB, a quarter of
+the card, before a single weight is loaded. The 2026-08-31 plan gave this
+configuration 641 MiB of headroom on paper; that paper did not count contexts.
+**So the measured srv2 ceiling is two co-resident vLLM servers, both small.**
 → `records/evidence/2026-09-01-prompt-realism/srv2-util-semantics.txt`
 
 ## Compute capability 7.5 (srv1)
