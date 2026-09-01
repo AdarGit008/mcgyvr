@@ -66,6 +66,23 @@
 # artifact is truncated and rewritten by each pass, so pass 2 leaves one whole
 # file rather than two half ones. It never invents a number.
 #
+# A3 AND THE ALREADY-BUILT IMAGE. A3's Vulkan build failed configure 3/3 with
+# `Could not find a package configuration file provided by "SPIRV-Headers"`:
+# `libvulkan-dev glslc glslang-tools` do not pull that package in. `spirv-headers`
+# is now on the apt line, and that exact fix was verified to build — the image
+# `llamacpp:b10644-A3-spirvfix` (6f84d77b65c1) is on srv1 and srv2 from that
+# build. This recipe now produces the `llamacpp:b10644-A3` tag the ladder
+# expects, so that verified image must either be re-tagged or rebuilt.
+# RECOMMENDED: RE-TAG. It already carries the full `org.mcgyvr.build.*` label set
+# (arm=A3, backend=vulkan, cuda_architectures=none, force_mmq=OFF,
+# ggml_native=OFF, cpu_all_variants=ON, patched=no, commit=d7a2074112d2), the
+# `/app/kernels.txt` A3 needs (`cuda_library=absent`, `backend=vulkan`) and the
+# same id on both hosts, so `image_matches` accepts it and the ladder reuses it
+# without a build:
+#     ssh srv2 docker tag llamacpp:b10644-A3-spirvfix llamacpp:b10644-A3
+# Rebuilding costs ~20 minutes of srv2 and produces a bit-different image for no
+# gain; do that only if you want the build re-verified from source.
+#
 # Hosts are parameters. Nothing here assumes it is running on srv1 or on srv2.
 #
 #   RUN_BUILD_HOST   where docker builds run.       default srv2   ("local" = here)
@@ -114,7 +131,7 @@ OUT=
 STAGE=all
 
 usage() {
-    sed -n '2,89p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,106p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -486,9 +503,13 @@ ARG NATIVE
 ARG ALLVAR
 ARG BACKEND_DL
 ARG JOBS
+# `spirv-headers` is not optional and is not pulled in by the other three:
+# without it b10644's Vulkan backend fails `configure` outright with
+#   Could not find a package configuration file provided by "SPIRV-Headers"
+# which is how A3 failed to build 3/3 times. With it the build completes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git cmake build-essential libcurl4-openssl-dev ca-certificates ninja-build \
-      libvulkan-dev glslc glslang-tools \
+      libvulkan-dev glslc glslang-tools spirv-headers \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN git clone "$LCPP_REPO" . \
