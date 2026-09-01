@@ -48,6 +48,14 @@ Each boot ends mid-log-stream: no OOM, no Xid, no MCE, no shutdown record.
 **A hard lock can wipe the BIOS profile, power limits included.** srv1 read
 PL1 95 W at 05:23 and 4095 W at 05:57 with nobody having touched it.
 
+**One clean 12-minute offload run is not an all-clear.** 2026-09-01 10:29–10:41:
+Qwen3.6-35B at ncmoe 99/40/32, three model loads, eight measured rows, no lock;
+PL1 read 95 W at both ends and uptime stayed unbroken. The three locks were
+spread across a longer campaign (20:45, 21:35, 05:37), so this bounds nothing —
+record it as a run that did not reproduce, not as a fix. Stamp PL1/PL2 into the
+start and end markers and `tee` rows on the rig, because a lock takes the ssh
+pipe with it. → `records/evidence/2026-09-01-prompt-realism/srv1-q36-rerun.tsv`
+
 **Read `constraint_0_power_limit_uw`, not `constraint_0_max_power_uw`.** The
 latter is the CPU's rated TDP and reads `95000000` whatever the live limit is.
 It looks exactly like the cap being in force when it is not.

@@ -25,13 +25,6 @@ import urllib.request
 #     scaffold cached, so both sides now cache.
 #  2. ignore_eos is GONE. Output length is the sampled n_predict and the model
 #     may stop earlier, exactly as in production.
-PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
-COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
-SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
-TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
-HDR_TOK = 60  # approx tokens in the task-body header lines
-MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
-
 MODEL, MDIR, TAG = sys.argv[1], sys.argv[2], sys.argv[3]
 CELLS = sys.argv[4:]
 # Pinned to the build the 2026-08-28 setup-selection sweep ran (run-srv1.sh /
@@ -39,6 +32,13 @@ CELLS = sys.argv[4:]
 # month apart could not be compared. Override with LCP_IMG=..., never by edit.
 IMG = os.environ.get("LCP_IMG", "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644")
 PORT, H = 8094, socket.gethostname()
+
+PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
+COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
+SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
+TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
+HDR_TOK = 60  # approx tokens in the task-body header lines
+MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
 
 UID = itertools.count()
 UIDLOCK = threading.Lock()
@@ -85,11 +85,26 @@ def sh(c):
 
 def post(out, idx):
     prompt, want = mkprompt()
+    # CHAT, not `/completion`. The raw endpoint applies no chat template, and on
+    # 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
+    # token on the first step of an untemplated prompt, so every one of its
+    # cells reported otok=1 with `failed=0/n` beside it. The split is by prefix,
+    # not by changing mkprompt -- SYSTEM stays the shared cacheable head and the
+    # workload digest is unmoved. `cache_prompt` is passed through by
+    # llama-server's OAI handler, so both engines still cache the scaffold.
     b = json.dumps(
-        {"prompt": prompt, "n_predict": want, "temperature": 0, "cache_prompt": True}
+        {
+            "messages": [
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": prompt[len(SYSTEM) :]},
+            ],
+            "max_tokens": want,
+            "temperature": 0,
+            "cache_prompt": True,
+        }
     ).encode()
     r = urllib.request.Request(
-        f"http://localhost:{PORT}/completion",
+        f"http://localhost:{PORT}/v1/chat/completions",
         data=b,
         headers={"Content-Type": "application/json"},
     )
@@ -97,11 +112,15 @@ def post(out, idx):
     try:
         with urllib.request.urlopen(r, timeout=3600) as f:
             d = json.load(f)
-        tm = d.get("timings", {})
+        # The OAI handler reports `usage`; `timings` is only present on some
+        # builds. Read usage first and keep the timings path as the fallback so
+        # a build that omits one still records the row.
+        us = d.get("usage") or {}
+        tm = d.get("timings") or {}
         out[idx] = (
-            tm.get("predicted_n", 0),
+            us.get("completion_tokens", tm.get("predicted_n", 0)),
             time.time() - t0,
-            tm.get("prompt_n", d.get("tokens_evaluated", 0)),
+            us.get("prompt_tokens", tm.get("prompt_n", d.get("tokens_evaluated", 0))),
             want,
         )
     except Exception:
@@ -138,9 +157,18 @@ for cell in CELLS:
             break
         time.sleep(2)
     if not ok:
-        why = sh("docker logs lcps 2>&1 | grep -iE 'error|out of memory' | tail -1")[
-            :110
-        ]
+        # Drop llama.cpp's `I` (info) lines before matching, keep more of the
+        # line than 110 chars, and fall back to the raw tail rather than
+        # printing an empty reason. On 2026-09-01 two REFUSED rows were a
+        # dangling HF-blob symlink -- a `no such file` the truncated reason did
+        # not show -- and were read as a capability limit.
+        why = sh(
+            "docker logs lcps 2>&1 | grep -vE '^[0-9.]+ I ' | "
+            "grep -iE 'error|out of memory|no such file|failed|cannot' | tail -2"
+        )
+        if not why:
+            why = sh("docker logs lcps 2>&1 | tail -3")
+        why = " | ".join(why.splitlines())[:240]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f lcps")
         continue
@@ -151,6 +179,19 @@ for cell in CELLS:
     post(warm, 0)
     if warm[0][0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
+        sh("docker rm -f lcps")
+        continue
+    # A cell that stops on the first token measures nothing, and the old code
+    # let it through: it only refused otok==0, so an immediate stop produced a
+    # full ladder of agg=0.1-0.6 rows that read as a throughput collapse. Refuse
+    # the cell here, once, with the warmup's own numbers in the reason.
+    if warm[0][0] <= 1:
+        print(
+            f"{H}\t{lab}\tDEGENERATE\tmodel stopped at otok={warm[0][0]} "
+            f"against a {warm[0][3]}-token budget (ptok={warm[0][2]}); "
+            f"measuring this cell would record artifacts",
+            flush=True,
+        )
         sh("docker rm -f lcps")
         continue
     print(

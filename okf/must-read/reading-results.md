@@ -19,6 +19,17 @@ n=1 runs 2.4–3.2x faster per request. A real regime change, not noise.
 
 ## Measurements that mislead
 
+**Every `agg=` measured before 2026-09-01 overstates real traffic by ~2.4x at
+n=8.** Those sweeps sent one fixed 11-token prompt and a flat 475-token reply
+(1:43 in:out); real traffic is 3:1. Measured on both rigs, new/old at n=8:
+srv1 q15 0.43, q3 0.41; srv2 q15 0.41, q3 0.48, q34b 0.47 — every cell in
+0.41–0.48 across two rigs, two KV dtypes, three model sizes and a 2x card
+difference. The two workloads **agree at n=1** and diverge as concurrency rises,
+because real prompts put prefill in contention with decode and an 11-token
+prompt has none to contend. Do not compare a pre-2026-09-01 number with a
+post one at any rung above 1.
+→ `records/evidence/2026-09-01-prompt-realism/{srv1,srv2}-ladder-n32.tsv`
+
 **`nvidia-smi memory.used` cannot see a vLLM offload.** It read
 5294/5294/5324/5330 MiB across offload and no-offload runs, because
 `gpu_memory_utilization` backfills freed weight space with KV cache.
@@ -36,6 +47,21 @@ every one of its cells on both rigs returned a single token — 20 of 60 measure
 rows, with `agg` of 0.1–0.6 reading as a throughput collapse. The same server
 generated 48 tokens from a short prompt in the same hour.
 → `records/evidence/2026-09-01-moe-offload/diag-2026-09-01.log`
+
+**Fixed, and all 20 re-measured.** Both drivers now post to
+`/v1/chat/completions` with `SYSTEM` split off as the system message, and a
+`DEGENERATE` guard refuses any cell whose warmup returns `otok <= 1` instead of
+letting it record a ladder. Re-measured 2026-09-01: the collapse was **entirely**
+the missing template — srv2's `ncmoe=99` went 0.4/0.5/0.5/0.5 → 21.0/27.6/29.8/
+30.0, srv1's 0.2 → 12.6. Nothing about those checkpoints or rigs was slow.
+Discard every `otok=1` row in `2026-09-01-moe-offload/`; the replacements are in
+`2026-09-01-prompt-realism/`.
+→ `records/evidence/2026-09-01-prompt-realism/{srv1,srv2}-q36-rerun.tsv`
+
+**A model that tolerates an untemplated prompt is unaffected by the fix.**
+srv1's q15 reads 30.4/25.4/36.7/46.0 against 30.3/28.7/37.2/47.7 on the raw
+endpoint — within 5%. So the template switch is not a workload change to be
+controlled for; it repaired the broken cells and left the rest where they were.
 
 **`REFUSED` is a claim about the harness until you read the log.** Of four on
 2026-09-01: two were a dangling symlink — the HF cache stores the GGUF as a

@@ -2,6 +2,7 @@ import itertools
 import json
 import os
 import random
+import re
 import socket
 import subprocess
 import sys
@@ -107,11 +108,25 @@ def sh(c):
 
 def post(out, idx):
     prompt, want = mkprompt()
+    # CHAT, not raw completion. The raw endpoint applies no chat template, and
+    # on 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
+    # token on the first step of an untemplated prompt, so every one of its
+    # cells reported otok=1 with `failed=0/n` beside it. The split is by prefix,
+    # not by changing mkprompt -- SYSTEM stays the shared cacheable head and the
+    # workload digest is unmoved.
     b = json.dumps(
-        {"model": MODEL, "prompt": prompt, "max_tokens": want, "temperature": 0}
+        {
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": prompt[len(SYSTEM) :]},
+            ],
+            "max_tokens": want,
+            "temperature": 0,
+        }
     ).encode()
     r = urllib.request.Request(
-        f"http://localhost:{PORT}/v1/completions",
+        f"http://localhost:{PORT}/v1/chat/completions",
         data=b,
         headers={"Content-Type": "application/json"},
     )
@@ -170,10 +185,20 @@ for cell in CELLS:
             break
         time.sleep(2)
     if not ok:
+        # Take the last ERROR, not the last matching line. The old pattern
+        # matched bare `memory` and `architect`, which vLLM's `non-default args`
+        # INFO banner contains (gpu_memory_utilization, Resolved architecture),
+        # so on 2026-09-01 a refusal was recorded with a startup banner as its
+        # reason. Drop the levelled INFO/DEBUG/WARNING lines first, and fall
+        # back to the raw tail so the field is never blank.
         why = sh(
             "docker logs vsweep 2>&1 | "
-            "grep -iE 'error|not supported|memory|architect' | tail -2"
+            "grep -vE '(INFO|DEBUG|WARNING) [0-9]{2}-[0-9]{2} ' | "
+            "grep -iE 'error|traceback|not supported|out of memory|"
+            "no such file|capability|assert' | tail -2"
         )
+        if not why:
+            why = sh("docker logs vsweep 2>&1 | tail -3")
         why = " | ".join(why.splitlines())[:400]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh("docker rm -f vsweep")
@@ -183,6 +208,19 @@ for cell in CELLS:
     post(warm, 0)
     if warm[0][0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
+        sh("docker rm -f vsweep")
+        continue
+    # A cell that stops on the first token measures nothing, and the old code
+    # let it through: it only refused otok==0, so an immediate stop produced a
+    # full ladder of agg=0.1-0.6 rows that read as a throughput collapse. Refuse
+    # the cell here, once, with the warmup's own numbers in the reason.
+    if warm[0][0] <= 1:
+        print(
+            f"{H}\t{lab}\tDEGENERATE\tmodel stopped at otok={warm[0][0]} "
+            f"against a {warm[0][3]}-token budget (ptok={warm[0][2]}); "
+            f"measuring this cell would record artifacts",
+            flush=True,
+        )
         sh("docker rm -f vsweep")
         continue
     # **Asserted, not assumed.** `nvidia-smi memory.used` cannot see an
@@ -204,8 +242,41 @@ for cell in CELLS:
             )
             sh("docker rm -f vsweep")
             continue
+    # WIDTH READBACK. `--max-num-seqs` is a scheduler cap, not an allocation:
+    # under `--gpu-memory-utilization` the KV pool is sized from whatever VRAM
+    # is left after weights, so a cell can declare 128 and hold 12. Requests
+    # past that queue, and a queue produces a flat aggregate with climbing
+    # latency -- indistinguishable from saturation, which is the exact false
+    # result 62f0ab65 closed on the harness path. vLLM has no /props, but it
+    # states the pool it allocated, so read that instead of trusting the flag.
+    kvlog = sh(
+        "docker logs vsweep 2>&1 | grep -oE "
+        "'(GPU KV cache size: [0-9,]+ tokens|"
+        "Maximum concurrency for [0-9,]+ tokens per request: [0-9.]+x)' | tail -2"
+    )
+    kvtok = re.search(r"GPU KV cache size: ([\d,]+) tokens", kvlog)
+    conc = re.search(r"per request: ([\d.]+)x", kvlog)
+    kvtok = int(kvtok.group(1).replace(",", "")) if kvtok else None
+    # Prefer the engine's own concurrency line; fall back to the pool arithmetic.
+    maxconc = float(conc.group(1)) if conc else (kvtok / int(maxlen) if kvtok else None)
+    dropped = []
+    if maxconc is not None:
+        # Drop only the rungs the pool cannot hold, and say so. Refusing the
+        # whole cell would throw away the rungs that are honest; measuring the
+        # tail anyway would record a queue as a plateau.
+        keep = [n for n in levels if n <= maxconc]
+        dropped = [n for n in levels if n > maxconc]
+        if dropped:
+            print(
+                f"{H}\t{lab}\tWIDTH\tdropped n={','.join(str(n) for n in dropped)}: "
+                f"pool holds {kvtok} tokens = {maxconc:.1f} concurrent requests at "
+                f"len={maxlen}, so those rungs would queue, not saturate",
+                flush=True,
+            )
+        levels = keep
     print(
         f"{H}\t{lab}\tCONFIG\timg={IMG}\tvram={vram}"
+        f"\tkv_tok={kvtok}\tmaxconc={maxconc if maxconc is None else round(maxconc, 1)}"
         f"\twarm_ptok={warm[0][2]}\t{offl or 'offload=none'}",
         flush=True,
     )
