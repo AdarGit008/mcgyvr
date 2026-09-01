@@ -19,6 +19,32 @@ n=1 runs 2.4–3.2x faster per request. A real regime change, not noise.
 
 ## Measurements that mislead
 
+**`prefill=` is not a measurement. It is `agg` times `ptok/otok`.** Both drivers
+divide by the *same* `wall`: `agg = gen/wall` and `prefill = pin/wall`, so
+`prefill/agg ≡ ptok/otok` identically — verified to three decimals on every row
+of `2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`. A row where
+prefill "tracks" decode is saying nothing; a row where it does not would be an
+arithmetic error. **Nothing in this repo has ever measured prefill separately.**
+Use `llama-bench -p N` for that, and do not mix its numbers into a cross-engine
+claim — it carries no workload digest.
+→ `lcp_sweep_31-08-2026.py:221-222`, `vllm_sweep_31-08-2026.py`
+
+**The prompt draw desyncs whenever the level list changes, and the error reaches
+6.2%.** Lengths come from a per-process counter, so a cell that runs levels
+`1,2,4,8` consumes two more UIDs than one that runs `1,4,8`, and every draw after
+the n=2 rung differs. Same rig, same image, same hour, nominally the same stock
+cells: d3b n=4 read 74.0 and 69.4 (**6.2%**), mling n=8 read 87.1 and 92.4
+(**6.1%**), while every n=1 row agreed to ≤0.6% because n=1 always consumes UID 1.
+**Two rows are comparable only if their `ptok` and `otok` match.** Check that
+before quoting a ratio; equal `agg` across unequal draws is coincidence.
+→ `2026-09-01-prompt-realism/srv1-lcpp-ladder.tsv` vs
+  `2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`
+
+**One cell per process invocation is load-bearing and undocumented.** The UID
+counter resets when the driver starts, so passing two cells in one argv silently
+breaks position matching between arms. Every comparable file in the tree was
+produced one cell at a time, by habit rather than by a guard.
+
 **Every `agg=` measured before 2026-09-01 overstates real traffic by ~2.4x at
 n=8.** Those sweeps sent one fixed 11-token prompt and a flat 475-token reply
 (1:43 in:out); real traffic is 3:1. Measured on both rigs, new/old at n=8:

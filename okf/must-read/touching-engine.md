@@ -98,9 +98,23 @@ not placement:
 | d7b (Qwen2.5-Coder-7B IQ4_XS) | 1 / 4 / 8 | 21.5 / 33.6 / 35.5 | **36.8 / 58.9 / 65.4** | 1.71 / 1.75 / **1.84x** |
 | mling (Ling-3.0-tiny Q4_K_M) | 1 / 4 | 53.6 / 88.8 | **82.2 / 131.5** | 1.53 / **1.48x** |
 
-Prefill gains track decode: 249 → 390, 122 → 209, 312 → 478 tok/s. The stock arm
-reproduced the committed control (`s1-d3b np=8 = 74.2`) at 74.4, within 0.3%,
-which is what makes the comparison trustworthy.
+**Two corrections to this entry, 2026-09-01, found by re-deriving it.** The
+sentence that stood here quoted `prefill=` as corroboration and the archive
+ladder as a control. Both were wrong, and neither changes the ratios above,
+which are position-matched *within* the file.
+
+- `prefill=` is not an independent measurement — see `reading-results.md`. The
+  "249 → 390" figures it quoted are `agg` multiplied by `ptok/otok`.
+- The archived `s1-d3b np=8 = 74.2` is **not** a control for this file's 74.4.
+  The two rows drew different work: `ptok` 664 / `otok` 208 against 672 / 214,
+  because the ladder ran levels `1,2,4,8,16,32` and this file ran `1,4,8` — the
+  extra `n=2` rung consumed two UIDs and desynced every later draw. Agreement to
+  0.3% across two different draws is coincidence, and the measured spread
+  between nominally-identical stock cells reaches **6.2%** at n≥4.
+
+What does hold: both arms here ran the same cell list in the same order, one
+cell per process invocation, so `ptok` is identical arm-to-arm at every position
+(574 / 598 / 672). That, and not the archive, is why the ratios are readable.
 
 **Caveat: `mling n=8` returned `ERR` on the no-MMA arm** and is unexplained — one
 cell of nine. Re-run it before quoting a Ling number at n=8.
