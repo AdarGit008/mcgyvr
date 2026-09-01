@@ -52,6 +52,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
@@ -187,3 +189,58 @@ def test_the_cost_of_the_missing_dependency_is_recorded_rather_than_silent() -> 
             f"what degraded, where it should have run, or what is paying for it "
             f"instead. It said: {said!r}"
         )
+
+
+def test_a_degradation_that_lands_nowhere_does_not_claim_a_model_paid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nothing above the floor offers a rung; the record must say so, not lie."""
+    monkeypatch.delenv("MCGYVR_TEST_KEY_THAT_IS_NOT_SET", raising=False)
+    config = parse(
+        """
+version: 1
+sources:
+  vendor:
+    base_url: https://api.example.com/v1
+    api: openai
+    max_parallel: 4
+    api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
+ladder:
+  tiers:
+    - name: api_big
+      source: vendor
+      model: vendor-large
+"""
+    )
+    pool = source_map(config)
+    contract = _contract_of(DETERMINISTIC[0])
+
+    landed = _route()(config, pool, contract, installed=frozenset())
+
+    degradations = getattr(landed, "degradations", ())
+    assert degradations, "no degradation was recorded"
+    recorded = degradations[0]
+    said = str(recorded)
+    assert "paid for with a model" not in said, (
+        f"nothing above the floor can run the work, yet the degradation claims a "
+        f"model is paying for it: {said!r}"
+    )
+    assert recorded.as_record().get("reason"), (
+        f"the degradation carries no reason for landing nowhere: {said!r}"
+    )
+
+
+def test_planning_language_ownership_does_not_import_the_gate() -> None:
+    """`_language_of` answers by extension; importing the gate is the defect."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys; "
+        "from mcgyvr.deterministic import _language_of; "
+        "assert _language_of('src/pkg/fetch.py') == 'python'; "
+        "assert _language_of('src/pkg/app.tsx') == 'js/ts'; "
+        "assert _language_of('README.md') is None; "
+        "assert 'mcgyvr.gate' not in sys.modules, 'planning imported the gate package'"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)

@@ -236,7 +236,9 @@ def _schema_field(schema: dict[str, Any]) -> str:
     of the answer would be this module deciding what the caller asked for. The
     first required string property wins, then a lone string property, then
     :data:`_ENVELOPE_FIELD` — a schema this cannot read is not an error here,
-    since the reply is parsed either way.
+    since the reply is parsed either way. A property whose type is an array
+    containing ``"string"`` — the JSON-Schema spelling of a nullable string —
+    is a string property too.
     """
     properties = schema.get("properties")
     if not isinstance(properties, dict):
@@ -244,9 +246,7 @@ def _schema_field(schema: dict[str, Any]) -> str:
     strings = [
         name
         for name, spec in properties.items()
-        if isinstance(name, str)
-        and isinstance(spec, dict)
-        and spec.get("type") == "string"
+        if isinstance(name, str) and isinstance(spec, dict) and _is_string_type(spec)
     ]
     required = schema.get("required")
     if isinstance(required, list):
@@ -256,6 +256,14 @@ def _schema_field(schema: dict[str, Any]) -> str:
     if len(strings) == 1:
         return strings[0]
     return _ENVELOPE_FIELD
+
+
+def _is_string_type(spec: dict[str, Any]) -> bool:
+    """Whether ``spec`` declares a string: as a scalar, or as a member of an array."""
+    kind = spec.get("type")
+    if isinstance(kind, str):
+        return kind == "string"
+    return isinstance(kind, list) and "string" in kind
 
 
 def _as_file(content: str) -> str:
