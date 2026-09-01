@@ -32,10 +32,31 @@ All entries declare 1024 and read 1024 back off `/props`.
 Keeps attention and shared layers on the card, puts the experts of N layers in
 host RAM. This is what lets a 30B MoE serve from a 6 GB card.
 
-**It is bounded by host RAM.**
+**It is bounded by VRAM, not by host RAM.** Corrected 2026-09-01: at srv2's
+measured floor the card holds 11,787 of 11,911 usable MiB while host RAM sits
+nearly idle. This entry previously said "bounded by host RAM"; that was written
+before the floor was ever measured directly, and the artifacts it cited already
+said VRAM (srv1's `--n-cpu-moe 36` refusal reads "6 GB card **full**").
+→ `okf/must-read/touching-rigs.md` for the budget arithmetic and the ladder
 
-Measured floors (2026-08-25, Qwen3-Coder-30B Q4_K_M): srv1 refused below 40,
-srv2 below 20. Lower N = more on card = faster, until it refuses.
+Measured floors, 2026-09-01, `np=8 ctx_slot=2048`, on today's hardware:
+
+| rig | checkpoint | floor | at the floor |
+|---|---|---|---|
+| srv2 | Qwen3.6-35B-A3B UD-IQ3_XXS | **6** (0 refuses) | 43.4 / 69.3 / 73.1 at n=1/4/8, vram 11,787 MiB |
+| srv2 | KAT-Coder-V2.5-Dev Q2_K | **7** (0 and 4 refuse) | 47.2 / 70.3 / 71.2, vram 11,417 MiB |
+
+→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv2-ncmoe-floor.tsv`
+
+Lower N = more on card = faster, until it refuses. The gradient is steep and
+monotonic: 6 → 8 → 12 gives 43.4 → 37.9 → 30.7 at n=1. **Walk down to the floor;
+do not settle above it.** Every archived run of this architecture sat at 24-99,
+i.e. 3-12x above its real floor, which cost ~2.4x at n=8.
+
+The older floors (2026-08-25, Qwen3-Coder-30B Q4_K_M: srv1 below 40, srv2 below
+20) were measured when the two rigs held each other's RAM and are not comparable
+to the current hardware. They are also per-checkpoint: the floor is a function of
+expert bytes and KV, so it must be re-derived for every model.
 → `records/evidence/2026-08-25-moe-expert-offload/`
 
 **CPU offload is what flattens the scaling curve, not MoE.** `m_ling` — a MoE

@@ -7,6 +7,8 @@ Two hand-authored trees live here beside the generated concept bundle.
 | `must-read/always.md` | every session start |
 | `must-read/reading-results.md` | going over run results |
 | `must-read/touching-rigs.md` | any action on srv1 or srv2 |
+| `must-read/touching-models.md` | choosing, comparing or deleting a checkpoint |
+| `must-read/touching-engine.md` | before turning an engine, quant or kernel flag |
 | `config/vllm.md` | before turning a vLLM knob |
 | `config/llama.cpp.md` | before turning a llama.cpp knob |
 
