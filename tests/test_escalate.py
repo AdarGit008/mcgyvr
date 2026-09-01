@@ -7,12 +7,12 @@ constant. Both ceilings are exercised that way, because they bound different
 things: one counts moves and one counts spend, and a test that only moved the
 number it happened to trip would not tell them apart.
 
-*Every terminal outcome is machine-readable* is held by reaching all six
+*Every terminal outcome is machine-readable* is held by reaching all seven
 :class:`~mcgyvr.escalate.Outcome` members independently. They exist because a
 caller responds differently to each: a ladder genuinely spent, two different
-ceilings, an install with nothing to run, and a ladder that declined
-throughout — the last of which says nothing at all about what the ladder can
-do, and must not be reported as though it did.
+ceilings, an install with nothing to run, a ladder that declined throughout,
+and an exception that crossed the seam — the last two of which say nothing at
+all about what the ladder can do, and must not be reported as though they did.
 
 *The unverified-acceptance path is closed* is the one a test can only hold
 negatively, so it is held three ways: by asserting the upgrade happens for
@@ -72,6 +72,7 @@ from mcgyvr.escalate import (
     RetryNotes,
     Review,
     ascent,
+    disposition,
     escalate,
     judge,
     required_policy,
@@ -544,6 +545,7 @@ def test_every_terminal_outcome_is_reachable_and_distinct() -> None:
         Outcome.ATTEMPT_CEILING,
         Outcome.NOTHING_TO_RUN,
         Outcome.DECLINED_THROUGHOUT,
+        Outcome.ERROR,
     }
 
     assert reached == set(Outcome)
@@ -850,15 +852,20 @@ def test_the_history_spans_every_family_the_task_entered(key: None) -> None:
     assert result.entered == (LOCAL, API)
 
 
-def test_an_attempt_that_raises_is_not_swallowed_into_a_terminal_outcome() -> None:
-    """A judgement is something the attempt made; an exception is its absence."""
+def test_an_attempt_that_raises_is_recorded_as_an_error_outcome() -> None:
+    """An exception crossing the seam is an outcome `disposition` can see."""
     config, pool = mapped(KEYLESS)
 
     def explode(this: Try) -> Judgement:
         raise RuntimeError("the socket died")
 
-    with pytest.raises(RuntimeError):
-        escalate(config, pool, contract(), explode)
+    result = halted(escalate(config, pool, contract(), explode))
+
+    assert result.outcome is Outcome.ERROR
+    assert "local_qwen-7b" in result.detail
+    assert "RuntimeError" in result.detail
+    assert "the socket died" in result.detail
+    assert disposition(result.outcome).reassignable is True
 
 
 def test_capacity_reaches_every_rung_of_every_family(key: None) -> None:

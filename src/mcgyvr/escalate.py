@@ -155,11 +155,13 @@ class Outcome(StrEnum):
     """How a task ended, in one machine-readable word.
 
     #43 asks that every terminal outcome be machine-readable rather than prose,
-    and these are the five. The distinctions are the ones a caller has to act
+    and these are the seven. The distinctions are the ones a caller has to act
     on differently: work that was accepted, a ladder that was genuinely tried
-    and could not, two different ceilings that stopped it early, and an install
-    that had nothing to run in the first place. Prose is carried alongside in
-    ``detail`` for a human; nothing branches on it.
+    and could not, two different ceilings that stopped it early, an install
+    that had nothing to run in the first place, a ladder that declined
+    throughout, and an exception that crossed the seam before any verdict was
+    reached. Prose is carried alongside in ``detail`` for a human; nothing
+    branches on it.
     """
 
     ACCEPTED = "accepted"
@@ -168,6 +170,7 @@ class Outcome(StrEnum):
     ATTEMPT_CEILING = "attempt_ceiling"
     NOTHING_TO_RUN = "nothing_to_run"
     DECLINED_THROUGHOUT = "declined_throughout"
+    ERROR = "error"
 
 
 class Assurance(StrEnum):
@@ -736,6 +739,24 @@ class Halted:
         return False
 
 
+class _AttemptError(Exception):
+    """An attempt function raised instead of returning a judgement.
+
+    :func:`~mcgyvr.route.climb` lets a raising attempt propagate on purpose —
+    an exception is the absence of a verdict, and swallowing it there would
+    misreport "this family cannot do the work". This is the seam that turns it
+    into a verdict of its own: the rung being driven and the exception are
+    carried together so :func:`escalate` can name them in the terminal
+    :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
+    tell a dead socket from a bug it owns.
+    """
+
+    def __init__(self, rung: str, cause: BaseException) -> None:
+        super().__init__(rung)
+        self.rung = rung
+        self.cause = cause
+
+
 def escalate(
     config: Config,
     pool: SourceMap,
@@ -757,6 +778,11 @@ def escalate(
     trimmed plan would have charged for it in advance. What is spent is counted
     as it happens: an attempt that was declined adds nothing to either count,
     so a ladder of rungs that all step aside is walked in full at no cost.
+
+    An attempt that raises is not a verdict and is not let escape the seam.
+    :func:`~mcgyvr.route.climb` refuses to catch it for exactly that reason;
+    here it is caught and recorded as :attr:`Outcome.ERROR` naming the rung,
+    so a caller can hand it to :func:`disposition` instead of a traceback.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
     ceiling = route.ceiling
@@ -787,7 +813,15 @@ def escalate(
 
     def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
-        judgement = attempt(this)
+        try:
+            judgement = attempt(this)
+        except Exception as exc:
+            # An exception is not a verdict. `climb` lets a raising attempt
+            # propagate so it is not misread as "this family cannot do the
+            # work"; here is the seam that turns it into a terminal outcome of
+            # its own, carrying the rung so the operator knows which tier to
+            # fix.
+            raise _AttemptError(this.rung.name, exc) from exc
         if judgement.verdict is not Verdict.DECLINED:
             attempts_spent += 1
             if this.rung.name not in spent_rungs:
@@ -806,7 +840,20 @@ def escalate(
             # which is not a `RunnerError`, so the mission loop did not catch
             # it and the run ended with earlier contracts already committed.
             continue
-        result = climb(each, observed, capacity=capacity, permit=permit)
+        try:
+            result = climb(each, observed, capacity=capacity, permit=permit)
+        except _AttemptError as raised:
+            return Halted(
+                outcome=Outcome.ERROR,
+                entered=tuple(entered),
+                history=tuple(history),
+                attempts_spent=attempts_spent,
+                escalations=max(0, len(spent_rungs) - 1),
+                detail=(
+                    f"rung {raised.rung!r} raised "
+                    f"{type(raised.cause).__name__}: {raised.cause}"
+                ),
+            )
         history.extend(result.history)
         if result.history:
             entered.append(each.family)
@@ -905,7 +952,7 @@ def disposition(outcome: Outcome) -> Disposition:
     """What ``outcome`` says about trying this work somewhere else.
 
     A match over the enum with :func:`~typing.assert_never` beneath it rather
-    than a lookup table, so a seventh :class:`Outcome` is a type error where it
+    than a lookup table, so an eighth :class:`Outcome` is a type error where it
     is declared. A taxonomy with a hole in it is worse than no taxonomy: the
     hole is found by a caller, at runtime, on the one path nobody exercised.
     """
@@ -973,6 +1020,17 @@ def disposition(outcome: Outcome) -> Disposition:
                     "ladder claims the contract. Nothing dearer is being "
                     "withheld; what is missing is a rung that accepts this "
                     "work, or a contract the bound rungs recognise."
+                ),
+            )
+        case Outcome.ERROR:
+            return Disposition(
+                reassignable=True,
+                detail=(
+                    "error: an exception crossed the seam before any verdict "
+                    "was reached, so the ladder was never given a chance to "
+                    "answer. The failure is in the attempt machinery, not in "
+                    "the work — address the cause and retry, or hand it to "
+                    "another orchestrator."
                 ),
             )
         case _:  # pragma: no cover - unreachable while the match is exhaustive

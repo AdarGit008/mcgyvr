@@ -25,9 +25,8 @@ from mcgyvr.initialize import InitError, initialize
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
-    from mcgyvr.escalate import Delivered, Halted, Judgement
+    from mcgyvr.escalate import Delivered, Halted
     from mcgyvr.gate import GateResult
-    from mcgyvr.route import Try
     from mcgyvr.sandbox.base import Sandbox
 
 
@@ -844,7 +843,6 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
-    from mcgyvr.runner import RunnerError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewer_for
 
@@ -925,13 +923,6 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    # Which rung is being driven right now, for the one error that cannot say so
-    # itself. `runner` reports the URL it could not reach because a transport
-    # knows nothing of ladders, and the rung is the word the operator needs to
-    # find the tier to fix. `escalate` does not catch a raising attempt, on
-    # purpose, so this is the only place the pairing still exists.
-    in_flight: list[str] = []
-
     try:
         with sandbox:
             for note in sandbox.notes:
@@ -945,20 +936,8 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
                 cooldown=cooldown,
             )
 
-            def attempt(this: Try) -> Judgement:
-                in_flight.append(this.rung.name)
-                return driver(this)
-
-            outcome = escalate(config, pool, contract, attempt)
+            outcome = escalate(config, pool, contract, driver)
             return _report_climb(args, contract, sandbox, repo, outcome)
-    except RunnerError as exc:
-        rung = in_flight[-1] if in_flight else route.rungs[0]
-        print(
-            f"error: rung {rung!r} did not answer, so {contract.id} was not "
-            f"driven: {exc}",
-            file=sys.stderr,
-        )
-        return 1
     except (DriveError, SandboxError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
