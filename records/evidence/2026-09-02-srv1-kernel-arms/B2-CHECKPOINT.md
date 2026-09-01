@@ -180,19 +180,45 @@ finding, not a setup error — record it as a REFUSED row with the reason.
 
 ## (A) A dense GPTQ 4-bit checkpoint for a 6144 MiB card
 
-### First, a correction to the blocker's premise
+### A correction to the blocker's premise — WHICH WAS ITSELF WRONG. Read both.
 
-`lcp-vllm-3-arm-run.md:132` says srv1's only GPTQ is
+**What this document said on 2026-09-01, and what was wrong with it.** It said:
+"`lcp-vllm-3-arm-run.md:132` says srv1's only GPTQ is
 `Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`. That string appears **nowhere** in this repo
-outside that sentence. The 2026-08-31 inventory
-(`records/evidence/2026-08-31-inventory/srv1-scan.txt:51-122`) lists srv1's
-`~/models` tree and both HF caches, and contains **no GPTQ checkpoint at all** —
-only GGUF, three Qwen2.5-Coder AWQ repos, `thewimo/Qwen3-4B-AWQ`,
-`nvidia/NVIDIA-Nemotron-3-Nano-4B-FP8`, and the safetensors dirs under
-`~/models/{dense,moe}`. So the blocker understates the problem: B2 has no GPTQ
-checkpoint of *any* shape, and one must be fetched regardless. Marked
-**UNVERIFIED** rather than refuted — the inventory is a week old and the file may
-exist unrecorded.
+outside that sentence … So the blocker understates the problem: B2 has no GPTQ
+checkpoint of *any* shape." That correction was **refuted on the rig on
+2026-09-02**. srv1 does hold `Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`. The run
+doc's original premise was right and the correction above it was wrong; the
+`UNVERIFIED` hedge ("the inventory is a week old and the file may exist
+unrecorded") is the half of that paragraph that held up.
+
+**Measured on srv1, 2026-09-02**, at
+`~/.cache/huggingface/hub/models--Qwen--Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`
+(snapshot `81b132adfae58e03b96ae1ed1f0d578d0cc4d09a`): **7.9 G on disk, three
+shards** (4,000,527,016 + 3,791,651,312 + 622,329,984 B). Its `config.json`
+declares `architectures: ["Qwen2MoeForCausalLM"]` and
+`quantization_config: {quant_method: gptq, bits: 4, group_size: 128,
+desc_act: false, sym: true}`. So srv1's GPTQ inventory is not empty, and the
+2026-08-31 scan (`records/evidence/2026-08-31-inventory/srv1-scan.txt:96-109`,
+the `=== HF cache ===` listing) does not name it — the scan is what was stale,
+not the run doc.
+
+**The conclusion does not move. Only the reason for it does.** B2 still cannot
+use this checkpoint, and *not* because srv1 has no GPTQ file:
+
+- It is **MoE**. `_POSSIBLE_KERNELS` holds *linear* kernels only; a Qwen2Moe
+  checkpoint routes its expert GEMMs through `AutoGPTQMoEMethod` /
+  `select_wna16_moe_backend` (`auto_gptq.py:467,489`), selected by
+  `--moe-backend`, a different flag. `--linear-backend exllama` would bind only
+  the attention and dense projections, so the arm would not isolate the kernel
+  even if it launched. This is the same requirement the table below already
+  states as "dense, not MoE".
+- And it would not fit anyway: 7.9 G of weights against a 6144 MiB card.
+
+So a dense GPTQ 4-bit checkpoint must still be fetched, and
+`Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4` is still the recommendation. What
+changes is that "srv1 holds no GPTQ checkpoint of any shape" must not be repeated
+anywhere: it is false.
 
 ### The budget
 

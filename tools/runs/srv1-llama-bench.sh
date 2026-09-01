@@ -5,7 +5,17 @@
 #
 # Campaign step 3 (`lcp-vllm-3-arm-run.md:117-118`):
 #
-#   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1  x {L0,L1,L2,L3,L4,A3}
+#   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1
+#             x {L0,L1,L2,L3,L4,A3,A1}
+#
+# A1 IS ON THAT LIST, AND THE RUN DOC SAID IT MIGHT NOT BE. The blocker read
+# "`server-cuda-b10644` may not contain `llama-bench`. If not, `A1` cannot be
+# microbenchmarked as shipped and `L0` is the mandatory baseline." Measured on
+# srv1: the image indeed has no `/app/llama-bench` file — and it ships
+# `libllama-bench-impl.so` and an `/app/llama` dispatcher that lists `bench` in
+# `llama help all` and prints llama-bench's own options for `llama bench --help`.
+# The capability is present; only the file name is absent. So A1 is benched as
+# shipped, through `/app/llama bench`, and L0 is not the mandatory baseline.
 #
 # This file is the INSTRUMENT RECORD. Guideline 3: `prefill=` from the sweep
 # drivers is `pin/wall` over the same wall as `agg = gen/wall`, so `prefill/agg`
@@ -39,7 +49,7 @@
 # It runs ON the rig, because ### START / ### RIG / ### END describe the machine
 # this process is reading and a stamp taken over ssh would name the wrong box.
 #
-#   RUN_ARMS         arms to bench.        default "L0 L1 L2 L3 L4 A3"
+#   RUN_ARMS         arms to bench.        default "L0 L1 L2 L3 L4 A3 A1"
 #   RUN_TAG_PREFIX   image tag prefix.     default llamacpp:b10644-
 #   RUN_MODELS_DIR   mounted at /models.   default $HOME/models
 #   RUN_MODEL        model, relative to RUN_MODELS_DIR
@@ -74,7 +84,7 @@ DRY_RUN=0
 OUT=
 
 usage() {
-    sed -n '2,52p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,62p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -100,7 +110,7 @@ done
 ROOT=$(_repo_root)
 [ -n "$OUT" ] || OUT="$ROOT/$RUN_REL/$ARTIFACT"
 
-read -r -a ARM_LIST <<<"${RUN_ARMS:-L0 L1 L2 L3 L4 A3}"
+read -r -a ARM_LIST <<<"${RUN_ARMS:-L0 L1 L2 L3 L4 A3 A1}"
 
 TMP=
 cleanup() {
@@ -131,7 +141,15 @@ emit() {
     "$@" >>"$OUT"
 }
 
-tag_of() { printf '%s%s' "$TAG_PREFIX" "$1"; }
+# Every locally built arm is tagged `llamacpp:b10644-<ARM>`. `A1` is the stock
+# image, pinned by tag and never floating — the same mapping
+# `tools/runs/srv1-kernel-arms.sh:142` and `tools/runs/srv1-aa-null.sh:95` use.
+tag_of() {
+    case $1 in
+        A1) printf '%s' 'ghcr.io/ggml-org/llama.cpp:server-cuda-b10644' ;;
+        *) printf '%s%s' "$TAG_PREFIX" "$1" ;;
+    esac
+}
 
 # A3 is the Vulkan arm; it reaches the card through the driver's ICD rather than
 # through CUDA, so it needs the driver's display capability inside the container.
@@ -144,14 +162,55 @@ docker_args() {
     printf '%s\n' -v "$MODELS_DIR:/models:ro"
 }
 
-# The step-3 command line, verbatim from lcp-vllm-3-arm-run.md:117-118.
+# THE INSTRUMENT IS NOT ALWAYS A FILE NAMED llama-bench.
+#
+# `ghcr.io/ggml-org/llama.cpp:server-cuda-b10644` ships no `/app/llama-bench` —
+# but the capability IS in the image. It ships `libllama-bench-impl.so` and a
+# single `/app/llama` dispatcher whose `help all` lists `bench` ("Benchmark
+# prompt processing and text generation"), and `/app/llama bench --help` prints
+# llama-bench's own option set. So A1 CAN be microbenchmarked as shipped: what
+# was missing was a file name, not the instrument. Testing for the file alone
+# dropped a whole arm that works, so both paths are probed, against the image
+# itself, before anything is refused:
+#
+#   1  /app/llama-bench, executable                the locally built rungs
+#   2  /app/llama, whose `help all` lists `bench`  the stock dispatcher image
+#   3  neither                                     REFUSED, naming both paths
+#
+# Nothing here assumes which arm is which: the probe is per image.
+declare -A BENCH_ENTRY=()
+
+resolve_bench_entry() {
+    local arm=$1 tag=$2
+    if retry3 docker run --rm --entrypoint test "$tag" -x /app/llama-bench; then
+        BENCH_ENTRY["$arm"]='/app/llama-bench'
+        return 0
+    fi
+    say "$arm: $tag ships no /app/llama-bench; trying the /app/llama dispatcher"
+    if retry3 docker run --rm --entrypoint test "$tag" -x /app/llama &&
+        docker run --rm --entrypoint /app/llama "$tag" help all 2>/dev/null |
+        grep -qE '^[[:space:]]+bench[[:space:]]'; then
+        BENCH_ENTRY["$arm"]='/app/llama bench'
+        say "$arm: '/app/llama help all' lists bench; that is the instrument"
+        return 0
+    fi
+    return 1
+}
+
+# The step-3 command line, verbatim from lcp-vllm-3-arm-run.md:117-118, on
+# whichever of the two entrypoints this arm's image actually has.
 bench_cmd() {
-    local arm=$1 tag
+    local arm=$1 tag entry
     tag=$(tag_of "$arm")
-    local args=()
+    entry=${BENCH_ENTRY[$arm]:-/app/llama-bench}
+    local args=() inv=()
     mapfile -t args < <(docker_args "$arm")
-    printf '%s\n' docker run "${args[@]}" --entrypoint /app/llama-bench "$tag" \
-        -m "/models/$MODEL" -p "$PP" -n "$TG" -r "$REPS" -fa "$FA" -ngl "$NGL" -o json
+    inv=(docker run "${args[@]}" --entrypoint "${entry%% *}" "$tag")
+    if [ "$entry" != "${entry%% *}" ]; then
+        inv+=("${entry#* }")
+    fi
+    inv+=(-m "/models/$MODEL" -p "$PP" -n "$TG" -r "$REPS" -fa "$FA" -ngl "$NGL" -o json)
+    printf '%s\n' "${inv[@]}"
 }
 
 # --------------------------------------------------------------------------
@@ -298,24 +357,30 @@ bench_arm() {
     mapfile -t cmd < <(bench_cmd "$arm")
 
     say "$arm: llama-bench on $tag"
-    plan "${cmd[@]}"
     if dry; then
+        mapfile -t cmd < <(bench_cmd "$arm")
+        plan "${cmd[@]}"
+        say "$arm: if $tag ships no /app/llama-bench the dispatcher is tried"
+        say "$arm: next — '/app/llama bench', same flags — before any refusal"
         say "$arm: would file $(printf '%s' "$PP" | tr ',' ' ' | wc -w) prompt lengths x $(printf '%s' "$FA" | tr ',' ' ' | wc -w) -fa values as BENCH rows"
         return 0
     fi
 
-    # The blocker the run doc flags: `server-cuda-b10644` may ship no
-    # llama-bench, and a locally built image can miss the target too. Checked
+    # The blocker the run doc flagged: `server-cuda-b10644` may ship no
+    # llama-bench, and a locally built image can miss the target too. Probed
     # before the model is loaded, retried because guideline 8 asks for three.
-    if ! retry3 docker run --rm --entrypoint test "$tag" -x /app/llama-bench; then
+    # It is only a refusal when BOTH paths into the instrument are absent.
+    if ! resolve_bench_entry "$arm" "$tag"; then
         # `none`, not `unread`: no checkpoint was involved. The binary that
         # would have loaded one is not in the image (_common.sh `refused`).
         emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
             "arm=$arm" "img=$tag" "checkpoint_quant=none" \
-            -- "the image $tag holds no executable /app/llama-bench, so this arm has no prefill instrument and no prefill number may be quoted for it"
-        say "$arm: no llama-bench in the image. Refused, not synthesised."
+            -- "the image $tag holds neither an executable /app/llama-bench nor an /app/llama dispatcher listing a bench command, so this arm has no prefill instrument and no prefill number may be quoted for it"
+        say "$arm: no llama-bench and no dispatcher. Refused, not synthesised."
         return 0
     fi
+    mapfile -t cmd < <(bench_cmd "$arm")
+    plan "${cmd[@]}"
 
     json=$TMP/$arm.json
     if ! retry3 run_bench "$arm" "$json"; then

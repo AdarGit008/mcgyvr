@@ -124,7 +124,7 @@ is the same list with the artifacts and the blockers against it.
 2    null      srv1-aa-null.sh        A/A on L3      prices the instrument       #7
 3    bench     srv1-llama-bench.sh                   prefill verdict             #5
                -p 512,2048 -n 128 -r 9 -fa 0,1
-               x {L0,L1,L2,L3,L4,A3}
+               x {L0,L1,L2,L3,L4,A3,A1}
 3'   ladder    srv1-build-ladder.sh                  RE-RUN. The ladder's BENCH
      pass 2    (default --stage all)                 rows ARE step 3's numbers,
                                                      copied not re-measured
@@ -167,11 +167,21 @@ Two orderings are enforced in code rather than trusted to this page:
 
 ## Blockers
 
-- **B2's checkpoint must be fetched.** srv1 holds no GPTQ checkpoint of any
-  shape: the 2026-08-31 inventory (`records/evidence/2026-08-31-inventory/srv1-scan.txt:51-122`)
-  covers `~/models` and both HF caches and lists none, and
-  `Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4` appears nowhere in this repo. A dense GPTQ
-  4-bit sym/g128/`desc_act=false` file must be fetched. Resolved candidate:
+- **B2's checkpoint must be fetched — but NOT because srv1 has no GPTQ.** An
+  earlier correction in this file said "srv1 holds no GPTQ checkpoint of any
+  shape", citing the 2026-08-31 inventory
+  (`records/evidence/2026-08-31-inventory/srv1-scan.txt:96-109`). **That
+  correction was wrong and this page's original premise was right.** Verified on
+  srv1 on 2026-09-02: `~/.cache/huggingface/hub/models--Qwen--Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4`
+  exists — 7.9 G, three shards, snapshot `81b132adfae5`, `config.json` declaring
+  `Qwen2MoeForCausalLM` and `gptq / bits 4 / group_size 128 / desc_act false /
+  sym true`. The 2026-08-31 scan simply does not list it. The conclusion is
+  unchanged and the reason for it is not: that checkpoint is **MoE**, so
+  `--linear-backend` would bind only its attention and dense projections while
+  the expert GEMMs go through `--moe-backend` (`auto_gptq.py:467,489`), and the
+  arm would not isolate a kernel; 7.9 G would not fit the 6144 MiB card either.
+  A **dense** GPTQ 4-bit sym/g128/`desc_act=false` file must therefore still be
+  fetched. Resolved candidate:
   `Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4` — 1.071 GiB of weights, `bits 4 /
   group_size 128 / desc_act false / sym true`, leaving ~4.1 GiB for KV on the
   6144 MiB card. Its quantisation parameters live in `config.json` under
@@ -204,8 +214,17 @@ Two orderings are enforced in code rather than trusted to this page:
   Source says it passes for `uint4b8`/`g128` on sm75; that path has not been run.
   If B2 dies with a Marlin message rather than an Exllama one, this is the cause
   — a REFUSED row with the reason, not a setup error.
-- **`server-cuda-b10644` may not contain `llama-bench`.** If not, `A1` cannot be
-  microbenchmarked as shipped and `L0` is the mandatory baseline.
+- **RESOLVED: `server-cuda-b10644` contains no `llama-bench` FILE, and A1 is
+  benchable anyway.** Checked on srv1 on 2026-09-02: `/app/llama-bench` is not in
+  the image. The capability is: it ships `libllama-bench-impl.so` and a single
+  `/app/llama` dispatcher whose `llama help all` lists
+  `bench   Benchmark prompt processing and text generation`, and
+  `/app/llama bench --help` prints llama-bench's own options (`-m -p -n -r -o`).
+  `tools/runs/srv1-llama-bench.sh` now probes `/app/llama-bench` first and
+  `/app/llama bench` second, per image, and refuses only when both are absent —
+  verified to resolve `A1 -> /app/llama bench` and `L0 -> /app/llama-bench`
+  against the real images. **So A1 is microbenchmarked as shipped, and `L0` is
+  NOT the mandatory baseline.** A1 is on step 3's arm list for that reason.
 - **The recorded 1.5–1.7x is `L2`'s, not `L3`'s.** The patch changes MoE kernel
   selection. Re-measure or stop quoting it.
 
