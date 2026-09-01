@@ -78,8 +78,9 @@ this module had wrong. A rung the climb started *above* is not dropped: it stays
 on the walk and is tried like any other, so a fan-out climb spends the same
 attempts on the same rungs as ``none`` and ends in the same exhaustion, with the
 same history and the same escalation arithmetic. Dropping them was arithmetic
-rather than routing — :func:`mcgyvr.escalate.permit` charges an escalation per
-rung actually *spent*, so a family whose cheap rungs had been discarded ran out
+rather than routing — the ``permit`` :func:`mcgyvr.escalate.escalate` builds
+charges an escalation per rung actually *spent*, so a family whose cheap rungs
+had been discarded ran out
 of ladder while still holding a move nothing had paid for, and that leftover move
 funded a dispatch into a *priced* family: ``full`` bought an api call that
 ``none`` refused at the escalation ceiling. ``full`` is a throughput knob and
@@ -923,8 +924,9 @@ def _claim_next(
     wrong: passing a rung over is a statement about a queue at one instant, and
     deleting it is a statement about what this family is worth — which is spend,
     and fan-out does not make spend decisions. It showed up as one:
-    :func:`mcgyvr.escalate.permit` charges an escalation per rung actually
-    spent, so a family short of the rungs it was dropped ran out early with
+    the ``permit`` :func:`mcgyvr.escalate.escalate` builds charges an escalation
+    per rung actually spent, so a family short of the rungs it was dropped ran
+    out early with
     escalation budget unspent, and that budget bought a priced api rung that the
     same ladder under ``none`` was refused. What survives of the old rule is the
     part that was really about ladders — the *start* is chosen once, and the

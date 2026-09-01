@@ -1146,7 +1146,7 @@ class Dispatching:
         self._verdicts = list(verdicts)
         self.seen: list[str] = []
 
-    def __call__(self, this: Try) -> Judgement[str]:
+    def __call__(self, this: Try) -> Judgement:
         endpoint = self._pool.bind(this.rung.name)
         assert this.capacity is not None, "escalate must hand the capacity down"
         with this.capacity.hold(endpoint, timeout=0):
@@ -1159,7 +1159,7 @@ class Dispatching:
         if verdict is Verdict.PASSED:
             return Judgement(
                 verdict=Verdict.PASSED,
-                value=f"{this.rung.name}#{this.attempt}",
+                detail=f"{this.rung.name}#{this.attempt}",
                 assurance=Assurance.UNVERIFIED,
             )
         return Judgement(verdict=Verdict.FAILED, detail="the gate rejected it")
@@ -1554,23 +1554,23 @@ def test_a_raised_entry_gives_its_reservation_back_when_the_attempt_raises(
     """An exception is the path a leak survives on, so it is the one to pin.
 
     :func:`~mcgyvr.route.climb` does not catch what an attempt raises — a
-    verdict is a judgement the attempt made and an exception is one it could not
-    — so the reservation has to be given back while that exception is unwinding.
-    It is, by the ``finally`` that releases every rung a climb takes, and this
-    asserts the count rather than the shape of the code.
+    verdict is a judgement the attempt made and an exception is one it could
+    not. :func:`escalate` does catch it, at the seam, and reports
+    :attr:`Outcome.ERROR` naming the rung rather than handing a caller a
+    traceback. The reservation has to be given back on that path too, and the
+    ``finally`` that releases every rung a climb takes is what gives it back;
+    this asserts the count rather than the shape of the code.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
 
-    def explode(this: Try) -> Judgement[str]:
+    def explode(this: Try) -> Judgement:
         raise RuntimeError("the dispatch died mid-flight")
 
-    with (
-        holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"),
-        pytest.raises(RuntimeError),
-    ):
-        escalate(config, pool, contract(), explode, capacity=capacity)
+    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+        result = halted(escalate(config, pool, contract(), explode, capacity=capacity))
 
+    assert result.outcome is Outcome.ERROR
     assert capacity.load("vendor") == 0, "an exception is not a reason to keep it"
     assert capacity.load("workstation") == capacity.load("spare") == 0
 

@@ -408,12 +408,17 @@ class Judging(Recorder):
     :class:`Recorder`'s; only the wrapper type differs.
     """
 
-    def __call__(self, attempt: Try) -> Judgement[str]:  # type: ignore[override]
+    def __call__(self, attempt: Try) -> Judgement:  # type: ignore[override]
         result = super().__call__(attempt)
         return Judgement(
             verdict=result.verdict,
-            value=result.value,
-            assurance=Assurance.UNVERIFIED if result.value is not None else None,
+            # `Recorder` marks a pass in `detail` — #392 removed `Result.value`,
+            # the channel content used to travel on beside a verdict without
+            # being bound to it. A pass is what carried a value, so a pass is
+            # what carries the assurance.
+            assurance=(
+                Assurance.UNVERIFIED if result.verdict is Verdict.PASSED else None
+            ),
             detail=result.detail,
         )
 
@@ -1503,7 +1508,7 @@ def test_a_claimed_rung_goes_first_and_is_not_reserved_a_second_time(
     capacity = Capacity.of(config)
     seen: list[tuple[str, int]] = []
 
-    def attempt(this: Try) -> Result[str]:
+    def attempt(this: Try) -> Result:
         seen.append((this.rung.name, capacity.load("medium")))
         return Result.failed("the gate rejected it")
 
