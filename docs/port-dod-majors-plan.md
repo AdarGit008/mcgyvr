@@ -86,8 +86,9 @@ X4, X7. G5/E4/D7-slice-copy superseded by rewrite.
 - 2026-08-31 — **Phase 4 complete** (6 findings, 1 commit):
   - `6c588af4` D3 + D4 + D8 + R8 in `repair.py`, X5 + X6 in `worker/reply.py` — shebang-safe splice, existing-dependency-only imports, bounded ruff subprocesses, sandbox seam, deep-reply refusal by name.
   - Full gate clean: `2395 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
-- 2026-09-01 — **Phase 5 in progress** (4 of 7 findings, 2 commits):
+- 2026-09-01 — **Phase 5 in progress** (5 of 7 findings, 3 commits):
   - `53587d34` E6 in `waves.py`, S9 in `pending.py`, S11 in `worker/prompt.py` — wave record survives a raising attempt, review's three states read, unsupported schema refused pre-dispatch.
   - `aa54e227` S7 in `escalate.py` + `cli.py` — a seam-crossing exception is recorded as `Outcome.ERROR` naming the rung, and `disposition` classifies it.
-  - Remaining: S12 (3 Verdicts + 2 Outcomes), S6/K5 (observe of a deterministic run), S10 (apply_scoped producer).
-  - Full gate clean: `2399 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
+  - `33c54db5` S12 in `verify.py`, `availability.py`, `cooldown.py`, `cli.py` — `ReviewOutcome`/`ReviewVerdict`/`AvailabilityVerdict` replace the colliding bare `Verdict` and `Outcome` names.
+  - Remaining: S6/K5 (observe of a deterministic run), S10 (apply_scoped producer).
+  - Full gate clean: `2402 passed, 6 skipped, 14 xfailed`, ruff + mypy strict clean.
