@@ -1,0 +1,11 @@
+[Unit]
+Description=Hold PL1/PL2 and uncore ratio (BIOS drops these after a hard lock)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/srv1-cpu-limits
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
