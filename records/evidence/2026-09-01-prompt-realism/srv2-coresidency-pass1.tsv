@@ -1,0 +1,16 @@
+### srv2 PHASE5 START 2026-09-01T11:20:47+00:00
+srv2	s2-q15+q3	s2-q3	CONFIG	img=vllm/vllm-openai:v0.26.0	port=8100	util=0.40	kv=fp8	kv_tok=44592	maxconc=21.8	warm_ptok=711	pair_vram=7191
+srv2	s2-q15+q3	s2-q15	CONFIG	img=vllm/vllm-openai:v0.26.0	port=8101	util=0.40	kv=fp8	kv_tok=17536	maxconc=8.6	warm_ptok=711	pair_vram=7191
+srv2	s2-q15+q3	s2-q3	solo	n=8	agg=451.6	p50=2.77	prefill=1320.7	ptok=616	otok=210	early_stop=1/8	failed=0/8	wall=3.7
+srv2	s2-q15+q3	s2-q15	solo	n=8	agg=748.8	p50=1.42	prefill=2376.1	ptok=616	otok=194	early_stop=2/8	failed=0/8	wall=2.1
+srv2	s2-q15+q3	s2-q3	paired	n=8	agg=350.4	p50=3.87	prefill=1019.4	ptok=616	otok=211	early_stop=1/8	failed=0/8	wall=4.8
+srv2	s2-q15+q3	s2-q15	paired	n=8	agg=289.6	p50=2.05	prefill=1019.4	ptok=616	otok=175	early_stop=3/8	failed=0/8	wall=4.8
+srv2	s2-q15+q3	WIDTH	dropped n=32: pool too small on s2-q3,s2-q15 at len=2048, so it would queue, not saturate
+srv2	s2-q15+q7	s2-q7	REFUSED	ValueError: To serve at least one request with the model's max seq len (2048), (0.05 GiB KV cache is needed, which is larger than the available KV cache memory (0.01 GiB). Based on the available memory, the estimated maximum model length is 448. Try increasing `gpu_memory_utilization` (which also controls CPU memory on the CPU backend) or decreasing `max_model_len` when initializing the engine. Se
+srv2	s2-q15+q7	s2-q15	REFUSED	ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+srv2	s2-q15+q7	ABORT	0/2 servers came up; a co-residency row needs every member resident
+srv2	s2-3way	s2-q34b	REFUSED	AssertionError: Error in memory profiling. Initial free memory 8.43 GiB, current free memory 8.82 GiB. This happens when other processes sharing the same container release GPU memory while vLLM is profiling during initialization. To fix this, ensure consistent GPU memory allocation or isolate vLLM in its own container.
+srv2	s2-3way	s2-q3	REFUSED	ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+srv2	s2-3way	s2-q15	REFUSED	ValueError: No available memory for the cache blocks. Try increasing `gpu_memory_utilization` when initializing the engine (this flag also controls CPU memory reservation on the CPU backend, despite its name). See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.
+srv2	s2-3way	ABORT	0/3 servers came up; a co-residency row needs every member resident
+### srv2 PHASE5 DONE 2026-09-01T11:25:44+00:00

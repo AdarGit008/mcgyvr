@@ -96,6 +96,42 @@ candidate weights+residue bases give answers 14% apart, the same trap
 `always.md` records for bits-per-weight.
 → `records/evidence/2026-09-01-prompt-realism/srv2-fp8-ab-and-lcp-smoke.tsv`
 
+## Co-residency (two vLLM servers, one card)
+
+**`util` is a budget for weights + KV + activations. The CUDA context is on top
+of it.** Measured on srv2 against a card verified empty between launches:
+util 0.25/0.45/0.90 gave 3,925 / 6,333 / 11,709 MiB, each ~980 MiB above
+`util x 11,911`. Budget for n servers therefore sums to
+`1 - n x 980/total`, not to 0.9.
+
+**Equal utils do not give equal pools.** q3 and q15 both at 0.40, q3 launched
+first: q3 got 44,592 KV tokens (maxconc 21.8), q15 got 17,536 (maxconc 8.6) --
+and q15 is the *smaller* model. Whatever share the second server gets, it is
+not its util.
+
+**How util composes across co-resident servers is UNSETTLED.** Two readings each
+explain part of the data and neither explains all of it; three configurations
+were guessed wrong on 2026-09-01 before the guessing stopped. Do not reason it
+out -- read `maxconc` off each server's CONFIG row and tune against that. Two
+engine behaviours are established:
+
+- `ValueError: Free memory on device cuda:0 (1.12/11.63 GiB) on startup is less
+  than desired GPU memory utilization (0.9, 10.47 GiB)` -- a precondition on
+  FREE memory, checked before anything is allocated. It caps how high the
+  second server's util can go, which is what makes the composition question
+  bite.
+- `AssertionError: Error in memory profiling. Initial free memory 8.43 GiB,
+  current free memory 8.82 GiB` -- init reads LIVE free memory, so a neighbour
+  still tearing down makes the next launch refuse. `docker rm -f` returns before
+  the CUDA context is gone: **wait for `nvidia-smi --query-compute-apps` to come
+  back empty**, do not sleep and hope. Two of the three pass-1 refusals were
+  this, not the pair.
+
+**A 7B does not co-reside on srv2 at len 2048.** q7 refused at util 0.55 and
+again at 0.65 on a verified-clean card: 5.3 GiB of weights leaves 0.01 GiB for
+KV, against the 0.05 GiB one 2048-token request needs.
+→ `records/evidence/2026-09-01-prompt-realism/srv2-util-semantics.txt`
+
 ## Compute capability 7.5 (srv1)
 
 AWQ works. Marlin MoE kernels are selected. bfloat16 falls back to float16

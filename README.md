@@ -40,8 +40,9 @@ but it was never corrected.
 
 ## What the new drivers do
 
-`vllm_sweep_31-08-2026.py` and `lcp_sweep_31-08-2026.py` share a
-byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the two files, the cross-engine
+`vllm_sweep_31-08-2026.py`, `lcp_sweep_31-08-2026.py` and
+`vllm_cores_01-09-2026.py` share a
+byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the files, the cross-engine
 comparison is void.**
 
 That hash is over *source text*, so a `ruff format` pass moves it even when the
@@ -56,14 +57,15 @@ def load(p):
     ns = {"itertools": itertools, "threading": threading, "random": random}
     exec(src[src.index("PROMPT_DECILES"):src.index("def sh(")], ns)
     return ns["mkprompt"]
-for f in ["vllm_sweep_31-08-2026.py", "lcp_sweep_31-08-2026.py"]:
+for f in ["vllm_sweep_31-08-2026.py", "lcp_sweep_31-08-2026.py",
+          "vllm_cores_01-09-2026.py"]:
     mk = load(f)
     blob = "".join(f"{w}\x00{t}\x1e" for t, w in (mk() for _ in range(200)))
     print(f, hashlib.sha256(blob.encode()).hexdigest()[:24])
 EOF
 ```
 
-Both must print `2f2bb7932a0b660653def819`.
+All three must print `2f2bb7932a0b660653def819`.
 
 1. **Lengths sampled from the measured deciles**, seeded by request id — so request
    *k* always draws the same length, reproducible across levels and reruns, without
