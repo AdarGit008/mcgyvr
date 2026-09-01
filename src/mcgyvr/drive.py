@@ -458,9 +458,6 @@ def worker_attempt(
                         f"which is cooling down: {cooling[endpoint.source]}"
                     ),
                 )
-        prompt = build_prompt(
-            contract, adapters=adapters, retry=notes.get(this.rung.name)
-        )
 
         def send(draw: int) -> Completion:
             def once() -> Completion:
@@ -537,7 +534,15 @@ def worker_attempt(
         sandbox.reset()
         # Read here, in the one moment the base is on disk: the workspace has
         # just been reset and no draw has been written over it yet.
-        original = _base_content(sandbox, contract) if reviewer is not None else None
+        original = _base_content(sandbox, contract)
+        # The worker prompt needs the file it is changing. A decomposed
+        # contract carries it as `target_content`; a hand-authored one does
+        # not, so fall back to the workspace's own copy (K6).
+        prompt = build_prompt(
+            replace(contract, target_content=contract.target_content or original),
+            adapters=adapters,
+            retry=notes.get(this.rung.name),
+        )
         try:
             picked = best_of(
                 contract=contract,

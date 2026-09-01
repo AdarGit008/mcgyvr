@@ -452,6 +452,39 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     assert judgement.accepted.accepted is True
 
 
+def test_a_hand_authored_contract_shows_the_target_file_in_the_prompt(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hand-authored YAML carries no `target_content`, yet the worker needs the file.
+
+    ``target_content`` defaults to ``""`` and only the decomposer fills it, so
+    a contract authored by hand sent a prompt with no file — the worker could
+    not know what it was editing. The drive reads the base off the freshly
+    reset workspace instead, so the prompt names the file and its content.
+    """
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try
+
+    config = parse_config(LADDER)
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)  # hand-authored: target_content == ""
+    sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
+
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(config, pool, contract, sandbox)
+        attempt(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+
+    (prompt,) = sent
+    assert "CURRENT CONTENT OF src/pkg/messy.py" in prompt, (
+        f"the hand-authored contract's prompt does not show the target file: {prompt!r}"
+    )
+    assert "x = {" in prompt, (
+        f"the target file's own content did not reach the prompt: {prompt!r}"
+    )
+
+
 def test_a_rejected_attempt_tells_the_next_one_what_failed(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

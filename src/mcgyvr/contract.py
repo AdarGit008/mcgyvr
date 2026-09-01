@@ -733,7 +733,7 @@ class Contract:
         emitted, and several runs' provenance with them. A key that appears
         exactly when it says something costs nothing to add later.
         """
-        stated = {"depends_on": list(self.depends_on)} if self.depends_on else {}
+        stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
         return {
             "version": self.version,
             "id": self.id,
