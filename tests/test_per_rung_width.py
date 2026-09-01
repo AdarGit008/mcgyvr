@@ -355,12 +355,12 @@ def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(
     capacity = Capacity.of(config, root=tmp_path)
     tried: list[str] = []
 
-    def attempt(each: Try) -> Result[str]:
+    def attempt(each: Try) -> Result:
         tried.append(each.rung.name)
         return Result.passed(each.rung.name)
 
     made = plan(config, pool, load_contract(CONTRACT))
-    busy = made.steps[0].machine
+    busy = made.climbable[0].machine
     assert busy is not None
 
     with capacity.hold(pool.bind("local_d1"), rung="local_d1"):
@@ -378,7 +378,7 @@ def test_a_load_read_for_no_rung_is_still_the_sources_own_queue(
     pool = source_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     made = plan(config, pool, load_contract(CONTRACT))
-    machine = made.steps[0].machine
+    machine = made.climbable[0].machine
     assert machine is not None
 
     assert machine.load(capacity) == 0
