@@ -52,3 +52,8 @@ okf/
 # a snapshot in the tree that goes stale the moment anything under src/ or
 # tools/ moves.
 graphify-out/
+
+# Per-developer Claude Code settings. `.claude/settings.json` here holds one
+# person's local permission allowlist, not project configuration — committing it
+# would hand everyone else's session a set of approvals they never granted.
+.claude/
