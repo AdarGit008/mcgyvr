@@ -55,7 +55,14 @@ def test_each_arm_derives_its_floor_from_its_own_numbers() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no per-arm floor")
+@pytest.mark.xfail(
+    strict=True,
+    reason="2026-09-02: floors WERE derived — L3, L0 and A1 each ran the "
+    "descent and each landed on 27 — but from byte-identical inputs, so "
+    "this test cannot tell an honest coincidence (one checkpoint, one card, "
+    "one context size) from a floor copied between arms. Open until an arm "
+    "with genuinely different VRAM overhead derives its own.",
+)
 def test_two_arms_reporting_one_floor_did_not_reach_it_from_one_set_of_numbers() -> (
     None
 ):
