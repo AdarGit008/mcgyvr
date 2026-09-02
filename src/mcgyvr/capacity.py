@@ -80,14 +80,24 @@ The probe is a *parameter*. Nothing here opens a socket, for the same reason
 builds nothing: who actually asks a rig is #22's, and this module's job is to
 know what to do with the answer.
 
-One consequence is not yet resolved and is written down rather than papered
-over: a confirmed width wider than the declared one leaves
-:attr:`~mcgyvr.pool.Endpoint.max_parallel` carrying the superseded number, which
-:meth:`hold` refuses as a stale config. Nothing supplies a real probe yet, so
-nothing hits it today; whoever wires #22 must rebuild the source map from the
-confirmed widths, or teach ``hold`` that a confirmed width outranks a carried
-declaration. Loosening that check speculatively here would weaken the only guard
-against two configs, to fix a collision no caller can currently cause.
+**So a capacity keeps two numbers per source, not one.** A confirmed width
+wider than the declared one leaves :attr:`~mcgyvr.pool.Endpoint.max_parallel`
+carrying the superseded number, and :meth:`hold` used to refuse exactly that as
+a stale config — which made every successful probe unusable: the first dispatch
+through a widened source raised, and the disagreement it named had been created
+by :meth:`of` rather than by anyone's config. The fix is to stop asking one
+number to answer two questions. The **declared** width is what the config said
+and what an ``Endpoint`` carries; the **enforced** width is the confirmed one
+where a machine answered and the declared one everywhere else. :meth:`hold`
+checks the endpoint against the *declared* number — which is that check's real
+purpose, catching a capacity and a source map built from two different configs —
+and opens slots against the *enforced* one. :attr:`limits` keeps meaning what is
+enforced, because that is what its callers read it for: a rung is as wide as the
+slots it can actually take, which is what :func:`mcgyvr.escalate.ascent` asks it.
+The declaration is :meth:`declared`'s. The two numbers differ only where a probe
+widened a source, which makes those sources a *subset* of the confirmed ones and
+not the same set: :meth:`confirmed` says a machine answered, and a machine that
+answered with exactly the declared width confirmed it without changing it.
 
 **The bound is host-wide, not per-process (#185).** The rigs a source names are
 shared machines, and this repository's own workflow runs lanes as parallel
@@ -129,6 +139,54 @@ Three consequences are deliberate:
   somewhere stable when the environment does that. Likewise the bound is per
   host: two *machines* dispatching at one rig are beyond what a file lock can
   see, and nothing here pretends otherwise.
+
+**Reservations, or the count that exists before a slot does (#24).**
+:meth:`in_use` counts slots this capacity has *granted*, and there is an earlier
+moment that matters to whoever is spreading a batch over several rigs: every
+member of a batch chooses its rung before any of them has been granted anything,
+so climbs reading only the granted count read zeroes, all choose the cheapest
+rung, and queue on it — the funnel ``ladder.fanout`` exists to end. An attempt is
+therefore counted from the moment it is *chosen*: :meth:`reserve` on the way in,
+:meth:`release` on the way out, :meth:`reserving` for the callers whose
+reservation is a block, :meth:`load` for granted and reserved together, and
+:meth:`deciding` for a caller that must read several sources and reserve one of
+them as a single decision.
+
+The count lives here, per instance, rather than in the module that chooses
+rungs, for the reason a process-global counter always eventually gives: keyed by
+source name across every capacity in the process, two configs that merely share
+the name ``srv1`` pool their counts, and a batch under one of them reads a
+machine as busy because of unrelated work under the other. This capacity's
+reservations are what this capacity counts.
+
+And they are exactly as narrow as that sounds: this process, this capacity, the
+choices it was told about. Another mcgyvr process contending for the same slot
+files is not counted here. That is not a gap to be closed — the *bound* is the
+flock and is shared; this is bookkeeping for spreading the choices one batch is
+making, and it only has to be right about those.
+
+**A hold that never reserved is still load, so the two counts are added and
+made not to overlap.** Most holds do not come through a reservation:
+:func:`mcgyvr.runner.dispatch` and :func:`~mcgyvr.runner.dispatch_role` take a
+slot directly, so a verifier occupies a rig without anything having chosen a
+rung for it. :meth:`load` is therefore ``in_use + reserved``, and the double
+count that sum invites is removed at its source rather than papered over: when
+:meth:`hold` grants a slot to a thread that already holds a reservation for that
+source, the reservation is *consumed* for as long as the slot is held, so the
+one dispatch is counted once — as a slot — and is counted as a reservation again
+when the slot goes back. ``max(in_use, reserved)`` was the earlier rule and it
+is only right when every hold was reserved first: a verifier holding one slot of
+a two-wide rig while a routed climb has reserved the same rig and is between
+attempts reads as a load of 1, and a caller computing ``width - load`` then aims
+a third dispatch at a rig with nothing free, where it blocks in :meth:`hold`.
+
+Consuming the reservation is keyed by *thread*, which is what makes "the same
+dispatch" answerable at all: a reservation is taken by the caller that chooses a
+rung (:func:`mcgyvr.route.climb` does, under :meth:`deciding`) and the slot for
+it is taken by that same caller on that same thread. A thread cannot hold one
+source twice — :meth:`hold` refuses that as a deadlock — so one reservation
+covers at most one slot at a time, and a hold on a thread that reserved nothing
+consumes nothing and counts in full.
 """
 
 from __future__ import annotations
@@ -287,6 +345,7 @@ class Capacity:
         *,
         lock_dir: Path | None = None,
         confirmed: Iterable[str] = (),
+        declared: Mapping[str, int] | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -311,9 +370,65 @@ class Capacity:
                 f"capacity does not bound. A confirmation is a fact about a "
                 f"source's limit, so there has to be a limit for it to be about."
             )
+        # What the config said, for the sources where that is not what is
+        # enforced. Only a probe can separate the two — nothing else may widen a
+        # bound — so a source whose two numbers differ is always a confirmed
+        # one, but not the other way round: a probe reporting exactly the
+        # declared width confirms it and widens nothing, and an unconfirmed
+        # source always declares what it enforces. Kept because an
+        # `Endpoint` carries the declaration, and :meth:`hold` has to be able to
+        # check the number it was handed against the number of the same kind.
+        self._declared = dict(self._limits)
+        for source, width in dict(declared or {}).items():
+            enforced = self._limits.get(source)
+            if enforced is None:
+                raise CapacityError(
+                    f"a declared width for source {source!r}, which this capacity "
+                    f"does not bound. A declaration and a bound are two numbers "
+                    f"about one source, so there has to be a source."
+                )
+            if width < 1:
+                raise CapacityError(
+                    f"source {source!r} declares max_parallel={width}, which the "
+                    f"config schema floors at 1. A capacity cannot be built from "
+                    f"a declaration no config could have written."
+                )
+            if width > enforced:
+                raise CapacityError(
+                    f"source {source!r} declares {width} but is bounded at "
+                    f"{enforced}. A width is only ever widened from its "
+                    f"declaration and never narrowed — :meth:`of` refuses a "
+                    f"machine reporting less rather than quietly lowering the "
+                    f"bound — so a bound under the declaration is not something "
+                    f"this module can have produced."
+                )
+            if width != enforced and source not in self._confirmed:
+                raise CapacityError(
+                    f"source {source!r} declares {width} and is bounded at "
+                    f"{enforced} without a confirmation. Only a machine's own "
+                    f"report may widen a declaration, so two different numbers "
+                    f"with nothing confirming them are two configs rather than "
+                    f"one measurement."
+                )
+            self._declared[source] = width
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
-        self._lock = threading.Lock()
+        # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
+        # caller inside it reads :meth:`load` and calls :meth:`reserve`, which
+        # take it again. One lock and not two: the loads a decision is made from
+        # are the counters a hold updates, and a second lock over the same
+        # numbers would be a second answer to when they are consistent.
+        self._lock = threading.RLock()
         self._in_use = dict.fromkeys(self._limits, 0)
+        # Attempts that have chosen this source but have not been granted a slot
+        # yet — the module docstring's reservations. Zero for every bounded
+        # source rather than absent, so a read is a lookup and never a default.
+        self._reserved = dict.fromkeys(self._limits, 0)
+        # Of the slots granted, how many are a reservation being spent rather
+        # than a second dispatch. Subtracted in :meth:`load` so that granted and
+        # reserved can be added without counting one attempt twice; see the
+        # module docstring for why the sum, and not the greater of the two, is
+        # what a caller computing `width - load` needs.
+        self._covered = dict.fromkeys(self._limits, 0)
         self._peak = dict.fromkeys(self._limits, 0)
         # Tracked alongside the per-source peaks rather than derived from them:
         # a maximum of sums is not the sum of maxima, and it is the moment two
@@ -322,9 +437,12 @@ class Capacity:
         self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._limits, 0)
         self._waited = dict.fromkeys(self._limits, 0.0)
-        # Which sources *this* thread is currently holding. Thread-local rather
-        # than shared, because the question it answers is "would this caller
-        # block against itself", which is a per-thread question.
+        # Which sources *this* thread is currently holding, which reservations
+        # it took and has not given back, and which of its holds are spending
+        # one of them. Thread-local rather than shared, because all three
+        # questions are per-thread: "would this caller block against itself",
+        # and "is this slot the one this caller reserved" — a reservation and
+        # the slot it was taken for are always the same thread's.
         self._holding = threading.local()
 
     @classmethod
@@ -348,11 +466,20 @@ class Capacity:
         dispatch would spend a round trip on a number that does not move, and —
         worse — would let the bound change underneath a batch that is already
         queued against it.
+
+        Either way the config's own number is kept as the source's declaration,
+        which is what makes a widened bound dispatchable: the endpoints a
+        :class:`~mcgyvr.pool.SourceMap` built from this same config carry that
+        number, and :meth:`hold` checks them against it. Rebuilding the source
+        map from the confirmed widths would work too, and would be one more
+        thing every caller who probes has to remember to do.
         """
         limits: dict[str, int] = {}
+        declarations: dict[str, int] = {}
         confirmed: list[str] = []
         for name, source in config.sources.items():
             declared = source.max_parallel
+            declarations[name] = declared
             reported = None if probe is None else probe.width(name)
             if reported is None:
                 # Nobody asked, or the backend does not say. Two different
@@ -373,7 +500,7 @@ class Capacity:
                 )
             limits[name] = reported
             confirmed.append(name)
-        return cls(limits, confirmed=confirmed)
+        return cls(limits, confirmed=confirmed, declared=declarations)
 
     @property
     def limits(self) -> Mapping[str, int]:
@@ -384,6 +511,11 @@ class Capacity:
         question, deliberately not answerable from this mapping: a bound is a
         bound whatever its provenance, and a caller enforcing one should not
         have to care where it came from.
+
+        Enforced, not declared, because every caller reads this to find out how
+        much of a source it may use — how many slots there are to take, how wide
+        a rung is. The config's own number, which is the one an
+        :class:`~mcgyvr.pool.Endpoint` carries, is :meth:`declared`'s.
         """
         return dict(self._limits)
 
@@ -413,15 +545,179 @@ class Capacity:
             )
         return source in self._confirmed
 
+    def declared(self, source: str) -> int:
+        """What ``source``'s config declared, whatever is now enforced for it.
+
+        The number an :class:`~mcgyvr.pool.Endpoint` carries, which is why
+        :meth:`hold` checks an endpoint against this one rather than against the
+        bound: an endpoint built from the same config as this capacity states
+        the declaration whether or not a probe has since widened the bound, and
+        an endpoint that states something else came from a different config —
+        which is the only thing that check was ever able to catch.
+
+        Equal to ``limits[source]`` except where a machine reported a *wider*
+        width, which makes the sources where the two numbers differ a subset of
+        the confirmed ones rather than the same set. :meth:`confirmed` says a
+        machine answered, and :meth:`of` confirms a source whenever the probe
+        answered at all — including when the report equalled the declaration —
+        so a confirmed source can have one number here and not two. A caller
+        reading ``confirmed`` as "the widened-versus-declared distinction
+        applies to this source" is therefore wrong for every source the probe
+        agreed with; the way to ask that question is to compare the two numbers.
+
+        A report and a guess that happen to agree are still two different kinds
+        of fact, which is why the confirmation is kept for a source this method
+        answers the same as ``limits`` — that difference is :meth:`confirmed`'s
+        to report, not this one's.
+        """
+        self._bounded(source)
+        return self._declared[source]
+
     @property
     def total(self) -> int:
         """The most dispatches that could ever be in flight across all sources."""
         return sum(self._limits.values())
 
     def in_use(self, source: str) -> int:
-        """How many slots of ``source`` are held right now."""
+        """How many slots of ``source`` are held right now.
+
+        Refuses a source this capacity does not bound, in :meth:`_bounded`'s
+        words and not with a bare ``KeyError``: a caller here is holding a view
+        of the ladder built from another config, which is the same mistake
+        :meth:`load`, :meth:`declared` and :meth:`confirmed` name, and one
+        reader raising a different exception for it would leave that mistake
+        unhandled wherever the others are caught.
+        """
+        self._bounded(source)
         with self._lock:
             return self._in_use[source]
+
+    def load(self, source: str) -> int:
+        """How busy ``source`` is: slots granted plus attempts reserved for it.
+
+        Their sum, because a load has to count every dispatch aimed at the
+        source and the two counts hold different ones. Granted alone
+        under-reports a batch that is still choosing, which is exactly when this
+        gets asked; reserved alone misses every dispatch that never went through
+        a caller that reserves, which is most of them —
+        :func:`mcgyvr.runner.dispatch` and
+        :func:`~mcgyvr.runner.dispatch_role` take a slot directly, so a verifier
+        occupies a rig without anything having chosen a rung for it.
+
+        Adding them is honest because the overlap is removed where it is
+        created rather than here: :meth:`hold` consumes the reserving thread's
+        reservation for as long as it holds the slot, so a reserved attempt that
+        has been admitted is counted once, as a slot. ``max(in_use, reserved)``
+        was the earlier rule and it under-counts whenever both kinds of hold are
+        on one source — a verifier holding one slot of a two-wide rig while a
+        routed climb has reserved it and is between attempts reads as 1, and a
+        caller computing ``width - load`` sends a third dispatch at a rig with
+        nothing free.
+
+        This process and this capacity, and nothing else. Another mcgyvr
+        process contending for the same slot files is not counted here and is
+        not meant to be: the bound it contends for is the lock file, while this
+        number exists to spread the choices *this* batch is making.
+        """
+        self._bounded(source)
+        with self._lock:
+            # Floored rather than subtracted straight, so that a reservation
+            # given back by a thread that is still holding the slot it covered
+            # cannot read as *less* load than the slot alone. The counters
+            # cannot say a source is emptier than what is provably held.
+            waiting = self._reserved[source] - self._covered[source]
+            return self._in_use[source] + max(0, waiting)
+
+    def reserve(self, source: str) -> None:
+        """Count one attempt as headed for ``source``, before it has a slot.
+
+        Every reserve needs a :meth:`release`, on every path — see
+        :meth:`reserving` for the shape that cannot forget one. A caller
+        choosing between sources reserves inside :meth:`deciding`, or two
+        threads read the same loads before either of them has counted anything
+        and make the same choice from them.
+
+        Raises for a source this capacity does not bound rather than counting it
+        anyway: a reservation is a claim against a bound, and there is no bound
+        here to claim. A caller that may be holding a plan from another config
+        asks ``source in capacity.limits`` first — the same question
+        :meth:`load` is guarded by, and the answer is a fact about the two
+        configs rather than about the source.
+
+        The reserving thread is remembered as well as the count, because
+        :meth:`hold` has to be able to tell a slot taken *for* a reservation
+        from a second dispatch — see the module docstring. That is the only use
+        of it: the count :meth:`load` reads is the shared one, and a reservation
+        is not owned by the thread that took it in any sense a caller can see.
+        """
+        self._bounded(source)
+        with self._lock:
+            self._reserved[source] += 1
+            mine = self._reservations()
+            mine[source] = mine.get(source, 0) + 1
+
+    def release(self, source: str) -> None:
+        """Stop counting one attempt on ``source``. Never raises.
+
+        Callable from a ``finally`` on every path, which is what keeps the count
+        right when an attempt raises — and a leaked reservation is forever, so
+        it would show a machine as busy to every later choice this process
+        makes. Nothing about a bookkeeping mistake is worth an exception raised
+        *while another one is unwinding*, so a release with no reservation
+        behind it is floored at zero rather than going negative, and a source
+        this capacity does not bound is ignored rather than named.
+
+        A release from a thread that never reserved is floored the same way, and
+        forgets nothing about the thread that did: the per-thread record exists
+        only so that a hold can recognise its own reservation, and an unmatched
+        release is already a mistake being tolerated rather than a state to keep
+        books for.
+        """
+        with self._lock:
+            mine = self._reservations()
+            held = mine.get(source, 0)
+            if held > 0:
+                mine[source] = held - 1
+            current = self._reserved.get(source, 0)
+            if current > 0:
+                self._reserved[source] = current - 1
+
+    @contextmanager
+    def reserving(self, source: str) -> Iterator[None]:
+        """Reserve ``source`` for the body of the block, and release it after.
+
+        The shape for a caller whose reservation is scoped to a block, and the
+        one to prefer, since the release is then structural rather than
+        remembered. A caller whose reservation is made inside a :meth:`deciding`
+        section and given back much later — a ladder walk that picks a rung
+        under the lock and frees it when that rung is finished with — cannot use
+        a block and reserves and releases by hand.
+        """
+        self.reserve(source)
+        try:
+            yield
+        finally:
+            self.release(source)
+
+    @contextmanager
+    def deciding(self) -> Iterator[None]:
+        """Hold the bookkeeping lock, so a read and a reserve are one decision.
+
+        Reading several sources' :meth:`load` and reserving the least busy of
+        them is two operations and one decision. Left apart, every member of a
+        batch reads the same zeroes before any of them has reserved anything and
+        they all choose the same source — the funnel narrowed to microseconds
+        rather than closed. Inside this block no load can move under the caller.
+
+        The lock is re-entrant, so :meth:`load`, :meth:`reserve` and
+        :meth:`release` are all callable within it, and a caller needs no lock
+        of its own. Nothing *slow* may be called within it: this is the same
+        lock :meth:`hold` keeps its counters under, so a block that dispatched —
+        or took a slot — inside it would stop every other thread's bookkeeping
+        for the length of a request.
+        """
+        with self._lock:
+            yield
 
     def usage(self) -> tuple[Usage, ...]:
         """What each source's capacity was used for, in declared order."""
@@ -469,11 +765,19 @@ class Capacity:
         that times out or refuses must not cost the source a slot for the rest
         of the run, which is the leak the acceptance names.
 
+        There are as many slot files as the *enforced* width, so a source a
+        probe widened dispatches that much wider — while the endpoint is checked
+        against the width its config *declared*, which is the number an endpoint
+        carries. Comparing it against the enforced one instead would refuse
+        every dispatch through a source a probe had just widened, and blame a
+        stale config for a disagreement :meth:`of` had itself created.
+
         Raises :class:`CapacityError` rather than proceeding when the source is
-        one this capacity does not know, when the endpoint's declared
-        ``max_parallel`` disagrees with the one being enforced (both of which
-        mean the capacity and the source map were built from different configs),
-        or when the calling thread already holds this source.
+        one this capacity does not know, when the endpoint's ``max_parallel``
+        disagrees with what this capacity's config declared for that source
+        (both of which mean the capacity and the source map were built from
+        different configs), or when the calling thread already holds this
+        source.
         """
         source = endpoint.source
         limit = self._limits.get(source)
@@ -484,12 +788,23 @@ class Capacity:
                 f"the source map it is bounding were built from different "
                 f"configs. Known sources: {known}"
             )
-        if endpoint.max_parallel != limit:
+        declared = self._declared[source]
+        if endpoint.max_parallel != declared:
+            widened = (
+                ""
+                if limit == declared
+                else (
+                    f" (A probe widened this source to {limit}, which is what is "
+                    f"enforced; an endpoint still carries the declared number, so "
+                    f"{declared} is what it has to agree with.)"
+                )
+            )
             raise CapacityError(
-                f"source {source!r} is bounded at {limit} here "
+                f"source {source!r} is bounded at {declared} here "
                 f"but the endpoint declares max_parallel="
                 f"{endpoint.max_parallel}. Two answers to one question means one "
-                f"of them is from a stale config; rebuild both from the same one."
+                f"of them is from a stale config; rebuild both from the same "
+                f"one.{widened}"
             )
         held = self._held()
         if source in held:
@@ -511,12 +826,25 @@ class Capacity:
             self._peak[source] = max(self._peak[source], self._in_use[source])
             self._in_flight += 1
             self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
+            # This is the dispatch the reservation was taken for, if this
+            # thread took one: it chose the rung and is now being admitted to
+            # it. Counting the reservation as spent for the length of the hold
+            # is what lets :meth:`load` add granted and reserved without
+            # counting this dispatch twice — and it is given back on the way
+            # out, because a climb between two attempts on one rung has still
+            # chosen that rung. The guard above means this thread holds no
+            # other slot on this source, so one reservation covers one slot.
+            covering = self._reservations().get(source, 0) > 0
+            if covering:
+                self._covered[source] += 1
         try:
             yield
         finally:
             with self._lock:
                 self._in_use[source] -= 1
                 self._in_flight -= 1
+                if covering:
+                    self._covered[source] -= 1
             held.discard(source)
             os.close(fd)  # closing the descriptor is what releases the flock
 
@@ -553,6 +881,23 @@ class Capacity:
                 )
             time.sleep(_POLL_SECONDS)
 
+    def _bounded(self, source: str) -> None:
+        """Refuse a source this capacity does not bound, by name.
+
+        Shared by the readers and by :meth:`reserve` so that all of them refuse
+        an unknown source the same way and in the same words. The answer is
+        never a zero or a ``None``: those would say this capacity knows the
+        source and has nothing to report about it, when what happened is that
+        the caller is holding a view of the ladder built from another config.
+        """
+        if source not in self._limits:
+            known = ", ".join(sorted(self._limits)) or "none"
+            raise CapacityError(
+                f"no declared capacity for source {source!r} — this capacity and "
+                f"the caller's view of the ladder were built from different "
+                f"configs. Known sources: {known}"
+            )
+
     def _held(self) -> set[str]:
         """The sources this thread holds, created on first use per thread."""
         sources: set[str] | None = getattr(self._holding, "sources", None)
@@ -560,6 +905,22 @@ class Capacity:
             sources = set()
             self._holding.sources = sources
         return sources
+
+    def _reservations(self) -> dict[str, int]:
+        """The reservations this thread took and has not released, by source.
+
+        Beside :meth:`_held` and in the same thread-local for the same reason:
+        both answer a question about the caller rather than about the source.
+        This one is read only by :meth:`hold`, to recognise the reservation the
+        slot it is granting was taken for; the count that anyone can *see* is
+        the shared ``_reserved``, which this is a per-thread breakdown of and
+        never a second opinion about.
+        """
+        mine: dict[str, int] | None = getattr(self._holding, "reserved", None)
+        if mine is None:
+            mine = {}
+            self._holding.reserved = mine
+        return mine
 
 
 @dataclass(frozen=True)
