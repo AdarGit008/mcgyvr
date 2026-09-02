@@ -43,7 +43,7 @@ srv1  GTX 1660 SUPER 6144 MiB  cc 7.5  TU116, no tensor cores  driver 580.173.02
 | `L2` | `61-virtual;80-virtual`, FORCE_MMQ on | the arch spoof (= shipped v2) |
 | `L3` | `L2` + the `mmvq` patch | the ship candidate (= v3) |
 | `L4` | `L0` + `GGML_NATIVE=ON`, no `CPU_ALL_VARIANTS` | the CPU build flags alone |
-| `A3` | `GGML_VULKAN=ON` | a non-CUDA path — a **bound**, never an attribution |
+| `A3` | `GGML_VULKAN=ON` — but **Vulkan never loaded**: `libggml-vulkan.so` was dlopened and silently skipped (`undefined symbol: ggml_backend_score`), so only the CPU backend registered | what it measured is llama.cpp on the i5-9600K's six cores — a CPU floor, not the non-CUDA bound it was built to be (`records/evidence/2026-09-02-srv1-kernel-arms/refusals/A3-vulkan-never-loaded.txt`) |
 | `A1` | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10644` | what "stock" means to a user |
 
 Separately, and never on the same axis as the table above:
