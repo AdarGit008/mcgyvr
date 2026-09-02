@@ -50,24 +50,41 @@
 # has already moved results twice), and a bound is never written for a
 # comparison that shared no cells.
 #
+# THE STEP SERVES ITS OWN ARMS. Until 2026-09-02 this script took
+# `--arm ARM=ENDPOINT=BUILD` and measured whatever answered at ENDPOINT, and
+# nothing in the campaign started that server: run.sh is the one executable
+# allowed to start a container on a rig, and only the step it starts may do so
+# on its behalf. So the endpoints were nobody's job and the step could not run
+# at all. Now `--arm ARM=IMAGE`: the tag is resolved to a digest ONCE before
+# anything starts (gate 3), one container per arm runs as `<RUN_ID>-<ARM>` (so
+# gate 7 finds a leftover), on one host port, one arm at a time — the card
+# holds one — and is removed before the next arm comes up. `serving_build` in
+# correctness.json is `llama.cpp@<tag>@<digest>`, the vocabulary step 6 writes,
+# never a string the caller typed.
+#
 # Usage:
 #   tools/runs/campaigns/srv1-kernel-arms/5-correctness.sh [--dry-run] \
-#       --model qwen2.5-coder:1.5b --reference L0 \
-#       --arm L0=http://localhost:8081=llamacpp:b10644-L0 \
-#       --arm L3=http://localhost:8083=llamacpp:b10644-L3
+#       --gguf /data/models/dense/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf \
+#       --model qwen2.5-coder-1.5b --reference L0 \
+#       --arm L0=llamacpp:b10644-L0 --arm L2=llamacpp:b10644-L2 \
+#       --arm L3=llamacpp:b10644-L3
 #
-#   --arm ARM=ENDPOINT=SERVING_BUILD
-#         ARM matches [ABL][0-9], the campaign's one arm vocabulary.
-#         SERVING_BUILD is what identifies the build behind ENDPOINT — the image
-#         tag these arms are built and stamped as. It is declared because
-#         measure.py's own `serving_build()` probes `/api/version`, which only
-#         ollama answers; where the endpoint DOES answer and disagrees with the
-#         declaration, this run stops.
+#   --arm ARM=IMAGE   ARM matches [ABL][0-9], the campaign's one arm vocabulary.
+#                     IMAGE is the tag the arm was built and stamped as; the
+#                     step resolves it to a digest and serves that. An endpoint
+#                     here is refused: a server this step did not start is one
+#                     the door did not start.
+#   --gguf PATH       the checkpoint every arm serves. Required, must exist:
+#                     a wrong path would be measured silently.
 #   --reference ARM   the arm every other arm's drift is measured from.
-#   --model NAME      the model as the backend knows it. Every arm in one
-#                     invocation must serve the SAME model in the SAME engine:
-#                     a drift measured across engines is guideline 5's forbidden
-#                     row wearing a correctness hat.
+#   --model NAME      the served name (llama-server --alias) measure.py
+#                     dispatches to. Every arm in one invocation serves the SAME
+#                     checkpoint under the SAME name in the SAME engine: a drift
+#                     measured across engines is guideline 5's forbidden row
+#                     wearing a correctness hat.
+#   --port N          host port the one container listens on (default 8081).
+#   --ctx N           llama-server -c (default 4096; bench-py prompts are
+#                     ~700 tokens and the reply cap is 768).
 #   --tier TIER       default bench-py (guideline 9's tier).
 #   --draws N         sampled draws per task, default 1. Only the greedy arm is
 #                     read here; this is the floor the instrument will run at.
@@ -95,14 +112,22 @@ MEASURE="tools/breadth/measure.py"
 TIER="bench-py"
 DRAWS="1"
 MODEL=""
+GGUF=""
 REFERENCE=""
 API_KEY_ENV=""
+PORT=8081
+CTX=4096
+HEALTH_TRIES=90
 DRY_RUN=0
 STAMP=""
+DOCKER=${RUN_DOCKER:-docker}
 
 ARMS=()
+IMAGES=()
+DIGESTS=()
 ENDPOINTS=()
 BUILDS=()
+MEASURED=()
 
 # --------------------------------------------------------------------------
 # the scorer
@@ -348,23 +373,117 @@ measure_cmdline() {
 # --------------------------------------------------------------------------
 
 add_arm() {
-    local spec name endpoint build
+    local spec name image
     spec=$1
     name=${spec%%=*}
-    spec=${spec#*=}
-    endpoint=${spec%%=*}
-    build=${spec#*=}
-    if [ -z "$name" ] || [ -z "$endpoint" ] || [ "$endpoint" = "$build" ] || [ -z "$build" ]; then
-        _fail "--arm wants ARM=ENDPOINT=SERVING_BUILD; got '$1'. The build is not optional: ADR-0024 makes it part of a run's identity, and an arm whose build nothing recorded is exactly the comparison this campaign cannot draw"
+    image=${spec#*=}
+    # An endpoint (scheme, or a bare host:port) or a third field is refused;
+    # a registry with a port (`localhost:5000/img:tag`) and a digest are images.
+    if [ -z "$image" ] || [[ $image == *=* || $image == *://* || $image =~ ^[^/]+:[0-9]+$ ]]; then
+        _fail "--arm wants ARM=IMAGE; got '$1'. This step starts the server it measures (run.sh is the one door, and only the step it started may start a container), so an endpoint or a build typed here names a server nobody in the campaign started"
         return 1
     fi
+    [ -n "$name" ] && [ "$name" != "$spec" ] || {
+        _fail "--arm wants ARM=IMAGE; got '$1'"
+        return 1
+    }
     # The campaign's one arm vocabulary, ARM_PREFIX [ABL][0-9] (tools/runs/rows.py)
     # — the same check the TSV labels pass, so an arm named here is an arm the
     # speed artifacts can be matched to.
     arm_label "$name" "$TIER" >/dev/null || return 1
     ARMS+=("$name")
-    ENDPOINTS+=("$endpoint")
-    BUILDS+=("$build")
+    IMAGES+=("$image")
+}
+
+# --------------------------------------------------------------------------
+# the servers — one per arm, one at a time, named for the run
+# --------------------------------------------------------------------------
+
+# Gate 3, once for every arm before any container: the tag becomes a digest,
+# and the digest is what runs. An image this daemon does not hold is a refusal
+# of the whole step, not of one arm — a drift table with a hole in it names a
+# winner it never scored.
+resolve_images() {
+    local i digest
+    for i in "${!ARMS[@]}"; do
+        digest=$(image_digest "${IMAGES[$i]}") || return 1
+        DIGESTS[$i]=$digest
+        ENDPOINTS[$i]="http://127.0.0.1:$PORT"
+        BUILDS[$i]="llama.cpp@${IMAGES[$i]}@$digest"
+    done
+}
+
+container_of() {
+    printf '%s-%s' "$RUN_ID" "$1"
+}
+
+LAUNCH_ARGV=()
+launch_argv() {
+    local arm=$1 digest=$2 model_dir model_base
+    model_dir=$(cd -- "$(dirname -- "$GGUF")" 2>/dev/null && pwd) || model_dir=$(dirname -- "$GGUF")
+    model_base=$(basename -- "$GGUF")
+    LAUNCH_ARGV=(
+        docker run -d --name "$(container_of "$arm")" --runtime=nvidia --gpus all
+        -v "$model_dir:/models:ro" -p "127.0.0.1:$PORT:$PORT" "$digest"
+        -m "/models/$model_base" --alias "$MODEL" --host 0.0.0.0 --port "$PORT"
+        -c "$CTX" -ngl 99 --parallel 1
+    )
+}
+
+teardown_arm() {
+    "$DOCKER" rm -f "$(container_of "$1")" >/dev/null 2>&1 || true
+}
+
+teardown_all() {
+    local arm
+    for arm in "${ARMS[@]}"; do
+        teardown_arm "$arm"
+    done
+}
+
+# The backend that actually loaded, in llama-server's own words
+# (`load_backend: loaded CUDA backend from ...`), against the image's declared
+# one. A3 on 2026-09-02 declared vulkan and ran the CPU; a drift measured on
+# the wrong device and filed under the image's name is the same defect here.
+LOADED_BACKENDS=
+served_backend_ok() {
+    local name=$1 digest=$2 declared
+    LOADED_BACKENDS=$("$DOCKER" logs "$name" 2>&1 |
+        sed -n 's/.*load_backend: loaded \([A-Za-z0-9]*\) backend.*/\1/p' | sort -u | paste -sd, -)
+    declared=$("$DOCKER" image inspect --format '{{index .Config.Labels "org.mcgyvr.build.backend"}}' "$digest") || {
+        _fail "the backend $digest declares (org.mcgyvr.build.backend) could not be read from the daemon; nothing checks what served, so nothing is measured"
+        return 1
+    }
+    backend_verdict "$declared" "${LOADED_BACKENDS:-unreported}"
+}
+
+# Up, then answering /health, then serving the declared backend — or gone. The
+# container's log is the reason.
+launch_arm() {
+    local arm=$1 digest=$2 i code name
+    name=$(container_of "$arm")
+    teardown_arm "$arm"
+    launch_argv "$arm" "$digest"
+    say "${LAUNCH_ARGV[*]}"
+    if ! "$DOCKER" "${LAUNCH_ARGV[@]:1}" >/dev/null; then
+        "$DOCKER" logs "$name" 2>&1 | tail -n 5 >&2 || true
+        return 1
+    fi
+    i=0
+    while [ "$i" -lt "$HEALTH_TRIES" ]; do
+        i=$((i + 1))
+        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" || true)
+        if [ "$code" = "200" ]; then
+            served_backend_ok "$name" "$digest" || return 1
+            return 0
+        fi
+        if ! "$DOCKER" inspect -f '{{.State.Running}}' "$name" 2>/dev/null | grep -q true; then
+            break
+        fi
+        sleep 2
+    done
+    "$DOCKER" logs "$name" 2>&1 | tail -n 5 >&2 || true
+    return 1
 }
 
 # --------------------------------------------------------------------------
@@ -391,10 +510,15 @@ plan() {
 EOF
     for i in "${!ARMS[@]}"; do
         arm=${ARMS[$i]}
-        printf '## arm %s — build %s at %s. Two identical runs: its own null.\n' \
-            "$arm" "${BUILDS[$i]}" "${ENDPOINTS[$i]}"
+        printf '## arm %s — %s served as %s at %s. Two identical runs: its own null.\n' \
+            "$arm" "${IMAGES[$i]}" "${BUILDS[$i]}" "${ENDPOINTS[$i]}"
+        launch_argv "$arm" "${DIGESTS[$i]}"
+        show "${LAUNCH_ARGV[*]}"
+        show "curl -m 5 http://127.0.0.1:$PORT/health   # until 200; at most $HEALTH_TRIES tries of up to 7 s, x3 through retry3"
+        show "docker logs $(container_of "$arm") | grep 'load_backend: loaded'   # must name the backend the image declares (backend_verdict)"
         show "$(measure_cmdline "$arm" a "${ENDPOINTS[$i]}")"
         show "$(measure_cmdline "$arm" b "${ENDPOINTS[$i]}")"
+        show "docker rm -f $(container_of "$arm")"
         echo
     done
     cat <<EOF
@@ -431,18 +555,31 @@ main() {
 
     # Guideline 9, in the order it is written: every arm prices its own null
     # first, and no arm is compared to any other until all of them have.
+    trap teardown_all EXIT
     for i in "${!ARMS[@]}"; do
         arm=${ARMS[$i]}
+        say "arm $arm — serving ${IMAGES[$i]} as ${DIGESTS[$i]} on :$PORT"
+        if ! retry3 launch_arm "$arm" "${DIGESTS[$i]}"; then
+            teardown_arm "$arm"
+            _fail "arm $arm: ${IMAGES[$i]} did not come up healthy on :$PORT in ${RUN_TRIES:-0} attempts (its last lines are above). An arm that never served is an arm with no null, and this run writes nothing"
+            return 1
+        fi
+        MEASURED[$i]=${LOADED_BACKENDS:-unreported}
+        say "arm $arm — serving on ${MEASURED[$i]}"
         say "arm $arm — run a of its own null pair"
         if ! retry3 measure_once "$arm" a "${ENDPOINTS[$i]}"; then
+            teardown_arm "$arm"
             _fail "arm $arm: measure.py did not complete run a in ${RUN_TRIES:-0} attempts. An arm with no null is an arm with no bound, and this run writes neither"
             return 1
         fi
         say "arm $arm — run b of its own null pair"
         if ! retry3 measure_once "$arm" b "${ENDPOINTS[$i]}"; then
+            teardown_arm "$arm"
             _fail "arm $arm: measure.py did not complete run b in ${RUN_TRIES:-0} attempts. One run is not a null"
             return 1
         fi
+        teardown_arm "$arm"
+        say "arm $arm — container $(container_of "$arm") removed"
     done
 
     spec_json=$(
@@ -453,8 +590,8 @@ main() {
                 "$out_dir" "$ARTIFACT" "$out_dir"
             for i in "${!ARMS[@]}"; do
                 [ "$i" -eq 0 ] || printf ','
-                printf '{"arm": "%s", "endpoint": "%s", "serving_build": "%s", "run_a": "%s", "run_b": "%s"}' \
-                    "${ARMS[$i]}" "${ENDPOINTS[$i]}" "${BUILDS[$i]}" \
+                printf '{"arm": "%s", "image": "%s", "measured_backend": "%s", "endpoint": "%s", "serving_build": "%s", "run_a": "%s", "run_b": "%s"}' \
+                    "${ARMS[$i]}" "${IMAGES[$i]}" "${MEASURED[$i]:-unreported}" "${ENDPOINTS[$i]}" "${BUILDS[$i]}" \
                     "$(run_dir "${ARMS[$i]}" a)" "$(run_dir "${ARMS[$i]}" b)"
             done
             printf ']}'
@@ -471,10 +608,25 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
             --dry-run) DRY_RUN=1 ;;
             --arm)
                 shift
-                [ "$#" -ge 1 ] || { _fail "--arm wants ARM=ENDPOINT=SERVING_BUILD"; exit 2; }
-                add_arm "$1"
+                [ "$#" -ge 1 ] || { _fail "--arm wants ARM=IMAGE"; exit 2; }
+                add_arm "$1" || exit 2
                 ;;
-            --arm=*) add_arm "${1#--arm=}" ;;
+            --arm=*) add_arm "${1#--arm=}" || exit 2 ;;
+            --gguf)
+                shift
+                GGUF=${1:-}
+                ;;
+            --gguf=*) GGUF=${1#--gguf=} ;;
+            --port)
+                shift
+                PORT=${1:-}
+                ;;
+            --port=*) PORT=${1#--port=} ;;
+            --ctx)
+                shift
+                CTX=${1:-}
+                ;;
+            --ctx=*) CTX=${1#--ctx=} ;;
             --model)
                 shift
                 MODEL=${1:-}
@@ -522,6 +674,17 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     [ -n "$MODEL" ] || {
         _fail "--model is required. measure.py dispatches to a named model, and a run that cannot name it is not comparable to any other" || exit 2
     }
+    [ -n "$GGUF" ] || {
+        _fail "--gguf is required: this step serves the checkpoint it measures, and it will not guess which one" || exit 2
+    }
+    [ -f "$GGUF" ] || {
+        _fail "--gguf $GGUF is not a file on this host; a wrong path would be served as nothing and measured silently" || exit 2
+    }
+    for _n in "PORT=$PORT" "CTX=$CTX"; do
+        case ${_n#*=} in
+            '' | *[!0-9]*) _fail "--$(printf '%s' "${_n%%=*}" | tr '[:upper:]' '[:lower:]') is '${_n#*=}', which is not an integer" || exit 2 ;;
+        esac
+    done
     [ -n "$REFERENCE" ] || {
         _fail "--reference is required: drift is measured FROM one arm, and exactly one entry may be the reference" || exit 2
     }
@@ -534,6 +697,14 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     [ "$_found" -eq 1 ] || {
         _fail "--reference $REFERENCE is not among the arms (${ARMS[*]}). The reference must be scored like every other arm" || exit 2
     }
+
+    command -v curl >/dev/null 2>&1 || {
+        _fail "curl is not on PATH, and /health is how a served arm is told from a dead one; without it every launch would time out and be called unhealthy" || exit 2
+    }
+
+    # Gate 3 before the plan and before the run alike: a tag nobody can
+    # resolve is refused here, with no container started and nothing written.
+    resolve_images || exit 2
 
     if [ "$DRY_RUN" -eq 1 ]; then
         plan

@@ -846,6 +846,29 @@ retry3() {
     return 1
 }
 
+# backend_verdict DECLARED MEASURED -- the backend an image declares against
+# the one llama-bench reports having run. On 2026-09-02 A3 (GGML_VULKAN=ON)
+# filed four BENCH rows that were the six-core i5-9600K: libggml-vulkan.so
+# found no device, ggml fell back to the CPU without a word, and every entry
+# of llama-bench's own report said `backend: CPU`. Nothing read it. DECLARED
+# is the image's `org.mcgyvr.build.backend` label (`cuda`, `vulkan`); MEASURED
+# is the report's `backends` field (`CUDA`, `Vulkan`, `CPU`, or a list such as
+# `CUDA,BLAS`). An empty DECLARED is an image that says nothing (the upstream
+# server-cuda image, arm A1) and is not judged. Anything else must name the
+# declared backend, case-insensitively, or the number is refused, not filed.
+backend_verdict() {
+    local declared measured
+    [ "$#" -eq 2 ] || { _fail "backend_verdict: usage: backend_verdict DECLARED MEASURED"; return 1; }
+    declared=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+    measured=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
+    [ -n "$declared" ] || return 0
+    case "$measured" in
+        *"$declared"*) return 0 ;;
+    esac
+    _fail "the image declares backend=$1 but llama-bench reports backend=$2: the declared backend never ran, and a number measured on whatever ran instead is not this arm's number (A3 on 2026-09-02 was the CPU under a vulkan tag)"
+    return 1
+}
+
 # refused LABEL [k=v ...] -- REASON WORDS...
 # Resolved conflict §6.3: a dropped arm and a refused arm leave an identical
 # hole, and only one of them is a result. The price of the missing CONFIG is

@@ -517,6 +517,11 @@ Top-level object with:
 (`:65`), `cells` equal to the arm's (`:70`), and `bound_pp` (`:87`);
 `verdicts` — a list; each entry has `question` and `winner`, and every `winner`
 must appear in `{a["arm"] for a in arms}` (`:51-57`).
+Since 2026-09-02 each arm entry also carries `image` (the tag the step served)
+and `endpoint` (the step's own, `http://127.0.0.1:<port>`), and `serving_build`
+is `llama.cpp@<tag>@<digest>` as resolved by `image_digest` — derived by the
+step that started the container, never typed by the caller. Not read by the
+test; recorded so a row can be traced to the image that answered it.
 For every non-reference arm, `drift_pp <= max(own bound_pp, reference bound_pp)`
 (`:87-92`).
 
