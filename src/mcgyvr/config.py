@@ -306,17 +306,24 @@ LADDER_FIELDS: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across rungs or queues on one. "
         "`none` is today's behaviour: the cheapest rung at or above the "
-        "contract's floor, queued behind whoever is already there. `idle` "
-        "takes the cheapest such rung that has a free slot — the floor is the "
-        "only bound and nothing bounds it above, so when every cheaper rung is "
-        "full this reaches a priced api rung rather than wait, which is a "
-        "spend decision the knob makes deliberately. `full` spreads across the "
-        "eligible rungs regardless of load. It is a knob rather than a "
-        "behaviour because the right answer is a property of the machines: two "
-        "interchangeable rigs should share a batch, but a throughput rig "
-        "feeding an intelligence rig must not — the second is sized to drain "
-        "the first's failure tail, and fanning volume onto it eats exactly the "
-        "capacity that drain needs.",
+        "contract's floor, queued behind whoever is already there. `full` "
+        "starts each climb on the cheapest rung that has a free slot, so a "
+        "batch fills every rig that can serve it instead of stacking on one — "
+        "and it never leaves the contract's floor family, so it cannot spend. "
+        "`idle` uses that same rule and then lifts the one limit: the floor is "
+        "the only bound and nothing bounds it above, so when every rung of "
+        "every cheaper family is full it enters a priced api family rather "
+        "than wait. That is the difference between the two, and it is a spend "
+        "decision the knob makes deliberately. Neither mode reorders the "
+        "ladder: load decides which rung a climb starts on and never what it "
+        "may spend, so a rung passed over for being full is still walked, and "
+        "a rung that can run now is never passed over for a dearer one with "
+        "more room. It is a knob rather than a behaviour because the right "
+        "answer is a property of the machines: two interchangeable rigs "
+        "should share a batch, but a throughput rig feeding an intelligence "
+        "rig must not — the second is sized to drain the first's failure "
+        "tail, and fanning volume onto it eats exactly the capacity that "
+        "drain needs.",
         default="none",
         choices=("none", "idle", "full"),
     ),

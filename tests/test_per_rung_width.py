@@ -454,3 +454,91 @@ def test_a_rigs_superseded_source_width_is_not_a_second_queue() -> None:
     assert Capacity.of(parse(RUNG_WIDER_THAN_ITS_SOURCE)).total == 4
     assert Capacity.of(parse(TWO_WIDTHS)).total == 20, "16 and 4 are two servers"
     assert Capacity.of(parse(NO_TIER_WIDTH)).total == 3, "no rung width, no change"
+
+
+def test_a_reservation_is_charged_to_the_rung_and_not_to_the_rig(
+    tmp_path: Path,
+) -> None:
+    """The count that exists before a slot does is per queue, like the slots.
+
+    A reservation is a claim against the queue the slot will be taken from, so
+    it has to be keyed the way the slots are. Charged to the rig instead, one
+    rung being chosen would make every sibling rung of that rig read as busy —
+    the funnel ``ladder.fanout`` exists to end, one level down and wearing the
+    knob's name.
+    """
+    config = parse(ONE_RIG_TWO_PROCESSES)
+    capacity = Capacity.of(config, root=tmp_path)
+
+    capacity.reserve("d1", "fast")
+
+    assert capacity.load("d1", "fast") == 1
+    assert capacity.load("d1", "slow") == 0, "a sibling process is still idle"
+    assert capacity.load("d1") == 0, "and so is the rig's own queue"
+
+    capacity.release("d1", "fast")
+    assert capacity.load("d1", "fast") == 0
+
+
+def test_a_reservation_given_back_on_the_wrong_queue_is_not_a_release(
+    tmp_path: Path,
+) -> None:
+    """Claim and release have to name the same rung, so the merge is checked here.
+
+    A release is floored rather than checked — it must be safe in a ``finally``
+    — so a mismatched pair cannot raise. What it does instead is leak: the rung
+    it was taken on stays busy for the rest of the run. Both halves of every
+    pair in :mod:`mcgyvr.route` and :mod:`mcgyvr.escalate` pass the same rung
+    for this reason, and this is the assertion that says why.
+    """
+    config = parse(ONE_RIG_TWO_PROCESSES)
+    capacity = Capacity.of(config, root=tmp_path)
+
+    capacity.reserve("d1", "fast")
+    capacity.release("d1", "slow")
+
+    assert capacity.load("d1", "fast") == 1, "the rung it was taken on is still held"
+    assert capacity.load("d1", "slow") == 0, "and nothing was taken off a sibling"
+
+
+def test_a_rungs_own_slot_covers_its_own_reservation(tmp_path: Path) -> None:
+    """The dispatch a reservation was taken for is counted once, on its own queue.
+
+    :meth:`Capacity.hold` consumes the reserving thread's reservation for the
+    length of the slot so that granted and reserved may be added. Keyed by rig
+    that would never match a rung's reservation, and the one dispatch would read
+    as two — a two-wide rung would look full with one attempt on it.
+    """
+    config = parse(ONE_RIG_TWO_PROCESSES)
+    pool = source_map(config)
+    capacity = Capacity.of(config, root=tmp_path)
+
+    capacity.reserve("d1", "fast")
+    with capacity.hold(pool.bind("fast"), rung="fast"):
+        assert capacity.load("d1", "fast") == 1, "one dispatch, not two"
+    assert capacity.load("d1", "fast") == 1, "and the reservation is back afterwards"
+    capacity.release("d1", "fast")
+
+
+def test_a_climb_gives_back_the_reservation_on_the_rung_it_took_it_on(
+    tmp_path: Path,
+) -> None:
+    """End to end: nothing is left holding a rung once the climb is over.
+
+    The seam this exercises is the whole pair — :func:`climb` claims through
+    :meth:`Machine.claim` and releases through :meth:`Machine.release`, and both
+    now carry the rung. A leak here is invisible until the next climb, which is
+    why it is asserted rather than watched for.
+    """
+    config = parse(PEER_RIGS)
+    pool = source_map(config)
+    capacity = Capacity.of(config, root=tmp_path)
+
+    def attempt(each: Try) -> Result:
+        return Result.passed(each.rung.name)
+
+    climb(plan(config, pool, load_contract(CONTRACT)), attempt, capacity=capacity)
+
+    assert capacity.load("d1", "local_d1") == 0
+    assert capacity.load("d2", "local_d2") == 0
+    assert capacity.load("d1") == 0 and capacity.load("d2") == 0

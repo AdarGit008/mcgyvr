@@ -29,7 +29,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.pool import Endpoint, Protocol, source_map
 
 
 @pytest.fixture(autouse=True)
@@ -639,3 +639,277 @@ def test_an_outcome_reports_failure_rather_than_an_absent_value() -> None:
     """`ok` exists so a failure cannot be read as a job that returned None."""
     assert Outcome[int](index=0, value=None).ok
     assert not Outcome[int](index=0, error=ValueError("x")).ok
+
+
+# --- and dispatching through what the machine reported ----------------------
+
+
+def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
+    """The test whose absence let a probe that worked ship unusable.
+
+    Every earlier test in this section reads the bound and stops there, so all
+    of them passed while the first `hold` through a widened source raised: the
+    endpoints a `SourceMap` builds carry `max_parallel` from the config, and a
+    hold that compared them against the *enforced* width refused every one of
+    them — blaming a stale config for a disagreement `Capacity.of` had itself
+    created one line earlier. So this dispatches, through real endpoints, and
+    asserts the enforced width is what actually admitted them: four at once
+    through a source the config declared three wide.
+    """
+    config = parse(CONFIG)
+    capacity = Capacity.of(config, probe=Widths({"local": 8}))
+    dispatched = source_map(config).bind("cheap")
+    observer = Observer()
+    barrier = threading.Barrier(4)
+
+    outcomes = run_batch(
+        [rendezvous(observer, dispatched, barrier) for _ in range(4)], capacity
+    )
+
+    assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
+    assert dispatched.max_parallel == 3, "an endpoint carries what the config said"
+    assert capacity.limits["local"] == 8, "and the rig's 8 is what is enforced"
+    assert observer.peak["local"] == 4, "four at once, which the declared 3 forbids"
+
+
+def test_the_declared_width_stays_readable_beside_the_enforced_one() -> None:
+    """Two numbers, both kept, because they answer two different questions."""
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+
+    assert capacity.declared("local") == 3
+    assert capacity.limits["local"] == 8
+    assert capacity.declared("fast") == capacity.limits["fast"] == 2
+
+
+def test_a_confirmed_source_the_probe_agreed_with_has_one_number_and_not_two() -> None:
+    """Confirmation is a machine answering, never "these two numbers differ".
+
+    `of` confirms a source whenever the probe answered, and a probe reporting
+    exactly the declared width answered — so this source is confirmed and its
+    declaration is also what is enforced. Anyone reading `confirmed` as "the
+    widened-versus-declared distinction applies here" is wrong for every source
+    the probe agreed with, which on a correctly declared fleet is all of them.
+    The widened sources are a subset of the confirmed ones; the way to ask
+    whether a source was widened is to compare the two numbers, as this does.
+    """
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"fast": 2, "local": 8}))
+
+    assert capacity.confirmed("fast") is True, "the rig answered, and agreed"
+    assert capacity.declared("fast") == capacity.limits["fast"] == 2
+    assert capacity.confirmed("local") is True, "the rig answered, and widened"
+    assert capacity.declared("local") != capacity.limits["local"]
+
+
+def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> None:
+    """The guard is narrowed to the declaration, not deleted.
+
+    A second config declaring 5 for the same source is exactly what the check
+    exists to catch, and a probe having widened this capacity to 8 must not
+    make 5 look like a number that fits inside the bound.
+    """
+    capacity = Capacity.of(parse(CONFIG), probe=Widths({"local": 8}))
+    stale = source_map(parse(CONFIG.replace("max_parallel: 3", "max_parallel: 5")))
+
+    with pytest.raises(CapacityError) as caught, capacity.hold(stale.bind("cheap")):
+        pass  # pragma: no cover - the hold raises on the way in
+
+    assert "bounded at 3" in str(caught.value)
+    assert "max_parallel=5" in str(caught.value)
+    assert "probe widened this source to 8" in str(caught.value)
+
+
+def test_a_bound_that_differs_from_its_declaration_with_nothing_confirming_it() -> None:
+    """Only a machine's report may widen a declaration, so the pair needs one."""
+    with pytest.raises(CapacityError) as caught:
+        Capacity({"local": 8}, declared={"local": 3})
+
+    assert "without a confirmation" in str(caught.value)
+
+
+def test_a_declaration_above_the_bound_is_refused() -> None:
+    """`of` refuses a narrower report rather than lowering, so this cannot arise."""
+    with pytest.raises(CapacityError) as caught:
+        Capacity({"local": 3}, confirmed=["local"], declared={"local": 8})
+
+    assert "declares 8 but is bounded at 3" in str(caught.value)
+
+
+# --- reservations: the count that exists before a slot does -----------------
+
+
+def test_reservations_are_this_capacitys_and_not_the_process_s() -> None:
+    """The defect a module-global ledger has by construction.
+
+    Two configs that merely share the name `local` are two bounds, two sets of
+    slot files and two batches. A count keyed by source name across the process
+    pools them, so a climb under one config reads a machine as busy because of
+    work under the other — and there is no config edit that separates them.
+    """
+    mine = Capacity({"local": 3})
+    theirs = Capacity({"local": 3})
+
+    mine.reserve("local")
+
+    assert mine.load("local") == 1
+    assert theirs.load("local") == 0, "a different capacity is a different ledger"
+
+    mine.release("local")
+    assert mine.load("local") == 0
+
+
+def test_one_dispatch_counts_once_whether_it_is_reserved_granted_or_both() -> None:
+    """Granted and reserved are added, so the reservation is spent while it holds.
+
+    An attempt is reserved when its rung is chosen and would otherwise keep that
+    reservation while it holds the slot it was granted, so a sum would count it
+    twice and report a source as full at half its width — the same funnel the
+    count exists to end, arrived at from the other direction. The overlap is
+    removed where it is created: the slot this thread is granted spends the
+    reservation this thread took, and gives it back when the slot goes back,
+    because a climb between two attempts on one rung has still chosen that rung.
+    """
+    capacity = Capacity({"local": 3})
+
+    with capacity.reserving("local"):
+        assert capacity.load("local") == 1, "chosen, not yet admitted"
+        with capacity.hold(LOCAL):
+            assert capacity.in_use("local") == 1
+            assert capacity.load("local") == 1, "one dispatch, counted once"
+        assert capacity.load("local") == 1, "and still chosen between attempts"
+
+    assert capacity.load("local") == 0
+
+
+def test_a_slot_taken_without_a_reservation_still_counts_against_the_width() -> None:
+    """The over-admission `max(in_use, reserved)` let through, in its own shape.
+
+    Most holds never reserve: `runner.dispatch` and `dispatch_role` take a slot
+    directly, so a verifier occupies a rig that nothing chose a rung for. Put
+    one of those on a two-wide source beside a routed climb that has reserved
+    the same source and is between attempts, and the greater of the two counts
+    is 1 — one slot held, one attempt reserved, and no way for either number to
+    know it is not describing the other's dispatch. A caller reading
+    ``width - load`` then sees a free slot and sends a third dispatch at a rig
+    that has none, where it blocks inside `hold` behind work it was told was not
+    there.
+
+    Two threads and not one, because that is the arrangement: the reservation is
+    the climbing thread's and the unreserved slot is somebody else's. A hold by
+    the *reserving* thread is the same dispatch and is counted once, which the
+    test above pins.
+    """
+    capacity = Capacity({"fast": 2})
+    taken = threading.Event()
+    finish = threading.Event()
+
+    def verifier() -> None:
+        with capacity.hold(FAST):
+            taken.set()
+            finish.wait(timeout=BARRIER_TIMEOUT_S)
+
+    holder = threading.Thread(target=verifier)
+    holder.start()
+    try:
+        assert taken.wait(timeout=BARRIER_TIMEOUT_S), "the slot was never taken"
+        capacity.reserve("fast")
+
+        assert capacity.in_use("fast") == 1, "the verifier's, which reserved nothing"
+        assert capacity.load("fast") == 2, "and the climb's, which holds nothing yet"
+        assert capacity.limits["fast"] - capacity.load("fast") == 0, "nothing free"
+    finally:
+        capacity.release("fast")
+        finish.set()
+        holder.join(timeout=BARRIER_TIMEOUT_S)
+
+    assert capacity.load("fast") == 0
+
+
+def test_a_reservation_is_given_back_however_the_block_leaves() -> None:
+    """A leaked reservation is permanent: the machine looks busy for the run."""
+    capacity = Capacity({"local": 3})
+
+    with pytest.raises(ValueError), capacity.reserving("local"):
+        raise ValueError("the attempt raised")
+
+    assert capacity.load("local") == 0
+
+
+def test_releasing_what_was_never_reserved_is_floored_rather_than_negative() -> None:
+    """`release` runs in a `finally`, where raising would hide the real error."""
+    capacity = Capacity({"local": 3})
+
+    capacity.release("local")
+    capacity.release("nowhere")  # a source this capacity does not bound
+
+    assert capacity.load("local") == 0, "a negative count would read as free forever"
+
+
+def test_reserving_a_source_this_capacity_does_not_bound_is_refused() -> None:
+    """A reservation is a claim against a bound, so there must be a bound."""
+    capacity = Capacity({"local": 3})
+
+    with pytest.raises(CapacityError) as caught:
+        capacity.reserve("nowhere")
+
+    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "different configs" in str(caught.value)
+
+
+def test_reading_the_load_of_a_source_this_capacity_does_not_bound_is_refused() -> None:
+    """Zero would say the machine is idle when what is unknown is the machine."""
+    capacity = Capacity({"local": 3})
+
+    with pytest.raises(CapacityError):
+        capacity.load("nowhere")
+
+
+def test_reading_the_slots_in_use_of_an_unbounded_source_is_refused_by_name() -> None:
+    """Every reader refuses an unknown source in one exception and one wording.
+
+    `in_use` reached its dict directly and raised a bare ``KeyError: 'nowhere'``,
+    which is the one failure a caller holding a ladder view from another config
+    cannot catch beside the rest: it is not a `CapacityError`, it names no
+    config mismatch, and it lists no known sources. The reason those words exist
+    is that the caller's mistake is never about the source.
+    """
+    capacity = Capacity({"local": 3})
+
+    with pytest.raises(CapacityError) as caught:
+        capacity.in_use("nowhere")
+
+    assert "no declared capacity for source 'nowhere'" in str(caught.value)
+    assert "different configs" in str(caught.value)
+    assert "Known sources: local" in str(caught.value)
+
+
+def test_choosing_under_deciding_spreads_a_batch_instead_of_stacking_it() -> None:
+    """Read-then-reserve is one decision, and `deciding` is what makes it one.
+
+    Six threads pick the least loaded of two equal sources at the same moment.
+    Outside the lock they all read the same zeroes and all pick `fast`, which is
+    the funnel this count exists to end. Inside it each one's choice is visible
+    to the next, so the six split evenly — and the split is exact rather than
+    approximate, which is what makes this assertable rather than a heuristic.
+    """
+    capacity = Capacity({"local": 4, "fast": 4})
+    start = threading.Barrier(6)
+    chosen: list[str] = []
+    recording = threading.Lock()
+
+    def choose() -> None:
+        start.wait(timeout=BARRIER_TIMEOUT_S)
+        with capacity.deciding():
+            source = min(("fast", "local"), key=capacity.load)
+            capacity.reserve(source)
+        with recording:
+            chosen.append(source)
+
+    threads = [threading.Thread(target=choose) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=BARRIER_TIMEOUT_S)
+
+    assert chosen.count("fast") == 3
+    assert chosen.count("local") == 3
+    assert capacity.load("fast") == capacity.load("local") == 3
