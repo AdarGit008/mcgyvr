@@ -42,3 +42,51 @@ resuming: 11 entries already measured
 [srv2] m_kat-lcpp-srv2 — concurrency ramp
 [srv2] m_next-lcpp-srv2 (llamacpp) — yielding the card
 [srv2] m_next-lcpp-srv2 — concurrency ramp
+journal: records/evidence/serving-2026-08-30/lcpp-srv2.jsonl
+resuming: 12 entries already measured
+[srv2] snapshot
+[srv2] d3b-lcpp-srv2 — already measured (ok), skipping
+[srv2] d4b-lcpp-srv2 — already measured (ok), skipping
+[srv2] d7b-lcpp-srv2 — already measured (ok), skipping
+[srv2] docr7b-lcpp-srv2 — already measured (ok), skipping
+[srv2] d8b-lcpp-srv2 — already measured (ok), skipping
+[srv2] d14b-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_dsv2-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_oss20-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_qc30-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_q36iq3-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_qc30q4-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_kat-lcpp-srv2 — already measured (ok), skipping
+[srv2] m_next-lcpp-srv2 (llamacpp) — yielding the card
+[srv2] m_next-lcpp-srv2 — concurrency ramp
+[srv2] final release of llamacpp: released=True card=1 MiB
+[srv2] final release of ollama: released=True card=1 MiB
+[srv2] final release of vllm: released=True card=1 MiB
+
+wrote /tmp/claude-1000/-home-adaramir-claude-mcgyvr/900783a7-45cd-4deb-bc61-19e752dde5ed/scratchpad/lcpp-srv2.out.json (635106 bytes)
+  srv2/d3b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/d4b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/d7b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/docr7b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/d8b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/d14b-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/m_dsv2-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/m_oss20-lcpp-srv2: ok  saturation_n=4 @475tok
+  srv2/m_qc30-lcpp-srv2: ok  saturation_n=2 @475tok
+  srv2/m_q36iq3-lcpp-srv2: ok  saturation_n=4 @475tok
+  srv2/m_qc30q4-lcpp-srv2: ok  saturation_n=4 @475tok
+  srv2/m_kat-lcpp-srv2: ok  saturation_n=8 @475tok
+  srv2/m_next-lcpp-srv2: ok  saturation_n=2 @475tok
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: single member — nothing to compare  [1 of 1]
+  family opencodereasoning-nemotron-7b: single member — nothing to compare  [1 of 1]
+  family qwen3-8b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-14b: single member — nothing to compare  [1 of 1]
+  family deepseek-coder-v2-16b: single member — nothing to compare  [1 of 1]
+  family gpt-oss-20b: single member — nothing to compare  [1 of 1]
+  family qwen3-coder-30b: single member — nothing to compare  [1 of 1]
+  family qwen3.6-35b-a3b: single member — nothing to compare  [1 of 1]
+  family qwen3-coder-30b-q4: single member — nothing to compare  [1 of 1]
+  family kat-coder-v2.5: single member — nothing to compare  [1 of 1]
+  family qwen3-coder-next: single member — nothing to compare  [1 of 1]

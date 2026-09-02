@@ -65,3 +65,41 @@ resuming: 5 entries already measured
 [srv1] m_dsv2-lcpp-srv1 — concurrency ramp
 [srv1] m_dsv2-lcpp-srv1 — ramp_failed: [2, 4, 8] measured nothing
 [srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+journal: records/evidence/serving-2026-08-30/lcpp-srv1.jsonl
+resuming: 6 entries already measured
+[srv1] snapshot
+[srv1] d3b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d4b-lcpp-srv1 — already measured (ok), skipping
+[srv1] d7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] docr7b-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_ling-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_dsv2-lcpp-srv1 — already measured (ok), skipping
+[srv1] m_gemma4-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_gemma4-lcpp-srv1 — concurrency ramp
+[srv1] m_q36iq2-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_q36iq2-lcpp-srv1 — concurrency ramp
+[srv1] m_oss20-lcpp-srv1 (llamacpp) — yielding the card
+[srv1] m_oss20-lcpp-srv1 — concurrency ramp
+[srv1] final release of llamacpp: released=True card=17 MiB
+[srv1] final release of ollama: released=True card=17 MiB
+[srv1] final release of vllm: released=True card=17 MiB
+
+wrote /tmp/claude-1000/-home-adaramir-claude-mcgyvr/900783a7-45cd-4deb-bc61-19e752dde5ed/scratchpad/lcpp-srv1.out.json (463720 bytes)
+  srv1/d3b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d4b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/d7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/docr7b-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_ling-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_dsv2-lcpp-srv1: ok  saturation_n=4 @475tok
+  srv1/m_gemma4-lcpp-srv1: ok  saturation_n=8 @475tok
+  srv1/m_q36iq2-lcpp-srv1: ok  saturation_n=4 @475tok
+  srv1/m_oss20-lcpp-srv1: ok  saturation_n=4 @475tok
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: single member — nothing to compare  [1 of 1]
+  family opencodereasoning-nemotron-7b: single member — nothing to compare  [1 of 1]
+  family ling-3.0-tiny: single member — nothing to compare  [1 of 1]
+  family deepseek-coder-v2-16b: single member — nothing to compare  [1 of 1]
+  family gemma-4-26b-a4b: single member — nothing to compare  [1 of 1]
+  family qwen3.6-35b-a3b: single member — nothing to compare  [1 of 1]
+  family gpt-oss-20b: single member — nothing to compare  [1 of 1]
