@@ -40,34 +40,29 @@ but it was never corrected.
 
 ## What the new drivers do
 
-`vllm_sweep_31-08-2026.py`, `lcp_sweep_31-08-2026.py` and
-`vllm_cores_01-09-2026.py` share a
-byte-identical workload block (deciles + `SYSTEM` + `mkprompt`), `sha256[:16] = dfb1172670619c5d`. **If that hash diverges between the files, every
-comparison drawn from them is void.** Matched prompts are necessary and not
-sufficient: they never license a llama.cpp-vs-vLLM ratio, which measures two
-stacks (scheduler, batching, KV, quant format) rather than anything attributable.
+`tools/runs/drivers/vllm_sweep.py`, `tools/runs/drivers/lcp_sweep.py` and
+`tools/runs/drivers/vllm_cores.py` draw every prompt from ONE module,
+`tools/runs/workload.py` (deciles + `SYSTEM` + `mkprompt`), imported and never
+copied; `tests/test_one_door.py` holds the tree to exactly one definition.
+**If the module stops generating the pinned workload, every comparison drawn
+from the drivers is void.** Matched prompts are necessary and not sufficient:
+they never license a llama.cpp-vs-vLLM ratio, which measures two stacks
+(scheduler, batching, KV, quant format) rather than anything attributable.
 
-That hash is over *source text*, so a `ruff format` pass moves it even when the
+A hash over *source text* moves under a `ruff format` pass even when the
 workload is identical — it did exactly that in 90635351. The durable check is a
-digest of the generated prompts, which no formatter can change:
+digest of the generated prompts, which no formatter can change, and it is the
+one `tools/runs/rows.py` carries as `WORKLOAD_DIGEST` and `tools/runs/run.sh`
+re-derives before any step starts (gate 4):
 
 ```
-python3 - <<'EOF'
-import hashlib, itertools, threading, random
-def load(p):
-    src = open(p).read()
-    ns = {"itertools": itertools, "threading": threading, "random": random}
-    exec(src[src.index("PROMPT_DECILES"):src.index("def sh(")], ns)
-    return ns["mkprompt"]
-for f in ["vllm_sweep_31-08-2026.py", "lcp_sweep_31-08-2026.py",
-          "vllm_cores_01-09-2026.py"]:
-    mk = load(f)
-    blob = "".join(f"{w}\x00{t}\x1e" for t, w in (mk() for _ in range(200)))
-    print(f, hashlib.sha256(blob.encode()).hexdigest()[:24])
-EOF
+uv run --no-sync python -c '
+from pathlib import Path
+from tools.runs.rows import WORKLOAD_DIGEST, workload_digest
+print(workload_digest(Path("tools/runs/workload.py")), WORKLOAD_DIGEST)'
 ```
 
-All three must print `2f2bb7932a0b660653def819`.
+Both must print `2f2bb7932a0b660653def819`.
 
 1. **Lengths sampled from the measured deciles**, seeded by request id — so request
    *k* always draws the same length, reproducible across levels and reruns, without

@@ -4,7 +4,7 @@ Any ssh, any launch, any measurement on srv1 or srv2.
 
 ## Before
 
-**Prove reachability**
+**Prove reachability** → gate 2
 
 **Read the card and RAM, do not assume.** `nvidia-smi
 --query-gpu=memory.total,memory.used,memory.reserved,memory.free` and `free -g`.
@@ -50,7 +50,7 @@ these two boxes. Never infer one from the other.
 
 **srv1's llama.cpp numbers are only valid against a stated image.** The stock
 `server-cuda-b10644` runs emulated tensor-core kernels on TU116 and reads ~1.7x
-low; `llamacpp:b10644-nomma-dp4a` does not. Record `img=` on every srv1 row.
+low; `llamacpp:b10644-nomma-dp4a` does not. Record `img=` on every srv1 row. → gate 3
 → `okf/must-read/touching-engine.md`
 
 **srv1's thread scaling is linear and never saturates — it is CORE-limited, not
@@ -163,7 +163,7 @@ are identical across the onset, so software is excluded.
 
 ## After — always
 
-**Kill what you started** An uncleaned container held srv1
+**Kill what you started** → gate 7 An uncleaned container held srv1
 at zero free RAM for eight minutes. `docker ps` → `docker kill` 
 
 ## Resume and the journal

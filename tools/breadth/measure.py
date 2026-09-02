@@ -95,6 +95,7 @@ from mcgyvr.gate.preflight import check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.runner import Request, RunnerError, runner_for
 from mcgyvr.sandbox.tempdir import TempDirSandbox
+from mcgyvr.telemetry import STOCK
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
@@ -410,8 +411,11 @@ BENCH_TIERS = ("bench-ts", "bench-py")
 # reads the cells rather than knowing them. The three names below are kept as
 # constants because run identity is recorded under them and every existing run
 # directory on disk carries one; they are asserted against the matrix at import
-# so a rename in the data can never silently orphan a run.
-STOCK = "stock"
+# so a rename in the data can never silently orphan a run. `STOCK` is the
+# product's (`mcgyvr.telemetry.STOCK`): the live journal writes it as every
+# live row's `condition` so a live row can be laid beside a bench cell, the
+# product cannot read the matrix, and one definition beats two that could
+# drift — so the assertion below holds the product's word to the matrix too.
 PLAN_ONLY = "planonly"
 NO_SCAFFOLD = "noscaffold"
 

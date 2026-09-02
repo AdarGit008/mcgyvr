@@ -1,9 +1,11 @@
 # shellcheck shell=bash
-# tools/runs/_common.sh — the one emitter the six srv1 kernel-arms run scripts
-# source. Written against
+# tools/runs/_common.sh — the one emitter the door (`tools/runs/run.sh`) and
+# every campaign step under `tools/runs/campaigns/` source. Written against
 # `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md` (the
-# authority) and the parser it cites, `tests/sweeprows.py`. Section numbers below
-# are that contract's.
+# authority) and the parser it cites, `tools/runs/rows.py` (once
+# `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
+# door trusts and the parser the tests trust are one module). Section numbers
+# below are that contract's; "gate N" is run.sh's.
 #
 #   _fail / _tok / _kv_ok        internal; a loud stderr message and a non-zero
 #                                return. Nothing here ever substitutes a
@@ -23,14 +25,14 @@
 #   arm_label ARM CELL           §1.5, §3.2, resolved conflict §6.1 — the one
 #                                labelling convention, `<ARM>-<cell>`, with ARM
 #                                matching ARM_PREFIX `[ABL][0-9]`
-#                                (`sweeprows.py:49`).
+#                                (`rows.py:ARM_PREFIX`).
 #   rig_snapshot                 §2.2/§2.3 — reads the live rig, one `k=v` per
 #                                line. GPU name/VRAM/compute-cap/driver/reserve
 #                                from nvidia-smi; CPU model and cpu_max from
 #                                /sys (else lscpu); DDR speed from dmidecode;
 #                                PL1/PL2 from `constraint_0/1_power_limit_uw`.
 #   rig_stamp                    §2.2 — `### RIG` carrying all six RIG_FIELDS
-#                                (`sweeprows.py:260-267`) plus the card and CPU
+#                                (`rows.py:RIG_FIELDS`) plus the card and CPU
 #                                identity. Emit once before the first row and
 #                                re-stamp per arm (`test_a_row_without_...:9-11`).
 #   start_stamp / end_stamp      §2.3 — `### START` (with
@@ -40,11 +42,36 @@
 #   rig_assert_unchanged         §2.3 and guideline 7's "start equals end" — a
 #                                fresh read, compared field by field with the
 #                                one start_stamp took. Loud on any difference.
-#   workload_stamp DRIVER        §2.1 — `### WORKLOAD digest=... driver=...`.
+#   rig_assert_declared HOST [SNAPSHOT]
+#                                gate 2 — the rig compared with its DECLARATION
+#                                (`tools/runs/hosts.json[HOST].rig`, ten keys,
+#                                read live on 2026-09-02), not only with itself.
+#                                start==end never caught a rig that moved
+#                                BEFORE a run: RAM swapped between srv1 and
+#                                srv2 twice in six days and srv1's max clock
+#                                went 4800 -> 4600, every artifact in between
+#                                internally consistent. Loud, naming the key
+#                                and both values.
+#   round_stamp                  gate 1's receipt — `### ROUND id=
+#                                product_sha256=` from RUN_ROUND and
+#                                RUN_PRODUCT_SHA256, which run.sh exports after
+#                                `tools/bench/product.require_pinned()` passed.
+#                                Fails when either is unset: a round nobody
+#                                checked is not stamped from a guess.
+#   image_digest TAG             gate 3 — ONE `docker image inspect`, and the
+#                                tag becomes a digest (RepoDigests for a
+#                                registry image, Id for a local build). A tag
+#                                is a pointer: the same `img=` on two rows can
+#                                name two images a week apart, which is the
+#                                floating `:server-cuda` mistake the pin only
+#                                half ended. Drivers refuse anything else.
+#   workload_stamp MODULE        §2.1 — `### WORKLOAD digest=... driver=...`.
+#                                MODULE is `tools/runs/workload.py`, the one
+#                                file every driver imports its prompts from.
 #                                The digest is computed by
-#                                `tests/sweeprows.py:workload_digest()` itself,
-#                                through `uv run python`; a second implementation
-#                                would be a second thing to drift.
+#                                `tools/runs/rows.py:workload_digest()` itself,
+#                                through `uv run --no-sync python`; a second
+#                                implementation would be a second thing to drift.
 #   microbench_stamp             §2.1/§6.4 — `### WORKLOAD digest=none
 #                                comparable_with=microbenchmark-only`, owed by
 #                                BOTH microbenchmark files.
@@ -69,6 +96,17 @@
 #   RUN_HOST          host column; default `hostname`.
 #   RUN_REPO          repo root; default `git rev-parse --show-toplevel`.
 #   RUN_RETRY_SLEEP   seconds between retry3 attempts; default 5.
+#   RUN_ID            minted by run.sh (gate 5); start_stamp writes it as
+#                     `run_id=` and refuses without it.
+#   RUN_ROUND / RUN_PRODUCT_SHA256
+#                     exported by run.sh (gate 1); round_stamp writes them.
+#
+# Seams, so a test can drive every gate without touching a rig (BRIEF: "a test
+# may not touch a rig"). Each replaces exactly one read of the machine or the
+# daemon, and nothing else:
+#   RUN_RIG_SNAPSHOT_CMD   a command whose stdout replaces rig_snapshot's
+#                          (`k=v` lines, uptime_since included).
+#   RUN_DOCKER             invoked in place of `docker`, with docker's argv.
 
 # --------------------------------------------------------------------------
 # internals
@@ -86,7 +124,7 @@ _tok() {
     printf '%s' "$*" | tr -s ' \t\n' '_' | sed -e 's/^_//' -e 's/_$//'
 }
 
-# The parser's own field test, `_KV` at sweeprows.py:33.
+# The parser's own field test, `_KV` in tools/runs/rows.py.
 _kv_ok() {
     case $1 in
         [A-Za-z_]*)
@@ -130,11 +168,23 @@ _repo_root() {
     else
         root=$(git rev-parse --show-toplevel 2>/dev/null) || root=
     fi
-    if [ -z "$root" ] || [ ! -f "$root/tests/sweeprows.py" ]; then
-        _fail "cannot locate the repo (no tests/sweeprows.py under '${root:-?}'). Set RUN_REPO."
+    # The parser is what makes a tree this repo: `tools/runs/rows.py` at its
+    # home beside the door, or the `tests/sweeprows.py` shim that re-exports it.
+    if [ -z "$root" ] || { [ ! -f "$root/tools/runs/rows.py" ] && [ ! -f "$root/tests/sweeprows.py" ]; }; then
+        _fail "cannot locate the repo (no tools/runs/rows.py under '${root:-?}'). Set RUN_REPO."
         return 1
     fi
     printf '%s' "$root"
+}
+
+# _py ARGS... — the repo's interpreter, run from the repo root so `tools.runs`
+# resolves as a namespace package. `--no-sync`, always: a plain `uv run` tries
+# to build the project and fails inside a throw-away checkout, which is exactly
+# where the door's tests run it.
+_py() {
+    local root
+    root=$(_repo_root) || return 1
+    (cd "$root" && uv run --no-sync --quiet python "$@")
 }
 
 # --------------------------------------------------------------------------
@@ -151,7 +201,7 @@ stamp() {
         return 1
     fi
     if _kv_ok "$name"; then
-        _fail "stamp: '$name' is a k=v field where the stamp's name belongs — sweeprows._stamp_name raises on this (§6.6)"
+        _fail "stamp: '$name' is a k=v field where the stamp's name belongs — rows._stamp_name raises on this (§6.6)"
         return 1
     fi
     case $name in
@@ -164,7 +214,7 @@ stamp() {
     out="### $name"
     for arg in "$@"; do
         if ! _kv_ok "$arg"; then
-            _fail "stamp $name: '$arg' is not key=value — sweeprows._stamp_fields raises on a loose token (§6.7)"
+            _fail "stamp $name: '$arg' is not key=value — rows._stamp_fields raises on a loose token (§6.7)"
             return 1
         fi
         if _has_space "$arg"; then
@@ -243,12 +293,12 @@ arm_label() {
     case $arm in
         [ABL][0-9]) : ;;
         *)
-            _fail "arm_label: '$arm' does not match ARM_PREFIX [ABL][0-9] (sweeprows.py:49), so Row.cell would not strip it and the arms would not align (§6.1)"
+            _fail "arm_label: '$arm' does not match ARM_PREFIX [ABL][0-9] (tools/runs/rows.py), so Row.cell would not strip it and the arms would not align (§6.1)"
             return 1
             ;;
     esac
     if [ -z "$cell" ] || _has_space "$cell"; then
-        _fail "arm_label: cell '$cell' is empty or holds whitespace; the label's first word is the tag (sweeprows.py:119-123)"
+        _fail "arm_label: cell '$cell' is empty or holds whitespace; the label's first word is the tag (rows.Row.tag)"
         return 1
     fi
     printf '%s-%s' "$arm" "$cell"
@@ -418,10 +468,37 @@ EOF
         "$name" "$total" "$cc" "$drv" "$reserved"
 }
 
+# The seam behind rig_snapshot. A test cannot read a rig, so the whole reading
+# — uptime_since included — comes from the command's stdout, in the same
+# `k=v`-per-line shape; a command that fails or prints nothing is a rig that
+# was not read, and nothing below fills it in.
+_rig_snapshot_seam() {
+    local out line
+    out=$(bash -c "$RUN_RIG_SNAPSHOT_CMD") || {
+        _fail "RUN_RIG_SNAPSHOT_CMD ('$RUN_RIG_SNAPSHOT_CMD') failed; the rig is unread and no stamp is written from a guess"
+        return 1
+    }
+    [ -n "$out" ] || { _fail "RUN_RIG_SNAPSHOT_CMD ('$RUN_RIG_SNAPSHOT_CMD') printed nothing; the rig is unread"; return 1; }
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        if ! _kv_ok "$line" || _has_space "$line"; then
+            _fail "RUN_RIG_SNAPSHOT_CMD printed '$line', which is not one whitespace-free key=value; a snapshot line must be legal in a stamp as-is (§1.6)"
+            return 1
+        fi
+    done <<EOF
+$out
+EOF
+    printf '%s\n' "$out"
+}
+
 # One reading of the machine, `k=v` per line. Every value is a single
 # whitespace-free token, so each line is legal in a marker as-is (§1.6).
 rig_snapshot() {
     local uptime_since cpu_max_mhz cpu_model ram_mt_s pl1 pl2 nv
+    if [ -n "${RUN_RIG_SNAPSHOT_CMD:-}" ]; then
+        _rig_snapshot_seam
+        return
+    fi
     uptime_since=$(_rig_uptime_since) || return 1
     cpu_max_mhz=$(_rig_cpu_max_mhz) || return 1
     cpu_model=$(_rig_cpu_model) || return 1
@@ -437,7 +514,7 @@ _snap_get() {
     printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
 }
 
-# §2.2. All six RIG_FIELDS (sweeprows.py:260-267) plus the card and CPU this run
+# §2.2. All six RIG_FIELDS (rows.RIG_FIELDS) plus the card and CPU this run
 # actually ran on.
 rig_stamp() {
     local snap
@@ -455,9 +532,18 @@ rig_stamp() {
         "cpu_model=$(_snap_get "$snap" cpu_model)"
 }
 
-# §2.3. Also records the reading rig_assert_unchanged will compare against.
+# §2.3. Also records the reading rig_assert_unchanged will compare against, and
+# names the run: `run_id=` is what ties the file to the door invocation that
+# produced it, and the parser (rows.read) holds a file that carries one to the
+# stamp rules eagerly and demands its `### ROUND`. There is no default: a step
+# started bare has no run id, and a START that invented one would claim the
+# gates ran when they did not.
 start_stamp() {
     local snap
+    if [ -z "${RUN_ID:-}" ]; then
+        _fail "start_stamp: RUN_ID is unset. A ### START names the run that produced it, and only tools/runs/run.sh mints one — start this step through the door"
+        return 1
+    fi
     snap=$(rig_snapshot) || return 1
     RUN_RIG_START=$snap
     stamp START \
@@ -466,7 +552,22 @@ start_stamp() {
         "pl2_uw=$(_snap_get "$snap" pl2_uw)" \
         "pl1_source=constraint_0_power_limit_uw" \
         "cpu_max_mhz=$(_snap_get "$snap" cpu_max_mhz)" \
-        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)"
+        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)" \
+        "run_id=$RUN_ID"
+}
+
+# Gate 1's receipt in the file. run.sh runs `tools/bench/product.require_pinned()`
+# before anything else and exports what it returned; a step writes it straight
+# after START so a reader knows which product revision the rows were measured
+# under (ADR-0018: every arm in a round runs against one revision). Both values
+# come from the door or the stamp is refused — a round is checked, never guessed.
+round_stamp() {
+    [ "$#" -eq 0 ] || { _fail "round_stamp: takes no arguments; it writes RUN_ROUND and RUN_PRODUCT_SHA256"; return 1; }
+    if [ -z "${RUN_ROUND:-}" ] || [ -z "${RUN_PRODUCT_SHA256:-}" ]; then
+        _fail "round_stamp: RUN_ROUND='${RUN_ROUND:-}' RUN_PRODUCT_SHA256='${RUN_PRODUCT_SHA256:-}'. Gate 1 of tools/runs/run.sh exports both after require_pinned() passes; a ### ROUND is never written from anything else"
+        return 1
+    fi
+    stamp ROUND "id=$RUN_ROUND" "product_sha256=$RUN_PRODUCT_SHA256"
 }
 
 # §2.3. A fresh read, emitted whatever it says — if the rig moved, the file must
@@ -510,15 +611,178 @@ rig_assert_unchanged() {
 }
 
 # --------------------------------------------------------------------------
+# gate 2  the rig against its declaration
+# --------------------------------------------------------------------------
+
+# The ten keys `tools/runs/hosts.json[HOST].rig` declares. `uptime_since` is
+# deliberately absent — it changes per boot and is compared start==end only.
+RIG_DECLARED_KEYS="cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw gpu_name gpu_vram_mib gpu_cc driver gpu_reserve_mib"
+
+# _hosts_declared — every top-level host in hosts.json that carries a `rig`
+# object, one per line. That set is the door's `--host` vocabulary.
+_hosts_declared() {
+    _py - <<'PY'
+import json
+
+doc = json.load(open("tools/runs/hosts.json", encoding="utf-8"))
+for name, entry in doc.items():
+    if isinstance(entry, dict) and isinstance(entry.get("rig"), dict):
+        print(name)
+PY
+}
+
+# _host_rig HOST — the declared rig as `k=v` lines, or a refusal naming HOST.
+# The values are printed as the strings the file carries; a declaration is
+# compared literally, never coerced.
+_host_rig() {
+    local host=$1
+    _py - "$host" "$RIG_DECLARED_KEYS" <<'PY'
+import json
+import sys
+
+host, keys = sys.argv[1], sys.argv[2].split()
+doc = json.load(open("tools/runs/hosts.json", encoding="utf-8"))
+entry = doc.get(host)
+rig = entry.get("rig") if isinstance(entry, dict) else None
+if not isinstance(rig, dict):
+    sys.exit(
+        f"host '{host}' has no rig block in tools/runs/hosts.json; the door "
+        "compares a live rig with its declaration and cannot compare it with "
+        "nothing"
+    )
+missing = [k for k in keys if not str(rig.get(k, "")).strip()]
+if missing:
+    sys.exit(f"tools/runs/hosts.json[{host!r}].rig declares no {missing}")
+for key in keys:
+    print(f"{key}={rig[key]}")
+PY
+}
+
+# rig_assert_declared HOST [SNAPSHOT] — gate 2. SNAPSHOT is a rig_snapshot
+# reading already taken (run.sh keeps its pre-step reading for gate 7); without
+# one the rig is read here. Every difference is named with both values, so the
+# refusal says what moved and by how much rather than that something did.
+rig_assert_declared() {
+    local host snap declared key want got bad
+    [ "$#" -ge 1 ] && [ "$#" -le 2 ] || { _fail "rig_assert_declared: usage: rig_assert_declared HOST [SNAPSHOT]"; return 1; }
+    host=$1
+    snap=${2:-}
+    if [ -z "$snap" ]; then
+        snap=$(rig_snapshot) || return 1
+    fi
+    declared=$(_host_rig "$host") || return 1
+    bad=
+    for key in $RIG_DECLARED_KEYS; do
+        want=$(_snap_get "$declared" "$key")
+        got=$(_snap_get "$snap" "$key")
+        [ "$want" = "$got" ] || bad="${bad:+$bad; }$key: declared $want, live ${got:-<unread>}"
+    done
+    if [ -n "$bad" ]; then
+        _fail "THIS MACHINE IS NOT THE DECLARED $host — $bad. tools/runs/hosts.json[$host].rig is what the rig was read as on its read_on date; either the wrong --host was named, or the rig moved before this run (RAM swapped between rigs twice in six days; a hard lock wipes the BIOS profile). Fix the machine or re-declare it deliberately; nothing is measured on a rig that is not the one it claims to be (gate 2)"
+        return 1
+    fi
+}
+
+# --------------------------------------------------------------------------
+# gate 3  a tag becomes a digest, once
+# --------------------------------------------------------------------------
+
+# image_digest TAG — exactly one `docker image inspect`, and the digest the
+# daemon holds for TAG on stdout: `repo@sha256:<64hex>` (RepoDigests, a
+# registry image) or `sha256:<64hex>` (Id, a local build with no registry to
+# appeal to). Anything else is nothing on stdout, TAG on stderr, non-zero — a
+# driver refuses a non-digest, so a failed resolution cannot leak through as a
+# tag. Plain JSON rather than `--format`, so one call answers both cases.
+image_digest() {
+    local tag json digest
+    [ "$#" -eq 1 ] || { _fail "image_digest: usage: image_digest TAG"; return 1; }
+    tag=$1
+    if [ -z "$tag" ] || _has_space "$tag"; then
+        _fail "image_digest: tag '$tag' is empty or holds whitespace"
+        return 1
+    fi
+    json=$("${RUN_DOCKER:-docker}" image inspect "$tag") || {
+        _fail "image_digest: '${RUN_DOCKER:-docker} image inspect $tag' failed; '$tag' is not an image this daemon holds, so it resolves to no digest and no container is started from it (gate 3)"
+        return 1
+    }
+    # The two FIELDS, read from the parsed document — not the first
+    # digest-shaped string in it. Config.Labels sits after RepoDigests and
+    # 1-build-ladder.sh labels every rung `org.mcgyvr.build.toolkit=<base
+    # image>`; with the toolkit pinned by digest and RepoDigests empty (every
+    # rung reaches srv1 by docker save|load), a grep over the document handed
+    # the driver nvidia/cuda's digest and the rung's REFUSED row was a lie.
+    digest=$(_py -c '
+import json
+import re
+import sys
+
+DIGEST = re.compile(r"^[^@\s]+@sha256:[0-9a-f]{64}$")
+ID = re.compile(r"^sha256:[0-9a-f]{64}$")
+try:
+    doc = json.loads(sys.argv[1])
+except ValueError:
+    sys.exit(1)
+images = doc if isinstance(doc, list) else [doc]
+if len(images) != 1 or not isinstance(images[0], dict):
+    sys.exit(1)
+image = images[0]
+repo_digests = [
+    d for d in (image.get("RepoDigests") or []) if isinstance(d, str) and DIGEST.match(d)
+]
+if repo_digests:
+    print(repo_digests[0])
+elif isinstance(image.get("Id"), str) and ID.match(image["Id"]):
+    print(image["Id"])
+else:
+    sys.exit(1)
+' "$json") || digest=
+    if [ -z "$digest" ]; then
+        _fail "image_digest: '$tag' inspects with neither a RepoDigests entry nor an Id; no digest can be named for it (gate 3)"
+        return 1
+    fi
+    printf '%s\n' "$digest"
+}
+
+# --------------------------------------------------------------------------
+# a step is started by the door, or not at all
+# --------------------------------------------------------------------------
+
+# door_required — the four things only tools/runs/run.sh exports: RUN_ID
+# (gate 5), RUN_OUT_DIR (the envelope, gate 5), RUN_ROUND and
+# RUN_PRODUCT_SHA256 (gate 1). A step once guarded itself on RUN_ID alone and
+# then resolved its envelope as `${RUN_OUT_DIR:-<the committed 2026-09-02
+# dir>}`; RUN_ID is any non-empty string, so a stale one in an operator's
+# shell took a bare step straight to recorded evidence, where it truncated its
+# file before round_stamp could refuse — twice in one session. No RUN_OUT_DIR
+# is no envelope, and no envelope is nothing to write. Called by every step
+# after the RUN_ID guard, before it parses an argument.
+door_required() {
+    local v missing=
+    for v in RUN_ID RUN_OUT_DIR RUN_ROUND RUN_PRODUCT_SHA256; do
+        [ -n "${!v:-}" ] || missing="${missing:+$missing }$v"
+    done
+    # `_fail || exit 2`: the caller runs under `set -e`, where _fail's own
+    # return 1 would end the step with THAT status before the exit 2 it owes.
+    if [ -n "$missing" ]; then
+        _fail "$missing unset — only tools/runs/run.sh exports them (gates 1 and 5), so this step was not started by the door; it has no envelope and writes nothing. Start me through tools/runs/run.sh" || exit 2
+    fi
+    if [ ! -d "$RUN_OUT_DIR" ]; then
+        _fail "RUN_OUT_DIR='$RUN_OUT_DIR' is not a directory; the envelope tools/runs/run.sh makes (gate 5) is the only place a step writes. Start me through tools/runs/run.sh" || exit 2
+    fi
+}
+
+# --------------------------------------------------------------------------
 # §2.1  the workload stamp
 # --------------------------------------------------------------------------
 
-# The digest is sweeprows.workload_digest()'s, not a copy of it: it execs the
-# driver's own PROMPT_DECILES..def sh( block over 200 generated prompts, so a
-# `ruff format` pass does not move it and a changed prompt does.
+# The digest is rows.workload_digest()'s, not a copy of it: it execs the
+# module's PROMPT_DECILES..end block over 200 generated prompts, so a
+# `ruff format` pass does not move it and a changed prompt does. The argument
+# is the workload module (`tools/runs/workload.py`); a driver that still
+# carried its own block would digest the same way, and none does.
 workload_stamp() {
     local driver root digest
-    [ "$#" -eq 1 ] || { _fail "workload_stamp: usage: workload_stamp <driver.py>"; return 1; }
+    [ "$#" -eq 1 ] || { _fail "workload_stamp: usage: workload_stamp <workload.py>"; return 1; }
     driver=$1
     if _has_space "$driver"; then
         _fail "workload_stamp: driver path '$driver' holds whitespace; a stamp value may not (§1.6)"
@@ -529,11 +793,11 @@ workload_stamp() {
         _fail "workload_stamp: '$driver' is not a file under $root. The stamp names a repo-relative path the test re-hashes (§2.1)"
         return 1
     fi
-    digest=$(cd "$root" && uv run --quiet python -c '
+    digest=$(cd "$root" && uv run --no-sync --quiet python -c '
 import sys
 from pathlib import Path
 
-from tests.sweeprows import WORKLOAD_DIGEST, workload_digest
+from tools.runs.rows import WORKLOAD_DIGEST, workload_digest
 
 got = workload_digest(Path(sys.argv[1]))
 if got != WORKLOAD_DIGEST:
@@ -543,7 +807,7 @@ if got != WORKLOAD_DIGEST:
     )
 print(got)
 ' "$driver") || {
-        _fail "workload_stamp: could not compute the digest of '$driver' with tests/sweeprows.py:workload_digest()"
+        _fail "workload_stamp: could not compute the digest of '$driver' with tools/runs/rows.py:workload_digest()"
         return 1
     }
     stamp WORKLOAD "digest=$digest" "driver=$driver"

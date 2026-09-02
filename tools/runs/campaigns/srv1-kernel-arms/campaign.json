@@ -1,0 +1,4 @@
+{
+  "_doc": "Read by gate 2b of tools/runs/run.sh. `serving: true` holds every step of the campaign to the serving harness's markers (tools/bench/serving/launch.py:verify_markers) before it starts — D8's rule, applied at the door. This campaign drives llama.cpp and vLLM containers through tools/runs/drivers/ and never the serving harness, so it is not held to markers it does not run; saying so here rather than by omission is the point of the file.",
+  "serving": false
+}

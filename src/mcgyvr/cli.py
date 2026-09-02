@@ -32,6 +32,7 @@ from mcgyvr.serving import ModelSpec, UnitError, host_of, units_for
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
+    from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted
     from mcgyvr.gate import GateResult
     from mcgyvr.sandbox.base import Sandbox
@@ -736,12 +737,36 @@ def _run(args: argparse.Namespace) -> int:
     over: it would carry an untouched change to a gate that cannot judge it, and
     it would drop the linter's own account of what it will not fix, which is
     printed here instead.
+
+    **``--record DIR --orchestrator ID`` is the live journal's one production
+    caller.** :class:`~mcgyvr.drive.Recording` has required an orchestrator id
+    since it was written and nothing constructed one, so the product recorded
+    nothing and §9's "records carry an orchestrator id" held only because it
+    was never exercised. The sink is ``DIR/<ID>.jsonl`` — a directory with two
+    files in it is two orchestrators without anyone opening one — and the
+    prompts and replies land content-addressed under ``DIR/blobs/``. The id is
+    the operator's, never derived from the process, and a blank one is refused
+    by ``Recording`` itself, here, before a sandbox is opened. Only a dispatch
+    is journaled: a deterministic contract dispatches nothing, and this says
+    so rather than leaving an empty directory to be read as a run that
+    recorded.
     """
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.deterministic import tool_steps
-    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step
+    from mcgyvr.drive import DriveError, Recording, gate_workspace, run_tool_step
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+
+    recording: Recording | None = None
+    if args.record is not None:
+        try:
+            recording = Recording(
+                path=Path(args.record) / f"{args.orchestrator}.jsonl",
+                orchestrator=args.orchestrator,
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
     try:
         contract = load_task_contract(Path(args.contract))
@@ -755,8 +780,14 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
     if not contract.is_deterministic:
-        return _climb(args, contract, repo)
+        return _climb(args, contract, repo, recording=recording)
 
+    if recording is not None:
+        print(
+            f"note: {contract.id} is a {contract.task_type!r} contract and runs "
+            f"on the deterministic floor; it dispatches nothing, so there is "
+            f"nothing for --record to journal"
+        )
     steps = tool_steps(contract)
     if not steps:
         print(
@@ -814,7 +845,13 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
 
-def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
+def _climb(
+    args: argparse.Namespace,
+    contract: Contract,
+    repo: Path,
+    *,
+    recording: Recording | None = None,
+) -> int:
     """Drive a model-executed contract up the ladder a config describes.
 
     **Which flag selects a rung: none, and that is the answer rather than a
@@ -832,7 +869,7 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
     command had nowhere to take them from: a config, and the source map resolved
     from it.
 
-    Hence ``--config`` and nothing else. It resolves the same way every other
+    Hence ``--config`` and no rung flag. It resolves the same way every other
     command's does — ``$MCGYVR_CONFIG``, then the working directory, then the
     user config dir — because a second resolution order for the same file is a
     second file as far as an operator debugging one is concerned.
@@ -940,6 +977,7 @@ def _climb(args: argparse.Namespace, contract: Contract, repo: Path) -> int:
                 contract,
                 sandbox,
                 reviewer=reviewer,
+                recording=recording,
                 cooldown=cooldown,
             )
 
@@ -1449,6 +1487,43 @@ def _architectures() -> dict[str, str]:
     }
 
 
+def _refuse_half_a_journal(
+    run: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Refuse ``--record`` without ``--orchestrator``, and the reverse, at parse time.
+
+    Before a config is read, a sandbox opened or a directory created, through
+    the subparser's own ``error`` so the refusal reads like every other usage
+    error and exits 2. The message names the flag that is missing rather than
+    sending the operator to ``--help``: a default id derived from the process
+    is exactly the single-orchestrator assumption §9 names, so there is no
+    default to fall back on, only a flag to ask for.
+
+    An id containing ``/`` is refused here too, because the id *is* the file
+    name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write
+    ``DIR/agent/a.jsonl`` with its blobs under ``DIR/agent/blobs``, where an
+    index over ``DIR`` finds neither. A blank id is left to
+    :class:`~mcgyvr.drive.Recording`, which has refused one since it was
+    written.
+    """
+    if args.record is not None and args.orchestrator is None:
+        run.error(
+            "--record DIR needs --orchestrator ID: the journal is written as "
+            "DIR/<ID>.jsonl and every row names its writer, and there is no "
+            "default id to fall back on (§9)"
+        )
+    if args.orchestrator is not None and args.record is None:
+        run.error(
+            "--orchestrator ID does nothing without --record DIR: there is no "
+            "journal to write under it"
+        )
+    if args.orchestrator is not None and "/" in args.orchestrator:
+        run.error(
+            f"--orchestrator {args.orchestrator!r} cannot contain '/': the id "
+            f"is the journal's file name, DIR/<ID>.jsonl"
+        )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -1835,9 +1910,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Without this the verdict is printed and nothing is written"
         ),
     )
+    run.add_argument(
+        "--record",
+        default=None,
+        metavar="DIR",
+        help=(
+            "journal every dispatch this run makes: one line per attempt "
+            "appended to DIR/<ID>.jsonl, the prompt and the reply kept "
+            "content-addressed under DIR/blobs/, where <ID> is --orchestrator "
+            "(required with this). Read it back with tools/live/review.py DIR"
+        ),
+    )
+    run.add_argument(
+        "--orchestrator",
+        default=None,
+        metavar="ID",
+        help=(
+            "who is writing the journal. Names the sink, DIR/<ID>.jsonl, and is "
+            "carried on every row, so two orchestrators sharing a directory "
+            "stay distinguishable (§9). No default: an id derived from the "
+            "process is the single-orchestrator assumption the field exists to "
+            "refuse. Only meaningful with --record"
+        ),
+    )
     run.set_defaults(func=_run)
 
     args = parser.parse_args(argv)
+    if args.func is _run:
+        _refuse_half_a_journal(run, args)
     result: int = args.func(args)
     return result
 
