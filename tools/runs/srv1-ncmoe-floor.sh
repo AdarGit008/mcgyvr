@@ -154,6 +154,18 @@ label_for() {
 
 # --------------------------------------------------------------------------
 # the launch -- one model load, health, log, kill. It never serves a request.
+#
+# `-lv 5` IS PART OF THE INSTRUMENT, not a debugging convenience. Every one of
+# the six derivation inputs below is read out of this launch's own log:
+# `print_info: n_layer`, `load_tensors: CUDA0 model buffer size`,
+# `load_tensors: CPU_Mapped model buffer size`, `llama_kv_cache: CUDA0 KV
+# buffer size` and `print_info: file type`. b10644's llama-server prints NONE
+# of them at its default verbosity -- measured on srv1 2026-09-02, where the
+# whole default-verbosity log is fourteen lines and carries no model metadata
+# at all -- so without this flag the script correctly refuses every arm with
+# "n_layers could not be read". Raising the verbosity makes the values
+# READABLE; it does not supply them, and nothing here is substituted when a
+# line is still absent.
 # --------------------------------------------------------------------------
 
 DOCKER_ARGV=()
@@ -164,6 +176,7 @@ launch_argv() {
         -v "$MODEL_DIR:/models" -p "$PORT:$PORT" "$img"
         -m "$CONTAINER_MODEL" --host 0.0.0.0 --port "$PORT"
         --parallel "$NP" -c "$CTX_TOTAL" -ngl 99 --n-cpu-moe "$ncmoe" --no-warmup
+        -lv 5
     )
 }
 
