@@ -61,6 +61,12 @@ _TYPES: tuple[tuple[str, str], ...] = (
     ),
     ("boolean", "`true` or `false`, unquoted."),
     (
+        "decimal number",
+        "A number that may carry a fraction. Sizes written this way are in "
+        "**GiB** — powers of 1024 — which is what the rest of mcgyvr measures "
+        "in; a file a tool reports as 13.2 GB is 12.3 here.",
+    ),
+    (
         "one of ...",
         "Text drawn from a fixed set. Anything else is rejected, with the valid "
         "values named.",
@@ -90,6 +96,7 @@ _TYPES: tuple[tuple[str, str], ...] = (
 
 _KIND_LABELS: dict[str, str] = {
     "int": "number",
+    "float": "decimal number",
     "str": "text",
     "url": "URL",
     "bool": "boolean",
