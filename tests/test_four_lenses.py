@@ -157,6 +157,9 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "CHECK": False,  # the gate's own per-module check name
     "ARMS": False,  # each rig's arms are its own
     "TIMEOUT_S": False,  # unrelated tools, unrelated ceilings
+    # workload.py's bench system prompt vs propose.py's decomposition prompt:
+    # two prompts for two different callers that happen to share a name.
+    "SYSTEM": False,
     "_CACHE": False,
     "_DRIVER": False,
     # reply.py and deterministic.py carry the whole family; symbols.py is JS only

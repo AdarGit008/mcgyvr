@@ -1,7 +1,5 @@
-import itertools
 import json
 import os
-import random
 import re
 import socket
 import subprocess
@@ -9,14 +7,19 @@ import sys
 import threading
 import time
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from tools.runs import workload
 
 # sweep-2026-08-31 llama.cpp driver.  Supersedes lcpsweep28.py.
 # args: model_path mount_dir tag cells...   cell = np:ctx_slot:ncpumoe:levels
 # -c is computed as np * ctx_slot, because llama.cpp DIVIDES -c across slots.
 #
-# Workload block is IDENTICAL to vllm_sweep_31-08-2026.py -- same deciles, same
-# SYSTEM text, same seeding -- so the two engines are compared on one workload.
-# See that file's header for the derivation from measurements/**/results.jsonl.
+# The workload is `tools/runs/workload.py`, imported and never copied -- same
+# deciles, same SYSTEM text, same seeding as vllm_sweep.py -- so the two engines
+# are compared on one workload. See that module's docstring for the derivation
+# from measurements/**/results.jsonl.
 #
 # TWO DELIBERATE CHANGES FROM lcpsweep28.py:
 #  1. cache_prompt: False -> True.  The old driver disabled prompt reuse while
@@ -25,58 +28,44 @@ import urllib.request
 #     scaffold cached, so both sides now cache.
 #  2. ignore_eos is GONE. Output length is the sampled n_predict and the model
 #     may stop earlier, exactly as in production.
+
+# THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
+# A bare run of this file printed byte-compatible rows with no stamps — no rig
+# state, no round, no workload digest — and nothing downstream could tell them
+# from a run that passed every gate (BRIEF "The problem being solved"). So:
+# (1) RUN_ID is minted by tools/runs/run.sh and only there; without it this
+# process was not started by the door and exits 2 having done nothing.
+# (2) LCP_IMG must be a DIGEST (`repo@sha256:<hex>` or `sha256:<hex>`),
+# resolved once by `image_digest` in tools/runs/_common.sh (gate 3). A tag is
+# a pointer: the same `img=` on two rows can name two images a week apart,
+# which is the floating `:server-cuda` mistake the pin only half ended. There
+# is no default image — a default is a tag by another name.
+RUN_ID = os.environ.get("RUN_ID", "")
+if not RUN_ID:
+    print(
+        "lcp_sweep: RUN_ID is unset — this driver is started by tools/runs/run.sh, "
+        "never bare; a bare run prints unstamped rows nothing can file",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+IMG = os.environ.get("LCP_IMG", "")
+if not ("@sha256:" in IMG or IMG.startswith("sha256:")):
+    print(
+        f"lcp_sweep: LCP_IMG={IMG!r} is not an image digest (repo@sha256:<hex> "
+        "or sha256:<hex>). A tag is resolved ONCE, by image_digest in "
+        "tools/runs/_common.sh (gate 3), and the digest is what this driver "
+        "runs; it will not resolve one itself and it will not run a pointer",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+# The daemon, behind the one seam a test may replace it with (RUN_DOCKER).
+DOCKER = os.environ.get("RUN_DOCKER", "docker")
+# The container carries the run's name so gate 7 of run.sh can find what this
+# process left behind (`docker ps --filter name=^<RUN_ID>-`).
+NAME = f"{RUN_ID}-lcps"
 MODEL, MDIR, TAG = sys.argv[1], sys.argv[2], sys.argv[3]
 CELLS = sys.argv[4:]
-# Pinned to the build the 2026-08-28 setup-selection sweep ran (run-srv1.sh /
-# run-srv2.sh). lcpsweep28.py used the floating :server-cuda tag, so two runs a
-# month apart could not be compared. Override with LCP_IMG=..., never by edit.
-IMG = os.environ.get("LCP_IMG", "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644")
 PORT, H = 8094, socket.gethostname()
-
-PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
-COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
-SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
-TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
-HDR_TOK = 60  # approx tokens in the task-body header lines
-MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
-
-UID = itertools.count()
-UIDLOCK = threading.Lock()
-
-SYSTEM = (
-    "You are a worker in an automated coding ladder. You receive one scoped\n"
-    "task contract at a time and return exactly one artifact: the requested\n"
-    "code, in a single fenced block, with no prose and no restatement of the\n"
-    "contract. Follow the contract literally. Do not invent requirements it\n"
-    "does not state, and do not omit any it does. Use type hints on every\n"
-    "parameter and return. Include a docstring naming the arguments and the\n"
-    "error conditions. Handle every error path the contract enumerates,\n"
-    "raising the exact exception type named. Your output is checked by an\n"
-    "automated gate that runs the contract's tests verbatim; prose outside\n"
-    "the fenced block fails the gate.\n\n"
-)
-
-
-def mkprompt():
-    """SYSTEM (shared, cacheable) + a unique body sized from the real deciles."""
-    with UIDLOCK:
-        i = next(UID)
-    rnd = random.Random(i)
-    want_prompt = rnd.choice(PROMPT_DECILES)
-    want_out = rnd.choice(COMPL_DECILES)
-    nfield = max(1, (want_prompt - SYS_TOK - HDR_TOK) // TOK_PER_FIELD)
-    fields = "\n".join(
-        f"  - arg_{k:02d}: bounded by {(i * 31 + k) % 10000:04d}; on violation "
-        f"raise ValueError(f'arg_{k:02d} out of range') and log the input."
-        for k in range(nfield)
-    )
-    body = (
-        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16**8):08x}\n"
-        f"Signature: def option_pairs(rows: list[dict], strict: bool = False) -> dict\n"
-        f"Fields:\n{fields}\n\n"
-        f"Implement it now.\n"
-    )
-    return SYSTEM + body, want_out
 
 
 def sh(c):
@@ -84,7 +73,7 @@ def sh(c):
 
 
 def post(out, idx):
-    prompt, want = mkprompt()
+    prompt, want = workload.mkprompt()
     # CHAT, not `/completion`. The raw endpoint applies no chat template, and on
     # 2026-09-01 that cost 20 of 60 measured rows: Qwen3.6-35B emitted a stop
     # token on the first step of an untemplated prompt, so every one of its
@@ -95,8 +84,8 @@ def post(out, idx):
     b = json.dumps(
         {
             "messages": [
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": prompt[len(SYSTEM) :]},
+                {"role": "system", "content": workload.SYSTEM},
+                {"role": "user", "content": prompt[len(workload.SYSTEM) :]},
             ],
             "max_tokens": want,
             "temperature": 0,
@@ -132,17 +121,17 @@ for cell in CELLS:
     levels = [int(x) for x in lv.split(",")]
     total_c = int(np_) * int(ctxslot)
     lab = f"{TAG} np={np_} ctx_slot={ctxslot} c={total_c} ncmoe={ncm}"
-    if int(ctxslot) < MAXLEN_NEED:
+    if int(ctxslot) < workload.MAXLEN_NEED:
         print(
-            f"{H}\t{lab}\tSKIP\tctx_slot {ctxslot} < {MAXLEN_NEED} "
+            f"{H}\t{lab}\tSKIP\tctx_slot {ctxslot} < {workload.MAXLEN_NEED} "
             f"(worst sampled prompt+reply); raise it or the tail truncates",
             flush=True,
         )
         continue
-    sh("docker rm -f lcps")
+    sh(f"{DOCKER} rm -f {NAME}")
     extra = f"--n-cpu-moe {ncm}" if ncm != "0" else ""
     sh(
-        f"docker run -d --name lcps --gpus all -v {MDIR}:/models:ro "
+        f"{DOCKER} run -d --name {NAME} --gpus all -v {MDIR}:/models:ro "
         f"-p {PORT}:8080 {IMG} "
         f"-m /models/{MODEL.split('/')[-1]} -ngl 99 -np {np_} -c {total_c} {extra} "
         f"-fa on --no-warmup --host 0.0.0.0 --port 8080"
@@ -153,7 +142,7 @@ for cell in CELLS:
         if sh(probe) == "Y":
             ok = True
             break
-        if "lcps" not in sh("docker ps --format '{{.Names}}'"):
+        if NAME not in sh(DOCKER + " ps --format '{{.Names}}'"):
             break
         time.sleep(2)
     if not ok:
@@ -163,23 +152,23 @@ for cell in CELLS:
         # dangling HF-blob symlink -- a `no such file` the truncated reason did
         # not show -- and were read as a capability limit.
         why = sh(
-            "docker logs lcps 2>&1 | grep -vE '^[0-9.]+ I ' | "
+            f"{DOCKER} logs {NAME} 2>&1 | grep -vE '^[0-9.]+ I ' | "
             "grep -iE 'error|out of memory|no such file|failed|cannot' | tail -2"
         )
         if not why:
-            why = sh("docker logs lcps 2>&1 | tail -3")
+            why = sh(f"{DOCKER} logs {NAME} 2>&1 | tail -3")
         why = " | ".join(why.splitlines())[:240]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
-        sh("docker rm -f lcps")
+        sh(f"{DOCKER} rm -f {NAME}")
         continue
-    log = sh("docker logs lcps 2>&1")
+    log = sh(f"{DOCKER} logs {NAME} 2>&1")
     real_slot = re.search(r"n_ctx_slot = (\d+)", log)
     vram = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
     warm = [None]
     post(warm, 0)
     if warm[0][0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
-        sh("docker rm -f lcps")
+        sh(f"{DOCKER} rm -f {NAME}")
         continue
     # A cell that stops on the first token measures nothing, and the old code
     # let it through: it only refused otok==0, so an immediate stop produced a
@@ -192,7 +181,7 @@ for cell in CELLS:
             f"measuring this cell would record artifacts",
             flush=True,
         )
-        sh("docker rm -f lcps")
+        sh(f"{DOCKER} rm -f {NAME}")
         continue
     print(
         f"{H}\t{lab}\tCONFIG\timg={IMG}"
@@ -224,5 +213,5 @@ for cell in CELLS:
             f"\twall={wall:.1f}",
             flush=True,
         )
-    sh("docker rm -f lcps")
+    sh(f"{DOCKER} rm -f {NAME}")
     time.sleep(2)

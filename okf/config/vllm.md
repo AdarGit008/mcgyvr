@@ -134,7 +134,7 @@ died at memory profiling, two came up with byte-identical 24,560 KV tokens.
 A single refusal is a coin flip; a success is exactly reproducible. This
 manufactured two false conclusions on 2026-09-01 -- `q3 came up at 0.46` (it
 cannot, alone) and `q15 refused at 0.40` (it works) -- on settings minutes
-apart that had already been shown to work. `vllm_cores_01-09-2026.py` retries
+apart that had already been shown to work. `tools/runs/drivers/vllm_cores.py` retries
 three times and reports `tries=` on the CONFIG row.
 
 **Two servers must be launched SEQUENTIALLY, each healthy before the next

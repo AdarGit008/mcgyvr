@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-correctness.sh — campaign step 5, and the only producer of
+# tools/runs/campaigns/srv1-kernel-arms/5-correctness.sh — campaign step 5, and the only producer of
 # `records/evidence/2026-09-02-srv1-kernel-arms/correctness.json`.
 # Behaviour 11, `tests/test_a_faster_arm_that_answers_differently_has_not_won.py`.
 #
@@ -38,7 +38,7 @@
 #
 # THE VERDICTS ARE THE LADDER'S, AND ONLY THE LADDER'S. `verdicts[]` names the
 # speed winner read out of `srv1-lcpp-arms.tsv` — the controlled study, one
-# variable per rung, inside one engine — through `tests/sweeprows.py`, the one
+# variable per rung, inside one engine — through `tools/runs/rows.py`, the one
 # parser. `srv1-vllm-arms.tsv` is deliberately NOT read: guideline 5 makes B1 vs
 # B2 a capability probe and not a ranking, and importing a "winner" from it
 # would put a rank on a file that exists to say what the card can do. If the
@@ -51,7 +51,7 @@
 # comparison that shared no cells.
 #
 # Usage:
-#   tools/runs/srv1-correctness.sh [--dry-run] \
+#   tools/runs/campaigns/srv1-kernel-arms/5-correctness.sh [--dry-run] \
 #       --model qwen2.5-coder:1.5b --reference L0 \
 #       --arm L0=http://localhost:8081=llamacpp:b10644-L0 \
 #       --arm L3=http://localhost:8083=llamacpp:b10644-L3
@@ -75,17 +75,22 @@
 #   --dry-run         print every command line, in order, and exit.
 #
 # Environment: RUN_HOST RUN_REPO RUN_RETRY_SLEEP — see tools/runs/_common.sh
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run and the
+# artifact lands in $RUN_OUT_DIR beside the ladder it reads its verdict from.
+# RUN_ARTIFACTS: correctness.json
+
+[ -n "${RUN_ID:-}" ] || { echo "5-correctness.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 _here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh disable=SC1091
-. "$_here/_common.sh"
+. "$_here/../../_common.sh"
+door_required
 
-RUN_REL="records/evidence/2026-09-02-srv1-kernel-arms"
 ARTIFACT="correctness.json"
 MEASURE="tools/breadth/measure.py"
-LCPP_ARMS="$RUN_REL/srv1-lcpp-arms.tsv"
 
 TIER="bench-py"
 DRAWS="1"
@@ -123,7 +128,7 @@ sys.path.insert(0, str(root / "tools" / "bench"))
 import null as nullmod  # noqa: E402
 from responsiveness import wilson  # noqa: E402
 
-from tests.sweeprows import read as read_sweep  # noqa: E402
+from tools.runs.rows import read as read_sweep  # noqa: E402
 
 tier = spec["tier"]
 measurements = root / "records" / "measurements"
@@ -320,7 +325,7 @@ measure_argv() {
     endpoint=$3
     out="records/measurements/$(run_dir "$arm" "$half")/$TIER"
     MEASURE_ARGV=(
-        uv run --quiet python "$MEASURE"
+        uv run --no-sync --quiet python "$MEASURE"
         --out "$out"
         --endpoint "$endpoint"
         --protocol openai
@@ -353,7 +358,7 @@ add_arm() {
         _fail "--arm wants ARM=ENDPOINT=SERVING_BUILD; got '$1'. The build is not optional: ADR-0024 makes it part of a run's identity, and an arm whose build nothing recorded is exactly the comparison this campaign cannot draw"
         return 1
     fi
-    # The campaign's one arm vocabulary, ARM_PREFIX [ABL][0-9] (sweeprows.py:49)
+    # The campaign's one arm vocabulary, ARM_PREFIX [ABL][0-9] (tools/runs/rows.py)
     # — the same check the TSV labels pass, so an arm named here is an arm the
     # speed artifacts can be matched to.
     arm_label "$name" "$TIER" >/dev/null || return 1
@@ -369,11 +374,11 @@ add_arm() {
 plan() {
     local i arm
     cat <<EOF
-# srv1-correctness.sh --dry-run
+# 5-correctness.sh --dry-run
 # Nothing below is executed. No measurement directory is created and no
 # artifact is written.
 #
-# artifact  : $RUN_REL/$ARTIFACT
+# artifact  : $RUN_OUT_DIR/$ARTIFACT
 # model     : $MODEL
 # tier      : $TIER   (guideline 9)
 # reference : $REFERENCE
@@ -394,7 +399,7 @@ EOF
     done
     cat <<EOF
 ## score: each arm's self-null, then every arm's drift from $REFERENCE
-+ printf '<the arm table, as JSON>' | uv run --quiet python -c "\$SCORE_PY"
++ printf '<the arm table, as JSON>' | uv run --no-sync --quiet python -c "\$SCORE_PY"
 
 ##    where "\$SCORE_PY" is, verbatim:
 EOF
@@ -416,9 +421,13 @@ measure_once() {
 }
 
 main() {
-    local root i arm spec_json out
+    local root i arm spec_json out out_dir
     root=$(_repo_root) || return 1
-    [ -d "$root/$RUN_REL" ] || { _fail "$RUN_REL is not a directory under $root"; return 1; }
+    # The envelope: the door's $RUN_OUT_DIR (door_required refused without
+    # it). Absolute, because the scorer joins it onto the root with pathlib
+    # and an absolute right-hand side wins there.
+    out_dir=$RUN_OUT_DIR
+    [ -d "$out_dir" ] || { _fail "$out_dir is not a directory"; return 1; }
 
     # Guideline 9, in the order it is written: every arm prices its own null
     # first, and no arm is compared to any other until all of them have.
@@ -440,8 +449,8 @@ main() {
         {
             printf '{"root": "%s", "tier": "%s", "model": "%s", "reference": "%s",' \
                 "$root" "$TIER" "$MODEL" "$REFERENCE"
-            printf ' "out": "%s/%s", "lcpp_arms": "%s", "arms": [' \
-                "$RUN_REL" "$ARTIFACT" "$LCPP_ARMS"
+            printf ' "out": "%s/%s", "lcpp_arms": "%s/srv1-lcpp-arms.tsv", "arms": [' \
+                "$out_dir" "$ARTIFACT" "$out_dir"
             for i in "${!ARMS[@]}"; do
                 [ "$i" -eq 0 ] || printf ','
                 printf '{"arm": "%s", "endpoint": "%s", "serving_build": "%s", "run_a": "%s", "run_b": "%s"}' \
@@ -451,9 +460,9 @@ main() {
             printf ']}'
         }
     )
-    out="$root/$RUN_REL/$ARTIFACT"
+    out="$out_dir/$ARTIFACT"
     say "scoring: $out"
-    printf '%s' "$spec_json" | (cd "$root" && uv run --quiet python -c "$SCORE_PY")
+    printf '%s' "$spec_json" | (cd "$root" && uv run --no-sync --quiet python -c "$SCORE_PY")
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then

@@ -70,21 +70,26 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 
 
-def _sweep() -> types.ModuleType:
-    """`sweep.py` by path, as `run.py` loads `contract.py`: the image pin has
-    one home and this module reads it rather than restating it."""
-    cached = sys.modules.get("serving_sweep")
+def _vllm_backend() -> types.ModuleType:
+    """`backends/vllm.py` by path, through the slot `contract.load_backend`
+    uses: the image pin has one home and this module reads it rather than
+    restating it. It used to read `sweep.py`'s `IMAGE`; that file hardwired an
+    11-token prompt the repo had ruled 2.4x misleading and was retired when
+    `tools/runs/run.sh` became the one door to the rigs (2026-09-02), so the
+    pin's home is the backend that launches the container."""
+    slot = "serving_backend_vllm"
+    cached = sys.modules.get(slot)
     if cached is not None:
         return cached
-    spec = importlib.util.spec_from_file_location("serving_sweep", HERE / "sweep.py")
+    spec = importlib.util.spec_from_file_location(slot, HERE / "backends" / "vllm.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules["serving_sweep"] = module
+    sys.modules[slot] = module
     spec.loader.exec_module(module)
     return module
 
 
-IMAGE: str = _sweep().IMAGE
+IMAGE: str = _vllm_backend().CONTAINER_IMAGE
 
 SURFACE_RECORD = "knob-surface/1"
 SERVING_ENGINE = "vllm"

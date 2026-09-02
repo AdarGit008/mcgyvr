@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-vllm-arms.sh — campaign step 8, and the only producer of
+# tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh — campaign step 8, and the only producer of
 # `records/evidence/2026-09-02-srv1-kernel-arms/srv1-vllm-arms.tsv`
-# (`tests/sweeprows.py:310`). Behaviour 12,
+# (`tools/runs/rows.py`). Behaviour 12,
 # `tests/test_two_backends_on_one_checkpoint_is_the_only_pair.py`.
 #
 # WHAT THIS ASKS, AND WHAT IT MUST NEVER BE READ AS
@@ -78,27 +78,40 @@
 # not be read stops the run with a message instead of acquiring a placeholder.
 #
 # Usage:
-#   tools/runs/srv1-vllm-arms.sh [--dry-run]
+#   tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh [--dry-run]
 #
 # Environment (all optional, none required, none fabricated from):
 #   RUN_HOST RUN_REPO RUN_RETRY_SLEEP   — see tools/runs/_common.sh
 #   HF_TOKEN                            — passed through to the fetch if set
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, the file lands in
+# $RUN_OUT_DIR, and IMG is resolved to a digest ONCE (image_digest, gate 3)
+# before the driver sees it — the driver refuses a tag.
+# RUN_ARTIFACTS: srv1-vllm-arms.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "8-vllm-arms.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 _here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh disable=SC1091
-. "$_here/_common.sh"
+. "$_here/../../_common.sh"
+door_required
 
 # --------------------------------------------------------------------------
 # what this run is
 # --------------------------------------------------------------------------
 
-RUN_REL="records/evidence/2026-09-02-srv1-kernel-arms"
 ARTIFACT="srv1-vllm-arms.tsv"
-DRIVER="vllm_sweep_31-08-2026.py"
+DRIVER="tools/runs/drivers/vllm_sweep.py"
+# The prompts the driver draws come from this module, not from the driver:
+# the WORKLOAD stamp names it, and the digest is re-derived from it.
+WORKLOAD="tools/runs/workload.py"
 
 IMG="vllm/vllm-openai:v0.26.0"
+# What the driver actually runs: IMG resolved once by image_digest (gate 3).
+IMG_DIGEST=""
 MODEL="Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-Int4"
 CELL_CELL="gptq"
 
@@ -117,9 +130,10 @@ CELL_LEVELS="1,4,8"
 # drops nothing and both arms run the same ladder.
 KV_CACHE_BYTES="1879048192"
 
-# The container the driver names. Its engine log is the only place the kernel
-# that actually ran is written down.
-CONTAINER="vsweep"
+# The container the driver names — `<RUN_ID>-vsweep`, so gate 7 of the door
+# finds it. Its engine log is the only place the kernel that actually ran is
+# written down.
+CONTAINER="$RUN_ID-vsweep"
 
 DRY_RUN=0
 
@@ -220,7 +234,7 @@ PY
 
 usage() {
     cat <<'EOF'
-usage: tools/runs/srv1-vllm-arms.sh [--dry-run]
+usage: tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh [--dry-run]
 
   --dry-run   print every command line this run would execute, in order, and
               exit. Writes no artifact, fetches nothing, launches nothing.
@@ -263,7 +277,7 @@ verify_cmdline() {
     # The literal is the point: --dry-run names the variable, and the plan
     # prints its whole body separately.
     # shellcheck disable=SC2016
-    printf 'uv run --quiet python -c "$VERIFY_PY" %s' "${1:-<snapshot-dir>}"
+    printf 'uv run --no-sync --quiet python -c "$VERIFY_PY" %s' "${1:-<snapshot-dir>}"
 }
 
 # The driver's argv for one arm, in DRIVER_ARGV. `extra` is appended VERBATIM to
@@ -277,7 +291,7 @@ driver_argv() {
     cell="$CELL_UTIL:$CELL_LEN:$CELL_SEQS:$CELL_KV:$CELL_LEVELS"
     cell="$cell:--linear-backend+$backend+--dtype+float16"
     cell="$cell+--kv-cache-memory-bytes+$KV_CACHE_BYTES"
-    DRIVER_ARGV=(uv run --quiet python "$DRIVER" "$label" "$MODEL" "$cell")
+    DRIVER_ARGV=(uv run --no-sync --quiet python "$DRIVER" "$label" "$MODEL" "$cell")
 }
 
 driver_cmdline() {
@@ -313,12 +327,12 @@ kernel_cmdline() {
 plan() {
     local arm
     cat <<EOF
-# srv1-vllm-arms.sh --dry-run
+# 8-vllm-arms.sh --dry-run
 # Nothing below is executed. No artifact is written, nothing is fetched, no
 # container is started.
 #
-# artifact : $RUN_REL/$ARTIFACT
-# workload : $DRIVER (digest re-computed by tests/sweeprows.py:workload_digest)
+# artifact : $RUN_OUT_DIR/$ARTIFACT
+# workload : $WORKLOAD (digest re-computed by tools/runs/rows.py:workload_digest)
 # pair     : B1 --linear-backend marlin  vs  B2 --linear-backend exllama
 # held     : model weights_sha256 img util len seqs kv (+ the pinned KV pool)
 
@@ -340,6 +354,9 @@ EOF
     echo '##    where "$VERIFY_PY" is, verbatim:'
     printf '%s\n' "$VERIFY_PY" | sed 's/^/#     /'
     echo
+    echo "## 2. THE IMAGE — one tag, resolved to a digest ONCE (gate 3); VLLM_IMG carries the digest."
+    show "VLLM_IMG=\$(image_digest $IMG)"
+    echo
     for arm in B1 B2; do
         printf '## 2.%s  arm %s, --linear-backend %s. Three attempts before a refusal is believed (guideline 8).\n' \
             "$arm" "$arm" "$(arm_backend "$arm")"
@@ -350,8 +367,8 @@ EOF
         echo
     done
     cat <<EOF
-## 3. emit, in this order, into $RUN_REL/$ARTIFACT
-##      ### WORKLOAD digest=<computed> driver=$DRIVER
+## 3. emit, in this order, into $RUN_OUT_DIR/$ARTIFACT
+##      ### WORKLOAD digest=<computed> driver=$WORKLOAD
 ##      ### START ... pl1_source=constraint_0_power_limit_uw
 ##      ### RIG ...                       (re-stamped before each arm)
 ##      <arm rows: CONFIG or REFUSED, then the driver's level rows>
@@ -483,10 +500,14 @@ emit() {
     LAST_LINE=$((LAST_LINE))
 }
 
-# A free-text marker (§1.6: legal beside stamps as long as its first token is
-# not itself key=value, which would make _stamp_name raise).
+# The verdict rule, as a stamp. It used to be a free-text `### verdict-rule:`
+# line (§1.6 allowed one as long as its first token was not key=value), but a
+# file the door produced is held to the stamp rules eagerly when it is read
+# back (rows.read, gate 8): every token after the name must be key=value, so
+# the sentence rides as one whitespace-free token instead. Same one line, same
+# line count, and the VERDICT's cited_line still points where it did.
 note() {
-    printf '### %s\n' "$*" >>"$OUT"
+    stamp NOTE "verdict_rule=$(_tok "$*")" >>"$OUT"
     LAST_LINE=$(wc -l <"$OUT")
     LAST_LINE=$((LAST_LINE))
 }
@@ -622,7 +643,7 @@ fetch_and_verify() {
     fi
     say "verifying $SNAPSHOT — quantization_config, and every weight byte"
     rc=0
-    out=$(uv run --quiet python -c "$VERIFY_PY" "$SNAPSHOT" 2>"$WORK/verify.stderr") || rc=$?
+    out=$(uv run --no-sync --quiet python -c "$VERIFY_PY" "$SNAPSHOT" 2>"$WORK/verify.stderr") || rc=$?
     # Printed before the verdict, so a refusal can still say what it was offered.
     CHECKPOINT_QUANT=$(printf '%s\n' "$out" | sed -n 's/^checkpoint_quant=//p' | head -n 1)
     WEIGHTS_SHA256=$(printf '%s\n' "$out" | sed -n 's/^weights_sha256=//p' | head -n 1)
@@ -644,20 +665,25 @@ main() {
     local b1_pool="" b2_pool="" status cited line why
 
     root=$(_repo_root) || return 1
-    OUT="$root/$RUN_REL/$ARTIFACT"
-    [ -d "$root/$RUN_REL" ] || { _fail "$RUN_REL is not a directory under $root"; return 1; }
+    # The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+    OUT="$RUN_OUT_DIR/$ARTIFACT"
+    [ -d "$(dirname "$OUT")" ] || { _fail "$(dirname "$OUT") is not a directory"; return 1; }
 
     WORK=$(mktemp -d "${TMPDIR:-/tmp}/srv1-vllm-arms.XXXXXX")
     trap cleanup EXIT
 
-    # The driver reads VLLM_IMG; pin it here rather than inheriting whatever the
-    # shell carries, and assert the CONFIG row agrees.
-    export VLLM_IMG="$IMG"
+    # Gate 3: the tag becomes a digest, once, before anything is written. The
+    # driver reads VLLM_IMG and refuses a tag; it is handed the digest here
+    # rather than inheriting whatever the shell carries, and the CONFIG row it
+    # prints is asserted to agree.
+    IMG_DIGEST=$(image_digest "$IMG") || { _fail "$IMG resolves to no digest on this host (docker image inspect failed); both arms hold this image fixed, and it is not here"; return 1; }
+    export VLLM_IMG="$IMG_DIGEST"
 
     say "writing $OUT"
     : >"$OUT"
-    emit workload_stamp "$DRIVER"
+    emit workload_stamp "$WORKLOAD"
     emit start_stamp
+    emit round_stamp
     emit rig_stamp
 
     # ---- the checkpoint, before either launch -----------------------------
@@ -714,8 +740,8 @@ main() {
                 [ -n "$tok" ] || continue
                 case $tok in
                     img=*)
-                        if [ "$tok" != "img=$IMG" ]; then
-                            _fail "$arm: the driver reports $tok while this run pinned img=$IMG. Two images are two experiments"
+                        if [ "$tok" != "img=$IMG_DIGEST" ]; then
+                            _fail "$arm: the driver reports $tok while this run handed it VLLM_IMG=$IMG_DIGEST (the digest of $IMG). Two images are two experiments"
                             return 1
                         fi
                         continue
@@ -726,7 +752,7 @@ main() {
                 fi
             done
             emit row "$label" CONFIG \
-                "arm=$arm" "img=$IMG" \
+                "arm=$arm" "img=$IMG" "img_digest=$IMG_DIGEST" \
                 "model=$MODEL" "weights_sha256=$WEIGHTS_SHA256" \
                 "util=$CELL_UTIL" "len=$CELL_LEN" "seqs=$CELL_SEQS" "kv=$CELL_KV" \
                 "kernel_observed=$kernel" \

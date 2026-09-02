@@ -4,6 +4,38 @@
   "source": "archive/docs/archive/sessions/lane/286/2026-08-22-120000-claude.md:22-35 — the table of what each rig was and what both now are, and the owner's rule beneath it.",
   "hosts": ["srv1", "srv2"],
 
+  "_rig_doc": "Per-host `rig` blocks: what the machine IS, read live on `read_on` and compared field by field with `rig_snapshot` by gate 2 of tools/runs/run.sh (`rig_assert_declared` in tools/runs/_common.sh) before any step starts. Until 2026-09-02 a rig was only compared with itself — START against END — which is how RAM swapped between rigs twice in six days, PL1 read 95 W at 05:23 and 4095 W at 05:57 after a hard lock wiped srv1's BIOS profile, and srv1's max clock went 4800 -> 4600, all without a record. Values are the strings a `k=v` snapshot line carries, compared literally. `uptime_since` is deliberately not here: it changes per boot and is compared start==end only.",
+  "srv1": {
+    "rig": {
+      "cpu_max_mhz": "4600",
+      "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
+      "ram_mt_s": "3600",
+      "pl1_uw": "95000000",
+      "pl2_uw": "120000000",
+      "gpu_name": "NVIDIA_GeForce_GTX_1660_SUPER",
+      "gpu_vram_mib": "6144",
+      "gpu_cc": "7.5",
+      "driver": "580.173.02",
+      "gpu_reserve_mib": "401"
+    },
+    "read_on": "2026-09-02"
+  },
+  "srv2": {
+    "rig": {
+      "cpu_max_mhz": "5200",
+      "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+      "ram_mt_s": "2933",
+      "pl1_uw": "65000000",
+      "pl2_uw": "0",
+      "gpu_name": "NVIDIA_GeForce_RTX_3060",
+      "gpu_vram_mib": "12288",
+      "gpu_cc": "8.6",
+      "driver": "595.84",
+      "gpu_reserve_mib": "377"
+    },
+    "read_on": "2026-09-02"
+  },
+
   "residency": {
     "_doc": "The three ollama settings that decide whether a model stays on the card and whether a second may join it — which is exactly what the co-residency cells measure. The owner's rule is `no limits: the hardware is the limit; if it breaks, we fix mcgyvr`, so two of the three are `0` (no cap) and the third disables the clock. Declaring `no cap` is NOT the same as leaving the engine to choose: srv2's old values were whatever 0.32.5 picked, recorded nowhere, under a different engine version from srv1's. Value strings are compared literally against the unit's `Environment=` line, which is how a survey reports them.",
     "OLLAMA_NUM_PARALLEL": {

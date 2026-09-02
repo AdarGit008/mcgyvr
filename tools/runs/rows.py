@@ -1,8 +1,8 @@
 """The sweep drivers' TSV, read the way a person reads it — and not the way the
 journals are read.
 
-``records/evidence/**/*.tsv`` is what ``lcp_sweep_31-08-2026.py`` and
-``vllm_sweep_31-08-2026.py`` print: ``### `` marker lines, then rows of
+``records/evidence/**/*.tsv`` is what ``tools/runs/drivers/lcp_sweep.py`` and
+``tools/runs/drivers/vllm_sweep.py`` print: ``### `` marker lines, then rows of
 ``host \\t label \\t kind \\t k=v...``. It is **not** a journal, and the one habit
 that must not travel here is last-write-wins per label. ``run.py:93``'s journals
 are append-only and keyed by label; these files repeat a label under every arm.
@@ -14,6 +14,13 @@ without saying so, which is an A/B silently becoming one arm.
 
 So a :class:`Row` remembers its line number and the marker it sits under, and
 nothing in this module deduplicates.
+
+This module lives beside the door and not under ``tests/``. As
+``tests/sweeprows.py`` it ran only in CI, post-hoc, over one hard-coded
+directory; ``tools/runs/run.sh`` now reads every artifact a step wrote back
+through :func:`read` before it exits 0 (gate 8), so the parser the door trusts
+and the parser the tests trust are one module object. ``tests/sweeprows.py``
+remains as a re-export so the twelve behaviour tests keep their import.
 """
 
 from __future__ import annotations
@@ -23,11 +30,11 @@ import itertools
 import random
 import re
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 EVIDENCE = REPO / "records" / "evidence"
 
 _KV = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
@@ -44,7 +51,8 @@ def _pairs(tokens: list[str]) -> dict[str, str]:
 
 #: The arm prefixes this campaign puts in front of a cell tag: the ``L``-ladder
 #: rungs ``L0``-``L4``, the ``A`` bounds ``A1``/``A3``, and the ``B`` vLLM pair
-#: (``lcp-vllm-3-arm-run.md:37-54``). All of them strip, so ``<ARM>-<cell>`` is
+#: (``tools/runs/campaigns/srv1-kernel-arms/PLAN.md:37-54``). All of them strip,
+#: so ``<ARM>-<cell>`` is
 #: one labelling convention for every file rather than two that contradict.
 ARM_PREFIX = re.compile(r"[ABL][0-9]")
 
@@ -188,6 +196,10 @@ class Sweep:
     path: Path
     rows: tuple[Row, ...]
     markers: tuple[tuple[int, str], ...]
+    #: The product round the file was measured under — ``### ROUND id=
+    #: product_sha256=`` — for a file the door produced. Empty for the legacy
+    #: shape, which predates the stamp and cannot name a round it never checked.
+    round: dict[str, str] = field(default_factory=dict)
 
     def levels(self) -> list[Row]:
         return [r for r in self.rows if r.n is not None]
@@ -222,6 +234,55 @@ class Sweep:
         return found
 
 
+def _door_produced(markers: list[tuple[int, str]]) -> bool:
+    """Whether a ``### START`` names a ``run_id=`` — the door's signature.
+
+    Read off the raw tokens, not through :func:`_stamp_fields`, so a START
+    that is itself malformed is caught by the eager pass below with the
+    parser's own words rather than silently read as legacy.
+    """
+    for _, line in markers:
+        tokens = line.removeprefix("###").split()
+        if tokens[:1] == ["START"] and any(t.startswith("run_id=") for t in tokens):
+            return True
+    return False
+
+
+def _round_of(path: Path, markers: list[tuple[int, str]]) -> dict[str, str]:
+    """Every stamp validated, and the ``### ROUND`` a door-produced file owes.
+
+    Gate 8 of ``tools/runs/run.sh`` reads the artifact back through
+    :func:`read` before it exits 0, so this is where a run turns red on the
+    rig rather than a commit later in CI. Two rules a legacy file is not held
+    to, because it was written before either existed:
+
+    * every ``###`` line is a stamp — named, and every token after the name
+      ``key=value`` — so ``srv1-locktest-ling-60min.tsv:1``'s
+      ``uptime_since=2026-09-01 08:11:08`` is a parse error, not a truncation.
+      :meth:`Sweep.stamp` raises on these too, but only when asked; a file
+      nobody asked about passed.
+    * a ``### ROUND id=<round> product_sha256=<hex>`` follows, carrying what
+      gate 1 checked. A run id with no round is a broken emitter: the door
+      exported ``RUN_ROUND``/``RUN_PRODUCT_SHA256`` and the step dropped them.
+    """
+    found: dict[str, str] = {}
+    for lineno, line in markers:
+        name = _stamp_name(lineno, line)
+        fields = _stamp_fields(lineno, line)
+        if name == "ROUND":
+            found = fields
+    if not (found.get("id") and found.get("product_sha256")):
+        raise ValueError(
+            f"{path}: a ### START names run_id= but no `### ROUND id=<round> "
+            "product_sha256=<hex>` follows it. A file the door produced stamps "
+            "the product round it was measured under (gate 1 exports RUN_ROUND "
+            "and RUN_PRODUCT_SHA256; _common.sh's round_stamp writes them); one "
+            "that claims a run id and no round was written by a broken emitter, "
+            "not by an older one."
+        )
+    return found
+
+
 def read(path: Path) -> Sweep:
     rows: list[Row] = []
     markers: list[tuple[int, str]] = []
@@ -248,7 +309,8 @@ def read(path: Path) -> Sweep:
                 marker,
             )
         )
-    return Sweep(path, tuple(rows), tuple(markers))
+    round_ = _round_of(path, markers) if _door_produced(markers) else {}
+    return Sweep(path, tuple(rows), tuple(markers), round_)
 
 
 #: What a row must name about the machine that produced it. Every one of these
@@ -278,8 +340,18 @@ WORKLOAD_DIGEST = "2f2bb7932a0b660653def819"
 
 
 def workload_digest(driver: Path) -> str:
+    """The digest of 200 prompts the workload block in ``driver`` generates.
+
+    The block runs from ``PROMPT_DECILES`` to ``def sh(`` where the file is a
+    driver that still carries a shell helper after its workload, and to the end
+    of the file otherwise — ``tools/runs/workload.py`` is nothing but the block.
+    Same slice either way, so the module and the drivers it replaced digest to
+    the same ``WORKLOAD_DIGEST``.
+    """
     source = driver.read_text(encoding="utf-8")
-    block = source[source.index("PROMPT_DECILES") : source.index("def sh(")]
+    start = source.index("PROMPT_DECILES")
+    stop = source.find("def sh(", start)
+    block = source[start:] if stop < 0 else source[start:stop]
     namespace: dict[str, Any] = {
         "itertools": itertools,
         "threading": threading,
@@ -289,6 +361,63 @@ def workload_digest(driver: Path) -> str:
     make = namespace["mkprompt"]
     blob = "".join(f"{w}\x00{t}\x1e" for t, w in (make() for _ in range(200)))
     return hashlib.sha256(blob.encode()).hexdigest()[:24]
+
+
+#: The one module every driver draws its prompts from (gate 4), and where the
+#: drivers live.
+WORKLOAD_PY = REPO / "tools" / "runs" / "workload.py"
+DRIVERS_DIR = REPO / "tools" / "runs" / "drivers"
+
+#: Where each driver a recorded artifact names has gone, keyed by the
+#: repo-relative name its ``### WORKLOAD driver=`` stamp carries.
+#:
+#: A stamp is a record. ``srv1-lcpp-arms.tsv:1`` says
+#: ``driver=lcp_sweep_31-08-2026.py`` because that is the file that generated
+#: its prompts on 2026-09-02; the file has since moved to
+#: ``tools/runs/drivers/lcp_sweep.py`` and had its workload block lifted out
+#: into ``tools/runs/workload.py``. A move is not a re-measurement, so the
+#: stamp is not rewritten to follow it: evidence is append-only, and a reader
+#: who found ``driver=tools/runs/drivers/lcp_sweep.py`` in a file written
+#: before that path existed would rightly ask what else in it was edited.
+#: This map is how a legacy stamp stays resolvable — the name it carries
+#: leads to the driver that name became, and :func:`driver_source` leads on
+#: to the file whose workload block is hashed today. An entry is added when a
+#: driver a committed artifact names moves, and never removed.
+RECORDED_MOVES: dict[str, str] = {
+    "lcp_sweep_31-08-2026.py": "tools/runs/drivers/lcp_sweep.py",
+    "vllm_sweep_31-08-2026.py": "tools/runs/drivers/vllm_sweep.py",
+    "vllm_cores_01-09-2026.py": "tools/runs/drivers/vllm_cores.py",
+}
+
+_IMPORTS_WORKLOAD = re.compile(
+    r"^(from tools\.runs import workload\b|from tools\.runs\.workload import\b)",
+    re.MULTILINE,
+)
+
+
+def driver_source(name: str) -> Path:
+    """The file whose workload block is hashed today for the driver ``name``.
+
+    ``name`` is what a ``### WORKLOAD driver=`` stamp carries: a legacy root
+    name (resolved through :data:`RECORDED_MOVES`), a current path under
+    ``tools/runs/drivers/``, or the workload module itself. A driver that
+    imports ``tools.runs.workload`` generates nothing of its own, so the block
+    to hash is the module's; one that still carries its own block is hashed as
+    itself. Anything else raises ``KeyError`` naming the stamp: a digest
+    nothing can be recomputed from is a string.
+    """
+    path = REPO / RECORDED_MOVES.get(name, name)
+    if path == WORKLOAD_PY:
+        return WORKLOAD_PY
+    if path.parent != DRIVERS_DIR or not path.is_file():
+        raise KeyError(
+            f"driver={name!r} names no driver in the tree: not the workload "
+            "module, not a file under tools/runs/drivers/, and not a name "
+            f"RECORDED_MOVES knows ({sorted(RECORDED_MOVES)})"
+        )
+    if _IMPORTS_WORKLOAD.search(path.read_text(encoding="utf-8")):
+        return WORKLOAD_PY
+    return path
 
 
 #: The run these tests specify. Absent until it is performed.
@@ -302,16 +431,18 @@ RUN = EVIDENCE / "2026-09-02-srv1-kernel-arms"
 #: ``srv1-moe-slots.sh`` by a fourth, and ``srv1-vllm-arms.tsv`` likewise. The
 #: string is never compared, so nothing broke — which is exactly why it drifted.
 #: The campaign's step list runs these as separate sessions, in the order that
-#: loses least if srv1 locks (``lcp-vllm-3-arm-run.md:111-128``), so the file
-#: names the one step that produces it.
+#: loses least if srv1 locks (``tools/runs/campaigns/srv1-kernel-arms/PLAN.md:
+#: 111-128``), so the file names the one step that produces it — started through
+#: the door, because a step run bare refuses without ``RUN_ID``.
+_DOOR = "run tools/runs/run.sh srv1-kernel-arms"
 BEHAVIOUR = {
-    "srv1-lcpp-arms.tsv": "run tools/runs/srv1-kernel-arms.sh",
-    "srv1-moe-slots.tsv": "run tools/runs/srv1-moe-slots.sh",
-    "srv1-vllm-arms.tsv": "run tools/runs/srv1-vllm-arms.sh",
-    "srv1-llama-bench.tsv": "run tools/runs/srv1-llama-bench.sh",
-    "srv1-build-ladder.tsv": "run tools/runs/srv1-build-ladder.sh",
-    "srv1-aa-null.tsv": "run tools/runs/srv1-aa-null.sh",
-    "srv1-ncmoe-floor.tsv": "run tools/runs/srv1-ncmoe-floor.sh",
+    "srv1-lcpp-arms.tsv": f"{_DOOR} kernel-arms --host srv1",
+    "srv1-moe-slots.tsv": f"{_DOOR} moe-slots --host srv1",
+    "srv1-vllm-arms.tsv": f"{_DOOR} vllm-arms --host srv1",
+    "srv1-llama-bench.tsv": f"{_DOOR} llama-bench --host srv1",
+    "srv1-build-ladder.tsv": f"{_DOOR} build-ladder --host srv1",
+    "srv1-aa-null.tsv": f"{_DOOR} aa-null --host srv1",
+    "srv1-ncmoe-floor.tsv": f"{_DOOR} ncmoe-floor --host srv1",
 }
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-ncmoe-floor.sh — campaign step 9, behaviour 9.
+# tools/runs/campaigns/srv1-kernel-arms/9-ncmoe-floor.sh — campaign step 9, behaviour 9.
 #
 # Emits records/evidence/2026-09-02-srv1-kernel-arms/srv1-ncmoe-floor.tsv, read
 # by tests/test_an_ncmoe_floor_is_derived_and_not_copied.py through
-# tests/sweeprows.py. The shapes below are ARTIFACT-CONTRACT.md sections 2.8
+# tools/runs/rows.py. The shapes below are ARTIFACT-CONTRACT.md sections 2.8
 # and 5.7.
 #
 # WHAT THIS MEASURES. --n-cpu-moe is the number of layers whose expert tensors
@@ -28,7 +28,7 @@
 # a 1-in-3 coin flip, and two REFUSED rows on 2026-09-01 turned out to be a
 # dangling HF-blob symlink read as a capability limit.
 #
-# SCOPE -- this is step 9, not the kernel grid. lcp-vllm-3-arm-run.md's "Not
+# SCOPE -- this is step 9, not the kernel grid. PLAN.md's "Not
 # worth rig time" list rules out ncmoe cells for the *kernel* question, because
 # the bottleneck moves to host RAM and srv1 hard-locks under that load. So:
 #   * no serving sweep, no width ladder, no replicates. Every cell here is one
@@ -50,7 +50,7 @@
 # exits 3.
 #
 # Usage:
-#   tools/runs/srv1-ncmoe-floor.sh --model /path/to/moe.gguf [options]
+#   tools/runs/campaigns/srv1-kernel-arms/9-ncmoe-floor.sh --model /path/to/moe.gguf [options]
 #
 #   --model PATH        GGUF to derive the floor for. Required, no default.
 #   --arm ARM=IMG       repeatable; default L3=llamacpp:b10644-L3 and
@@ -61,17 +61,26 @@
 #   --np N              --parallel (default 1: this loads, it does not serve).
 #   --ctx-slot N        per-slot context (default 4096).
 #   --port N            host port for the container (default 8094).
-#   --out-dir DIR       artifact directory (default: the run's evidence dir).
 #   --dry-run           print every cell's exact command line, run nothing.
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, the file lands in
+# $RUN_OUT_DIR, and every --arm's IMG is resolved to a digest ONCE
+# (image_digest, gate 3) before a container is started from it.
+# RUN_ARTIFACTS: srv1-ncmoe-floor.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "9-ncmoe-floor.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "$0")" && pwd)
-ROOT=$(cd -- "$HERE/../.." && pwd)
+ROOT=$(cd -- "$HERE/../../../.." && pwd)
 # shellcheck source=tools/runs/_common.sh disable=SC1091
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
-OUT_DIR="$ROOT/records/evidence/2026-09-02-srv1-kernel-arms"
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+OUT_DIR=$RUN_OUT_DIR
 OUT_NAME=srv1-ncmoe-floor.tsv
 MODEL=
 CELL=
@@ -81,7 +90,8 @@ NP=1
 CTX_SLOT=4096
 PORT=8094
 DRY_RUN=0
-CONTAINER=lcp-ncmoe-floor
+# Named for the run, so gate 7 of the door finds it if this script does not.
+CONTAINER="$RUN_ID-ncmoe-floor"
 HEALTH_TRIES=90
 OFFLOAD_ALL=99
 ARMS=()
@@ -105,9 +115,8 @@ while [ "$#" -gt 0 ]; do
         --np) NP=${2:?--np needs an integer}; shift 2 ;;
         --ctx-slot) CTX_SLOT=${2:?--ctx-slot needs an integer}; shift 2 ;;
         --port) PORT=${2:?--port needs an integer}; shift 2 ;;
-        --out-dir) OUT_DIR=${2:?--out-dir needs a path}; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
-        -h | --help) sed -n '52,65p' "$0"; exit 0 ;;
+        -h | --help) sed -n '52,64p' "$0"; exit 0 ;;
         *) die "unknown argument '$1'" ;;
     esac
 done
@@ -247,7 +256,7 @@ gpu_process_mib() {
 # --------------------------------------------------------------------------
 
 if [ "$DRY_RUN" -eq 1 ]; then
-    printf '# srv1-ncmoe-floor.sh --dry-run\n'
+    printf '# 9-ncmoe-floor.sh --dry-run\n'
     printf '# artifact, appended one line at a time: %s\n' "$OUT"
     printf '# model %s / cell %s / np=%s ctx_slot=%s c=%s / max-steps %s\n' \
         "$MODEL" "$CELL" "$NP" "$CTX_SLOT" "$CTX_TOTAL" "$MAX_STEPS"
@@ -255,6 +264,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         arm=${spec%%=*}
         img=${spec#*=}
         printf '\n## arm %s (%s)\n' "$arm" "$img"
+        printf '# gate 3: image_digest %s resolves the tag once; every launch below runs the digest\n' "$img"
         printf '# probe: maximum offload, the arm smallest VRAM footprint, and the\n'
         printf '#   one launch that yields all six derivation inputs.\n'
         launch_cmd "$img" "$OFFLOAD_ALL"
@@ -292,6 +302,7 @@ trap teardown EXIT
 
 say "artifact: $OUT"
 emit start_stamp
+emit round_stamp
 emit rig_stamp
 
 SNAP=$(rig_snapshot)
@@ -305,13 +316,17 @@ USABLE=$((GPU_TOTAL - GPU_RESERVE))
 # Probes first, for every arm, before any descent: a lock during a descent then
 # still leaves each arm's whole derivation on disk.
 ARM_LIST=()
-declare -A A_IMG A_NONEXPERT A_EXPERT A_KV A_CTX A_LAYERS A_QUANT A_PRED
+declare -A A_IMG A_DIGEST A_NONEXPERT A_EXPERT A_KV A_CTX A_LAYERS A_QUANT A_PRED
 for spec in "${ARMS[@]}"; do
     arm=${spec%%=*}
     img=${spec#*=}
     [ "$arm" != "$spec" ] || die "--arm '$spec' is not ARM=IMG"
+    # Gate 3: the tag becomes a digest, once per arm, and every launch of this
+    # arm — probe and descent — runs the digest. An image the daemon does not
+    # hold stops the run before anything is derived from it.
+    digest=$(image_digest "$img") || die "arm $arm: $img resolves to no digest on this host (docker image inspect failed), so nothing is launched from it and no floor is derived for it"
     say "probe: arm $arm at maximum offload"
-    if ! launch_once "$img" "$OFFLOAD_ALL"; then
+    if ! launch_once "$digest" "$OFFLOAD_ALL"; then
         die "arm $arm refused the probe launch (--n-cpu-moe $OFFLOAD_ALL), the smallest VRAM footprint this arm has. Nothing below it can be derived. Last log line: $(log_last_line)"
     fi
     layers=$(sed -n 's/.*n_layer[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$LAUNCH_LOG" | head -n 1)
@@ -337,6 +352,7 @@ for spec in "${ARMS[@]}"; do
         'BEGIN { printf "%.1f", (1 - ((u - c - m - k) / e)) * n }')
     ARM_LIST+=("$arm")
     A_IMG[$arm]=$img
+    A_DIGEST[$arm]=$digest
     A_NONEXPERT[$arm]=$nonexpert
     A_EXPERT[$arm]=$expert
     A_KV[$arm]=$kv
@@ -344,7 +360,7 @@ for spec in "${ARMS[@]}"; do
     A_LAYERS[$arm]=$layers
     A_QUANT[$arm]=$quant
     A_PRED[$arm]=$pred
-    emit row "$(label_for "$arm" "$OFFLOAD_ALL")" CONFIG "arm=$arm" "img=$img" \
+    emit row "$(label_for "$arm" "$OFFLOAD_ALL")" CONFIG "arm=$arm" "img=$img" "img_digest=$digest" \
         "vram=$used" "n_layers=$layers" "nonexpert_mib=$nonexpert" \
         "expert_total_mib=$expert" "kv_mib=$kv" "cuda_ctx_mib=$ctx" \
         "usable_mib=$USABLE" "checkpoint_quant=$quant"
@@ -359,6 +375,7 @@ done
 # it a floor is the refusal one step below it.
 for arm in "${ARM_LIST[@]}"; do
     img=${A_IMG[$arm]}
+    digest=${A_DIGEST[$arm]}
     pred=${A_PRED[$arm]}
     layers=${A_LAYERS[$arm]}
     if [ -n "$START_NCMOE" ]; then
@@ -373,10 +390,10 @@ for arm in "${ARM_LIST[@]}"; do
     step=0
     while [ "$step" -le "$MAX_STEPS" ]; do
         step=$((step + 1))
-        if retry3 launch_once "$img" "$k"; then
+        if retry3 launch_once "$digest" "$k"; then
             used=$(gpu_process_mib)
             teardown
-            emit row "$(label_for "$arm" "$k")" CONFIG "arm=$arm" "img=$img" \
+            emit row "$(label_for "$arm" "$k")" CONFIG "arm=$arm" "img=$img" "img_digest=$digest" \
                 "vram=${used:-0}" "tries=$RUN_TRIES"
             measured=$k
             if [ "$climbing" -eq 1 ]; then

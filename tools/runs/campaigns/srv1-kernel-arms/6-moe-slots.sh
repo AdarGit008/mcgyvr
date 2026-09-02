@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-moe-slots.sh — campaign step 6, behaviour 10.
+# tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh — campaign step 6, behaviour 10.
 #
 # Emits, into records/evidence/2026-09-02-srv1-kernel-arms/:
 #   srv1-moe-slots.tsv    (APPENDED to; see "one file, two steps" below)
@@ -37,14 +37,14 @@
 # ONE FILE, TWO STEPS -- AND THIS SCRIPT OWNS IT. srv1-moe-slots.tsv is also the
 # crash study's file (step 7, behaviour 8: the L2 boundary sweep and L3's 60
 # trials). That work is the KERNEL question and is not this script's:
-# lcp-vllm-3-arm-run.md's "Not worth rig time" list puts ncmoe cells for the
+# PLAN.md's "Not worth rig time" list puts ncmoe cells for the
 # kernel question out of scope, and this script's grid is exactly two placement
 # cells of one model at one width.
 #
-# ARTIFACT-CONTRACT.md section 4 names `run tools/runs/srv1-moe-slots.sh` as the
+# ARTIFACT-CONTRACT.md section 4 names `run tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh` as the
 # one behaviour that produces this file, so THIS SCRIPT IS THE OWNER-CREATOR: it
 # creates the file, truncating any previous copy, and it must run FIRST.
-# tools/runs/srv1-kernel-arms.sh --step crash is the APPENDER: it refuses to run
+# tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh --step crash is the APPENDER: it refuses to run
 # until the step-6 block is on disk. The order is step 6 then step 7, it is
 # enforced at both ends, and out of order both ends fail loudly rather than
 # leaving half a file. See RUN-ORDER.md.
@@ -53,7 +53,7 @@
 # so a hard lock keeps what was measured. The ### INSTRUMENT marker names which
 # tool produced the rows that follow it. The ### WORKLOAD stamp the file owes
 # (section 2.1) is emitted here because the file owes it; the digest is computed
-# by tests/sweeprows.py itself, never asserted.
+# by tools/runs/rows.py itself, never asserted.
 #
 # NOTE the rows below are CONFIG / MEASURED / SELFNULL / PLACEMENT. None of them
 # is a level row and none is a CRASH row, so this script adds nothing to the
@@ -61,7 +61,7 @@
 # cannot make that test's "two MoE checkpoints" read as satisfied by one.
 #
 # Usage:
-#   tools/runs/srv1-moe-slots.sh --model /path/to/ling.gguf [options]
+#   tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh --model /path/to/ling.gguf [options]
 #
 #   --model PATH        the MoE checkpoint. Required, no default. Ling-3.0-tiny
 #                       is the subject: it fits the 6 GB card at ncmoe=0 and
@@ -80,24 +80,33 @@
 #   --ctx-slot N        per-slot context (default 4096).
 #   --port N            host port for the container (default 8094).
 #   --run-prefix NAME   run-directory prefix under records/measurements.
-#   --out-dir DIR       artifact directory (default: the run's evidence dir).
-#   --force             overwrite an existing srv1-moe-slots.tsv. Without it an
-#                       existing file is an error: this script creates that
-#                       artifact, and a second step-6 pass appended under a
-#                       first one would file two placement nulls as one.
 #   --dry-run           print every cell's exact command line, run nothing.
+#
+# An existing srv1-moe-slots.tsv is an error, and the door's gate 5 refuses it
+# before this script starts: this script creates that artifact, and a second
+# step-6 pass appended under a first one would file two placement nulls as one.
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, both files land in
+# $RUN_OUT_DIR, and --img is resolved to a digest ONCE (image_digest, gate 3)
+# before a container is started from it.
+# RUN_ARTIFACTS: srv1-moe-slots.tsv placement-null.json
+
+[ -n "${RUN_ID:-}" ] || { echo "6-moe-slots.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "$0")" && pwd)
-ROOT=$(cd -- "$HERE/../.." && pwd)
+ROOT=$(cd -- "$HERE/../../../.." && pwd)
 # shellcheck source=tools/runs/_common.sh disable=SC1091
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
-OUT_DIR="$ROOT/records/evidence/2026-09-02-srv1-kernel-arms"
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+OUT_DIR=$RUN_OUT_DIR
 OUT_NAME=srv1-moe-slots.tsv
 JSON_NAME=placement-null.json
-DRIVER=lcp_sweep_31-08-2026.py
+WORKLOAD=tools/runs/workload.py
 MODEL=
 ARM=L3
 IMG=llamacpp:b10644-L3
@@ -111,8 +120,9 @@ CTX_SLOT=4096
 PORT=8094
 RUN_PREFIX=
 DRY_RUN=0
-FORCE=0
-CONTAINER=lcp-moe-slots
+# Named for the run, so gate 7 of the door finds it if this script does not.
+CONTAINER="$RUN_ID-moe-slots"
+IMG_DIGEST=
 HEALTH_TRIES=90
 NCMOE_A=0
 NCMOE_B=99
@@ -140,10 +150,8 @@ while [ "$#" -gt 0 ]; do
         --ctx-slot) CTX_SLOT=${2:?--ctx-slot needs an integer}; shift 2 ;;
         --port) PORT=${2:?--port needs an integer}; shift 2 ;;
         --run-prefix) RUN_PREFIX=${2:?--run-prefix needs a name}; shift 2 ;;
-        --out-dir) OUT_DIR=${2:?--out-dir needs a path}; shift 2 ;;
-        --force) FORCE=1; shift ;;
         --dry-run) DRY_RUN=1; shift ;;
-        -h | --help) sed -n '63,88p' "$0"; exit 0 ;;
+        -h | --help) sed -n '63,83p' "$0"; exit 0 ;;
         *) die "unknown argument '$1'" ;;
     esac
 done
@@ -199,7 +207,7 @@ launch_argv() {
     local ncmoe=$1
     DOCKER_ARGV=(
         docker run -d --name "$CONTAINER" --runtime=nvidia --gpus all
-        -v "$MODEL_DIR:/models" -p "$PORT:$PORT" "$IMG"
+        -v "$MODEL_DIR:/models" -p "$PORT:$PORT" "${IMG_DIGEST:-$IMG}"
         -m "$CONTAINER_MODEL" --alias "$SERVED_NAME" --host 0.0.0.0 --port "$PORT"
         --parallel "$NP" -c "$CTX_TOTAL" -ngl 99 --n-cpu-moe "$ncmoe"
     )
@@ -342,17 +350,18 @@ kv_get() {
 # --------------------------------------------------------------------------
 
 if [ "$DRY_RUN" -eq 1 ]; then
-    printf '# srv1-moe-slots.sh --dry-run\n'
+    printf '# 6-moe-slots.sh --dry-run\n'
     printf '# artifacts: %s (created here, then appended one line at a time)\n#            %s\n' "$OUT" "$JSON"
-    printf '# step 6 OWNS %s: it creates it. Step 7 (tools/runs/srv1-kernel-arms.sh\n' "$OUT_NAME"
-    printf '# --step crash) appends to it and refuses to run before this script has.\n'
-    if [ -e "$OUT" ] && [ "$FORCE" -eq 0 ]; then
-        printf '# NOTE: %s already exists. A real run would STOP here; pass --force to replace it.\n' "$OUT"
+    printf '# step 6 OWNS %s: it creates it. Step 7 (tools/runs/run.sh srv1-kernel-arms crash,\n' "$OUT_NAME"
+    printf '# 7-crash.sh) appends to it and refuses to run before this script has.\n'
+    if [ -e "$OUT" ]; then
+        printf '# NOTE: %s already exists. A real run would STOP here (the door refuses it at gate 5).\n' "$OUT"
     fi
     printf '# arm %s / img %s / cell %s / model %s\n' "$ARM" "$IMG" "$CELL" "$MODEL"
+    printf '# gate 3: image_digest %s resolves the tag once; the container runs the digest\n' "$IMG"
     printf '# two placement cells of one checkpoint at one width. That is the whole grid.\n'
     printf '\n## markers\n'
-    printf '%s\n' "workload_stamp $DRIVER   # digest computed by tests/sweeprows.py itself"
+    printf '%s\n' "workload_stamp $WORKLOAD   # digest computed by tools/runs/rows.py itself"
     printf '%s\n' 'start_stamp; rig_stamp   # from _common.sh, read off this rig'
     printf '\n## cell A -- ncmoe=%s, fully resident. First: cheapest, and it prices the bound.\n' "$NCMOE_A"
     launch_argv "$NCMOE_A"
@@ -383,28 +392,34 @@ fi
 
 mkdir -p "$OUT_DIR" "$ROOT/$MEASUREMENTS"
 
+# Gate 3: the tag becomes a digest, once, before anything is written or
+# started. An image the daemon does not hold stops the run here, with nothing
+# on disk.
+IMG_DIGEST=$(image_digest "$IMG") || die "$IMG resolves to no digest on this host (docker image inspect failed); one image for both cells is the whole design, and it is not here"
+
 # ---- ownership, enforced --------------------------------------------------
-# ARTIFACT-CONTRACT.md section 4: `srv1-moe-slots.tsv` -> `srv1-moe-slots.sh`.
+# ARTIFACT-CONTRACT.md section 4: `srv1-moe-slots.tsv` -> `6-moe-slots.sh`.
 # This script creates that file. Step 7 appends to it and checks that this block
 # is already there, so the order is 6-then-7 at both ends. If the file exists
 # already, either step 7 jumped the queue (its own guard should have stopped it)
 # or a previous step 6 is on disk -- and appending a second placement null under
 # the first would file two runs as one measurement.
-if [ -e "$OUT" ] && [ "$FORCE" -eq 0 ]; then
-    die "$OUT already exists. This script CREATES that artifact (step 6); tools/runs/srv1-kernel-arms.sh --step crash only appends to it (step 7). Either a previous step 6 wrote it, or step 7 ran out of order. Move the file aside, or pass --force to replace it -- but --force discards any step-7 crash rows already in it."
+if [ -e "$OUT" ]; then
+    die "$OUT already exists. This script CREATES that artifact (step 6); step 7 (tools/runs/run.sh srv1-kernel-arms crash, 7-crash.sh) only appends to it. Either a previous step 6 wrote it, or step 7 ran out of order. Move the file aside deliberately -- the door's gate 5 refuses this before the step starts, and nothing here replaces evidence."
 fi
 : >"$OUT"
 
 trap teardown EXIT
 
 say "artifact: $OUT (created by this script; step 7 appends to it)"
-emit workload_stamp "$DRIVER"
+emit workload_stamp "$WORKLOAD"
 # Which instrument produced the rows that follow. The WORKLOAD stamp above is
 # the file's (section 2.1) and names the serving driver; these rows are the
 # placement null's and came from measure.py paired through null.py.
 emit stamp INSTRUMENT step=6 behaviour=10 measure=tools/breadth/measure.py \
     pairing=tools/bench/null.py "tier=$TIER"
 emit start_stamp
+emit round_stamp
 emit rig_stamp
 
 # ---- cell A: ncmoe=0, and the bound ---------------------------------------
@@ -413,7 +428,7 @@ if ! launch_cell "$NCMOE_A"; then
     die "the ncmoe=$NCMOE_A cell would not launch, so there is no pair and no bound. Last log line: $(log_last_line)"
 fi
 VRAM_A=$(gpu_process_mib)
-emit row "$(label_for "$NCMOE_A")" CONFIG "arm=$ARM" "img=$IMG" \
+emit row "$(label_for "$NCMOE_A")" CONFIG "arm=$ARM" "img=$IMG" "img_digest=$IMG_DIGEST" \
     "ncmoe=$NCMOE_A" "vram=${VRAM_A:-0}" "served=$SERVED_NAME" "tier=$TIER"
 measure_pass "$RUN_A1"
 emit row "$(label_for "$NCMOE_A")" MEASURED "arm=$ARM" "img=$IMG" \
@@ -442,7 +457,7 @@ if ! launch_cell "$NCMOE_B"; then
     die "the ncmoe=$NCMOE_B cell would not launch. The bound above stands; there is no placement pair, and no placement-null.json is written, because nothing was compared. Last log line: $(log_last_line)"
 fi
 VRAM_B=$(gpu_process_mib)
-emit row "$(label_for "$NCMOE_B")" CONFIG "arm=$ARM" "img=$IMG" \
+emit row "$(label_for "$NCMOE_B")" CONFIG "arm=$ARM" "img=$IMG" "img_digest=$IMG_DIGEST" \
     "ncmoe=$NCMOE_B" "vram=${VRAM_B:-0}" "served=$SERVED_NAME" "tier=$TIER"
 measure_pass "$RUN_B"
 emit row "$(label_for "$NCMOE_B")" MEASURED "arm=$ARM" "img=$IMG" \

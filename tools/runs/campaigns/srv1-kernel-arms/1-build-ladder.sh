@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# tools/runs/srv1-build-ladder.sh
+# tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh
 #   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-build-ladder.tsv
 #
-# Campaign steps 0 and 1 (`lcp-vllm-3-arm-run.md:113-118`):
+# Campaign steps 0 and 1 (`PLAN.md:113-118`):
 #
 #   0  static   cuobjdump L0..L3      free, can end the campaign early
 #   1  build    L0 L1 L2 L3 L4 A3     srv2 builds, direct-push to srv1
@@ -52,11 +52,13 @@
 # of `srv1-llama-bench.tsv` and re-filed beside the stamps. So this script runs
 # either side of step 3 and it must be told which:
 #
-#   pass 1   srv1-build-ladder.sh --stage build     campaign step 1
+#   pass 1   1-build-ladder.sh --stage build     campaign step 1
 #            Builds, gates the mechanism, writes the stamps. No BENCH rows: the
 #            instrument has not run yet. Exits 0 saying what is still owed.
-#   step 3   srv1-llama-bench.sh                    the instrument
-#   pass 2   srv1-build-ladder.sh                   (--stage all, the default)
+#   step 3   3-llama-bench.sh                    the instrument
+#   pass 2   1-build-ladder.sh                   (--stage all, the default)
+#            Through the door as `run.sh srv1-kernel-arms build-ladder --host
+#            srv1 --suffix pass2`: a same-day re-run needs its own run id.
 #            Reuses the images, re-writes the file WITH the BENCH rows.
 #
 # The default stage REFUSES TO START when `srv1-llama-bench.tsv` is absent —
@@ -103,14 +105,26 @@
 #                 and it fails loudly if the instrument record is not there.
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
-#   --out PATH    write somewhere other than the contract path (for rehearsal).
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, and the artifact lands
+# in $RUN_OUT_DIR. Two passes over one file is why it is declared under
+# RUN_REWRITES and not RUN_ARTIFACTS: gate 5 admits the pass-1 file only if its
+# run_id names this step, moves it to srv1-build-ladder.superseded-<run_id>.tsv
+# before pass 2 starts (the stamps are re-read off the images and the BENCH
+# rows are projections of step 3, so nothing measured is lost, and the pass-1
+# file stays beside the result), and refuses another step's file outright.
+# RUN_REWRITES: srv1-build-ladder.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "1-build-ladder.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh
 # shellcheck disable=SC1091  # sourced at runtime from the script's own directory
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
 ARTIFACT=srv1-build-ladder.tsv
 RUN_REL=records/evidence/2026-09-02-srv1-kernel-arms
@@ -127,11 +141,10 @@ PROJECT_PP=${RUN_PROJECT_PP:-512}
 PROJECT_FA=${RUN_PROJECT_FA:-1}
 
 DRY_RUN=0
-OUT=
 STAGE=all
 
 usage() {
-    sed -n '2,106p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,117p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -140,11 +153,6 @@ while [ "$#" -gt 0 ]; do
         --stage)
             [ "$#" -ge 2 ] || { _fail "--stage needs build or all"; exit 2; }
             STAGE=$2
-            shift
-            ;;
-        --out)
-            [ "$#" -ge 2 ] || { _fail "--out needs a path"; exit 2; }
-            OUT=$2
             shift
             ;;
         -h | --help)
@@ -165,8 +173,12 @@ case $STAGE in
 esac
 
 ROOT=$(_repo_root)
-[ -n "$OUT" ] || OUT="$ROOT/$RUN_REL/$ARTIFACT"
-BENCH_TSV=${RUN_BENCH_TSV:-$ROOT/$RUN_REL/srv1-llama-bench.tsv}
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+# The instrument record (step 3) lives in the same envelope; the mmvq patch is
+# an input filed with the 2026-09-02 record and stays there.
+OUT_DIR=$RUN_OUT_DIR
+OUT="$OUT_DIR/$ARTIFACT"
+BENCH_TSV=${RUN_BENCH_TSV:-$OUT_DIR/srv1-llama-bench.tsv}
 MMVQ_PATCH=${RUN_MMVQ_PATCH:-$ROOT/$RUN_REL/mmvq.patch}
 THIS_HOST=$(hostname)
 
@@ -212,7 +224,7 @@ on_host() {
         # SC2029: expanding client-side is the point — printf %q quotes every
         # argument for the remote shell, and an arch list carries a `;`.
         # shellcheck disable=SC2029
-        ssh "$host" "$(printf '%q ' "$@")"
+        "${RUN_SSH:-ssh}" "$host" "$(printf '%q ' "$@")"
     fi
 }
 
@@ -234,7 +246,7 @@ quiet_on_host() {
 }
 
 # --------------------------------------------------------------------------
-# the arms table (lcp-vllm-3-arm-run.md:39-47)
+# the arms table (PLAN.md:39-47)
 # --------------------------------------------------------------------------
 #
 #   L0  75-real;75-virtual      FORCE_MMQ off              local-build baseline
@@ -258,7 +270,7 @@ arm_spec() {
         L4) printf 'backend=cuda\ncuda_architectures=75-real;75-virtual\nforce_mmq=OFF\nggml_native=ON\ncpu_all_variants=OFF\npatched=no\n' ;;
         A3) printf 'backend=vulkan\ncuda_architectures=none\nforce_mmq=OFF\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\n' ;;
         *)
-            _fail "arm_spec: '$1' is not on this campaign's arms table (lcp-vllm-3-arm-run.md:39-47)"
+            _fail "arm_spec: '$1' is not on this campaign's arms table (PLAN.md:39-47)"
             return 1
             ;;
     esac
@@ -309,11 +321,11 @@ preflight_instrument() {
     if dry; then
         say "BLOCKER: --stage all needs the step-3 instrument record and"
         say "'$BENCH_TSV' is absent. A real run stops here."
-        say "Order: srv1-build-ladder.sh --stage build, then srv1-llama-bench.sh,"
-        say "then srv1-build-ladder.sh. See RUN-ORDER.md."
+        say "Order: 1-build-ladder.sh --stage build, then 3-llama-bench.sh,"
+        say "then 1-build-ladder.sh. See RUN-ORDER.md."
         return 0
     fi
-    _fail "the ladder's BENCH rows ARE the step-3 llama-bench numbers (ARTIFACT-CONTRACT.md §6.4) and '$BENCH_TSV' does not exist, so there is nothing to copy. Run 'tools/runs/srv1-build-ladder.sh --stage build' for campaign step 1, then 'tools/runs/srv1-llama-bench.sh' for step 3, then this script again. Refusing now rather than writing a ladder with no rungs priced"
+    _fail "the ladder's BENCH rows ARE the step-3 llama-bench numbers (ARTIFACT-CONTRACT.md §6.4) and '$BENCH_TSV' does not exist, so there is nothing to copy. Run 'tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --stage build' for campaign step 1, then 'tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh' for step 3, then this script again. Refusing now rather than writing a ladder with no rungs priced"
     return 1
 }
 
@@ -566,7 +578,7 @@ DOCKERFILE
 # build / reuse / push
 # --------------------------------------------------------------------------
 
-# THE CROSS-SCRIPT LABEL CONTRACT. tools/runs/srv1-kernel-arms.sh reads
+# THE CROSS-SCRIPT LABEL CONTRACT. tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh reads
 # `org.mcgyvr.build.<key>` off every `llamacpp:b10644-*` image and REFUSES to
 # write a `### BUILD` stamp for a tag that does not carry one (ARTIFACT-CONTRACT
 # section 2.4, behaviour 3). This script is the producer of those images and
@@ -847,7 +859,7 @@ gate_the_mechanism() {
         say "from, so it can be recomputed rather than believed."
         say "If L2/L3 still contain mma.sync on the SELECTED path the arch spoof"
         say "did not take, and no throughput number can be attributed to removing"
-        say "it (lcp-vllm-3-arm-run.md guideline 6). Not one second of rig time"
+        say "it (PLAN.md guideline 6). Not one second of rig time"
         say "is worth spending on the arms below until this reads clean."
         say "=============================================================="
         return 1
@@ -895,7 +907,7 @@ project_bench() {
         say "--stage build: pass 1, before step 3. No BENCH row is written,"
         say "because the instrument has not run. This file is INCOMPLETE by"
         say "design: it carries the stamps and no rung is priced."
-        say "Next: tools/runs/srv1-llama-bench.sh, then re-run this script with"
+        say "Next: tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh, then re-run this script with"
         say "no --stage. The images are reused, so pass 2 is cheap."
         return 0
     fi
@@ -928,7 +940,7 @@ project_bench() {
         say "the instrument record has no -p$PROJECT_PP -fa$PROJECT_FA row for:$missing"
         say "those rungs stay unprojected. A rung with no measurement is RED,"
         say "which is the correct reading of a rung that was not measured."
-        _fail "$BENCH_TSV prices no rung for:$missing. The ladder is not complete and this pass did not finish the artifact. Bench those arms (tools/runs/srv1-llama-bench.sh) and re-run"
+        _fail "$BENCH_TSV prices no rung for:$missing. The ladder is not complete and this pass did not finish the artifact. Bench those arms (tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh) and re-run"
         return 1
     fi
 }
@@ -978,6 +990,7 @@ main() {
     # guideline 4 blocks. Both microbenchmark files carry this.
     emit microbench_stamp
     emit start_stamp
+    emit round_stamp
     emit rig_stamp
 
     for arm in "${ARM_LIST[@]}"; do
@@ -1064,10 +1077,10 @@ main() {
             _fail "$arm: the image reports commit='$commit' id='$image_id'. A BUILD stamp that cannot name what it built resolves no tag (behaviour 3)"
             return 1
         fi
-        # The producer half of the label contract: tools/runs/srv1-kernel-arms.sh
+        # The producer half of the label contract: tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh
         # reads org.mcgyvr.build.commit off this tag and fails loudly without it.
         if ! label_build_facts "$tag" "$commit"; then
-            _fail "$arm: could not apply org.mcgyvr.build.commit=$commit to $tag. tools/runs/srv1-kernel-arms.sh reads that label and refuses to stamp a ### BUILD without it, so the serving sweep would stop on this arm"
+            _fail "$arm: could not apply org.mcgyvr.build.commit=$commit to $tag. tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh reads that label and refuses to stamp a ### BUILD without it, so the serving sweep would stop on this arm"
             return 1
         fi
         # The relabel added a metadata layer, so the tag now names a new id.
@@ -1119,7 +1132,7 @@ main() {
     rig_assert_unchanged
     if [ "$STAGE" = build ]; then
         say "pass 1 done: $OUT carries the stamps and owes every BENCH row."
-        say "Run tools/runs/srv1-llama-bench.sh (step 3), then this script again."
+        say "Run tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh (step 3), then this script again."
     else
         say "done: $OUT"
     fi

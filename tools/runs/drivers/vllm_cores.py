@@ -1,7 +1,6 @@
 import itertools
 import json
 import os
-import random
 import re
 import socket
 import subprocess
@@ -9,15 +8,19 @@ import sys
 import threading
 import time
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from tools.runs import workload
 
 # cores-2026-09-01 vLLM co-residency driver.
 # args: pairtag  util  maxlen  seqs  kvdtype  levels  tag=model [tag=model ...]
 #
-#   python3 vllm_cores_01-09-2026.py s2-q15q3 0.45 2048 128 fp8 8,32 \
+#   python tools/runs/drivers/vllm_cores.py s2-q15q3 0.45 2048 128 fp8 8,32 \
 #       s2-q15=Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ \
 #       s2-q3=Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
 #
-# WHY A SEPARATE DRIVER. vllm_sweep_31-08-2026.py runs one container at a time
+# WHY A SEPARATE DRIVER. vllm_sweep.py runs one container at a time
 # (`docker rm -f vsweep` between cells), so it cannot answer what a neighbour
 # costs an incumbent. The harness has `coresident_with` and could, but it still
 # sends the 11-token prompt this whole line of work exists to replace.
@@ -64,6 +67,38 @@ import urllib.request
 # built and the same (prompt, want) list is handed to both servers, so a delta
 # between any two rows is contention and never a different prompt draw. That is
 # the confound `reading-results.md` records for cross-run throughput.
+
+# THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
+# A bare run of this file printed byte-compatible rows with no stamps — no rig
+# state, no round, no workload digest — and nothing downstream could tell them
+# from a run that passed every gate (BRIEF "The problem being solved"). So:
+# (1) RUN_ID is minted by tools/runs/run.sh and only there; without it this
+# process was not started by the door and exits 2 having done nothing.
+# (2) VLLM_IMG must be a DIGEST (`repo@sha256:<hex>` or `sha256:<hex>`),
+# resolved once by `image_digest` in tools/runs/_common.sh (gate 3). A tag is
+# a pointer: the same `img=` on two rows can name two images a week apart,
+# which is the floating `:server-cuda` mistake the pin only half ended. There
+# is no default image — a default is a tag by another name.
+RUN_ID = os.environ.get("RUN_ID", "")
+if not RUN_ID:
+    print(
+        "vllm_cores: RUN_ID is unset — this driver is started by tools/runs/run.sh, "
+        "never bare; a bare run prints unstamped rows nothing can file",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+IMG = os.environ.get("VLLM_IMG", "")
+if not ("@sha256:" in IMG or IMG.startswith("sha256:")):
+    print(
+        f"vllm_cores: VLLM_IMG={IMG!r} is not an image digest (repo@sha256:<hex> "
+        "or sha256:<hex>). A tag is resolved ONCE, by image_digest in "
+        "tools/runs/_common.sh (gate 3), and the digest is what this driver "
+        "runs; it will not resolve one itself and it will not run a pointer",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+# The daemon, behind the one seam a test may replace it with (RUN_DOCKER).
+DOCKER = os.environ.get("RUN_DOCKER", "docker")
 PAIR, UTIL, MAXLEN, SEQS, KV = sys.argv[1:6]
 LEVELS = [int(x) for x in sys.argv[6].split(",")]
 # tag=model, or tag=model=util to override the shared util for one server.
@@ -71,56 +106,10 @@ LEVELS = [int(x) for x in sys.argv[6].split(",")]
 # express it: q15 needs ~1.4 GiB of weights and q7 needs ~5.3, so an even
 # half-card each starves the large one while wasting the small one's share.
 SPECS = [s.split("=") for s in sys.argv[7:]]
-IMG = os.environ.get("VLLM_IMG", "vllm/vllm-openai:v0.26.0")
 H = socket.gethostname()
 BASE_PORT = 8100
 # Attempts per server before a refusal is believed. See the RETRY note below.
 LAUNCH_TRIES = 3
-
-PROMPT_DECILES = [588, 608, 624, 653, 688, 719, 746, 799, 887]  # p10..p90
-COMPL_DECILES = [78, 101, 130, 158, 189, 230, 281, 346, 460]  # p10..p90
-SYS_TOK = 190  # measured scaffold size; the shared, cacheable prefix
-TOK_PER_FIELD = 32  # calibration knob: tune until reported ptok= ~= 688
-HDR_TOK = 60  # approx tokens in the task-body header lines
-MAXLEN_NEED = 887 + 460  # worst sampled prompt + worst sampled reply
-
-UID = itertools.count()
-UIDLOCK = threading.Lock()
-
-SYSTEM = (
-    "You are a worker in an automated coding ladder. You receive one scoped\n"
-    "task contract at a time and return exactly one artifact: the requested\n"
-    "code, in a single fenced block, with no prose and no restatement of the\n"
-    "contract. Follow the contract literally. Do not invent requirements it\n"
-    "does not state, and do not omit any it does. Use type hints on every\n"
-    "parameter and return. Include a docstring naming the arguments and the\n"
-    "error conditions. Handle every error path the contract enumerates,\n"
-    "raising the exact exception type named. Your output is checked by an\n"
-    "automated gate that runs the contract's tests verbatim; prose outside\n"
-    "the fenced block fails the gate.\n\n"
-)
-
-
-def mkprompt():
-    """SYSTEM (shared, cacheable) + a unique body sized from the real deciles."""
-    with UIDLOCK:
-        i = next(UID)
-    rnd = random.Random(i)
-    want_prompt = rnd.choice(PROMPT_DECILES)
-    want_out = rnd.choice(COMPL_DECILES)
-    nfield = max(1, (want_prompt - SYS_TOK - HDR_TOK) // TOK_PER_FIELD)
-    fields = "\n".join(
-        f"  - arg_{k:02d}: bounded by {(i * 31 + k) % 10000:04d}; on violation "
-        f"raise ValueError(f'arg_{k:02d} out of range') and log the input."
-        for k in range(nfield)
-    )
-    body = (
-        f"CONTRACT option_pairs_{i % 100000:05d} / req {(i * 7919) % (16**8):08x}\n"
-        f"Signature: def option_pairs(rows: list[dict], strict: bool = False) -> dict\n"
-        f"Fields:\n{fields}\n\n"
-        f"Implement it now.\n"
-    )
-    return SYSTEM + body, want_out
 
 
 def sh(c):
@@ -141,7 +130,7 @@ def teardown(names):
     configuration in the same script refused for that reason alone.
     """
     for n in names:
-        sh(f"docker rm -f {n}")
+        sh(f"{DOCKER} rm -f {n}")
     for _ in range(30):
         if not sh("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
             return
@@ -151,13 +140,12 @@ def teardown(names):
 def batch(n):
     """The same n (prompt, want) pairs for every server, every phase.
 
-    Rebinding UID resets the sequence; `mkprompt` reads it as a global, so the
-    hashed workload block above is untouched and its digest still matches
-    vllm_sweep_31-08-2026.py.
+    Rebinding `workload.UID` resets the sequence; `mkprompt` reads it as a
+    global of its own module, so the hashed workload module is untouched and
+    its digest still matches what vllm_sweep.py draws.
     """
-    global UID
-    UID = itertools.count()
-    return [mkprompt() for _ in range(n)]
+    workload.UID = itertools.count()
+    return [workload.mkprompt() for _ in range(n)]
 
 
 def post(port, model, item, out, idx):
@@ -166,8 +154,8 @@ def post(port, model, item, out, idx):
         {
             "model": model,
             "messages": [
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": prompt[len(SYSTEM) :]},
+                {"role": "system", "content": workload.SYSTEM},
+                {"role": "user", "content": prompt[len(workload.SYSTEM) :]},
             ],
             "max_tokens": want,
             "temperature": 0,
@@ -221,8 +209,11 @@ def ramp(srv, items, out):
 
 
 # ---- launch every server, and keep them all resident for the whole run -------
-if int(MAXLEN) < MAXLEN_NEED:
-    print(f"{H}\t{PAIR}\tSKIP\tmax-model-len {MAXLEN} < {MAXLEN_NEED}", flush=True)
+if int(MAXLEN) < workload.MAXLEN_NEED:
+    print(
+        f"{H}\t{PAIR}\tSKIP\tmax-model-len {MAXLEN} < {workload.MAXLEN_NEED}",
+        flush=True,
+    )
     sys.exit(0)
 
 # ONE AT A TIME, EACH FULLY UP BEFORE THE NEXT STARTS. vLLM profiles LIVE free
@@ -244,11 +235,13 @@ servers, alive = [], []
 for i, spec in enumerate(SPECS):
     tag, model = spec[0], spec[1]
     util = spec[2] if len(spec) > 2 else UTIL
-    name, port = f"vcore{i}", BASE_PORT + i
-    sh(f"docker rm -f {name}")
+    # The container carries the run's name so gate 7 of run.sh can find what
+    # this process left behind (`docker ps --filter name=^<RUN_ID>-`).
+    name, port = f"{RUN_ID}-vcore{i}", BASE_PORT + i
+    sh(f"{DOCKER} rm -f {name}")
     kvflag = f"--kv-cache-dtype {KV}" if KV != "auto" else ""
     sh(
-        f"docker run -d --name {name} --runtime=nvidia --gpus all "
+        f"{DOCKER} run -d --name {name} --runtime=nvidia --gpus all "
         f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
         f"-v $HOME/models:/models:ro -p {port}:8000 --ipc=host {IMG} {model} "
         f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
@@ -271,18 +264,18 @@ for i, spec in enumerate(SPECS):
             if sh(probe) == "Y":
                 ok = True
                 break
-            if s["name"] not in sh("docker ps --format '{{.Names}}'"):
+            if s["name"] not in sh(DOCKER + " ps --format '{{.Names}}'"):
                 break
             time.sleep(2)
         if ok or attempts == LAUNCH_TRIES:
             break
-        sh(f"docker rm -f {s['name']}")
+        sh(f"{DOCKER} rm -f {s['name']}")
         for _ in range(30):
             if not sh("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
                 break
             time.sleep(2)
         sh(
-            f"docker run -d --name {name} --runtime=nvidia --gpus all "
+            f"{DOCKER} run -d --name {name} --runtime=nvidia --gpus all "
             f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
             f"-v $HOME/models:/models:ro -p {port}:8000 --ipc=host {IMG} {model} "
             f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
@@ -294,19 +287,19 @@ for i, spec in enumerate(SPECS):
         # root cause above` -- the wrapper, not the cause. Ask for the cause
         # first and fall back to the general tail only if there is none.
         why = sh(
-            f"docker logs {s['name']} 2>&1 | grep -oE "
+            f"{DOCKER} logs {s['name']} 2>&1 | grep -oE "
             "'(ValueError|RuntimeError|OutOfMemoryError|AssertionError): .*' | "
             "grep -viE 'Engine core init|Cannot send a request' | tail -1"
         )
         if not why:
             why = sh(
-                f"docker logs {s['name']} 2>&1 | "
+                f"{DOCKER} logs {s['name']} 2>&1 | "
                 "grep -vE '(INFO|DEBUG|WARNING) [0-9]{2}-[0-9]{2} ' | "
                 "grep -iE 'error|traceback|out of memory|no such file|capability' "
                 "| tail -2"
             )
         if not why:
-            why = sh(f"docker logs {s['name']} 2>&1 | tail -3")
+            why = sh(f"{DOCKER} logs {s['name']} 2>&1 | tail -3")
         print(
             f"{H}\t{PAIR}\t{s['tag']}\tREFUSED\tafter {attempts} attempts: "
             f"{' | '.join(why.splitlines())[:360]}",
@@ -329,7 +322,7 @@ if len(alive) < len(servers):
 vram = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
 for s in alive:
     kvlog = sh(
-        f"docker logs {s['name']} 2>&1 | grep -oE "
+        f"{DOCKER} logs {s['name']} 2>&1 | grep -oE "
         "'(GPU KV cache size: [0-9,]+ tokens|"
         "Maximum concurrency for [0-9,]+ tokens per request: [0-9.]+x)' | tail -2"
     )

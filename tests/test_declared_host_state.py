@@ -49,7 +49,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 EVIDENCE = REPO / "records" / "evidence"
-DECLARATION = REPO / "tools" / "bench" / "serving" / "configs" / "hosts.json"
+DECLARATION = REPO / "tools" / "runs" / "hosts.json"
 
 #: The settings that decide whether a model stays on the card and whether a
 #: second may join it. Named here as well as in the declaration on purpose: the

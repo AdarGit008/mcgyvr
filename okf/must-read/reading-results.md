@@ -27,7 +27,7 @@ prefill "tracks" decode is saying nothing; a row where it does not would be an
 arithmetic error. **Nothing in this repo has ever measured prefill separately.**
 Use `llama-bench -p N` for that, and do not mix its numbers into a cross-engine
 claim — it carries no workload digest.
-→ `lcp_sweep_31-08-2026.py:221-222`, `vllm_sweep_31-08-2026.py`
+→ `tools/runs/drivers/lcp_sweep.py:179-180`, `tools/runs/drivers/vllm_sweep.py`
 
 **The prompt draw desyncs whenever the level list changes, and the error reaches
 6.2%.** Lengths come from a per-process counter, so a cell that runs levels

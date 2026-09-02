@@ -277,6 +277,12 @@ class Recording:
     fail loudly rather than silently — ``observe`` raises on an unwritable sink
     on purpose — and a caller that has not chosen a sink has not chosen to
     accept that failure.
+
+    ``path`` is the line sink. The prompts and replies the run dispatches land
+    beside it, content-addressed under ``path.parent / "blobs"``, so two
+    orchestrators recording into one directory share one blob store and own
+    one file each — the layout ``mcgyvr run --record DIR --orchestrator ID``
+    (``DIR/<ID>.jsonl``) relies on.
     """
 
     path: Path
@@ -500,6 +506,12 @@ def worker_attempt(
                 orchestrator=recording.orchestrator,
                 rung=this.rung.name,
                 model=this.rung.model,
+                # The journal exists to be reviewed, and a review needs the
+                # prompt as the runner sent it and the endpoint that served
+                # it. Bound here, before the attempt, so the row of an attempt
+                # that raised still says what it asked and where.
+                messages=_as_sent(prompt),
+                endpoint=pool.bind(this.rung.name).base_url,
             )
 
         def sample(draw: int) -> str | Unusable:
@@ -640,6 +652,23 @@ def _base_content(sandbox: Sandbox, contract: Contract) -> str:
     if not target.is_file():
         return ""
     return target.read_bytes().decode("utf-8", "surrogateescape")
+
+
+def _as_sent(prompt: WorkerPrompt) -> list[dict[str, str]]:
+    """The messages exactly as :func:`dispatch_prompt` has the runner send them.
+
+    Built here rather than inside :func:`~mcgyvr.telemetry.observe` because the
+    journal records what was *sent* and only this module knows that: the runner
+    adds a system message only when ``Request.system`` is non-empty, so an
+    empty bundle is no message at all — not a message with nothing in it, whose
+    digest would put a ``bundle_sha256`` on the row for a system prompt nobody
+    received.
+    """
+    messages: list[dict[str, str]] = []
+    if prompt.system:
+        messages.append({"role": "system", "content": prompt.system})
+    messages.append({"role": "user", "content": prompt.user})
+    return messages
 
 
 def _cleaned(

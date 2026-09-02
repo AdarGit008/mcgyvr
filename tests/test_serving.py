@@ -1790,98 +1790,8 @@ def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
     assert launcher.check("test") == []
 
 
-def test_a_dry_run_is_reported_to_but_not_refused_by_a_live_driver(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """E14 protects a rig from a second CLAIMANT, and a dry run claims nothing.
-
-    Found by this file failing for a reason unrelated to what it asserts: a
-    campaign was running on this client, so `--dry-run` — which prints the
-    driver text and returns — was refused by a guard about throughput
-    contention, and the check about shell constructs reported on the state of
-    the machine instead. That is the shape this lane keeps meeting: a check
-    that fails because of WHEN it ran rather than what it asserts.
-
-    The fact is still printed on a dry run, because suppressing it would trade
-    one silent failure for another. Only the refusal is scoped.
-    """
-    launcher = _launcher()
-    monkeypatch.setattr(
-        launcher, "already_running", lambda: ["705744 python run.py --config x"]
-    )
-
-    assert (
-        launcher.main(
-            ["--campaign", "--dry-run", "--log", str(tmp_path / "unused.log")]
-        )
-        == 0
-    )
-    dry = capsys.readouterr().out
-    assert "705744" in dry, "the operator must still be told a driver is up"
-    assert "REFUSED" not in dry
-
-    # And the refusal is intact on the path it protects: a real launch.
-    assert launcher.main(["--campaign", "--log", str(tmp_path / "unused.log")]) == 1
-    assert "REFUSED" in capsys.readouterr().out
-
-
-def test_an_interrupted_driver_lets_go_of_the_rigs(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
-) -> None:
-    """A killed driver left srv2 holding 11,078 MiB until it was cleared by hand.
-
-    The property is not that a handler exists — it is that the handler can RUN.
-    `sh` defers a trap while a FOREGROUND child is running, so the obvious
-    spelling releases the rigs only once the interrupted phase has finished on
-    its own: measured at 300 seconds against a 300-second phase, which over
-    eleven hours is no handler at all. The phases must therefore be backgrounded
-    behind an interruptible `wait`, and the handler must kill the phase's own
-    children before releasing, or the release races a live claimant.
-
-    Pinned against the driver text the launcher actually emits, because every
-    one of these is a shell construct that a later edit could drop while the
-    campaign still launched perfectly.
-    """
-    launcher = _launcher()
-    assert (
-        launcher.main(
-            ["--campaign", "--dry-run", "--log", str(tmp_path / "unused.log")]
-        )
-        == 0
-    )
-    driver = capsys.readouterr().out
-
-    assert "wait $CHILD" in driver, "a foreground phase defers the trap"
-    assert "} &" in driver, "the phases must not be the foreground child"
-    assert "pkill -P $CHILD" in driver, "the phase's children outlive it"
-    assert "--release" in driver, "the handler has to release something"
-    # Once for the signal, once for the ordinary end: a campaign that refuses in
-    # its last phase would otherwise exit still holding a card.
-    assert driver.count("cleanup") >= 3
-
-    # **The stop sentinel, and the ORDER it is written in.** `pkill -P $CHILD`
-    # and `kill $CHILD` are two commands, and between them the subshell's `wait`
-    # returns and it forks the NEXT phase — which is then reparented to init and
-    # never signalled, so `cleanup` releases the rigs while an orphaned survey
-    # re-claims them. Measured on stand-ins at 4-17 of every 20 SIGTERM trials
-    # before the guard and 0 of 20 after.
-    #
-    # Pinned as an order, not as a presence: a `touch` that happened after the
-    # kills would satisfy a substring test and close nothing.
-    trap = next(line for line in driver.splitlines() if line.startswith("trap "))
-    assert trap.index("touch") < trap.index("pkill"), (
-        "the sentinel must be written BEFORE anything is signalled"
-    )
-    assert trap.index("touch") < trap.index("cleanup"), (
-        "a phase must not be able to start during the release"
-    )
-    # Every phase after the first is gated on it. The first is deliberately not:
-    # nothing can have set the sentinel before the driver starts, and the `rm`
-    # on the way in is what makes an interrupted run's leftover harmless.
-    assert driver.count("[ -f ") == len(launcher.CAMPAIGN) - 1, (
-        "every phase but the first is gated on the sentinel"
-    )
-    assert "rm -f " in driver, "a stale sentinel must not silence a fresh campaign"
+# Two tests pinned launch.py's driver text here (dry-run report, interrupt trap);
+# retired: run.sh gates 5-7 own it — tests/test_a_marker_check_is_not_a_launcher.py
 
 
 def test_the_launcher_refuses_the_exact_failure_it_exists_for(
@@ -1974,56 +1884,8 @@ def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
     assert fallback["value"] == 8 and fallback["provenance"] == "dispatched"
 
 
-def test_the_serial_guard_matches_a_driver_not_a_mention_of_one(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """E14 is enforced, and its first version refused a correct launch.
-
-    The rigs are measured one at a time because the ramp times requests with
-    THIS machine's clock, so a second driver would put its own contention inside
-    the throughput curve. The guard was `pgrep -af serving/(run|calibrate).py`,
-    which matched the shell that was *editing* the file — its argv contained the
-    script's name. A guard that fires on anything merely mentioning the driver
-    is a guard that gets switched off.
-    """
-    launcher = _launcher()
-    real_driver = "4242 /repo/.venv/bin/python tools/bench/serving/run.py --config x"
-    mere_mention = "4243 /bin/bash -c echo tools/bench/serving/run.py"
-    editor = "4244 /usr/bin/vim tools/bench/serving/calibrate.py"
-
-    monkeypatch.setattr(
-        launcher.subprocess,
-        "run",
-        lambda *a, **k: types.SimpleNamespace(
-            stdout="\n".join([real_driver, mere_mention, editor])
-        ),
-    )
-    running = launcher.already_running()
-    assert len(running) == 1, running
-    assert running[0].startswith("4242")
-
-
-def test_the_campaign_phases_are_declared_rather_than_typed(
-    tmp_path: Path,
-) -> None:
-    """E15 in code: an order that lives in one person's shell is not reviewable.
-
-    Also pins the two properties the order exists for — sleep first, because it
-    is twenty minutes that exercises the whole vLLM path the eleven hours behind
-    it depend on; and every D7 item this campaign is responsible for appearing
-    exactly once.
-    """
-    launcher = _launcher()
-    names = [name for name, _ in launcher.CAMPAIGN]
-    assert names[0].startswith("sleep"), names
-    commands = " ".join(command for _, command in launcher.CAMPAIGN)
-    for item in ("--phase sleep", "--config", "--phase ramp", "--tokens 475"):
-        assert item in commands, item
-    # Every phase resumes, or a crash costs the elapsed time rather than nothing.
-    assert commands.count("--resume") == len(launcher.CAMPAIGN)
-    # Every phase writes into the committed evidence directory (D8: the output
-    # is durable and lands somewhere a reader can find it).
-    assert commands.count(launcher.EVIDENCE) == len(launcher.CAMPAIGN)
+# Two tests pinned launch.py's serial guard and CAMPAIGN table here; retired:
+# tools/runs/run.sh gates 5-7 own it — tests/test_a_marker_check_is_not_a_launcher.py
 
 
 def test_a_crashed_survey_resumes_instead_of_restarting(

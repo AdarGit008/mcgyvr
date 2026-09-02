@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-kernel-arms.sh — steps 4 (serve) and 7 (crash) of the srv1
-# kernel-arms run (`lcp-vllm-3-arm-run.md:111-128`), written against
+# tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh — steps 4 (serve) and 7 (crash) of the srv1
+# kernel-arms run (`PLAN.md:111-128`), written against
 # `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md`.
 #
-# It drives `lcp_sweep_31-08-2026.py` — the workload the whole campaign shares —
+# It drives `tools/runs/drivers/lcp_sweep.py` over `tools/runs/workload.py` —
+# the workload the whole campaign shares —
 # and prints the contract's rows around it. It never invents a number: every
 # field it adds is either read from the rig, read from the engine log, or
 # replayed from the driver's own prompt generator.
@@ -18,12 +19,12 @@
 #                        60 trials at every width L2 actually died on.
 #
 #   ONE FILE, TWO STEPS, ONE OWNER. `srv1-moe-slots.tsv` is shared with
-#   `tools/runs/srv1-moe-slots.sh`, which writes step 6's placement rows into it
+#   `tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh`, which writes step 6's placement rows into it
 #   and reserves the crash study — step 7, behaviour 8, the L2 boundary and L3's
 #   60 trials — for this script, because that is the kernel question and not a
 #   placement one.
 #
-#   ARTIFACT-CONTRACT.md section 4 names `run tools/runs/srv1-moe-slots.sh` as
+#   ARTIFACT-CONTRACT.md section 4 names `run tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh` as
 #   the one behaviour that produces that file, so THAT script is the
 #   owner-creator and THIS one is the appender. The order is step 6 then step 7
 #   and it is ENFORCED, not documented: `--step crash` refuses to start unless
@@ -52,7 +53,7 @@
 #
 # `otok_req` is the requested output budget and is NOT `otok` (resolved conflict
 # §6.2). The driver prints neither, so `otok_req` is recovered by replaying the
-# driver's own `mkprompt()` — the same source region `sweeprows.workload_digest`
+# driver's own `mkprompt()` — the same source region `rows.workload_digest`
 # execs — over the same call order the driver uses (one warm-up, then n per
 # level). It is a plan, computed from the driver, not a measurement copied from
 # somewhere else.
@@ -63,34 +64,55 @@
 # CRASH row and no `### BOUNDARY` are emitted and step 7 stays honestly red.
 #
 # Usage:
-#   srv1-kernel-arms.sh [--dry-run] [--step serve|crash|all] [--out-dir DIR]
+#   4-kernel-arms.sh [--dry-run] [--step serve|crash]
 #                       [--arms "L0 L1 ..."] [--cells "d3b mling"]
 #                       [--crash-cells "mling moss4b"] [--reps N] [--trials N]
-#                       [--models DIR] [--force]
+#                       [--models DIR]
 #
 # --dry-run prints the exact command line for every cell and touches nothing.
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, the files land in
+# $RUN_OUT_DIR, and an arm's tag is resolved to a digest ONCE (image_digest,
+# gate 3) before the driver sees it — the driver refuses a tag.
+#
+# ONE FILE, TWO DOOR STEPS. The door guards what a step file DECLARES, and one
+# declaration cannot be write-once for step 4 and append-only for step 7, so
+# each campaign step is its own door step: `run.sh srv1-kernel-arms
+# kernel-arms` is step 4 (serve; this file, declaring the file it creates)
+# and `run.sh srv1-kernel-arms crash` is step 7 (7-crash.sh, declaring
+# `RUN_APPENDS: srv1-moe-slots.tsv` and exec'ing this file with --step
+# crash). The door exports RUN_STEP — the step it started — and the mode is
+# held to it below; `--step all` is refused through the door.
+# RUN_ARTIFACTS: srv1-lcpp-arms.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "4-kernel-arms.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh disable=SC1091
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
-REPO=$(cd -- "$HERE/../.." && pwd)
-DRIVER=lcp_sweep_31-08-2026.py
-RUN_DIR=$REPO/records/evidence/2026-09-02-srv1-kernel-arms
+REPO=$(cd -- "$HERE/../../../.." && pwd)
+DRIVER=tools/runs/drivers/lcp_sweep.py
+# The prompts the driver draws come from this module, not from the driver:
+# the WORKLOAD stamp names it, and the digest is re-derived from it.
+WORKLOAD=tools/runs/workload.py
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+RUN_DIR=$RUN_OUT_DIR
 ARMS_TSV=srv1-lcpp-arms.tsv
 SLOTS_TSV=srv1-moe-slots.tsv
 
 DRY_RUN=0
-STEP=all
-FORCE=0
+STEP=
 MODELS=${LCP_MODELS:-/home/adaramir/models}
 SERVE_ARMS="L0 L1 L2 L3 L4 A1"
 SERVE_CELLS="d3b mling"
 SERVE_LEVELS="1,4,8"
 REPS=5
-# The unpatched arm and its patch. `lcp-vllm-3-arm-run.md:43-44`.
+# The unpatched arm and its patch. `PLAN.md:43-44`.
 CRASH_ARM=L2
 FIX_ARM=L3
 CRASH_CELLS="mling moss4b"
@@ -102,16 +124,14 @@ LOGTAIL_PID=
 LOGTAIL_FLAG=
 
 usage() {
-    sed -n '2,71p' "$0" >&2
+    sed -n '2,87p' "$0" >&2
     exit "${1:-2}"
 }
 
 while [ "$#" -gt 0 ]; do
     case $1 in
         --dry-run) DRY_RUN=1 ;;
-        --force) FORCE=1 ;;
         --step) STEP=$2; shift ;;
-        --out-dir) RUN_DIR=$2; shift ;;
         --models) MODELS=$2; shift ;;
         --arms) SERVE_ARMS=$2; shift ;;
         --cells) SERVE_CELLS=$2; shift ;;
@@ -124,9 +144,29 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
+# The mode is held to the door step this run was started as (RUN_STEP, gate
+# 5): step 4 `kernel-arms` serves, step 7 `crash` (7-crash.sh) crashes, and the
+# default is whichever the door named. One door invocation declares one file,
+# so `--step all` — both in one pass — is refused: the door could guard only
+# one of the two.
+case ${RUN_STEP:-} in
+    kernel-arms) : "${STEP:=serve}" ;;
+    crash) : "${STEP:=crash}" ;;
+    *) _fail "RUN_STEP='${RUN_STEP:-}' names no door step this file serves (kernel-arms, or crash via 7-crash.sh); start me through tools/runs/run.sh" || exit 2 ;;
+esac
+# `_fail || exit 2`: under `set -e`, _fail's own return 1 would otherwise end
+# the script with that status before the exit 2 a refusal owes.
 case $STEP in
-    serve | crash | all) : ;;
-    *) _fail "--step must be serve, crash or all (got '$STEP')"; exit 2 ;;
+    serve)
+        [ "$RUN_STEP" = kernel-arms ] || _fail "--step serve is step 4, started as 'tools/runs/run.sh srv1-kernel-arms kernel-arms'; this run was started as step '$RUN_STEP' (7-crash.sh), which declares only the file the crash study appends to" || exit 2
+        ;;
+    crash)
+        [ "$RUN_STEP" = crash ] || _fail "--step crash is step 7, started as 'tools/runs/run.sh srv1-kernel-arms crash' (7-crash.sh, which declares RUN_APPENDS: srv1-moe-slots.tsv); this run was started as step '$RUN_STEP', whose declaration guards srv1-lcpp-arms.tsv write-once and would not see the append" || exit 2
+        ;;
+    all)
+        _fail "--step all is refused through the door: step 4 (serve, creates srv1-lcpp-arms.tsv) and step 7 (crash, appends to srv1-moe-slots.tsv) are two door invocations — 'kernel-arms' and 'crash' (7-crash.sh) — each declaring the one file it writes" || exit 2
+        ;;
+    *) _fail "--step must be serve or crash (got '$STEP')" || exit 2 ;;
 esac
 
 # --------------------------------------------------------------------------
@@ -143,6 +183,22 @@ arm_img() {
         [ABL][0-9]) printf 'llamacpp:b10644-%s' "$1" ;;
         *) _fail "arm_img: '$1' is not an arm this campaign names"; return 1 ;;
     esac
+}
+
+# The digest the driver runs — gate 3 of the door: a tag is resolved ONCE per
+# arm through `image_digest` (tools/runs/_common.sh), cached here, and the
+# driver refuses anything that is not a digest. The row keeps `img=<tag>` —
+# the arm's name, and what `test_a_row_that_does_not_name_its_arm` accepts —
+# and carries the driver's `img_digest=` beside it, so a reader has both what
+# the arm was called and which bytes answered.
+declare -A ARM_DIGEST=()
+arm_digest() {
+    local tag
+    if [ -z "${ARM_DIGEST[$1]:-}" ]; then
+        tag=$(arm_img "$1") || return 1
+        ARM_DIGEST[$1]=$(image_digest "$tag") || return 1
+    fi
+    printf '%s' "${ARM_DIGEST[$1]}"
 }
 
 # A cell is `<subdir>|<gguf>|<np>|<ctx_slot>|<ncmoe>`. Resident models only
@@ -189,7 +245,7 @@ cmdline() { # ARM CELL LEVELS -> the exact command line, one cell, one process
     local arm=$1 cell=$2 levels=$3 sub gguf
     sub=$(_cell_field "$cell" 1) || return 1
     gguf=$(_cell_field "$cell" 2) || return 1
-    printf 'LCP_IMG=%s python3 %s %s %s %s %s' \
+    printf 'LCP_IMG="$(image_digest %s)" python3 %s %s %s %s %s' \
         "$(arm_img "$arm")" "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
         "$(arm_label "$arm" "$cell")" "$(cell_spec "$cell" "$levels")"
 }
@@ -256,8 +312,8 @@ log_tail_start() { # DEST
     : >"$dest"
     (
         while [ ! -e "$LOGTAIL_FLAG" ]; do
-            if docker inspect lcps >/dev/null 2>&1; then
-                docker logs -f lcps >>"$dest" 2>&1 || true
+            if docker inspect "$RUN_ID-lcps" >/dev/null 2>&1; then
+                docker logs -f "$RUN_ID-lcps" >>"$dest" 2>&1 || true
             else
                 sleep 1
             fi
@@ -276,7 +332,7 @@ log_tail_stop() {
 
 # What `quantization_config` is to a GPTQ checkpoint, `print_info: file type` is
 # to a GGUF: read, not inferred from the path. `A checkpoint's name is not
-# evidence of its format` (lcp-vllm-3-arm-run.md:143).
+# evidence of its format` (PLAN.md:143).
 log_file_type() { # LOGFILE
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
@@ -298,11 +354,11 @@ log_file_type() { # LOGFILE
 
 # One integer per level, in the driver's call order: one warm-up post, then n
 # posts per level. `sum(want) // n` mirrors the driver's own `otok = gen // n`,
-# so the plan and the outcome are the same shape. The source region sliced here
-# is the one `tests/sweeprows.py:workload_digest` execs, so this cannot drift
+# so the plan and the outcome are the same shape. The module sliced here is
+# the one `tools/runs/rows.py:workload_digest` execs, so this cannot drift
 # from the digest the file is stamped with.
 otok_req_list() { # LEVELS -> one line per level
-    python3 - "$REPO/$DRIVER" "$1" <<'PY'
+    python3 - "$REPO/$WORKLOAD" "$1" <<'PY'
 import itertools
 import random
 import sys
@@ -312,7 +368,7 @@ from pathlib import Path
 driver = Path(sys.argv[1])
 levels = [int(x) for x in sys.argv[2].split(",")]
 source = driver.read_text(encoding="utf-8")
-block = source[source.index("PROMPT_DECILES") : source.index("def sh(")]
+block = source[source.index("PROMPT_DECILES") :]  # the module is the block
 namespace = {"itertools": itertools, "threading": threading, "random": random}
 exec(compile(block, str(driver), "exec"), namespace)
 make = namespace["mkprompt"]
@@ -339,6 +395,11 @@ reemit() { # ARM IMG LINE [EXTRA k=v ...]
     for ((i = 3; i < ${#parts[@]}; i++)); do
         tok=${parts[i]}
         if _kv_ok "$tok" && ! _has_space "$tok"; then
+            # The driver echoes the image it RAN, which is the digest gate 3
+            # handed it; the tag this run named goes on as `img=` below.
+            case $tok in
+                img=*) tok="img_digest=${tok#img=}" ;;
+            esac
             args+=("$tok")
         else
             free+=("$tok")
@@ -409,13 +470,13 @@ RAW=
 LOG=
 
 drive_once() { # ARM CELL LEVELS — the retry3 body
-    local arm=$1 cell=$2 levels=$3 sub gguf img
+    local arm=$1 cell=$2 levels=$3 sub gguf digest
     sub=$(_cell_field "$cell" 1) || return 1
     gguf=$(_cell_field "$cell" 2) || return 1
-    img=$(arm_img "$arm") || return 1
+    digest=$(arm_digest "$arm") || return 1
     : >"$RAW"
     log_tail_start "$LOG"
-    LCP_IMG=$img python3 "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
+    LCP_IMG=$digest python3 "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
         "$(arm_label "$arm" "$cell")" "$(cell_spec "$cell" "$levels")" >"$RAW" 2>&1 || true
     log_tail_stop
     # A launch that produced a CONFIG measured something; a SKIP or a DEGENERATE
@@ -485,8 +546,9 @@ serve_plan() { # prints one `ARM CELL REP` triple per line, in emission order
 
 serve_step() {
     local arm cell rep
-    workload_stamp "$DRIVER"
+    workload_stamp "$WORKLOAD"
     start_stamp
+    round_stamp
     for arm in $SERVE_ARMS; do
         build_stamp "$arm"
     done
@@ -589,10 +651,11 @@ crash_soak() { # CELL WIDTH
 
 crash_step() {
     local cell hit w
-    workload_stamp "$DRIVER"
+    workload_stamp "$WORKLOAD"
     # Whose rows follow, in a file two steps write to.
     stamp INSTRUMENT "step=7" "behaviour=8" "driver=$DRIVER"
     start_stamp
+    round_stamp
     build_stamp "$CRASH_ARM"
     build_stamp "$FIX_ARM"
     for cell in $CRASH_CELLS; do
@@ -619,7 +682,7 @@ crash_dry() {
     local cell
     printf '# step 7 (crash) -> %s (APPENDED; step 6 creates this file)\n' "$RUN_DIR/$SLOTS_TSV"
     printf '# precondition, enforced: that file must already exist and carry\n'
-    printf '#   "### INSTRUMENT step=6" from tools/runs/srv1-moe-slots.sh.\n'
+    printf '#   "### INSTRUMENT step=6" from tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh.\n'
     if [ ! -e "$RUN_DIR/$SLOTS_TSV" ]; then
         printf '#   NOT MET today: %s is absent. A real run would STOP here.\n' "$RUN_DIR/$SLOTS_TSV"
     fi
@@ -646,7 +709,6 @@ if [ "$DRY_RUN" -eq 1 ]; then
     case $STEP in
         serve) serve_dry ;;
         crash) crash_dry ;;
-        all) serve_dry; crash_dry ;;
     esac
     exit 0
 fi
@@ -661,24 +723,24 @@ trap 'log_tail_stop; rm -rf "$WORK"' EXIT
 mkdir -p "$RUN_DIR"
 
 guard() { # FILE
-    if [ -e "$1" ] && [ "$FORCE" -ne 1 ]; then
-        _fail "$1 exists. A measurement file is written once; pass --force only if you mean to replace it"
+    if [ -e "$1" ]; then
+        _fail "$1 exists. A measurement file is written once (the door's gate 5 refuses this before the step starts); move it aside deliberately"
         exit 1
     fi
 }
 
 # The other half of the ownership rule, enforced. `srv1-moe-slots.tsv` belongs
-# to step 6 (`tools/runs/srv1-moe-slots.sh`, ARTIFACT-CONTRACT.md section 4);
+# to step 6 (`tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh`, ARTIFACT-CONTRACT.md section 4);
 # this script only ever appends step 7's crash rows to it. Checked BEFORE any
 # work, so an out-of-order run costs no rig time and leaves no partial file.
 require_slots_owner() {
     local f=$RUN_DIR/$SLOTS_TSV
     if [ ! -e "$f" ]; then
-        _fail "$f does not exist, and this script does not create it. Step 6 owns that file: run 'tools/runs/srv1-moe-slots.sh --model <ling.gguf>' first, then re-run this with --step crash. Appending step 7's crash rows to a file with no step-6 block would file the crash study under the placement null's name"
+        _fail "$f does not exist, and this script does not create it. Step 6 owns that file: run 'tools/runs/run.sh srv1-kernel-arms moe-slots --host srv1 -- --model <ling.gguf>' first, then step 7 as 'tools/runs/run.sh srv1-kernel-arms crash --host srv1'. Appending step 7's crash rows to a file with no step-6 block would file the crash study under the placement null's name"
         exit 1
     fi
     if ! grep -qE '^### +INSTRUMENT( .*)? step=6( |$)' "$f"; then
-        _fail "$f exists but carries no '### INSTRUMENT step=6' marker, so step 6 (tools/runs/srv1-moe-slots.sh) has not written its placement block into it. That script is the owner-creator and must run first; this one only appends"
+        _fail "$f exists but carries no '### INSTRUMENT step=6' marker, so step 6 (tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh) has not written its placement block into it. That script is the owner-creator and must run first; this one only appends"
         exit 1
     fi
 }
@@ -692,14 +754,6 @@ case $STEP in
         # Appended, not truncated: step 6 created this file and wrote its
         # placement rows into it, and neither step may erase the other.
         require_slots_owner
-        crash_step >>"$RUN_DIR/$SLOTS_TSV"
-        ;;
-    all)
-        # Both preconditions up front: --step all means steps 4 and 7 in one
-        # pass, and step 7 is still downstream of step 6.
-        guard "$RUN_DIR/$ARMS_TSV"
-        require_slots_owner
-        serve_step >"$RUN_DIR/$ARMS_TSV"
         crash_step >>"$RUN_DIR/$SLOTS_TSV"
         ;;
 esac

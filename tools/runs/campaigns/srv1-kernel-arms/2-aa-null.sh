@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# tools/runs/srv1-aa-null.sh — step 2 of the srv1 kernel-arms run
-# (`lcp-vllm-3-arm-run.md:116`), written against
+# tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh — step 2 of the srv1 kernel-arms run
+# (`PLAN.md:116`), written against
 # `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md` §5.6.
 #
 # Produces `records/evidence/2026-09-02-srv1-kernel-arms/srv1-aa-null.tsv`.
@@ -20,7 +20,7 @@
 # which is what `### NULL spread_pct=` is computed over.
 #
 # `spread_pct` IS NOT CHOSEN. It is computed from the rows this run just wrote,
-# through `tests/sweeprows.py` itself, by the same formula
+# through `tools/runs/rows.py` itself, by the same formula
 # `test_one_observation_...:112-123` uses: per `(cell, n)` group of two or more,
 # `(max - min) / median`, and the largest of those as a percentage. A script that
 # picked the number would be pricing nothing.
@@ -36,24 +36,36 @@
 # only a third failure is believed and recorded. No row is ever fabricated.
 #
 # Usage:
-#   srv1-aa-null.sh [--dry-run] [--out-dir DIR] [--cells "d3b mling"]
-#                   [--reps N] [--arm L3] [--models DIR] [--force]
+#   2-aa-null.sh [--dry-run] [--cells "d3b mling"] [--reps N] [--arm L3]
+#                   [--models DIR]
 #
 # --dry-run prints the exact command line for every cell and touches nothing.
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, the file lands in
+# $RUN_OUT_DIR, and the arm's tag is resolved to a digest ONCE (image_digest,
+# gate 3) before the driver sees it — the driver refuses a tag.
+# RUN_ARTIFACTS: srv1-aa-null.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "2-aa-null.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh disable=SC1091
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
-REPO=$(cd -- "$HERE/../.." && pwd)
-DRIVER=lcp_sweep_31-08-2026.py
-RUN_DIR=$REPO/records/evidence/2026-09-02-srv1-kernel-arms
+REPO=$(cd -- "$HERE/../../../.." && pwd)
+DRIVER=tools/runs/drivers/lcp_sweep.py
+# The prompts the driver draws come from this module, not from the driver:
+# the WORKLOAD stamp names it, and the digest is re-derived from it.
+WORKLOAD=tools/runs/workload.py
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+RUN_DIR=$RUN_OUT_DIR
 NULL_TSV=srv1-aa-null.tsv
 
 DRY_RUN=0
-FORCE=0
 MODELS=${LCP_MODELS:-/home/adaramir/models}
 ARM=L3
 CELLS="d3b mling"
@@ -66,15 +78,13 @@ LOGTAIL_PID=
 LOGTAIL_FLAG=
 
 usage() {
-    sed -n '2,45p' "$0" >&2
+    sed -n '2,48p' "$0" >&2
     exit "${1:-2}"
 }
 
 while [ "$#" -gt 0 ]; do
     case $1 in
         --dry-run) DRY_RUN=1 ;;
-        --force) FORCE=1 ;;
-        --out-dir) RUN_DIR=$2; shift ;;
         --models) MODELS=$2; shift ;;
         --arm) ARM=$2; shift ;;
         --cells) CELLS=$2; shift ;;
@@ -96,6 +106,22 @@ arm_img() {
         [ABL][0-9]) printf 'llamacpp:b10644-%s' "$1" ;;
         *) _fail "arm_img: '$1' is not an arm this campaign names"; return 1 ;;
     esac
+}
+
+# The digest the driver runs — gate 3 of the door: a tag is resolved ONCE per
+# arm through `image_digest` (tools/runs/_common.sh), cached here, and the
+# driver refuses anything that is not a digest. The row keeps `img=<tag>` —
+# the arm's name, and what `test_a_row_that_does_not_name_its_arm` accepts —
+# and carries the driver's `img_digest=` beside it, so a reader has both what
+# the arm was called and which bytes answered.
+declare -A ARM_DIGEST=()
+arm_digest() {
+    local tag
+    if [ -z "${ARM_DIGEST[$1]:-}" ]; then
+        tag=$(arm_img "$1") || return 1
+        ARM_DIGEST[$1]=$(image_digest "$tag") || return 1
+    fi
+    printf '%s' "${ARM_DIGEST[$1]}"
 }
 
 cell_def() {
@@ -134,7 +160,7 @@ cmdline() {
     local arm=$1 cell=$2 levels=$3 sub gguf
     sub=$(_cell_field "$cell" 1) || return 1
     gguf=$(_cell_field "$cell" 2) || return 1
-    printf 'LCP_IMG=%s python3 %s %s %s %s %s' \
+    printf 'LCP_IMG="$(image_digest %s)" python3 %s %s %s %s %s' \
         "$(arm_img "$arm")" "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
         "$(arm_label "$arm" "$cell")" "$(cell_spec "$cell" "$levels")"
 }
@@ -150,8 +176,8 @@ log_tail_start() {
     : >"$dest"
     (
         while [ ! -e "$LOGTAIL_FLAG" ]; do
-            if docker inspect lcps >/dev/null 2>&1; then
-                docker logs -f lcps >>"$dest" 2>&1 || true
+            if docker inspect "$RUN_ID-lcps" >/dev/null 2>&1; then
+                docker logs -f "$RUN_ID-lcps" >>"$dest" 2>&1 || true
             else
                 sleep 1
             fi
@@ -169,7 +195,7 @@ log_tail_stop() {
 }
 
 # Read, never inferred from the path: `a checkpoint's name is not evidence of
-# its format` (lcp-vllm-3-arm-run.md:143).
+# its format` (PLAN.md:143).
 log_file_type() {
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
@@ -188,7 +214,7 @@ log_file_type() {
 # --------------------------------------------------------------------------
 
 otok_req_list() {
-    python3 - "$REPO/$DRIVER" "$1" <<'PY'
+    python3 - "$REPO/$WORKLOAD" "$1" <<'PY'
 import itertools
 import random
 import sys
@@ -198,7 +224,7 @@ from pathlib import Path
 driver = Path(sys.argv[1])
 levels = [int(x) for x in sys.argv[2].split(",")]
 source = driver.read_text(encoding="utf-8")
-block = source[source.index("PROMPT_DECILES") : source.index("def sh(")]
+block = source[source.index("PROMPT_DECILES") :]  # the module is the block
 namespace = {"itertools": itertools, "threading": threading, "random": random}
 exec(compile(block, str(driver), "exec"), namespace)
 make = namespace["mkprompt"]
@@ -225,6 +251,11 @@ reemit() {
     for ((i = 3; i < ${#parts[@]}; i++)); do
         tok=${parts[i]}
         if _kv_ok "$tok" && ! _has_space "$tok"; then
+            # The driver echoes the image it RAN, which is the digest gate 3
+            # handed it; the tag this run named goes on as `img=` below.
+            case $tok in
+                img=*) tok="img_digest=${tok#img=}" ;;
+            esac
             args+=("$tok")
         else
             free+=("$tok")
@@ -288,13 +319,13 @@ RAW=
 LOG=
 
 drive_once() {
-    local cell=$1 levels=$2 sub gguf img
+    local cell=$1 levels=$2 sub gguf digest
     sub=$(_cell_field "$cell" 1) || return 1
     gguf=$(_cell_field "$cell" 2) || return 1
-    img=$(arm_img "$ARM") || return 1
+    digest=$(arm_digest "$ARM") || return 1
     : >"$RAW"
     log_tail_start "$LOG"
-    LCP_IMG=$img python3 "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
+    LCP_IMG=$digest python3 "$REPO/$DRIVER" "$gguf" "$MODELS/$sub" \
         "$(arm_label "$ARM" "$cell")" "$(cell_spec "$cell" "$levels")" >"$RAW" 2>&1 || true
     log_tail_stop
     if grep -q -e "$(printf '\tCONFIG\t')" -e "$(printf '\tSKIP\t')" -e "$(printf '\tDEGENERATE\t')" "$RAW"; then
@@ -357,8 +388,9 @@ null_plan() { # prints `SIDE CELL REP` per line, in emission order
 
 null_body() {
     local side cell rep
-    workload_stamp "$DRIVER"
+    workload_stamp "$WORKLOAD"
     start_stamp
+    round_stamp
     while read -r side cell rep; do
         # Per-arm re-stamp rather than once per file, exactly as step 4 does:
         # the null prices the instrument only if it ran the same procedure.
@@ -368,15 +400,15 @@ null_body() {
 }
 
 # The number this file exists to produce, computed from this file's own rows
-# through `tests/sweeprows.py` — the same parser and the same formula the test
+# through `tools/runs/rows.py` — the same parser and the same formula the test
 # applies, so the declared value cannot drift from the measured one.
 null_spread() { # BODY_TSV
-    (cd "$REPO" && uv run --quiet python -c '
+    (cd "$REPO" && uv run --no-sync --quiet python -c '
 import statistics
 import sys
 from pathlib import Path
 
-from tests.sweeprows import read
+from tools.runs.rows import read
 
 sweep = read(Path(sys.argv[1]))
 by: dict[tuple[str, int], list[float]] = {}
@@ -429,8 +461,8 @@ trap 'log_tail_stop; rm -rf "$WORK"' EXIT
 
 mkdir -p "$RUN_DIR"
 OUT=$RUN_DIR/$NULL_TSV
-if [ -e "$OUT" ] && [ "$FORCE" -ne 1 ]; then
-    _fail "$OUT exists. A measurement file is written once; pass --force only if you mean to replace it"
+if [ -e "$OUT" ]; then
+    _fail "$OUT exists. A measurement file is written once (the door's gate 5 refuses this before the step starts); move it aside deliberately"
     exit 1
 fi
 

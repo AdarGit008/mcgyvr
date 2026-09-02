@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# tools/runs/srv1-llama-bench.sh
+# tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh
 #   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-llama-bench.tsv
 #
-# Campaign step 3 (`lcp-vllm-3-arm-run.md:117-118`):
+# Campaign step 3 (`PLAN.md:117-118`):
 #
 #   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1
 #             x {L0,L1,L2,L3,L4,A3,A1}
@@ -59,17 +59,24 @@
 # Flags:
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
-#   --out PATH    write somewhere other than the contract path (for rehearsal).
+#
+# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# ### ROUND records the product round gate 1 checked, the file lands in
+# $RUN_OUT_DIR, and each arm's tag is resolved to a digest ONCE (image_digest,
+# gate 3) before llama-bench is started from it.
+# RUN_ARTIFACTS: srv1-llama-bench.tsv
+
+[ -n "${RUN_ID:-}" ] || { echo "3-llama-bench.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
 
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh
 # shellcheck disable=SC1091  # sourced at runtime from the script's own directory
-. "$HERE/_common.sh"
+. "$HERE/../../_common.sh"
+door_required
 
 ARTIFACT=srv1-llama-bench.tsv
-RUN_REL=records/evidence/2026-09-02-srv1-kernel-arms
 
 TAG_PREFIX=${RUN_TAG_PREFIX:-llamacpp:b10644-}
 MODELS_DIR=${RUN_MODELS_DIR:-$HOME/models}
@@ -81,20 +88,14 @@ FA=${RUN_FA:-0,1}
 NGL=${RUN_NGL:-99}
 
 DRY_RUN=0
-OUT=
 
 usage() {
-    sed -n '2,62p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
+    sed -n '2,67p' "${BASH_SOURCE[0]}" | sed 's/^#\{1,2\} \{0,1\}//'
 }
 
 while [ "$#" -gt 0 ]; do
     case $1 in
         --dry-run) DRY_RUN=1 ;;
-        --out)
-            [ "$#" -ge 2 ] || { _fail "--out needs a path"; exit 2; }
-            OUT=$2
-            shift
-            ;;
         -h | --help)
             usage
             exit 0
@@ -108,7 +109,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 ROOT=$(_repo_root)
-[ -n "$OUT" ] || OUT="$ROOT/$RUN_REL/$ARTIFACT"
+# The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
+OUT="$RUN_OUT_DIR/$ARTIFACT"
 
 read -r -a ARM_LIST <<<"${RUN_ARMS:-L0 L1 L2 L3 L4 A3 A1}"
 
@@ -143,7 +145,7 @@ emit() {
 
 # Every locally built arm is tagged `llamacpp:b10644-<ARM>`. `A1` is the stock
 # image, pinned by tag and never floating — the same mapping
-# `tools/runs/srv1-kernel-arms.sh:142` and `tools/runs/srv1-aa-null.sh:95` use.
+# `tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh:142` and `tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh:95` use.
 tag_of() {
     case $1 in
         A1) printf '%s' 'ghcr.io/ggml-org/llama.cpp:server-cuda-b10644' ;;
@@ -151,11 +153,27 @@ tag_of() {
     esac
 }
 
+# The digest llama-bench is started from — gate 3 of the door: resolved ONCE
+# per arm through `image_digest`, cached, and the container is run from the
+# digest rather than from the tag. The row keeps `img=<tag>` (the arm's name)
+# and carries `img_digest=` beside it. Under --dry-run nothing is resolved and
+# the plan names the tag.
+declare -A ARM_DIGEST=()
+arm_digest() {
+    local tag
+    if [ -z "${ARM_DIGEST[$1]:-}" ]; then
+        tag=$(tag_of "$1")
+        ARM_DIGEST[$1]=$(image_digest "$tag") || return 1
+    fi
+    printf '%s' "${ARM_DIGEST[$1]}"
+}
+
 # A3 is the Vulkan arm; it reaches the card through the driver's ICD rather than
 # through CUDA, so it needs the driver's display capability inside the container.
 docker_args() {
     local arm=$1
-    printf '%s\n' --rm --gpus all
+    # Named for the run, so gate 7 of the door finds a bench that hung.
+    printf '%s\n' --rm --gpus all --name "$RUN_ID-bench-$arm"
     if [ "$arm" = A3 ]; then
         printf '%s\n' -e NVIDIA_DRIVER_CAPABILITIES=all
     fi
@@ -181,14 +199,15 @@ docker_args() {
 declare -A BENCH_ENTRY=()
 
 resolve_bench_entry() {
-    local arm=$1 tag=$2
-    if retry3 docker run --rm --entrypoint test "$tag" -x /app/llama-bench; then
+    local arm=$1 tag=$2 image
+    image=${ARM_DIGEST[$arm]:-$tag}
+    if retry3 docker run --rm --entrypoint test "$image" -x /app/llama-bench; then
         BENCH_ENTRY["$arm"]='/app/llama-bench'
         return 0
     fi
     say "$arm: $tag ships no /app/llama-bench; trying the /app/llama dispatcher"
-    if retry3 docker run --rm --entrypoint test "$tag" -x /app/llama &&
-        docker run --rm --entrypoint /app/llama "$tag" help all 2>/dev/null |
+    if retry3 docker run --rm --entrypoint test "$image" -x /app/llama &&
+        docker run --rm --entrypoint /app/llama "$image" help all 2>/dev/null |
         grep -qE '^[[:space:]]+bench[[:space:]]'; then
         BENCH_ENTRY["$arm"]='/app/llama bench'
         say "$arm: '/app/llama help all' lists bench; that is the instrument"
@@ -197,15 +216,16 @@ resolve_bench_entry() {
     return 1
 }
 
-# The step-3 command line, verbatim from lcp-vllm-3-arm-run.md:117-118, on
+# The step-3 command line, verbatim from PLAN.md:117-118, on
 # whichever of the two entrypoints this arm's image actually has.
 bench_cmd() {
-    local arm=$1 tag entry
-    tag=$(tag_of "$arm")
+    local arm=$1 image entry
+    # The digest once resolved (arm_digest, gate 3); the tag only in the plan.
+    image=${ARM_DIGEST[$arm]:-$(tag_of "$arm")}
     entry=${BENCH_ENTRY[$arm]:-/app/llama-bench}
     local args=() inv=()
     mapfile -t args < <(docker_args "$arm")
-    inv=(docker run "${args[@]}" --entrypoint "${entry%% *}" "$tag")
+    inv=(docker run "${args[@]}" --entrypoint "${entry%% *}" "$image")
     if [ "$entry" != "${entry%% *}" ]; then
         inv+=("${entry#* }")
     fi
@@ -351,7 +371,7 @@ clean_reason() {
 }
 
 bench_arm() {
-    local arm=$1 tag json cell line reason
+    local arm=$1 tag json cell line reason digest
     tag=$(tag_of "$arm")
     local cmd=()
     mapfile -t cmd < <(bench_cmd "$arm")
@@ -366,6 +386,18 @@ bench_arm() {
         return 0
     fi
 
+    # Gate 3: the tag becomes a digest, once, before anything is started from
+    # it. An image the daemon does not hold is a refusal for this arm — a
+    # result, not a setup error — and `none`: no checkpoint was involved.
+    if ! retry3 arm_digest "$arm" >/dev/null; then
+        emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
+            "arm=$arm" "img=$tag" "checkpoint_quant=none" \
+            -- "the image $tag resolves to no digest on this host after ${RUN_TRIES:-3} attempts (docker image inspect failed), so nothing was started from it and no prefill number may be quoted for this arm"
+        say "$arm: $tag is not an image this daemon holds. Refused, not synthesised."
+        return 0
+    fi
+    digest=${ARM_DIGEST[$arm]}
+
     # The blocker the run doc flagged: `server-cuda-b10644` may ship no
     # llama-bench, and a locally built image can miss the target too. Probed
     # before the model is loaded, retried because guideline 8 asks for three.
@@ -374,7 +406,7 @@ bench_arm() {
         # `none`, not `unread`: no checkpoint was involved. The binary that
         # would have loaded one is not in the image (_common.sh `refused`).
         emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
-            "arm=$arm" "img=$tag" "checkpoint_quant=none" \
+            "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=none" \
             -- "the image $tag holds neither an executable /app/llama-bench nor an /app/llama dispatcher listing a bench command, so this arm has no prefill instrument and no prefill number may be quoted for it"
         say "$arm: no llama-bench and no dispatcher. Refused, not synthesised."
         return 0
@@ -388,7 +420,7 @@ bench_arm() {
         # `unread`: llama-bench was handed a checkpoint and died without ever
         # printing what it was.
         emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
-            "arm=$arm" "img=$tag" "checkpoint_quant=unread" \
+            "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=unread" \
             -- "llama-bench on $arm failed ${RUN_TRIES:-3} times and measured nothing; its last words were: ${reason:-(it printed nothing at all)}"
         say "$arm: llama-bench refused. Recorded as a result (guideline 8)."
         return 0
@@ -397,13 +429,16 @@ bench_arm() {
     # An unreadable report is not a refusal: llama-bench ran, and retrying a
     # deterministic parse three times would only make `tries=3` a lie. It is a
     # cell with nothing filed, which is what SKIP means (§1.4) — and SKIP is the
-    # one kind exempt from the per-row rules, so it claims nothing either.
+    # one kind exempt from the per-row rules, so it claims nothing either. It
+    # returns 0 like every other filed-nothing branch: main calls bench_arm
+    # under `set -e`, and a 1 here once ended the bench at the first bad
+    # report, with no rows for the arms after it and no ### END.
     if ! "${PY[@]}" "$TMP/parse.py" "$json" >"$TMP/$arm.rows" 2>"$TMP/$arm.perr"; then
         reason=$(clean_reason "$(cat "$TMP/$arm.perr")")
         emit row "$(arm_label "$arm" "p${PP%%,*}")" SKIP \
             -- "the $arm report could not be read honestly and no row was written from it: ${reason:-(the parser said nothing)}"
         say "$arm: unreadable report. Skipped rather than half-parsed."
-        return 1
+        return 0
     fi
 
     while read -r cell line; do
@@ -411,7 +446,7 @@ bench_arm() {
         # Every token is whitespace-free by construction (the parser checks),
         # so this split is the intent.
         # shellcheck disable=SC2086
-        emit row "$(arm_label "$arm" "$cell")" BENCH "arm=$arm" "img=$tag" $line
+        emit row "$(arm_label "$arm" "$cell")" BENCH "arm=$arm" "img=$tag" "img_digest=$digest" $line
     done <"$TMP/$arm.rows"
     say "$arm: $(wc -l <"$TMP/$arm.rows") BENCH rows"
 }
@@ -448,7 +483,7 @@ choose_python() {
     if command -v python3 >/dev/null 2>&1; then
         PY=(python3)
     elif command -v uv >/dev/null 2>&1; then
-        PY=(uv run --quiet python)
+        PY=(uv run --no-sync --quiet python)
     else
         _fail "no python3 and no uv: llama-bench's JSON report cannot be read, and a hand-parsed throughput number is a guess"
         return 1
@@ -480,6 +515,7 @@ main() {
     # serving drivers. Neither microbenchmark file may claim the workload.
     emit microbench_stamp
     emit start_stamp
+    emit round_stamp
     emit rig_stamp
 
     for arm in "${ARM_LIST[@]}"; do
@@ -494,7 +530,7 @@ main() {
     emit end_stamp
     rig_assert_unchanged
     say "done: $OUT"
-    say "srv1-build-ladder.sh projects one row per rung out of this file; it"
+    say "1-build-ladder.sh projects one row per rung out of this file; it"
     say "copies these numbers and never re-measures them (§6.4)."
 }
 
