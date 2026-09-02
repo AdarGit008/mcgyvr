@@ -612,9 +612,12 @@ def test_the_predicted_branch_does_not_subtract_the_reserve(
     same numbers, which is the whole reason the branches are kept apart.
     """
     asked: list[str] = []
-    monkeypatch.setattr(
-        vllm, "reserved_mib", lambda host: asked.append(host) or RESERVED_MIB[host]
-    )
+
+    def _record_reserve(host: str) -> int:
+        asked.append(host)
+        return RESERVED_MIB[host]
+
+    monkeypatch.setattr(vllm, "reserved_mib", _record_reserve)
     free = 6144 - 17
     # Weights + KV + 733 lands at 5,898: inside srv1's reserve window (5,726
     # ..6,127), the exact band the measured branch refuses.

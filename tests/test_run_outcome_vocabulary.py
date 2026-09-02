@@ -57,7 +57,7 @@ def level(
     errors: int = 0,
     kinds: tuple[str, ...] = (),
     counted: int | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """One ramp level as ``contract.ramp`` emits it.
 
     ``counted`` defaults to ``ok`` because that is what the engine produces when
@@ -133,7 +133,7 @@ def test_any_single_barren_level_is_enough(barren_n: int) -> None:
     did not measure what it was asked for -- including at n=1, where a cell that
     never answered once would otherwise carry three good points and an `ok`."""
     levels = [level(n, ok=0 if n == barren_n else n) for n in (1, 2, 4, 8)]
-    row = {"outcome": "ok"}
+    row: dict[str, Any] = {"outcome": "ok"}
     run_module.barren_downgrades_the_outcome(row, {"levels": levels}, "srv1", "c")
     assert row["outcome"] == "ramp_failed"
     assert f"n={barren_n}" in row["refusal"]["prose"]
@@ -160,8 +160,9 @@ def test_an_empty_ramp_is_not_silently_whole() -> None:
     hole open under a name that said it was closed."""
     assert run_module.barren_levels({}) == []
     assert run_module.barren_levels({"levels": []}) == []
-    for measured in ({}, {"levels": []}):
-        row = {"outcome": "ok"}
+    empty_ramps: tuple[dict[str, Any], ...] = ({}, {"levels": []})
+    for measured in empty_ramps:
+        row: dict[str, Any] = {"outcome": "ok"}
         run_module.barren_downgrades_the_outcome(row, measured, "srv1", "cell")
         assert row["outcome"] == "ramp_failed", (
             "a ramp that recorded no levels kept its `ok`, so `--retry-failed` "
@@ -177,7 +178,7 @@ def test_a_level_that_arrived_but_could_not_be_counted_is_barren() -> None:
     every request succeed and still carry no rate."""
     level = {"n": 8, "ok": 8, "counted": 0, "errors": 0, "tokens_per_s": None}
     assert run_module.barren_levels({"levels": [level]}) == [level]
-    row = {"outcome": "ok"}
+    row: dict[str, Any] = {"outcome": "ok"}
     run_module.barren_downgrades_the_outcome(row, {"levels": [level]}, "srv1", "cell")
     assert row["outcome"] == "ramp_failed"
     assert "stated a token count" in row["refusal"]["prose"]

@@ -124,7 +124,8 @@ def _entries() -> list[tuple[Path, dict[str, Any]]]:
 
 
 def _blob(entry: dict[str, Any]) -> str:
-    return entry["id"].split("/models/", 1)[1]
+    identifier: str = entry["id"]
+    return identifier.split("/models/", 1)[1]
 
 
 def test_there_are_llamacpp_entries_to_check() -> None:
