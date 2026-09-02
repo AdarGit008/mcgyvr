@@ -221,6 +221,19 @@ OPERATIONAL: frozenset[str] = frozenset(
         "debug_dump_path",
         "cache_dir",
         "compile_cache_save_format",
+        # Placement and parallelism: WHERE a tensor is computed, not WHAT is
+        # emitted. `--n-cpu-moe` moves expert weights to host RAM, `-ngl` moves
+        # layers to the card, `mmap` changes how the file is read, `threads`
+        # changes how many cores share the work. None of them alters the token
+        # distribution, so none belongs in the semantic pin -- and putting them
+        # there would declare two cells of one model at two offload settings
+        # "incomparable on output", which is exactly the comparison this
+        # campaign exists to make. They are pinned operationally instead, so
+        # cells that differ only in placement still separate by digest.
+        "n_gpu_layers",
+        "n_cpu_moe",
+        "threads",
+        "mmap",
     }
 )
 

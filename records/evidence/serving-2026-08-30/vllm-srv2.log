@@ -1,0 +1,27 @@
+journal: records/evidence/serving-2026-08-30/vllm-srv2.jsonl
+[srv2] snapshot
+[srv2] q15-vllm-srv2 (vllm) — yielding the card
+[srv2] q15-vllm-srv2 — concurrency ramp
+[srv2] q3-vllm-srv2 (vllm) — yielding the card
+[srv2] q3-vllm-srv2 — concurrency ramp
+[srv2] q34b-vllm-srv2 (vllm) — yielding the card
+[srv2] q34b-vllm-srv2 — concurrency ramp
+[srv2] q7-vllm-srv2 (vllm) — yielding the card
+[srv2] q7-vllm-srv2 — concurrency ramp
+[srv2] q14-vllm-srv2-offload (vllm) — yielding the card
+[srv2] q14-vllm-srv2-offload REFUSED: Qwen/Qwen2.5-Coder-14B-Instruct-AWQ on srv2: the declaration does not fit this card. weights 9,518 MiB + declared KV 3,072 MiB + 733 MiB the process holds besides them = 13,323 MiB, and the card has 12,271 MiB free. Short by 1,052 MiB. 2,020 MiB is 10,773 KV tokens at this model's 196,608 B/token, which is either max_num_seqs 5 at the declared max_model_len 2,048, or max_model_len 1,346 at the declared max_num_seqs 8. This picks neither: which one to give up is the entry's decision, and a launcher that quietly chose would have the run measure a configuration nobody declared (ADR-0039 rule 2, #354). Nothing was measured.
+[srv2] final release of llamacpp: released=True card=17 MiB
+[srv2] final release of ollama: released=True card=17 MiB
+[srv2] final release of vllm: released=True card=17 MiB
+
+wrote records/evidence/serving-2026-08-30/vllm-srv2.json (494365 bytes)
+  srv2/q15-vllm-srv2: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv2/q3-vllm-srv2: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv2/q34b-vllm-srv2: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv2/q7-vllm-srv2: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv2/q14-vllm-srv2-offload: REFUSED
+  family qwen2.5-coder-1.5b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-14b: no member was measured  [0 of 1]

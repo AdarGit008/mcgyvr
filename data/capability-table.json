@@ -41,7 +41,7 @@
       "what": "Both rigs read ram_gb 32. Neither was 32: rig_a is 48 and rig_b is 16.",
       "method": "ssh <host> 'sudo dmidecode -t memory' and 'free -g' on both rigs. Derivation: records/measurements/serving-sweep-2026-08-25/rig-reality-2026-08-25.md.",
       "why_it_matters": "This file is what `mcgyvr init` reads to propose worker bindings without benchmarking the user's machine. Host RAM is what decides whether a model larger than the card can be served at all by MoE expert offload, and the table was proposing against a rig_b twice its real size.",
-      "not_corrected_here": "The same figure appears in ADR-0024, archived to docs/archive/decisions/ on 2026-08-25. An archived record is history and is not edited."
+      "not_corrected_here": "The same figure appears in ADR-0024, archived to archive/docs/archive/decisions/ on 2026-08-25. An archived record is history and is not edited."
     },
     "_host_mapping": "rig_a is srv1 and rig_b is srv2, matched by GPU: nvidia-smi reports GTX 1660 SUPER / 6144 MiB / cc 7.5 on srv1 and RTX 3060 / 12288 MiB / cc 8.6 on srv2 (2026-08-25). The labels predate the hostnames appearing anywhere in this repository; tools/bench/serving/configs/hosts.json declares srv1/srv2 directly."
   },

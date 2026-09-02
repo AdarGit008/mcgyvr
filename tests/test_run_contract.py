@@ -8,7 +8,7 @@ it was written. That refusal is the mechanism working, not an obstacle to it.
 
 Three of the four are ``xfail(strict=True)`` with a dated reason under rule 2's
 grammar. They are not owed rulings — the owner has ruled — they are owed
-*code*: `docs/run-contract-2026-08-22.md` is a contract and ADR-0038 is
+*code*: `archive/docs/run-contract-2026-08-22.md` is a contract and ADR-0038 is
 ``Proposed``. ``strict`` is what makes them a schedule rather than a wish: the
 commit that implements a clause turns its check XPASS and fails the suite until
 the marker comes off in the same commit.
@@ -109,7 +109,7 @@ def test_no_host_is_barred_from_a_cross_host_contrast() -> None:
         "2026-08-22: decided — ADR-0038 D3, Accepted; the decision is made "
         "and the code is owed on #335. No module compares two cells' "
         "parameters, so nothing can refuse on an unremarked difference. See "
-        "docs/run-contract-2026-08-22.md section 5"
+        "archive/docs/run-contract-2026-08-22.md section 5"
     ),
 )
 def test_a_contrast_refuses_when_any_unremarked_parameter_differs() -> None:
@@ -179,7 +179,7 @@ def test_a_one_armed_cell_is_stored_and_checked_like_any_other() -> None:
     The check is that a cell's record shape does not depend on how many arms
     its header declared.
     """
-    contract = REPO / "docs" / "run-contract-2026-08-22.md"
+    contract = REPO / "archive" / "docs" / "run-contract-2026-08-22.md"
     assert contract.exists(), "the contract this check enforces is not in the tree"
     cells = sorted((REPO / "records" / "evidence").glob("*/*/run.json"))
     assert cells, (
@@ -212,6 +212,6 @@ def test_canary_a_role_bound_as_a_name_is_refused(tmp_path: Path) -> None:
 # ADR-0037 rule 3's mirror stood here: it read ADR-0038 and required this
 # file to define exactly the checks that record named. Both halves of that
 # pairing are gone with their corpus -- the decision records were archived
-# on 2026-08-25 (docs/archive/decisions/) and no longer govern anything, so
+# on 2026-08-25 (archive/docs/archive/decisions/) and no longer govern anything, so
 # a test asserting agreement with one would be the archive governing by the
 # back door. The checks it counted are all still here and still run.

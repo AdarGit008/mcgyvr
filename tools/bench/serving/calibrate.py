@@ -976,6 +976,12 @@ LEVEL_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
     # could not tell a slower card from a throttling one.
     "card": ("card",),
     "ambient": ("ambient",),
+    # The width the SERVER said it was running at while the level ran, against
+    # the width the level offered. `card` and `ambient` are read at the level's
+    # end, when nothing is in flight by definition; this one is sampled during
+    # it, and is the only field that can tell a saturated server from one that
+    # queued three quarters of the requests it was handed.
+    "in_flight": ("in_flight",),
 }
 
 #: Why a field in :data:`LEVEL_ROW_DISPOSITION` is not carried. Every one is.
@@ -1068,6 +1074,11 @@ LAUNCH_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "digest_bytes",
         "digest_tensors",
         "digest_error",
+        "launched_width",
+        "launched_width_source",
+        "kv_cache_tokens",
+        "kv_per_request_tokens",
+        "kv_max_concurrency",
     ),
     "declarations_ignored": ("declarations_ignored",),
 }
@@ -1110,6 +1121,17 @@ LAUNCH_CHECKS_DISPOSITION: dict[str, tuple[str, ...] | None] = {
         "digest_error",
     ),
     "weights_sha256_expected": ("weights_sha256_expected",),
+    # The two readbacks this engine does have: the width it is serving at, read
+    # off the running process argv, and the KV pool it printed at startup with
+    # the concurrency that pool affords. Both gate the ramp in `run.py`, which
+    # carries `checks` verbatim; here they are recorded flat so a launch arm
+    # states the width it launched at rather than only the memory it took.
+    "launched_width": ("launched_width", "launched_width_source"),
+    "kv_capacity": (
+        "kv_cache_tokens",
+        "kv_per_request_tokens",
+        "kv_max_concurrency",
+    ),
     "ok": None,
 }
 
@@ -1364,6 +1386,16 @@ def _claim_fields(claimed: dict[str, Any]) -> dict[str, Any]:
         "resident_placements_refused": checks.get("resident_placements_refused"),
         "weights_sha256": weights.get("weights_sha256"),
         "digest_seconds": weights.get("digest_seconds"),
+        # The width the engine is serving at, and the pool it allocated. A
+        # launch row that states its memory and not its width cannot say what
+        # the memory bought.
+        "launched_width": (checks.get("launched_width") or {}).get("value"),
+        "launched_width_source": (checks.get("launched_width") or {}).get("source"),
+        "kv_cache_tokens": (checks.get("kv_capacity") or {}).get("kv_cache_tokens"),
+        "kv_per_request_tokens": (checks.get("kv_capacity") or {}).get(
+            "per_request_tokens"
+        ),
+        "kv_max_concurrency": (checks.get("kv_capacity") or {}).get("max_concurrency"),
         "declarations_ignored": claimed.get("declarations_ignored"),
     }
 

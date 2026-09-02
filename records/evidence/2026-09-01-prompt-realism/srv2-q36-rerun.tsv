@@ -1,0 +1,19 @@
+### srv2 PHASE3 START 2026-09-01T10:18:08+00:00
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2803	warm_ptok=730
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=21.0	p50=4.80	prefill=122.7	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=4.8
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=27.6	p50=20.34	prefill=57.8	ptok=588	otok=280	early_stop=0/2	failed=0/2	wall=20.3
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=29.8	p50=26.62	prefill=85.4	ptok=641	otok=223	early_stop=0/4	failed=0/4	wall=30.0
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=30.0	p50=54.30	prefill=77.3	ptok=681	otok=264	early_stop=0/8	failed=0/8	wall=70.5
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2803	warm_ptok=694
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=23.1	p50=12.14	prefill=71.5	ptok=868	otok=281	early_stop=0/1	failed=0/1	wall=12.1
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=28.0	p50=31.06	prefill=63.0	ptok=580	otok=257	early_stop=0/4	failed=0/4	wall=36.8
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=7071	warm_ptok=590
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	n=1	agg=28.6	p50=3.53	prefill=186.8	ptok=660	otok=101	early_stop=0/1	failed=0/1	wall=3.5
+srv2	s2-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=24	n=4	agg=34.8	p50=15.16	prefill=181.1	ptok=721	otok=138	early_stop=0/4	failed=0/4	wall=15.9
+### srv2 PHASE3 VLLM 2026-09-01T10:22:15+00:00
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	WIDTH	dropped n=8: pool holds 10240 tokens = 5.0 concurrent requests at len=2048, so those rungs would queue, not saturate
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=9677	kv_tok=10240	maxconc=5.0	warm_ptok=730	Total CPU offloaded parameters: 26.01
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=1	agg=6.1	p50=16.58	prefill=35.5	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=16.6
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=2	agg=7.6	p50=74.27	prefill=15.8	ptok=588	otok=280	early_stop=0/2	failed=0/2	wall=74.3
+srv2	s2-q36-fp8 util=0.95 len=2048 seqs=8 kv=auto extra=--cpu-offload-gb+26+--cpu-offload-params+experts	n=4	agg=9.1	p50=82.89	prefill=26.2	ptok=641	otok=223	early_stop=0/4	failed=0/4	wall=98.1
+### srv2 PHASE3 DONE 2026-09-01T10:33:44+00:00

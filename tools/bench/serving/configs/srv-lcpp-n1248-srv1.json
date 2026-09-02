@@ -1,0 +1,329 @@
+{
+  "_doc": "llama.cpp half of the 2026-08-30 concurrency run (run-request-2026-08-30-n1248.md). Keys are (host, backend, label); the same weights under two engines are two instruments. Split per host because run.py:254 refuses an entry pinned to a host the run is not surveying, and because the two rigs run concurrently. Every cell declares levels [1,2,4,8] and parallel 8 -- see _serve_origin on any entry for why both numbers are forced rather than defaulted.",
+  "_excluded": {
+    "Qwen3-8B-Q4_K_M.gguf": "dense -ngl 99 needs 4,796 MiB weights + 1,152 MiB KV (36 layers x 8 KV heads x 128 x 2 x 2 = 147,456 B/token, 8,192 tokens) + ~400 MiB compute = 6,348 MiB against 5,743 usable. Over by 605 MiB at ctx_per_slot 1024 and still over at the 987 floor. Not silently reduced to a partial -ngl: that is a different instrument from the other dense cells and substituting it would compare two things under one label.",
+    "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf": "dense -ngl 99 needs 8,573 MiB weights + 1,536 MiB KV (48 layers x 8 KV heads x 128 x 2 x 2 = 196,608 B/token) + ~400 MiB compute = 10,509 MiB against 5,743 usable. Over by 4,766 MiB; it is declared on srv2, which holds it.",
+    "Qwen3-Coder-30B-A3B-Instruct-UD-IQ3_XXS.gguf": "12.85 GB against a 12.55 GB mmap budget at srv1's LOWEST observed MemAvailable (13,869 MiB, 2026-08-30). It clears the budget at the day's highest reading (15,142 MiB) and fails it at the lowest, so declaring it would make the cell's admission depend on when the gate happened to run rather than on whether the model fits. Excluded rather than left as a coin flip; srv2 holds the same blob and declares it.",
+    "Qwen3.8-27B": "not present on srv1; downloaded to srv2 only 2026-08-30. It would not fit srv1's card in any case -- 10,423 MiB of weights against 5,743 MiB usable, before any KV."
+  },
+  "hosts": [
+    "srv1"
+  ],
+  "collect": {
+    "host_config": true,
+    "concurrency": true
+  },
+  "models": [
+    {
+      "label": "d3b-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
+      "family": "qwen2.5-coder-3b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "d4b-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/dense/Qwen3-4B-Q4_K_M.gguf",
+      "family": "qwen3-4b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "d7b-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/dense/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf",
+      "family": "qwen2.5-coder-7b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "docr7b-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_M.gguf",
+      "family": "opencodereasoning-nemotron-7b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "m_ling-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf",
+      "family": "ling-3.0-tiny",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable.",
+        "_cell_note": "The only MoE small enough to sit entirely on srv1's card: 4.92 GB against 5,743 MiB of usable VRAM. It runs -ngl 99 with NO --n-cpu-moe, so it measures MoE concurrency with no host-RAM path in the loop at all. Every other MoE cell here is bandwidth-bound through expert offload; this one is the control that says what the ladder looks like when it is not."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "m_dsv2-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+      "family": "deepseek-coder-v2-16b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "n_cpu_moe": 99,
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "m_gemma4-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf",
+      "family": "gemma-4-26b-a4b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "n_cpu_moe": 99,
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "m_q36iq2-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ2_M.gguf",
+      "family": "qwen3.6-35b-a3b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "n_cpu_moe": 99,
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    },
+    {
+      "label": "m_oss20-lcpp-srv1",
+      "backend": "llamacpp",
+      "id": "/home/adaramir/models/moe/gpt-oss-20b-MXFP4.gguf",
+      "family": "gpt-oss-20b",
+      "hosts": [
+        "srv1"
+      ],
+      "serve": {
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "parallel": 8,
+        "ctx_per_slot": 1024,
+        "ngl": 99,
+        "threads": 6,
+        "flags": [],
+        "n_cpu_moe": 99,
+        "_serve_origin": "ORIGIN of these values: chosen here, not inherited from the 2026-08-24 or 08-25 sweeps. `parallel` is 8 because the ramp's widest level is n=8 and llama-server's DEFAULT IS 4 -- measured on srv1 2026-08-30, where the default made n=8 run as two sequential batches of four and the aggregate flatlined at the n=4 figure (175.41 against 175.35) while latency doubled. That is a configuration artifact shaped exactly like hardware saturation, and it would have CONFIRMED the 'llama.cpp caps ~2x' claim this run exists to test. `ctx_per_slot` is 1024 because -c is TOTAL and llama-server divides it across slots: -c 4096 --parallel 8 gives 512 tokens per slot against the ramp's 475-token completion, leaving 37 for the prompt and silently truncating every timed generation while still answering 200. The backend refuses below 987 (475 + 512); 1024 clears it. `threads` is 6 on srv1 (all cores) and 4 on srv2, where the 2026-08-25 expert-offload record measured decode flat past four threads (6.95 / 12.33 / 15.26 at 1/2/4, then 14.63 at 10 and 15.72 at 20) because decode under expert offload is memory-bandwidth-bound.",
+        "_vram_note": "VRAM is weighed against the card LESS its GSP firmware reserve, not against the nameplate: srv1 is 6,144 - 401 = 5,743 MiB and srv2 is 12,288 - 380 = 11,908 MiB, both read from `nvidia-smi --query-gpu=memory.reserved` 2026-08-30. The reserve is firmware that runs ON the GPU and holds card memory that no process can allocate; CUDA does not report it as existing at all (PyTorch called srv2's 12 GB card 'a total capacity of 11.63 GiB'). It is a fixed carveout, not a percentage, so it costs srv1 6.5% of its card and srv2 3.1%.",
+        "_mmap_note": "mmap is ON, as the default, and `--no-mmap` is refused by this backend: the 2026-08-25 record measured every srv2 cell SLOWER with it, and the gate below is what keeps an oversized model from thrashing. The gate is `gguf_bytes <= MemAvailable - 2 GB`, evaluated AFTER the previous cell tears down -- with a 12.11 GB MoE mmap'd, srv1's `available` reads about a gigabyte lower than once that server is gone, so gating mid-cell refuses a model that fits. srv1's available has been observed between 13,869 and 15,142 MiB across 2026-08-30 and the 12.85 GB cell sits inside that swing, so the reading is recorded in each cell's mmap_gate block and the admission is reconstructable."
+      },
+      "concurrency": {
+        "measure": true,
+        "levels": [
+          1,
+          2,
+          4,
+          8
+        ]
+      }
+    }
+  ]
+}

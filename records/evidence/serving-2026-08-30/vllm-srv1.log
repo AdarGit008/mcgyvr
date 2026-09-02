@@ -1,0 +1,23 @@
+journal: records/evidence/serving-2026-08-30/vllm-srv1.jsonl
+[srv1] snapshot
+[srv1] q15-vllm-srv1 (vllm) — yielding the card
+[srv1] q15-vllm-srv1 — concurrency ramp
+[srv1] q3-vllm-srv1 (vllm) — yielding the card
+[srv1] q3-vllm-srv1 — concurrency ramp
+[srv1] q34b-vllm-srv1 (vllm) — yielding the card
+[srv1] q34b-vllm-srv1 — concurrency ramp
+[srv1] q7-vllm-srv1 (vllm) — yielding the card
+[srv1] q7-vllm-srv1 REFUSED: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ on srv1: the declaration does not fit this card. weights 5,313 MiB + declared KV 896 MiB + 733 MiB the process holds besides them = 6,942 MiB, and the card has 6,127 MiB free. Short by 815 MiB. 81 MiB is 1,481 KV tokens at this model's 57,344 B/token, which is either max_num_seqs 0 at the declared max_model_len 2,048, or max_model_len 185 at the declared max_num_seqs 8. This picks neither: which one to give up is the entry's decision, and a launcher that quietly chose would have the run measure a configuration nobody declared (ADR-0039 rule 2, #354). Nothing was measured.
+[srv1] final release of llamacpp: released=True card=17 MiB
+[srv1] final release of ollama: released=True card=17 MiB
+[srv1] final release of vllm: released=True card=17 MiB
+
+wrote records/evidence/serving-2026-08-30/vllm-srv1.json (355352 bytes)
+  srv1/q15-vllm-srv1: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv1/q3-vllm-srv1: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv1/q34b-vllm-srv1: ok  saturation_n=8 @475tok  declared_slots=8 (observed)
+  srv1/q7-vllm-srv1: REFUSED
+  family qwen2.5-coder-1.5b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-3b: single member — nothing to compare  [1 of 1]
+  family qwen3-4b: single member — nothing to compare  [1 of 1]
+  family qwen2.5-coder-7b: no member was measured  [0 of 1]

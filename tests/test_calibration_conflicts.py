@@ -803,7 +803,7 @@ def test_a_cross_host_agreement_rests_on_more_than_one_model_per_engine() -> Non
     convention, so the cell is matched on the ``host`` and ``model`` inside its
     own ``run.json`` (the contract makes that file "the terminal record — the
     row, provenance, identity, pre-state, post-state",
-    ``docs/run-contract-2026-08-22.md:26``). If #335 nests the row under a key,
+    ``archive/docs/run-contract-2026-08-22.md:26``). If #335 nests the row under a key,
     this reader moves with it; if #335 also moves ramp rows out of the
     campaign's top level, :func:`_figures` stops finding them and this check
     must be repointed rather than left to refuse.

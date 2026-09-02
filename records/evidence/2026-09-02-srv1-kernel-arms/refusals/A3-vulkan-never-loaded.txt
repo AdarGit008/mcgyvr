@@ -1,0 +1,20 @@
+== the image says its backend is vulkan
+cuda_library=absent
+backend=vulkan
+
+== the vulkan backend .so is present and links cleanly
+-rwxr-xr-x 1 root root 43797272 Sep  1 22:00 /app/libggml-vulkan.so
+0
+
+== but the runtime loader refuses it
+        59:	calling init: /app/libggml-vulkan.so
+        59:	/app/libggml-vulkan.so: error: symbol lookup error: undefined symbol: ggml_backend_score (fatal)
+        59:	calling fini: /app/libggml-vulkan.so [0]
+
+== so only the CPU backend registers, and the bench runs on the CPU
+load_backend: loaded CPU backend from /app/libggml-cpu-haswell.so
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |           pp128 |        196.56 ± 0.00 |
+| qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |            tg16 |         38.18 ± 0.00 |
+build: d7a207411 (10644)
