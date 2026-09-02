@@ -46,7 +46,6 @@ def test_every_driver_in_the_tree_generates_the_one_workload(name: str) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — srv1 kernel-arms run")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_each_artifact_names_the_driver_it_ran_and_that_driver_still_hashes(
     name: str,
@@ -67,7 +66,6 @@ def test_each_artifact_names_the_driver_it_ran_and_that_driver_still_hashes(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — microbenchmarks unfiled")
 @pytest.mark.parametrize("name", MICROBENCH)
 def test_microbenchmarks_are_filed_where_no_cross_engine_claim_can_reach_them(
     name: str,

@@ -21,8 +21,8 @@ what it *can* do on TU116: which kernel it selects, whether a path that is not
 a capability finding, whose honest answer may be "no viable non-tensor-core path
 exists here". Neither answers the other, and no arm ranks the two engines.
 
-**Status.** Not run. Every behaviour below is a strict, dated `xfail`; the run
-that closes one takes its marker off. Artifacts land in
+**Status.** Run 2026-09-02. Behaviours 1-8 and 12 are green and their markers
+are off; 9's distinctness check, 10 and 11 stay strict, dated `xfail`. Artifacts:
 `records/evidence/2026-09-02-srv1-kernel-arms/`.
 
 ## Rig, as measured 2026-09-01

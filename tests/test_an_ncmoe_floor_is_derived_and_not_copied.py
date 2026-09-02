@@ -33,7 +33,6 @@ INPUTS = (
 )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no per-arm floor")
 def test_each_arm_derives_its_floor_from_its_own_numbers() -> None:
     sweep = owed(FLOOR)
     stamps = {s["arm"]: s for s in sweep.stamps("FLOOR") if "arm" in s}
@@ -74,7 +73,6 @@ def test_two_arms_reporting_one_floor_did_not_reach_it_from_one_set_of_numbers()
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no per-arm floor")
 def test_the_refusal_below_the_floor_is_the_measurement() -> None:
     sweep = owed(FLOOR)
     refusals = sweep.of_kind("REFUSED")

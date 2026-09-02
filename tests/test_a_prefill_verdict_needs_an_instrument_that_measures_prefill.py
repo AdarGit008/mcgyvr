@@ -17,15 +17,12 @@ flash-attention kernel selection as well as the mat-mul one, and a single
 
 from __future__ import annotations
 
-import pytest
-
 from tests.sweeprows import owed
 
 BENCH = "srv1-llama-bench.tsv"
 ARMS = ("L0", "L1", "L2", "L3", "A3")
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no prefill microbenchmark")
 def test_prefill_is_timed_separately_and_not_derived_from_the_ladder() -> None:
     sweep = owed(BENCH)
     assert sweep.stamp("TOOL").get("name") == "llama-bench", (
@@ -42,7 +39,6 @@ def test_prefill_is_timed_separately_and_not_derived_from_the_ladder() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no prefill microbenchmark")
 def test_every_bench_row_reports_its_own_spread_over_at_least_nine_repetitions() -> (
     None
 ):
@@ -56,7 +52,6 @@ def test_every_bench_row_reports_its_own_spread_over_at_least_nine_repetitions()
         assert "stddev" in row.fields, f"line {row.lineno}: no stddev="
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no prefill microbenchmark")
 def test_the_flash_attention_kernel_is_separated_from_the_matmul_kernel() -> None:
     """The arch change moves ``ggml_cuda_get_best_fattn_kernel`` on the same
     ``turing_mma_available`` test that moves MMQ. One number for both attributes

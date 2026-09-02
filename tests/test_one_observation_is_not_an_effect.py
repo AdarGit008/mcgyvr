@@ -27,8 +27,6 @@ from __future__ import annotations
 import statistics
 from itertools import pairwise
 
-import pytest
-
 from tests.sweeprows import owed
 
 ARMS_TSV = "srv1-lcpp-arms.tsv"
@@ -36,7 +34,6 @@ NULL_TSV = "srv1-aa-null.tsv"
 MIN_REPLICATES = 5
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no replicated run")
 def test_every_cell_was_measured_at_least_five_times() -> None:
     sweep = owed(ARMS_TSV)
     counts: dict[tuple[str, str, int], int] = {}
@@ -50,7 +47,6 @@ def test_every_cell_was_measured_at_least_five_times() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no replicated run")
 def test_the_arms_were_interleaved_rather_than_blocked() -> None:
     """Blocked ordering confounds arm with elapsed time, card temperature and
     page-cache warmth. In the 2026-09-01 A/B the bias happened to run against the
@@ -66,7 +62,6 @@ def test_the_arms_were_interleaved_rather_than_blocked() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no replicated run")
 def test_arms_are_only_compared_where_they_drew_the_same_work() -> None:
     """Guideline 2's quantity is the work requested, not the work emitted.
 
@@ -99,7 +94,6 @@ def test_arms_are_only_compared_where_they_drew_the_same_work() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no A/A null")
 def test_the_instrument_was_priced_before_the_effect_was_claimed() -> None:
     """An A/A null: the same arm against itself, same procedure. Without it there
     is no way to say whether 1.7x, 1.15x or 1.02x is signal."""

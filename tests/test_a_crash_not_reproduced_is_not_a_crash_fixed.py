@@ -19,8 +19,6 @@ offload run that "did not reproduce".
 
 from __future__ import annotations
 
-import pytest
-
 from tests.sweeprows import owed
 
 SLOTS = "srv1-moe-slots.tsv"
@@ -28,7 +26,6 @@ CRASH_MARKS = ("ggml_cuda_mul_mat_vec_q", "invalid argument")
 MIN_TRIALS = 60
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no re-crash on this boot")
 def test_the_unpatched_build_crashes_and_the_log_says_why() -> None:
     sweep = owed(SLOTS)
     crashes = [r for r in sweep.of_kind("CRASH") if r.fields.get("arm") == "L2"]
@@ -45,7 +42,6 @@ def test_the_unpatched_build_crashes_and_the_log_says_why() -> None:
         assert failed == total, f"line {row.lineno}: {failed}/{total} returned 000"
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — crash boundary unlocated")
 def test_the_boundary_is_located_rather_than_poked() -> None:
     sweep = owed(SLOTS)
     widths = {
@@ -66,7 +62,6 @@ def test_the_boundary_is_located_rather_than_poked() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — patched build unsoaked")
 def test_the_patched_build_survives_the_widths_that_kill_the_unpatched_one() -> None:
     sweep = owed(SLOTS)
     killed = {
@@ -92,7 +87,6 @@ def test_the_patched_build_survives_the_widths_that_kill_the_unpatched_one() -> 
             assert row.frac("failed")[0] == 0 and row.num("otok") > 1
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — one MoE checkpoint only")
 def test_two_moe_checkpoints_with_different_expert_geometry_are_driven() -> None:
     """The failing kernel dispatches on expert ids, and the batch limit is
     per-quant-type. One checkpoint shows one window."""

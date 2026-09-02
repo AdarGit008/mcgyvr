@@ -35,8 +35,6 @@ schedulers rather than two kernels.
 
 from __future__ import annotations
 
-import pytest
-
 from tests.sweeprows import Row, owed
 
 VLLM = "srv1-vllm-arms.tsv"
@@ -65,7 +63,6 @@ def a_recorded_refusal(row: Row) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — vLLM pair unrun")
 def test_the_two_arms_hold_everything_but_the_kernel_fixed() -> None:
     """Held fixed across the pair — but only where there is a pair to hold.
 
@@ -98,7 +95,6 @@ def test_the_two_arms_hold_everything_but_the_kernel_fixed() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — vLLM pair unrun")
 def test_the_engine_log_names_the_kernel_that_actually_ran() -> None:
     """A flag that parses is not a kernel that ran. This repo has already been
     burned by ``--cpu-offload-params experts``, which vLLM accepted, hashed into
@@ -120,7 +116,6 @@ def test_the_engine_log_names_the_kernel_that_actually_ran() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — vLLM pair unrun")
 def test_a_refusal_is_recorded_as_the_result_it_is() -> None:
     sweep = owed(VLLM)
     levels = [r for r in sweep.levels() if r.fields.get("arm") == "B2"]
@@ -130,7 +125,6 @@ def test_a_refusal_is_recorded_as_the_result_it_is() -> None:
         a_recorded_refusal(row)
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — vLLM pair unrun")
 def test_the_hypothesis_is_answered_by_a_row_that_exists() -> None:
     sweep = owed(VLLM)
     verdict = sweep.stamp("VERDICT")

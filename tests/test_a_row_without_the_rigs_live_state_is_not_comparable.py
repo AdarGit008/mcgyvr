@@ -22,7 +22,6 @@ from tests.sweeprows import owed, rig_gaps
 RUN_FILES = ("srv1-lcpp-arms.tsv", "srv1-moe-slots.tsv", "srv1-vllm-arms.tsv")
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no per-row rig stamp")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_every_row_resolves_to_a_complete_rig_stamp(name: str) -> None:
     sweep = owed(name)
@@ -36,7 +35,6 @@ def test_every_row_resolves_to_a_complete_rig_stamp(name: str) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no PL stamp at both ends")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_the_rig_read_the_same_at_the_end_as_at_the_start(name: str) -> None:
     sweep = owed(name)

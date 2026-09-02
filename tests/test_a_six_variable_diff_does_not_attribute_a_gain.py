@@ -30,15 +30,12 @@ before it starts.
 
 from __future__ import annotations
 
-import pytest
-
 from tests.sweeprows import owed
 
 LADDER = "srv1-build-ladder.tsv"
 RUNGS = ("L0", "L1", "L2", "L3", "L4")
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — build ladder unbuilt")
 def test_every_rung_of_the_ladder_was_built_and_measured() -> None:
     """The ladder's ``BENCH`` rows are the step-3 ``llama-bench`` numbers, one
     row per rung, re-filed here beside the ``BUILD`` and ``KERNELS`` stamps so
@@ -57,7 +54,6 @@ def test_every_rung_of_the_ladder_was_built_and_measured() -> None:
     assert set(RUNGS) <= measured, f"no measurement for {sorted(set(RUNGS) - measured)}"
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — build ladder unbuilt")
 def test_each_rung_differs_from_its_neighbour_in_exactly_one_declared_variable() -> (
     None
 ):
@@ -79,7 +75,6 @@ def test_each_rung_differs_from_its_neighbour_in_exactly_one_declared_variable()
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no cuobjdump check")
 def test_the_mechanism_is_confirmed_in_the_binary_before_any_throughput_is_quoted() -> (
     None
 ):

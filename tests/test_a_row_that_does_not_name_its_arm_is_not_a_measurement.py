@@ -31,7 +31,6 @@ RUN_FILES = ("srv1-lcpp-arms.tsv", "srv1-moe-slots.tsv", "srv1-vllm-arms.tsv")
 ARMS_TSV = "srv1-lcpp-arms.tsv"
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — srv1 kernel-arms run")
 @pytest.mark.parametrize("name", RUN_FILES)
 def test_every_row_names_its_own_image_and_arm(name: str) -> None:
     sweep = owed(name)
@@ -50,7 +49,6 @@ def test_every_row_names_its_own_image_and_arm(name: str) -> None:
         ), f"line {row.lineno}: {image!r} is neither a pinned tag nor a digest"
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — srv1 kernel-arms run")
 def test_no_two_arms_share_a_label() -> None:
     sweep = owed(ARMS_TSV)
     arms_per_label: dict[str, set[str]] = {}
@@ -63,7 +61,6 @@ def test_no_two_arms_share_a_label() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-01: owed — no local image build stamp")
 def test_a_locally_built_image_names_the_source_that_produced_it() -> None:
     sweep = owed(ARMS_TSV)
     local = {
