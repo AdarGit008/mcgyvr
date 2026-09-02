@@ -1,0 +1,44 @@
+# Host memory read bandwidth, measured 2026-09-01. Driver: bw.c (this dir).
+# Pure sequential read, OpenMP reduction, best of 3, aligned alloc, -O3 -march=native.
+# NOT STREAM triad: triad is 2 reads + 1 write and reads lower. For decode, which
+# reads weights and writes almost nothing, the pure-read figure is the right one.
+
+##### srv1 2026-09-01T13:33:46+00:00 #####
+i5-9600K 6c/6t  maxMHz=4600  mem=15G  memclk=3600 MT/s  PL1=95000000
+GTX 1660 SUPER, 6144 MiB, 401 MiB reserved
+--- size sweep at 6 threads ---
+  512 MB read:   40.1 GB/s
+ 1024 MB read:   40.3 GB/s
+ 2048 MB read:   40.2 GB/s
+ 4096 MB read:   40.3 GB/s
+ 6144 MB read:   40.3 GB/s
+ 8192 MB read:   40.3 GB/s
+10240 MB read:   40.2 GB/s
+12288 MB read:   40.3 GB/s
+--- thread scan at 4096 MB ---
+ 2 threads:  15.7 GB/s
+ 4 threads:  30.7 GB/s
+ 6 threads:  40.2 GB/s      <-- still climbing at the last core; CORE-LIMITED
+
+##### srv2 2026-09-01T13:34:04+00:00 #####
+i9-10900F 10c/20t  maxMHz=5200  mem=45G  memclk=2933 MT/s  PL1=65000000
+RTX 3060, 12288 MiB, 377 MiB reserved
+--- size sweep at 20 threads ---
+  512 MB read:   31.9 GB/s
+ 1024 MB read:   29.3 GB/s
+ 2048 MB read:   28.9 GB/s
+ 4096 MB read:   27.5 GB/s
+ 8192 MB read:   26.1 GB/s
+16384 MB read:   27.9 GB/s
+24576 MB read:   27.9 GB/s
+28672 MB read:   27.9 GB/s
+32768 MB read:   27.8 GB/s   <-- the 32 GB flex boundary: no knee
+36864 MB read:   27.6 GB/s
+40960 MB read:   27.9 GB/s
+--- thread scan at 8192 MB ---
+ 2 threads:  12.7 GB/s
+ 4 threads:  23.3 GB/s
+ 6 threads:  28.0 GB/s
+10 threads:  30.3 GB/s      <-- saturated
+16 threads:  30.3 GB/s
+20 threads:  30.3 GB/s

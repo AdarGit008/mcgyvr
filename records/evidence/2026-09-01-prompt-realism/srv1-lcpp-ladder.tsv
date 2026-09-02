@@ -1,0 +1,26 @@
+### srv1 PHASE4 START 2026-09-01T10:56:38+00:00
+srv1	s1-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2588	warm_ptok=711
+srv1	s1-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=43.6	p50=2.31	prefill=247.9	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=2.3
+srv1	s1-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=2	agg=63.6	p50=6.25	prefill=183.2	ptok=573	otok=199	early_stop=1/2	failed=0/2	wall=6.3
+srv1	s1-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=74.0	p50=10.71	prefill=221.4	ptok=625	otok=208	early_stop=1/4	failed=0/4	wall=11.3
+srv1	s1-d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=74.2	p50=21.91	prefill=236.0	ptok=664	otok=208	early_stop=3/8	failed=0/8	wall=22.5
+srv1	s1-d3b np=16 ctx_slot=2048 c=32768 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=3164	warm_ptok=676
+srv1	s1-d3b np=16 ctx_slot=2048 c=32768 ncmoe=0	n=16	agg=60.8	p50=40.93	prefill=231.5	ptok=657	otok=172	early_stop=4/16	failed=0/16	wall=45.4
+srv1	s1-d3b np=32 ctx_slot=2048 c=65536 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4316	warm_ptok=573
+srv1	s1-d3b np=32 ctx_slot=2048 c=65536 ncmoe=0	n=32	agg=64.3	p50=92.92	prefill=221.8	ptok=673	otok=195	early_stop=10/32	failed=0/32	wall=97.1
+srv1	s1-d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4870	warm_ptok=711
+srv1	s1-d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=21.4	p50=4.71	prefill=121.8	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=4.7
+srv1	s1-d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=2	agg=32.0	p50=12.39	prefill=92.5	ptok=573	otok=198	early_stop=1/2	failed=0/2	wall=12.4
+srv1	s1-d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=33.7	p50=21.90	prefill=112.2	ptok=625	otok=187	early_stop=2/4	failed=0/4	wall=22.3
+srv1	s1-d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=34.6	p50=44.09	prefill=116.2	ptok=664	otok=197	early_stop=5/8	failed=0/8	wall=45.7
+srv1	s1-d7b np=16 ctx_slot=2048 c=32768 ncmoe=0	REFUSED	0.01.431.610 E srv    load_model: failed to create_context with model '/models/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf' | 0.01.432.357 E srv  llama_server: exiting due to model loading error
+srv1	s1-d7b np=32 ctx_slot=2048 c=65536 ncmoe=0	REFUSED	0.01.234.648 E srv    load_model: failed to create_context with model '/models/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf' | 0.01.235.402 E srv  llama_server: exiting due to model loading error
+srv1	s1-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4976	warm_ptok=724
+srv1	s1-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=53.3	p50=1.89	prefill=309.8	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.9
+srv1	s1-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=2	agg=78.1	p50=7.18	prefill=163.5	ptok=587	otok=280	early_stop=0/2	failed=0/2	wall=7.2
+srv1	s1-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=91.3	p50=8.81	prefill=260.6	ptok=638	otok=223	early_stop=0/4	failed=0/4	wall=9.8
+srv1	s1-mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=87.1	p50=19.86	prefill=223.0	ptok=677	otok=264	early_stop=0/8	failed=0/8	wall=24.3
+srv1	s1-mling np=16 ctx_slot=2048 c=32768 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=5246	warm_ptok=689
+srv1	s1-mling np=16 ctx_slot=2048 c=32768 ncmoe=0	n=16	agg=65.5	p50=40.52	prefill=230.2	ptok=670	otok=190	early_stop=0/16	failed=0/16	wall=46.6
+srv1	s1-mling np=32 ctx_slot=2048 c=65536 ncmoe=0	REFUSED	0.01.355.089 E srv    load_model: failed to create_context with model '/models/Ling-3.0-tiny-Q4_K_M.gguf' | 0.01.355.929 E srv  llama_server: exiting due to model loading error
+### srv1 PHASE4 DONE 2026-09-01T11:09:42+00:00

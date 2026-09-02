@@ -43,7 +43,10 @@ node_modules/
 # by records/evidence/2026-08-26-claim-verification/build_okf.py. Committing it
 # would put generated prose in the tree and give a stale copy equal standing
 # with the store. `.okfrag/` is the staleness flag okf-rag writes on `status`.
-okf/
+okf/*
+!okf/index.md
+!okf/config/
+!okf/must-read/
 .okfrag/
 
 # graphify's output directory. `graphify-out/` holds a generated knowledge graph

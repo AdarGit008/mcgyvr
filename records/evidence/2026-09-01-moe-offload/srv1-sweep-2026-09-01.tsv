@@ -1,0 +1,55 @@
+### srv1 START 2026-08-31T21:01:04+00:00
+srv1	s1-q15 util=0.90 len=2048 seqs=8 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=4896	warm_ptok=698	offload=none
+srv1	s1-q15 util=0.90 len=2048 seqs=8 kv=auto	n=1	agg=30.3	p50=3.33	prefill=168.3	ptok=561	otok=101	early_stop=0/1	failed=0/1	wall=3.3
+srv1	s1-q15 util=0.90 len=2048 seqs=8 kv=auto	n=2	agg=28.7	p50=13.63	prefill=82.2	ptok=560	otok=195	early_stop=1/2	failed=0/2	wall=13.6
+srv1	s1-q15 util=0.90 len=2048 seqs=8 kv=auto	n=4	agg=37.2	p50=21.44	prefill=101.6	ptok=612	otok=223	early_stop=0/4	failed=0/4	wall=24.1
+srv1	s1-q15 util=0.90 len=2048 seqs=8 kv=auto	n=8	agg=47.7	p50=27.47	prefill=117.3	ptok=651	otok=264	early_stop=0/8	failed=0/8	wall=44.4
+srv1	s1-q3 util=0.90 len=2048 seqs=8 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=4824	warm_ptok=698	offload=none
+srv1	s1-q3 util=0.90 len=2048 seqs=8 kv=auto	n=1	agg=15.3	p50=6.62	prefill=84.8	ptok=561	otok=101	early_stop=0/1	failed=0/1	wall=6.6
+srv1	s1-q3 util=0.90 len=2048 seqs=8 kv=auto	n=2	agg=17.9	p50=31.42	prefill=35.6	ptok=560	otok=280	early_stop=0/2	failed=0/2	wall=31.4
+srv1	s1-q3 util=0.90 len=2048 seqs=8 kv=auto	n=4	agg=22.0	p50=35.39	prefill=60.2	ptok=612	otok=223	early_stop=0/4	failed=0/4	wall=40.7
+srv1	s1-q3 util=0.90 len=2048 seqs=8 kv=auto	n=8	agg=28.9	p50=47.33	prefill=71.0	ptok=651	otok=264	early_stop=0/8	failed=0/8	wall=73.4
+srv1	s1-q34b util=0.90 len=2048 seqs=8 kv=auto	CONFIG	img=vllm/vllm-openai:v0.26.0	vram=4692	warm_ptok=698	offload=none
+srv1	s1-q34b util=0.90 len=2048 seqs=8 kv=auto	n=1	agg=11.4	p50=8.84	prefill=63.5	ptok=561	otok=101	early_stop=0/1	failed=0/1	wall=8.8
+srv1	s1-q34b util=0.90 len=2048 seqs=8 kv=auto	n=2	agg=13.4	p50=42.00	prefill=26.7	ptok=560	otok=280	early_stop=0/2	failed=0/2	wall=42.0
+srv1	s1-q34b util=0.90 len=2048 seqs=8 kv=auto	n=4	agg=16.4	p50=47.37	prefill=45.0	ptok=612	otok=223	early_stop=0/4	failed=0/4	wall=54.4
+srv1	s1-q34b util=0.90 len=2048 seqs=8 kv=auto	n=8	agg=21.2	p50=65.42	prefill=52.1	ptok=651	otok=264	early_stop=0/8	failed=0/8	wall=99.9
+srv1	s1-nem4 util=0.90 len=2048 seqs=8 kv=auto	REFUSED	(APIServer pid=1)   Value error, The quantization method modelopt is not supported for the current GPU. Minimum capability: 89. Current capability: 75. [type=value_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs] | (APIServer pid=1)     For further information visit https://errors.pydantic.dev/2.13/v/value_error
+srv1	s1-q7 util=0.95 len=2048 seqs=4 kv=auto	REFUSED	(APIServer pid=1)     raise RuntimeError( | (APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+### srv1 vLLM done 2026-08-31T21:15:38+00:00
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2756	warm_ptok=717
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=0.2	p50=6.49	prefill=88.8	ptok=576	otok=1	early_stop=1/1	failed=0/1	wall=6.5
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=0.2	p50=10.81	prefill=95.3	ptok=515	otok=1	early_stop=2/2	failed=0/2	wall=10.8
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=0.1	p50=29.61	prefill=77.7	ptok=575	otok=1	early_stop=4/4	failed=0/4	wall=29.6
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=0.1	p50=55.43	prefill=89.3	ptok=625	otok=1	early_stop=8/8	failed=0/8	wall=56.1
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2756	warm_ptok=681
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=0.1	p50=9.13	prefill=93.6	ptok=855	otok=1	early_stop=1/1	failed=0/1	wall=9.1
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=0.2	p50=20.31	prefill=111.7	ptok=567	otok=1	early_stop=4/4	failed=0/4	wall=20.3
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4928	warm_ptok=577
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	n=1	agg=0.2	p50=6.20	prefill=94.6	ptok=586	otok=1	early_stop=1/1	failed=0/1	wall=6.2
+srv1	s1-q36-35b np=8 ctx_slot=2048 c=16384 ncmoe=32	n=4	agg=0.2	p50=26.49	prefill=99.7	ptok=660	otok=1	early_stop=4/4	failed=0/4	wall=26.5
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2568	warm_ptok=698
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=10.2	p50=9.92	prefill=41.5	ptok=412	otok=101	early_stop=0/1	failed=0/1	wall=9.9
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=13.6	p50=38.58	prefill=25.2	ptok=485	otok=262	early_stop=1/2	failed=0/2	wall=38.6
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=12.9	p50=62.97	prefill=31.0	ptok=537	otok=223	early_stop=0/4	failed=0/4	wall=69.3
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=14.0	p50=123.89	prefill=30.6	ptok=577	otok=264	early_stop=0/8	failed=0/8	wall=150.9
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=40	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4686	warm_ptok=663
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=40	n=1	agg=13.7	p50=20.52	prefill=33.3	ptok=683	otok=281	early_stop=0/1	failed=0/1	wall=20.5
+srv1	s1-qc30 np=8 ctx_slot=2048 c=16384 ncmoe=40	n=4	agg=15.7	p50=56.85	prefill=31.3	ptok=515	otok=257	early_stop=0/4	failed=0/4	wall=65.9
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2058	warm_ptok=645
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=1	agg=12.1	p50=8.34	prefill=47.1	ptok=393	otok=101	early_stop=0/1	failed=0/1	wall=8.3
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=2	agg=17.3	p50=32.45	prefill=27.6	ptok=448	otok=280	early_stop=0/2	failed=0/2	wall=32.5
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2058	warm_ptok=645
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=4	agg=18.3	p50=34.86	prefill=42.8	ptok=496	otok=212	early_stop=0/4	failed=0/4	wall=46.5
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=99	n=8	agg=18.8	p50=93.84	prefill=39.7	ptok=551	otok=262	early_stop=0/8	failed=0/8	wall=111.3
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4484	warm_ptok=583
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	n=1	agg=22.9	p50=20.05	prefill=18.8	ptok=376	otok=460	early_stop=0/1	failed=0/1	wall=20.1
+### srv1 GAPFILL 2026-09-01T06:05:00+00:00 PL1=95000000 PL2=120000000 maxMHz=4800.0000 ram=3600MT/s
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4500	warm_ptok=645
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	n=4	agg=19.4	p50=33.75	prefill=45.3	ptok=496	otok=212	early_stop=0/4	failed=0/4	wall=43.9
+### srv1 GAPFILL DONE 2026-09-01T06:07:27+00:00
+### srv1 POSTBIOS 2026-09-01T08:11:51+00:00 core6c=4300MHz avx2=4100MHz ring=4100MHz PL1=95000000 PL2=120000000 ram=3600MT/s
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4500	warm_ptok=645
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	n=1	agg=13.6	p50=7.43	prefill=52.9	ptok=393	otok=101	early_stop=0/1	failed=0/1	wall=7.4
+srv1	s1-oss20 np=8 ctx_slot=2048 c=16384 ncmoe=18	n=4	agg=20.2	p50=39.57	prefill=41.9	ptok=508	otok=245	early_stop=0/4	failed=0/4	wall=48.5
+### srv1 POSTBIOS DONE 2026-09-01T08:14:29+00:00

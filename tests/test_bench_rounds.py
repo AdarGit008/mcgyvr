@@ -537,6 +537,10 @@ NOT_A_FIGURE = {
         "the backend interface and the pieces no engine owns — the ramp and "
         "the machine readings. It describes servers, never runs"
     ),
+    "tools/bench/serving/backends/llamacpp.py": (
+        "one serving backend: how that engine yields the card, takes it and "
+        "describes itself. It states no rate about any run"
+    ),
     "tools/bench/serving/backends/ollama.py": (
         "one serving backend: how that engine yields the card, takes it and "
         "describes itself. It states no rate about any run"

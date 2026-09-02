@@ -1,0 +1,43 @@
+09:39:07 gpuMiB=17 MemAvailable:=14954216 Cached:=158600 Mlocked:=9608 Shmem:=196  pid= (no-engine)
+09:39:09 gpuMiB=17 MemAvailable:=14777868 Cached:=340804 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:11 gpuMiB=17 MemAvailable:=14633240 Cached:=565108 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:13 gpuMiB=17 MemAvailable:=14524784 Cached:=599900 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:15 gpuMiB=17 MemAvailable:=14422756 Cached:=686508 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:17 gpuMiB=17 MemAvailable:=14314440 Cached:=718108 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:19 gpuMiB=17 MemAvailable:=14319412 Cached:=748804 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:21 gpuMiB=17 MemAvailable:=14277008 Cached:=789716 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:23 gpuMiB=17 MemAvailable:=14268836 Cached:=841000 Mlocked:=9608 Shmem:=304  pid= (no-engine)
+09:39:25 gpuMiB=17 MemAvailable:=14235284 Cached:=913412 Mlocked:=9624 Shmem:=304  pid= (no-engine)
+09:39:27 gpuMiB=17 MemAvailable:=14185544 Cached:=946576 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:29 gpuMiB=17 MemAvailable:=13849560 Cached:=946596 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:31 gpuMiB=17 MemAvailable:=13753828 Cached:=946600 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:33 gpuMiB=17 MemAvailable:=13676268 Cached:=982640 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:35 gpuMiB=20 MemAvailable:=13530940 Cached:=1075528 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:37 gpuMiB=20 MemAvailable:=13513404 Cached:=1183248 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:39 gpuMiB=20 MemAvailable:=13496700 Cached:=1356772 Mlocked:=9640 Shmem:=308  pid= (no-engine)
+09:39:41 gpuMiB=20 MemAvailable:=13955016 Cached:=1373940 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:43 gpuMiB=20 MemAvailable:=13230308 Cached:=1417316 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:45 gpuMiB=20 MemAvailable:=13074192 Cached:=1431416 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:47 gpuMiB=20 MemAvailable:=12744800 Cached:=1433636 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:49 gpuMiB=20 MemAvailable:=12798732 Cached:=1433592 Mlocked:=9624 Shmem:=308  pid= (no-engine)
+09:39:51 gpuMiB=20 MemAvailable:=12730192 Cached:=1433780 Mlocked:=9640 Shmem:=308  pid= (no-engine)
+09:39:53 gpuMiB=20 MemAvailable:=12654980 Cached:=1433776 Mlocked:=9640 Shmem:=308  pid= (no-engine)
+09:39:56 gpuMiB=2168 MemAvailable:=12660228 Cached:=1473736 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1363320 RssAnon:=812104 RssFile:=536880 RssShmem:=14336 
+09:39:58 gpuMiB=2180 MemAvailable:=12647824 Cached:=3395676 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=3286920 RssAnon:=812972 RssFile:=2459608 RssShmem:=14340 
+09:40:00 gpuMiB=2326 MemAvailable:=12522500 Cached:=3503388 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1510068 RssAnon:=946996 RssFile:=548732 RssShmem:=14340 
+09:40:02 gpuMiB=2326 MemAvailable:=12535588 Cached:=3505608 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1510068 RssAnon:=946996 RssFile:=548732 RssShmem:=14340 
+09:40:04 gpuMiB=2326 MemAvailable:=12564408 Cached:=3522688 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1510068 RssAnon:=946996 RssFile:=548732 RssShmem:=14340 
+09:40:06 gpuMiB=2326 MemAvailable:=12572824 Cached:=3522688 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1510068 RssAnon:=946996 RssFile:=548732 RssShmem:=14340 
+09:40:08 gpuMiB=2326 MemAvailable:=12616216 Cached:=3522688 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1510068 RssAnon:=946996 RssFile:=548732 RssShmem:=14340 
+09:40:10 gpuMiB=2336 MemAvailable:=12611140 Cached:=3767712 Mlocked:=9640 Shmem:=14652  pid=17074 VmLck:=16 VmRSS:=1541284 RssAnon:=975796 RssFile:=551148 RssShmem:=14340 
+09:40:12 gpuMiB=5294 MemAvailable:=12498628 Cached:=3920408 Mlocked:=9640 Shmem:=14656  pid=17074 VmLck:=16 VmRSS:=1615388 RssAnon:=1004848 RssFile:=596200 RssShmem:=14340 
+09:40:14 gpuMiB=5294 MemAvailable:=12450992 Cached:=3923532 Mlocked:=9640 Shmem:=14656  pid=17074 VmLck:=16 VmRSS:=1696896 RssAnon:=1084208 RssFile:=598348 RssShmem:=14340 
+09:40:16 gpuMiB=5294 MemAvailable:=12419332 Cached:=3924932 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1703268 RssAnon:=1090392 RssFile:=598536 RssShmem:=14340 
+09:40:18 gpuMiB=5294 MemAvailable:=12428352 Cached:=3925660 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1735248 RssAnon:=1122260 RssFile:=598648 RssShmem:=14340 
+09:40:20 gpuMiB=5294 MemAvailable:=12318080 Cached:=3929496 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1726316 RssAnon:=1113264 RssFile:=598712 RssShmem:=14340 
+09:40:22 gpuMiB=5294 MemAvailable:=12231324 Cached:=3933092 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1764944 RssAnon:=1149788 RssFile:=600816 RssShmem:=14340 
+09:40:24 gpuMiB=5294 MemAvailable:=12277872 Cached:=3993084 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1818076 RssAnon:=1162384 RssFile:=641352 RssShmem:=14340 
+09:40:26 gpuMiB=5294 MemAvailable:=12195180 Cached:=4001284 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1933564 RssAnon:=1275196 RssFile:=644028 RssShmem:=14340 
+09:40:28 gpuMiB=5294 MemAvailable:=12214804 Cached:=4003972 Mlocked:=9640 Shmem:=14660  pid=17074 VmLck:=16 VmRSS:=1946164 RssAnon:=1287768 RssFile:=644056 RssShmem:=14340 
+09:40:30 gpuMiB=5294 MemAvailable:=12196824 Cached:=4005264 Mlocked:=9640 Shmem:=14664  pid=17074 VmLck:=16 VmRSS:=1946164 RssAnon:=1287768 RssFile:=644056 RssShmem:=14340 
+09:40:32 gpuMiB=5294 MemAvailable:=12221328 Cached:=4005416 Mlocked:=9640 Shmem:=14664  pid=17074 VmLck:=16 VmRSS:=1946164 RssAnon:=1287768 RssFile:=644056 RssShmem:=14340 

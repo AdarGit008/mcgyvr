@@ -345,7 +345,7 @@
       "date": "2026-08-11",
       "phase": "floor band f1 (Phase 4, tranche 4) \u2014 the first band steered by behaviour count",
       "source": "records/measurements/bench-calibration-15b-f1-2026-08-11/",
-      "brief": "docs/archive/sessions/lane/225/2026-08-11-floor-band-f1-brief.md (declared before authoring, stop conditions included)",
+      "brief": "archive/docs/archive/sessions/lane/225/2026-08-11-floor-band-f1-brief.md (declared before authoring, stop conditions included)",
       "model": "qwen2.5-coder:1.5b",
       "endpoint": "http://srv2:11434",
       "protocol": "openai",
@@ -403,7 +403,7 @@
         "records/measurements/bench-calibration-15b-f1-2026-08-11/ (b228-b243, 7 bench)",
         "records/measurements/bench-calibration-15b-f1b-2026-08-11/ (b244-b267, 13 bench)"
       ],
-      "brief": "docs/archive/sessions/lane/225/2026-08-11-floor-band-f1-brief.md \u2014 UNCHANGED between the two tranches, which is what makes them poolable",
+      "brief": "archive/docs/archive/sessions/lane/225/2026-08-11-floor-band-f1-brief.md \u2014 UNCHANGED between the two tranches, which is what makes them poolable",
       "model": "qwen2.5-coder:1.5b",
       "endpoint": "http://srv2:11434",
       "draws": 0,

@@ -1,0 +1,28 @@
+### START 2026-09-01T13:36:07+00:00
+### RIG Intel(R) Core(TM) i9-10900F CPU @ 2.80GHz maxMHz=5200.0000 mem=45G memclk=2933 MT/s PL1=65000000 bw=27.9GB/s
+### GPU NVIDIA GeForce RTX 3060, 12288 MiB, 377 MiB, 595.84
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=0	REFUSED	0.13.017.534 E srv    load_model: failed to load model, '/models/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf' | 0.13.021.802 E srv  llama_server: exiting due to model loading error
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=6	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=11787	warm_ptok=730
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=6	n=1	agg=43.4	p50=2.33	prefill=253.1	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=2.3
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=6	n=4	agg=69.3	p50=10.55	prefill=173.8	ptok=614	otok=245	early_stop=0/4	failed=0/4	wall=14.1
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=6	n=8	agg=73.1	p50=22.72	prefill=196.6	ptok=690	otok=256	early_stop=0/8	failed=0/8	wall=28.1
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=8	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=11263	warm_ptok=590
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=8	n=1	agg=37.9	p50=2.06	prefill=303.4	ptok=625	otok=78	early_stop=0/1	failed=0/1	wall=2.1
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=8	n=4	agg=57.1	p50=18.92	prefill=130.0	ptok=676	otok=297	early_stop=0/4	failed=0/4	wall=20.8
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=8	n=8	agg=60.7	p50=18.29	prefill=251.3	ptok=664	otok=160	early_stop=0/8	failed=0/8	wall=21.1
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=12	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=10215	warm_ptok=590
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=12	n=1	agg=30.7	p50=3.29	prefill=264.6	ptok=870	otok=101	early_stop=0/1	failed=0/1	wall=3.3
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=12	n=4	agg=52.8	p50=13.38	prefill=161.3	ptok=649	otok=212	early_stop=0/4	failed=0/4	wall=16.1
+srv2	s2-q36-iq3 np=8 ctx_slot=2048 c=16384 ncmoe=12	n=8	agg=54.7	p50=29.64	prefill=149.8	ptok=738	otok=269	early_stop=0/8	failed=0/8	wall=39.4
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=0	REFUSED	0.12.424.084 E srv    load_model: failed to load model, '/models/KAT-Coder-V2.5-Dev.Q2_K.gguf' | 0.12.425.168 E srv  llama_server: exiting due to model loading error
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=4	REFUSED	0.02.889.809 E srv    load_model: failed to create_context with model '/models/KAT-Coder-V2.5-Dev.Q2_K.gguf' | 0.02.891.247 E srv  llama_server: exiting due to model loading error
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=7	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=11417	warm_ptok=730
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=7	n=1	agg=47.2	p50=2.14	prefill=275.3	ptok=589	otok=101	early_stop=0/1	failed=0/1	wall=2.1
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=7	n=4	agg=70.3	p50=10.85	prefill=176.2	ptok=614	otok=245	early_stop=0/4	failed=0/4	wall=13.9
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=7	n=8	agg=71.2	p50=22.84	prefill=191.5	ptok=690	otok=256	early_stop=0/8	failed=0/8	wall=28.8
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=11	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=10305	warm_ptok=590
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=11	n=1	agg=37.4	p50=2.08	prefill=299.8	ptok=625	otok=78	early_stop=0/1	failed=0/1	wall=2.1
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=11	n=4	agg=57.0	p50=19.11	prefill=129.8	ptok=676	otok=297	early_stop=0/4	failed=0/4	wall=20.8
+srv2	s2-kat-q2k np=8 ctx_slot=2048 c=16384 ncmoe=11	n=8	agg=56.9	p50=19.93	prefill=235.2	ptok=664	otok=160	early_stop=0/8	failed=0/8	wall=22.6
+### END 2026-09-01T13:41:44+00:00 uptime=2026-09-01 05:20:12
+### DONE
