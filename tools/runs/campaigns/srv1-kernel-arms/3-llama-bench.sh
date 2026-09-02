@@ -346,7 +346,14 @@ for fa in sorted(prompts):
             ("model_type", "model_type"),
             ("build_commit", "build_commit"),
             ("n_gpu_layers", "ngl"),
+            # The backend that RAN, in llama-bench's own words. A3 on
+            # 2026-09-02 declared vulkan and every entry said "CPU"; nothing
+            # read it, and four CPU numbers were filed under the vulkan tag.
+            ("backends", "backend"),
+            ("backend", "backend"),
         ):
+            if name == "backend" and any(f.startswith("backend=") for f in fields):
+                continue
             value = pp.get(key)
             if value in (None, ""):
                 continue
@@ -415,29 +422,46 @@ bench_arm() {
     plan "${cmd[@]}"
 
     json=$TMP/$arm.json
-    if ! retry3 run_bench "$arm" "$json"; then
-        reason=$(clean_reason "$(tail -n 3 "$TMP/$arm.err" 2>/dev/null || true)")
-        # `unread`: llama-bench was handed a checkpoint and died without ever
-        # printing what it was.
-        emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
-            "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=unread" \
-            -- "llama-bench on $arm failed ${RUN_TRIES:-3} times and measured nothing; its last words were: ${reason:-(it printed nothing at all)}"
-        say "$arm: llama-bench refused. Recorded as a result (guideline 8)."
-        return 0
-    fi
-
-    # An unreadable report is not a refusal: llama-bench ran, and retrying a
-    # deterministic parse three times would only make `tries=3` a lie. It is a
-    # cell with nothing filed, which is what SKIP means (§1.4) — and SKIP is the
-    # one kind exempt from the per-row rules, so it claims nothing either. It
-    # returns 0 like every other filed-nothing branch: main calls bench_arm
-    # under `set -e`, and a 1 here once ended the bench at the first bad
-    # report, with no rows for the arms after it and no ### END.
-    if ! "${PY[@]}" "$TMP/parse.py" "$json" >"$TMP/$arm.rows" 2>"$TMP/$arm.perr"; then
-        reason=$(clean_reason "$(cat "$TMP/$arm.perr")")
-        emit row "$(arm_label "$arm" "p${PP%%,*}")" SKIP \
-            -- "the $arm report could not be read honestly and no row was written from it: ${reason:-(the parser said nothing)}"
-        say "$arm: unreadable report. Skipped rather than half-parsed."
+    # ONE RETRIED UNIT: run, read, and check which backend ran. A backend that
+    # did not load is a failed launch — A3 on 2026-09-02 declared vulkan and
+    # every report entry said CPU — and guideline 8 asks for three before a
+    # failure is believed, so the verdict sits inside retry3 with the run, and
+    # a refusal filed from it honestly carries tries=3. An unreadable report is
+    # retried with it (the report and the backend are read together) and is
+    # still filed as SKIP: a cell with nothing in it, claiming nothing (§1.4).
+    BENCH_FAIL=
+    if ! retry3 bench_verified "$arm" "$digest" "$json"; then
+        case $BENCH_FAIL in
+            run)
+                reason=$(clean_reason "$(tail -n 3 "$TMP/$arm.err" 2>/dev/null || true)")
+                # `unread`: llama-bench was handed a checkpoint and died without
+                # ever printing what it was.
+                emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
+                    "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=unread" \
+                    -- "llama-bench on $arm failed ${RUN_TRIES:-3} times and measured nothing; its last words were: ${reason:-(it printed nothing at all)}"
+                say "$arm: llama-bench refused. Recorded as a result (guideline 8)."
+                ;;
+            parse)
+                reason=$(clean_reason "$(cat "$TMP/$arm.perr")")
+                emit row "$(arm_label "$arm" "p${PP%%,*}")" SKIP \
+                    -- "the $arm report could not be read honestly and no row was written from it: ${reason:-(the parser said nothing)}"
+                say "$arm: unreadable report. Skipped rather than half-parsed."
+                ;;
+            label)
+                emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
+                    "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=unread" \
+                    -- "the backend $tag declares (org.mcgyvr.build.backend) could not be read from the daemon in ${RUN_TRIES:-3} attempts, so the report's backend cannot be checked against anything and no prefill number is quoted for this arm"
+                say "$arm: the declared backend could not be read. Refused, not assumed."
+                ;;
+            *)
+                reason=$(clean_reason "$(cat "$TMP/$arm.verdict" 2>/dev/null || true)")
+                emit refused "$(arm_label "$arm" "p${PP%%,*}")" \
+                    "arm=$arm" "img=$tag" "img_digest=$digest" "checkpoint_quant=unread" \
+                    "declared_backend=${DECLARED_BACKEND:-unread}" "measured_backend=${MEASURED_BACKEND:-unreported}" \
+                    -- "${reason:-the declared backend did not run, three times}"
+                say "$arm: declared ${DECLARED_BACKEND:-?}, measured ${MEASURED_BACKEND:-unreported}. Refused, not filed as ${DECLARED_BACKEND:-?}."
+                ;;
+        esac
         return 0
     fi
 
@@ -456,6 +480,37 @@ run_bench() {
     local cmd=()
     mapfile -t cmd < <(bench_cmd "$arm")
     "${cmd[@]}" >"$json" 2>"$TMP/$arm.err"
+}
+
+# The backend the image DECLARES, from its own label, through the docker seam.
+# A daemon that cannot answer is `label` — a refusal — and never read as "the
+# image declares nothing": that reading is exactly how a CPU number would be
+# filed under a vulkan tag again. Only an image that answers with an empty
+# label (A1, upstream, unlabelled) is exempt from the verdict.
+declared_backend_of() {
+    "${RUN_DOCKER:-docker}" image inspect \
+        --format '{{index .Config.Labels "org.mcgyvr.build.backend"}}' "$1" 2>/dev/null
+}
+
+measured_backend_of() {
+    sed -n 's/.*[[:space:]]backend=\([^[:space:]]*\).*/\1/p' "$1" | sort -u | paste -sd, -
+}
+
+DECLARED_BACKEND=
+MEASURED_BACKEND=
+BENCH_FAIL=
+bench_verified() {
+    local arm=$1 digest=$2 json=$3
+    BENCH_FAIL=run
+    run_bench "$arm" "$json" || return 1
+    BENCH_FAIL=parse
+    "${PY[@]}" "$TMP/parse.py" "$json" >"$TMP/$arm.rows" 2>"$TMP/$arm.perr" || return 1
+    BENCH_FAIL=label
+    DECLARED_BACKEND=$(declared_backend_of "$digest") || return 1
+    BENCH_FAIL=verdict
+    MEASURED_BACKEND=$(measured_backend_of "$TMP/$arm.rows")
+    backend_verdict "$DECLARED_BACKEND" "${MEASURED_BACKEND:-unreported}" 2>"$TMP/$arm.verdict" || return 1
+    BENCH_FAIL=
 }
 
 preflight() {

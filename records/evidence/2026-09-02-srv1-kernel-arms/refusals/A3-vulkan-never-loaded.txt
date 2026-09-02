@@ -18,3 +18,25 @@ load_backend: loaded CPU backend from /app/libggml-cpu-haswell.so
 | qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |           pp128 |        196.56 ± 0.00 |
 | qwen2 1.5B Q4_K - Medium       | 934.69 MiB |     1.54 B | CPU        |       6 |            tg16 |         38.18 ± 0.00 |
 build: d7a207411 (10644)
+
+== diagnosis, srv2, 2026-09-02 (same image, --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all)
+/etc/vulkan/icd.d/nvidia_icd.json           injected by the toolkit
+libGLX_nvidia.so.0 libnvidia-glvkspirv.so   injected by the toolkit
+$ vulkaninfo --summary
+ERROR: [Loader Message] Code 0 : libXext.so.6: cannot open shared object file: No such file or directory
+ERROR: [Loader Message] Code 0 : loader_icd_scan: Failed loading library associated with ICD JSON libGLX_nvidia.so.0. Ignoring this JSON
+ERROR: [Loader Message] Code 0 : vkCreateInstance: Found no drivers!
+
+== so the cause is the runtime image, not the build
+The runtime stage installed libvulkan1 + vulkan-tools under --no-install-recommends
+and none of libX11.so.6, libXext.so.6, libGLdispatch.so.0 that the NVIDIA ICD
+links. No ICD -> no device -> ggml_backend_vk_reg() returns NULL -> only the
+CPU backend registers. The "undefined symbol: ggml_backend_score" line above is
+the loader probing an optional scoring symbol that no non-CPU backend exports;
+it is not the failure.
+
+== fix (tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh, 3-llama-bench.sh)
+runtime apt line gains libglvnd0 libx11-6 libxext6, a build-time ldconfig check
+fails the image if they did not resolve, the A3 spec carries icd_deps=x11 so the
+image without it is rebuilt rather than reused, and the bench step refuses a
+declared backend the report says did not run instead of filing its rows.

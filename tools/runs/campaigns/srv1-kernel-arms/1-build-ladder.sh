@@ -268,7 +268,7 @@ arm_spec() {
         L2) printf 'backend=cuda\ncuda_architectures=61-virtual;80-virtual\nforce_mmq=ON\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\n' ;;
         L3) printf 'backend=cuda\ncuda_architectures=61-virtual;80-virtual\nforce_mmq=ON\nggml_native=OFF\ncpu_all_variants=ON\npatched=yes\n' ;;
         L4) printf 'backend=cuda\ncuda_architectures=75-real;75-virtual\nforce_mmq=OFF\nggml_native=ON\ncpu_all_variants=OFF\npatched=no\n' ;;
-        A3) printf 'backend=vulkan\ncuda_architectures=none\nforce_mmq=OFF\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\n' ;;
+        A3) printf 'backend=vulkan\ncuda_architectures=none\nforce_mmq=OFF\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\nicd_deps=x11\n' ;;
         *)
             _fail "arm_spec: '$1' is not on this campaign's arms table (PLAN.md:39-47)"
             return 1
@@ -552,9 +552,24 @@ ARG ARM
 ARG NATIVE
 ARG ALLVAR
 ARG BASE_DEVEL
+ARG ICD_DEPS
+# libglvnd0 libx11-6 libxext6 ARE THE VULKAN DEVICE. The NVIDIA ICD the
+# container toolkit injects (/etc/vulkan/icd.d/nvidia_icd.json ->
+# libGLX_nvidia.so.0) links libGLdispatch.so.0, libX11.so.6 and libXext.so.6,
+# and --no-install-recommends pulls none of them in behind libvulkan1. Without
+# them the loader says "Failed loading library associated with ICD JSON
+# libGLX_nvidia.so.0 ... Found no drivers!", ggml_backend_vk_reg() returns
+# NULL, and ggml registers the CPU backend alone, silently: that is how A3
+# benched the i5-9600K under a vulkan tag on 2026-09-02 (diagnosed on srv2
+# inside the image with vulkaninfo --summary). The ldconfig check below makes
+# the build fail where the rig would have measured the wrong device.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgomp1 libcurl4 curl ca-certificates libvulkan1 vulkan-tools \
+      libglvnd0 libx11-6 libxext6 \
  && rm -rf /var/lib/apt/lists/*
+RUN set -eu; for so in libX11.so.6 libXext.so.6 libGLdispatch.so.0 libvulkan.so.1; do \
+      ldconfig -p | grep -q "$so " || { echo "$so did not resolve: the NVIDIA Vulkan ICD cannot load in this image" >&2; exit 1; }; \
+    done
 WORKDIR /app
 COPY --from=build /src/build/bin/ /app/
 COPY --from=build /kernels.txt /app/kernels.txt
@@ -568,6 +583,7 @@ LABEL org.mcgyvr.build.arm="${ARM}" \
       org.mcgyvr.build.ggml_native="${NATIVE}" \
       org.mcgyvr.build.cpu_all_variants="${ALLVAR}" \
       org.mcgyvr.build.patched="no" \
+      org.mcgyvr.build.icd_deps="${ICD_DEPS}" \
       org.mcgyvr.build.toolkit="${BASE_DEVEL}"
 EXPOSE 8080
 ENTRYPOINT ["/app/llama-server"]
@@ -625,6 +641,15 @@ image_matches() {
         got=$(label_of "$tag" "$key") || return 1
         [ "$got" = "$want" ] || return 1
     done
+    # A vulkan image is also held to icd_deps: the 2026-09-02 A3 image had
+    # libvulkan1 and no libX11/libXext/libGLdispatch, so the NVIDIA ICD never
+    # loaded and the tag benched the CPU. The image that lacks the label is
+    # that image, and it is rebuilt rather than reused under the same tag.
+    if [ "$(spec_get "$spec" backend)" = vulkan ]; then
+        want=$(spec_get "$spec" icd_deps)
+        got=$(label_of "$tag" icd_deps) || return 1
+        [ "$got" = "$want" ] || return 1
+    fi
     return 0
 }
 
@@ -649,6 +674,8 @@ build_arm() {
             --build-arg "FORCE_MMQ=$(spec_get "$spec" force_mmq)"
             --build-arg "PATCHED=$(spec_get "$spec" patched)"
         )
+    else
+        args+=(--build-arg "ICD_DEPS=$(spec_get "$spec" icd_deps)")
     fi
     args+=(-t "$tag" -)
 
@@ -1094,6 +1121,7 @@ main() {
             "cpu_all_variants=$(spec_get "$spec" cpu_all_variants)" \
             "patched=$(spec_get "$spec" patched)" \
             "backend=$(spec_get "$spec" backend)" \
+            $([ "$(spec_get "$spec" backend)" = vulkan ] && printf 'icd_deps=%s' "$(spec_get "$spec" icd_deps)") \
             "img=$tag" "toolkit=$CUDA_DEVEL" "runtime_image=$CUDA_RUNTIME" \
             "source_commit_requested=$LCPP_COMMIT" "reused=$reused" \
             "built_on=$BUILD_HOST"
