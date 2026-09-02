@@ -155,7 +155,19 @@ def completed(journal: Path | None, retry_failed: bool = False) -> dict[str, Any
     # `--retry-failed` resurrected a superseded measurement and counted the cell
     # done — reporting `ok` for a cell whose most recent answer was a refusal.
     if retry_failed:
-        rows = {k: v for k, v in rows.items() if v.get("outcome") == "ok"}
+        # The stored `outcome` is not sufficient on its own. A row written
+        # before the barren-level downgrade landed (d75d90fb) can read `ok`
+        # while carrying a level that measured nothing -- and this filter,
+        # trusting the string, skipped it as good. That is what made the
+        # documented remedy "delete the row by hand", which in turn turned the
+        # tree green over five outstanding cells on 2026-08-31. Re-score the
+        # curve here instead, and the journal never needs editing.
+        rows = {
+            k: v
+            for k, v in rows.items()
+            if v.get("outcome") == "ok"
+            and not barren_levels(v.get("concurrency") or {})
+        }
     return rows
 
 
@@ -187,6 +199,177 @@ SURVEY_ROW_DISPOSITION: dict[str, tuple[str, ...]] = {
     # raised, and is checked on that path.
     "placements": ("coresidency_after.placements",),
 }
+
+
+def barren_levels(measured: dict[str, Any]) -> list[dict[str, Any]]:
+    """The levels of a ramp that state no rate.
+
+    ``contract.ramp`` records per-request failures as ``errors`` and returns
+    normally, so a level at which everything failed is indistinguishable, to the
+    caller, from one that was merely slow -- unless it is asked. This asks.
+
+    **Two ways a level can state no rate, and both are judged here.** The first
+    is that nothing succeeded: ``ok`` is 0. The second is that replies arrived
+    and none of them could be counted -- ``contract._level`` tracks ``good``
+    (replies) and ``counted`` (replies carrying a ``usage`` block) separately,
+    and sets ``tokens_per_s`` to None unless ``counted`` is non-empty. Judging
+    only ``ok`` left that second branch open: a level with ``ok: 8`` and
+    ``counted: 0`` carries no rate, was not called barren, kept the cell's
+    ``ok``, and was skipped by ``--retry-failed`` -- the same defect this
+    function exists to close, on the other of the two branches that produce it.
+    """
+    # Only mappings are judged. A ramp stub may carry a bare level -- an `n`
+    # with no row behind it -- and a level this cannot read is not a level this
+    # can call barren; claiming otherwise would refuse cells over the shape of
+    # their record rather than over what they measured.
+    return [
+        level
+        for level in (measured.get("levels") or [])
+        if isinstance(level, dict) and not (level.get("ok") and level.get("counted"))
+    ]
+
+
+def barren_downgrades_the_outcome(
+    row: dict[str, Any], measured: dict[str, Any], host: str, label: str
+) -> None:
+    """**A level that measured nothing is not a slow level.**
+
+    A ramp in which whole levels produced no successful request raises nothing,
+    so the row would keep the ``ok`` it was built with. Measured on srv1
+    2026-08-30: the host lost power 137 s into ``m_dsv2-lcpp-srv1``'s n=2 level;
+    n=2 timed out and n=4 and n=8 failed at connection level against a machine
+    that was off. The cell was recorded ``ok`` with one valid point out of four,
+    and ``--retry-failed`` -- which keys on this very field -- skipped it as
+    good.
+
+    ``saturation_n`` already refused that cell ("only level n=1 survived"), so
+    the condition was computed and then not allowed to reach the outcome. It
+    reaches it here.
+    """
+    # A ramp that emitted NO levels states no rate either, and there is nothing
+    # for `barren_levels` to return -- so it would keep its `ok` for want of
+    # anything to iterate. That is the same hole, entered from the empty side.
+    if not (measured.get("levels") or []):
+        row["outcome"] = "ramp_failed"
+        row["refusal"] = {
+            "reasons": ["ramp_measured_nothing"],
+            "stage": "ramp",
+            "kind": "EmptyRamp",
+            "prose": (
+                f"{label} on {host}: the ramp recorded no levels at all, so the "
+                "cell states no rate at any n. Recorded as `ramp_failed` rather "
+                "than `ok` so that `--retry-failed` re-measures it."
+            ),
+        }
+        print(f"[{host}] {label} — ramp_failed: no levels recorded", flush=True)
+        return
+    barren = barren_levels(measured)
+    if not barren:
+        return
+    row["outcome"] = "ramp_failed"
+    row["refusal"] = {
+        "reasons": ["level_measured_nothing"],
+        "stage": "ramp",
+        "kind": "BarrenLevel",
+        "prose": (
+            f"{label} on {host}: "
+            + ", ".join(
+                f"n={lv.get('n')} completed {lv.get('ok')} of "
+                f"{(lv.get('ok') or 0) + (lv.get('errors') or 0)} requests"
+                + (
+                    f", {lv.get('counted')} of which stated a token count"
+                    if lv.get("ok") and not lv.get("counted")
+                    else ""
+                )
+                + (
+                    f" ({', '.join(lv.get('error_kinds') or [])})"
+                    if lv.get("error_kinds")
+                    else ""
+                )
+                for lv in barren
+            )
+            + ". A level with no successful request states no rate, so this "
+            "cell has no curve at the levels it was asked for. Recorded as "
+            "`ramp_failed` rather than `ok` so that `--retry-failed` "
+            "re-measures it and no ladder reads a partial curve as a "
+            "measurement."
+        ),
+    }
+    print(
+        f"[{host}] {label} — ramp_failed: "
+        f"{[lv.get('n') for lv in barren]} measured nothing",
+        flush=True,
+    )
+
+
+def check_entries(entries: list[dict[str, Any]], hosts: list[str]) -> None:
+    """Everything a config can get wrong that costs nothing to catch here.
+
+    Extracted from :func:`run` so each refusal is reachable by a test
+    without a rig: every one of them precedes the first ssh, and a guard
+    nobody can exercise is the shape of guard that stops holding.
+    """
+    known = {
+        "label",
+        "backend",
+        "id",
+        "family",
+        "hosts",
+        "serve",
+        "expect",
+        "placement",
+        "concurrency",
+        "coresident",
+        "coresident_with",
+    }
+    for entry in entries:
+        unknown = {k for k in entry if not k.startswith("_")} - known
+        if unknown:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} sets "
+                f"{sorted(unknown)}, which this survey reads nowhere. Keys "
+                f"starting with `_` are documentation and are ignored on "
+                f"purpose; anything else is an entry that believes it declared "
+                f"something. Known keys: {sorted(known)}."
+            )
+        levels = (entry.get("concurrency") or {}).get("levels")
+        if levels is not None and not levels:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} declares "
+                "`concurrency.levels: []`. An empty list is not a request to "
+                f"measure nothing -- it used to fall through to "
+                f"{list(contract.RAMP_LEVELS)}, so a typo silently ramped past "
+                "the declared batch width and recorded the resulting queueing "
+                "plateau as a measurement. Declare the levels or omit the key."
+            )
+        # **The batch width against the ladder, at config time.** The backend
+        # raises this too, but only once it has the host -- and a typo caught
+        # here costs nothing, while the same typo caught there has already
+        # spent a claim and a launch. `max_num_seqs` is vLLM's; an entry that
+        # does not declare one is not checked, which is every llama.cpp entry
+        # (they declare `parallel`, checked in that backend against the same
+        # ladder).
+        width = (entry.get("serve") or {}).get("max_num_seqs")
+        offered = tuple(contract.RAMP_LEVELS if levels is None else levels)
+        measures = (entry.get("concurrency") or {}).get("measure")
+        if width is not None and measures and offered and int(width) < max(offered):
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} declares "
+                f"serve.max_num_seqs {int(width)} and a ramp to n={max(offered)}. "
+                "The engine admits max_num_seqs sequences per scheduler step "
+                "and queues the rest, so the levels above the width would "
+                "record a queue as a plateau -- `outcome: ok`, a curve that "
+                "flatlines, and nothing to say which. Set max_num_seqs to the "
+                "top of the ladder."
+            )
+        stray = set(entry.get("hosts") or []) - set(hosts)
+        if stray:
+            raise contract.NotCleanError(
+                f"config entry {entry.get('label') or entry['id']!r} names host(s) "
+                f"{sorted(stray)}, which are not in this run's hosts {hosts}. "
+                "An entry pinned to a host that is not being surveyed is silently "
+                "skipped, so the run would report success having measured nothing."
+            )
 
 
 def run(
@@ -228,37 +411,7 @@ def run(
     # SOLO under the label `coresident-3b-beside-1.5b`, with
     # `coresidency_arranged: null` instead of a refusal. Same silent-nothing
     # class E6 was written against, one level up.
-    known = {
-        "label",
-        "backend",
-        "id",
-        "family",
-        "hosts",
-        "serve",
-        "expect",
-        "placement",
-        "concurrency",
-        "coresident",
-        "coresident_with",
-    }
-    for entry in entries:
-        unknown = {k for k in entry if not k.startswith("_")} - known
-        if unknown:
-            raise contract.NotCleanError(
-                f"config entry {entry.get('label') or entry['id']!r} sets "
-                f"{sorted(unknown)}, which this survey reads nowhere. Keys "
-                f"starting with `_` are documentation and are ignored on "
-                f"purpose; anything else is an entry that believes it declared "
-                f"something. Known keys: {sorted(known)}."
-            )
-        stray = set(entry.get("hosts") or []) - set(hosts)
-        if stray:
-            raise contract.NotCleanError(
-                f"config entry {entry.get('label') or entry['id']!r} names host(s) "
-                f"{sorted(stray)}, which are not in this run's hosts {hosts}. "
-                "An entry pinned to a host that is not being surveyed is silently "
-                "skipped, so the run would report success having measured nothing."
-            )
+    check_entries(entries, hosts)
     names = config.get("backends") or contract.available_backends()
     backends = {str(name): contract.load_backend(str(name)) for name in names}
     for entry in entries:
@@ -425,6 +578,17 @@ def run(
                     claim_kwargs["coresident"] = True
                 if spec.get("coresident_with"):
                     claim_kwargs["coresident_with"] = spec["coresident_with"]
+                # The ladder this cell will offer, forwarded so the backend can
+                # check its batch width against it before launching. llama.cpp
+                # reads the same numbers from `serve.levels`, which its configs
+                # declare; the vLLM configs do not, and nothing in that backend
+                # read `concurrency.levels` at all until now.
+                if name == "vllm" and (spec.get("concurrency") or {}).get("measure"):
+                    claim_kwargs["levels"] = list(
+                        contract.RAMP_LEVELS
+                        if (spec.get("concurrency") or {}).get("levels") is None
+                        else spec["concurrency"]["levels"]
+                    )
                 claimed = backend.claim(
                     host,
                     entry["present"][name]["base"] or f"http://{host}:{backend.PORT}",
@@ -508,9 +672,23 @@ def run(
                     measured = contract.ramp(
                         base,
                         str(spec["id"]),
-                        tuple(concurrency.get("levels") or contract.RAMP_LEVELS),
+                        tuple(
+                            contract.RAMP_LEVELS
+                            if concurrency.get("levels") is None
+                            else concurrency["levels"]
+                        ),
                         # #327: where the per-level card and load are read.
                         host=host,
+                        # And where the SERVER is asked what it is doing, while
+                        # it does it. A backend that cannot answer offers no
+                        # probe and the levels carry `in_flight: null`; the one
+                        # that can turns "the curve flatlined" into "the curve
+                        # flatlined at a width that never opened".
+                        probe=(
+                            (lambda b=base, e=backend: e.in_flight(b))
+                            if hasattr(backend, "in_flight")
+                            else None
+                        ),
                     )
                     # D1: what the curve did, and what the server said, are
                     # two quantities. `saturation_n` is measured here; the
@@ -522,6 +700,7 @@ def run(
                         None if expected is None else saturated.get("n") == expected
                     )
                     row["concurrency"] = measured
+                    barren_downgrades_the_outcome(row, measured, host, label)
                     if measured["matches_expected"] is False:
                         print(
                             f"[{host}] {label} — saturation_n "

@@ -1,0 +1,10 @@
+### srv1 PHASE7 START 2026-09-01T12:24:54+00:00
+srv1	s1-q15+q3	s1-q3	REFUSED	after 3 attempts: ValueError: Free memory on device cuda:0 (3.11/5.61 GiB) on startup is less than desired GPU memory utilization (0.58, 3.25 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+srv1	s1-q15+q3	ABORT	1/2 servers came up; a co-residency row needs every member resident
+srv1	s1-q15+q3-n4	s1-q15	CONFIG	img=vllm/vllm-openai:v0.26.0	port=8100	util=0.40	kv=auto	kv_tok=24560	maxconc=12.0	warm_ptok=711	pair_vram=5734	tries=1
+srv1	s1-q15+q3-n4	s1-q3	CONFIG	img=vllm/vllm-openai:v0.26.0	port=8101	util=0.55	kv=auto	kv_tok=14448	maxconc=7.0	warm_ptok=711	pair_vram=5734	tries=1
+srv1	s1-q15+q3-n4	s1-q15	solo	n=4	agg=34.3	p50=16.51	prefill=146.0	ptok=607	otok=142	early_stop=2/4	failed=0/4	wall=16.6
+srv1	s1-q15+q3-n4	s1-q3	solo	n=4	agg=20.2	p50=37.98	prefill=62.2	ptok=607	otok=197	early_stop=1/4	failed=0/4	wall=39.1
+srv1	s1-q15+q3-n4	s1-q15	paired	n=4	agg=11.8	p50=28.91	prefill=50.3	ptok=607	otok=142	early_stop=2/4	failed=0/4	wall=48.3
+srv1	s1-q15+q3-n4	s1-q3	paired	n=4	agg=16.3	p50=47.23	prefill=50.3	ptok=607	otok=197	early_stop=1/4	failed=0/4	wall=48.3
+### srv1 PHASE7 DONE 2026-09-01T12:37:13+00:00

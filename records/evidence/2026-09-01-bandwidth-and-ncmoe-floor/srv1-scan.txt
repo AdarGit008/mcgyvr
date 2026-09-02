@@ -1,0 +1,134 @@
+##### HOST: srv1 2026-09-01T12:54:44+00:00 #####
+--- UPTIME ---
+ 12:54:44 up  4:43,  1 user,  load average: 0.00, 0.01, 0.26
+--- CPU ---
+CPU(s): 6
+Model name: Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz
+Thread(s) per core: 1
+Core(s) per socket: 6
+Socket(s): 1
+CPU(s) scaling MHz: 17%
+CPU max MHz: 4600.0000
+CPU min MHz: 800.0000
+L1d cache: 192 KiB (6 instances)
+L1i cache: 192 KiB (6 instances)
+L2 cache: 1.5 MiB (6 instances)
+L3 cache: 9 MiB (1 instance)
+NUMA node(s): 1
+NUMA node0 CPU(s): 0-5
+--- MEM TOTAL ---
+               total        used        free      shared  buff/cache   available
+Mem:              15           0           5           0           8          14
+--- MEM HW (dmidecode) ---
+Error Correction Type: None
+Locator: ChannelA-DIMM0
+Bank Locator: BANK 0
+Type: Unknown
+Size: 8 GB
+Locator: ChannelA-DIMM1
+Bank Locator: BANK 1
+Type: DDR4
+Speed: 3600 MT/s
+Manufacturer: 029E
+Part Number: CMK16GX4M2Z3600C18  
+Rank: 1
+Configured Memory Speed: 3600 MT/s
+Locator: ChannelB-DIMM0
+Bank Locator: BANK 2
+Type: Unknown
+Size: 8 GB
+Locator: ChannelB-DIMM1
+Bank Locator: BANK 3
+Type: DDR4
+Speed: 3600 MT/s
+Manufacturer: 029E
+Part Number: CMK16GX4M2Z3600C18  
+Rank: 1
+Configured Memory Speed: 3600 MT/s
+--- BASEBOARD ---
+Vendor: American Megatrends Inc.
+Version: P1.30C
+Release Date: 01/04/2023
+Manufacturer: ASRock
+Product Name: Z390 Phantom Gaming 7
+Version:                       
+--- MEM CHANNELS (from populated slots) ---
+	Bank Locator: BANK 0
+	Bank Locator: BANK 2
+--- GPU ---
+index, name, memory.total [MiB], memory.used [MiB], memory.reserved [MiB], memory.free [MiB], compute_cap, driver_version, pcie.link.gen.max, pcie.link.gen.current, pcie.link.width.max, pcie.link.width.current, power.limit [W], clocks.max.sm [MHz]
+0, NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 17 MiB, 401 MiB, 5727 MiB, 7.5, 580.173.02, 3, 1, 16, 16, 125.00 W, 2145 MHz
+--- GPU TOPO ---
+	[4mGPU0	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	0-5	0		N/A
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+--- CPU POWER LIMITS ---
+/sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw = 95000000
+/sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw = 120000000
+--- DISK ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  196G   83G  103G  45% /
+/dev/nvme0n1p3  718G  396G  287G  58% /home
+NAME      SIZE ROTA MODEL
+sda       2.7T    1 ST3000DM007-1WY1
+nvme0n1 931.5G    0 CT1000P1SSD8
+--- DOCKER IMAGES ---
+ghcr.io/ggml-org/llama.cpp:server-cuda 6.98GB
+ghcr.io/ggml-org/llama.cpp:server-cuda-b10644 6.98GB
+openmmlab/lmdeploy:v0.16.0-cu12.8 16.5GB
+ghcr.io/ggml-org/llama.cpp:server-cuda-b10481 6.98GB
+vllm/vllm-openai:latest 28.1GB
+vllm/vllm-openai:v0.26.0 28.1GB
+ubuntu:24.04 119MB
+--- RUNNING CONTAINERS ---
+--- MODELS: HF CACHE ---
+4.0K	/home/adaramir/.cache/huggingface/hub/CACHEDIR.TAG
+12K	/home/adaramir/.cache/huggingface/hub/models--bartowski--Ling-3.0-tiny-GGUF
+12K	/home/adaramir/.cache/huggingface/hub/models--unsloth--gemma-4-26B-A4B-it-GGUF
+40K	/home/adaramir/.cache/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3-Nano-4B-FP8
+1.6G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-1.5B-Instruct-AWQ
+2.3G	/home/adaramir/.cache/huggingface/hub/models--unsloth--Qwen3.6-35B-A3B-GGUF
+2.5G	/home/adaramir/.cache/huggingface/hub/models--thewimo--Qwen3-4B-AWQ
+2.6G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct-AWQ
+5.2G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct-AWQ
+7.9G	/home/adaramir/.cache/huggingface/hub/models--Qwen--Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4
+8.5G	/home/adaramir/.cache/huggingface/hub/models--TechxGenus--DeepSeek-V2-Lite-Chat-AWQ
+11G	/home/adaramir/.cache/huggingface/hub/models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF
+11G	/home/adaramir/.cache/huggingface/hub/models--unsloth--gpt-oss-20b-GGUF
+12G	/home/adaramir/.cache/huggingface/hub/models--ggml-org--gpt-oss-20b-GGUF
+--- MODELS: GGUF FILES ---
+4.6G  /home/adaramir/models/moe/Ling-3.0-tiny-Q4_K_M.gguf
+17G  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev_Q3_K_M_imatrix_MTP.gguf
+17G  /home/adaramir/models/moe/Ornith-1.0-35B_Q3_K_M.gguf
+12G  /home/adaramir/models/moe/Qwen3-Coder-30B-A3B-Instruct-UD-IQ3_XXS.gguf
+18G  /home/adaramir/models/moe/North-Mini-Code-1.0-Q4_K_M.gguf
+17G  /home/adaramir/models/moe/nvidia_Nemotron-3-Nano-30B-A3B-IQ2_XXS.gguf
+11G  /home/adaramir/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf
+34G  /home/adaramir/models/moe/Qwen3-Coder-Next-UD-Q3_K_XL.gguf
+12G  /home/adaramir/models/moe/gpt-oss-20b-MXFP4.gguf
+8.3G  /home/adaramir/models/moe/deepseek-coder-v2-16b.gguf
+13G  /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf
+13G  /home/adaramir/models/moe/gpt-oss-20b.gguf
+3.1G  /home/adaramir/models/moe/4b-Q4_K_M.gguf
+18G  /home/adaramir/models/moe/qwen3-coder-30b.gguf
+20G  /home/adaramir/models/moe/KAT-Coder-V2.5-Dev.Q4_K_M.gguf
+11G  /home/adaramir/models/moe/Qwen3.6-35B-A3B-UD-IQ2_M.gguf
+19G  /home/adaramir/models/dense/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf
+4.4G  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_M.gguf
+4.7G  /home/adaramir/models/dense/Qwen3-8B-Q4_K_M.gguf
+2.4G  /home/adaramir/models/dense/Qwen3-4B-Q4_K_M.gguf
+4.0G  /home/adaramir/models/dense/Qwen2.5-Coder-7B-Instruct-IQ4_XS.gguf
+8.4G  /home/adaramir/models/dense/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+941M  /home/adaramir/models/dense/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf
+4.2G  /home/adaramir/models/dense/nvidia_OpenCodeReasoning-Nemotron-7B-Q4_K_S.gguf
+1.8G  /home/adaramir/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+964M  /home/adaramir/specdecode/llama_sd/qwen3-1.7b-IQ4_XS.gguf
+1.8G  /home/adaramir/tuned-q4_K_M.gguf
+##### END srv1 #####
