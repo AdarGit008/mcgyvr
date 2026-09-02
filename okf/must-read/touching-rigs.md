@@ -187,9 +187,11 @@ over five outstanding cells and destroyed nothing only by luck. Fix
 `completed()` to re-score instead:
 ```python
 if retry_failed:
-    rows = {k: v for k, v in rows.items()
-            if v.get("outcome") == "ok"
-            and not barren_levels(v.get("concurrency") or {})}
+    rows = {
+        k: v
+        for k, v in rows.items()
+        if v.get("outcome") == "ok" and not barren_levels(v.get("concurrency") or {})
+    }
 ```
 
 ## Config

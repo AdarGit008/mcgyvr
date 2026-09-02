@@ -178,9 +178,7 @@ def test_a_level_that_arrived_but_could_not_be_counted_is_barren() -> None:
     level = {"n": 8, "ok": 8, "counted": 0, "errors": 0, "tokens_per_s": None}
     assert run_module.barren_levels({"levels": [level]}) == [level]
     row = {"outcome": "ok"}
-    run_module.barren_downgrades_the_outcome(
-        row, {"levels": [level]}, "srv1", "cell"
-    )
+    run_module.barren_downgrades_the_outcome(row, {"levels": [level]}, "srv1", "cell")
     assert row["outcome"] == "ramp_failed"
     assert "stated a token count" in row["refusal"]["prose"]
 

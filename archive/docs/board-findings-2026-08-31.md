@@ -409,9 +409,11 @@ ACTION — restore all three rows and fix the cause instead:
 ```python
 # run.py:157
 if retry_failed:
-    rows = {k: v for k, v in rows.items()
-            if v.get("outcome") == "ok"
-            and not barren_levels(v.get("concurrency") or {})}
+    rows = {
+        k: v
+        for k, v in rows.items()
+        if v.get("outcome") == "ok" and not barren_levels(v.get("concurrency") or {})
+    }
 ```
 
 Then delete §4's drop procedure. It is what turned the tree green in D5.

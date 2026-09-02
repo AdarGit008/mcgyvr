@@ -222,9 +222,7 @@ def test_no_entry_turns_off_mmap(path: Path, entry: dict[str, Any]) -> None:
 
 
 @pytest.mark.parametrize("path,entry", _entries(), ids=_case_id)
-def test_the_blob_fits_its_hosts_mmap_budget(
-    path: Path, entry: dict[str, Any]
-) -> None:
+def test_the_blob_fits_its_hosts_mmap_budget(path: Path, entry: dict[str, Any]) -> None:
     """Checked against the LOWEST ``available`` each host has been seen at.
 
     The gate at launch reads the number live, and srv1's has swung 13,869 to

@@ -296,9 +296,7 @@ def test_every_declared_cell_is_present_in_its_journal() -> None:
             "the pairing would silently stop checking this journal."
         )
         document = json.loads(config.read_text(encoding="utf-8"))
-        declared = [
-            str(entry.get("label")) for entry in document.get("models") or []
-        ]
+        declared = [str(entry.get("label")) for entry in document.get("models") or []]
         assert declared, f"{config.name}: declares no models"
         refused = set(document.get("_refused") or {})
         # `outcome: ok` is not sufficient on its own -- a row written before the

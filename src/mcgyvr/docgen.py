@@ -240,7 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--output",
         default=str(REPO_ROOT / REFERENCE_PATH),
-        help="where to write (default: the checkout's archive/docs/config-reference.md)",
+        help="where to write (default: the checkout's copy of the reference)",
     )
     args = parser.parse_args(argv)
 
