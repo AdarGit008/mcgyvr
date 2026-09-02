@@ -23,6 +23,7 @@ fixture; ``--dry-run`` so nothing is launched.
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -58,7 +59,9 @@ def gguf(tmp_path: Path) -> Path:
     return path
 
 
-def _dry(root: Path, env: dict[str, str], *args: str):
+def _dry(
+    root: Path, env: dict[str, str], *args: str
+) -> subprocess.CompletedProcess[str]:
     return onedoor.door(
         root,
         [CAMPAIGN, "correctness", "--host", "srv1", "--", "--dry-run", *args],
