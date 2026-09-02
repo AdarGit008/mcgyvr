@@ -7,20 +7,27 @@ scope of record for what is coming is the issue tree.
 from __future__ import annotations
 
 import argparse
+import ipaddress
+import json
 import sys
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
 
 from mcgyvr import __version__
+from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
-from mcgyvr.capability import CapabilityTableError, load
-from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
+from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
+from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, Config, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
+from mcgyvr.emit import EmitError, emit_all
+from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
+from mcgyvr.scan import Mismatch, Scan
+from mcgyvr.serving import ModelSpec, UnitError, host_of, units_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
@@ -1053,6 +1060,395 @@ def _commit(
     return 0 if delivery.committed else 1
 
 
+def _scan(args: argparse.Namespace) -> int:
+    """Measure this machine, record it, and say what stopped matching.
+
+    ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
+    record, and that asymmetry is the point rather than an oversight.
+    ``--json`` is not a quieter mode of this command for a person; it is the
+    far end of an ssh pipe, and the only thing that reads it is
+    :func:`mcgyvr.scan.scan_over` → ``_ssh`` → ``_run``, which treats *any*
+    non-zero status as "this host did not answer" and raises ``Unreachable``.
+    Exiting 4 down that channel would take the one event exit 4 exists to
+    surface — a rig that lost a DIMM or a card — and make that rig disappear
+    from ``scan_all`` altogether, discarding a perfectly good measurement that
+    is already sitting on stdout. So the wire format's job is to deliver the
+    measurement: the mismatch goes to stderr, where the operator still reads it
+    and the parser never does. The exit-code channel belongs to the
+    human-facing command, which keeps exit 4.
+    """
+    measured = scan_module.scan()
+    root = scan_module.default_root()
+    prior = scan_module.load_prior(scan_module.machine_id(measured), root)
+    drift = scan_module.compare(measured, prior)
+    # Recorded before anything is reported, and recorded even when it
+    # disagrees with the last scan. A mismatch is a successful measurement of a
+    # machine that changed, not a failed one; withholding it would leave the
+    # stale record in place for the next run to disagree with all over again.
+    path = scan_module.write_scan(measured, root)
+
+    if args.json:
+        # stdout is the wire format: `mcgyvr scan --json` is what the far end
+        # of an ssh pipe runs and `Scan.from_json` is what reads it back
+        # (mcgyvr.scan.scan_over). One banner line here and the remote scan
+        # stops parsing, so everything a person would read goes to stderr.
+        sys.stdout.write(measured.to_json())
+        _report_mismatches(drift, sys.stderr)
+        return Exit.OK
+
+    machine = measured.machine
+    print(f"{machine.host} ({machine.id}), kernel {machine.kernel}")
+    if measured.gpus:
+        for gpu in measured.gpus:
+            print(
+                f"  GPU {gpu.index}    {gpu.name} — "
+                f"{gpu.vram.free_mib} MiB free of {gpu.vram.total_mib} MiB"
+            )
+    else:
+        print("  GPU      none found")
+    if measured.memory is not None:
+        print(
+            f"  RAM      {measured.memory.available_gb:.1f} GB available of "
+            f"{measured.memory.total_gb:.1f} GB"
+        )
+    if measured.cpu is not None:
+        print(f"  CPU      {measured.cpu.cores} cores, {measured.cpu.threads} threads")
+    if measured.bandwidth is not None:
+        print(
+            f"  Memory   {measured.bandwidth.measured_gbps:.1f} GB/s "
+            f"({measured.bandwidth.how})"
+        )
+    if measured.disk is not None:
+        print(f"  Disk     {measured.disk.free_gb:.1f} GB free at {measured.disk.path}")
+    for note in measured.notes:
+        print(f"  - {note}")
+    print(f"\nRecorded at {path}")
+
+    if drift:
+        _report_mismatches(drift, sys.stdout)
+        return Exit.MISMATCH
+    return Exit.OK
+
+
+def _emit(args: argparse.Namespace) -> int:
+    """Write one compose file per host for the ladder's serving units.
+
+    Nothing is started. See :mod:`mcgyvr.emit` — this hands the operator a
+    launch spec and stops.
+    """
+    path = Path(args.config) if args.config else resolve_config_path()
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    scans = _scans(scan_module.default_root())
+    try:
+        hosts = _hosts_wanted(config)
+    except UnitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    # A source's URL names a *route* to a machine; a scan is filed under what
+    # the machine calls *itself*. Those are two names for one rig and they
+    # rarely match, so the two are reconciled here, once, before either the
+    # refusal below or `units_for` looks a host up.
+    scans = _resolve_hosts(scans, hosts.values())
+
+    # Refusal is decided before a single model is looked up, because it is the
+    # earlier question and the more useful answer: told "no spec for
+    # qwen3-coder-30b" about a rig nobody has measured, an operator goes and
+    # edits the model name, which was never the problem.
+    unscanned = sorted({host for host in hosts.values() if host not in scans})
+    if unscanned:
+        for host in unscanned:
+            print(
+                f"refused: {host} has never been scanned. A unit is sized from "
+                f"measured free VRAM, RAM and disk, so there is nothing here to "
+                f"size it from — run `mcgyvr scan` on {host} first.",
+                file=sys.stderr,
+            )
+        return Exit.REFUSED
+
+    # A model the table does not carry, and a model too large for the machine
+    # it was bound to, are both refusals rather than failures: nothing is
+    # broken, mcgyvr is declining to write a launch spec it cannot stand
+    # behind. A caller branching on the code should read them the same way it
+    # reads an unscanned host. A malformed capability table is a real error.
+    try:
+        units = units_for(config, scans, specs=_model_specs())
+    except UnitError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return Exit.REFUSED
+    except CapabilityTableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    # One llama-server or vLLM process serves one model, so two units sharing a
+    # source share a port and the second one loses the race to bind it. The
+    # emitted file would look right and fail on the rig, which is the failure
+    # this whole module exists to avoid. Ollama is exempt: it swaps models
+    # behind one endpoint by design.
+    endpoints: dict[str, list[str]] = {}
+    for unit in units:
+        for rung in unit.rungs:
+            tier = config.ladder.get(rung)
+            if tier is None:
+                continue
+            source = config.sources[tier.source]
+            if source.api == "ollama":
+                continue
+            endpoints.setdefault(source.base_url, [])
+            if unit.key.slug not in endpoints[source.base_url]:
+                endpoints[source.base_url].append(unit.key.slug)
+    for base_url, slugs in sorted(endpoints.items()):
+        if len(slugs) > 1:
+            print(
+                f"refused: {base_url} is bound to {len(slugs)} models "
+                f"({', '.join(sorted(slugs))}), and one server process serves "
+                f"one model — they would contend for the same port. Give each "
+                f"model its own source on its own port.",
+                file=sys.stderr,
+            )
+            return Exit.REFUSED
+
+    out = Path(args.out) if args.out else Path.cwd()
+    try:
+        written = emit_all(units, root=out)
+    except (EmitError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    for unit in sorted(units, key=lambda u: u.key.slug):
+        rungs = ", ".join(unit.rungs) or "no rung"
+        print(
+            f"{unit.key.slug}  gpu {unit.gpu}, {unit.width.value} slots "
+            f"({unit.width.how})  for {rungs}"
+        )
+    print()
+    for compose in written:
+        print(f"wrote {compose}")
+    print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
+    return Exit.OK
+
+
+def _report_mismatches(found: Sequence[Mismatch], stream: TextIO) -> None:
+    if not found:
+        return
+    print("mismatch: this machine no longer matches its last scan:", file=stream)
+    for item in found:
+        print(f"  {item.field}: was {item.prior}, now {item.measured}", file=stream)
+
+
+def _scans(root: Path) -> dict[str, Scan]:
+    """Every machine recorded under ``root``, keyed by the name it calls itself.
+
+    That is ``platform.node()``, which is not the name a source's ``base_url``
+    carries; :func:`_resolve_hosts` is what bridges the two. Keying by the
+    recorded name and widening afterwards keeps this function a faithful
+    reading of the directory — one key per machine, no invented names — so the
+    reconciliation is somewhere a reader can find it and argue with it.
+
+    A record that cannot be read is skipped rather than fatal, on the same rule
+    the rest of the scan layer runs on: the answer to an unreadable scan is to
+    take another one, and that is what the refusal below asks for anyway.
+    """
+    found: dict[str, Scan] = {}
+    for path in sorted(root.glob("*.json")):
+        try:
+            recorded = Scan.from_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if recorded.machine.host:
+            found[recorded.machine.host] = recorded
+    return found
+
+
+def _hosts_wanted(config: Config) -> dict[str, str]:
+    """Which machine each rung would run on — rung name to host."""
+    wanted: dict[str, str] = {}
+    for tier in config.ladder.tiers:
+        source = config.sources.get(tier.source)
+        if source is None:
+            raise UnitError(f"{tier.name}: no source named {tier.source!r}")
+        wanted[tier.name] = host_of(source.base_url)
+    return wanted
+
+
+#: Names that cannot mean any machine but the one this process is running on.
+#: Everything numeric is left to :mod:`ipaddress` below, which knows the whole
+#: of ``127.0.0.0/8`` and ``::1`` without this file listing them.
+_LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
+
+
+def _names_this_machine(name: str) -> bool:
+    """Whether ``name`` can only ever mean the machine this process runs on.
+
+    ``0.0.0.0`` counts. It is not a loopback address, but nothing else can be
+    reached at it either: written in a ``base_url`` it means "the server I am
+    about to start here, on every interface", which is a statement about this
+    machine.
+    """
+    lowered = name.strip().lower().rstrip(".")
+    if lowered in _LOCAL_NAMES:
+        return True
+    try:
+        address = ipaddress.ip_address(lowered)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_unspecified
+
+
+def _same_host(recorded: str, wanted: str) -> bool:
+    """Whether two hostnames are one machine written long and short.
+
+    ``desktop-9`` and ``desktop-9.lan`` are the same rig: a config names it the
+    way the operator types it, and ``platform.node()`` reports it the way the
+    machine was configured. Only a whole leading label counts, so ``rig`` does
+    not match ``rigel.lan`` — the failure this must never have is two different
+    machines treated as one, because that sizes a unit from the wrong rig's
+    free VRAM and the compose file it writes looks entirely reasonable.
+    """
+    left = recorded.strip().lower().rstrip(".")
+    right = wanted.strip().lower().rstrip(".")
+    if not left or not right:
+        return False
+    return left == right or left.startswith(f"{right}.") or right.startswith(f"{left}.")
+
+
+def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
+    """``scans`` again, with a key added for each wanted name that resolves to
+    a machine already in it.
+
+    Without this, ``emit`` refuses the machine it is running on. The stock
+    config says ``base_url: http://localhost:11434``, ``mcgyvr scan`` files the
+    record under ``platform.node()``, and the two never agree — so the most
+    ordinary setup there is, one rig serving itself, reports "localhost has
+    never been scanned" the instant after it was scanned.
+
+    Resolution is by identity rather than by name wherever it can be: a
+    loopback source is matched to the local scan through
+    :func:`mcgyvr.scan.local_machine_id`, so it stays right on a machine that
+    was renamed and cannot be fooled by a second rig that happens to answer to
+    the same hostname. Only the long/short form of a real hostname is matched
+    by string, and only when exactly one recorded machine answers to it:
+    an ambiguous name resolves to nothing and falls through to the refusal,
+    because being told to run `mcgyvr scan` costs a minute and being sized
+    against another machine's hardware costs a debugging session.
+    """
+    resolved = dict(scans)
+    local: str | None = None
+    for name in wanted:
+        if name in resolved:
+            continue
+        if _names_this_machine(name):
+            if local is None:
+                local = scan_module.local_machine_id()
+            match = _local_scan(scans, local)
+        else:
+            match = _named_scan(scans, name)
+        if match is not None:
+            resolved[name] = match
+    return resolved
+
+
+def _local_scan(scans: dict[str, Scan], machine_id: str) -> Scan | None:
+    """The recorded scan of this very machine, or None if it has never run one."""
+    for recorded in scans.values():
+        if recorded.machine.id == machine_id:
+            return recorded
+    return None
+
+
+def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
+    """The one recorded machine ``name`` names, or None if it is not exactly one.
+
+    Two records answering to one name is not a tie to be broken. They are two
+    machines, and picking either would hand back hardware the operator did not
+    ask about.
+    """
+    matched = [recorded for host, recorded in scans.items() if _same_host(host, name)]
+    if len({recorded.machine.id for recorded in matched}) != 1:
+        return None
+    return matched[0]
+
+
+def _model_specs() -> tuple[ModelSpec, ...]:
+    """Serving specs for the models the capability table measured.
+
+    Three of the four numbers come straight off the typed reader. The fourth —
+    whether a model has experts, and so a knob for *where* its weights sit — is
+    in the table file but not in :class:`mcgyvr.capability.Model`, so it is read
+    from the same file rather than guessed from a name. Getting it wrong is not
+    cosmetic: a dense model that does not fit is a refusal, while an MoE that
+    does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
+
+    ``ram_gb`` is what system memory may be asked to hold, which is only ever
+    non-zero for an MoE — a dense model has nowhere to spill to, and claiming
+    RAM it would never use would refuse rigs that can serve it. For an MoE it
+    is the whole weight, because the table does not state the split: it carries
+    a working set and a weight, and ``weights - working`` is zero or negative
+    for all three MoE rows it ships, so subtracting one from the other claimed
+    that a model spilling five gigabytes of experts needs no memory at all.
+    The whole weight is the one figure that cannot under-state the demand, and
+    under-stating it is the direction that swaps somebody's host.
+
+    ``blocks`` and ``expert_gb`` are ``None`` for every row because the table
+    carries neither for any model. That refuses an MoE rather than guessing
+    (:func:`mcgyvr.serving.fit`): the block count varies by architecture and
+    the expert mass varies by quantisation of the *same* architecture, so
+    nothing derivable from a name, a parameter count or a file size answers
+    either. An operator who has read the file states them under ``models:``,
+    and that lifts the refusal for the model they stated.
+
+    **The table is in decimal GB and this module is in GiB.** Tied to a real
+    file: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes and its row
+    says ``weights_gb: 8.9``, which is decimal (GiB would be 8.3). Everything
+    downstream compares against ``free_mib / 1024``
+    (:data:`mcgyvr.detect.MIB_PER_GB`), so the conversion happens here, once,
+    at the boundary where the two conventions meet. Skipping it inflated every
+    spec by 7.37% — harmlessly for a while, because the MoE arithmetic carried
+    two further errors that cancelled it.
+
+    ``ram_gb`` is ``0.0`` for every row, dense and MoE alike. It is a floor an
+    operator may raise, not a declaration this function can make: what an MoE
+    actually spills depends on the card and is derived per machine by
+    :func:`mcgyvr.serving._placement`. Passing the whole model weight here —
+    which is what it used to do — made that derivation inert.
+    """
+    architectures = _architectures()
+    specs: list[ModelSpec] = []
+    for model in load().models:
+        moe = architectures.get(model.id) == "moe"
+        specs.append(
+            ModelSpec(
+                name=model.id,
+                vram_gb=model.vram_gb_working / GB_PER_GIB,
+                ram_gb=0.0,
+                disk_gb=model.weights_gb / GB_PER_GIB,
+                moe=moe,
+                blocks=None,
+                expert_gb=None,
+            )
+        )
+    return tuple(specs)
+
+
+def _architectures() -> dict[str, str]:
+    """``model id -> architecture`` from the shipped table, for the one field
+    :mod:`mcgyvr.capability` does not carry yet."""
+    path = table_path()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CapabilityTableError(f"cannot read {path}: {exc}") from exc
+    return {
+        str(entry["id"]): str(entry["architecture"])
+        for entry in raw.get("models", [])
+        if entry.get("architecture")
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -1063,6 +1459,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     caps = sub.add_parser(
         "capabilities",
+        # `caps` is what the command is called in the issue tree and in every
+        # transcript of someone using it; argparse does not abbreviate
+        # subcommands the way it abbreviates flags, so the short name has to be
+        # spelled out or it is an exit-2 usage error.
+        aliases=["caps"],
         help="show the shipped capability table used to propose worker bindings",
     )
     caps.add_argument(
@@ -1170,6 +1571,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     det.set_defaults(func=_detect)
+
+    sca = sub.add_parser(
+        "scan",
+        help="measure this machine, record it, and report what changed since",
+    )
+    sca.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "write the scan to stdout and nothing else — the wire format the "
+            "remote transport parses"
+        ),
+    )
+    sca.set_defaults(func=_scan)
+
+    emi = sub.add_parser(
+        "emit",
+        help="write a compose file per host for the ladder's serving units",
+    )
+    emi.add_argument(
+        "--config",
+        default=None,
+        metavar="PATH",
+        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+    )
+    emi.add_argument(
+        "--out",
+        default=None,
+        metavar="DIR",
+        help="where the compose files are written (default: the current directory)",
+    )
+    emi.set_defaults(func=_emit)
 
     sbx = sub.add_parser(
         "sandbox",

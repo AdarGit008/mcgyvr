@@ -264,10 +264,15 @@ class Fanout(StrEnum):
 class Machine:
     """What a rung runs on, as a question rather than as a name (#20).
 
-    Load is a property of the machine and of nothing else: two rungs bound to
-    one source are two names for one queue, so a fan-out that compared rungs
-    would "spread" a batch across a single box. But a plan is a thing that gets
-    printed, and #20's rule is that nothing above the execution seam learns
+    Load is a property of the queue and of nothing else: two rungs bound to one
+    source and declaring no width of their own are two names for one queue, so a
+    fan-out that compared them by name would "spread" a batch across a single
+    box. A rung that declares a width of its own is the other case — a second
+    server process on that box, with slots and a tally of its own (#23) — which
+    is why every question here takes the rung beside the machine and lets
+    :meth:`~mcgyvr.capacity.Capacity.queue` decide which of the two it is. But a
+    plan is a thing that gets printed, and #20's rule is that nothing above the
+    execution seam learns
     where work runs — a :class:`~mcgyvr.pool.Rung` says a name and a model and
     deliberately nothing else, which is what lets a rung be re-pointed at
     another machine without anything above noticing.
@@ -304,8 +309,8 @@ class Machine:
     def __hash__(self) -> int:
         return hash(self._source)
 
-    def load(self, capacity: Capacity) -> int | None:
-        """How busy this machine is, or ``None`` if this capacity cannot say.
+    def load(self, capacity: Capacity, rung: str | None = None) -> int | None:
+        """How busy this machine is for ``rung``, or ``None`` if it cannot say.
 
         :meth:`~mcgyvr.capacity.Capacity.load` is the answer, which is the
         slots that capacity has granted *plus* the attempts reserved against it
@@ -326,6 +331,20 @@ class Machine:
         ever wanted it belongs in :class:`~mcgyvr.capacity.Capacity`, beside the
         files it would have to read, and not here.
 
+        ``rung`` is asked for because a rung that declares its own width is a
+        second server process on this box and therefore a second queue (#23),
+        and a reading taken against the source alone counts none of its holds:
+        once a dispatch names its rung, every rung with a width of its own
+        reports zero for ever, ``full`` compares zeroes and the fan-out it was
+        asked for is price order wearing its name. Omitted, this is the source's
+        own queue, which is what it has always been and what a caller holding no
+        rung is asking about.
+
+        Two rungs that declared no width of their own still read one number,
+        because they *are* one queue: the fallback is
+        :meth:`~mcgyvr.capacity.Capacity.queue`'s, so "load is a property of the
+        box" survives exactly as far as the box is one server.
+
         ``None`` when the capacity does not bound this source at all, which is a
         capacity and a plan built from different configs; it is an ordinary
         answer here rather than an error, because the caller's response is to
@@ -336,9 +355,9 @@ class Machine:
         """
         if self._source not in capacity.limits:
             return None
-        return capacity.load(self._source)
+        return capacity.load(self._source, rung)
 
-    def free(self, capacity: Capacity) -> int | None:
+    def free(self, capacity: Capacity, rung: str | None = None) -> int | None:
         """How many more dispatches this machine would admit, or ``None``.
 
         ``width - load``, and the number a fan-out actually needs: a load on its
@@ -349,16 +368,22 @@ class Machine:
         chosen a machine than it has slots, which is a truthful reading of a rung
         that is oversubscribed rather than merely full.
 
+        Both halves are read for the same ``rung``, and they have to be: a rung
+        with a width of its own is a server process of its own, so its width is
+        that process's and its load is that process's. Comparing one rung's load
+        against another's width — the rig's load against a rung's width, as this
+        did while load was read per source — reports a busy rig's idle narrow
+        rung as full and spends money climbing past it.
+
         ``None`` for a source this capacity does not bound, for the same reason
         and with the same consequence as :meth:`load`: an unknown width is not a
         free slot, and the two must not be made to look alike.
         """
-        width = capacity.limits.get(self._source)
-        if width is None:
+        if self._source not in capacity.limits:
             return None
-        return width - capacity.load(self._source)
+        return capacity.limit(self._source, rung) - capacity.load(self._source, rung)
 
-    def claim(self, capacity: Capacity) -> None:
+    def claim(self, capacity: Capacity, rung: str | None = None) -> None:
         """Count one more attempt as headed here, before it holds anything.
 
         Called inside :meth:`~mcgyvr.capacity.Capacity.deciding`, so that the
@@ -366,18 +391,27 @@ class Machine:
         counted. A source ``capacity`` does not bound is not counted rather than
         refused, because a plan from another config is something this module
         answers ``None`` to everywhere else and a climb over it still has to run.
+
+        ``rung`` is passed through so the claim is charged to the queue the
+        dispatch will actually join, which is
+        :meth:`~mcgyvr.capacity.Capacity.queue`'s answer and never this module's
+        guess — a claim charged to the rig would make every sibling rung of that
+        rig read as busy the moment one of them was chosen.
         """
         if self._source in capacity.limits:
-            capacity.reserve(self._source)
+            capacity.reserve(self._source, rung)
 
-    def release(self, capacity: Capacity) -> None:
+    def release(self, capacity: Capacity, rung: str | None = None) -> None:
         """Stop counting one attempt. Never raises, so a ``finally`` is safe.
 
         A leaked reservation is forever, and it would show this machine as busy
         to every later choice the batch makes — so the release has to be
-        callable on the path where something has already gone wrong.
+        callable on the path where something has already gone wrong. Given the
+        same ``rung`` :meth:`claim` was, or the reservation is given back on a
+        queue other than the one it was taken on and neither count ever
+        settles.
         """
-        capacity.release(self._source)
+        capacity.release(self._source, rung)
 
 
 @dataclass(frozen=True)
@@ -875,7 +909,11 @@ def _next_index(remaining: list[Step], mode: Fanout, capacity: Capacity) -> int:
     if mode is Fanout.NONE:
         return 0
     for index, step in enumerate(remaining):
-        slots = None if step.machine is None else step.machine.free(capacity)
+        slots = (
+            None
+            if step.machine is None
+            else step.machine.free(capacity, step.rung.name)
+        )
         if slots is None:
             return 0
         if slots > 0:
@@ -971,15 +1009,21 @@ def _claim_next(
             return remaining.pop(held)
         step = remaining.pop(_next_index(remaining, mode, capacity))
         if step.machine is not None:
-            step.machine.claim(capacity)
+            step.machine.claim(capacity, step.rung.name)
     return step
 
 
-def _release(machine: Machine | None, capacity: Capacity | None) -> None:
-    """Stop counting an attempt that has ended, however it ended."""
-    if machine is None or capacity is None:
+def _release(step: Step, capacity: Capacity | None) -> None:
+    """Stop counting an attempt that has ended, however it ended.
+
+    Given the same step and capacity :func:`_claim_next` was, so that the
+    reservation it gives back is the one that was taken: a claim charged to a
+    rung's own queue and released from its source's would leave the rung busy
+    for the rest of the run.
+    """
+    if step.machine is None or capacity is None:
         return
-    machine.release(capacity)
+    step.machine.release(capacity, step.rung.name)
 
 
 # --- executing a plan ------------------------------------------------------
@@ -1162,7 +1206,7 @@ def climb(
             # raised — it is no longer in flight, and a reservation that leaked
             # would make the machine look busy to every later choice made under
             # this capacity.
-            _release(step.machine, capacity)
+            _release(step, capacity)
 
     declined_only = all(a.verdict is Verdict.DECLINED for a in history)
     return Exhausted(

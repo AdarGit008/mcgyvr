@@ -506,8 +506,14 @@ class Entry:
         this is callable on a path where something has already gone wrong —
         which is the only kind of path that reaches it, since the ordinary one
         hands the reservation to a climb instead.
+
+        Given back on ``rung`` and not on the machine alone, because that is the
+        queue it was taken on: a rung with a width of its own is a server
+        process of its own (#23), and a reservation returned to the rig would
+        leave that rung reading as busy for the rest of the run while the rig
+        read as one dispatch emptier than it is.
         """
-        self.machine.release(self.capacity)
+        self.machine.release(self.capacity, self.rung)
 
 
 @dataclass(frozen=True)
@@ -651,6 +657,14 @@ class Ascent:
         hand does not bound that machine, which is a capacity and a plan built
         from different configs.
 
+        Both halves are read per rung, and they have to be the same half each
+        time: a rung with a width of its own is a server process of its own, so
+        its load is the load of that process and its width is that process's
+        width. Comparing one rung's load against another's width — the rig's
+        load against a rung's width, as this did while load was read per source
+        — reports a busy rig's idle narrow rung as full and spends money
+        climbing past it.
+
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
@@ -755,12 +769,16 @@ class Ascent:
                 for step in each.climbable:
                     machine = step.machine
                     width = self.widths.get(step.rung.name)
-                    load = None if machine is None else machine.load(self.capacity)
+                    load = (
+                        None
+                        if machine is None
+                        else machine.load(self.capacity, step.rung.name)
+                    )
                     if machine is None or width is None or load is None:
                         return None
                     if load < width:
                         if reserve and self._raises(each.family):
-                            machine.claim(self.capacity)
+                            machine.claim(self.capacity, step.rung.name)
                         return each.family, step.rung.name, machine
         return None
 
@@ -812,12 +830,21 @@ def ascent(
 
 
 def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
-    """How wide each rung's machine is, keyed by the rung rather than the machine.
+    """How wide each rung's own server is, keyed by the rung rather than the machine.
 
     The static half of "has a free slot". A width is a property of how a backend
     was started, so :class:`~mcgyvr.capacity.Capacity` settles it once and this
     reads it once; only the load has to be read at the moment the question is
     asked.
+
+    The rung's width and not its source's, because a tier may declare one and a
+    rung that did is bounded by it. Reading the source's number for such a rung
+    would price a free slot on the source's terms — sixteen where the rung will
+    admit four, or four where it will admit sixteen — and ``idle`` would either
+    queue on a full rung or climb past an empty one. A rung that declares
+    nothing is answered with its source's width, which is what
+    :meth:`~mcgyvr.capacity.Capacity.limit` falls back to and what
+    ``sources.*.max_parallel`` has always meant.
 
     The source name is read inside this function and does not leave it: #20's
     rule is that nothing above the execution seam learns where work runs, and a
@@ -833,7 +860,7 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
         return {}
     limits = capacity.limits
     return {
-        tier.name: limits[tier.source]
+        tier.name: capacity.limit(tier.source, tier.name)
         for tier in config.ladder.tiers
         if tier.source in limits
     }

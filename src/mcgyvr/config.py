@@ -76,6 +76,7 @@ class UnboundValueError(ConfigError):
 
 Kind = Literal[
     "int",
+    "float",
     "str",
     "url",
     "bool",
@@ -103,7 +104,7 @@ class Field:
     default: Any = None
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
-    min_value: int | None = None
+    min_value: float | None = None
     bind_hint: str = ""
 
     retired: tuple[tuple[str, str], ...] = ()
@@ -156,6 +157,84 @@ SOURCE_FIELDS: tuple[Field, ...] = (
             "the key itself"
         ),
     ),
+    Field(
+        "engine",
+        "enum",
+        "Which server program runs behind this URL, for `mcgyvr emit` to "
+        "write a launch spec for. `api` cannot answer this: it is a wire "
+        "protocol, and vLLM and llama-server both speak `openai` while "
+        "taking entirely different argv. Absent means llama.cpp, which is "
+        "what emit assumed unconditionally before this field existed. It "
+        "belongs on the source rather than the rung because a URL points at "
+        "one process and one process runs one engine.",
+        choices=("llama.cpp", "vllm"),
+        bind_hint="leave it out unless the backend is not llama-server",
+    ),
+)
+
+MODEL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "vram_gb",
+        "float",
+        "Working set on the card with nothing offloaded, in GiB. Not the "
+        "weight on disk: a working set carries buffers.",
+        min_value=0.0,
+        bind_hint=(
+            "set it to what the server reports resident on the card with "
+            "-ngl 99 and no offload, converted to GiB"
+        ),
+    ),
+    Field(
+        "disk_gb",
+        "float",
+        "Weight on disk, in GiB. Note the unit — a file listed as 13.2 GB by "
+        "a tool using decimal gigabytes is 12.3 GiB here.",
+        min_value=0.0,
+        bind_hint="set it to `ls -l` on the weights file divided by 1024^3",
+    ),
+    Field(
+        "ram_gb",
+        "float",
+        "A floor on what system memory may be asked to hold, in GiB. Absent "
+        "means the offload arithmetic decides it alone; state it only to "
+        "claim a demand this module cannot see.",
+        default=0.0,
+        min_value=0.0,
+    ),
+    Field(
+        "moe",
+        "bool",
+        "Whether this model has expert weights that `--n-cpu-moe` can move "
+        "off the card. Not inferable from the other numbers: it is the "
+        "difference between `does not fit` and `fits differently here`.",
+        default=False,
+    ),
+    Field(
+        "blocks",
+        "int",
+        "How many transformer blocks this model has — what `--n-cpu-moe` "
+        "counts. Required for an MoE, meaningless for a dense model. Read it "
+        "from the file rather than a model card: it is the GGUF metadata key "
+        "`<arch>.block_count`.",
+        min_value=1,
+        bind_hint=(
+            "read it off the file, e.g. `gguf-parser --path <file> --json` "
+            "or the block_count key any GGUF reader exposes"
+        ),
+    ),
+    Field(
+        "expert_gb",
+        "float",
+        "How much weight this model's expert tensors hold between them, in "
+        "GiB. Required for an MoE. It varies by quantisation of the same "
+        "architecture, so it is per file and not per model: sum the tensors "
+        "whose names match `blk.*.ffn_*_exps.*`.",
+        min_value=0.0,
+        bind_hint=(
+            "sum the `blk.*.ffn_*_exps.*` tensor sizes in the file and "
+            "divide by 1024^3; a GGUF reader lists them"
+        ),
+    ),
 )
 
 TIER_FIELDS: tuple[Field, ...] = (
@@ -179,6 +258,21 @@ TIER_FIELDS: tuple[Field, ...] = (
         required=True,
     ),
     Field("model", "str", "Model identifier as the source names it.", required=True),
+    Field(
+        "max_parallel",
+        "int",
+        "How many requests this rung may run at once, overriding its source's "
+        "`max_parallel`. Concurrency is a property of the serving process "
+        "rather than of the machine: the same weights on two rigs are two "
+        "processes started with two different slot counts, so one number on "
+        "the source cannot describe both. Unset means the source's number "
+        "stands, which is what it has always meant.",
+        min_value=1,
+        bind_hint=(
+            "set it to the slot count the rung's backend was started with "
+            "(e.g. 8), and leave it out to inherit the source's"
+        ),
+    ),
     Field(
         "attempts",
         "int",
@@ -409,6 +503,17 @@ SCHEMA: tuple[Field, ...] = (
         block=SOURCE_FIELDS,
     ),
     Field(
+        "models",
+        "block_map",
+        "Serving specs for models the shipped capability table does not "
+        "carry, or whose numbers you want to override, keyed by the model "
+        "identifier a rung names. mcgyvr sizes from what it can measure; this "
+        "is where an operator states what it cannot. A declaration here wins "
+        "over the table and is not second-guessed — a wrong one produces a "
+        "launch spec that fails on the rig, which is the operator's to make.",
+        block=MODEL_FIELDS,
+    ),
+    Field(
         "ladder",
         "block",
         "The rungs work climbs, and what each is bound to.",
@@ -505,6 +610,7 @@ class Source:
     api: str
     max_parallel: int
     api_key_env: str | None
+    engine: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -519,11 +625,19 @@ class Tier:
     how many times this rung is tried before escalation leaves it, and it lives
     here because policy references a rung by name (ADR-0008). It defaults to 1
     so that the configured behaviour is to escalate rather than retry.
+
+    ``max_parallel`` is ``None`` rather than a number when the rung does not
+    state one, because "this rung was started with eight slots" and "nobody
+    said, so the source's number stands" are different facts and a rung that
+    defaulted to the source's value would be indistinguishable from a rung that
+    declared it. :meth:`mcgyvr.capacity.Capacity.limit` is where the fallback
+    happens, once, at the point the bound is actually built.
     """
 
     name: str
     source: str
     model: str
+    max_parallel: int | None = None
     attempts: int = 1
 
 
@@ -759,6 +873,19 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             )
         return raw
 
+    if spec.kind == "float":
+        # An int is a valid decimal, but a bool is not: `moe: true` and
+        # `expert_gb: true` must not both be accepted by the same rule.
+        if not isinstance(raw, (int, float)) or isinstance(raw, bool):
+            raise ConfigSchemaError(
+                f"{path}: expected a number, found {_typename(raw)}"
+            )
+        if spec.min_value is not None and raw < spec.min_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at least {spec.min_value}, found {raw}"
+            )
+        return float(raw)
+
     if spec.kind == "bool":
         if not isinstance(raw, bool):
             raise ConfigSchemaError(
@@ -973,6 +1100,7 @@ def parse(text: str, path: Path | None = None) -> Config:
             api=block["api"],
             max_parallel=block["max_parallel"],
             api_key_env=block["api_key_env"],
+            engine=block["engine"],
         )
         for name, block in data["sources"].items()
     }
@@ -982,6 +1110,7 @@ def parse(text: str, path: Path | None = None) -> Config:
                 name=t["name"],
                 source=t["source"],
                 model=t["model"],
+                max_parallel=t["max_parallel"],
                 attempts=t["attempts"],
             )
             for t in data["ladder"]["tiers"]
