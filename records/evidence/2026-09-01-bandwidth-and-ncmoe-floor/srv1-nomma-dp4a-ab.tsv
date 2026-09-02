@@ -1,0 +1,30 @@
+### AB START 2026-09-01T15:49:03+00:00 uptime_since=2026-09-01 08:11:08 maxMHz=4600.0000
+### control: committed s1-d3b np=8 ncmoe=0 = 74.2 tok/s (2026-09-01 srv1-lcpp-ladder.tsv)
+### IMAGE ghcr.io/ggml-org/llama.cpp:server-cuda-b10644
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=2588	warm_ptok=711
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=43.8	p50=2.30	prefill=249.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=2.3
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=69.4	p50=10.93	prefill=212.5	ptok=598	otok=195	early_stop=1/4	failed=0/4	wall=11.3
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=74.4	p50=22.49	prefill=233.0	ptok=672	otok=214	early_stop=3/8	failed=0/8	wall=23.1
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4870	warm_ptok=711
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=21.5	p50=4.71	prefill=122.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=4.7
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=33.6	p50=21.21	prefill=112.0	ptok=598	otok=179	early_stop=3/4	failed=0/4	wall=21.4
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=35.5	p50=44.21	prefill=116.2	ptok=672	otok=205	early_stop=5/8	failed=0/8	wall=46.3
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=ghcr.io/ggml-org/llama.cpp:server-cuda-b10644	real_ctx_slot=2048	vram=4976	warm_ptok=724
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=53.6	p50=1.88	prefill=311.7	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.9
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=88.8	p50=9.07	prefill=222.1	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=11.0
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=92.4	p50=18.66	prefill=246.7	ptok=685	otok=256	early_stop=0/8	failed=0/8	wall=22.2
+### IMAGE llamacpp:b10644-nomma-dp4a
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-nomma-dp4a	real_ctx_slot=2048	vram=2588	warm_ptok=711
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=68.6	p50=1.47	prefill=389.8	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=1.5
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=121.7	p50=6.05	prefill=368.8	ptok=598	otok=197	early_stop=1/4	failed=0/4	wall=6.5
+srv1	d3b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=127.2	p50=12.68	prefill=386.2	ptok=672	otok=221	early_stop=3/8	failed=0/8	wall=13.9
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-nomma-dp4a	real_ctx_slot=2048	vram=4870	warm_ptok=711
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=36.8	p50=2.75	prefill=209.0	ptok=574	otok=101	early_stop=0/1	failed=0/1	wall=2.7
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=58.9	p50=12.21	prefill=193.0	ptok=598	otok=182	early_stop=2/4	failed=0/4	wall=12.4
+srv1	d7b np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	agg=65.4	p50=23.51	prefill=213.2	ptok=672	otok=206	early_stop=5/8	failed=0/8	wall=25.2
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	CONFIG	img=llamacpp:b10644-nomma-dp4a	real_ctx_slot=2048	vram=4976	warm_ptok=724
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=1	agg=82.2	p50=1.23	prefill=477.9	ptok=587	otok=101	early_stop=0/1	failed=0/1	wall=1.2
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=4	agg=131.5	p50=5.43	prefill=328.7	ptok=612	otok=245	early_stop=0/4	failed=0/4	wall=7.5
+srv1	mling np=8 ctx_slot=2048 c=16384 ncmoe=0	n=8	ERR
+### AB END 2026-09-01T15:58:03+00:00 uptime_since=2026-09-01 08:11:08
+### AB DONE
