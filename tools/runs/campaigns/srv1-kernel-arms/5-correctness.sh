@@ -446,15 +446,18 @@ teardown_all() {
     done
 }
 
-# The backend that actually loaded, in llama-server's own words
-# (`load_backend: loaded CUDA backend from ...`), against the image's declared
-# one. A3 on 2026-09-02 declared vulkan and ran the CPU; a drift measured on
-# the wrong device and filed under the image's name is the same defect here.
+# The backend the served container can actually reach, against the image's
+# declared one. A3 on 2026-09-02 declared vulkan and ran the CPU; a drift
+# measured on the wrong device and filed under the image's name is the same
+# defect here. llama-server prints no `load_backend:` line at its default
+# verbosity (the first run of this check, 2026-09-03, read nothing from a
+# healthy L0 and refused it), so the probe is `llama-server --list-devices`
+# exec'd in the running container: `CUDA0: ...` / `Vulkan0: ...`, or nothing.
 LOADED_BACKENDS=
 served_backend_ok() {
     local name=$1 digest=$2 declared
-    LOADED_BACKENDS=$("$DOCKER" logs "$name" 2>&1 |
-        sed -n 's/.*load_backend: loaded \([A-Za-z0-9]*\) backend.*/\1/p' | sort -u | paste -sd, -)
+    LOADED_BACKENDS=$("$DOCKER" exec "$name" /app/llama-server --list-devices 2>&1 |
+        sed -n 's/^[[:space:]]*\([A-Za-z]*\)[0-9][0-9]*:[[:space:]].*/\1/p' | sort -u | paste -sd, -)
     declared=$("$DOCKER" image inspect --format '{{index .Config.Labels "org.mcgyvr.build.backend"}}' "$digest") || {
         _fail "the backend $digest declares (org.mcgyvr.build.backend) could not be read from the daemon; nothing checks what served, so nothing is measured"
         return 1
@@ -520,7 +523,7 @@ EOF
         launch_argv "$arm" "${DIGESTS[$i]}"
         show "${LAUNCH_ARGV[*]}"
         show "curl -m 5 http://127.0.0.1:$PORT/health   # until 200; at most $HEALTH_TRIES tries of up to 7 s, x3 through retry3"
-        show "docker logs $(container_of "$arm") | grep 'load_backend: loaded'   # must name the backend the image declares (backend_verdict)"
+        show "docker exec $(container_of "$arm") /app/llama-server --list-devices   # must list the backend the image declares (backend_verdict)"
         show "$(measure_cmdline "$arm" a "${ENDPOINTS[$i]}")"
         show "$(measure_cmdline "$arm" b "${ENDPOINTS[$i]}")"
         show "docker rm -f $(container_of "$arm")"

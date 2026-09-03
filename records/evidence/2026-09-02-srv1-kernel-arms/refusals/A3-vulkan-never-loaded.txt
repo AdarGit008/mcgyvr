@@ -57,3 +57,18 @@ With libegl1 added to our image (apt-get in an ephemeral container):
   /app/llama-bench --list-devices: Vulkan0: NVIDIA GeForce RTX 3060 (12534 MiB)
 Fix: libegl1 on the runtime apt line, libEGL.so.1 in the ldconfig check,
 icd_deps=x11-egl so the x11-only image is rebuilt, not reused.
+
+== 2026-09-03, third layer: the libegl1 image (icd_deps=x11-egl) refused again, on srv1 only
+On srv2 the same image (sha256:327764267c86...) lists Vulkan0: NVIDIA GeForce RTX 3060.
+On srv1, inside the container: all 34 driver libraries injected, /etc/vulkan/icd.d/ ABSENT.
+Both hosts: toolkit 1.19.1, mode=auto, /var/run/cdi/nvidia.yaml carrying the mount
+  hostPath /usr/share/vulkan/icd.d/nvidia_icd.json -> /etc/vulkan/icd.d/nvidia_icd.json
+The difference is docker: srv2 29.7.1 routes --gpus all through that CDI spec,
+srv1 29.1.3 through the legacy hook (nvidia-container-cli), whose file list holds
+libGLX_nvidia.so and no manifest. No manifest -> "Found no drivers!" -> CPU.
+On srv1 with --device nvidia.com/gpu=all (a CDI request, both hosts):
+  /etc/vulkan/icd.d/nvidia_icd.json present
+  vulkaninfo: deviceName = NVIDIA GeForce GTX 1660 SUPER
+  /app/llama-bench --list-devices: ggml_vulkan: 0 = NVIDIA GeForce GTX 1660 SUPER
+Fix: 3-llama-bench.sh requests the device for A3 through CDI. CUDA arms need no
+manifest and keep --gpus all, the invocation every filed number carries.
