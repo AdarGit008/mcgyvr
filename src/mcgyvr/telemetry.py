@@ -190,6 +190,8 @@ def observe[T](
     model: str | None = None,
     messages: Sequence[Mapping[str, str]] | None = None,
     endpoint: str | None = None,
+    task_type: str | None = None,
+    session_file: Path | None = None,
 ) -> T:
     """Run one attempt, append exactly one record for it, and hand back its answer.
 
@@ -216,6 +218,14 @@ def observe[T](
     ``bundle_sha256``. A caller that has the prompt and does not pass it is
     writing a row nobody can review.
 
+    ``task_type`` is the contract's kind of work and ``session_file`` is the
+    transcript of the session that typed the command (:mod:`mcgyvr.session`).
+    Both are identity, known before the attempt and written on both rows: a
+    feedback loop that wants to say "this rung fails implementations" needs
+    the type beside the verdict, and a reviewer who wants the conversation
+    behind an attempt needs the path beside the row. Absent, not null, when
+    the caller has neither.
+
     A sink that cannot be written raises rather than being swallowed. Silence
     here is the failure this module was built to end, and an unwritable path is
     an operator error that is cheap to fix at the moment it happens and
@@ -228,6 +238,10 @@ def observe[T](
     # prompt blob reaches disk here, which is what lets a raised attempt still
     # name it; the clock starts after, so ``elapsed_s`` stays the attempt's.
     identity = _identity(path, messages=messages, endpoint=endpoint)
+    if task_type is not None:
+        identity["task_type"] = task_type
+    if session_file is not None:
+        identity["session_file"] = str(session_file)
     started = time.monotonic()
     try:
         answer = attempt()

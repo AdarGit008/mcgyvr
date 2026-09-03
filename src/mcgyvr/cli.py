@@ -35,7 +35,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted
     from mcgyvr.gate import GateResult
+    from mcgyvr.result import RunResult
     from mcgyvr.sandbox.base import Sandbox
+    from mcgyvr.session import Session
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -705,7 +707,8 @@ def _run(args: argparse.Namespace) -> int:
     Committing is opt-in. A gate verdict costs the user a sandbox that is torn
     down either way, and a commit is a write to a repository they did not hand
     over for one — so ``--commit`` is what makes the difference, and its absence
-    prints the verdict and the diff instead.
+    leaves the accepted change in the working tree and nothing else in the
+    repository: no commit, no branch, no receipt (owner's ruling, 2026-09-03).
 
     Two paths, chosen by the contract rather than by a flag. A deterministic
     contract names a program and is run here; anything else climbs a ladder and
@@ -738,35 +741,25 @@ def _run(args: argparse.Namespace) -> int:
     it would drop the linter's own account of what it will not fix, which is
     printed here instead.
 
-    **``--record DIR --orchestrator ID`` is the live journal's one production
-    caller.** :class:`~mcgyvr.drive.Recording` has required an orchestrator id
-    since it was written and nothing constructed one, so the product recorded
-    nothing and §9's "records carry an orchestrator id" held only because it
-    was never exercised. The sink is ``DIR/<ID>.jsonl`` — a directory with two
-    files in it is two orchestrators without anyone opening one — and the
-    prompts and replies land content-addressed under ``DIR/blobs/``. The id is
-    the operator's, never derived from the process, and a blank one is refused
-    by ``Recording`` itself, here, before a sandbox is opened. Only a dispatch
-    is journaled: a deterministic contract dispatches nothing, and this says
-    so rather than leaving an empty directory to be read as a run that
-    recorded.
+    **Every dispatching run is journaled, and every run writes a result.** The
+    journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl`` with
+    the prompts and replies content-addressed under ``blobs/`` — where
+    ``journal.dir`` is the config's and ``--record DIR`` overrides it for one
+    run. The orchestrator is the session that typed the command
+    (:mod:`mcgyvr.session`), resolved in :func:`main` before anything here runs,
+    so a row can be followed back to the conversation. The result
+    (:mod:`mcgyvr.result`) is one JSON file under ``results/`` and the only
+    thing printed about it is its path: the caller reads a file, not the
+    scrollback. Only a dispatch is journaled — a deterministic contract
+    dispatches nothing — but every run, both paths, leaves a result.
     """
+    from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
-    from mcgyvr.deterministic import tool_steps
-    from mcgyvr.drive import DriveError, Recording, gate_workspace, run_tool_step
-    from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.drive import Recording
+    from mcgyvr.result import RunResult, result_path, run_stamp, write
 
-    recording: Recording | None = None
-    if args.record is not None:
-        try:
-            recording = Recording(
-                path=Path(args.record) / f"{args.orchestrator}.jsonl",
-                orchestrator=args.orchestrator,
-            )
-        except ValueError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 1
+    session: Session = args.session
 
     try:
         contract = load_task_contract(Path(args.contract))
@@ -779,30 +772,98 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {repo} is not a git repository", file=sys.stderr)
         return 1
 
-    if not contract.is_deterministic:
-        return _climb(args, contract, repo, recording=recording)
+    # The ladder path needs the config; the deterministic floor does not and
+    # must keep running without one. Both need the journal dir, which is the
+    # config's when there is one and the schema default when the floor runs
+    # bare — a default the reference states, not one invented here.
+    config: Config | None = None
+    config_error: ConfigError | None = None
+    path = Path(args.config) if args.config else resolve_config_path()
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        config_error = exc
+    if config is None and not contract.is_deterministic:
+        print(f"error: {config_error}", file=sys.stderr)
+        return 1
 
-    if recording is not None:
+    if args.record is not None:
+        journal_dir = Path(args.record)
+    else:
+        configured = config.get("journal.dir") if config is not None else None
+        journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+
+    # One stamp names the run: the result file carries it and every journal
+    # row keys on it, so a re-run of the same contract is a second run and
+    # not a second copy of the first (`Recording.run`).
+    stamp = run_stamp()
+    report = RunResult(
+        contract=contract.id,
+        task_type=contract.task_type,
+        target=contract.target,
+        orchestrator=session.orchestrator,
+        run=stamp,
+        session_file=str(session.session_file) if session.session_file else None,
+        journal=str(journal_dir),
+    )
+
+    recording: Recording | None = None
+    if not contract.is_deterministic:
+        try:
+            recording = Recording(
+                path=journal_dir / f"{session.orchestrator}.jsonl",
+                orchestrator=session.orchestrator,
+                run=stamp,
+                session_file=session.session_file,
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"journal: {recording.path}", file=sys.stderr)
+
+    if contract.is_deterministic:
+        code = _floor(args, contract, repo, report)
+    else:
+        assert config is not None  # refused above when it could not load
+        code = _climb(args, contract, repo, config, recording=recording, report=report)
+
+    report.exit_code = code
+    where = (
+        Path(args.result)
+        if args.result
+        else result_path(journal_dir, contract.id, stamp)
+    )
+    print(f"result: {write(where, report)}")
+    return code
+
+
+def _floor(
+    args: argparse.Namespace, contract: Contract, repo: Path, report: RunResult
+) -> int:
+    """Run a deterministic contract's program and gate what it did."""
+    from mcgyvr.deterministic import tool_steps
+    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step
+    from mcgyvr.sandbox.base import SandboxError, open_sandbox
+
+    if args.record is not None:
         print(
             f"note: {contract.id} is a {contract.task_type!r} contract and runs "
-            f"on the deterministic floor; it dispatches nothing, so there is "
-            f"nothing for --record to journal"
+            f"on the deterministic floor; it dispatches nothing, so {args.record} "
+            f"gets this run's result file and no journal row"
         )
     steps = tool_steps(contract)
     if not steps:
-        print(
-            f"error: no program on this machine executes {contract.task_type!r} "
+        return _error(
+            report,
+            f"no program on this machine executes {contract.task_type!r} "
             f"for {contract.target}. The work is still doable on a dearer "
             f"family, which this command does not climb to.",
-            file=sys.stderr,
         )
-        return 1
 
     try:
         sandbox = open_sandbox(repo, mode=args.sandbox)
     except SandboxError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
 
     try:
         with sandbox:
@@ -812,13 +873,11 @@ def _run(args: argparse.Namespace) -> int:
                 outcome = run_tool_step(step, sandbox)
                 print(f"  $ {' '.join(step.argv)}")
                 if not outcome.ran:
-                    print(f"error: {outcome.environment_issue}", file=sys.stderr)
-                    return 1
+                    return _error(report, str(outcome.environment_issue))
                 assert outcome.result is not None  # `ran` is `result is not None`
                 if not outcome.performed:
                     detail = (outcome.result.stderr or outcome.result.stdout).strip()
-                    print(f"error: {detail}", file=sys.stderr)
-                    return 1
+                    return _error(report, detail)
                 if not outcome.ok:
                     # Reported, not swallowed. The tool did what its type
                     # guarantees and is telling us what it will not do — for
@@ -836,21 +895,28 @@ def _run(args: argparse.Namespace) -> int:
                     )
                     print(textwrap.indent(left, "    "))
             result = gate_workspace(contract, sandbox)
-            return _report_run(args, contract, sandbox, repo, result)
+            return _report_run(args, contract, sandbox, repo, result, report)
     except DriveError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
     except SandboxError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
+
+
+def _error(report: RunResult, detail: str) -> int:
+    """Print an error the way every branch here does, and keep it for the result."""
+    print(f"error: {detail}", file=sys.stderr)
+    report.detail = detail
+    return 1
 
 
 def _climb(
     args: argparse.Namespace,
     contract: Contract,
     repo: Path,
+    config: Config,
     *,
     recording: Recording | None = None,
+    report: RunResult,
 ) -> int:
     """Drive a model-executed contract up the ladder a config describes.
 
@@ -872,7 +938,9 @@ def _climb(
     Hence ``--config`` and no rung flag. It resolves the same way every other
     command's does — ``$MCGYVR_CONFIG``, then the working directory, then the
     user config dir — because a second resolution order for the same file is a
-    second file as far as an operator debugging one is concerned.
+    second file as far as an operator debugging one is concerned. The config is
+    loaded once, in :func:`_run`, because the journal dir is read off it before
+    a rung is chosen.
 
     **An install that cannot run this contract is refused before a sandbox is
     opened.** :attr:`~mcgyvr.escalate.Ascent.reason` already carries the sentence
@@ -889,13 +957,6 @@ def _climb(
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewer_for
-
-    path = Path(args.config) if args.config else resolve_config_path()
-    try:
-        config = load_config(path)
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
 
     # Structural resolution, no probe: a live-reachability sweep costs one
     # timeout per source and answers a question the dispatch below is about to
@@ -923,16 +984,14 @@ def _climb(
     try:
         route = ascent(config, pool, contract)
     except RouteError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
     if not route:
-        print(
-            f"error: {contract.id} is a {contract.task_type!r} contract and "
+        return _error(
+            report,
+            f"{contract.id} is a {contract.task_type!r} contract and "
             f"starts on the {route.floor.name!r} family; nothing in {config.path} "
             f"can run it. {route.reason}",
-            file=sys.stderr,
         )
-        return 1
 
     # Before the sandbox, for the reason the paragraph above gives: an install
     # that was told to verify and cannot is refused while refusing is still
@@ -944,13 +1003,12 @@ def _climb(
     try:
         reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
     except SourceUnavailableError as exc:
-        print(
-            f"error: verification is enabled and the verifier role cannot run: "
+        return _error(
+            report,
+            f"verification is enabled and the verifier role cannot run: "
             f"{exc}. Bind it to a usable source, or set "
             f"`verifier.enabled: false` to accept on the deterministic gate.",
-            file=sys.stderr,
         )
-        return 1
 
     try:
         sandbox = open_sandbox(
@@ -964,8 +1022,7 @@ def _climb(
             endpoints=tuple(source.base_url for source in config.sources.values()),
         )
     except SandboxError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
 
     try:
         with sandbox:
@@ -982,10 +1039,11 @@ def _climb(
             )
 
             outcome = escalate(config, pool, contract, driver)
-            return _report_climb(args, contract, sandbox, repo, outcome)
+            return _report_climb(
+                args, contract, sandbox, repo, outcome, recording, report
+            )
     except (DriveError, SandboxError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return _error(report, str(exc))
 
 
 def _report_climb(
@@ -994,20 +1052,81 @@ def _report_climb(
     sandbox: Sandbox,
     repo: Path,
     outcome: Delivered | Halted,
+    recording: Recording | None,
+    report: RunResult,
 ) -> int:
-    """Print what the climb spent and where it ended, and commit when asked.
+    """Print what the climb spent, correct the journal, and commit when asked.
 
-    Every attempt is printed, including the ones that failed. A ladder walk that
-    reported only its answer would leave an operator unable to tell one rung
-    accepting immediately from three rungs spent and the dearest one succeeding,
-    which is the difference the whole escalation policy is about.
+    Every attempt is printed, including the ones that failed, and under a failed
+    one the gate's findings, one ``✗`` line each. A ladder walk that reported
+    only its answer would leave an operator unable to tell one rung accepting
+    immediately from three rungs spent and the dearest one succeeding, which is
+    the difference the whole escalation policy is about; and a failure reported
+    without its findings leaves the caller unable to write a better contract,
+    which is the only thing a caller can do about it.
+
+    **This is where the journal learns how each attempt landed.** Each row was
+    written by :func:`~mcgyvr.telemetry.observe` before the gate ran, so it
+    says what was asked and what came back and not whether it was any good.
+    The verdict is appended now as a correction — ``passed``/``failed``, with
+    the finding lines as the detail of a failure, or ``error`` for an attempt
+    that raised — and :func:`_commit` appends a second one on the accepted
+    attempt saying where the work went. A rung that declined dispatched
+    nothing and has no row to correct. An attempt that drew more than once
+    (``breadth.draws``) wrote one row per draw: the verdict lands on the draw
+    it is about and every other draw of that attempt is ``failed``, because
+    ``best_of`` stops at the first draw the gate accepts and everything it
+    drew before that was refused.
+
+    The accepted attempt is the last entry of the history: ``route.climb``
+    returns the moment an attempt passes, right after recording it.
     """
     from mcgyvr.escalate import Delivered
+    from mcgyvr.result import AttemptResult
+    from mcgyvr.route import Verdict
+    from mcgyvr.telemetry import correct
 
     for step in outcome.history:
-        print(f"  {step.rung} #{step.attempt}: {step.verdict.value} — {step.detail}")
+        word = RAISED if step.raised else step.verdict.value
+        print(f"  {step.rung} #{step.attempt}: {word} — {step.detail}")
+        for finding in step.findings:
+            print(f"    ✗ {finding}")
+        attempt_id: str | None = None
+        if recording is not None and step.verdict is not Verdict.DECLINED:
+            attempt_id = recording.attempt_id(
+                contract.id, step.rung, step.attempt, step.draw
+            )
+            for draw in range(step.draws):
+                losing = draw != step.draw
+                correct(
+                    path=recording.path,
+                    attempt_id=recording.attempt_id(
+                        contract.id, step.rung, step.attempt, draw
+                    ),
+                    outcome=Verdict.FAILED.value if losing else word,
+                    detail=(
+                        f"a losing draw; the attempt's verdict is on draw {step.draw}"
+                        if losing
+                        else "\n".join(step.findings) or step.detail
+                    ),
+                    orchestrator=recording.orchestrator,
+                )
+        report.attempts.append(
+            AttemptResult(
+                rung=step.rung,
+                attempt=step.attempt,
+                verdict=word,
+                detail=step.detail,
+                findings=list(step.findings),
+                attempt_id=attempt_id,
+                draw=step.draw,
+                draws=step.draws,
+            )
+        )
 
     if not isinstance(outcome, Delivered):
+        report.outcome = outcome.outcome.value
+        report.detail = outcome.detail
         print(f"\n{contract.id}: {outcome.outcome.value}", file=sys.stderr)
         print(f"error: {outcome.detail}", file=sys.stderr)
         return 1
@@ -1017,6 +1136,9 @@ def _report_climb(
         f"after {outcome.attempts_spent} attempt(s) and "
         f"{outcome.escalations} escalation(s)"
     )
+    report.outcome = "accepted"
+    report.rung = outcome.rung
+    report.assurance = outcome.assurance.value
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
@@ -1024,13 +1146,26 @@ def _report_climb(
         # asserting because the alternative to a bound value is not a fallback:
         # there is nothing to deliver, and a commit assembled from anything else
         # would be bytes no gate read.
-        print(
-            f"error: {contract.id} was accepted on {outcome.rung} without bound "
+        return _error(
+            report,
+            f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
-            file=sys.stderr,
         )
-        return 1
-    return _commit(args, contract, repo, sandbox.source_base_commit(), bound)
+    landed = outcome.history[-1]
+    return _commit(
+        args,
+        contract,
+        repo,
+        sandbox.source_base_commit(),
+        bound,
+        report,
+        recording=recording,
+        attempt_id=(
+            recording.attempt_id(contract.id, landed.rung, landed.attempt, landed.draw)
+            if recording is not None
+            else None
+        ),
+    )
 
 
 def _report_run(
@@ -1039,6 +1174,7 @@ def _report_run(
     sandbox: Sandbox,
     repo: Path,
     result: GateResult,
+    report: RunResult,
 ) -> int:
     """Print the gate verdict, and commit it when asked."""
     from mcgyvr.deliver import Accepted, DeliveryError
@@ -1048,15 +1184,27 @@ def _report_run(
         print(f"  ✗ {finding}")
     for issue in result.environment_issues:
         print(f"  ? {issue}")
+    report.findings = [str(finding) for finding in result.findings]
     if not result.accepted:
+        report.outcome = "rejected"
         return 1
+    report.outcome = "accepted"
 
     try:
         bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
     except DeliveryError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    return _commit(args, contract, repo, sandbox.source_base_commit(), bound)
+        return _error(report, str(exc))
+    return _commit(args, contract, repo, sandbox.source_base_commit(), bound, report)
+
+
+#: The words :func:`_commit` appends to the accepted attempt's row. The
+#: vocabulary is this caller's, as ``telemetry.correct`` says it must be.
+COMMITTED = "committed"
+NOT_COMMITTED = "not_committed"
+DELIVERY_REFUSED = "delivery_refused"
+#: The word for an attempt that raised instead of judging: the row says
+#: ``ok: false`` already, and the correction says the climb counted it.
+RAISED = "error"
 
 
 def _commit(
@@ -1065,6 +1213,10 @@ def _commit(
     repo: Path,
     base: str,
     bound: Accepted,
+    report: RunResult,
+    *,
+    recording: Recording | None = None,
+    attempt_id: str | None = None,
 ) -> int:
     """Deliver an accepted change into the user's repository, when asked to.
 
@@ -1081,21 +1233,58 @@ def _commit(
     is: a person at a terminal saying "commit this", in the tree they are looking
     at. Handing over the ladder's config because the ladder path happens to have
     one would make the same flag mean two things depending on the contract.
+
+    **The default is the working tree, and that is not a lack.** Without
+    ``--commit`` the accepted change is left in the target and the repository
+    is otherwise untouched — no commit, no branch, no receipt. The journal row
+    of the accepted attempt is told so (``not_committed``), and told
+    ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
+    folded outcome is how the work finally landed.
     """
-    from mcgyvr.deliver import DeliveryError, deliver
+    from mcgyvr.deliver import DeliveryError, deliver, place
+    from mcgyvr.telemetry import correct
+
+    def landed(outcome: str, detail: str) -> None:
+        if recording is not None and attempt_id is not None:
+            correct(
+                path=recording.path,
+                attempt_id=attempt_id,
+                outcome=outcome,
+                detail=detail,
+                orchestrator=recording.orchestrator,
+            )
 
     if not args.commit:
-        print(f"\nNot committed (no --commit). The change is in {contract.target}.")
+        try:
+            place(repo=repo, contract=contract, content=bound)
+        except DeliveryError as exc:
+            landed(DELIVERY_REFUSED, str(exc))
+            report.outcome = DELIVERY_REFUSED
+            return _error(report, str(exc))
+        print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
+        landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
+        report.detail = f"change left in {contract.target}"
         return 0
 
     try:
         delivery = deliver(repo=repo, contract=contract, content=bound, base=base)
     except DeliveryError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        landed(DELIVERY_REFUSED, str(exc))
+        report.outcome = DELIVERY_REFUSED
+        return _error(report, str(exc))
 
     print(f"\n{delivery}")
-    return 0 if delivery.committed else 1
+    report.committed = delivery.committed
+    report.commit = delivery.commit
+    report.branch = delivery.branch
+    report.handoff = delivery.handoff
+    if delivery.committed:
+        landed(COMMITTED, f"{delivery.commit[:12]} on {delivery.branch or 'HEAD'}")
+        return 0
+    landed(DELIVERY_REFUSED, delivery.reason)
+    report.outcome = DELIVERY_REFUSED
+    report.detail = delivery.reason
+    return 1
 
 
 def _scan(args: argparse.Namespace) -> int:
@@ -1487,41 +1676,35 @@ def _architectures() -> dict[str, str]:
     }
 
 
-def _refuse_half_a_journal(
-    run: argparse.ArgumentParser, args: argparse.Namespace
-) -> None:
-    """Refuse ``--record`` without ``--orchestrator``, and the reverse, at parse time.
+def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Resolve who is writing the journal, or refuse at parse time.
 
     Before a config is read, a sandbox opened or a directory created, through
     the subparser's own ``error`` so the refusal reads like every other usage
-    error and exits 2. The message names the flag that is missing rather than
-    sending the operator to ``--help``: a default id derived from the process
-    is exactly the single-orchestrator assumption §9 names, so there is no
-    default to fall back on, only a flag to ask for.
+    error and exits 2. The writer is the session that typed the command
+    (:mod:`mcgyvr.session`): ``--orchestrator ID`` if given, else the Claude
+    Code or Pi session in the environment, else a refusal whose message names
+    all three. A default derived from the process is exactly the
+    single-orchestrator assumption §9 names, so there is no default, only a
+    flag and two variables to ask for.
 
     An id containing ``/`` is refused here too, because the id *is* the file
-    name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write
-    ``DIR/agent/a.jsonl`` with its blobs under ``DIR/agent/blobs``, where an
-    index over ``DIR`` finds neither. A blank id is left to
-    :class:`~mcgyvr.drive.Recording`, which has refused one since it was
-    written.
+    name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write ``DIR/agent/a.jsonl``
+    with its blobs under ``DIR/agent/blobs``, where an index over ``DIR`` finds
+    neither. A blank id is left to :class:`~mcgyvr.drive.Recording`, which has
+    refused one since it was written.
     """
-    if args.record is not None and args.orchestrator is None:
-        run.error(
-            "--record DIR needs --orchestrator ID: the journal is written as "
-            "DIR/<ID>.jsonl and every row names its writer, and there is no "
-            "default id to fall back on (§9)"
-        )
-    if args.orchestrator is not None and args.record is None:
-        run.error(
-            "--orchestrator ID does nothing without --record DIR: there is no "
-            "journal to write under it"
-        )
+    from mcgyvr.session import SessionError, resolve
+
     if args.orchestrator is not None and "/" in args.orchestrator:
         run.error(
             f"--orchestrator {args.orchestrator!r} cannot contain '/': the id "
             f"is the journal's file name, DIR/<ID>.jsonl"
         )
+    try:
+        args.session = resolve(args.orchestrator)
+    except SessionError as exc:
+        run.error(str(exc))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1907,7 +2090,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help=(
             "commit the change into the repository when the gate accepts it. "
-            "Without this the verdict is printed and nothing is written"
+            "Without this the accepted change is left in the working tree and "
+            "the repository is otherwise untouched: no commit, no branch"
         ),
     )
     run.add_argument(
@@ -1915,10 +2099,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         metavar="DIR",
         help=(
-            "journal every dispatch this run makes: one line per attempt "
-            "appended to DIR/<ID>.jsonl, the prompt and the reply kept "
-            "content-addressed under DIR/blobs/, where <ID> is --orchestrator "
-            "(required with this). Read it back with tools/live/review.py DIR"
+            "journal this run under DIR instead of the config's `journal.dir`: "
+            "one line per attempt appended to DIR/<ID>.jsonl, the prompt and "
+            "the reply kept content-addressed under DIR/blobs/, the result "
+            "under DIR/results/. Read it back with tools/live/review.py DIR"
         ),
     )
     run.add_argument(
@@ -1926,18 +2110,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         metavar="ID",
         help=(
-            "who is writing the journal. Names the sink, DIR/<ID>.jsonl, and is "
+            "who is writing the journal. Names the sink, <ID>.jsonl, and is "
             "carried on every row, so two orchestrators sharing a directory "
-            "stay distinguishable (§9). No default: an id derived from the "
-            "process is the single-orchestrator assumption the field exists to "
-            "refuse. Only meaningful with --record"
+            "stay distinguishable (§9). Default: the session that typed this "
+            "command — claude-<id> from CLAUDE_CODE_SESSION_ID, pi-<id> from "
+            "PI_SESSION_FILE — and a refusal when there is none"
+        ),
+    )
+    run.add_argument(
+        "--result",
+        default=None,
+        metavar="PATH",
+        help=(
+            "where to write this run's result file (default: "
+            "<journal dir>/results/<contract>-<utc stamp>.json). The path is "
+            "printed as `result: PATH`; the caller reads the file"
         ),
     )
     run.set_defaults(func=_run)
 
     args = parser.parse_args(argv)
     if args.func is _run:
-        _refuse_half_a_journal(run, args)
+        _name_the_writer(run, args)
     result: int = args.func(args)
     return result
 

@@ -108,6 +108,8 @@ def render(directory: Path, row: dict[str, Any]) -> str:
         f"outcome={row.get('outcome', UNCORRECTED)}  "
         f"round={row.get('round', '<none>')}  {ROUND_WORDS[index.off_round(row)]}"
     ]
+    if row.get("session_file"):
+        lines.append(f"    session={row['session_file']}")
     if row.get("detail"):
         lines.append(f"    detail: {row['detail']}")
     lines.append(

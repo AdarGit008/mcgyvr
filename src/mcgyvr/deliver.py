@@ -1348,6 +1348,43 @@ def _encoded(content: str) -> bytes:
     return content.encode("utf-8", "surrogateescape")
 
 
+def place(*, repo: Path | str, contract: Contract, content: Accepted) -> Path:
+    """Leave the accepted content in the working tree as ``contract.target``.
+
+    What a run does by default (owner's ruling, 2026-09-03): no commit, no
+    branch, no receipt — the output file, where the contract said it goes.
+    The bytes are the ones the gate judged, written the way :func:`deliver`
+    writes them and refused for the same reason when they have no encoding.
+    The one thing git is consulted for is whether the target is safe to
+    overwrite. The sandbox judged HEAD's copy of the file; a target the user
+    has edited since, or one they never committed, holds work this write
+    would destroy with no way back, and it is refused the way :func:`deliver`
+    refuses it (M2). The rest of the tree is theirs: other dirty files are
+    not this write's business.
+    """
+    root = Path(repo)
+    rel = _target(root, contract)
+    if rel in _uncommitted(root, rel):
+        raise DeliveryError(
+            f"{rel} has uncommitted changes in the working tree, and the "
+            f"accepted change was judged against the committed copy; writing "
+            f"it would overwrite work no one has kept. Commit or restore "
+            f"{rel} and run again."
+        )
+    target = root / rel
+    try:
+        payload = _encoded(content.content)
+    except UnicodeEncodeError as exc:
+        raise DeliveryError(
+            f"{contract.target} cannot be written: the character at position "
+            f"{exc.start} is the lone surrogate "
+            f"U+{ord(content.content[exc.start]):04X}, which has no UTF-8 "
+            f"encoding and stands for no byte."
+        ) from exc
+    _write(target, payload)
+    return target
+
+
 def _write(path: Path, payload: bytes) -> None:
     """Write ``payload`` to ``path`` verbatim, creating parents as needed.
 

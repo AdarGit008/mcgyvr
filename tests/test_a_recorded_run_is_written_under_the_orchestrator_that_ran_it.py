@@ -4,16 +4,21 @@
 row that cannot say which orchestrator produced it is the hole the field exists
 to close (§9)" — and ``mcgyvr run`` had no flag to construct one, so the
 production caller recorded nothing and the constraint was satisfied only in the
-sense that it had never been exercised. The brief (*Live journal (WP0)*) gives
+sense that it had never been exercised. The brief (*Live journal (WP0)*) gave
 the command two flags: ``--record DIR`` names the journal directory and
 ``--orchestrator ID`` names the writer, and the sink is ``DIR/<ID>.jsonl`` so a
 directory with two files in it is two orchestrators without anyone opening one.
+Neither is required any more — the config names the directory and the session
+names the writer — but both still do what they did.
 
-``--record`` without ``--orchestrator`` is refused, before a sandbox is opened
-and before anything is dispatched. The alternative — a default id derived from
-the process — is exactly the single-orchestrator assumption §9 names, and the
-refusal message names the flag that is missing so the operator does not have to
-find it in ``--help``.
+``--record`` without ``--orchestrator`` is refused when no session names the
+writer either, before a sandbox is opened and before anything is dispatched.
+The alternative — a default id derived from the process — is exactly the
+single-orchestrator assumption §9 names. What *is* accepted is the session
+that typed the command: ``CLAUDE_CODE_SESSION_ID`` or ``PI_SESSION_FILE``
+name a writer as surely as the flag does, and better, because the row can then
+be followed back to the conversation
+(``tests/test_a_row_names_the_session_that_drove_it.py``).
 
 The command is exercised through ``mcgyvr.cli.main``, the real entry point,
 with ``drive.dispatch`` scripted so no endpoint is reached; everything between
@@ -23,6 +28,7 @@ the flag and the row — config, route, sandbox, prompt, parse, gate — is real
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -72,6 +78,15 @@ def _git(repo: Path, *args: str) -> None:
         capture_output=True,
         env={**os.environ, **_IDENTITY},
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """This test process runs inside a session; the tests here must not."""
+    for name in ("CLAUDE_CODE_SESSION_ID", "PI_SESSION_FILE", "CLAUDE_CONFIG_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    (tmp_path / "home").mkdir(exist_ok=True)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
 
 @pytest.fixture
@@ -175,10 +190,14 @@ def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
     assert row["orchestrator"] == "agent-a"
     assert row["rung"] == "local_qwen-7b"
     assert row["ok"] is True
-    assert row["attempt_id"] == "agent-a:impl:local_qwen-7b:1"
+    # The writer, the run, then the work: a re-run of the same contract is a
+    # second run and not a second copy of the first.
+    assert re.fullmatch(
+        r"agent-a:\d{8}T\d{6}\.\d{6}Z:impl:local_qwen-7b:1", row["attempt_id"]
+    ), row["attempt_id"]
 
 
-def test_record_without_an_orchestrator_is_refused_before_anything_is_dispatched(
+def test_record_without_an_orchestrator_or_a_session_is_refused_before_dispatch(
     repo: Path,
     config: Path,
     contract: Path,

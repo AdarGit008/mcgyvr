@@ -645,25 +645,40 @@ def test_the_run_command_drives_a_contract_to_a_commit(
     assert log.stdout.strip().startswith("tidy:")
 
 
-def test_the_run_command_writes_nothing_without_commit(
+def test_the_run_command_leaves_the_output_file_and_commits_nothing_without_commit(
     repo: Path, tmp_path: Path
 ) -> None:
-    """A verdict is free; a write to someone's repository is not.
+    """A verdict is free; a commit to someone's repository is not.
 
-    The sandbox is torn down either way, so the default costs the user nothing
-    they did not ask for — which is why committing is the flag rather than the
-    other way round.
+    The default (owner's ruling, 2026-09-03) is the output file and nothing
+    else: the accepted content lands in the working tree as the target, and
+    the repository is otherwise untouched — no commit, no branch, no receipt.
+    Committing is the flag rather than the other way round.
     """
     from mcgyvr.cli import main
 
     contract = tmp_path / "tidy.yaml"
     contract.write_text(FORMAT_CONTRACT, encoding="utf-8")
     before = (repo / "src/pkg/messy.py").read_bytes()
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
 
     code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
 
     assert code == 0
-    assert (repo / "src/pkg/messy.py").read_bytes() == before
+    assert (repo / "src/pkg/messy.py").read_bytes() != before
+    assert (repo / "src/pkg/messy.py").read_bytes() == b'x = {"a": 1, "b": 2}\n'
+    after = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert after == head
 
 
 def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(

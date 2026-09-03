@@ -578,6 +578,15 @@ class Result:
 
     verdict: Verdict
     detail: str = ""
+    #: The gate's finding lines behind a failure, one per finding, as the
+    #: retry prompt quotes them. ``detail`` summarises ("rejected on
+    #: acceptance"); this is what a caller replans from.
+    findings: tuple[str, ...] = ()
+    #: Which draw the verdict is about, and how many the attempt made
+    #: (``breadth.draws``). One row is journaled per draw, so a caller that
+    #: corrects the journal needs to know which row the verdict belongs to.
+    draw: int = 0
+    draws: int = 1
 
     @classmethod
     def passed(cls, detail: str = "") -> Result:
@@ -605,6 +614,14 @@ class Attempted:
     attempt: int
     verdict: Verdict
     detail: str = ""
+    findings: tuple[str, ...] = ()
+    draw: int = 0
+    draws: int = 1
+    #: The attempt raised instead of judging. Kept in the history so the
+    #: climb's record is complete — a raised attempt still dispatched and
+    #: still has a journal row — and so a reader can tell "the gate refused"
+    #: from "the rung never answered".
+    raised: bool = False
 
 
 @dataclass(frozen=True)
@@ -1188,6 +1205,9 @@ def climb(
                         attempt=number,
                         verdict=result.verdict,
                         detail=result.detail,
+                        findings=result.findings,
+                        draw=result.draw,
+                        draws=result.draws,
                     )
                 )
                 if result.verdict is Verdict.PASSED:

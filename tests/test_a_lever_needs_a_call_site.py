@@ -236,9 +236,17 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
     code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
 
     assert code == 0
-    # No `--commit`, so the verdict was reached and nothing was written — the
-    # same bargain the deterministic path makes.
-    assert (repo / TARGET).read_text(encoding="utf-8") == BASE
+    # No `--commit`, so the accepted file is left in the working tree and the
+    # repository is otherwise untouched — the same bargain the deterministic
+    # path makes (owner's ruling, 2026-09-03: output files, no commit).
+    assert (repo / TARGET).read_text(encoding="utf-8").startswith("RETRY = 3\n")
+    log = subprocess.run(
+        ["git", "-C", str(repo), "log", "--format=%s"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "RETRY" not in log.stdout and len(log.stdout.splitlines()) == 1, log.stdout
 
 
 def test_an_install_with_no_rung_is_told_what_to_bind(

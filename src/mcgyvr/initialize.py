@@ -36,7 +36,14 @@ from typing import Any
 
 from mcgyvr.capability import CapabilityTable
 from mcgyvr.capability import load as load_table
-from mcgyvr.config import SCHEMA, SCHEMA_VERSION, Config, ConfigError, Field
+from mcgyvr.config import (
+    JOURNAL_DIR_DEFAULT,
+    SCHEMA,
+    SCHEMA_VERSION,
+    Config,
+    ConfigError,
+    Field,
+)
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
@@ -273,6 +280,9 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
         # A knob whose off position is a number is better read than inferred.
         "breadth": {"draws": 1},
         "cleanup": {"enabled": False},
+        # Spelled out for the same reason: the journal is where a user's runs
+        # are recorded, and a key they can see is a key they can move.
+        "journal": {"dir": JOURNAL_DIR_DEFAULT},
     }
 
 
