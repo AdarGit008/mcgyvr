@@ -93,6 +93,16 @@ SEMANTIC: frozenset[str] = frozenset(
         "bos_token",
         "eos_token",
         "media_marker",
+        # placement — where a tensor is computed. Declared output-neutral until
+        # 2026-09-03 and measured not to be: `n_cpu_moe` 0 vs 99 on one build
+        # moved 9 of 257 verdicts (3.50pp, own-null bound 1.47pp). Two cells
+        # of one model at two offload settings are therefore incomparable on
+        # output until a placement null says otherwise, and that is the
+        # finding, not an inconvenience (ADR-0041).
+        "n_gpu_layers",
+        "n_cpu_moe",
+        "threads",
+        "mmap",
         # the window and how it is managed
         "max_seq_len",
         "n_ctx",
@@ -221,19 +231,15 @@ OPERATIONAL: frozenset[str] = frozenset(
         "debug_dump_path",
         "cache_dir",
         "compile_cache_save_format",
-        # Placement and parallelism: WHERE a tensor is computed, not WHAT is
-        # emitted. `--n-cpu-moe` moves expert weights to host RAM, `-ngl` moves
-        # layers to the card, `mmap` changes how the file is read, `threads`
-        # changes how many cores share the work. None of them alters the token
-        # distribution, so none belongs in the semantic pin -- and putting them
-        # there would declare two cells of one model at two offload settings
-        # "incomparable on output", which is exactly the comparison this
-        # campaign exists to make. They are pinned operationally instead, so
-        # cells that differ only in placement still separate by digest.
-        "n_gpu_layers",
-        "n_cpu_moe",
-        "threads",
-        "mmap",
+        # Placement keys (`n_gpu_layers`, `n_cpu_moe`, `threads`, `mmap`) were
+        # listed here until 2026-09-03 under the declaration that WHERE a tensor
+        # is computed cannot change WHAT is emitted. Measured 2026-09-02 on
+        # srv1 (records/evidence/2026-09-02-srv1-kernel-arms/placement-null.json):
+        # `--n-cpu-moe` 0 against 99 on one build changed 9 of 257 verdicts,
+        # 3.50pp against the build's own 1.47pp null bound. The declaration was
+        # one argument for all four keys and is false for the one measured, so
+        # all four are SEMANTIC now (ADR-0041): a placement key is operational
+        # only after a placement null on that build has shown it neutral.
     }
 )
 

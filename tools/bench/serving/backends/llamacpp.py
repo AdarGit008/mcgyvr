@@ -898,23 +898,22 @@ def placements(host: str) -> list[dict[str, Any]]:
     return rows
 
 
-#: This engine's defining flags, which the shared fingerprint cannot classify.
+#: This engine's defining flags, which this engine cannot read back.
 #:
 #: ``-ngl``, ``--n-cpu-moe`` and ``-t`` decide *where each layer is computed*,
-#: which is the axis this whole campaign varies — and none of them is in the
-#: fingerprint's SEMANTIC or OPERATIONAL set, because until this module existed
-#: no backend could set them. :func:`fingerprint.classify` raises on an unknown
-#: key rather than defaulting it, deliberately: a field falling silently to
-#: "operational" would drop a setting that changes output out of the semantic
-#: pin while the pin went on looking green.
+#: which is the axis this whole campaign varies. Since 2026-09-03 they are in
+#: the shared fingerprint's SEMANTIC set (ADR-0041: ``--n-cpu-moe`` 0 against
+#: 99 on one build moved 9 of 257 verdicts, so placement is semantic until a
+#: placement null shows otherwise). What this engine cannot do is *read* them:
+#: ``/props`` reports none of them, and a value this module typed in from the
+#: launch command would be a declaration wearing a reading's clothes.
 #:
 #: So they are held out of the digest and recorded beside it under
 #: ``uncovered_by_digest``, with this note. **Two cells differing only in
-#: ``--n-cpu-moe`` therefore share a semantic digest**, which is a real gap and
-#: is stated in the record rather than papered over. Closing it is three keys
-#: added to ``fingerprint.SEMANTIC`` — out of this module's scope to edit,
-#: because a backend that reaches into the shared classifier to admit its own
-#: flags is how the classifier stops meaning anything.
+#: ``--n-cpu-moe`` therefore share a semantic digest from this engine**, which
+#: is a reading gap, stated in the record rather than papered over. The launch
+#: command in ``claim.started.command`` carries the actual values; closing the
+#: gap is a server that reports them, or a reader of that command.
 ENGINE_FLAGS_NOT_IN_DIGEST = ("n_gpu_layers", "n_cpu_moe", "threads", "mmap")
 
 
@@ -963,10 +962,12 @@ def serving_config(props: dict[str, Any] | None) -> dict[str, Any]:
         "uncovered_by_digest": list(ENGINE_FLAGS_NOT_IN_DIGEST),
         "uncovered_why": (
             "-ngl, --n-cpu-moe and -t decide where each layer is computed, "
-            "which is the axis this campaign varies, and none is in the "
-            "shared fingerprint's SEMANTIC set. Two cells differing only in "
-            "expert offload therefore share a semantic digest. The launch "
-            "command in `claim.started.command` carries the actual values."
+            "which is the axis this campaign varies. They are SEMANTIC in the "
+            "shared fingerprint (ADR-0041) and /props does not report them, "
+            "so this engine cannot put them in the digest: two cells differing "
+            "only in expert offload share a semantic digest from this engine, "
+            "and are NOT comparable on output. The launch command in "
+            "`claim.started.command` carries the actual values."
         ),
     }
     try:

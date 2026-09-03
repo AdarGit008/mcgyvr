@@ -24,8 +24,10 @@ exists here". Neither answers the other, and no arm ranks the two engines.
 **Status.** Run 2026-09-02, re-run through the door 2026-09-02/03 under round
 r2-02-09-2026. Behaviours 1-8, 11 and 12 are green; 10 is **measured false**
 (9 flips / 257 between `ncmoe=0` and `ncmoe=99`, against a 1.47pp own-null
-bound) and stays a strict `xfail` on that measurement; 9's distinctness check
-stays `xfail`. A3 is priced on Vulkan. Artifacts:
+bound) and stays a strict `xfail` on that measurement — and the fiat it tested
+is retired (ADR-0041: placement keys are semantic until a null shows them
+neutral, so a step-9 floor is a configuration, unquoted on output); 9's
+distinctness check stays `xfail`. A3 is priced on Vulkan. Artifacts:
 `records/evidence/2026-09-02-srv1-kernel-arms/` (steps 2, 4, 6, 7, 8, 9) and
 `records/evidence/2026-09-03-srv1-kernel-arms/` (ladder, bench, correctness);
 `RUN-ORDER.md` in the first has both tables.
