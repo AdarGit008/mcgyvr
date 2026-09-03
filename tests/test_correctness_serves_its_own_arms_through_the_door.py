@@ -102,7 +102,7 @@ def test_the_step_launches_each_arm_itself_named_for_the_run(
     assert "--endpoint http://127.0.0.1:8081" in out, out
     assert "-p 127.0.0.1:8081:8081" in out, out
     # What served is checked against what the image declares, before a run.
-    assert "load_backend: loaded" in out and "backend_verdict" in out, out
+    assert "--list-devices" in out and "backend_verdict" in out, out
     # And the container is gone before the next arm (and for gate 7).
     assert f"docker rm -f {RUN_ID}-L0" in out, out
 

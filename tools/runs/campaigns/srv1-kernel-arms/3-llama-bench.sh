@@ -170,12 +170,23 @@ arm_digest() {
 
 # A3 is the Vulkan arm; it reaches the card through the driver's ICD rather than
 # through CUDA, so it needs the driver's display capability inside the container.
+# THE VULKAN ARM ASKS FOR THE DEVICE THROUGH CDI. `--gpus all` goes through
+# whatever docker routes it to: on srv2 (docker 29.7.1) that is the CDI spec,
+# which mounts the NVIDIA Vulkan ICD manifest into the container; on srv1
+# (docker 29.1.3) it is the legacy hook, which mounts every driver library and
+# NOT the manifest, so the loader finds no driver and ggml benches the CPU —
+# the third and last layer of A3's 2026-09-02 CPU numbers (after libX11 and
+# libEGL), found 2026-09-03 by diffing the two hosts' containers.
+# `--device nvidia.com/gpu=all` names the CDI spec on both. CUDA arms need no
+# manifest and keep `--gpus all`, the invocation every number so far carries.
 docker_args() {
     local arm=$1
     # Named for the run, so gate 7 of the door finds a bench that hung.
-    printf '%s\n' --rm --gpus all --name "$RUN_ID-bench-$arm"
     if [ "$arm" = A3 ]; then
+        printf '%s\n' --rm --device nvidia.com/gpu=all --name "$RUN_ID-bench-$arm"
         printf '%s\n' -e NVIDIA_DRIVER_CAPABILITIES=all
+    else
+        printf '%s\n' --rm --gpus all --name "$RUN_ID-bench-$arm"
     fi
     printf '%s\n' -v "$MODELS_DIR:/models:ro"
 }

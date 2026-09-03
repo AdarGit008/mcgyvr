@@ -205,3 +205,41 @@ def test_the_bench_step_files_bench_rows_when_the_declared_backend_ran(
     rows = [line.split("\t") for line in text.splitlines() if "\t" in line]
     assert rows and all(r[2] == "BENCH" for r in rows), text
     assert all("backend=CUDA" in r for r in rows), text
+
+
+def test_the_vulkan_arm_requests_the_device_through_cdi(tmp_path: Path) -> None:
+    """Third layer, 2026-09-03: the same image saw the GPU on srv2 and not on
+    srv1. docker 29.7.1 routes ``--gpus all`` through the CDI spec, which
+    mounts the NVIDIA Vulkan ICD manifest; docker 29.1.3 routes it through the
+    legacy hook, which mounts the driver libraries and not the manifest, so the
+    loader finds no driver. ``--device nvidia.com/gpu=all`` names the CDI spec
+    on both hosts. CUDA arms keep ``--gpus all``."""
+    import os
+    import shutil
+
+    campaign = "srv1-kernel-arms"
+    root = onedoor.fixture_repo(tmp_path)
+    shutil.copytree(
+        onedoor.KERNEL_ARMS, root / "tools" / "runs" / "campaigns" / campaign
+    )
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    models = tmp_path / "models" / "dense"
+    models.mkdir(parents=True)
+    (models / "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf").write_bytes(b"gguf")
+    env = onedoor.door_env(root, stubs)
+    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
+    env["RUN_ARMS"] = "L0 A3"
+    env["RUN_MODELS_DIR"] = str(tmp_path / "models")
+    result = onedoor.door(
+        root, [campaign, "llama-bench", "--host", "srv1", "--", "--dry-run"], env
+    )
+    # A dry run writes nothing, so gate 8 exits 1 after it; only a gate before
+    # the step (exit 2) would mean the plan was never printed.
+    assert result.returncode != 2, (result.stdout, result.stderr[-1500:])
+    lines = [line for line in result.stdout.splitlines() if "docker run" in line]
+    a3 = [line for line in lines if "bench-A3" in line]
+    l0 = [line for line in lines if "bench-L0" in line]
+    assert a3 and l0, result.stdout
+    assert "--device nvidia.com/gpu=all" in a3[0] and "--gpus all" not in a3[0], a3[0]
+    assert "--gpus all" in l0[0] and "nvidia.com/gpu" not in l0[0], l0[0]
