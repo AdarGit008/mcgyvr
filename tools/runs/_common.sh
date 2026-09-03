@@ -468,6 +468,22 @@ EOF
         "$name" "$total" "$cc" "$drv" "$reserved"
 }
 
+# _rig_docker — the daemon's version, through the RUN_DOCKER seam. On
+# 2026-09-03 one image listed Vulkan0 on srv2 and benched the CPU on srv1 with
+# identical driver libraries injected: docker 29.7.1 routes `--gpus all`
+# through the CDI spec (which mounts the NVIDIA Vulkan ICD manifest) and
+# 29.1.3 through the legacy hook (which does not). Nothing declared the two
+# rigs ran different dockers, so nothing could refuse the comparison. Now the
+# version is read here, declared in hosts.json[HOST].rig.docker and compared
+# by gate 2 like the hardware.
+_rig_docker() {
+    local out
+    out=$("${RUN_DOCKER:-docker}" version --format '{{.Server.Version}}' 2>/dev/null) || out=
+    out=$(_tok "${out:-}")
+    [ -n "$out" ] || { _fail "cannot read the docker daemon's version ('${RUN_DOCKER:-docker} version' answered nothing); the containers this rig runs are a version-dependent fact of the rig (a Vulkan ICD manifest is mounted by one docker and not by another), and a row that cannot name it is not comparable"; return 1; }
+    printf '%s' "$out"
+}
+
 # The seam behind rig_snapshot. A test cannot read a rig, so the whole reading
 # — uptime_since included — comes from the command's stdout, in the same
 # `k=v`-per-line shape; a command that fails or prints nothing is a rig that
@@ -494,7 +510,7 @@ EOF
 # One reading of the machine, `k=v` per line. Every value is a single
 # whitespace-free token, so each line is legal in a marker as-is (§1.6).
 rig_snapshot() {
-    local uptime_since cpu_max_mhz cpu_model ram_mt_s pl1 pl2 nv
+    local uptime_since cpu_max_mhz cpu_model ram_mt_s pl1 pl2 nv dockerv
     if [ -n "${RUN_RIG_SNAPSHOT_CMD:-}" ]; then
         _rig_snapshot_seam
         return
@@ -506,8 +522,9 @@ rig_snapshot() {
     pl1=$(_rig_power_limit pl1) || return 1
     pl2=$(_rig_power_limit pl2) || return 1
     nv=$(_rig_nvidia) || return 1
-    printf 'uptime_since=%s\ncpu_max_mhz=%s\ncpu_model=%s\nram_mt_s=%s\npl1_uw=%s\npl2_uw=%s\n%s\n' \
-        "$uptime_since" "$cpu_max_mhz" "$cpu_model" "$ram_mt_s" "$pl1" "$pl2" "$nv"
+    dockerv=$(_rig_docker) || return 1
+    printf 'uptime_since=%s\ncpu_max_mhz=%s\ncpu_model=%s\nram_mt_s=%s\npl1_uw=%s\npl2_uw=%s\n%s\ndocker=%s\n' \
+        "$uptime_since" "$cpu_max_mhz" "$cpu_model" "$ram_mt_s" "$pl1" "$pl2" "$nv" "$dockerv"
 }
 
 _snap_get() {
@@ -599,7 +616,7 @@ rig_assert_unchanged() {
         now=$(rig_snapshot) || return 1
     fi
     bad=
-    for key in uptime_since cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw driver gpu_reserve_mib gpu_name gpu_vram_mib gpu_cc; do
+    for key in uptime_since cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw driver gpu_reserve_mib gpu_name gpu_vram_mib gpu_cc docker; do
         a=$(_snap_get "$RUN_RIG_START" "$key")
         b=$(_snap_get "$now" "$key")
         [ "$a" = "$b" ] || bad="${bad:+$bad; }$key: start='$a' end='$b'"
@@ -614,9 +631,10 @@ rig_assert_unchanged() {
 # gate 2  the rig against its declaration
 # --------------------------------------------------------------------------
 
-# The ten keys `tools/runs/hosts.json[HOST].rig` declares. `uptime_since` is
-# deliberately absent — it changes per boot and is compared start==end only.
-RIG_DECLARED_KEYS="cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw gpu_name gpu_vram_mib gpu_cc driver gpu_reserve_mib"
+# The eleven keys `tools/runs/hosts.json[HOST].rig` declares. `uptime_since`
+# is deliberately absent — it changes per boot and is compared start==end only.
+# `docker` joined on 2026-09-03 (see _rig_docker).
+RIG_DECLARED_KEYS="cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw gpu_name gpu_vram_mib gpu_cc driver gpu_reserve_mib docker"
 
 # _hosts_declared — every top-level host in hosts.json that carries a `rig`
 # object, one per line. That set is the door's `--host` vocabulary.
