@@ -46,3 +46,4 @@ Generated from the records' own headers. Regenerate: `make docs`; drift fails `m
 | [0038](0038-a-machine-has-no-role-and-the-question-approves-its-own-scope.md) | a machine has no role, and the question approves its own scope | Accepted | 2026-08-22 | 0024 | — |
 | [0039](0039-a-serving-memory-declaration-is-bytes-not-a-fraction-of-the-card.md) | a serving memory declaration is bytes, not a fraction of the card | Accepted | 2026-08-22 | — | — |
 | [0040](0040-a-placement-fraction-needs-an-engine-that-spills.md) | a placement fraction needs an engine that spills, so vLLM reports the card it holds | Accepted | 2026-08-23 | — | — |
+| [0041](0041-placement-is-semantic-until-a-null-shows-it-neutral.md) | placement is semantic until a placement null shows it neutral | Accepted | 2026-09-03 | — | — |
