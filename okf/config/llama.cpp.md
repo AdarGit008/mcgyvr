@@ -53,6 +53,12 @@ monotonic: 6 → 8 → 12 gives 43.4 → 37.9 → 30.7 at n=1. **Walk down to th
 do not settle above it.** Every archived run of this architecture sat at 24-99,
 i.e. 3-12x above its real floor, which cost ~2.4x at n=8.
 
+A floor is a fit-and-throughput number and says nothing about output.
+`--n-cpu-moe` is a semantic key: two cells of one model at two `ncmoe` values
+are not comparable on output until a placement null on that build shows the
+key neutral, and the one null measured so far (srv1, 2026-09-02, 0 vs 99)
+showed it is not. → ADR-0041, `okf/must-read/touching-rigs.md`
+
 The older floors (2026-08-25, Qwen3-Coder-30B Q4_K_M: srv1 below 40, srv2 below
 20) were measured when the two rigs held each other's RAM and are not comparable
 to the current hardware. They are also per-checkpoint: the floor is a function of

@@ -81,48 +81,65 @@ correct but *"abysmal"*.
 bandwidth.** srv1 extracts 25.0–26.9% of its memory roofline where srv2 extracts
 59.1–74.1%.
 
-**The fix is a build flag and costs nothing.** Compiling for
+**The fix is a build flag, plus a one-function patch for MoE.** Compiling for
 `-DCMAKE_CUDA_ARCHITECTURES="61-virtual;80-virtual" -DGGML_CUDA_FORCE_MMQ=ON`
 makes `ggml_cuda_highest_compiled_arch(75)` return 61 — below Turing — so the
-MMA paths cannot be selected and the Pascal DP4A kernels run instead. Built
-2026-09-01 as `llamacpp:b10644-nomma-dp4a` from commit `d7a207411`.
+MMA paths cannot be selected and the Pascal DP4A kernels run instead. The arch
+list alone (`L2`, built 2026-09-01 as `llamacpp:b10644-nomma-dp4a`) leaves the
+host and the device disagreeing about the MoE MMVQ batch limit:
+`get_mmvq_mmid_max_batch` reads the raw cc 750 and hands out Turing batch sizes
+to a `mul_mat_vec_q_moe` kernel compiled with Pascal launch bounds. That is a
+CUDA `invalid argument` in `ggml_cuda_mul_mat_vec_q` on every MoE model at
+`np=8` from n=2 up — the `mling n=8 ERR` this entry used to call unexplained.
+`L3` = L2 + `patch_mmvq.py` (one function in `ggml/src/ggml-cuda/mmvq.cu`,
+made to read the compiled arch) survived 60 trials at every width n=2..12 with
+zero crashes.
 
-**Measured 2026-09-01: it is worth ~1.7x on srv1, for free.** Same rig, same
-hour, same driver, position-matched prompt draws (`ptok` 574/598/672 identical
-on both arms), and **identical VRAM** in every cell — so this is kernel speed,
-not placement:
+**Serve srv1 on `llamacpp:b10644-L3`.** `llamacpp:b10644-nomma-dp4a` is retired.
+It changes nothing on srv2, whose Ampere card has real tensor cores and should
+keep the stock image. Build recipe:
+`tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh`, through `run.sh`.
+→ `records/evidence/2026-09-02-srv1-kernel-arms/{mmvq.patch,patch_mmvq.py,MMVQ-PATCH.md}`
 
-| cell | n | stock b10644 | no-MMA DP4A | gain |
+**Attributed 2026-09-02/03 by a one-variable ladder, round r2-02-09-2026.** Six
+builds of commit `d7a207411`; `llama-bench -r 9` on Qwen2.5-Coder-3B Q4_K_M for
+prefill and decode; serving at n=1/4/8 on the measured workload, five
+interleaved replicates, for the aggregate:
+
+| arm | moves | prefill p512 fa=1 tok/s | decode tok/s | serving mean agg tok/s |
 |---|---|---|---|---|
-| d3b (Qwen2.5-Coder-3B Q4_K_M) | 1 / 4 / 8 | 43.8 / 69.4 / 74.4 | **68.6 / 121.7 / 127.2** | 1.57 / 1.75 / **1.71x** |
-| d7b (Qwen2.5-Coder-7B IQ4_XS) | 1 / 4 / 8 | 21.5 / 33.6 / 35.5 | **36.8 / 58.9 / 65.4** | 1.71 / 1.75 / **1.84x** |
-| mling (Ling-3.0-tiny Q4_K_M) | 1 / 4 | 53.6 / 88.8 | **82.2 / 131.5** | 1.53 / **1.48x** |
+| L0 (`75-real;75-virtual`) | local baseline | 355 | 101 | 69.8 |
+| L1 | + `FORCE_MMQ` | 355 | 101 | 69.2 |
+| L2 | `61-virtual;80-virtual` + `FORCE_MMQ` | 1275 | 95 | 111.1 |
+| **L3** | L2 + mmvq patch | 1272 | 95 | **112.1** |
+| L4 | L0 + `GGML_NATIVE`, no `CPU_ALL_VARIANTS` | 355 | 101 | 69.0 |
+| A1 stock `server-cuda-b10644` | six variables at once | 358 | 101 | 69.4 |
+| A3 Vulkan (`GGML_VULKAN`, no CUDA) | the whole backend | 677 | 89 | not served |
 
-**Two corrections to this entry, 2026-09-01, found by re-deriving it.** The
-sentence that stood here quoted `prefill=` as corroboration and the archive
-ladder as a control. Both were wrong, and neither changes the ratios above,
-which are position-matched *within* the file.
+The arch list is the whole gain: 3.6x prefill, 1.6x serving aggregate, and 6%
+off decode. `FORCE_MMQ` alone and the CPU build flags move nothing, and stock
+equals the local baseline. `cuobjdump` confirms the mechanism: L0/L1/L4 carry
+257k tensor-core lines for sm_75, L2/L3 carry none and JIT sm_61 PTX. The
+serving A/A null on this instrument spreads 15.3%, so L2 vs L3 is not
+distinguishable on speed and the 1.6x is. Correctness: L2 and L3 each drift 1
+of 257 bench-py cells (0.39pp) from L0, inside the 1.47pp bound every arm
+priced on its own null, so the faster build answers the same. The ratios in the
+2026-09-01 A/B (1.5–1.8x) were the same size, but that file ran all of one arm
+then all of the other and its rows carry no `arm=`; it is superseded, do not
+quote it.
+→ `records/evidence/2026-09-03-srv1-kernel-arms/{srv1-build-ladder.tsv,srv1-llama-bench.tsv,correctness.json}`
+→ `records/evidence/2026-09-02-srv1-kernel-arms/{srv1-lcpp-arms.tsv,srv1-aa-null.tsv,srv1-moe-slots.tsv,RUN-ORDER.md}`
+→ `tools/runs/campaigns/srv1-kernel-arms/PLAN.md`
 
-- `prefill=` is not an independent measurement — see `reading-results.md`. The
-  "249 → 390" figures it quoted are `agg` multiplied by `ptok/otok`.
-- The archived `s1-d3b np=8 = 74.2` is **not** a control for this file's 74.4.
-  The two rows drew different work: `ptok` 664 / `otok` 208 against 672 / 214,
-  because the ladder ran levels `1,2,4,8,16,32` and this file ran `1,4,8` — the
-  extra `n=2` rung consumed two UIDs and desynced every later draw. Agreement to
-  0.3% across two different draws is coincidence, and the measured spread
-  between nominally-identical stock cells reaches **6.2%** at n≥4.
-
-What does hold: both arms here ran the same cell list in the same order, one
-cell per process invocation, so `ptok` is identical arm-to-arm at every position
-(574 / 598 / 672). That, and not the archive, is why the ratios are readable.
-
-**Caveat: `mling n=8` returned `ERR` on the no-MMA arm** and is unexplained — one
-cell of nine. Re-run it before quoting a Ling number at n=8.
-
-**Use this image for every llama.cpp cell on srv1.** It changes nothing on srv2,
-whose Ampere card has real tensor cores and should keep the stock image.
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv1-nomma-dp4a-ab.tsv`
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/Dockerfile.nomma-dp4a`
+**Vulkan is a real middle path, not a replacement.** The Vulkan backend detects
+tensor cores by querying `VK_KHR_cooperative_matrix`, so it needs no arch hack
+and gives 1.9x stock prefill — but half of L3's prefill and the lowest decode.
+To run it at all the image needs `libX11 libXext libGLdispatch libEGL` (the
+NVIDIA ICD links and dlopens them) and the device must be requested through CDI
+(`--device nvidia.com/gpu=all`, not `--gpus all`), or ggml registers the CPU
+backend alone and benches the CPU under a `vulkan` label. It did that twice
+before the bench step learned to refuse a declared backend that did not run.
+→ `records/evidence/2026-09-02-srv1-kernel-arms/refusals/A3-vulkan-never-loaded.txt`
 
 Two build notes: a CUDA docker build needs
 `-DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined` or the final link fails
