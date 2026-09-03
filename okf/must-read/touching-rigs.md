@@ -49,8 +49,10 @@ memory, by 1.44x.** Capacity and bandwidth point in opposite directions across
 these two boxes. Never infer one from the other.
 
 **srv1's llama.cpp numbers are only valid against a stated image.** The stock
-`server-cuda-b10644` runs emulated tensor-core kernels on TU116 and reads ~1.7x
-low; `llamacpp:b10644-nomma-dp4a` does not. Record `img=` on every srv1 row. → gate 3
+`server-cuda-b10644` runs emulated tensor-core kernels on TU116 and reads ~1.6x
+low in serving and 3.6x low in prefill; `llamacpp:b10644-L3` does not.
+`llamacpp:b10644-nomma-dp4a` (the unpatched L2) is retired: it crashes every
+MoE model at `np=8` from n=2. Record `img=` on every srv1 row. → gate 3
 → `okf/must-read/touching-engine.md`
 
 **srv1's thread scaling is linear and never saturates — it is CORE-limited, not
@@ -77,8 +79,12 @@ the card holds 11,787 of 11,911 usable MiB while host RAM sits nearly idle.
 measurement and is wrong.
 
 **Every archived run of the qwen35moe family sat 3-12x above its real floor.
-Correcting that is worth ~2.4x, for free.** srv2, Qwen3.6-35B-A3B UD-IQ3_XXS,
-`np=8 ctx_slot=2048`, 2026-09-01:
+Correcting that is worth ~2.4x in throughput.** What the floor does to the
+model's *output* is unmeasured, and "unmeasured" is not "nothing": `--n-cpu-moe`
+is a semantic key until a placement null at that value, on that build, shows it
+neutral (ADR-0041; measured 2026-09-02 on srv1, `ncmoe` 0 vs 99 flipped 9 of
+257 verdicts against a 0-flip own null). Quote a floor for fit and speed only.
+srv2, Qwen3.6-35B-A3B UD-IQ3_XXS, `np=8 ctx_slot=2048`, 2026-09-01:
 
 | ncmoe | n=1 | n=4 | n=8 | vram MiB |
 |---|---|---|---|---|
