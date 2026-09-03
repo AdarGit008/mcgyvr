@@ -1,0 +1,14 @@
+```python
+def strip_ends(text: str, mark: str) -> str:
+    """The text with a character removed from both of its ends."""
+    if not text or not mark:
+        raise ValueError("Both text and mark must be non-empty strings.")
+    
+    while text.startswith(mark):
+        text = text[1:]
+    
+    while text.endswith(mark):
+        text = text[:-1]
+    
+    return text
+```

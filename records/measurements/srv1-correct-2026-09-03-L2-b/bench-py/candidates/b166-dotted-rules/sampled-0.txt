@@ -1,0 +1,101 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    # Scan the rules, rejecting non-string values and misplaced
+    # stars, then prefer the exact selector, else the longest covering
+    # ".*" wildcard, else the lone "*", else None.
+    for selector, value in rules.items():
+        if selector == name:
+            return value
+        elif selector.endswith(".*"):
+            continue
+        elif selector == "*" and not name.endswith(".*"):
+            continue
+        elif selector.endswith(".*") and name.endswith(".*"):
+            continue
+        elif selector.endswith(".*") and name == selector[:-2]:
+            return value
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.startswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector == "*" and name.endswith(".*"):
+            continue
+        elif selector == "*" and name == selector[:-2]:
+            continue
+        elif selector

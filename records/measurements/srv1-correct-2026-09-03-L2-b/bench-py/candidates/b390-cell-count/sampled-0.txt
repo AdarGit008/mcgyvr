@@ -1,0 +1,6 @@
+```python
+def cell_count(grid: list, value: int) -> int:
+    if not grid:
+        return 0
+    return sum(row.count(value) for row in grid)
+```

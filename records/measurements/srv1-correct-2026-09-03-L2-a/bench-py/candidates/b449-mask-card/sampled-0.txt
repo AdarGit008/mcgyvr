@@ -1,0 +1,12 @@
+```python
+def last_four(number: str) -> str:
+    """Return the last four characters of a card number.
+    If the number is shorter than four characters, return the whole of it.
+    """
+    return number[-4:] if len(number) >= 4 else number
+
+def mask_card(number: str) -> str:
+    """Return the number with everything but its last four replaced by stars.
+    """
+    return '*' * (len(number) - 4) + number[-4:]
+```

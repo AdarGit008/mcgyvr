@@ -1,0 +1,47 @@
+```python
+from typing import List, Union
+
+def fork_paths(pattern: str) -> List[str]:
+    if not pattern or pattern.isspace():
+        raise ValueError("Input cannot be empty or contain only whitespace.")
+    
+    def is_fork_segment(segment):
+        return segment.startswith('{') and segment.endswith('}')
+    
+    def split_fork_segment(segment):
+        return segment[1:-1].split(',')
+    
+    paths = []
+    current_path = []
+    
+    for char in pattern:
+        if char == '/':
+            if current_path:
+                paths.append(''.join(current_path))
+                current_path = []
+        elif char == '{':
+            current_path.append('')
+        elif char == ',':
+            if current_path and is_fork_segment(current_path[-1]):
+                current_path[-1] += char
+            else:
+                current_path.append('')
+        elif char == '}':
+            if current_path and is_fork_segment(current_path[-1]):
+                current_path[-1] += char
+                fork_options = split_fork_segment(current_path.pop())
+                for option in fork_options:
+                    current_path.append(option)
+            else:
+                current_path.append('')
+        else:
+            if is_fork_segment(current_path[-1]):
+                current_path[-1] += char
+            else:
+                current_path.append(char)
+    
+    if current_path:
+        paths.append(''.join(current_path))
+    
+    return paths
+```

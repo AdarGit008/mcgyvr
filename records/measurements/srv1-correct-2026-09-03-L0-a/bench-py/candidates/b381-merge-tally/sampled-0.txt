@@ -1,0 +1,15 @@
+```python
+def add_one(tally: dict, name: str, amount: int) -> dict:
+    if name not in tally:
+        tally[name] = 0
+    tally[name] += amount
+    return tally
+
+def merge_tally(left: dict, right: dict) -> dict:
+    for name, count in right.items():
+        if name in left:
+            left[name] += count
+        else:
+            left[name] = count
+    return left
+```

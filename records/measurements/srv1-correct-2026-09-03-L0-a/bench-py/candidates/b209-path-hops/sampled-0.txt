@@ -1,0 +1,25 @@
+```python
+from typing import *
+from collections import *
+
+def path_hops(start: str, goal: str) -> int:
+    if start == goal:
+        return 0
+    
+    start_segments = reduce(lambda x, y: x + [y] if y != '..' else [], start.split('/'), [])
+    goal_segments = reduce(lambda x, y: x + [y] if y != '..' else [], goal.split('/'), [])
+    
+    common_start = 0
+    while common_start < len(start_segments) and common_start < len(goal_segments) and start_segments[common_start] == goal_segments[common_start]:
+        common_start += 1
+    
+    hops_up = len(start_segments) - common_start
+    hops_down = len(goal_segments) - common_start
+    
+    if start_segments[common_start] == '..':
+        hops_up -= 1
+    if goal_segments[common_start] == '..':
+        hops_down -= 1
+    
+    return hops_up + hops_down
+```

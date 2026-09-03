@@ -1,0 +1,17 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    # Normalize to 24-hour format
+    from_hour = from_hour % 24
+    to_hour = to_hour % 24
+    
+    # Calculate the time difference in minutes
+    minutes_difference = to_minute - from_minute
+    
+    # Adjust for the next day if the second time is earlier than the first
+    if to_hour < from_hour:
+        minutes_difference += 1440
+    
+    return minutes_difference
+```

@@ -1,0 +1,11 @@
+```python
+def net_pay(gross: int, rate: int, fee: int) -> int:
+    """Gross pay less a percentage and then a flat fee."""
+    # Calculate the percentage of the gross pay
+    percentage = gross * (rate // 100)
+    # Subtract the percentage from the gross pay
+    after_percentage = gross - percentage
+    # Subtract the flat fee from the result
+    after_fee = max(after_percentage - fee, 0)
+    return after_fee
+```

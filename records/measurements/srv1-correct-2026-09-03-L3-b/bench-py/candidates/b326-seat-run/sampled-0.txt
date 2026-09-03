@@ -1,0 +1,21 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party <= 0:
+        raise ValueError("Party size must be positive")
+
+    free_seats = []
+    current_run_length = 0
+
+    for i, char in enumerate(row):
+        if char == '.':
+            if current_run_length == 0:
+                free_seats.append(i)
+            current_run_length += 1
+        else:
+            current_run_length = 0
+
+    if not free_seats:
+        return -1
+
+    return free_seats[0]
+```

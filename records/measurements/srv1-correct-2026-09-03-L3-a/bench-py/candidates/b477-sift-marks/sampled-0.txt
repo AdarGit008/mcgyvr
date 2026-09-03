@@ -1,0 +1,19 @@
+```python
+def sift_marks(entries: list[str], mark: str) -> list[list[str]]:
+    # Initialize two empty lists for the runs
+    marked_run = []
+    unmarked_run = []
+    
+    # Iterate through each entry in the list
+    for entry in entries:
+        # Check if the entry starts with the given mark
+        if entry.startswith(mark):
+            # If it does, add it to the marked run
+            marked_run.append(entry)
+        else:
+            # If it doesn't, add it to the unmarked run
+            unmarked_run.append(entry)
+    
+    # Return the two runs, the marked run first
+    return [marked_run, unmarked_run]
+```

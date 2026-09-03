@@ -1,0 +1,21 @@
+```python
+def pick_lane(queues: list, closed: list) -> int:
+    # Validate the input
+    if not isinstance(queues, list) or not queues:
+        raise ValueError("Invalid 'queues' argument. It must be a non-empty list.")
+    if not isinstance(closed, list) or not closed:
+        raise ValueError("Invalid 'closed' argument. It must be a non-empty list.")
+    if not all(isinstance(i, int) for i in closed):
+        raise ValueError("Invalid 'closed' argument. All elements must be integers.")
+    if any(i < 0 or i >= len(queues) for i in closed):
+        raise ValueError("Invalid 'closed' argument. All elements must be valid lane indices.")
+    if all(queues == [0] * len(queues) for lane in closed):
+        raise ValueError("All lanes are closed. Cannot pick a lane.")
+    
+    # Find the best lane
+    best = 0
+    for lane in range(1, len(queues)):
+        if queues[lane] <= queues[best] and lane not in closed:
+            best = lane
+    return best
+```

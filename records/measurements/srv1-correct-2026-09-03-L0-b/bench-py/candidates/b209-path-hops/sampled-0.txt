@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> List[str]:
+        result = []
+        for segment in path.split('/'):
+            if segment == '.' or segment == '..':
+                if result and result[-1] == '..':
+                    result.pop()
+                elif result:
+                    result.append(segment)
+            elif segment:
+                result.append(segment)
+        return result
+
+    start_path = reduce_path(start)
+    goal_path = reduce_path(goal)
+
+    if len(start_path) == 1 and start_path[0] == '':
+        return 0
+
+    common_prefix = []
+    while start_path and goal_path and start_path[0] == goal_path[0]:
+        common_prefix.append(start_path[0])
+        start_path.pop(0)
+        goal_path.pop(0)
+
+    return len(common_prefix) + max(len(start_path), len(goal_path))
+```

@@ -1,0 +1,14 @@
+```python
+def hide_values(store: dict) -> dict:
+    """A store with every value starred out."""
+    if not store:
+        return {}
+
+    hidden = {}
+    for key, value in store.items():
+        if isinstance(value, str):
+            hidden["*" * len(value)] = value
+        else:
+            hidden[key] = value
+    return hidden
+```

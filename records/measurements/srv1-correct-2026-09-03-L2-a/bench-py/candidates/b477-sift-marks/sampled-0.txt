@@ -1,0 +1,18 @@
+```python
+from typing import List
+
+def sift_marks(entries: List[str], mark: str) -> List[List[str]]:
+    if not entries or not mark:
+        return ([], [])
+
+    left_run = []
+    right_run = []
+
+    for entry in entries:
+        if entry.startswith(mark):
+            left_run.append(entry)
+        else:
+            right_run.append(entry)
+
+    return [left_run, right_run]
+```

@@ -1,0 +1,22 @@
+```python
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Returns the number of tiles of a given size that cover a length, rounding up.
+    """
+    if length <= 0 or tile <= 0:
+        raise ValueError("Length and tile must be positive integers.")
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Returns the tiles needed for a wall of a width and a height, adding a whole-percent allowance for breakages.
+    """
+    if width <= 0 or height <= 0 or tile <= 0:
+        raise ValueError("Width, height, and tile must be positive integers.")
+    total_tiles = width * height * tile
+    # Adding a whole-percent allowance for breakages
+    total_tiles += total_tiles * spare / 100
+    return ceil(total_tiles / tile)
+```

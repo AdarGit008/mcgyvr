@@ -1,0 +1,13 @@
+```python
+from typing import List, Optional
+
+def cell_at(grid: List[List[int]], row: int, column: int) -> Optional[int]:
+    if not (0 <= row < len(grid) and 0 <= column < len(grid[0])):
+        return None
+    return grid[row][column]
+
+def diag_of(grid: List[List[int]]) -> List[int]:
+    if not all(len(row) == len(grid) for row in grid):
+        raise ValueError("Grid must be square")
+    return [grid[i][i] for i in range(len(grid))]
+```

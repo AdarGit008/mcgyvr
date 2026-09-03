@@ -1,0 +1,19 @@
+```python
+from typing import List, Tuple
+
+def pack_entries(entries: List[Tuple[str, str]]) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    packed_entries = []
+    for key, value in entries:
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Both key and value must be strings")
+        if len(key) == 0:
+            raise ValueError("Key cannot be empty")
+        if key in packed_entries:
+            raise ValueError("Key repetition is not allowed")
+        packed_entries.append(f"{key}={value}")
+    
+    return ";".join(packed_entries)
+```

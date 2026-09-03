@@ -1,0 +1,21 @@
+```python
+from typing import Dict, List, Tuple
+
+def draw_stock(shelf: Dict[str, int], order: List[Tuple[str, int]]) -> Dict[str, int]:
+    if not isinstance(shelf, dict):
+        raise ValueError("shelf must be a dictionary")
+    if not isinstance(order, list):
+        raise ValueError("order must be a list")
+    for line in order:
+        if not isinstance(line, tuple) or len(line) != 2:
+            raise ValueError("order lines must be pairs of (item, count)")
+        item, count = line
+        if not (isinstance(item, str) and item in shelf):
+            raise ValueError(f"item '{item}' is not on the shelf")
+        if not (isinstance(count, int) and count >= 0):
+            raise ValueError("count must be a non-negative whole number")
+        if shelf[item] < count:
+            raise ValueError(f"not enough stock for item '{item}'")
+        shelf[item] -= count
+    return shelf
+```

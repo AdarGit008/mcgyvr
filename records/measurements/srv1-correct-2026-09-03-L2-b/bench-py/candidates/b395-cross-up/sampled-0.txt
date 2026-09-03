@@ -1,0 +1,24 @@
+```python
+from typing import List, Optional
+
+def cross_up(readings: List[int], level: int) -> int:
+    """
+    Count the number of times a run of readings crosses a level going upward.
+    
+    Args:
+    readings (List[int]): A list of integers representing the readings.
+    level (int): The level to cross.
+    
+    Returns:
+    int: The number of crossings.
+    """
+    if not readings:
+        return 0
+    
+    crossings = 0
+    for i in range(1, len(readings)):
+        if readings[i - 1] < level and readings[i] >= level:
+            crossings += 1
+    
+    return crossings
+```

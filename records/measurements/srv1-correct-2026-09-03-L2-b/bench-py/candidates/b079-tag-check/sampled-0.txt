@@ -1,0 +1,20 @@
+```python
+def line_tag(body):
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line):
+    if not isinstance(line, str):
+        raise ValueError("check_line expects a string")
+    if len(line) < 3:
+        raise ValueError("line is too short")
+    if line[-3] != '~':
+        raise ValueError("line tag separator is missing")
+    body = line[:-3]
+    tag = line_tag(body)
+    if body != tag:
+        raise ValueError("line tag does not match body")
+    return body
+```

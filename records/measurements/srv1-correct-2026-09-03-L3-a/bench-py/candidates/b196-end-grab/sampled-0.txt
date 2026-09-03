@@ -1,0 +1,33 @@
+```python
+def end_grab(cards: list) -> dict:
+    """
+    Two players clear a row of numbered cards by turns, the first player opening.
+    On a turn the player takes one card from an end of the row, always the larger of the two end cards,
+    and takes the left one whenever the two ends carry the same number; a row of one card leaves that card as both ends.
+    The row shrinks by one card a turn until none are left. Return a mapping of three fields: first and second, the totals the opening player and the following player collected, and taken, the numbers in the order they left the row.
+    """
+    if not cards:
+        return {'first': 0, 'second': 0, 'taken': []}
+    
+    first, second = cards[0], cards[-1]
+    taken = [first, second]
+    
+    if first == second:
+        taken.append(first)
+        first, second = cards[1], cards[-2]
+    
+    remaining = cards[1:-1]
+    
+    while remaining:
+        if remaining[0] > remaining[-1]:
+            taken.append(remaining[0])
+            remaining = remaining[1:]
+        else:
+            taken.append(remaining[-1])
+            remaining = remaining[:-1]
+    
+    first_total = sum(taken[::2])
+    second_total = sum(taken[1::2])
+    
+    return {'first': first_total, 'second': second_total, 'taken': taken}
+```

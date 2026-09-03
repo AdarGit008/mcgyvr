@@ -1,0 +1,14 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    if start not in links:
+        raise ValueError("Unknown name")
+    line = [start]
+    current = start
+    while True:
+        next_name = links.get(current)
+        if next_name is None:
+            break
+        line.append(next_name)
+        current = next_name
+    return line
+```

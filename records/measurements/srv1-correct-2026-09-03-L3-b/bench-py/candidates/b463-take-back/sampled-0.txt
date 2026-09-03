@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def take_back(values: List[int], target: int) -> int:
+    """
+    Take entries from the end of the list toward its start, returning how many must be taken
+    before their total reaches a target. Return minus one when the whole list never reaches it.
+    
+    :param values: List of integers to process.
+    :param target: Target sum to reach.
+    :return: Number of entries to take, or -1 if the list never reaches the target.
+    """
+    if not values:
+        return -1
+    
+    total_sum = 0
+    for i in range(len(values)):
+        total_sum += values[-i - 1]
+        if total_sum >= target:
+            return i + 1
+    
+    return -1
+```

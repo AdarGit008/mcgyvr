@@ -1,0 +1,9 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    """Return the part of a text between start (inclusive) and end (exclusive)."""
+    if start > end:
+        raise ValueError("start must not be above end")
+    if start > len(text):
+        return ""
+    if end > len(text):
+        end = len(text)

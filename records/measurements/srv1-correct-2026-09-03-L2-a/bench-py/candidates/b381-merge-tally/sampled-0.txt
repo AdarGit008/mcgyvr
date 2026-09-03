@@ -1,0 +1,39 @@
+```python
+from typing import Dict
+
+def add_one(tally: Dict[str, int], name: str, amount: int) -> Dict[str, int]:
+    """
+    Add the specified amount to the count of the given name in the tally.
+    
+    Args:
+    tally (Dict[str, int]): The original tally to modify.
+    name (str): The name to increase the count for.
+    amount (int): The amount to add to the name's count.
+    
+    Returns:
+    Dict[str, int]: The modified tally, with the name's count incremented by the amount.
+    """
+    if name not in tally:
+        tally[name] = 0
+    tally[name] += amount
+    return tally
+
+def merge_tally(left: Dict[str, int], right: Dict[str, int]) -> Dict[str, int]:
+    """
+    Merge two tallies, combining counts for common names and adding to unique names.
+    
+    Args:
+    left (Dict[str, int]): The first tally.
+    right (Dict[str, int]): The second tally.
+    
+    Returns:
+    Dict[str, int]: A new tally with counts from both left and right, with common names' counts combined.
+    """
+    merged = left.copy()
+    for name, count in right.items():
+        if name in merged:
+            merged[name] += count
+        else:
+            merged[name] = count
+    return merged
+```

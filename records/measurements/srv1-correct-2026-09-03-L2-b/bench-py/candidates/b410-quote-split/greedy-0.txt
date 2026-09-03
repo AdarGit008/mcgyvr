@@ -1,0 +1,21 @@
+```python
+def in_quote(ch: str) -> bool:
+    """Return True if ch is a quotation mark, False otherwise."""
+    return ch in ['"', "'"]
+
+def quote_split(line: str) -> list:
+    """Split a line on commas, except for a comma standing inside quotation marks."""
+    result = []
+    in_quote = False
+    current_piece = ""
+    for char in line:
+        if char == '"':
+            in_quote = not in_quote
+        elif char == ',' and not in_quote:
+            result.append(current_piece)
+            current_piece = ""
+        else:
+            current_piece += char
+    result.append(current_piece)
+    return result
+```

@@ -1,0 +1,12 @@
+```python
+def step_allowed(start: str, end: str, allowed: list) -> bool:
+    """Check if a state move is allowed."""
+    return end in allowed
+
+def step_plan(states: list, allowed: list) -> int:
+    """Find the first invalid move in a run of states."""
+    for i in range(len(states) - 1):
+        if not step_allowed(states[i], states[i + 1], allowed):
+            return i
+    raise ValueError("No invalid moves found.")
+```

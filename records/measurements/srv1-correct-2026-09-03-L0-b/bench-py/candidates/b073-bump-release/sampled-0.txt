@@ -1,0 +1,23 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    """Return the next release tag by advancing the specified part."""
+    if not isinstance(version, str):
+        raise ValueError("version must be a string")
+    if not version.count(".") == 2:
+        raise ValueError("version must have exactly three components")
+    if any(part not in ("major", "minor", "patch") for part in version.split(".")):
+        raise ValueError("part must be 'major', 'minor', or 'patch'")
+    version_list = list(map(int, version.split(".")))
+    part_index = version_list.index(part)
+    
+    if part_index == 2:
+        version_list[part_index] += 1
+        version_list[:part_index] = [0] * part_index
+    elif part_index == 1:
+        version_list[part_index] += 1
+        version_list[0] = 0
+    else:
+        version_list[0] += 1
+    
+    return ".".join(map(str, version_list))
+```

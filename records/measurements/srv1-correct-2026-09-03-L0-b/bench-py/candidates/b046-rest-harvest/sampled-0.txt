@@ -1,0 +1,19 @@
+```python
+from typing import *
+from collections import *
+
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list.")
+    
+    total_yield = 0
+    for i in range(len(yields)):
+        if not isinstance(yields[i], int) or yields[i] < 0:
+            raise ValueError("Each yield must be a non-negative integer.")
+        if i == 0:
+            total_yield += yields[i]
+        elif yields[i] > yields[i-1]:
+            total_yield += yields[i]
+    
+    return total_yield
+```

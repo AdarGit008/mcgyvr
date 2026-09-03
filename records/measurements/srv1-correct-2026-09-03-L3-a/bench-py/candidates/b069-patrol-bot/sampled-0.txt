@@ -1,0 +1,35 @@
+```python
+from typing import List, Union
+
+def clamp_move(position: int, delta: int, width: int) -> List[int]:
+    if not isinstance(width, int) or width < 1:
+        raise ValueError("width must be a positive integer")
+    if not isinstance(position, int) or not 0 <= position < width:
+        raise ValueError("position must sit inside the corridor")
+    if not isinstance(delta, int) or delta == 0:
+        raise ValueError("a move must be a non-zero integer")
+    landed = min(width - 1, max(0, position + delta))
+    return [landed, landed != position + delta]
+
+
+def run_patrol(width: int, start: int, moves: List[Union[int, None]]) -> dict:
+    if not isinstance(width, int) or width < 1:
+        raise ValueError("width must be a positive integer")
+    if not isinstance(start, int) or not 0 <= start < width:
+        raise ValueError("start must sit inside the corridor")
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+    visited = set([start])
+    bumps = 0
+    for move in moves:
+        if move is None:
+            continue
+        if not isinstance(move, int) or move == 0:
+            raise ValueError("a move must be a non-zero integer")
+        position, bump = clamp_move(start, move, width)
+        if bump:
+            bumps += 1
+        visited.add(position)
+        start = position
+    return {'position': start, 'bumps': bumps, 'visited': len(visited)}
+```

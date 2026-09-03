@@ -1,0 +1,15 @@
+```python
+from typing import *
+from collections import *
+
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    if times == 0 or times == 1:
+        return phrase
+    elif times < 0:
+        raise ValueError("Number of copies must be non-negative")
+    
+    if not between:
+        return phrase * times
+    
+    return (phrase + between) * (times - 1) + phrase
+```

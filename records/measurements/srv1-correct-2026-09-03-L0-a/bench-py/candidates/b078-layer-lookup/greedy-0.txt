@@ -1,0 +1,29 @@
+```python
+from typing import List, Optional
+
+def config_value(layers: List[str], name: str) -> Optional[str]:
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("Layers must be a list of strings.")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Name must be a non-empty string.")
+    
+    current_value = None
+    for layer in layers:
+        lines = layer.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith('#'):
+                continue
+            if line.startswith('!'):
+                if name in current_value:
+                    current_value = None
+            else:
+                parts = line.split('=')
+                if len(parts) == 2:
+                    key, value = parts
+                    key = key.strip()
+                    value = value.strip()
+                    if key == name:
+                        current_value = value
+    return current_value
+```

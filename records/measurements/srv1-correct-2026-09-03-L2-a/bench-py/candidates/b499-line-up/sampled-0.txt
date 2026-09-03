@@ -1,0 +1,19 @@
+```python
+from typing import List
+
+def line_up(links: dict[str, str], start: str) -> List[str]:
+    if start not in links:
+        raise ValueError("The book does not know about the name.")
+
+    line = [start]
+    current = start
+
+    while True:
+        next_name = links.get(current)
+        if next_name is None or next_name == current:
+            break
+        line.append(next_name)
+        current = next_name
+
+    return line
+```

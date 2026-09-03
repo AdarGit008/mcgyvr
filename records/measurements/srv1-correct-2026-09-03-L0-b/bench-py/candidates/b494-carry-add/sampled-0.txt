@@ -1,0 +1,17 @@
+```python
+def carry_add(left: list[int], right: list[int]) -> list[int]:
+    """
+    Add two counts held as runs of single figures, the weightiest figure first, and give the answer in the same form.
+    Work from the light end, carrying into the next place where a pair reaches ten.
+    The two runs need not be the same length.
+    """
+    result = []
+    carry = 0
+    while left or right or carry:
+        left_val = left.pop() if left else 0
+        right_val = right.pop() if right else 0
+        current_sum = left_val + right_val + carry
+        result.append(current_sum % 10)
+        carry = current_sum // 10
+    return result[::-1] if result else [0]
+```

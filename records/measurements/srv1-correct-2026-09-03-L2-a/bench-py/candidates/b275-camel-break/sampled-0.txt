@@ -1,0 +1,33 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Given a string representing an identifier with words separated by spaces,
+    return a list of those words in lower case. The first word is lower cased
+    if it starts with a capital, and subsequent words start with a capital
+    if they do not already have a capital at the beginning.
+
+    Examples:
+    >>> camel_break("HelloWorld")
+    ['hello', 'world']
+    >>> camel_break("CamelCase")
+    ['camel', 'case']
+    >>> camel_break("snake_case")
+    ['snake', 'case']
+    >>> camel_break("ThisIsAValidIdentifier")
+    ['this', 'is', 'a', 'valid', 'identifier']
+    """
+    if not name:
+        return []
+
+    parts = name.split(' ')
+    result = []
+    for part in parts:
+        # Check if the first character is uppercase
+        if part[0].isupper() and result:
+            # If the previous part was also uppercase, keep the current part as is
+            result[-1] += ' ' + part
+        else:
+            # Otherwise, convert the part to lowercase
+            result.append(part.lower())
+    return result
+```

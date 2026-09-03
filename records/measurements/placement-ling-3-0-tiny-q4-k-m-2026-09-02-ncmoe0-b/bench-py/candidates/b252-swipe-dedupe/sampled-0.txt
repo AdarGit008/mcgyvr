@@ -1,0 +1,10 @@
+```python
+def swipe_dedupe(swipes: list) -> list:
+    """Remove consecutive duplicates from a list of card swipes, keeping the first of each run."""
+    if not swipes:
+        return []
+
+    result = [swipes[0]]
+    for i in range(1, len(swipes)):
+        if swipes[i] != swipes[i - 1]:
+            result.append(swipes

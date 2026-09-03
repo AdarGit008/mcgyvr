@@ -1,0 +1,41 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """
+    Remove the last occurrence of 'piece' from 'text' until 'text' no longer ends with 'piece'.
+    
+    :param text: The string from which to remove the last occurrence of 'piece'.
+    :param piece: The string to remove from 'text'.
+    :return: The modified 'text' after removing the last occurrence of 'piece'.
+    
+    Examples:
+    shed_tail("hello world", "l") returns "hello worl"
+    shed_tail("test test test", "t") returns "test test tes"
+    shed_tail("end", "end") returns "end"
+    shed_tail("nope", "pe") returns "nope"
+    shed_tail("", "a") returns ""
+    shed_tail("a", "a") returns ""
+    shed_tail("aa", "a") returns "a"
+    shed_tail("ababab", "ab") returns "abab"
+    shed_tail("abababab", "abab") returns ""
+    shed_tail("ababababab", "ababab") returns ""
+    shed_tail("abababababab", "abababab") returns ""
+    shed_tail("ababababababab", "ababababab") returns ""
+    shed_tail("abababababababab", "abababababab") returns ""
+    shed_tail("ababababababababab", "ababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("abababababababababab", "abababababababab") returns ""
+    shed_tail("ababababab

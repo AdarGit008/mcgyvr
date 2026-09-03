@@ -1,0 +1,6 @@
+```python
+def hug_text(text: str, mark: str) -> str:
+    if not text or text == mark * 2:
+        return mark * 2
+    return mark + text + mark
+```

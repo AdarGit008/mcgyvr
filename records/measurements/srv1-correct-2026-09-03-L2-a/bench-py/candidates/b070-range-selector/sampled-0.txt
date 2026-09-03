@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def selector_hits(values: List[int], selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(v, int) for v in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or len(selector) == 0:
+        raise ValueError("selector must be a non-empty string")
+    if not all(term.strip() in ("", str(x) for x in selector.split(","))):
+        raise ValueError("selector must contain only integers and ranges")
+
+    count = 0
+    for value in values:
+        for term in selector.split(","):
+            if "-" in term:
+                low, high = map(int, term.split("-"))
+                if low <= value <= high:
+                    count += 1
+                    break
+            elif term.strip():
+                if value == int(term):
+                    count += 1
+                    break
+    return count
+```

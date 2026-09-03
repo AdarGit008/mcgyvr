@@ -1,0 +1,15 @@
+```python
+from typing import List, Union
+
+def crate_fill(items: int, crates: int) -> List[int]:
+    if crates <= 0:
+        return []
+    
+    min_items_per_crate = items // crates
+    remainder = items % crates
+    
+    return [min_items_per_crate] * crates + [remainder] * remainder
+
+def crate_total(sizes: List[int]) -> int:
+    return sum(sizes)
+```

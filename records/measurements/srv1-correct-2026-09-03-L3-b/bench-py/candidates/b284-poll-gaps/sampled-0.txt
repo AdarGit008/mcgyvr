@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def poll_gaps(minutes: List[int]) -> List[int]:
+    if not minutes:
+        return []
+
+    # Remove duplicates if any
+    minutes = list(set(minutes))
+
+    if len(minutes) < 2:
+        return []
+
+    # Sort the minutes
+    minutes.sort()
+
+    # Calculate gaps
+    gaps = [minutes[i + 1] - minutes[i] - 1 for i in range(len(minutes) - 1)]
+
+    return gaps
+```

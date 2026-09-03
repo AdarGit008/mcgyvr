@@ -1,0 +1,29 @@
+```python
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be whole numbers of at least one")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists")
+    if any(not isinstance(entry, (int, float)) for entry in blocked):
+        raise ValueError("blocked must contain integers or floats")
+    if any(entry[0] < 0 or entry[1] < 0 for entry in blocked):
+        raise ValueError("blocked must be inside the grid")
+    if any(entry[0] >= rows or entry[1] >= cols for entry in blocked):
+        raise ValueError("blocked must be inside the grid")
+    if any(entry == [0, 0] for entry in blocked):
+        raise ValueError("blocked cannot be at the entrance")
+    if any(entry == [rows-1, cols-1] for entry in blocked):
+        raise ValueError("blocked cannot be at the exit")
+    
+    def backtrack(row, col, count):
+        if row == rows - 1 and col == cols - 1:
+            return 1
+        if row < 0 or col < 0 or row >= rows or col >= cols or [row, col] in blocked:
+            return 0
+        blocked.remove([row, col])
+        count += backtrack(row, col + 1, count) + backtrack(row + 1, col, count)
+        blocked.append([row, col])
+        return count
+    
+    return backtrack(0, 0, 0)
+```

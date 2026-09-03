@@ -47,7 +47,16 @@ def test_the_fiat_is_still_in_the_code_this_test_is_about() -> None:
         assert f'"{key}"' in source
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — placement untested")
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "2026-09-02: measured (records/evidence/2026-09-02-srv1-kernel-arms/"
+        "placement-null.json): 9 of 257 cells changed verdict between ncmoe=0 "
+        "and ncmoe=99 on L3 / Ling-3.0-tiny, 3.50pp against the arm's own 1.47pp "
+        "null bound (0 self-null flips). Placement is not output-neutral at this "
+        "bound; fingerprint.py's fiat is falsified, not owed"
+    ),
+)
 def test_two_offload_settings_of_one_model_are_shown_to_agree() -> None:
     result = json.loads(PLACEMENT.read_text(encoding="utf-8"))
     assert result["model"] and result["tier"], "the null names no model or tier"
@@ -68,7 +77,6 @@ def test_two_offload_settings_of_one_model_are_shown_to_agree() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no bound for new builds")
 def test_the_bound_this_is_judged_against_was_measured_on_this_build() -> None:
     """``tools/bench/reproducibility.json`` keys a bound on model, tier,
     gate_rungs, serving_build and cells. The patched image is a new

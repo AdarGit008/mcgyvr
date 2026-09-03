@@ -1,0 +1,41 @@
+```python
+# solution.py
+
+def drive_bridge(commands: list) -> str:
+    # Initialize the span in the lowered state
+    span_state = "lowered"
+    
+    for command in commands:
+        # Validate the command
+        if not isinstance(command, list) or len(command) != 2:
+            raise ValueError("Invalid command")
+        
+        # Validate the command word
+        if command[0] not in ["raise", "lower", "lock", "unlock"]:
+            raise ValueError("Invalid command word")
+        
+        # Validate the command's allowed state
+        allowed_states = {
+            "lowered": ["raise"],
+            "raised": ["lower", "lock"],
+            "locked": ["unlock"]
+        }
+        if span_state not in allowed_states:
+            raise ValueError("Invalid command state")
+        
+        # Execute the command
+        if command[0] == "raise":
+            if span_state == "lowered":
+                span_state = "raised"
+        elif command[0] == "lower":
+            if span_state == "raised":
+                span_state = "lowered"
+        elif command[0] == "lock":
+            if span_state == "lowered":
+                span_state = "locked"
+        elif command[0] == "unlock":
+            if span_state == "locked":
+                span_state = "raised"
+    
+    return span_state
+```

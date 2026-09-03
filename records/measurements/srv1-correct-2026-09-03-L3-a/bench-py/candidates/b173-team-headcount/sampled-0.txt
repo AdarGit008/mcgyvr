@@ -1,0 +1,14 @@
+```python
+def team_headcount(chart: dict, name: str) -> int:
+    if not isinstance(chart, dict) or not isinstance(name, str):
+        raise ValueError("Invalid input: chart must be a dictionary and name must be a string")
+    if name not in chart:
+        raise ValueError("Invalid input: name must be a key of the chart")
+    if not isinstance(chart[name], list):
+        raise ValueError("Invalid input: reports must be a list")
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("Invalid input: reports must be a list of strings")
+    if not chart[name]:
+        return 1
+    return 1 + sum(team_headcount(chart, report) for report in chart[name])
+```

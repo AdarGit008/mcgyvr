@@ -1,0 +1,31 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """
+    Converts a row and column number to a spreadsheet name.
+
+    Args:
+    - row: The row number, counted from zero.
+    - column: The column number, counted from zero.
+
+    Returns:
+    - A string representing the spreadsheet name.
+    """
+    if row < 0 or column < 0:
+        raise ValueError("Row and column must be non-negative integers.")
+    return chr(ord('A') + column) + str(row + 1)
+
+def grid_cells(rows: int, columns: int) -> list:
+    """
+    Returns the names of every cell in a grid of a given size, row by row.
+
+    Args:
+    - rows: The number of rows in the grid.
+    - columns: The number of columns in the grid.
+
+    Returns:
+    - A list of strings, each representing a cell name.
+    """
+    if rows < 1 or columns < 1:
+        raise ValueError("Grid size must be positive integers.")
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

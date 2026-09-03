@@ -1,0 +1,12 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    """
+    Return the part of a text standing between two places, the first included and the second not,
+    with places counted from zero. A place past the end is brought back to the end.
+    Reject a first place standing above the second with an error.
+    """
+    if start > end:
+        raise ValueError("The start place cannot be above the end place.")
+    
+    return text[start:end]
+```

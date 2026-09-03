@@ -1,0 +1,17 @@
+```python
+def mid_pair(values: list) -> list:
+    if not values:
+        return [None, None]
+
+    # Sort the list
+    values.sort()
+
+    n = len(values)
+    mid = n // 2
+
+    # If the length of the list is odd, return the middle two elements
+    if n % 2 != 0:
+        return [values[mid], values[mid]]
+    else:
+        return [values[mid - 1], values[mid]]
+```

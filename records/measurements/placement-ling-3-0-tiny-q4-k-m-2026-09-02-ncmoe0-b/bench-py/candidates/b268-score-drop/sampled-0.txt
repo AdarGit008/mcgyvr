@@ -1,0 +1,6 @@
+```python
+def score_drop(scores: list) -> int:
+    if len(scores) <= 1:
+        return 0
+    return sum(scores) - min(scores)
+```

@@ -1,0 +1,8 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or writes < 0 or k < 0 or k >= writes:
+        raise ValueError("Invalid arguments")
+
+    slot = k % capacity
+    return slot
+```

@@ -1,0 +1,32 @@
+```python
+from typing import List, Tuple
+
+def group_batches(jobs: List[Tuple[str, str, int, int]], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not all(isinstance(job, list) and len(job) == 4 and isinstance(job[0], str) and isinstance(job[1], str) and isinstance(job[2], int) and isinstance(job[3], int) for job in jobs):
+        raise ValueError("jobs must be a list of four-item lists")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    batches = []
+    current_batch = []
+    job_indices = {job[0]: i for i, job in enumerate(jobs)}
+    current_group = None
+
+    for job in sorted(jobs, key=lambda x: (-x[2], -job_indices[x[0]])):
+        if job[1] != current_group:
+            if current_group is not None:
+                batches.append(current_batch)
+            current_group = job[1]
+            current_batch = []
+        if job[3] <= capacity:
+            current_batch.append(job[0])
+            capacity -= job[3]
+            job_indices[job[0]] = -1
+
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
+```

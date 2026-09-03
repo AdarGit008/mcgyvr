@@ -1,0 +1,22 @@
+```python
+from typing import List, Optional
+
+def driest_window(rain: List[int], width: int) -> int:
+    if not isinstance(rain, list) or not all(isinstance(x, int) and x >= 0 for x in rain):
+        raise ValueError("Rain must be a list of non-negative integers.")
+    if not isinstance(width, int) or width < 1 or width > len(rain):
+        raise ValueError("Width must be a positive integer less than or equal to the number of days.")
+    if width == len(rain):
+        return 0
+    
+    min_sum = float('inf')
+    start_index = 0
+    
+    for i in range(len(rain)):
+        current_sum = sum(rain[i:i+width])
+        if current_sum < min_sum:
+            min_sum = current_sum
+            start_index = i
+    
+    return start_index
+```

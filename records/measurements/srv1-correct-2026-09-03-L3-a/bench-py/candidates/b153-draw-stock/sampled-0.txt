@@ -1,0 +1,23 @@
+```python
+from typing import *
+from collections import *
+
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(shelf, dict) or not isinstance(order, list):
+        raise ValueError("Invalid input")
+
+    for line in order:
+        if not isinstance(line, list) or len(line) != 2:
+            raise ValueError("Invalid order line")
+
+        item, count = line
+        if item not in shelf or not isinstance(count, int) or count < 0:
+            raise ValueError("Invalid item name or count")
+
+        if shelf[item] < count:
+            raise ValueError("Not enough stock for line")
+
+        shelf[item] -= count
+
+    return shelf
+```

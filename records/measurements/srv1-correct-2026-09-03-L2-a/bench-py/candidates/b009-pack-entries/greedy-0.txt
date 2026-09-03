@@ -1,0 +1,23 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    def is_valid_entry(entry):
+        if not isinstance(entry, list) or len(entry) != 2:
+            return False
+        key, value = entry
+        if not isinstance(key, str) or not isinstance(value, str):
+            return False
+        if key == "" or value == "":
+            return False
+        return True
+    
+    if not all(is_valid_entry(entry) for entry in entries):
+        raise ValueError("All entries must be two-element lists with string keys and values")
+    
+    def escape_string(s):
+        return s.replace("\\", "\\\\").replace("=", "\\=").replace(";", "\\;")
+    
+    return ";".join(f"{escape_string(key)}={escape_string(value)}" for key, value in entries)
+```

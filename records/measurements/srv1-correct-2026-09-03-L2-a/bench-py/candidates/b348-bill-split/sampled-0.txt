@@ -1,0 +1,20 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners == 0:
+        raise ValueError("Cannot split a bill with no diners.")
+    
+    # Calculate the total number of pennies to be divided
+    total_pennies = total * 100
+    
+    # Find the remainder when total_pennies is divided by diners
+    remainder = total_pennies % diners
+    
+    # Calculate how much each diner pays
+    each_diner = total_pennies // diners
+    
+    # Determine the amount the first diner pays
+    first_diner = each_diner + remainder if remainder > 0 else each_diner
+    
+    # Return the list of amounts each diner pays
+    return [first_diner] + [each_diner] * (diners - 1)
+```

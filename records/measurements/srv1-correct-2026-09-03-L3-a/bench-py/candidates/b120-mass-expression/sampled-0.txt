@@ -1,0 +1,55 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Both text and unit must be strings.")
+    if not text or not unit:
+        raise ValueError("Text and unit cannot be empty.")
+
+    units = {'g': 1, 'kg': 1000, 't': 1000000}
+    if unit not in units:
+        raise ValueError(f"Invalid unit: {unit}. Expected one of 'g', 'kg', or 't'.")
+
+    def parse_term(term):
+        if not term.isdigit():
+            raise ValueError(f"Invalid term: {term}. Expected a plain count.")
+        if term[0] == '0':
+            raise ValueError(f"Leading zero: {term}. Expected a non-zero count.")
+        return int(term)
+
+    def parse_tally(text):
+        terms = []
+        i = 0
+        while i < len(text):
+            if text[i] in ['+', '-']:
+                operator = text[i]
+                i += 1
+                term = text[i]
+                while i < len(text) and text[i].isdigit():
+                    term += text[i]
+                    i += 1
+                if term[0] == '0':
+                    raise ValueError(f"Leading zero: {term}. Expected a non-zero count.")
+                terms.append((operator, parse_term(term)))
+            elif text[i] == ' ':
+                i += 1
+            else:
+                raise ValueError(f"Invalid character: {text[i]}. Expected a space or an operator.")
+        return terms
+
+    terms = parse_tally(text)
+    running_total = 0
+    for op, term in terms:
+        if op == '+':
+            running_total += term
+        elif op == '-':
+            running_total -= term
+        else:
+            raise ValueError("Invalid operator: {op}. Expected '+' or '-'.")
+
+    if running_total != 0:
+        raise ValueError(f"Total not whole in the goal unit: {running_total} {unit}.")
+    if running_total < 0:
+        raise ValueError("Running amount below zero.")
+
+    return running_total
+```

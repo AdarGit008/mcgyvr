@@ -1,0 +1,7 @@
+```python
+def every_other(entries: list) -> list:
+    """Every second entry of a log, beginning with the second."""
+    if not entries:
+        return []
+    return entries[1::2]
+```

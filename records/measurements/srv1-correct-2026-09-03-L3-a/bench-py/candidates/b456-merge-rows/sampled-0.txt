@@ -1,0 +1,15 @@
+```python
+def row_keys(row: dict) -> list:
+    """Returns the names a row holds, in the order they hold them."""
+    return list(row.keys())
+
+
+def merge_rows(under: dict, over: dict) -> dict:
+    """One row laid over another, the row above winning."""
+    merged = over.copy()
+    for key in row_keys(under):
+        if key in merged and merged[key] == under[key]:
+            continue
+        merged[key] = under[key]
+    return merged
+```

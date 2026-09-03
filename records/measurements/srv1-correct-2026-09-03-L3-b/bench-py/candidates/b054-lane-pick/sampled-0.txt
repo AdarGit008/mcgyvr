@@ -1,0 +1,19 @@
+```python
+def pick_lane(queues: list, closed: list) -> int:
+    if not queues:
+        raise ValueError("queues must be a non-empty list")
+    if not all(isinstance(i, int) for i in queues):
+        raise ValueError("all elements in queues must be integers")
+    if not all(isinstance(i, int) for i in closed):
+        raise ValueError("all elements in closed must be integers")
+    if any(i < 0 or i >= len(queues) for i in closed):
+        raise ValueError("all closed indices must be valid indices of queues")
+    if all(queues[i] == 0 for i in closed):
+        raise ValueError("every lane must have at least one customer waiting")
+    
+    best = closed[0]
+    for lane in closed:
+        if queues[lane] <= queues[best] and lane not in closed:
+            best = lane
+    return best
+```

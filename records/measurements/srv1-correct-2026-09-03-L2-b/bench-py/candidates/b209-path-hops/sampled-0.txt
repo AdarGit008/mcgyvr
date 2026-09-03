@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def path_hops(start: str, goal: str) -> int:
+    def reduce_path(path: str) -> List[str]:
+        return [part for part in path.split('/') if part not in ['', '.']]
+
+    def count_hops(start_path: List[str], goal_path: List[str]) -> int:
+        common_prefix_length = min(len(start_path), len(goal_path))
+        shared_prefix = start_path[:common_prefix_length]
+        start_diff = len(start_path) - common_prefix_length
+        goal_diff = len(goal_path) - common_prefix_length
+
+        return start_diff + goal_diff
+
+    start_path = reduce_path(start)
+    goal_path = reduce_path(goal)
+    hops = count_hops(start_path, goal_path)
+
+    if start_path[-1] == '..' or goal_path[-1] == '..':
+        raise ValueError("Paths cannot climb above the shared root.")
+
+    return hops
+```

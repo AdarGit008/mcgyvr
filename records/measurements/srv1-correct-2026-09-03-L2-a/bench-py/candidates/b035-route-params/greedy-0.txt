@@ -1,0 +1,53 @@
+```python
+from typing import List, Dict, Optional
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    if path[0] != "/":
+        raise ValueError("Path must start with a slash")
+    return path[1:].split("/")
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(patterns, list) or not patterns:
+        raise ValueError("Patterns must be a non-empty list")
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    for i, pattern in enumerate(patterns):
+        if pattern == "**":
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> Dict[str, List[str]] | None:
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string")
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    if path[0] != "/":
+        raise ValueError("Path must start with a slash")
+    if path.endswith("/"):
+        raise ValueError("Path must not end with a slash")
+    if path == "/":
+        return {}
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    if len(pattern_segments) != len(segments) + 1:
+        raise ValueError("Pattern must match the path exactly")
+    capture_names = set()
+    for i, segment in enumerate(pattern_segments):
+        if segment == "**":
+            continue
+        if segment[0] == ":":
+            capture_name = segment[1:]
+            if not capture_name.isalnum() or capture_name[0] not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_":
+                raise ValueError(f"Capture name '{capture_name}' is invalid")
+            if capture_name in capture_names:
+                raise ValueError(f"Capture name '{capture_name}' is repeated")
+            capture_names.add(capture_name)
+        elif segment == "*":
+            continue
+        else:
+            if segment != segments[i]:
+                raise ValueError(f"Pattern segment '{segment}' does not match path segment '{segments[i]}'")
+    return {name: [segment] for name, segment in zip(capture_names, segments)}
+```

@@ -1,0 +1,31 @@
+```python
+from typing import List, Mapping, Any
+
+def pick_fields(records: List[Mapping[str, Any]], fields: List[str]) -> List[List[Any]]:
+    if not isinstance(records, list) or not all(isinstance(record, Mapping) for record in records):
+        raise ValueError("Records must be a list of dictionaries")
+    
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("Fields list must not be empty")
+    
+    result = []
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise ValueError("Record must be a dictionary")
+        
+        row = []
+        for field in fields:
+            if field.endswith('?'):
+                stem = field[:-1]
+                if stem in record and record[stem] is not None:
+                    row.append(record[stem])
+                else:
+                    row.append(None)
+            else:
+                if field in record:
+                    row.append(record[field])
+                else:
+                    raise ValueError(f"Required field '{field}' not found")
+        result.append(row)
+    return result
+```

@@ -1,0 +1,25 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if units <= 0 or capacity <= 0:
+        raise ValueError("Both units and capacity must be positive integers")
+
+    def recursive_plan(units, capacity, depth=0):
+        if units <= capacity:
+            return {units: depth, "splits": 0, "rounds": depth}
+        else:
+            half = (units + 1) // 2
+            left_load = recursive_plan(half, capacity, depth + 1)
+            right_load = recursive_plan(units - half, capacity, depth + 1)
+            return {
+                "units": right_load["units"] + left_load["units"],
+                "splits": left_load["splits"] + right_load["splits"] + 1,
+                "rounds": left_load["rounds"] if left_load["rounds"] > right_load["rounds"] else right_load["rounds"] + 1
+            }
+
+    try:
+        result = recursive_plan(units, capacity)
+    except ValueError as ve:
+        return str(ve)
+    else:
+        return result
+```

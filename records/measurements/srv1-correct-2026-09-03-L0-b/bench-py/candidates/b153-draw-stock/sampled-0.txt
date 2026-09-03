@@ -1,0 +1,33 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    """Draw items from the shelf based on the order.
+
+    Args:
+        shelf (dict): A dictionary mapping item names to counts on hand.
+        order (list): A list of [item, count] lines to pull from the shelf.
+
+    Returns:
+        dict: A new dictionary of what remains on the shelf.
+
+    Raises:
+        ValueError: If the shelf count is not a non-negative whole number,
+                  the order is not a list, a line whose count is not a positive whole number,
+                  a line naming an item the shelf does not hold, or a line pulling more of an item than the earlier lines left.
+    """
+    if not isinstance(shelf, dict):
+        raise ValueError("Shelf must be a dictionary.")
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list.")
+    
+    for line in order:
+        if not isinstance(line, list) or len(line) != 2:
+            raise ValueError("Order items must be [item, count] lines.")
+        item, count = line
+        if count <= 0:
+            raise ValueError("Order counts must be positive whole numbers.")
+        if item not in shelf or shelf[item] < count:
+            raise ValueError(f"Ordering '{item}' would exceed the remaining stock.")
+        shelf[item] -= count
+    
+    return shelf
+```

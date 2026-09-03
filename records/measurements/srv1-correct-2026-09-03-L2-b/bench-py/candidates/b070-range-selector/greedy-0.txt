@@ -1,0 +1,23 @@
+```python
+def selector_hits(values: list, selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+    if not all(term.isdigit() or '-' in term and len(term.split('-')) == 2 for term in selector.split(',')):
+        raise ValueError("selector must contain only integers or ranges")
+    if any(int(term.split('-')[0]) > int(term.split('-')[1]) for term in selector.split(',')):
+        raise ValueError("ranges must have a low end less than or equal to the high end")
+    
+    count = 0
+    for value in values:
+        for term in selector.split(','):
+            if term.isdigit():
+                if int(term) == value:
+                    count += 1
+            elif '-' in term:
+                low, high = map(int, term.split('-'))
+                if low <= value <= high:
+                    count += 1
+    return count
+```

@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    if not tags:
+        return []
+
+    # Helper function to compare two tags
+    def compare_tags(tag1, tag2):
+        parts1 = tag1.split('-') if '-' in tag1 else [tag1]
+        parts2 = tag2.split('-') if '-' in tag2 else [tag2]
+        major1, minor1, patch1 = map(int, parts1[0].split('.'))
+        major2, minor2, patch2 = map(int, parts2[0].split('.'))
+        preview1 = int(parts1[1].split('-')[-1]) if '-' in parts1[1] else 0
+        preview2 = int(parts2[1].split('-')[-1]) if '-' in parts2[1] else 0
+
+        for i in range(3):
+            if major1 != major2:
+                return major1 - major2
+            elif minor1 != minor2:
+                return minor1 - minor2
+            elif patch1 != patch2:
+                return patch1 - patch2
+            elif preview1 != preview2:
+                return preview1 - preview2
+
+        return 0
+
+    # Sort the tags using the helper function
+    sorted_tags = sorted(tags, key=lambda tag: (-compare_tags(tag, tag)))
+
+    return sorted_tags
+```

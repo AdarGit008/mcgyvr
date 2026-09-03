@@ -1,0 +1,10 @@
+```python
+from typing import *
+from collections import *
+
+def code_valid(code: str, length: int) -> bool:
+    if length <= 0:
+        raise ValueError("Code length must be greater than 0")
+    
+    return all(char.isalnum() for char in code) and len(code) == length
+```

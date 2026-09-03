@@ -1,0 +1,26 @@
+```python
+def audit_ticket(ticket: str) -> str:
+    if not isinstance(ticket, str):
+        raise ValueError("Input must be a string.")
+    
+    if len(ticket) != 12:
+        return "shape"
+    
+    if ticket[0] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" or ticket[1] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        return "shape"
+    
+    if ticket[3] not in "0123456789" or ticket[4] not in "0123456789" or ticket[5] not in "0123456789" or ticket[6] not in "0123456789":
+        return "shape"
+    
+    if ticket[8] != ticket[-1]:
+        return "check"
+    
+    total = (ord(ticket[0]) - ord('A') + 1) + (ord(ticket[1]) - ord('A') + 1) + \
+            int(ticket[3]) + 2 * int(ticket[4]) + 3 * int(ticket[5]) + 4 * int(ticket[6]) + \
+            int(ticket[8])
+    
+    if total % 10 != int(ticket[8]):
+        return "check"
+    
+    return "ok"
+```

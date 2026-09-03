@@ -1,0 +1,17 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    if start not in links:
+        raise ValueError(f"Unknown name: {start}")
+    
+    line = [start]
+    current = start
+    
+    while current != links[current]:
+        if current in links:
+            line.append(links[current])
+            current = links[current]
+        else:
+            raise ValueError(f"Circle detected: {start}")
+    
+    return line
+```

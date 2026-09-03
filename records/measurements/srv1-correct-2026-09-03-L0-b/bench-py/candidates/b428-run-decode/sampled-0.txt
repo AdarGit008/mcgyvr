@@ -1,0 +1,18 @@
+```python
+def run_decode(coded: str) -> str:
+    """
+    Decode a run of characters where each character is followed by a number indicating how many times it repeats.
+    
+    Parameters:
+    - coded (str): A string where each character is followed by a number indicating how many times it repeats.
+    
+    Returns:
+    - str: A string representing the decoded sequence of characters.
+    """
+    decoded = ''
+    for i in range(0, len(coded), 2):
+        letter = coded[i]
+        count = int(coded[i+1])
+        decoded += letter * count
+    return decoded
+```

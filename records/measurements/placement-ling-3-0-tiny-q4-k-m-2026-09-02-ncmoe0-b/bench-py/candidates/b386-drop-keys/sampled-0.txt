@@ -1,0 +1,9 @@
+```python
+def drop_keys(store: dict, keys: list) -> dict:
+    """Remove the keys from the store that are in the keys list."""
+    kept = {}
+    for key, value in store.items():
+        if key not in keys:
+            kept[key] = value
+    return kept
+```

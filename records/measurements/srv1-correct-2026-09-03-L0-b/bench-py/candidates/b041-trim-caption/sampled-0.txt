@@ -1,0 +1,23 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str) or not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Text must be a string and limit must be a positive whole number.")
+    
+    if len(text) <= limit:
+        return text
+    
+    words = text.split()
+    truncated_words = []
+    total_length = 0
+    
+    for word in words:
+        if total_length + len(word) + 1 > limit:
+            break
+        truncated_words.append(word)
+        total_length += len(word) + 1
+    
+    if total_length > limit:
+        truncated_words[-1] = truncated_words[-1][:-1]  # Remove trailing space if necessary
+    
+    return ' '.join(truncated_words) + '…'
+```

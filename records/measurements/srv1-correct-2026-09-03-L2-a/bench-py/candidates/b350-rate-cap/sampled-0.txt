@@ -1,0 +1,25 @@
+```python
+def rate_cap(price: int, rate: int, most: int) -> int:
+    """
+    Raise the price by a whole-percent rate, but never by more than a stated largest increase.
+    Return the new price, with the increase rounded down.
+
+    :param price: The current price of the item.
+    :param rate: The percentage increase to apply.
+    :param most: The maximum allowed increase in the price.
+    :return: The new price after applying the rate and ensuring it does not exceed the most.
+    """
+    if rate < 0:
+        raise ValueError("Rate cannot be negative")
+    
+    # Calculate the increase amount, ensuring it does not exceed the most
+    increase = min(most, price * (rate / 100))
+    
+    # Round down the increase to the nearest whole number
+    increase = int(increase)
+    
+    # Apply the increase to the price
+    new_price = price + increase
+    
+    return new_price
+```

@@ -1,0 +1,25 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if not isinstance(units, int) or not isinstance(capacity, int) or units <= 0 or capacity <= 0:
+        raise ValueError("Invalid input: units and capacity must be positive integers.")
+
+    if units <= capacity:
+        return {"units": units, "splits": 0, "rounds": 0}
+
+    half_capacity = capacity // 2
+    left_units = half_capacity
+    right_units = units - half_capacity
+
+    left_batches = plan_batches(left_units, capacity)
+    right_batches = plan_batches(right_units, capacity)
+
+    total_units = left_batches["units"] + right_batches["units"]
+    total_splits = left_batches["splits"] + right_batches["splits"] + 1
+    total_rounds = max(left_batches["rounds"], right_batches["rounds"]) + 1
+
+    return {
+        "units": total_units,
+        "splits": total_splits,
+        "rounds": total_rounds
+    }
+```

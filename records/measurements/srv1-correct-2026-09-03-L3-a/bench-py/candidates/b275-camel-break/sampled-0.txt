@@ -1,0 +1,24 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Break a camel case string into its constituent words in lower case.
+
+    :param name: The camel case string to break.
+    :return: A list of words in lower case.
+    """
+    result = []
+    in_word = False
+    for char in name:
+        if char.isupper():
+            if in_word:
+                result.append("")
+            in_word = True
+            result.append(char.lower())
+        else:
+            if in_word:
+                result.append(char)
+            in_word = False
+    if in_word:
+        result.append("")
+    return result
+```

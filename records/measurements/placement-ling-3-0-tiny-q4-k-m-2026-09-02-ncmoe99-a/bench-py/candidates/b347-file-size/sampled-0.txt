@@ -1,0 +1,11 @@
+```python
+def size_unit(bytes_count: int) -> str:
+    if bytes_count < 1024:
+        return "B"
+    if bytes_count < 1024 * 1024:
+        return "KB"
+    return "MB"
+
+
+def size_text(bytes_count: int) -> str:
+    """A byte count written in whole

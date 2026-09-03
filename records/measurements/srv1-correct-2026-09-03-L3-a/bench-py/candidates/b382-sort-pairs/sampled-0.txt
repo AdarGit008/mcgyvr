@@ -1,0 +1,29 @@
+```python
+from typing import Any, List
+
+def field_of(record: dict, field: str) -> int:
+    """
+    Returns the value of a record's field if it exists, otherwise raises a ValueError.
+    
+    :param record: The record as a dictionary.
+    :param field: The name of the field to retrieve.
+    :return: The value of the field.
+    """
+    if field not in record:
+        raise ValueError(f"Record lacks field '{field}'.")
+    return record[field]
+
+def sort_pairs(records: List[dict], field: str) -> List[dict]:
+    """
+    Sorts a list of records by the specified field, breaking ties by leaving the earlier record earlier.
+    
+    :param records: The list of records to sort.
+    :param field: The name of the field to sort by.
+    :return: A new list of records sorted by the specified field.
+    """
+    if not records:
+        return []
+    
+    # Use a custom sort key that sorts based on the field value while maintaining the original order for ties.
+    return sorted(records, key=lambda x: (x[field], records.index(x)))
+```

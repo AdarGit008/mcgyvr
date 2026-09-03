@@ -1,0 +1,37 @@
+```python
+from typing import List, Tuple
+
+def split_agenda(sessions: List[Tuple[int, int]], limit: int) -> List[Tuple[int, int]]:
+    # Validate input
+    if not sessions or not isinstance(sessions, list) or not all(isinstance(session, tuple) and len(session) == 2 for session in sessions):
+        raise ValueError("Invalid sessions format")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Invalid limit")
+    for session in sessions:
+        if not all(isinstance(time, int) for time in session) or time < 0:
+            raise ValueError("Invalid time in session")
+
+    # Sort sessions by start time
+    sessions.sort()
+
+    # Initialize result list
+    result = []
+
+    # Process sessions
+    for i in range(len(sessions)):
+        start, end = sessions[i]
+        # Skip if session is already within limit
+        if end - start <= limit:
+            result.append((start, end))
+            continue
+        # Find the midpoint for cutting the session
+        mid = (start + end) // 2
+        # Cut the session if it's longer than limit
+        if mid < sessions[i][1]:
+            mid += 1
+        # Split the session
+        result.append((start, mid))
+        result.append((mid, end))
+
+    return result
+```

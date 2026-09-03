@@ -1,0 +1,38 @@
+```python
+from typing import List, Dict
+
+def draw_tree_lines(root: dict) -> List[str]:
+    def draw_node(node: Dict, depth: int) -> List[str]:
+        lines = []
+        if not isinstance(node["name"], str) or node["name"].strip() == "" or node["name"].find("\n") != -1:
+            raise ValueError("Invalid node name")
+        if not isinstance(node["children"], list):
+            raise ValueError("Invalid children value")
+        if not all(isinstance(child, str) for child in node["children"]):
+            raise ValueError("Invalid children values")
+
+        # Calculate the number of spaces for the current level
+        spaces = " " * (depth * 4)
+
+        # Draw the current node
+        if depth == 0:
+            lines.append(f"{spaces}{node['name']}")
+        else:
+            lines.append(f"{spaces}|-- {node['name']}")
+
+        # Draw the children
+        for i, child in enumerate(node["children"]):
+            if i < len(node["children"]) - 1:
+                lines.extend(draw_node(child, depth + 1))
+            else:
+                lines.append(f"{spaces}'-- {child}")
+
+        return lines
+
+    if not isinstance(root, dict):
+        raise ValueError("Invalid root value")
+    if "name" not in root or "children" not in root:
+        raise ValueError("Root must contain 'name' and 'children' fields")
+
+    return draw_node(root, 0)
+```

@@ -1,0 +1,19 @@
+```python
+from typing import *
+from collections import *
+
+def pair_off(marks: list[str]) -> list[str]:
+    if len(marks) % 2 != 0:
+        raise ValueError("Input length must be even")
+    
+    result = []
+    i = 0
+    while i < len(marks):
+        if i + 1 < len(marks) and marks[i] == marks[i + 1]:
+            i += 2
+        else:
+            result.append(marks[i])
+            i += 1
+    
+    return result
+```

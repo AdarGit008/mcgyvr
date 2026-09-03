@@ -1,0 +1,20 @@
+```python
+def hex_groups(values: list, width: int) -> str:
+    # Validate input
+    if not isinstance(values, list):
+        raise ValueError("Input must be a list")
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in values):
+        raise ValueError("All elements must be integers between 0 and 255")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer")
+
+    # Convert byte values to hexadecimal strings
+    hex_values = [f"{byte:02x}" for byte in values]
+
+    # Group the hexadecimal strings
+    grouped_hex = []
+    for i in range(0, len(hex_values), width):
+        grouped_hex.append(' '.join(hex_values[i:i+width]))
+
+    return ' '.join(grouped_hex)
+```

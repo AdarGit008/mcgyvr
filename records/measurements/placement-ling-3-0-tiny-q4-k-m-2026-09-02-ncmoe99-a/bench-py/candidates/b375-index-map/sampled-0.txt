@@ -1,0 +1,10 @@
+```python
+def index_map(labels: list) -> dict:
+    """Return a mapping from each label to every position it holds, positions counted from zero in increasing order."""
+    result = {}
+    for index, label in enumerate(labels):
+        if label not in result:
+            result[label] = []
+        result[label].append(index)
+    return result
+```

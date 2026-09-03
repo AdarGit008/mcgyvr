@@ -1,0 +1,29 @@
+```python
+from typing import *
+from collections import deque
+
+class CacheEntry:
+    def __init__(self, value: str, stored: int, ttl: int):
+        self.value = value
+        self.stored = stored
+        self.ttl = ttl
+
+class Cache:
+    def __init__(self):
+        self.entries = deque()
+
+    def put(self, value: str, stored: int, ttl: int):
+        if not isinstance(value, str):
+            raise ValueError("Value must be a string")
+        if not isinstance(stored, int) or stored < 0:
+            raise ValueError("Stored must be a non-negative integer")
+        if not isinstance(ttl, int) or ttl <= 0:
+            raise ValueError("TTL must be a positive integer")
+        self.entries.append(CacheEntry(value, stored, ttl))
+
+    def get(self, stored: int, now: int) -> str:
+        for entry in self.entries:
+            if entry.stored <= stored < entry.stored + entry.ttl and stored <= now:
+                return entry.value
+        raise ValueError("Record no longer usable at now")
+```

@@ -1,0 +1,12 @@
+```python
+def sort_by_len(words: list) -> list:
+    """
+    Sorts a list of words by their length, with shorter words first.
+    If two words have the same length, they are sorted alphabetically.
+    
+    :param words: List of words to sort.
+    :return: A new list of words sorted by length and alphabetically.
+    """
+    # Sort the list by length, then alphabetically for words of the same length
+    return sorted(words, key=lambda x: (len(x), x))
+```

@@ -1,0 +1,44 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """
+    Decode a note stored in a mail-safe escaped form.
+
+    Args:
+    text (str): The note in escaped form.
+
+    Returns:
+    str: The decoded text.
+
+    Raises:
+    ValueError: If an "=" in the folded text is not followed by two uppercase hexadecimal digits.
+    """
+
+    def decode_char(c):
+        if c == '=':
+            return chr(int(text[i+1:i+3], 16))
+        else:
+            return c
+
+    def decode_line(line):
+        result = []
+        i = 0
+        while i < len(line):
+            if line[i] == '=':
+                if i + 2 < len(line) and line[i+1:i+3].isdigit():
+                    result.append(decode_char(line[i]))
+                    i += 3
+                else:
+                    raise ValueError("Invalid '=' in the folded text")
+            else:
+                result.append(decode_char(line[i]))
+                i += 1
+        return ''.join(result)
+
+    decoded_text = ""
+    lines = text.split('\n')
+    for line in lines:
+        if line:
+            decoded_text += decode_line(line)
+            decoded_text += '\n'
+    return decoded_text.rstrip()
+```

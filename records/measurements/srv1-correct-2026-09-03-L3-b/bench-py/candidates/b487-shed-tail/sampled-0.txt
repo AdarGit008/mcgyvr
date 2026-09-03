@@ -1,0 +1,16 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """
+    Takes a closing piece off the end of a text again and again,
+    for as long as the text still closes with it. A text that never
+    closes with the piece is given back whole, and a piece holding nothing
+    leaves the text alone.
+    """
+    if not text or not piece:
+        raise ValueError("Input text or piece cannot be empty")
+
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+
+    return text
+```

@@ -1,0 +1,35 @@
+```python
+from typing import *
+from collections import *
+
+def number_sections(sections: List[Mapping[str, Any]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("outline is not a list")
+    result = []
+    for i, section in enumerate(sections):
+        if not isinstance(section, Mapping):
+            raise ValueError("section is not a mapping")
+        if not isinstance(section["children"], list):
+            raise ValueError("section's children is not a list")
+        if not isinstance(section["heading"], str) or section["heading"].strip() == "":
+            raise ValueError("section's heading is not a non-empty string")
+        label = f"{i+1} {section['heading']}"
+        result.append(label)
+        if section["children"]:
+            result.extend(number_sections(section["children"]))
+    return result
+
+def section_count(sections: List[Mapping[str, Any]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("outline is not a list")
+    depth_count = defaultdict(int)
+    def count_depth(section):
+        if not isinstance(section, Mapping):
+            raise ValueError("section is not a mapping")
+        depth_count[section.get("depth", 0)] += 1
+        if section.get("children", []):
+            for child in section["children"]:
+                count_depth(child)
+    count_depth(sections)
+    return list(depth_count.values())
+```

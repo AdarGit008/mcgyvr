@@ -1,0 +1,22 @@
+```python
+def run_decode(coded: str) -> str:
+    """
+    Decode a run of characters into their full forms.
+    
+    A run is a letter followed by how many times it repeats, e.g., A3B1 stands for AAAB.
+    
+    :param coded: A string representing a run of characters.
+    :return: A string representing the full form of the run.
+    """
+    decoded = ""
+    i = 0
+    while i < len(coded):
+        letter = coded[i]
+        count = ""
+        i += 1
+        while i < len(coded) and coded[i].isdigit():
+            count += coded[i]
+            i += 1
+        decoded += letter * int(count)
+    return decoded
+```

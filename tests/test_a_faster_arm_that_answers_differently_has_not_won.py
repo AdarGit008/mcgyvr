@@ -25,11 +25,9 @@ from __future__ import annotations
 
 import json
 
-import pytest
+from tests.sweeprows import REPO, evidence_path
 
-from tests.sweeprows import REPO, RUN
-
-CORRECTNESS = RUN / "correctness.json"
+CORRECTNESS = evidence_path("correctness.json")
 REPRO = REPO / "tools" / "bench" / "reproducibility.json"
 
 
@@ -45,7 +43,6 @@ def test_the_instrument_and_its_bar_are_in_the_tree() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no arm scored")
 def test_every_arm_named_a_winner_was_scored_through_the_gate() -> None:
     result = json.loads(CORRECTNESS.read_text(encoding="utf-8"))
     scored = {a["arm"] for a in result["arms"]}
@@ -57,7 +54,6 @@ def test_every_arm_named_a_winner_was_scored_through_the_gate() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no self-null priced")
 def test_each_arm_priced_its_own_null_before_being_compared() -> None:
     result = json.loads(CORRECTNESS.read_text(encoding="utf-8"))
     for arm in result["arms"]:
@@ -74,7 +70,6 @@ def test_each_arm_priced_its_own_null_before_being_compared() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="2026-09-02: owed — no arm scored")
 def test_drift_from_the_reference_arm_is_inside_the_bound_that_arm_measured() -> None:
     result = json.loads(CORRECTNESS.read_text(encoding="utf-8"))
     reference = [a for a in result["arms"] if a.get("is_reference")]

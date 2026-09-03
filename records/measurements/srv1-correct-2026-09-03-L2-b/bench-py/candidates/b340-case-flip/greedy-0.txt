@@ -1,0 +1,5 @@
+```python
+def swap_case(text: str) -> str:
+    """Text with the case of every letter turned over."""
+    return ''.join(c.swapcase() if c.isalpha() else c for c in text)
+```

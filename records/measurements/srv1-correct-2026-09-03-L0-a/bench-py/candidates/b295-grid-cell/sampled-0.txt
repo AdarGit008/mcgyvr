@@ -1,0 +1,27 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """Turn a row and a column, both counted from zero, into a spreadsheet name."""
+    # Map column index to column letter
+    col_name = chr(65 + column)
+    # Ensure the column name is exactly two characters long
+    if len(col_name) == 1:
+        col_name = 'A' + col_name
+    # Ensure the row is not negative or zero
+    if row <= 0:
+        raise ValueError("Row must be a positive integer")
+    # Format the cell name with the row number
+    return col_name + str(row)
+
+def grid_cells(rows: int, columns: int) -> list:
+    """Return the names of every cell in a grid of a given size, row by row."""
+    # Initialize an empty list to store cell names
+    cell_list = []
+    # Iterate over the rows
+    for row in range(1, rows + 1):
+        # Iterate over the columns
+        for col in range(1, columns + 1):
+            # Append the cell name to the list
+            cell_list.append(cell_name(row, col))
+    # Return the list of cell names
+    return cell_list
+```

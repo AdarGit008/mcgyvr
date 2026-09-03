@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[tuple]) -> bool:
+    if not hops:
+        return True
+
+    current_end = hops[0][1]
+    for start, end in hops[1:]:
+        if start != current_end:
+            return False
+        current_end = end
+
+    return True
+```

@@ -1,0 +1,35 @@
+```python
+def run_reservoir(capacity: int, start: int, ticks: list) -> dict:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if not isinstance(start, int) or start < 0 or start > capacity:
+        raise ValueError("Starting level must be an integer from 0 to the capacity")
+    if not all(isinstance(tick, list) and len(tick) == 2 for tick in ticks):
+        raise ValueError("Ticks must be a list of two-item pairs")
+    if not all(isinstance(tick[0], int) and isinstance(tick[1], int) for tick in ticks):
+        raise ValueError("Inflows and demands must be non-negative integers")
+
+    level = start
+    spilled = 0
+    shortfall = 0
+    served = 0
+
+    for inflow, demand in ticks:
+        if inflow > capacity:
+            spilled += inflow - capacity
+            level = capacity
+        else:
+            level += inflow
+            if level > capacity:
+                spilled += level - capacity
+                level = capacity
+        served += min(demand, level)
+        shortfall += max(0, demand - served)
+
+    return {
+        "level": level,
+        "spilled": spilled,
+        "shortfall": shortfall,
+        "served": served
+    }
+```

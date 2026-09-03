@@ -74,6 +74,33 @@ images (the ladder also needs step 3); the order above loses least if srv1 locks
   check stays a strict `xfail`: nothing here separates an honest coincidence
   (one checkpoint, one card, one context size) from a copied floor.
 
+## The re-run, 2026-09-02 22:00 – 2026-09-03 07:13 UTC, under round r2-02-09-2026
+
+Every invocation through `tools/runs/run.sh`, from the checkout on srv1. Steps
+6 and 7 landed in this envelope; the door dates its envelope, and everything
+after midnight UTC is in `records/evidence/2026-09-03-srv1-kernel-arms/`
+(`tools/runs/rows.py:ENVELOPE` says which file lives where).
+
+| # | step | run id (suffix) | result |
+|---|---|---|---|
+| 1 | 6 placement | `moe-slots` | **`flips=9` of 257** between `ncmoe=0` and `ncmoe=99` on L3 / Ling-3.0-tiny, own null 0 flips, bound 1.47pp: **placement is not output-neutral** at this bound. Behaviour 10 now fails on a measurement, not on a missing file. The pre-door file is kept as `srv1-moe-slots.pre-door-2026-09-02.tsv` |
+| 2 | 7 crash | `crash` | reproduced: `### BOUNDARY arm=L2 first_failing_n=2`, 20 `CRASH` rows, L3 clean |
+| 3 | 1 ladder pass 1 | `build-ladder-a3fix` | A3 rebuilt with `libX11 libXext libGLdispatch` |
+| 4 | 3 bench | `llama-bench-a3fix` | **A3 `REFUSED`**: declared vulkan, measured CPU (the verdict working). Kept as `srv1-llama-bench.a3fix-refused.tsv` |
+| 5 | 1 ladder pass 2 | `build-ladder-a3fix-pass2` | exit 1, correctly: no BENCH row for A3 |
+| 6 | 1 ladder pass 1 | `build-ladder-egl` | A3 rebuilt with `libEGL` too (`icd_deps=x11-egl`) |
+| 7 | 3 bench | `llama-bench-egl` | **A3 `REFUSED` again**, on srv1 only: the same image lists Vulkan0 on srv2. Kept as `srv1-llama-bench.egl-refused.tsv` |
+| 8 | 1 ladder pass 2 | `build-ladder-egl-pass2` | exit 1, correctly |
+| 9 | 3 bench | `llama-bench-cdi` | A3 requested through CDI (`--device nvidia.com/gpu=all`): **`backend=Vulkan`, 677 tok/s prefill at p512 fa1**, 89 gen — 1.9x the native sm_75 CUDA build (355), half the arch spoof (1275). The filed `srv1-llama-bench.tsv` |
+| 10 | 1 ladder pass 2 | `build-ladder-cdi-pass2` | green; the filed `srv1-build-ladder.tsv`, every rung priced, A3 on Vulkan |
+| 11 | 5 correct | `correctness-b` | L0 reference, L2 and L3 each **1 flip / 257 = 0.39pp** drift, inside every arm's own 1.47pp bound (0 self-null flips each); winner L3 has not answered differently. Behaviour 11 green |
+
+Three layers stood between A3 and the card, each found inside the container
+and each refused rather than filed: the ICD's linked libraries (`libXext`),
+the library it dlopens at init (`libEGL`), and the ICD manifest, which docker
+29.1.3 on srv1 does not mount for `--gpus all` (29.7.1 on srv2 does). The
+full trace: `refusals/A3-vulkan-never-loaded.txt`.
+
 ## Cross-script contracts
 
 `1-build-ladder.sh` is the sole producer of `llamacpp:b10644-*`;

@@ -1,0 +1,38 @@
+```python
+"""Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+import re
+
+
+def parse_amount(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("amount must be a string")
+    match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+    if match is None:
+        raise ValueError(f"malformed amount: {text}")
+    whole = int(match.group(1))
+    cents = 0 if match.group(2) is None else int(match.group(2))
+    return whole * 100 + cents
+
+
+def format_amount(cents: int) -> str:
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    if not total_cents >= 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not weights or not all(isinstance(weight, int) and weight >= 0 for weight in weights):
+        raise ValueError("weights must be a list of non-negative integers")
+    if sum(weights) == 0:
+        raise ValueError("weights must sum to a non-negative integer")
+    if not weights:
+        raise ValueError("weights list cannot be empty")
+    share_amounts = [total_cents * weight // sum(weights) for weight in weights]
+    remaining_cents = total_cents - sum(share_amounts)
+    for i in range(len(remaining_cents)):
+        share_amounts[i] += 1
+    return share_amounts
+```

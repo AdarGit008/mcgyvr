@@ -1,0 +1,10 @@
+```python
+def clip_text(text: str, start: int, end: int) -> str:
+    if start < 0 or end < 0 or start > end:
+        raise ValueError("Invalid places. Start cannot be negative, end cannot be negative, and start must be less than or equal to end.")
+    
+    if end > len(text):
+        end = len(text)
+    
+    return text[start:end]
+```

@@ -1,0 +1,27 @@
+```python
+from typing import List, Dict
+
+def column_digest(rows: List[List[int]], column: int) -> Dict[str, float]:
+    if column < 0 or column >= len(rows[0]):
+        raise ValueError("Column index is out of bounds.")
+    
+    cells = [row[column] for row in rows if column < len(row)]
+    count = len(cells)
+    
+    if count == 0:
+        return {'count': 0, 'min': 0, 'max': 0, 'mean': 0, 'median': 0}
+    
+    cells.sort()
+    min_val = cells[0]
+    max_val = cells[-1]
+    mean_val = sum(cells) / count
+    median_val = cells[count // 2] if count % 2 != 0 else (cells[count // 2 - 1] + cells[count // 2]) / 2
+    
+    return {
+        'count': count,
+        'min': round(min_val, 2),
+        'max': round(max_val, 2),
+        'mean': round(mean_val, 2),
+        'median': round(median_val, 2)
+    }
+```

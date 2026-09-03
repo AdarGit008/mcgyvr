@@ -1,0 +1,34 @@
+```python
+def ramp_step(current: int, target: int, step: int) -> int:
+    """
+    Returns the next value moving from `current` toward `target` by at most `step`,
+    never overshooting the target.
+
+    :param current: The current value.
+    :param target: The target value.
+    :param step: The maximum step size.
+    :return: The next value.
+    """
+    if step == 0:
+        raise ValueError("Step size must be positive")
+    if step > target - current:
+        return target
+    return current + step
+
+def ramp_plan(start: int, target: int, step: int) -> list:
+    """
+    Returns a list of every value visited going from `start` to `target`, both ends included.
+
+    :param start: The starting value.
+    :param target: The target value.
+    :param step: The step size.
+    :return: A list of values.
+    """
+    if start == target:
+        return [start]
+    if step == 0:
+        raise ValueError("Step size must be positive")
+    if start > target:
+        start, target = target, start
+    return list(range(start, target + 1, step))
+```

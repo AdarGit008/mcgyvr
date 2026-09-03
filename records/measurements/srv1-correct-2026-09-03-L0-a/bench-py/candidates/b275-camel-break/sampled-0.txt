@@ -1,0 +1,26 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Breaks a camel case identifier into its individual words.
+
+    :param name: A string representing the camel case identifier.
+    :return: A list of strings, each representing a word from the original identifier.
+    """
+    if not name:
+        return []
+
+    words = []
+    current_word = name[0].lower()
+    for char in name[1:]:
+        if char.isupper():
+            if current_word:
+                words.append(current_word)
+            current_word = char.lower()
+        else:
+            current_word += char
+
+    if current_word:
+        words.append(current_word)
+
+    return words
+```

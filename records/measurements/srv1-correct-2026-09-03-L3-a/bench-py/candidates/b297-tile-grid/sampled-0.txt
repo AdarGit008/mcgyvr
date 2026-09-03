@@ -1,0 +1,37 @@
+```python
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Returns how many tiles of a given size cover a length, rounding up.
+
+    :param length: length to cover
+    :param tile: size of one tile
+    :return: number of tiles needed
+    """
+    if length <= 0:
+        raise ValueError("Length must be a positive integer")
+    return (length + tile - 1) // tile
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Returns the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again.
+
+    :param width: width of the wall
+    :param height: height of the wall
+    :param tile: size of one tile
+    :param spare: allowance for breakages (as a percentage)
+    :return: total number of tiles needed
+    """
+    if width <= 0 or height <= 0:
+        raise ValueError("Width and height must be positive integers")
+    if spare < 0 or spare > 100:
+        raise ValueError("Spare must be between 0 and 100")
+    
+    # Calculate total tiles needed without allowance
+    total_tiles = (width * height) // tile
+    
+    # Calculate allowance based on the spare percentage
+    allowance = total_tiles * (spare / 100)
+    
+    # Round up to the nearest whole tile
+    return int(total_tiles + allowance) + 1
+```

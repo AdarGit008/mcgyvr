@@ -1,0 +1,13 @@
+```python
+def root_digit(value: int) -> int:
+    if value < 10:
+        return value
+    left = value
+    total = 0
+    while left > 0:
+        total += left % 10
+        left = left // 10
+    while total >= 10:
+        total = sum(int(digit) for digit in str(total))
+    return total
+```

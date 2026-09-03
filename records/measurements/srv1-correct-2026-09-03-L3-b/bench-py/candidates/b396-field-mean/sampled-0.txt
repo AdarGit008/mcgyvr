@@ -1,0 +1,18 @@
+```python
+from typing import List, Union
+from collections import defaultdict
+
+def field_mean(records: List[dict], field: str) -> int:
+    total_sum = 0
+    count = 0
+    for record in records:
+        if field in record:
+            if isinstance(record[field], (int, float)):
+                total_sum += record[field]
+                count += 1
+            else:
+                raise ValueError(f"Field '{field}' in record is not a number.")
+    if count == 0:
+        return 0
+    return int(total_sum // count)
+```

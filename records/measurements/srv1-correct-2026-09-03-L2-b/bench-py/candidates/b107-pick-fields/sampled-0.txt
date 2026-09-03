@@ -1,0 +1,19 @@
+```python
+def pick_fields(records: list, fields: list) -> list:
+    if not all(isinstance(record, list) and isinstance(record, dict) for record in records):
+        raise ValueError("All records must be lists of mappings.")
+    
+    if not all(isinstance(field, str) for field in fields):
+        raise ValueError("All field names must be strings.")
+    
+    if not all(field.endswith('?') or field.isalnum() for field in fields):
+        raise ValueError("Field names must end with '?' if optional, or be alphanumeric.")
+    
+    if not all(field.startswith(field[:-1]) or field == field[:-1] for field in fields):
+        raise ValueError("No two field names may share the same stem with or without the marker.")
+    
+    if not all(field in record for record in records for field in fields):
+        raise ValueError("All required fields must be present in every record.")
+    
+    return [[record[field] if field in record else None for field in fields] for record in records]
+```

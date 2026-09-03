@@ -1,0 +1,15 @@
+```python
+def count_by(records: list, field: str) -> dict:
+    if not field:
+        raise ValueError("Field name cannot be empty")
+    
+    counts = {}
+    for record in records:
+        if field in record:
+            value = record[field]
+            if value in counts:
+                counts[value] += 1
+            else:
+                counts[value] = 1
+    return counts
+```

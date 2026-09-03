@@ -1,0 +1,24 @@
+```python
+from typing import List, Union
+
+def field_mean(records: List[dict], field: str) -> int:
+    if not records:
+        return 0
+
+    total_sum = 0
+    count = 0
+
+    for record in records:
+        if field in record:
+            try:
+                value = int(record[field])
+                total_sum += value
+                count += 1
+            except ValueError:
+                continue
+
+    if count == 0:
+        return 0
+
+    return total_sum // count
+```

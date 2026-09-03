@@ -1,0 +1,15 @@
+```python
+def run_decode(coded: str) -> str:
+    decoded = []
+    i = 0
+    while i < len(coded):
+        if coded[i].isdigit():
+            count = int(coded[i])
+            i += 1
+            decoded.append(coded[i] * count)
+            i += 1
+        else:
+            decoded.append(coded[i])
+            i += 1
+    return ''.join(decoded)
+```

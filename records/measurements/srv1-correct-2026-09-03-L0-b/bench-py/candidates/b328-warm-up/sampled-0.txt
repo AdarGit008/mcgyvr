@@ -1,0 +1,17 @@
+```python
+def warm_up(readings: list, floor: int) -> list:
+    """
+    Discards readings from the start until a reading reaches or equals the floor.
+    Returns everything from the first reading that reaches the floor.
+    """
+    if not readings or floor < 0:
+        raise ValueError("Invalid input")
+
+    start_index = 0
+    for i in range(len(readings)):
+        if readings[i] >= floor:
+            start_index = i
+            break
+
+    return readings[start_index:]
+```

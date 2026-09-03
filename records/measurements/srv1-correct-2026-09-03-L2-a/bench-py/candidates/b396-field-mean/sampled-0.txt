@@ -1,0 +1,19 @@
+```python
+from typing import List, Dict, Any
+
+def field_mean(records: List[Dict[str, Any]], field: str) -> int:
+    total = 0
+    count = 0
+    for record in records:
+        if field in record:
+            try:
+                value = int(record[field])
+                total += value
+                count += 1
+            except ValueError:
+                # Ignore records with non-numeric fields
+                continue
+    if count == 0:
+        return 0
+    return total // count
+```

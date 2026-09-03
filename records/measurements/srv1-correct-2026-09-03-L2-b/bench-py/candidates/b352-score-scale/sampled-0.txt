@@ -1,0 +1,29 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    """Restate a mark given out of one total as a mark out of another, rounded down.
+
+    Parameters:
+    - mark (int): The current mark to be scaled.
+    - was_out_of (int): The total out of which the original mark is from.
+    - now_out_of (int): The new total after scaling.
+
+    Returns:
+    - int: The scaled mark, rounded down, or None if the new total is zero.
+    """
+    if was_out_of <= 0 or now_out_of <= 0:
+        raise ValueError("Total cannot be zero")
+    if mark > was_out_of:
+        raise ValueError("Mark cannot exceed original total")
+
+    # Calculate the scaling factor
+    scale_factor = now_out_of / was_out_of
+
+    # Scale the mark
+    scaled_mark = int(mark * scale_factor)
+
+    # Ensure the new mark is not higher than the new total
+    if scaled_mark > now_out_of:
+        scaled_mark = now_out_of
+
+    return scaled_mark
+```

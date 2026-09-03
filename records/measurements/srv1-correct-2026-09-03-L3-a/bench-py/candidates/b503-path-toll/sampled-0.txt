@@ -1,0 +1,17 @@
+```python
+def step_cost(kind: str) -> int:
+    if kind not in {"walk", "bike", "drive"}:
+        raise ValueError("Invalid kind. Must be 'walk', 'bike', or 'drive'.")
+    return 10 if kind == "walk" or kind == "drive" else 20
+
+def path_toll(steps: list[str]) -> int:
+    if not steps:
+        return 0
+    total_cost = 0
+    for i, step in enumerate(steps):
+        if i % 3 == 0:
+            total_cost += step_cost("walk")
+        else:
+            total_cost += step_cost("bike")
+    return total_cost
+```

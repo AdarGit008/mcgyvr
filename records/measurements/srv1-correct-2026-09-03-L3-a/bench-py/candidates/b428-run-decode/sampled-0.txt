@@ -1,0 +1,17 @@
+```python
+def run_decode(coded: str) -> str:
+    result = []
+    i = 0
+    while i < len(coded):
+        char = coded[i]
+        if char.isdigit():
+            count = 0
+            while i < len(coded) and coded[i].isdigit():
+                count = count * 10 + int(coded[i])
+                i += 1
+            result.append(char * count)
+        else:
+            result.append(char)
+            i += 1
+    return ''.join(result)
+```

@@ -1,0 +1,10 @@
+```python
+def seat_block(label: str) -> list:
+    if not label.isalpha() or label[1:].isdigit() or len(label) != 2:
+        raise ValueError("Invalid seat label")
+
+    row = int(label[:-1])
+    letter = label[-1].upper()
+
+    return [row, letter]
+```

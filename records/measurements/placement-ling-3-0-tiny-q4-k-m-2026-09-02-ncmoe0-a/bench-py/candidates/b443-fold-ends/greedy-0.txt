@@ -1,0 +1,3 @@
+```python
+def fold_ends(values: list) -> list:
+    """Fold a list onto itself by adding the first entry to the last, the second to the second-last, and so on, returning the totals in that order. A list of an odd length leaves its

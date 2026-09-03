@@ -1,0 +1,30 @@
+```python
+def fit_budget(prices: list, budget: int) -> int:
+    """Return the number of items that can be bought by always taking the cheapest affordable item.
+
+    Args:
+        prices: A list of item prices.
+        budget: The amount of money to spend.
+
+    Returns:
+        The number of items that can be purchased.
+
+    Raises:
+        ValueError: If the budget is below zero.
+    """
+    if budget < 0:
+        raise ValueError("Budget cannot be negative")
+
+    sorted_prices = sorted(prices)
+    count = 0
+    remaining = budget
+
+    for price in sorted_prices:
+        if price <= remaining:
+            remaining -= price
+            count += 1
+        else:
+            break
+
+    return count
+```

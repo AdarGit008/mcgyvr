@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    def parse_tag(tag: str) -> tuple:
+        parts = tag.split('.')
+        major, minor, patch = map(int, parts[:3])
+        if '-' in tag:
+            preview, tag = tag.split('-')
+            return major, minor, patch, preview
+        return major, minor, patch, None
+
+    def compare_tags(tag1: tuple, tag2: tuple) -> int:
+        for i in range(4):
+            if tag1[i] != tag2[i]:
+                return tag1[i] - tag2[i]
+        return 0
+
+    sorted_tags = sorted(tags, key=lambda tag: parse_tag(tag))
+    return sorted_tags
+```

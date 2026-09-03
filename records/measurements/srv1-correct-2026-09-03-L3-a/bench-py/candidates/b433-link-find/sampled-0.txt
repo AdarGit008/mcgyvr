@@ -1,0 +1,43 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Extracts every piece of a line standing between an opening and a closing marker,
+    in the order they appear and without the markers themselves. An opening marker never
+    closed yields nothing, and the markers do not nest.
+
+    Parameters:
+    line (str): The line to extract pieces from.
+    opens (str): The opening marker.
+    closes (str): The closing marker.
+
+    Returns:
+    list: A list of extracted pieces.
+
+    Examples:
+    >>> link_find("Hello, world!", "(", ")")
+    ['Hello', 'world!']
+    >>> link_find("No matches here", "{", "}")
+    []
+    >>> link_find("Nested: ( ) ( )( )", "(", ")")
+    ['( )', '( )( )']
+    >>> link_find("", "(", ")")
+    []
+    """
+    result = []
+    depth = 0
+    current_piece = ""
+
+    for char in line:
+        if char == opens:
+            depth += 1
+            current_piece += char
+        elif char == closes:
+            depth -= 1
+            current_piece += char
+            if depth == 0:
+                result.append(current_piece)
+                current_piece = ""
+
+    return result
+
+```

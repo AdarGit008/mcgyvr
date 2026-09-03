@@ -1,0 +1,22 @@
+```python
+def climb_budget(tolls: list) -> int:
+    if not tolls:
+        return 0
+
+    def is_valid_toll(toll: str) -> bool:
+        if not toll.isdigit() or toll[0] == '0':
+            return False
+        return True
+
+    def calculate_toll(toll: str) -> int:
+        return sum(map(int, toll))
+
+    def find_cheapest_toll(tolls: list) -> int:
+        min_toll = float('inf')
+        for toll in tolls:
+            if is_valid_toll(toll) and calculate_toll(toll) < min_toll:
+                min_toll = calculate_toll(toll)
+        return min_toll
+
+    return find_cheapest_toll(tolls)
+```

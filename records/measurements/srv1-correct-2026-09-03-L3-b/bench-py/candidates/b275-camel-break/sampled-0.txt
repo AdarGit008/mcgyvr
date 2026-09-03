@@ -1,0 +1,31 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Splits a camel case string into a list of words in lower case, separated by spaces.
+
+    Args:
+    name (str): The camel case string to split.
+
+    Returns:
+    list: A list of words in lower case.
+
+    Examples:
+    >>> camel_break("helloWorld")
+    ['hello', 'world']
+    >>> camel_break("camelCase")
+    ['camel', 'case']
+    >>> camel_break("thisIsAString")
+    ['this', 'is', 'a', 'string']
+    >>> camel_break("oneTwoThree")
+    ['one', 'two', 'three']
+    >>> camel_break("NoCaps")
+    ['no', 'caps']
+    """
+    # Split the string at each capital letter
+    words = [word.lower() for word in name.split(' ') if word]
+    # If the string starts with a capital, split it at the first capital
+    if words and words[0][0].isupper():
+        words = [words[0][0].lower()] + words[0][1:]
+        words = [word.lower() for word in words if word]
+    return words
+```

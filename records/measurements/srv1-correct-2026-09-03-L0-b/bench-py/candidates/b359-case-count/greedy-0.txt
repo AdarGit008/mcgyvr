@@ -1,0 +1,15 @@
+```python
+def case_count(text: str) -> list:
+    """
+    Return a list where the first element is the count of capital letters
+    and the second element is the count of small letters in the input text.
+    Characters that are not letters are counted as neither.
+    """
+    if not text:
+        return [0, 0]
+    
+    capital_count = sum(1 for char in text if char.isupper())
+    small_count = sum(1 for char in text if char.islower())
+    
+    return [capital_count, small_count]
+```

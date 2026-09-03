@@ -1,0 +1,77 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    # Validate the span text against the part grammar and unit order,
+    # then total its parts in inches.
+    total = 0
+    parts = []
+    for part in text.split(" "):
+        if not part:
+            raise ValueError("span text must contain at least one part")
+        if part[-2:] not in INCHES:
+            raise ValueError(f"unknown unit: {part[-2:]}")
+        value = int(part[:-2])
+        if value < 0:
+            raise ValueError("value must be non-negative")
+        parts.append(value)
+    if len(parts) == 0:
+        raise ValueError("span text must contain at least one part")
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    if len(parts) > 1 and parts[-1] == 0:
+       

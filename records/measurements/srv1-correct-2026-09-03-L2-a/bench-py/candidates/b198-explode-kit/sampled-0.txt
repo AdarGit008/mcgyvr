@@ -1,0 +1,22 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    totals = {}
+    # Initialize the totals for the base part
+    if kit not in totals:
+        totals[kit] = 0
+    
+    # Iterate through the parts of the kit
+    for component, count in catalog[kit]['parts']:
+        # Calculate the number of runs needed to meet the demand
+        runs_needed = math.ceil(want / count)
+        # Update the total for this component
+        totals[component] += runs_needed * count
+    
+    return totals
+```

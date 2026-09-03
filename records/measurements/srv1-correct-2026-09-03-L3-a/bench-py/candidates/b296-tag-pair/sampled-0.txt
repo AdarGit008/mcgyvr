@@ -1,0 +1,13 @@
+```python
+def tag_open(marker: str) -> str:
+    if not marker.startswith('<') or not marker.endswith('>'):
+        raise ValueError("Invalid marker: not wrapped in angle brackets")
+    if marker.startswith('/'):
+        return marker[1:-1]
+    return marker[1:]
+
+def tag_pair(opening: str, closing: str) -> bool:
+    if opening != closing:
+        raise ValueError("Opening and closing markers do not match")
+    return True
+```

@@ -1,0 +1,13 @@
+```python
+from math import floor
+
+def hour_rate(rate: int) -> int:
+    return rate
+
+
+def week_pay(hours: int, rate: int) -> int:
+    """Pay for a week, with overtime beyond forty hours."""
+    if hours > 40:
+        return hours * floor(hour_rate(rate) * 3 / 2)
+    return hours * hour_rate(rate)
+```

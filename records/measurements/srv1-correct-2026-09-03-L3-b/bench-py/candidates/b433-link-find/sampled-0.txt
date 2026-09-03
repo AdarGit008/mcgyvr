@@ -1,0 +1,17 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    stack = []
+    results = []
+    for char in line:
+        if char == opens:
+            stack.append(char)
+        elif char == closes:
+            if stack:
+                stack.pop()
+                results.append(char)
+            else:
+                return []  # No matching opening marker
+    if stack:
+        return []  # Unmatched opening markers
+    return results
+```

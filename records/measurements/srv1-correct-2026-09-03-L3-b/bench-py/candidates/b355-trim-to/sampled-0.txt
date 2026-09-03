@@ -1,0 +1,18 @@
+```python
+def trim_to(line: str, limit: int) -> str:
+    if limit < 4:
+        raise ValueError("Limit must be at least 4")
+    
+    if len(line) <= limit:
+        return line
+    
+    # Find the last space within the limit
+    last_space = line.rfind(' ', 0, limit)
+    
+    if last_space == -1:
+        # If no space is found within the limit, cut at the last character
+        return line[:limit] + '...'
+    else:
+        # If a space is found, cut at the last space before the limit
+        return line[:last_space] + '...'
+```

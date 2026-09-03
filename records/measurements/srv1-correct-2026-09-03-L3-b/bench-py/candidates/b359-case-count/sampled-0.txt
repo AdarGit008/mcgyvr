@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def case_count(text: str) -> List[int]:
+    if not text:
+        return [0, 0]
+    
+    lower_count = upper_count = 0
+    
+    for char in text:
+        if char.islower():
+            lower_count += 1
+        elif char.isupper():
+            upper_count += 1
+    
+    return [upper_count, lower_count]
+```

@@ -1,0 +1,23 @@
+```python
+from typing import *
+from collections import *
+
+def vend_credit(coins: List[int], price: int) -> int:
+    if not coins or not price:
+        raise ValueError("Both coins and price must be non-empty.")
+    if price <= 0 or price % 5 != 0:
+        raise ValueError("Price must be a positive multiple of 5.")
+    if not all(coin in [5, 10, 25, 100] for coin in coins):
+        raise ValueError("Invalid coin denomination.")
+    
+    credit = 0
+    items_dropped = 0
+    
+    for coin in coins:
+        credit += coin
+        if credit >= price:
+            items_dropped += 1
+            credit -= price
+    
+    return credit
+```

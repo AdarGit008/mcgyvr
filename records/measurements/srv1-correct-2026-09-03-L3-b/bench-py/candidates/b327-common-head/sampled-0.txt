@@ -1,0 +1,16 @@
+```python
+from typing import List, Tuple
+
+def common_head(words: List[str]) -> str:
+    if not words:
+        return ""
+    
+    first_word = words[0]
+    common_prefix = first_word[0]
+    
+    for word in words:
+        if not word.startswith(common_prefix):
+            return ""
+    
+    return common_prefix
+```

@@ -1,0 +1,27 @@
+```python
+def merge_settings(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(key, str) for key in base) or not all(isinstance(key, str) for key in ours) or not all(isinstance(key, str) for key in theirs):
+        raise ValueError("All keys must be strings.")
+    
+    merged = base.copy()
+    
+    for key, value in ours.items():
+        if key not in merged:
+            merged[key] = value
+        elif merged[key] != value:
+            if key not in theirs:
+                merged[key] = value
+            elif merged[key] != theirs[key]:
+                raise ValueError("Conflicting edits on key: {}".format(key))
+    
+    for key, value in theirs.items():
+        if key not in merged:
+            merged[key] = value
+        elif merged[key] != value:
+            if key not in ours:
+                merged[key] = value
+            elif merged[key] != ours[key]:
+                raise ValueError("Conflicting edits on key: {}".format(key))
+    
+    return merged
+```

@@ -1,0 +1,39 @@
+```python
+def merge_ledgers(base: list, ours: list, theirs: list) -> list:
+    if not isinstance(base, list):
+        raise ValueError("base must be a list")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in base):
+        raise ValueError("base must be a list of pairs of [account, cents]")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in ours):
+        raise ValueError("ours must be a list of pairs of [account, cents]")
+    if not all(isinstance(entry, list) and len(entry) == 2 for entry in theirs):
+        raise ValueError("theirs must be a list of pairs of [account, cents]")
+
+    merged_base = {}
+    for account, cents in base:
+        if account not in merged_base:
+            merged_base[account] = cents
+        else:
+            merged_base[account] += cents
+
+    merged_ours = {}
+    for account, cents in ours:
+        if account not in merged_ours:
+            merged_ours[account] = cents
+        else:
+            merged_ours[account] += cents
+
+    merged_theirs = {}
+    for account, cents in theirs:
+        if account not in merged_theirs:
+            merged_theirs[account] = cents
+        else:
+            merged_theirs[account] += cents
+
+    merged = {
+        account: (base_value + ours_value + theirs_value) if account in merged_base and account in merged_ours and account in merged_theirs else (base_value if account in merged_base else ours_value if account in merged_ours else theirs_value)
+        for account, (base_value, ours_value, theirs_value) in zip(merged_base, merged_ours, merged_theirs)
+    }
+
+    return sorted([(account, value) for account, value in merged.items()])
+```

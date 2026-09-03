@@ -1,0 +1,14 @@
+```python
+def shed_tail(text: str, piece: str) -> str:
+    """
+    Remove the given piece from the end of the text until the text no longer closes with it.
+    If the text never closes with the piece, return the text unchanged.
+    
+    :param text: The text from which to remove the piece.
+    :param piece: The piece to remove from the end of the text.
+    :return: The modified text.
+    """
+    while text.endswith(piece):
+        text = text[:-len(piece)]
+    return text
+```

@@ -1,0 +1,37 @@
+```python
+from typing import List, Dict, Tuple
+
+def meter_draws(draws: List[Tuple[str, int]], allowance: int) -> Dict[str, int]:
+    if allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    
+    used: Dict[str, int] = {}
+    denied: List[int] = []
+    
+    for key, units in draws:
+        if not isinstance(key, str) or not key:
+            raise ValueError("Key must be a non-empty string.")
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Units must be a positive integer.")
+        
+        if key not in used:
+            used[key] = 0
+        
+        if used[key] + units <= allowance:
+            used[key] += units
+        else:
+            denied.append(draws.index((key, units)))
+    
+    return {"used": used, "denied": denied}
+
+def remaining_for(used: Dict[str, int], key: str, allowance: int) -> int:
+    if not isinstance(key, str) or not key:
+        raise ValueError("Key must be a non-empty string.")
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer.")
+    
+    if key not in used:
+        return allowance
+    
+    return allowance - used[key]
+```

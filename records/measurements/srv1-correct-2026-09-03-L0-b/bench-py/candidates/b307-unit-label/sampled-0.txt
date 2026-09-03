@@ -1,0 +1,14 @@
+```python
+def short_unit(unit: str) -> str:
+    """Return the short form of a unit's name, its first three letters."""
+    return unit[:3]
+
+
+def label_of(amount: int, unit: str) -> str:
+    """An amount written with its unit, using the singular form when the amount is one and adding an s otherwise."""
+    if amount < 0:
+        raise ValueError("amount cannot be negative")
+    if amount == 0 or amount == 1:
+        return str(amount) + " " + unit
+    return str(amount) + " " + unit + "s"
+```

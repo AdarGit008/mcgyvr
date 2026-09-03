@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def match_at(grid: List[int], row: int, column: int, value: int) -> bool:
+    if row < 0 or row >= len(grid) or column < 0 or column >= len(grid[row]):
+        raise ValueError("Row or column index out of bounds.")
+    return grid[row][column] == value
+
+def grid_find(grid: List[int], value: int) -> List[int]:
+    for i, row in enumerate(grid):
+        for j, cell in enumerate(row):
+            if cell == value:
+                return [i, j]
+    raise ValueError("Grid does not contain the value anywhere.")
+```

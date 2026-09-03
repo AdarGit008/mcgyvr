@@ -1,0 +1,7 @@
+```python
+def unwrap_label(label: str) -> str:
+    """A label with one surrounding pair of brackets removed."""
+    if not label.startswith("[") or not label.endswith("]"):
+        raise ValueError("Label must be enclosed in matching square brackets.")
+    return label[1:-1]
+```

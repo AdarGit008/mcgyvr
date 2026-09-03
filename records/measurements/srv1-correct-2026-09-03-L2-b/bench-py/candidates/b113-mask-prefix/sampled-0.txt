@@ -1,0 +1,28 @@
+```python
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask):
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    parts = mask.split(".")
+    if len(parts) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    for part in parts:
+        if not part.isdigit() or int(part) < 0 or int(part) > 255:
+            raise ValueError("field must hold decimal digits 0 through 255")
+    if any(int(part) == 0 and i != 0 for i, part in enumerate(parts)):
+        raise ValueError("leading zero other than 0 itself in an octet")
+    if any(part[i] == "0" for i, part in enumerate(parts) if i != 3):
+        raise ValueError("octet above 255")
+    if any(part[i] != "1" for i in range(1, 4)):
+        raise ValueError("mask whose one bits are broken")
+    return int(parts[0]) * 16777216 + int(parts[1]) * 65536 + int(parts[2]) * 256 + int(parts[3])
+```

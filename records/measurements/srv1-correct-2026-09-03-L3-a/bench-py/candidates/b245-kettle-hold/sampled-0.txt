@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def kettle_hold(readings: List[int], target: int) -> int:
+    """
+    Count the number of readings at the very end of the run that sat at or above the target.
+    A run that dips below the target stops the count there.
+    
+    Args:
+    readings (List[int]): A list of temperature readings in chronological order.
+    target (int): The target temperature.
+    
+    Returns:
+    int: The number of readings that sat at or above the target.
+    """
+    count = 0
+    for reading in reversed(readings):
+        if reading >= target:
+            count += 1
+        else:
+            break
+    return count
+```

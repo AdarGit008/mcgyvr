@@ -1,0 +1,24 @@
+```python
+"""Vet a device's proposed firmware upgrade path and report the final tag."""
+
+
+def vet_upgrade_path(installed: str, steps: list) -> str:
+    carried = installed
+    for step in steps:
+        if not isinstance(step, dict):
+            raise ValueError(f"step {step} is not a dictionary")
+        if not isinstance(step["tag"], str):
+            raise ValueError(f"step {step['tag']} is not a string")
+        if not step["tag"].isdigit() or len(step["tag"].split(".")) != 2:
+            raise ValueError(f"step {step['tag']} is not a valid tag")
+        tag_parts = step["tag"].split(".")
+        if any(part[0] == "0" for part in tag_parts):
+            raise ValueError(f"step {step['tag']} contains leading zeros")
+        if len(tag_parts) != 2:
+            raise ValueError(f"step {step['tag']} is not a two-part tag")
+        line, point = map(int, tag_parts)
+        if carried >= step["requires"]:
+            raise ValueError(f"step {step['tag']} is not an upgrade from {carried}")
+        carried = step["tag"]
+    return carried
+```

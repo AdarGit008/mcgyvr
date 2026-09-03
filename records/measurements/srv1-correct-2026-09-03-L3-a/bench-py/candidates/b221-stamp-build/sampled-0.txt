@@ -1,0 +1,20 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    if not isinstance(major, int) or not isinstance(minor, int) or not isinstance(patch, int):
+        raise ValueError("All components must be whole numbers.")
+    
+    if major < 0 or minor < 0 or patch < 0:
+        raise ValueError("All components must be non-negative.")
+    
+    if major == 0 and minor == 0 and patch == 0:
+        raise ValueError("Cannot have zero major, minor, and patch components.")
+    
+    if major >= 1000 or minor >= 1000 or patch >= 1000:
+        raise ValueError("Major, minor, and patch cannot exceed 999.")
+    
+    stamp = patch
+    stamp += minor * 1000
+    stamp += major * 1000000
+    
+    return stamp
+```

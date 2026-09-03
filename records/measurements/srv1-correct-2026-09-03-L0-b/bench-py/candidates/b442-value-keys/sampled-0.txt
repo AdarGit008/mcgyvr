@@ -1,0 +1,11 @@
+```python
+def value_keys(store: dict) -> dict:
+    if not store:
+        return {}
+    
+    value_count = {}
+    for value in store.values():
+        value_count[value] = value_count.get(value, 0) + 1
+    
+    return value_count
+```

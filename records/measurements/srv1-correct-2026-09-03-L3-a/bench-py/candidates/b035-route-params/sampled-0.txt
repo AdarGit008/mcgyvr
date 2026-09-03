@@ -1,0 +1,86 @@
+```python
+from typing import List, Optional, Dict
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str) or path == "" or not path.startswith("/"):
+        raise ValueError("Invalid input path")
+    
+    segments = path.split("/")
+    if segments[0] == "":
+        segments = segments[1:]
+    
+    return segments
+
+def match_route(pattern: str, path: str) -> Optional[Dict[str, str]]:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Both pattern and path must be strings")
+    
+    if not path.startswith("/") or path == "":
+        raise ValueError("Invalid input path")
+    
+    if len(pattern) == 0 or len(path) == 0:
+        raise ValueError("Pattern and path cannot be empty")
+    
+    if pattern.endswith("/"):
+        raise ValueError("Pattern cannot end with a slash")
+    
+    if path.endswith("/"):
+        path = path[:-1]
+    
+    segments = split_segments(path)
+    pattern_segments = split_segments(pattern)
+    
+    if len(pattern_segments) < len(segments):
+        return None
+    
+    capture_names = {}
+    i = 0
+    j = 0
+    
+    while i < len(pattern_segments) and j < len(segments):
+        if pattern_segments[i][0] == ":":
+            if not pattern_segments[i][1:].isalnum():
+                raise ValueError("Invalid capture name")
+            capture_names[pattern_segments[i][1:]] = segments[j]
+            i += 1
+        elif pattern_segments[i] == "*":
+            i += 1
+        elif pattern_segments[i] == "**":
+            if pattern_segments[i] != "**":
+                raise ValueError("Pattern cannot hold '**' more than once")
+            i += 2
+            while j < len(segments) and pattern_segments[i] == segments[j]:
+                j += 1
+            i += 1
+        elif pattern_segments[i] == segments[j]:
+            i += 1
+            j += 1
+        else:
+            return None
+    
+    if i < len(pattern_segments):
+        return None
+    
+    if j < len(segments):
+        return None
+    
+    return capture_names
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(patterns, list) or not isinstance(path, str):
+        raise ValueError("Both patterns and path must be strings")
+    
+    if not path.startswith("/"):
+        raise ValueError("Invalid input path")
+    
+    if len(patterns) == 0:
+        return -1
+    
+    path_segments = split_segments(path)
+    
+    for i, pattern in enumerate(patterns):
+        if match_route(pattern, path) is not None:
+            return i
+    
+    return -1
+```

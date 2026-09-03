@@ -1,0 +1,17 @@
+```python
+from typing import List, Dict, Optional, TypeVar, Callable, Sequence
+
+T = TypeVar('T')
+R = TypeVar('R')
+
+def count_by(records: List[T], field: str) -> Dict[str, int]:
+    if not field:
+        raise ValueError("Field name cannot be empty.")
+
+    if not all(field in record for record in records):
+        raise ValueError("All records must have the specified field.")
+
+    field_values = [record[field] for record in records if field in record]
+    
+    return {value: field_values.count(value) for value in set(field_values)}
+```

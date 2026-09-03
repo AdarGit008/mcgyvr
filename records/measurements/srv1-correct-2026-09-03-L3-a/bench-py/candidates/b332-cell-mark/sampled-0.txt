@@ -1,0 +1,36 @@
+```python
+class Cell:
+    def __init__(self, is_alive):
+        self.is_alive = is_alive
+
+class Grid:
+    def __init__(self, data):
+        self.data = data
+
+    def get_neighbours(self, row, col):
+        neighbours = []
+        rows = len(self.data)
+        cols = len(self.data[0])
+        
+        # Ensure coordinates are within the grid
+        if row > 0:
+            neighbours.append((row - 1, col))
+        if row < rows - 1:
+            neighbours.append((row + 1, col))
+        if col > 0:
+            neighbours.append((row, col - 1))
+        if col < cols - 1:
+            neighbours.append((row, col + 1))
+        
+        return neighbours
+
+def live_count(neighbours: list) -> int:
+    return sum(1 for (r, c) in neighbours if self.data[r][c].is_alive)
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    living_neighbours = live_count(neighbours)
+    if alive:
+        return living_neighbours in [2, 3]
+    else:
+        return living_neighbours == 3
+```

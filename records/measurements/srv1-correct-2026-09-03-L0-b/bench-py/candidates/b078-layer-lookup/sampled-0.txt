@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def config_value(layers: List[str], name: str) -> str | None:
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("Invalid input: layers must be a list of strings")
+    if not isinstance(name, str) or name.strip() == "":
+        raise ValueError("Invalid input: name must be a non-empty string")
+
+    current_value = None
+    for layer in layers:
+        if layer.strip() == "":
+            continue
+        parts = layer.split(" ", maxsplit=1)
+        if len(parts) == 1:
+            if parts[0].strip() == "!":
+                current_value = None
+            else:
+                raise ValueError("Invalid input: invalid name assignment")
+        else:
+            key, value = parts
+            key = key.strip()
+            value = value.strip()
+            if key == name:
+                if current_value is not None:
+                    current_value = value
+                else:
+                    current_value = value
+            elif value is None and current_value is not None:
+                current_value = None
+
+    return current_value
+```

@@ -1,0 +1,51 @@
+```python
+def column_digest(rows: list, column: int) -> dict:
+    if column < 0 or column >= len(rows[0]):
+        raise ValueError("Invalid column index")
+    
+    count = 0
+    min_val = float('inf')
+    max_val = float('-inf')
+    total_sum = 0
+    median_val = None
+    sorted_values = []
+    
+    for row in rows:
+        if column < len(row):
+            count += 1
+            min_val = min(min_val, row[column])
+            max_val = max(max_val, row[column])
+            total_sum += row[column]
+            
+            if median_val is None:
+                median_val = row[column]
+            else:
+                sorted_values.append(row[column])
+    
+    if count == 0:
+        return {
+            'count': count,
+            'min': min_val,
+            'max': max_val,
+            'mean': 0,
+            'median': 0
+        }
+    
+    sorted_values.sort()
+    if count % 2 == 1:
+        median_val = sorted_values[count // 2]
+    else:
+        median_val = (sorted_values[count // 2 - 1] + sorted_values[count // 2]) / 2.0
+    
+    mean_val = total_sum / count
+    median_val = round(median_val, 2)
+    mean_val = round(mean_val, 2)
+    
+    return {
+        'count': count,
+        'min': min_val,
+        'max': max_val,
+        'mean': mean_val,
+        'median': median_val
+    }
+```

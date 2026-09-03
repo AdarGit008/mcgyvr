@@ -1,0 +1,31 @@
+```python
+from typing import List, Mapping
+
+
+def number_sections(sections: List[Mapping[str, any]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+
+    def get_number(level, parent_number):
+        if level == 0:
+            return f"{parent_number + 1} {sections[0]['heading']}"
+        else:
+            return f"{parent_number}.{get_number(level - 1, parent_number)} {sections[level]['heading']}"
+
+    return [get_number(level, 0) for level, section in enumerate(sections) if isinstance(section, Mapping) and 'heading' in section]
+
+
+def section_count(sections: List[Mapping[str, any]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("sections must be a list")
+    if not sections:
+        return 0
+
+    counts = [1]
+    for section in sections:
+        if isinstance(section, Mapping):
+            counts.append(section_count(section['children']) + 1)
+        else:
+            counts.append(0)
+    return counts
+```

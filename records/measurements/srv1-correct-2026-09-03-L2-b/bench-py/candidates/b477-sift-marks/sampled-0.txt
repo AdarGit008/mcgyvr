@@ -1,0 +1,16 @@
+```python
+from typing import *
+from collections import *
+
+def sift_marks(entries: List[str], mark: str) -> List[List[str]]:
+    opening = []
+    closing = []
+    
+    for entry in entries:
+        if entry.startswith(mark):
+            opening.append(entry)
+        else:
+            closing.append(entry)
+    
+    return [opening, closing]
+```

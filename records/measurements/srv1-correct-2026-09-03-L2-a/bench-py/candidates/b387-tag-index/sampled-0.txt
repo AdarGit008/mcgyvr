@@ -1,0 +1,23 @@
+```python
+def tags_of(line):
+    # Strip leading and trailing whitespace, split by comma, and filter out empty results
+    tags = [tag.strip() for tag in line.split(',') if tag.strip()]
+    return tags
+
+def tag_index(lines):
+    # Create a dictionary to store lines by tag
+    tag_dict = {}
+    for line in lines:
+        # Check if the line is a text string
+        if not isinstance(line, str):
+            raise ValueError("Invalid input: lines must be text strings")
+        # Split the line by spaces to get tags
+        tags = line.split()
+        # Add the line to the dictionary for each tag
+        for tag in tags:
+            if tag in tag_dict:
+                tag_dict[tag].append(line)
+            else:
+                tag_dict[tag] = [line]
+    return tag_dict
+```

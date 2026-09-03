@@ -1,0 +1,30 @@
+```python
+from math import ceil
+
+def tiles_across(length: int, tile: int) -> int:
+    """
+    Return how many tiles of a given size cover a length, rounding up so that a part tile still counts as one.
+    
+    :param length: The length of the wall.
+    :param tile: The size of each tile.
+    :return: The total number of tiles needed.
+    """
+    if tile <= 0:
+        raise ValueError("Tile size must be a positive integer")
+    return ceil(length / tile)
+
+def tiles_needed(width: int, height: int, tile: int, spare: int) -> int:
+    """
+    Return the tiles for a wall of a width and a height, adding a whole-percent allowance for breakages and rounding up again.
+    
+    :param width: The width of the wall.
+    :param height: The height of the wall.
+    :param tile: The size of each tile.
+    :param spare: The percentage of the wall that is allowed to breakage (0-100).
+    :return: The total number of tiles needed.
+    """
+    total_tiles = width * height
+    spare_tiles = total_tiles * spare / 100
+    total_tiles += ceil(spare_tiles / tile)
+    return total_tiles
+```

@@ -1,0 +1,27 @@
+```python
+from typing import *
+from collections.abc import *
+
+def glob_path(pattern: str, path: str) -> bool:
+    if not isinstance(pattern, str) or not isinstance(path, str):
+        raise ValueError("Pattern and path must be strings")
+    if not pattern or not path:
+        raise ValueError("Pattern and path must not be empty")
+    
+    def match(i, j):
+        if i == len(pattern) and j == len(path):
+            return True
+        if i == len(pattern):
+            return False
+        if j == len(path):
+            return pattern[i] == '*'
+        
+        if pattern[i] == '*':
+            return match(i + 1, j) or (j < len(path) and pattern[i + 1] != path[j] and match(i, j + 1))
+        elif pattern[i] == '?':
+            return j < len(path) and match(i + 1, j + 1)
+        else:
+            return pattern[i] == path[j] and match(i + 1, j + 1)
+    
+    return match(0, 0)
+```
