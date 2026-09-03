@@ -14,10 +14,17 @@ and the Vulkan loader then said
 ``vulkan-tools`` under ``--no-install-recommends`` and none of the three. So no
 device, so ggml fell back to the CPU, so A3's numbers were the i5-9600K.
 
-The fix is three packages on the runtime apt line and a build-time check that
+With those three the ICD loads and then fails one step later, on
+2026-09-03: ``Could not get 'vkCreateInstance' via 'vk_icdGetInstanceProcAddr'``.
+``strace`` inside the image showed the ICD's init opening ``libEGL.so.1`` and
+finding nothing; upstream's Vulkan image has it as a mesa dependency, ours
+had no reason to. With ``libegl1`` our own ``llama-bench --list-devices``
+lists ``Vulkan0: NVIDIA GeForce RTX 3060`` on srv2.
+
+The fix is four packages on the runtime apt line and a build-time check that
 they resolved, so an image that would silently bench the CPU fails to build.
-And the arm's spec names the fix (``icd_deps=x11``) so ``image_matches``
-refuses to reuse the image that lacks it: the ladder rebuilds A3 rather than
+And the arm's spec names the fix (``icd_deps=x11-egl``) so ``image_matches``
+refuses to reuse an image that lacks it: the ladder rebuilds A3 rather than
 re-measuring the CPU under the same tag.
 """
 
@@ -28,8 +35,8 @@ import re
 from tests import onedoor
 
 LADDER_SH = onedoor.KERNEL_ARMS / "1-build-ladder.sh"
-ICD_LIBS = ("libglvnd0", "libx11-6", "libxext6")
-ICD_SONAMES = ("libX11.so.6", "libXext.so.6", "libGLdispatch.so.0")
+ICD_LIBS = ("libglvnd0", "libegl1", "libx11-6", "libxext6")
+ICD_SONAMES = ("libX11.so.6", "libXext.so.6", "libGLdispatch.so.0", "libEGL.so.1")
 
 
 def _vulkan_dockerfile() -> str:
@@ -71,7 +78,7 @@ def test_the_a3_spec_names_the_fix_so_the_old_image_is_not_reused() -> None:
     text = LADDER_SH.read_text(encoding="utf-8")
     spec = re.search(r"A3\)\s*printf\s*'([^']*)'", text)
     assert spec, "arm_spec has no A3 line"
-    assert "icd_deps=x11" in spec.group(1), spec.group(1)
+    assert "icd_deps=x11-egl" in spec.group(1), spec.group(1)
     matches = text[text.index("image_matches() {") :]
     matches = matches[: matches.index("\n}\n")]
     assert "icd_deps" in matches, (

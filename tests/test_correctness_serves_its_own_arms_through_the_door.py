@@ -40,7 +40,13 @@ def root(tmp_path: Path) -> Path:
     shutil.copytree(
         onedoor.KERNEL_ARMS, repo / "tools" / "runs" / "campaigns" / CAMPAIGN
     )
-    onedoor.envelope(repo, CAMPAIGN).mkdir(parents=True)
+    envelope = onedoor.envelope(repo, CAMPAIGN)
+    envelope.mkdir(parents=True)
+    # What step 4 (serve) leaves behind: the file the verdicts are read from.
+    (envelope / "srv1-lcpp-arms.tsv").write_text(
+        f"### START run_id={onedoor.RUN_DATE}-{CAMPAIGN}-kernel-arms\n",
+        encoding="utf-8",
+    )
     return repo
 
 
@@ -210,4 +216,56 @@ def test_an_image_the_daemon_does_not_hold_is_refused_before_any_container(
     )
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "digest" in result.stderr, result.stderr
+    assert "docker run" not in result.stdout, result.stdout
+
+
+def test_the_verdict_source_can_be_named_when_it_lives_in_another_envelope(
+    root: Path, env: dict[str, str], gguf: Path
+) -> None:
+    """The verdicts come from the serve step's ``srv1-lcpp-arms.tsv``. The
+    door's envelope is dated, so a step 5 run on a later day than the serve
+    step has no such file beside it; ``--arms-tsv PATH`` names the one to read
+    (an input, so it may live outside this run's envelope), and the plan says
+    which file the verdicts will come from."""
+    other = root / "records" / "evidence" / "2026-09-01-srv1-kernel-arms"
+    other.mkdir(parents=True, exist_ok=True)
+    arms = other / "srv1-lcpp-arms.tsv"
+    arms.write_text("### START run_id=x\n", encoding="utf-8")
+    result = _dry(
+        root,
+        env,
+        "--arm",
+        f"L0={onedoor.LOCAL_TAG}",
+        "--gguf",
+        str(gguf),
+        "--model",
+        "q",
+        "--reference",
+        "L0",
+        "--arms-tsv",
+        str(arms),
+    )
+    assert result.returncode != 2, (result.stdout, result.stderr)
+    assert f"verdicts from {arms}" in result.stdout, result.stdout
+
+
+def test_a_verdict_source_that_does_not_exist_is_refused_before_any_container(
+    root: Path, env: dict[str, str], gguf: Path
+) -> None:
+    result = _dry(
+        root,
+        env,
+        "--arm",
+        f"L0={onedoor.LOCAL_TAG}",
+        "--gguf",
+        str(gguf),
+        "--model",
+        "q",
+        "--reference",
+        "L0",
+        "--arms-tsv",
+        "/nonexistent/srv1-lcpp-arms.tsv",
+    )
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert "--arms-tsv" in result.stderr, result.stderr
     assert "docker run" not in result.stdout, result.stdout

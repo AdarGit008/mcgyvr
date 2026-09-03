@@ -82,6 +82,10 @@
 #                     checkpoint under the SAME name in the SAME engine: a drift
 #                     measured across engines is guideline 5's forbidden row
 #                     wearing a correctness hat.
+#   --arms-tsv PATH   the serve step's srv1-lcpp-arms.tsv the verdicts are read
+#                     from (default: the one beside this run's artifact). An
+#                     input: the door's envelope is dated, and a step 5 run on
+#                     a later day than step 4 has no such file beside it.
 #   --port N          host port the one container listens on (default 8081).
 #   --ctx N           llama-server -c (default 4096; bench-py prompts are
 #                     ~700 tokens and the reply cap is 768).
@@ -113,6 +117,7 @@ TIER="bench-py"
 DRAWS="1"
 MODEL=""
 GGUF=""
+ARMS_TSV=""
 REFERENCE=""
 API_KEY_ENV=""
 PORT=8081
@@ -521,6 +526,7 @@ EOF
         show "docker rm -f $(container_of "$arm")"
         echo
     done
+    printf '## verdicts from %s\n' "$ARMS_TSV"
     cat <<EOF
 ## score: each arm's self-null, then every arm's drift from $REFERENCE
 + printf '<the arm table, as JSON>' | uv run --no-sync --quiet python -c "\$SCORE_PY"
@@ -586,8 +592,8 @@ main() {
         {
             printf '{"root": "%s", "tier": "%s", "model": "%s", "reference": "%s",' \
                 "$root" "$TIER" "$MODEL" "$REFERENCE"
-            printf ' "out": "%s/%s", "lcpp_arms": "%s/srv1-lcpp-arms.tsv", "arms": [' \
-                "$out_dir" "$ARTIFACT" "$out_dir"
+            printf ' "out": "%s/%s", "lcpp_arms": "%s", "arms": [' \
+                "$out_dir" "$ARTIFACT" "$ARMS_TSV"
             for i in "${!ARMS[@]}"; do
                 [ "$i" -eq 0 ] || printf ','
                 printf '{"arm": "%s", "image": "%s", "measured_backend": "%s", "endpoint": "%s", "serving_build": "%s", "run_a": "%s", "run_b": "%s"}' \
@@ -617,6 +623,11 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
                 GGUF=${1:-}
                 ;;
             --gguf=*) GGUF=${1#--gguf=} ;;
+            --arms-tsv)
+                shift
+                ARMS_TSV=${1:-}
+                ;;
+            --arms-tsv=*) ARMS_TSV=${1#--arms-tsv=} ;;
             --port)
                 shift
                 PORT=${1:-}
@@ -679,6 +690,10 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     }
     [ -f "$GGUF" ] || {
         _fail "--gguf $GGUF is not a file on this host; a wrong path would be served as nothing and measured silently" || exit 2
+    }
+    [ -n "$ARMS_TSV" ] || ARMS_TSV="$RUN_OUT_DIR/srv1-lcpp-arms.tsv"
+    [ -f "$ARMS_TSV" ] || {
+        _fail "--arms-tsv $ARMS_TSV is not a file. The verdicts are the ladder's (srv1-lcpp-arms.tsv, written by step 4); a run whose verdict source does not exist would score every arm and name no winner. Name the serve step's file, wherever its envelope is" || exit 2
     }
     for _n in "PORT=$PORT" "CTX=$CTX"; do
         case ${_n#*=} in
