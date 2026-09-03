@@ -21,9 +21,14 @@ what it *can* do on TU116: which kernel it selects, whether a path that is not
 a capability finding, whose honest answer may be "no viable non-tensor-core path
 exists here". Neither answers the other, and no arm ranks the two engines.
 
-**Status.** Run 2026-09-02. Behaviours 1-8 and 12 are green and their markers
-are off; 9's distinctness check, 10 and 11 stay strict, dated `xfail`. Artifacts:
-`records/evidence/2026-09-02-srv1-kernel-arms/`.
+**Status.** Run 2026-09-02, re-run through the door 2026-09-02/03 under round
+r2-02-09-2026. Behaviours 1-8, 11 and 12 are green; 10 is **measured false**
+(9 flips / 257 between `ncmoe=0` and `ncmoe=99`, against a 1.47pp own-null
+bound) and stays a strict `xfail` on that measurement; 9's distinctness check
+stays `xfail`. A3 is priced on Vulkan. Artifacts:
+`records/evidence/2026-09-02-srv1-kernel-arms/` (steps 2, 4, 6, 7, 8, 9) and
+`records/evidence/2026-09-03-srv1-kernel-arms/` (ladder, bench, correctness);
+`RUN-ORDER.md` in the first has both tables.
 
 ## Rig, as measured 2026-09-01
 

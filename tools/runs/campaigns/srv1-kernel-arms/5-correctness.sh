@@ -253,6 +253,8 @@ for arm in spec["arms"]:
         against = [f"{reference['run_a']}/{tier}", f"{arm['run_a']}/{tier}"]
     entry = {
         "arm": arm["arm"],
+        "image": arm.get("image"),
+        "measured_backend": arm.get("measured_backend"),
         "endpoint": arm["endpoint"],
         "serving_build": arm["serving_build"],
         "cells": drift_n,

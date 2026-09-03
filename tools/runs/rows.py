@@ -422,6 +422,24 @@ def driver_source(name: str) -> Path:
 
 #: The run these tests specify. Absent until it is performed.
 RUN = EVIDENCE / "2026-09-02-srv1-kernel-arms"
+#: The door dates its envelope (``records/evidence/<RUN_DATE>-<campaign>/``),
+#: and the campaign crossed midnight UTC: steps 6 and 7 landed on 2026-09-02,
+#: and the A3 rebuild, the re-bench, the ladder and step 5 on 2026-09-03 —
+#: the ladder and bench three times over, the first two refused (A3 measured
+#: the CPU; the refused files are kept beside the filed one). So the artifacts
+#: below are read from the later envelope; everything else stays in the first.
+RUN_2026_09_03 = EVIDENCE / "2026-09-03-srv1-kernel-arms"
+ENVELOPE: dict[str, Path] = {
+    "srv1-build-ladder.tsv": RUN_2026_09_03,
+    "srv1-llama-bench.tsv": RUN_2026_09_03,
+    "correctness.json": RUN_2026_09_03,
+}
+
+
+def evidence_path(name: str) -> Path:
+    """Where the campaign's artifact ``name`` lives, envelope included."""
+    return ENVELOPE.get(name, RUN) / name
+
 
 #: One artifact, one script that produces it.
 #:
@@ -470,4 +488,4 @@ def owed(name: str) -> Sweep:
     Every test reaches an artifact through here, so one file cannot be announced
     as the output of two different scripts depending on which test failed first.
     """
-    return artifact(RUN / name, BEHAVIOUR[name])
+    return artifact(evidence_path(name), BEHAVIOUR[name])
