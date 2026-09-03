@@ -40,3 +40,20 @@ runtime apt line gains libglvnd0 libx11-6 libxext6, a build-time ldconfig check
 fails the image if they did not resolve, the A3 spec carries icd_deps=x11 so the
 image without it is rebuilt rather than reused, and the bench step refuses a
 declared backend the report says did not run instead of filing its rows.
+
+== 2026-09-03: the rebuild with libX11/libXext/libGLdispatch (icd_deps=x11)
+3-llama-bench.sh refused it (declared vulkan, measured CPU) — the verdict
+working. Inside the image the ICD now loaded and failed one step later:
+  loader_scanned_icd_add: Could not get 'vkCreateInstance' via 'vk_icdGetInstanceProcAddr' for ICD libGLX_nvidia.so.0
+Not the loader version (host's 1.4.341 bind-mounted: same), not the base image
+(ubuntu:24.04, ubuntu:26.04 and the CUDA runtime all fail), not the packages
+upstream lists (libgl1 libglx0 libgles2 libx11-xcb1 libdrm2 mesa: all fail).
+strace -e openat inside the image, after libGLX_nvidia.so.0 loaded:
+  openat(... "/usr/lib/x86_64-linux-gnu/libEGL.so.1") = ENOENT
+The NVIDIA ICD dlopens libEGL.so.1 at init and returns no vkCreateInstance
+without it. Upstream's server-vulkan image carries it as a mesa dependency.
+With libegl1 added to our image (apt-get in an ephemeral container):
+  vulkaninfo: deviceName = NVIDIA GeForce RTX 3060
+  /app/llama-bench --list-devices: Vulkan0: NVIDIA GeForce RTX 3060 (12534 MiB)
+Fix: libegl1 on the runtime apt line, libEGL.so.1 in the ldconfig check,
+icd_deps=x11-egl so the x11-only image is rebuilt, not reused.
