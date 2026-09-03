@@ -1,0 +1,12 @@
+```python
+def bill_split(total: int, diners: int) -> list:
+    if diners <= 0:
+        raise ValueError("Number of diners must be positive")
+    if total % diners != 0:
+        raise ValueError("Total must be divisible by the number of diners")
+    
+    each_pence = total // diners
+    remainder = total % diners
+    
+    return [each_pence] * (diners - 1) + [remainder]
+```

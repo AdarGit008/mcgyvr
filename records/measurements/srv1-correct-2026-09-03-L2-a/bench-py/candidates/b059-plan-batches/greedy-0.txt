@@ -1,0 +1,33 @@
+```python
+def plan_batches(units: int, capacity: int) -> dict:
+    if not isinstance(units, int) or units <= 0:
+        raise ValueError("units must be a positive integer")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    def split_load(units, capacity):
+        if units <= capacity:
+            return {units: units}
+        else:
+            half = (units + capacity - 1) // capacity
+            return {
+                "left": split_load(units - half * capacity, capacity),
+                "right": split_load(half * capacity, capacity)
+            }
+
+    def plan_loads(units, capacity, rounds=0):
+        if units <= capacity:
+            return {units: units, "splits": 0, "rounds": rounds}
+        else:
+            left = split_load(units - capacity, capacity)
+            right = split_load(capacity, capacity)
+            return {
+                "left": left,
+                "right": right,
+                "splits": left["splits"] + right["splits"] + 1,
+                "rounds": left["rounds"] + right["rounds"] + 1
+            }
+
+    result = plan_loads(units, capacity)
+    return result
+```

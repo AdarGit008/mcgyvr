@@ -1,0 +1,7 @@
+```python
+def tag_trim(tag: str) -> str:
+    """Strip leading hash and trailing colon from a tag."""
+    if tag.startswith("#"):
+        tag = tag[1:]
+    if tag.endswith(":"):
+        tag = tag[:-1

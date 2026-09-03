@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[tuple[int, int]]) -> bool:
+    """
+    Determine if a list of hops forms one unbroken chain where each hop starts
+    at the end of the previous hop.
+    
+    :param hops: List of tuples (start, end) representing hops
+    :return: True if the hops form a chain, False otherwise
+    """
+    if not hops:
+        return True
+    
+    current_end = hops[0][1]
+    
+    for start, end in hops[1:]:
+        if start != current_end:
+            return False
+        current_end = end
+    
+    return True
+```

@@ -1,0 +1,23 @@
+```python
+def tags_of(line: str) -> list:
+    if not line:
+        raise ValueError("Input line is empty")
+    
+    lines = line.split(',')
+    tags = [tag.strip() for tag in lines if tag.strip()]
+    return tags
+
+def tag_index(lines: list) -> dict:
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All lines must be text")
+    
+    tag_index = {}
+    for index, line in enumerate(lines):
+        for tag in tags_of(line):
+            if tag in tag_index:
+                tag_index[tag].append(index)
+            else:
+                tag_index[tag] = [index]
+    
+    return tag_index
+```

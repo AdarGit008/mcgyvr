@@ -1,0 +1,28 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Find and return the content between opening and closing markers, in order, without the markers themselves.
+
+    Args:
+    line (str): The input line containing the markers.
+    opens (str): The opening marker.
+    closes (str): The closing marker.
+
+    Returns:
+    list: A list of the content between each pair of opening and closing markers.
+    """
+    if not line or not opens or not closes:
+        raise ValueError("Invalid input: line, opens, or closes must not be empty.")
+
+    results = []
+    start = 0
+    while True:
+        open_index = line.find(opens, start)
+        close_index = line.find(closes, start)
+        if open_index == -1 or close_index == -1:
+            break
+        results.append(line[start + 1:open_index])
+        start = close_index + 1
+
+    return results
+```

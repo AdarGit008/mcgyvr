@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def grid_flip(grid: List[List[int]]) -> List[List[int]]:
+    # Check if the input is empty
+    if not grid:
+        return []
+
+    # Flip the grid by transposing it
+    flipped_grid = [[row[i] for row in grid] for i in range(len(grid[0]))]
+
+    return flipped_grid
+```

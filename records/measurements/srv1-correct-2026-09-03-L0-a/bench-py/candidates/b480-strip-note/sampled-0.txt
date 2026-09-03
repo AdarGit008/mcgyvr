@@ -1,0 +1,9 @@
+```python
+def strip_note(title: str) -> str:
+    """Strip the last note from the title, which is a round bracket
+    opening somewhere in the title and closing at its very end."""
+    if "(" not in title:
+        return title
+    last_note_index = title.rfind(")")
+    return title[:last_note_index].rstrip()
+```

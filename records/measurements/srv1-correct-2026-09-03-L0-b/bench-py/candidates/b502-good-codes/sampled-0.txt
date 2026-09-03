@@ -1,0 +1,10 @@
+```python
+# solution.py
+def code_sum(code: str) -> int:
+    """Return the sum of all figures in the given code."""
+    return sum(int(c) for c in code if c.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Return a list of codes whose total sum is divisible by three."""
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

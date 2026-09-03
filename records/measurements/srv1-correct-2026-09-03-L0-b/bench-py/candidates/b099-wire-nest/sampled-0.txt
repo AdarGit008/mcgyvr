@@ -1,0 +1,33 @@
+```python
+def wire_value(value):
+    if isinstance(value, bool):
+        raise ValueError("wire_value does not accept boolean values")
+    if not isinstance(value, (str, int, list)):
+        raise ValueError("wire_value does not accept non-text, non-int, or non-list values")
+    if isinstance(value, str) and '\n' in value:
+        raise ValueError("wire_text does not accept text holding a newline")
+    if isinstance(value, str) and not value.isascii():
+        raise ValueError("wire_text does not accept text holding non-ASCII characters")
+
+    def to_wire(value):
+        if isinstance(value, str):
+            return f's{len(value)}:{value}'
+        elif isinstance(value, int):
+            if value < 0:
+                return f'-{value:d}'
+            else:
+                return f'n{value:d}'
+        elif isinstance(value, list):
+            return f'[{", ".join(map(to_wire, value))}]'
+        else:
+            raise ValueError("wire_value does not accept unsupported value type")
+
+    return to_wire(value)
+
+def wire_text(text):
+    if not isinstance(text, str):
+        raise ValueError("wire_text does not accept non-string values")
+    if '\n' in text:
+        raise ValueError("wire_text does not accept text holding a newline")
+    return to_wire(text)
+```

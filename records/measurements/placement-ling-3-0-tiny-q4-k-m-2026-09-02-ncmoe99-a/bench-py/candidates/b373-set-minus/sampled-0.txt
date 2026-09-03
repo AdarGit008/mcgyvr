@@ -1,0 +1,4 @@
+```python
+def set_minus(entries: list, remove: list) -> list:
+    """Return entries from `entries` that do not appear in `remove`, preserving order and duplicates."""
+    remove_set = set

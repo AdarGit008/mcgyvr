@@ -1,0 +1,31 @@
+```python
+from typing import *
+from collections import *
+
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive whole number.")
+    if not isinstance(writes, int) or writes < 0:
+        raise ValueError("Writes must be a non-negative whole number.")
+    if not isinstance(k, int) or k < 0 or k >= writes:
+        raise ValueError("k must be a non-negative whole number less than the number of writes.")
+    
+    # Calculate the number of survivors based on writes and capacity
+    survivors = min(writes, capacity)
+    
+    # Create the ring buffer with the specified capacity
+    ring_buffer = [None] * capacity
+    
+    # Write the new readings into the ring buffer
+    for i in range(writes):
+        slot = i % capacity
+        ring_buffer[slot] = i
+    
+    # Find the k-th oldest survivor in the ring buffer
+    for i in range(survivors):
+        slot = (i + k) % capacity
+        if ring_buffer[slot] is not None:
+            return slot
+    
+    raise ValueError("No survivors found.")
+```

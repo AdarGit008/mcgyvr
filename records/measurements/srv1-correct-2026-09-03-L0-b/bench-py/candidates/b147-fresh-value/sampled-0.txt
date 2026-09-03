@@ -1,0 +1,18 @@
+```python
+from typing import Dict, Optional
+
+def fresh_value(entry: Dict[str, int], now: int) -> str:
+    if not isinstance(entry, dict):
+        raise ValueError("entry must be a dictionary")
+    if not isinstance(entry["value"], str):
+        raise ValueError("entry['value'] must be a string")
+    if not isinstance(entry["stored"], int) or entry["stored"] < 0:
+        raise ValueError("entry['stored'] must be a non-negative integer")
+    if not isinstance(entry["ttl"], int) or entry["ttl"] <= 0:
+        raise ValueError("entry['ttl'] must be a positive integer")
+    if not isinstance(now, int) or now < entry["stored"]:
+        raise ValueError("now must be at least stored")
+    if not entry["stored"] + entry["ttl"] > now:
+        raise ValueError("record is no longer usable at now")
+    return entry["value"]
+```

@@ -1,0 +1,107 @@
+```python
+from typing import List, Dict, Optional
+
+def split_segments(path: str) -> List[str]:
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    return path.split("/")
+
+def first_route(patterns: List[str], path: str) -> int:
+    if not isinstance(patterns, list) or not patterns:
+        raise ValueError("Patterns must be a non-empty list")
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    for i, pattern in enumerate(patterns):
+        if pattern == "**":
+            return i
+    return -1
+
+def match_route(pattern: str, path: str) -> Dict[str, List[str]] | None:
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string")
+    if not isinstance(path, str) or not path:
+        raise ValueError("Path must be a non-empty string")
+    if not path.startswith("/"):
+        raise ValueError("Path must start with a slash")
+    if not path.endswith("/"):
+        raise ValueError("Path must end with a slash")
+    if not path == "/":
+        path = path.rstrip("/")
+    if not path:
+        return {}
+    if not pattern.startswith("/"):
+        pattern = "/" + pattern
+    if not pattern.endswith("/"):
+        pattern = pattern + "/"
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip("/")
+    if not pattern == "/":
+        pattern = pattern.rstrip

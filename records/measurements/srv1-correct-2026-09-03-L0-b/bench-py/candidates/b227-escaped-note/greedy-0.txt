@@ -1,0 +1,47 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """
+    Decode a mail-safe escaped note.
+    
+    Args:
+    text (str): The escaped note text.
+    
+    Returns:
+    str: The decoded note text.
+    
+    Raises:
+    ValueError: If an "=" in the folded text is not followed by two uppercase hexadecimal digits.
+    """
+    # Step 1: Fold the lines
+    folded_text = ""
+    current_line = ""
+    for char in text:
+        if char == "\n":
+            if current_line:
+                folded_text += current_line.rstrip() + "\n"
+                current_line = ""
+        else:
+            current_line += char
+    if current_line:
+        folded_text += current_line.rstrip() + "\n"
+    
+    # Step 2: Decode escapes
+    decoded_text = ""
+    current_line = ""
+    for char in folded_text:
+        if char == "=":
+            if current_line:
+                if len(current_line) == 2 and current_line[1].isupper():
+                    decoded_text += chr(int(current_line[1:], 16))
+                    current_line = ""
+                else:
+                    raise ValueError("Invalid escape sequence")
+            else:
+                raise ValueError("Invalid escape sequence")
+        else:
+            current_line += char
+    if current_line:
+        decoded_text += current_line
+    
+    return decoded_text
+```

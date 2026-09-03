@@ -1,0 +1,26 @@
+```python
+def rate_cap(price: int, rate: int, most: int) -> int:
+    """
+    Raise a price by a whole-percent rate, but never by more than a stated largest increase.
+    Return the new price, with the increase rounded down.
+    A price raised by nothing comes back as it was.
+    
+    Parameters:
+    price (int): The original price to be capped.
+    rate (int): The percentage rate by which to raise the price.
+    most (int): The largest allowed increase as a percentage of the original price.
+    
+    Returns:
+    int: The new price after applying the rate cap.
+    """
+    if not isinstance(price, int) or not isinstance(rate, int) or not isinstance(most, int):
+        raise ValueError("All arguments must be integers.")
+    if price < 0 or rate < 0 or most < 0:
+        raise ValueError("All arguments must be non-negative.")
+    
+    increase = (price * rate) // 100
+    if increase > most:
+        increase = most
+    new_price = price + increase
+    return new_price
+```

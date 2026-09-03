@@ -1,0 +1,16 @@
+```python
+def score_scale(mark: int, was_out_of: int, now_out_of: int) -> int:
+    if now_out_of == 0:
+        return 0
+
+    if mark >= now_out_of:
+        return now_out_of - 1
+
+    scale_factor = was_out_of / now_out_of
+    scaled_mark = int(mark * scale_factor)
+
+    if scaled_mark >= now_out_of:
+        return now_out_of - 1
+
+    return scaled_mark
+```

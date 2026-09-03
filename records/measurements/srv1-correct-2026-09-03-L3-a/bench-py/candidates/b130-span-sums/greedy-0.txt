@@ -1,0 +1,45 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    # Validate the span text against the part grammar and unit order,
+    # then total its parts in inches.
+    total = 0
+    parts = []
+    for part in text.split(" "):
+        if not part:
+            raise ValueError("span text must contain at least one part")
+        if part[-2:] not in INCHES:
+            raise ValueError(f"unknown unit: {part[-2:]}")
+        value = int(part[:-2])
+        if value < 0:
+            raise ValueError("value must be non-negative")
+        parts.append(value)
+    if len(parts) == 0:
+        raise ValueError("span text must contain at least one part")
+    if len(parts) > 1 and parts[0] == 0:
+        raise ValueError("zero value cannot be the first part")
+    if len(parts) > 1 and parts[1] == 0:
+        raise ValueError("zero value cannot be the second part")
+    if len(parts) > 1 and parts[2] == 0:
+        raise ValueError("zero value cannot be the third part")
+    if len(parts) > 1 and parts[0] == 0 and parts[1] == 0 and parts[2] == 0:
+        raise ValueError("zero value cannot be the first three parts")
+    if len(parts) > 1 and parts[0] == 0 and parts[1] == 0 and parts[2] != 0:
+        raise ValueError("zero value cannot be the first two parts and the third part is not zero")
+    if len(parts) > 1 and parts[0] == 0 and parts[1] != 0 and parts[2] == 0:
+        raise ValueError("zero value cannot be the first part and the second part is not zero and the third part is zero")
+    if len(parts) > 1 and parts[0] != 0 and parts[1] == 0 and parts[2] == 0:
+        raise ValueError("zero value cannot be the first part and the second part is zero and the third part is zero")
+    if len(parts) > 1 and parts[0] != 0 and parts[1] != 0 and parts[2] == 0:
+        raise ValueError("zero value cannot be the first part and the second part is not zero and the third part is zero")
+    if len(parts) > 1 and parts[0] != 0 and parts[1] != 0 and parts[2] != 0:
+        raise ValueError("zero value cannot be the first part and the second part is not zero and the third part is not zero")
+    if len(parts) > 1 and parts[0] != 0 and parts[1] != 0 and parts[2] != 0 and parts[3] == 0:
+        raise ValueError("zero value cannot be the first part and the second part is not zero and the third part is not zero and the fourth part is zero")
+    if len(parts) > 1 and parts[0] != 0 and parts[1] != 0 and parts[2] != 0 and parts[3] != 0:
+        raise ValueError("zero value cannot be the first part and the second part is not zero and the third part is not zero and the fourth part is not zero

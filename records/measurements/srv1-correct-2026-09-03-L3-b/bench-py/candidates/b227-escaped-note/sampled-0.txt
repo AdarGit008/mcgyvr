@@ -1,0 +1,55 @@
+```python
+def decode_escaped_note(text: str) -> str:
+    """
+    Decode a mail-safe escaped note.
+
+    Args:
+        text (str): The escaped note to decode.
+
+    Returns:
+        str: The decoded text.
+
+    Raises:
+        ValueError: If an invalid escape sequence is found.
+    """
+
+    # Step 1: Fold the lines
+    folded_text = ''
+    in_folded = False
+    for line in text.split('\n'):
+        if in_folded:
+            if line.strip() == '':
+                folded_text += '\n'
+                in_folded = False
+        else:
+            if not line.strip():
+                in_folded = True
+                folded_text += '\n'
+            else:
+                folded_text += line.replace(' ', '').replace('\t', '')
+                folded_text += '\n'
+
+    # Step 2: Decode escapes
+    decoded_text = ''
+    in_folded = False
+    for line in folded_text.split('\n'):
+        if in_folded:
+            if line.strip() == '':
+                decoded_text += '\n'
+                in_folded = False
+        else:
+            if not line.strip():
+                in_folded = True
+                decoded_text += '\n'
+            else:
+                if line.startswith('='):
+                    try:
+                        decoded_text += chr(int(line[1:3], 16))
+                    except ValueError:
+                        raise ValueError("Invalid escape sequence")
+                else:
+                    decoded_text += line
+                decoded_text += '\n'
+
+    return decoded_text.strip()
+```

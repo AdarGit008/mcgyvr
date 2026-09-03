@@ -1,0 +1,37 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    """
+    Calculate the minutes difference between two times, considering the second time falling on the following day if it is not later than the first.
+    
+    Args:
+    from_hour (int): The hour of the first time.
+    from_minute (int): The minute of the first time.
+    to_hour (int): The hour of the second time.
+    to_minute (int): The minute of the second time.
+    
+    Returns:
+    int: The minutes difference between the two times.
+    
+    Examples:
+    >>> time_gap(9, 30, 12, 0)
+    180
+    >>> time_gap(15, 45, 23, 30)
+    105
+    >>> time_gap(6, 15, 7, 0)
+    105
+    >>> time_gap(23, 59, 0, 1)
+    1
+    >>> time_gap(1, 1, 24, 0)
+    1439
+    >>> time_gap(23, 59, 23, 59)
+    0
+    >>> time_gap(12, 0, 12, 0)
+    0
+    """
+    if to_hour == from_hour and to_minute <= from_minute:
+        return 24 * 60 - (from_minute - to_minute)
+    else:
+        return (to_hour * 60 + to_minute) - (from_hour * 60 + from_minute)
+```

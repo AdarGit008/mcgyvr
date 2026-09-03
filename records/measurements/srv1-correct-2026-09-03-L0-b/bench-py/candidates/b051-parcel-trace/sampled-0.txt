@@ -1,0 +1,16 @@
+```python
+def trace_parcel(events: list) -> list:
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list")
+
+    states = ["created"]
+    for event in events:
+        if event not in ["created", "packed", "shipped", "delivered", "returned"]:
+            raise ValueError(f"Invalid event: {event}")
+        if event in ["created", "packed", "shipped", "delivered", "returned"] and states[-1] not in ["created", "packed", "shipped", "delivered"]:
+            raise ValueError(f"Event {event} is not allowed after {states[-1]}")
+
+        states.append(event)
+
+    return states
+```

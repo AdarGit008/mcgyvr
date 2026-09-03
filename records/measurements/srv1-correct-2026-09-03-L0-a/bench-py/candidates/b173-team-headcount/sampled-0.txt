@@ -1,0 +1,19 @@
+```python
+from typing import Dict, List, Optional
+
+def team_headcount(chart: Dict[str, List[str]], name: str) -> int:
+    if not isinstance(chart, dict) or not chart:
+        raise ValueError("Chart must be a non-empty mapping.")
+    if name not in chart:
+        raise ValueError("Name must be a key in the chart.")
+    if not isinstance(chart[name], list):
+        raise ValueError("Reports must be a list.")
+    if not all(isinstance(report, str) for report in chart[name]):
+        raise ValueError("All reports must be strings.")
+
+    count = 1  # Count the current worker
+    for report in chart[name]:
+        if report in chart:
+            count += team_headcount(chart, report)
+    return count
+```

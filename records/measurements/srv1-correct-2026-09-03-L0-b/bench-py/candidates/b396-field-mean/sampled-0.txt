@@ -1,0 +1,25 @@
+```python
+from typing import List, Dict, Union
+
+def field_mean(records: List[Dict[str, Union[int, float]]], field: str) -> int:
+    """
+    Return the mean of the specified field across the records, rounded down.
+    Records lacking the field are skipped.
+    """
+    total_sum = 0
+    count = 0
+
+    for record in records:
+        if field in record:
+            try:
+                total_sum += int(record[field])
+                count += 1
+            except ValueError:
+                # Skip record if field is not a number
+                continue
+
+    if count == 0:
+        return 0
+
+    return total_sum // count
+```

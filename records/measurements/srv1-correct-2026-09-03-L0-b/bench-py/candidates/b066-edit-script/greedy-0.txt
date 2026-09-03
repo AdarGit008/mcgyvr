@@ -1,0 +1,32 @@
+```python
+def apply_edit_script(original: str, script: list) -> str:
+    if not isinstance(original, str):
+        raise ValueError("Original must be a string")
+    
+    result = []
+    original_index = 0
+    
+    for op, count in script:
+        if op not in ["copy", "skip", "insert"]:
+            raise ValueError(f"Unknown op: {op}")
+        if count <= 0:
+            raise ValueError("Copy or skip count must be a positive integer")
+        if op == "insert" and not isinstance(count, str) or not count:
+            raise ValueError("Insert text must be a non-empty string")
+        
+        if op == "copy":
+            if original_index + count > len(original):
+                raise ValueError("Copy count exceeds original length")
+            result.extend(original[original_index:original_index + count])
+            original_index += count
+        elif op == "skip":
+            original_index += count
+        elif op == "insert":
+            result.append(count)
+            result.extend(count)
+    
+    if original_index != len(original):
+        raise ValueError("Script stops before the original is used up")
+    
+    return ''.join(result)
+```

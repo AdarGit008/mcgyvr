@@ -1,0 +1,15 @@
+```python
+from typing import List, Union
+
+def selector_hits(values: List[int], selector: str) -> int:
+    if not isinstance(values, list) or not all(isinstance(v, int) for v in values):
+        raise ValueError("values must be a list of integers")
+    if not isinstance(selector, str) or not selector:
+        raise ValueError("selector must be a non-empty string")
+    if any(len(term.split('-')) > 2 for term in selector.split(',')):
+        raise ValueError("term must be a bare non-negative integer or two of them joined by a hyphen")
+    if any(int(term.split('-')[0]) > int(term.split('-')[1]) for term in selector.split(',')):
+        raise ValueError("range's low end must be less than or equal to its high end")
+    
+    return sum(1 for value in values if any(value >= int(term.split('-')[0]) and value <= int(term.split('-')[1]) for term in selector.split(',')))
+```

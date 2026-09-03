@@ -1,0 +1,17 @@
+```python
+def cell_at(grid: list, row: int, column: int) -> int:
+    """
+    Returns the value at the given row and column of the grid, or None if either falls outside it.
+    """
+    if not (0 <= row < len(grid) and 0 <= column < len(grid[0])):
+        return None
+    return grid[row][column]
+
+def diag_of(grid: list) -> list:
+    """
+    Returns the values running down the grid's main diagonal from the top left, one for each row the grid holds.
+    """
+    if not all(len(row) == len(grid) for row in grid):
+        raise ValueError("Grid must be square")
+    return [grid[i][i] for i in range(len(grid))]
+```

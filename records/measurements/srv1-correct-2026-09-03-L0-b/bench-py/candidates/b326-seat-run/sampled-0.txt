@@ -1,0 +1,24 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    """
+    Returns the position of the first seat of the earliest run of free seats
+    long enough to hold the party, or -1 when there is none.
+    """
+    if party <= 0:
+        raise ValueError("Party size must be positive")
+
+    free_seats = []
+    for i, seat in enumerate(row):
+        if seat == '.':
+            free_seats.append(i)
+        else:
+            if free_seats:
+                free_seats = []
+            else:
+                break
+
+    if not free_seats:
+        return -1
+
+    return free_seats[0]
+```

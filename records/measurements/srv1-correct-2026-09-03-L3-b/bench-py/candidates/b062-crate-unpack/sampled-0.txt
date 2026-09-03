@@ -1,0 +1,29 @@
+```python
+from typing import *
+from collections import *
+
+def unpack_crates(crate: list) -> List[str]:
+    if not all(isinstance(item, (str, list)) for item in crate):
+        raise ValueError("All entries must be non-empty strings or lists.")
+    
+    def helper(crate):
+        if isinstance(crate, str):
+            return [crate]
+        elif isinstance(crate, list):
+            return sum(helper(sub_crate) for sub_crate in crate), max(helper(sub_crate) for sub_crate in crate) + 1
+    
+    _, depth = helper(crate)
+    return unpack_crates(crate)
+
+def crate_depth(crate: list) -> int:
+    if not all(isinstance(item, (str, list)) for item in crate):
+        raise ValueError("All entries must be non-empty strings or lists.")
+    
+    def helper(crate):
+        if isinstance(crate, str):
+            return 1
+        elif isinstance(crate, list):
+            return max(helper(sub_crate) for sub_crate in crate) + 1
+    
+    return helper(crate)
+```

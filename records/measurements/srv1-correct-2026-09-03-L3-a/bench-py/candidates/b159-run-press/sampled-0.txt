@@ -1,0 +1,29 @@
+```python
+def run_press(jobs, budget):
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("Jobs list is empty or not provided")
+    if not isinstance(budget, int) or budget < 0:
+        raise ValueError("Budget is not a non-negative integer")
+    
+    printed = []
+    waiting = []
+    pages = 0
+    
+    for name, pages in jobs:
+        if not isinstance(name, str) or not name:
+            raise ValueError("Name is not a non-empty string")
+        if not isinstance(pages, int) or pages <= 0:
+            raise ValueError("Pages is not a positive whole number")
+        
+        if pages <= budget:
+            printed.append(name)
+            pages -= pages
+        else:
+            waiting.append(name)
+    
+    return {
+        'printed': printed,
+        'waiting': waiting,
+        'pages': pages
+    }
+```

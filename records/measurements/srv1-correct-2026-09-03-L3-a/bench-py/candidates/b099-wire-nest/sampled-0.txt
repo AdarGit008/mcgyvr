@@ -1,0 +1,19 @@
+```python
+def wire_value(value):
+    if isinstance(value, bool):
+        raise ValueError("Unsupported type: boolean")
+    if not isinstance(value, (int, str, list)):
+        raise ValueError("Unsupported type: {}".format(type(value)))
+    if isinstance(value, str) and '\n' in value:
+        raise ValueError("Unsupported value: text containing newline")
+    if isinstance(value, int) and value < 0:
+        raise ValueError("Unsupported value: negative number")
+    if isinstance(value, list) and not all(isinstance(item, (int, str, list)) for item in value):
+        raise ValueError("Unsupported value: list contains unsupported types")
+    if isinstance(value, int):
+        return 'n' + str(value)
+    if isinstance(value, str):
+        return 's' + str(len(value)) + ':' + value
+    if isinstance(value, list):
+        return '[' + ','.join(wire_value(item) for item in value) + ']'
+```

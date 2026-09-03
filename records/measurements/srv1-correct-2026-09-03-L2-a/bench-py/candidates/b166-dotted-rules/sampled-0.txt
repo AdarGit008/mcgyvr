@@ -1,0 +1,15 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    if "*" in name:
+        return rules.get(name, None)
+    for selector in rules:
+        if selector == name:
+            return rules[selector]
+        if selector == selector[:-1] and selector.endswith(".*"):
+            return rules[selector]
+        if "*" in selector and selector.startswith("*"):
+            return rules[selector]
+    return None
+```

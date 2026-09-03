@@ -1,0 +1,31 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Given a mapping of names to codes, return the mapping the other way round,
+    from each code to a name. When two names share one code, the name that sorts first
+    is the one kept. A name whose code is empty text is left out altogether.
+    """
+    if not names:
+        return {}
+    
+    # Create a dictionary to map codes to names
+    code_to_name = {}
+    
+    # Iterate over the names and codes
+    for name, code in names.items():
+        # Skip names with empty codes
+        if not code:
+            continue
+        
+        # Convert code to lowercase for case-insensitive comparison
+        code = code.lower()
+        
+        # If the code is already in the dictionary, update it if the name is alphabetically smaller
+        if code in code_to_name:
+            if name < code_to_name[code]:
+                code_to_name[code] = name
+        else:
+            code_to_name[code] = name
+    
+    return code_to_name
+```

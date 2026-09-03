@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def index_map(labels: list) -> dict:
+    if not labels:
+        return {}
+    
+    result = defaultdict(list)
+    for idx, label in enumerate(labels):
+        result[label].append(idx)
+    
+    return dict(result)
+```

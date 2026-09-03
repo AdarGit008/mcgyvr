@@ -1,0 +1,17 @@
+```python
+"""Lay a straight eastward conveyor run across a factory floor plan."""
+
+
+def lay_conveyor(floor, row, col, length):
+    if row < 0 or row >= len(floor):
+        raise ValueError("the run starts off the plan")
+    cells = list(floor[row])
+    if col + length > len(cells):
+        raise ValueError("the run would pass the last column")
+    for i in range(length):
+        if cells[col + i] != ".":
+            raise ValueError("any cell the run covers is not open")
+    for i in range(length):
+        cells[col + i] = "="
+    return floor
+```

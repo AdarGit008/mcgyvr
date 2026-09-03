@@ -1,0 +1,49 @@
+```python
+from typing import List, Tuple
+
+class Draw:
+    def __init__(self, order_id: int, lot_id: int, units_taken: int):
+        self.order_id = order_id
+        self.lot_id = lot_id
+        self.units_taken = units_taken
+
+class Shortfall:
+    def __init__(self, order_id: int, shortfall_units: int):
+        self.order_id = order_id
+        self.shortfall_units = shortfall_units
+
+class ReservationResult:
+    def __init__(self, picks: List[Draw], draws: List[Draw], shortfalls: List[Shortfall]):
+        self.picks = picks
+        self.draws = draws
+        self.shortfalls = shortfalls
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> ReservationResult:
+    # Convert strings to datetime objects for easier sorting
+    lots = [(lid, datetime.strptime(use_by, '%Y-%m-%d'), units) for lid, use_by, units in lots]
+    orders = [(oid, units) for oid, units in orders]
+    lots.sort(key=lambda lot: (lot[1], lot[0]))
+    orders.sort(key=lambda order: (order[1]))
+
+    picks = []
+    draws = []
+    shortfalls = []
+    current_lot = None
+
+    for order_id, units in orders:
+        if current_lot is None or current_lot[1] < lots[0][1]:
+            # Move to the next lot if we're done with the current one or it's too old
+            current_lot = None
+        while current_lot is None or current_lot[1] > lots[0][1]:
+            # Move to the next lot until we find one that's ready
+            current_lot = lots.pop(0)
+        shortfall = units
+        while shortfall > 0 and current_lot[2] > 0:
+            picks.append(Draw(order_id, current_lot[0], current_lot[2]))
+            shortfall -= current_lot[2]
+            current_lot[2] -= 1
+        if shortfall > 0:
+            shortfalls.append(Shortfall(order_id, shortfall))
+
+    return ReservationResult(picks, draws, shortfalls)
+```

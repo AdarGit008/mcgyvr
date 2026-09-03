@@ -1,0 +1,36 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    output = ""
+    placeholder_index = 0
+    placeholder_length = 0
+    
+    for i, char in enumerate(template):
+        if char == '{':
+            placeholder_index = i
+            placeholder_length = 1
+        elif char == '}':
+            placeholder_length += 1
+            if placeholder_length > 1:
+                output += template[i - placeholder_length + 1:i]
+            else:
+                placeholder_name = template[placeholder_index + 1:i]
+                if placeholder_name.isalpha():
+                    if placeholder_name in values:
+                        output += str(values[placeholder_name])
+                    else:
+                        raise ValueError(f"Unknown placeholder: {placeholder_name}")
+                else:
+                    raise ValueError(f"Placeholder name must be alphanumeric: {placeholder_name}")
+            placeholder_index = -1
+            placeholder_length = 0
+        else:
+            output += char
+    
+    if placeholder_index != -1:
+        raise ValueError("Unterminated placeholder")
+    
+    return output
+```

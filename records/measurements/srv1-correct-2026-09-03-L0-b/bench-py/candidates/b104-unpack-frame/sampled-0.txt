@@ -1,0 +1,43 @@
+```python
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in data):
+        raise ValueError("Data must contain integers from 0 to 255")
+    
+    total_sum = 0
+    readings = []
+    
+    while data:
+        try:
+            reading = unpack_varint(data)
+            total_sum += reading
+            readings.append(reading)
+        except ValueError as e:
+            raise ValueError(f"Invalid frame: {e}")
+    
+    trailer = data[-1]
+    if trailer != total_sum % 256:
+        raise ValueError("Invalid trailer")
+    
+    return readings
+
+
+def unpack_varint(data: list) -> int:
+    if not data or len(data) > 5:
+        raise ValueError("Invalid varint length")
+    
+    varint = 0
+    shift = 0
+    
+    while data:
+        byte = data.pop(0)
+        varint |= byte & 0x7f
+        shift += 7
+        
+        if byte & 0x80:
+            break
+    
+    return varint
+```

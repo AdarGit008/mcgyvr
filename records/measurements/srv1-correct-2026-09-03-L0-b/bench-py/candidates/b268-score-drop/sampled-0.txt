@@ -1,0 +1,21 @@
+```python
+def score_drop(scores: list) -> int:
+    """
+    Return the total of all scores except the lowest score, dropping
+    duplicates of the lowest score.
+    
+    :param scores: List of scores.
+    :return: Total of all scores excluding the lowest score, dropping
+             duplicates of the lowest score.
+    """
+    if not scores:
+        return 0
+    
+    scores.sort()
+    lowest = scores[0]
+    
+    if scores.count(lowest) > 1:
+        scores.remove(lowest)
+    
+    return sum(scores)
+```

@@ -1,0 +1,8 @@
+```python
+def step_cost(distance: int, rate: int) -> int:
+    return distance * rate
+
+
+def trip_cost(hops: list, rate: int, minimum: int) -> int:
+    """The cost of a whole trip, never below the minimum charge."""
+    total =

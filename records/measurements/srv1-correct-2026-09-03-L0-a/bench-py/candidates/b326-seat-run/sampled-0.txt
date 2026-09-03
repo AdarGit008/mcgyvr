@@ -1,0 +1,22 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party <= 0:
+        return -1
+    
+    free_seats = 0
+    run_start = -1
+    
+    for i, char in enumerate(row):
+        if char == '.':
+            free_seats += 1
+            run_start = i
+        else:
+            if free_seats >= party:
+                return run_start
+            free_seats = 0
+    
+    if free_seats >= party:
+        return run_start
+    
+    return -1
+```

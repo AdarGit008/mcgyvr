@@ -1,0 +1,45 @@
+```python
+from typing import *
+from collections import *
+
+def chain_of_command(root: dict, person: str) -> List[str]:
+    # Validate input
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    if not isinstance(person, str) or not person:
+        raise ValueError("Person must be a non-empty string.")
+    
+    # Validate person's existence in the chart
+    if person not in root:
+        raise ValueError("Person not found in the chart.")
+    
+    # Walk the chart from the head
+    path = [person]
+    current = person
+    while current in root and root[current]:
+        path.append(root[current][0])
+        current = root[current][0]
+    
+    return path
+
+def headcount(root: dict) -> int:
+    # Validate input
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    # Count the number of nodes in the chart
+    return len(root)
+
+def widest_team(root: dict) -> int:
+    # Validate input
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    # Find the node with the largest number of direct reports
+    max_reports = 0
+    for person, reports in root.items():
+        if reports and len(reports) > max_reports:
+            max_reports = len(reports)
+    
+    return max_reports
+```

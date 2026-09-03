@@ -1,0 +1,6 @@
+```python
+def move_stock(opening: int, moves: list) -> int:
+    current = opening
+    for move in moves:
+        current += move
+        if current

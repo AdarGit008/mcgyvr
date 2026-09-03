@@ -1,0 +1,13 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    if not all(isinstance(entry, list) and len(entry) == 2 and isinstance(entry[0], str) and isinstance(entry[1], str) for entry in entries):
+        raise ValueError("All entries must be two-element lists containing strings")
+    if any(len(entry[0]) == 0 or len(entry[1]) == 0):
+        raise ValueError("Keys and values cannot be empty")
+    if len(entries) != len(set(entries)):
+        raise ValueError("Duplicate keys are not allowed")
+    result = "; ".join(f"{key}={value}" for key, value in entries)
+    return result.replace('\\', '\\\\').replace('=', '\\=').replace(';', '\\;')
+```

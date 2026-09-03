@@ -1,0 +1,24 @@
+```python
+def pack_entries(entries: list) -> str:
+    if not isinstance(entries, list):
+        raise ValueError("Input must be a list")
+    
+    result = []
+    for entry in entries:
+        if not isinstance(entry, list) or len(entry) != 2:
+            raise ValueError("Each entry must be a two-element list")
+        
+        key, value = entry
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Keys and values must be strings")
+        
+        if not key or not value:
+            raise ValueError("Key or value cannot be empty")
+        
+        if key in result:
+            raise ValueError("Key already exists in the input")
+        
+        result.append(f"{key}={value}")
+    
+    return ';'.join(result)
+```

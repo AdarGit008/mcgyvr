@@ -1,0 +1,9 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    if start not in links:
+        raise ValueError("The start name is not in the book.")
+    line = [start]
+    while links.get(line[-1], None) is not None:
+        line.append(links[line[-1]])
+    return line
+```

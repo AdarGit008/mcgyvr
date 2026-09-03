@@ -1,0 +1,31 @@
+```python
+# solution.py
+import re
+
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str) or len(version.split('.')) != 3:
+        raise ValueError("Invalid version format")
+    
+    version_parts = version.split('.')
+    if any(part not in version_parts for part in ['major', 'minor', 'patch']):
+        raise ValueError("Invalid part name")
+    
+    if re.match(r'^\d+$', version_parts[part]) is None:
+        raise ValueError(f"Invalid part value: {version_parts[part]}")
+    
+    if int(version_parts[part]) == 0:
+        version_parts[part] = '1'
+    else:
+        version_parts[part] = str(int(version_parts[part]) + 1)
+    
+    if part == 'patch':
+        version_parts[1] = '0'
+        version_parts[2] = '0'
+    elif part == 'minor':
+        version_parts[1] = str(int(version_parts[1]) + 1)
+        version_parts[2] = '0'
+    elif part == 'major':
+        version_parts[0] = str(int(version_parts[0]) + 1)
+    
+    return '.'.join(version_parts)
+```

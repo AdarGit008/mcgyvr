@@ -1,0 +1,12 @@
+```python
+def step_back(moves: str) -> int:
+    position = 0
+    furthest = 0
+    for move in moves:
+        if move == 'F':
+            position += 1
+            furthest = max(furthest, position)
+        elif move == 'B':
+            position -= 1
+    return furthest
+```

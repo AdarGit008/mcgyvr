@@ -1,0 +1,15 @@
+```python
+from typing import Tuple
+
+def time_gap(from_hour: int, from_minute: int, to_hour: int, to_minute: int) -> int:
+    # Normalize the times to ensure to_hour >= from_hour and to_minute >= from_minute
+    from_hour, from_minute = from_hour % 24, from_minute % 60
+    to_hour, to_minute = to_hour % 24, to_minute % 60
+
+    # Calculate the minutes difference considering the wrap-around
+    minutes_difference = (to_minute - from_minute) % 60
+    if to_hour < from_hour:
+        minutes_difference += 60 * (24 - from_hour + to_hour)
+
+    return minutes_difference
+```

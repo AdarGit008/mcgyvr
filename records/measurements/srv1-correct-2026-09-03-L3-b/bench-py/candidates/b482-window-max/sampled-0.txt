@@ -1,0 +1,14 @@
+```python
+def window_max(readings: list[int], width: int) -> list[int]:
+    if width < 1:
+        raise ValueError("Width must be at least 1")
+
+    if not readings:
+        return []
+
+    max_readings = []
+    for i in range(len(readings) - width + 1):
+        max_readings.append(max(readings[i:i + width]))
+
+    return max_readings
+```

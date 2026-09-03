@@ -1,0 +1,11 @@
+```python
+def range_check(readings: list, low: int, high: int) -> bool:
+    """
+    Determine whether every reading falls between low and high, inclusive.
+    A run with no readings is considered within any range.
+    Raises ValueError if low is greater than high.
+    """
+    if low > high:
+        raise ValueError("low must not be greater than high")
+    return all(low <= reading <= high for reading in readings)
+```

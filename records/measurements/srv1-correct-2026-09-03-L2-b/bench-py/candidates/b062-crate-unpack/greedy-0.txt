@@ -1,0 +1,25 @@
+```python
+from typing import List, Union
+
+def unpack_crates(crate: List[Union[str, List]]) -> List[str]:
+    def helper(crate: List[Union[str, List]], depth: int) -> List[str]:
+        if not crate:
+            return []
+        if isinstance(crate[0], str):
+            return [crate[0]] + helper(crate[1:], depth + 1)
+        else:
+            return helper(crate[0], depth) + helper(crate[1:], depth)
+
+    return helper(crate, 1)
+
+def crate_depth(crate: List[Union[str, List]]) -> int:
+    def helper(crate: List[Union[str, List]], depth: int) -> int:
+        if not crate:
+            return depth
+        if isinstance(crate[0], str):
+            return helper(crate[1:], depth + 1)
+        else:
+            return max(helper(crate[0], depth), helper(crate[1:], depth))
+
+    return helper(crate, 1)
+```

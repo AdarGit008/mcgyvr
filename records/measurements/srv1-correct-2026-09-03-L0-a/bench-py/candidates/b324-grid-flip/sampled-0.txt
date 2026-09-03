@@ -1,0 +1,18 @@
+```python
+def grid_flip(grid: list) -> list:
+    """
+    Return a new grid where the rows are the columns of the original grid.
+    
+    :param grid: List of lists representing the grid.
+    :return: A new grid with rows as columns.
+    """
+    if not grid:
+        return []
+    
+    # Check if rows have varying lengths
+    if any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Rows have varying lengths")
+    
+    # Transpose the grid
+    return [list(row) for row in zip(*grid)]
+```

@@ -1,0 +1,22 @@
+```python
+def bump_release(version: str, part: str) -> str:
+    if not isinstance(version, str):
+        raise ValueError("Version must be a string")
+    if len(version.split('.')) != 3:
+        raise ValueError("Version must have exactly three components")
+    if any(part not in ['major', 'minor', 'patch'] for part in [part]):
+        raise ValueError("Part must be 'major', 'minor', or 'patch'")
+    parts = version.split('.')
+    if any(part == '' for part in parts):
+        raise ValueError("Component cannot be empty")
+    if any(int(part) < 0 or int(part) > 999 for part in parts):
+        raise ValueError("Component must be a decimal integer between 0 and 999")
+    if part == 'major':
+        parts[1] = '0'
+        parts[2] = '0'
+    elif part == 'minor':
+        parts[2] = '0'
+    elif part == 'patch':
+        pass
+    return '.'.join(parts)
+```

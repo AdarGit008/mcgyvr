@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def line_up(links: dict[str, str], start: str) -> List[str]:
+    if start not in links:
+        raise ValueError("Link not found")
+    current = start
+    line = [current]
+    while current in links:
+        current = links[current]
+        line.append(current)
+    return line
+```

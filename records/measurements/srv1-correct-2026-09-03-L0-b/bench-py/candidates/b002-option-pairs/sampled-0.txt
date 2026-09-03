@@ -1,0 +1,39 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    # Validate the input, split it on semicolons outside double quotes,
+    # reject an unterminated quote and a repeated key, and build the pairs
+    # with parse_option.
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if text == "":
+        return []
+    pairs = []
+    segments = text.split(";")
+    for segment in segments:
+        if len(segment) == 0:
+            continue
+        if segment[0] == '"':
+            if not segment[-1] == '"':
+                raise ValueError("unterminated quoted value")
+            segment = segment[1:-1]
+        elif segment[0] == '=':
+            raise ValueError("malformed option segment: " + segment)
+        try:
+            key, value = parse_option(segment)
+        except ValueError as e:
+            raise ValueError(f"malformed option segment: {segment} - {e}")
+        pairs.append((key, value))
+    return pairs
+```

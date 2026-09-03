@@ -1,0 +1,26 @@
+```python
+from typing import *
+
+def common_head(words: List[str]) -> str:
+    """
+    Return the longest run of characters that every word in a list begins with.
+    
+    Args:
+    words (List[str]): A list of words to check.
+    
+    Returns:
+    str: The longest run of characters that every word in the list begins with.
+    """
+    if not words:
+        return ""
+    
+    # Find the longest common prefix of all words
+    prefix = words[0]
+    for word in words[1:]:
+        while word.startswith(prefix):
+            prefix = word[:len(prefix) + 1]
+        if not prefix:
+            break
+    
+    return prefix
+```

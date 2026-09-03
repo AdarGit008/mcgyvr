@@ -1,0 +1,36 @@
+```python
+from typing import List, Tuple, Dict
+
+def reserve_lots(lots: List[Tuple[int, str, int]], orders: List[Tuple[int, int]]) -> Dict[str, List[Tuple[int, int, int]]]:
+    if not lots or not orders:
+        return {"picks": [], "draws": [], "short": []}
+
+    lots.sort(key=lambda x: (x[1], x[0]))  # Sort lots by use-by date, then lot id
+    orders.sort(key=lambda x: x[1])  # Sort orders by units wanted
+
+    picks = []
+    draws = []
+    short = []
+
+    for order_id, units_wanted in orders:
+        drawn = []
+        shortfall = units_wanted
+
+        for lot_id, use_by_date, units_on_hand in lots:
+            if units_on_hand > 0:
+                units_taken = min(units_wanted, units_on_hand)
+                drawn.append((order_id, lot_id, units_taken))
+                units_wanted -= units_taken
+                units_on_hand -= units_taken
+                if units_wanted == 0:
+                    break
+
+        if units_wanted > 0:
+            short.append((order_id, units_wanted))
+
+        if drawn:
+            picks.append(drawn)
+            draws.extend(drawn)
+
+    return {"picks": picks, "draws": draws, "short": short}
+```

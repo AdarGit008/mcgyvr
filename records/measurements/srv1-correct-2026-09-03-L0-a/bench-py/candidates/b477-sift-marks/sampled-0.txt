@@ -1,0 +1,15 @@
+```python
+from typing import List
+
+def sift_marks(entries: List[str], mark: str) -> List[List[str]]:
+    marked_run: List[str] = []
+    unmarked_run: List[str] = []
+    
+    for entry in entries:
+        if entry.startswith(mark):
+            marked_run.append(entry)
+        else:
+            unmarked_run.append(entry)
+    
+    return [marked_run, unmarked_run]
+```

@@ -1,0 +1,15 @@
+```python
+from typing import *
+from collections import *
+
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity < 1 or writes < 0 or k < 0 or k >= writes or k >= capacity:
+        raise ValueError("Invalid arguments")
+
+    slots = list(range(capacity))
+    for _ in range(writes):
+        slots[(slots[0] + 1) % capacity] = slots[0]
+        slots.pop(0)
+
+    return slots[k]
+```

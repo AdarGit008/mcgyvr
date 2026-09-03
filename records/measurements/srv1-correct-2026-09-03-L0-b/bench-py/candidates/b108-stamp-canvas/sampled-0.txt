@@ -1,0 +1,31 @@
+```python
+def new_canvas(rows: int, cols: int) -> dict:
+    for side in (rows, cols):
+        if isinstance(side, bool) or not isinstance(side, int) or side < 1:
+            raise ValueError("canvas dimensions must be positive integers")
+    cells = [[0] * cols for _ in range(rows)]
+    return {"rows": rows, "cols": cols, "cells": cells}
+
+
+def stamp_rect(canvas: dict, rect: list) -> int:
+    top, left, bottom, right = rect
+    if not isinstance(rect, list) or len(rect) != 4 or not all(isinstance(i, int) and i >= 0 for i in rect):
+        raise ValueError("rect must be a list of 4 integers")
+    if top >= bottom or left >= right:
+        raise ValueError("rect must cover at least one cell")
+    if top < 0 or left < 0 or bottom >= canvas["rows"] or right >= canvas["cols"]:
+        raise ValueError("rect must be within the canvas bounds")
+    inked = 0
+    for r in range(top, bottom):
+        for c in range(left, right):
+            if canvas["cells"][r][c] == 1:
+                inked += 1
+    return inked
+
+
+def ink_total(canvas: dict) -> int:
+    total = 0
+    for row in canvas["cells"]:
+        total += sum(row)
+    return total
+```

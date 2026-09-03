@@ -1,0 +1,19 @@
+```python
+def _why_refused(cap, left: int, amount: int) -> str:
+    if cap is None:
+        return "unknown"
+    if amount > cap[1]:
+        return "single"
+    return "cap" if amount > left else ""
+
+
+def apply_charges(caps: dict, charges: list) -> dict:
+    left = {name: cap[0] for name, cap in caps.items()}
+    refused = []
+    for _, bucket, amount in charges:
+        if amount <= 0 or amount > left[bucket]:
+            raise ValueError(f"Invalid charge amount: {amount}")
+        left[bucket] -= amount
+        refused.append((bucket, _why_refused(cap, left[bucket], amount)))
+    return {"left": left, "refused": refused}
+```

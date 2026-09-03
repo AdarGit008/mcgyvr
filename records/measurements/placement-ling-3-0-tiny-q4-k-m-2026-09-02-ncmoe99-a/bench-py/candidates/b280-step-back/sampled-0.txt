@@ -1,0 +1,18 @@
+```python
+def step_back(moves: str) -> int:
+    """
+    Simulate a walker starting at zero, following moves in a string.
+    F steps one forward, B steps one back, and any other character is ignored.
+    Return the furthest forward position reached at any point.
+    """
+    position = 0
+    furthest = 0
+    for move in moves:
+        if move == 'F':
+            position += 1
+            if position > furthest:
+                furthest = position
+        elif move == 'B':
+            position -= 1
+    return furthest
+```

@@ -1,0 +1,16 @@
+```python
+def case_count(text: str) -> list:
+    """Count capital and lowercase letters in the text.
+    
+    Returns a list where the first element is the count of capital letters
+    and the second element is the count of lowercase letters.
+    """
+    capitals = 0
+    small = 0
+    for char in text:
+        if char.isupper():
+            capitals += 1
+        elif char.islower():
+            small += 1
+    return [capitals, small]
+```

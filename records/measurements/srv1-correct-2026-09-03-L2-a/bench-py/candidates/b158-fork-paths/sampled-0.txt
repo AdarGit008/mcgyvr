@@ -1,0 +1,40 @@
+```python
+from typing import List, Optional
+
+def fork_paths(pattern: str) -> List[str]:
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("Pattern must be a non-empty string")
+
+    if pattern == "":
+        return [pattern]
+
+    path = []
+    stack = []
+    option = []
+
+    for char in pattern:
+        if char == '{':
+            if option:
+                stack.append(option)
+                option = []
+            stack.append(char)
+        elif char == ',':
+            if option:
+                stack.append(option)
+                option = []
+        elif char == '}':
+            if option:
+                stack.append(option)
+                option = []
+            if stack:
+                option = stack.pop()
+                path.append(option)
+        else:
+            if stack:
+                option.append(char)
+
+    if option:
+        path.append(option)
+
+    return path
+```

@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def wave_count(readings: List[float]) -> int:
+    """
+    Count the number of times a run of readings changes direction.
+    
+    A change is considered to be a rise that follows a fall or a fall that follows a rise.
+    Readings that hold level neither rise nor fall and change nothing are also counted.
+    
+    Args:
+    readings (List[float]): A list of float readings.
+    
+    Returns:
+    int: The number of direction changes.
+    """
+    if not readings:
+        return 0
+    
+    changes = 0
+    last_reading = readings[0]
+    
+    for reading in readings[1:]:
+        if (reading > last_reading and last_reading > 0) or \
+           (reading < last_reading and last_reading < 0):
+            changes += 1
+        last_reading = reading
+    
+    return changes
+```

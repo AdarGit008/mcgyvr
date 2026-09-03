@@ -1,0 +1,7 @@
+```python
+from typing import *
+from collections import *
+
+def cell_count(grid: List[List[int]], value: int) -> int:
+    return sum(row.count(value) for row in grid)
+```

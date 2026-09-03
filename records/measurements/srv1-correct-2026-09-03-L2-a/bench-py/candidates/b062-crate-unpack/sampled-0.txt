@@ -1,0 +1,23 @@
+```python
+from typing import List, Union
+
+def unpack_crates(crate: List) -> List[str]:
+    if not crate:
+        return []
+    result = []
+    for item in crate:
+        if isinstance(item, str) and item:
+            result.append(item)
+        elif isinstance(item, list):
+            result.extend(unpack_crates(item))
+        else:
+            raise ValueError("Invalid entry: must be a non-empty string or a list.")
+    return result
+
+def crate_depth(crate: List) -> int:
+    if not crate:
+        return 0
+    if isinstance(crate, str):
+        return 1
+    return 1 + max(crate_depth(item) for item in crate if isinstance(item, list))
+```

@@ -1,0 +1,57 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit not in defs or base not in defs:
+        raise ValueError("unknown unit or base")
+    if amount < 0 or not isinstance(amount, int) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance(amount, int) or not isinstance(amount, int):
+        raise ValueError("amount must be a non-negative integer")
+    if not isinstance

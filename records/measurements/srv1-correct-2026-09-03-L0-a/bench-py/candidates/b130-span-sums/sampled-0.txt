@@ -1,0 +1,44 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    # Validate the span text against the part grammar and unit order,
+    # then total its parts in inches.
+    parts = []
+    for part in text.split(" "):
+        if not part or not part[-2:].isdigit():
+            raise ValueError("invalid part")
+        if part[-2:].isdigit() and part[:-2].isdigit():
+            raise ValueError("duplicate unit")
+        unit = part[-2:]
+        value = int(part[:-2])
+        if unit in INCHES:
+            parts.append(value * INCHES[unit])
+    return sum(parts)
+
+
+def format_span(inches: int) -> str:
+    if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+    if inches == 0:
+        return "0in"
+    parts = []
+    yards, rest = divmod(inches, 36)
+    feet, rest = divmod(rest, 12)
+    if yards:
+        parts.append(f"{yards}yd")
+    if feet:
+        parts.append(f"{feet}ft")
+    if rest:
+        parts.append(f"{rest}in")
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    total = parse_span(first) + parse_span(second)
+    return format_span(total)
+```

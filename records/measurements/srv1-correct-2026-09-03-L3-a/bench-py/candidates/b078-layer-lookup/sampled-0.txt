@@ -1,0 +1,45 @@
+```python
+def config_value(layers: list, name: str) -> str | None:
+    if not isinstance(layers, list) or not all(isinstance(layer, str) for layer in layers):
+        raise ValueError("Invalid layers input")
+
+    if not isinstance(name, str) or not name:
+        raise ValueError("Invalid name input")
+
+    name = name.strip()
+
+    # Initialize an empty dictionary to hold the configuration values
+    config = {}
+
+    # Iterate through each layer in reverse order (highest precedence first)
+    for layer in reversed(layers):
+        lines = layer.strip().split('\n')
+        for line in lines:
+            if line.startswith('#'):
+                continue  # Skip comments
+
+            if not line:
+                continue  # Skip empty lines
+
+            if line.startswith('!'):
+                name = line[1:].strip()
+                config.pop(name, None)  # Unset the name
+                continue
+
+            parts = line.split('=')
+            if len(parts) != 2:
+                raise ValueError("Invalid line format")
+
+            key, value = parts
+            key = key.strip()
+            value = value.strip()
+
+            if not key:
+                raise ValueError("Name cannot be empty")
+
+            # Assign the value to the name
+            config[key] = value
+
+    # Return the value for the requested name, or None if it was never assigned
+    return config.get(name, None)
+```

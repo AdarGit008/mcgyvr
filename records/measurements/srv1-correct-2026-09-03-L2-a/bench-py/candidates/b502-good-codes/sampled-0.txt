@@ -1,0 +1,9 @@
+```python
+def code_sum(code: str) -> int:
+    """Sum of figures in a code."""
+    return sum(int(c) for c in code if c.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Keep codes whose total divides evenly by three."""
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

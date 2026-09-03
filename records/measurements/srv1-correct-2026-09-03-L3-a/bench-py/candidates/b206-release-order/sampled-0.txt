@@ -1,0 +1,27 @@
+```python
+from typing import List
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    """
+    Returns a new list with the given tags in ascending release order.
+    Each tag is a string in the format 'vX.Y.Z[-preview-label]', where
+    X, Y, Z are non-negative integers and preview-label is a lowercase word
+    or None. If a tag has a preview label, the plain tag comes before it.
+    Tags with the same major.minor.patch are ordered by their preview label
+    alphabetically and by their number as a number if they are the same.
+    
+    :param tags: List of release tags to order.
+    :return: A new list of ordered release tags.
+    """
+    def compare_tags(tag1: str, tag2: str) -> int:
+        parts1 = tag1.split('-')[0].split('.')
+        parts2 = tag2.split('-')[0].split('.')
+        for i in range(3):
+            if parts1[i] != parts2[i]:
+                return int(parts1[i]) - int(parts2[i])
+        if 'preview-label' in tag1 and 'preview-label' in tag2:
+            return tag1.split('-')[1].lower() < tag2.split('-')[1].lower()
+        return 0
+    
+    return sorted(tags, key=compare_tags)
+```

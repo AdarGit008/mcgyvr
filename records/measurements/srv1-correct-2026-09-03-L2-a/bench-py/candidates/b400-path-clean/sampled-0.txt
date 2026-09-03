@@ -1,0 +1,16 @@
+```python
+def path_clean(path: str) -> str:
+    """Clean a path by removing segments of two dots by dropping them together with the segment standing before them."""
+    segments = path.split('/')
+    cleaned_segments = []
+    for i in range(len(segments)):
+        if segments[i] == '..' and i > 0 and segments[i - 1] != '..':
+            # Skip the segment before '..' if it's not '..'
+            cleaned_segments.pop()
+        elif segments[i] == '..':
+            # Skip the '..' segment itself
+            continue
+        else:
+            cleaned_segments.append(segments[i])
+    return '/'.join(cleaned_segments)
+```

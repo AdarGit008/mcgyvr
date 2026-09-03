@@ -1,0 +1,17 @@
+```python
+def shelf_fit(widths: list, shelf: int) -> int:
+    if not isinstance(widths, list):
+        raise ValueError("widths must be a list")
+    if any(not isinstance(w, int) or w <= 0 for w in widths):
+        raise ValueError("all spine widths must be positive integers")
+    if shelf < 0:
+        raise ValueError("shelf width must be a non-negative integer")
+    
+    books_on_shelf = []
+    for width in widths:
+        if width > shelf:
+            break
+        books_on_shelf.append(width)
+        shelf -= width
+    return len(books_on_shelf)
+```

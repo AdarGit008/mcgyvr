@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in data):
+        raise ValueError("Input must contain integers from 0 to 255")
+    if len(data) < 255:
+        raise ValueError("Input must contain at least one byte")
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the byte sum")
+    varint_length = 1
+    readings = []
+    for byte in data[:-1]:
+        if byte < 128:
+            readings.append(byte)
+        else:
+            while byte > 127:
+                byte >>= 1
+                varint_length += 1
+            varint_length += 1
+            reading = byte
+            for _ in range(varint_length - 1):
+                reading <<= 7
+                byte = data[-varint_length + 1]
+                reading |= byte
+            readings.append(reading)
+    return readings
+```

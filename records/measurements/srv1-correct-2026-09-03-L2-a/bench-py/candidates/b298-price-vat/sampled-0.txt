@@ -1,0 +1,13 @@
+```python
+from typing import *
+from collections import *
+
+def gross_price(net: int, rate: int) -> int:
+    """A net price with a whole-percent tax added, in whole pence."""
+    if rate == 0:
+        return net
+    rate_pence = rate // 100  # Convert percentage to pence
+    tax_pence = net * rate_pence // 100  # Calculate tax in pence
+    tax_pence = tax_pence if tax_pence >= 0 else 0  # Ensure tax is not negative
+    return net + tax_pence
+```

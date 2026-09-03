@@ -1,0 +1,59 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    held = parse_sheet(opening)
+
+    def parse_move(text):
+        if not re.fullmatch(r"[a-z]+[-+]\d+", text):
+            raise ValueError(f"bad move entry: {text}")
+        name, sign, units = text.split("-")
+        if sign not in "+-":
+            raise ValueError(f"bad move sign: {sign}")
+        if units == "0":
+            raise ValueError(f"bad move units: {units}")
+        if units.startswith("0"):
+            raise ValueError(f"bad move units: {units}")
+        return name, int(units)
+
+    def apply_move(name, units, held):
+        if name not in held:
+            raise ValueError(f"item not in sheet: {name}")
+        if sign == "+":
+            held[name] += units
+        elif sign == "-":
+            held[name] -= units
+        if held[name] == 0:
+            held.pop(name)
+
+    entries = []
+    for move in moves.split(";"):
+        name, units = parse_move(move)
+        apply_move(name, units, held)
+        if held[name] > 0:
+            entries.append(f"{name}:{held[name]}")
+    return ";".join(entries)
+```

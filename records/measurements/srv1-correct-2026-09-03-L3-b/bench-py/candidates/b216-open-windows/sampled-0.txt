@@ -1,0 +1,33 @@
+```python
+from typing import *
+from collections import *
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> list[int]:
+        parts = text.split("-")
+        if len(parts) != 2 or any(re.fullmatch(r"\d{2}:\d{2}", p) is None for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        return [int(p[:2]) * 60 + int(p[3:]) for p in parts]
+
+    def stamp(at: int) -> str:
+        return f"{at // 60:02d}:{at % 60:02d}"
+
+    free: list[str] = []
+    # TODO: sweep the appointments in time order and keep what the span has left over.
+    for app in sorted(booked):
+        start, end = minutes(app)
+        if start >= end:
+            raise ValueError("appointment starts after it ends: " + app)
+        if free:
+            if free[-1] == stamp(start - 1):
+                free[-1] = stamp(end)
+            else:
+                free.append(stamp(start))
+        else:
+            free.append(stamp(start))
+
+    if not free:
+        return "none"
+    else:
+        return ", ".join(free)
+```

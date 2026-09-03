@@ -1,0 +1,39 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    """
+    Find all lines between opening and closing markers in the order they appear.
+    
+    Parameters:
+    line (str): The input line to search.
+    opens (str): The opening marker.
+    closes (str): The closing marker.
+    
+    Returns:
+    list: A list of all lines between opening and closing markers.
+    """
+    if not line:
+        return []
+    
+    lines = []
+    current_line = ""
+    in_match = False
+    
+    for char in line:
+        if char == opens:
+            if not in_match:
+                in_match = True
+                current_line += char
+        elif char == closes:
+            if in_match:
+                in_match = False
+                current_line += char
+                lines.append(current_line)
+                current_line = ""
+        elif in_match:
+            current_line += char
+    
+    if in_match:
+        lines.append(current_line)
+    
+    return lines
+```

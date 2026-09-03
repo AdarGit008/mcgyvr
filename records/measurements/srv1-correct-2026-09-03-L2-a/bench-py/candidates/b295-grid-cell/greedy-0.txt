@@ -1,0 +1,35 @@
+```python
+def cell_name(row: int, column: int) -> str:
+    """
+    Converts a row and column index to a spreadsheet name.
+    
+    Args:
+    row (int): The row index, starting from 0.
+    column (int): The column index, starting from 0.
+    
+    Returns:
+    str: The spreadsheet name in the format 'A1', 'B2', etc.
+    """
+    if not (0 <= row < 1000) or not (0 <= column < 1000):
+        raise ValueError("Row and column indices must be between 0 and 999.")
+    
+    column_name = chr(ord('A') + column)
+    row_name = str(row + 1)
+    return column_name + row_name
+
+def grid_cells(rows: int, columns: int) -> list:
+    """
+    Generates a list of cell names for a grid of the given dimensions.
+    
+    Args:
+    rows (int): The number of rows in the grid.
+    columns (int): The number of columns in the grid.
+    
+    Returns:
+    list: A list of cell names in the format 'A1', 'B2', etc.
+    """
+    if not (1 <= rows <= 1000) or not (1 <= columns <= 1000):
+        raise ValueError("Grid dimensions must be between 1 and 1000.")
+    
+    return [cell_name(row, col) for row in range(rows) for col in range(columns)]
+```

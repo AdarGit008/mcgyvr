@@ -1,0 +1,26 @@
+```python
+def camel_break(name: str) -> list:
+    """
+    Break a camel-cased identifier into its constituent words in lowercase.
+
+    Parameters:
+    name (str): The camel-cased identifier to be split.
+
+    Returns:
+    list: A list of words, each in lowercase.
+    """
+    if not name:
+        return []
+
+    words = []
+    word_start = 0
+    for i, char in enumerate(name):
+        if char.isupper():
+            if i > 0:
+                words.append(name[word_start:i].lower())
+            word_start = i
+    if word_start < len(name):
+        words.append(name[word_start:].lower())
+
+    return words
+```

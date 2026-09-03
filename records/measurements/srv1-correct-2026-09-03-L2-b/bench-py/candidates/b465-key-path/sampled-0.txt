@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def key_path(store: dict, head: str) -> List[str]:
+    if not store or head not in store:
+        raise ValueError("Invalid input")
+
+    keys = []
+    for key in store:
+        if key.startswith(head):
+            keys.append(key.lstrip(head))
+    return keys
+```

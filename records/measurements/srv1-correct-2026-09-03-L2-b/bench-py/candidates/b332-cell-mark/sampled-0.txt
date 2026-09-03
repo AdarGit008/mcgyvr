@@ -1,0 +1,12 @@
+```python
+def live_count(neighbours: list) -> int:
+    """Count how many living neighbours a cell has."""
+    return sum(1 for neighbour in neighbours if neighbour == 1)
+
+def live_next(alive: bool, neighbours: list) -> bool:
+    """Determine if the cell should be alive in the next round."""
+    if alive:
+        return sum(neighbour == 1 for neighbour in neighbours) in [2, 3]
+    else:
+        return sum(neighbour == 1 for neighbour in neighbours) == 3
+```

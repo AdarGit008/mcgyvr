@@ -1,0 +1,15 @@
+```python
+def digit_count(value: int) -> int:
+    """
+    Return how many digits a whole number is written with.
+    
+    Nothing is written with one digit, and a minus sign in front of a number is not a digit and is not counted.
+    """
+    if value is None:
+        raise ValueError("Input cannot be None")
+    if value < 0:
+        value = -value
+    if value == 0:
+        return 1
+    return len(str(value))
+```

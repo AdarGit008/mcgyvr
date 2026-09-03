@@ -1,0 +1,9 @@
+```python
+from typing import List
+
+def set_minus(entries: List, remove: List) -> List:
+    # Create a set from the remove list for O(1) lookup
+    remove_set = set(remove)
+    # Use a list comprehension to filter out entries that are in the remove set
+    return [entry for entry in entries if entry not in remove_set]
+```

@@ -1,0 +1,26 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if rows < 1 or cols < 1:
+        raise ValueError("rows and cols must be at least 1")
+    for cell in blocked:
+        if len(cell) != 2 or not (0 <= cell[0] < rows and 0 <= cell[1] < cols):
+            raise ValueError("blocked entries must be two-item lists with row and column indices within bounds")
+    if blocked[0] == [0, 0] or blocked[-1] == [rows - 1, cols - 1]:
+        raise ValueError("rope across the entrance or the exit cell is not allowed")
+    
+    def is_valid_cell(x: int, y: int) -> bool:
+        return 0 <= x < rows and 0 <= y < cols
+    
+    def count_paths(x: int, y: int) -> int:
+        if not is_valid_cell(x, y):
+            return 0
+        if (x, y) in blocked:
+            return 0
+        if x == rows - 1 and y == cols - 1:
+            return 1
+        return count_paths(x + 1, y) + count_paths(x, y + 1)
+    
+    return count_paths(0, 0)
+```

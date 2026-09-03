@@ -1,0 +1,43 @@
+```python
+from typing import *
+from collections import *
+
+def number_sections(sections: list) -> List[str]:
+    def number_section(section: Mapping[str, Any], depth: int, current_label: str) -> List[str]:
+        if not isinstance(section, Mapping):
+            raise ValueError("Each section must be a mapping")
+        if not isinstance(section.get("heading"), str) or not section.get("heading"):
+            raise ValueError("Each section's heading must be a non-empty string")
+        children = section.get("children", [])
+        if not isinstance(children, list):
+            raise ValueError("Each section's children must be a list")
+
+        label = f"{current_label}.{depth+1}" if depth > 0 else f"{depth+1}"
+        result = [label + " " + section["heading"]]
+        for child in children:
+            result.extend(number_section(child, depth + 1, label))
+        return result
+
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    return [number_section(section, 0, "") for section in sections]
+
+def section_count(sections: list) -> List[int]:
+    def count_section(section: Mapping[str, Any], depth: int) -> int:
+        if not isinstance(section, Mapping):
+            raise ValueError("Each section must be a mapping")
+        if not isinstance(section.get("heading"), str) or not section.get("heading"):
+            raise ValueError("Each section's heading must be a non-empty string")
+        children = section.get("children", [])
+        if not isinstance(children, list):
+            raise ValueError("Each section's children must be a list")
+
+        count = [depth + 1]
+        for child in children:
+            count.extend(count_section(child, depth + 1))
+        return count
+
+    if not isinstance(sections, list):
+        raise ValueError("Outline must be a list")
+    return [count_section(section, 0) for section in sections]
+```

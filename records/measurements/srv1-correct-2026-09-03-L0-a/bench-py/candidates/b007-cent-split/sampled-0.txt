@@ -1,0 +1,30 @@
+```python
+"""Cent-exact money helpers for order totals."""
+
+
+def split_evenly(total_cents: int, ways: int) -> list:
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    if not isinstance(ways, int) or ways < 1:
+        raise ValueError("ways must be a positive integer")
+    share = total_cents // ways
+    remainder = total_cents % ways
+    return [share + i for i in range(remainder)] + [share for _ in range(ways - remainder)]
+
+
+def apply_bps(cents: int, bps: int) -> int:
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    if isinstance(bps, bool) or not isinstance(bps, int) or bps < 0:
+        raise ValueError("bps must be a non-negative integer")
+    return (cents * bps + 5000) // 10000
+
+
+def sum_parts(parts: list) -> int:
+    total = 0
+    for part in parts:
+        if not isinstance(part, int):
+            raise ValueError("parts must be integers")
+        total += part
+    return total
+```

@@ -1,0 +1,14 @@
+```python
+from typing import *
+from collections import *
+
+def till_float(amount: int, coins: List[int]) -> List[int]:
+    """How many of each coin to hand back, largest coin first."""
+    counts = [0] * len(coins)
+    left = amount
+    for i, coin in enumerate(coins):
+        while left >= coin:
+            counts[i] += 1
+            left -= coin
+    return counts
+```

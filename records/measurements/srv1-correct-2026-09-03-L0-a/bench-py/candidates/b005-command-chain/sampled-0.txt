@@ -1,0 +1,39 @@
+```python
+def chain_of_command(root: dict, person: str) -> list:
+    def traverse(node):
+        if not node or node['name'] == '':
+            raise ValueError("Invalid input: empty or non-string name")
+        if node['name'] == person:
+            return [node['name']]
+        if node['reports']:
+            return [node['name']] + traverse(node['reports'][0])
+    
+    if not root or root['name'] == '':
+        raise ValueError("Invalid input: empty or non-string root name")
+    return traverse(root)
+
+def headcount(root: dict) -> int:
+    def traverse(node):
+        if not node or node['name'] == '':
+            return 0
+        if node['reports']:
+            return 1 + traverse(node['reports'][0])
+        return 1
+    
+    if not root or root['name'] == '':
+        raise ValueError("Invalid input: empty or non-string root name")
+    return traverse(root)
+
+def widest_team(root: dict) -> int:
+    def traverse(node):
+        if not node or node['name'] == '':
+            return 0
+        max_depth = 1
+        for report in node['reports']:
+            max_depth = max(max_depth, traverse(report) + 1)
+        return max_depth
+    
+    if not root or root['name'] == '':
+        raise ValueError("Invalid input: empty or non-string root name")
+    return traverse(root)
+```

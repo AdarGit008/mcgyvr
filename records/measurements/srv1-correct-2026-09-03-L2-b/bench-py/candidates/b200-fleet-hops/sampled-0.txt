@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def fleet_hops(count: int, lts: List[int], builds: List[int], hop: int) -> int:
+    if any(b not in range(count) for b in builds):
+        raise ValueError("Invalid build number")
+    if hop < 0:
+        raise ValueError("Hop must be non-negative")
+
+    def get_next_hop(build: int) -> int:
+        if build == lts[-1]:
+            return lts[-1] + 1
+        if build in lts:
+            return next(lts[x] for x in range(lts.index(build) + 1, len(lts)) if x < len(lts) and lts[x] > build)
+        else:
+            return build + hop
+
+    total_hops = 0
+    for build in builds:
+        next_hop = get_next_hop(build)
+        if next_hop <= count - 1:
+            total_hops += 1
+    return total_hops
+```

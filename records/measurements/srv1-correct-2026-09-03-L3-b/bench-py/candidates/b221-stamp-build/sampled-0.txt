@@ -1,0 +1,27 @@
+```python
+def stamp_build(major: int, minor: int, patch: int) -> int:
+    """
+    Generate the stamp for a firmware release based on the major, minor, and patch components.
+    
+    Args:
+    major (int): The major component of the release.
+    minor (int): The minor component of the release.
+    patch (int): The patch component of the release.
+    
+    Returns:
+    int: The stamp of the release.
+    
+    Raises:
+    ValueError: If any component is not a whole number.
+    """
+    if not (isinstance(major, int) and isinstance(minor, int) and isinstance(patch, int)):
+        raise ValueError("All components must be whole numbers.")
+    if major == 0 and minor == 0 and patch == 0:
+        raise ValueError("A release with no components is not valid.")
+    if patch >= 1000:
+        raise ValueError("A patch component of 1000 or more is not valid.")
+    if minor >= 1000:
+        raise ValueError("A minor component of 1000 or more is not valid.")
+    
+    return (patch + minor * 1000 + major * 1000000)
+```

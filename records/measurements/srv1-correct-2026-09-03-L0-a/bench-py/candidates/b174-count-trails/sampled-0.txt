@@ -1,0 +1,28 @@
+```python
+from typing import List
+
+def count_trails(rows: int, cols: int, blocked: List[List[int]]) -> int:
+    if not (isinstance(rows, int) and isinstance(cols, int) and rows > 0 and cols > 0):
+        raise ValueError("rows and cols must be positive integers")
+    if not all(isinstance(entry, list) and len(entry) == 2 and isinstance(entry[0], int) and isinstance(entry[1], int) and entry[0] >= 0 and entry[1] >= 0 for entry in blocked):
+        raise ValueError("blocked must be a list of two-item lists of integers")
+    if not (0 <= blocked[0][0] < rows and 0 <= blocked[0][1] < cols and 0 <= blocked[1][0] < rows and 0 <= blocked[1][1] < cols):
+        raise ValueError("blocked cells must be within the grid bounds")
+    if blocked[0] == [0, 0] or blocked[0] == [rows - 1, cols - 1] or blocked[1] == [0, 0] or blocked[1] == [rows - 1, cols - 1]:
+        raise ValueError("rope cannot cross the entrance or the exit cell")
+
+    def is_valid_move(row: int, col: int) -> bool:
+        return 0 <= row < rows and 0 <= col < cols and not any(row == entry[0] and col == entry[1] for entry in blocked)
+
+    def count_routes(row: int, col: int, path: List[int]) -> int:
+        if row == rows - 1 and col == cols - 1:
+            return 1
+        count = 0
+        if is_valid_move(row + 1, col):
+            count += count_routes(row + 1, col, path + [row + 1])
+        if is_valid_move(row, col + 1):
+            count += count_routes(row, col + 1, path + [col + 1])
+        return count
+
+    return count_routes(0, 0, [])
+```

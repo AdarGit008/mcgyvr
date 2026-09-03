@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+def window_max(readings: List[int], width: int) -> List[int]:
+    if width < 1:
+        raise ValueError("Width must be at least 1")
+    
+    if not readings:
+        return []
+    
+    n = len(readings)
+    if width > n:
+        return []
+    
+    result = []
+    for i in range(n - width + 1):
+        max_reading = max(readings[i:i + width])
+        result.append(max_reading)
+    
+    return result
+```

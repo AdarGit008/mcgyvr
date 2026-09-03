@@ -1,0 +1,3 @@
+```python
+def live_count(neighbours: list) -> int:
+    """Return how many of a cell's given neighbours are alive."""

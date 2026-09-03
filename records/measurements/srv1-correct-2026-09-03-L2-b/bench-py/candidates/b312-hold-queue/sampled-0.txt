@@ -1,0 +1,27 @@
+```python
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("Limit must be greater than zero")
+    
+    if not callers:
+        return []
+    
+    # Sort callers by their arrival time in ascending order
+    callers.sort(key=lambda x: x[0])
+    
+    # Use a deque to keep track of the last element added
+    from collections import deque
+    queue = deque()
+    
+    for caller in callers:
+        arrival_time, priority = caller
+        
+        # Add the caller to the queue if it's the first time or if it has a lower priority
+        if not queue or arrival_time < queue[0][0] or (arrival_time == queue[0][0] and priority < queue[0][1]):
+            if queue and len(queue) == limit:
+                queue.popleft()  # Remove the oldest caller
+            queue.append((arrival_time, priority))
+    
+    # Convert the deque back to a list and return
+    return list(queue)
+```

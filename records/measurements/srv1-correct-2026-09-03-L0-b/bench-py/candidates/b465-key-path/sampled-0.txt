@@ -1,0 +1,7 @@
+```python
+def key_path(store: dict, head: str) -> list:
+    """Return the names standing directly under a stated head, without the head and its stop."""
+    if not head:
+        raise ValueError("Head cannot be empty.")
+    return [name for name in store if name.startswith(head) and '.' not in name]
+```

@@ -1,0 +1,8 @@
+```python
+def value_keys(store: dict) -> dict:
+    """Return a mapping from value to count of keys holding that value in the store."""
+    counts = {}
+    for value in store.values():
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+```

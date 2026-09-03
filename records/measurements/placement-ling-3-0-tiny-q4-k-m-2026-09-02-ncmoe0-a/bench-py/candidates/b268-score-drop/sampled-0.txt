@@ -1,0 +1,9 @@
+```python
+def score_drop(scores: list) -> int:
+    """Return the total of all scores except the single lowest score.
+    If the list is empty or contains one score, return 0.
+    """
+    if not scores:
+        return 0
+    return sum(scores) - min(scores)
+```

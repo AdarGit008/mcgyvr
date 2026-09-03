@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def pair_off(marks: List[str]) -> List[str]:
+    """
+    Pair off marks in neighbouring pairs. Where a mark meets one of its own kind standing next to it, both go, and whatever they stood between becomes neighbouring in turn and may pair off as well.
+    
+    Args:
+    marks (List[str]): A list of mark strings.
+    
+    Returns:
+    List[str]: The complete fixed file.
+    """
+    left = []
+    for i in range(len(marks)):
+        if i > 0 and marks[i] == marks[i - 1]:
+            continue
+        left.append(marks[i])
+    return left
+```

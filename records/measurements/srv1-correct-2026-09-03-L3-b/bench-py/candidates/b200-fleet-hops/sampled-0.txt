@@ -1,0 +1,36 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not 0 <= hop <= count:
+        raise ValueError("Hop must be between 0 and count.")
+
+    # Initialize a counter for total hops
+    total_hops = 0
+
+    # Iterate over each build
+    for build in builds:
+        if build not in range(count):
+            raise ValueError("Build must be a whole number from 0 to count-1.")
+
+        # Find the index of the build in the lts list
+        try:
+            lts_index = lts.index(build)
+        except ValueError:
+            # If the build is not in the lts list, move to the next release
+            continue
+
+        # Calculate the next release to move to, ensuring it's a long-term-support release
+        next_lts_release = lts[lts_index + 1]
+
+        # Calculate the number of hops required
+        hops_needed = next_lts_release - build
+
+        # Ensure the hop does not exceed the count
+        if hops_needed > hop:
+            hops_needed = hop
+
+        # Update the total hops and move to the next release
+        total_hops += hops_needed
+        build = next_lts_release
+
+    return total_hops
+```

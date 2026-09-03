@@ -1,0 +1,14 @@
+```python
+from typing import List
+
+def min_gap(values: List[int]) -> int:
+    """The smallest difference between any two values."""
+    if len(values) < 2:
+        return -1
+    smallest = float('inf')
+    for i in range(1, len(values)):
+        gap = abs(values[i] - values[i - 1])
+        if gap < smallest:
+            smallest = gap
+    return smallest
+```

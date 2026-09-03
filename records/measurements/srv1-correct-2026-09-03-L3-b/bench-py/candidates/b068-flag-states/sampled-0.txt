@@ -1,0 +1,18 @@
+```python
+def flag_states(mask: int, catalog: list) -> dict:
+    # Validate input
+    if not isinstance(mask, int) or mask < 0:
+        raise ValueError("Mask must be a non-negative integer")
+    if not isinstance(catalog, list) or len(catalog) == 0:
+        raise ValueError("Catalog must be a non-empty list")
+    if not all(isinstance(flag, str) and len(flag) > 0 for flag in catalog):
+        raise ValueError("Catalog must contain non-empty strings")
+    if len(catalog) != (mask.bit_length() + 1):
+        raise ValueError("Catalog length must match the number of bits in the mask")
+    if any(flag in catalog for i, flag in enumerate(catalog) if i >= mask.bit_length()):
+        raise ValueError("Catalog contains repeated flag names")
+
+    # Create the mapping
+    state_map = {flag: (mask & (1 << i)) != 0 for i, flag in enumerate(catalog)}
+    return state_map
+```

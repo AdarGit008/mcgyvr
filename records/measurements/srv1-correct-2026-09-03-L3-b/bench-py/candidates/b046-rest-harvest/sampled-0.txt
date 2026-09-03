@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def best_harvest(yields: List[int]) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    
+    if any(not isinstance(y, int) or y < 0 for y in yields):
+        raise ValueError("Yields must be non-negative integers")
+    
+    if not yields:
+        return 0
+    
+    max_yield = 0
+    current_yield = 0
+    for y in yields:
+        current_yield += y
+        if current_yield > max_yield:
+            max_yield = current_yield
+        current_yield = max(0, current_yield - 1)
+    
+    return max_yield
+```

@@ -1,0 +1,9 @@
+```python
+def code_sum(code: str) -> int:
+    """Sum the figures in a code, ignoring non-numeric characters."""
+    return sum(int(c) for c in code if c.isdigit())
+
+def good_codes(codes: list[str]) -> list[str]:
+    """Keep codes whose total is divisible by three, in the order they arrived."""
+    return [code for code in codes if code_sum(code) % 3 == 0]
+```

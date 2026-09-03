@@ -1,0 +1,10 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    hold_count = 0
+    max_temp = float('-inf')
+    for temp in readings:
+        if temp >= target:
+            hold_count += 1
+            max_temp = max(max_temp, temp)
+    return hold_count
+```

@@ -1,0 +1,21 @@
+```python
+from typing import List, Dict
+
+def end_grab(cards: List[int]) -> Dict[str, List[int]]:
+    if not cards:
+        raise ValueError("Input list cannot be empty.")
+    
+    taken = []
+    first, second = cards[0], cards[1]
+    
+    while cards:
+        if first >= second:
+            taken.append(first)
+            cards.remove(first)
+        else:
+            taken.append(second)
+            cards.remove(second)
+        first, second = cards[0], cards[1]
+    
+    return {"first": taken, "second": taken}
+```

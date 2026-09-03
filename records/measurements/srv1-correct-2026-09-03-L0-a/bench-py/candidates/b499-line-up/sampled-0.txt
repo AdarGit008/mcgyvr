@@ -1,0 +1,19 @@
+```python
+def line_up(links: dict[str, str], start: str) -> list[str]:
+    if start not in links:
+        raise ValueError("Unknown name")
+    
+    line = [start]
+    current = start
+    
+    while True:
+        next_link = links.get(current, None)
+        if next_link is None:
+            break
+        if next_link in line:
+            raise ValueError("Circular reference")
+        line.append(next_link)
+        current = next_link
+    
+    return line
+```

@@ -1,0 +1,27 @@
+```python
+from typing import List, Tuple
+
+def fill_order(sources: List[Tuple[int, int]], needed: int) -> dict:
+    if needed <= 0:
+        raise ValueError("Needed must be a positive integer.")
+
+    sources.sort(key=lambda source: source[0])
+    taken = [0] * len(sources)
+    cost = 0
+    remaining = needed
+    for index in range(len(sources)):
+        unit_cost, stock = sources[index]
+        if remaining <= 0:
+            break
+        if stock >= remaining:
+            taken[index] = remaining
+            cost += remaining * unit_cost
+            remaining = 0
+        else:
+            taken[index] = stock
+            cost += stock * unit_cost
+            remaining -= stock
+
+    leftover = [sources[index][1] - taken[index] for index in range(len(sources))]
+    return {"cost": cost, "taken": taken, "leftover": leftover}
+```

@@ -1,0 +1,30 @@
+```python
+import math
+
+
+def explode_kit(catalog, kit, want):
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    totals = {}
+    # Start with the kit itself, which is a base part
+    totals[kit] = 1
+    # Explore all requirements recursively
+    explore_requirements(catalog, kit, want, totals)
+    return totals
+
+
+def explore_requirements(catalog, current_kit, want, totals):
+    recipe = catalog[current_kit]
+    # Calculate how many runs of the recipe are needed
+    runs_needed = math.ceil(want / recipe['makes'])
+    # Add the parts consumed by the runs to the totals
+    for component, count in recipe['parts']:
+        if component in catalog:
+            # If the component is a kit, explore it recursively
+            totals[component] = totals.get(component, 0) + runs_needed * catalog[component]['makes']
+            explore_requirements(catalog, component, want - runs_needed * catalog[component]['makes'], totals)
+        else:
+            # If the component is a base part, add it to the total
+            totals[component] = totals.get(component, 0) + runs_needed
+```

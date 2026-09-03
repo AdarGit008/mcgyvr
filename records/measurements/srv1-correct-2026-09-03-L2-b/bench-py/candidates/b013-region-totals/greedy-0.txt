@@ -1,0 +1,24 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        for cell in row:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+    # Build a prefix-sum table over the grid
+    prefix_sum = [[0] * width for _ in range(len(grid))]
+    for i in range(len(grid)):
+        for j in range(width):
+            if i == 0:
+                prefix_sum[i][j] = grid[i][j]
+            else:
+                prefix_sum[i][j] = prefix_sum[i-1][j] + grid[i][j]
+    # Validate each query and answer it from the table
+    return [prefix_sum[q[2]-1][q[3]-1] - prefix_sum[q[0]-1][q[3]-1] - prefix_sum[q[2]-1][q[0]-1] + prefix_sum[q[0]-1][q[0]-1] for q in queries if isinstance(q, list) and len(q) == 4 and q[0] < q[2] and q[1] < q[3]]
+```

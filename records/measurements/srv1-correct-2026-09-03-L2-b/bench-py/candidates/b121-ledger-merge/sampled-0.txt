@@ -1,0 +1,52 @@
+```python
+from typing import List
+
+def merge_ledgers(base: List[List[str]], ours: List[List[str]], theirs: List[List[str]]) -> List[List[str]]:
+    if not isinstance(base, list) or not isinstance(ours, list) or not isinstance(theirs, list):
+        raise ValueError("Both base, ours, and theirs must be lists.")
+    
+    for ledger in [base, ours, theirs]:
+        if not all(isinstance(record, list) and len(record) == 2 for record in ledger):
+            raise ValueError("All elements in base, ours, and theirs must be lists with exactly two elements.")
+    
+    for record in base + ours + theirs:
+        if not isinstance(record[0], str) or not record[0]:
+            raise ValueError("All account names must be non-empty strings.")
+        if not isinstance(record[1], int):
+            raise ValueError("All cents values must be integers.")
+    
+    # Create a dictionary to count occurrences of each account in the base ledger
+    account_counts = {}
+    for record in base:
+        account_counts[record[0]] = account_counts.get(record[0], 0) + 1
+    
+    # Process the edits from ours and theirs
+    for record in ours:
+        if record[0] in account_counts:
+            account_counts[record[0]] -= 1
+    for record in theirs:
+        if record[0] in account_counts:
+            account_counts[record[0]] -= 1
+    
+    # Create the merged ledger
+    merged_ledger = []
+    for record in base:
+        merged_ledger.append([record[0], record[1]])
+    
+    for record in ours + theirs:
+        if record[0] in account_counts:
+            merged_ledger.append(record)
+            account_counts[record[0]] -= 1
+    
+    # Remove accounts that have been dropped by both copies
+    for record in merged_ledger:
+        if record[0] in account_counts:
+            account_counts[record[0]] += 1
+        elif account_counts[record[0]] < 0:
+            merged_ledger.remove(record)
+    
+    # Sort the merged ledger by account name
+    merged_ledger.sort(key=lambda x: x[0])
+    
+    return merged_ledger
+```

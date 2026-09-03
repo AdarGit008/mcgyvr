@@ -1,0 +1,41 @@
+```python
+def in_quote(ch: str) -> bool:
+    return ch in ['"', "'"]
+
+def quote_split(line: str) -> list:
+    if line is None or not line.strip():
+        return []
+
+    result = []
+    in_quote = False
+    last_quote = None
+
+    for i, ch in enumerate(line):
+        if ch == '"':
+            if in_quote:
+                if last_quote == ch:
+                    result.append(line[i:])
+                    break
+                in_quote = False
+            else:
+                in_quote = True
+                last_quote = ch
+        elif ch == "'":
+            if in_quote:
+                if last_quote == ch:
+                    result.append(line[i:])
+                    break
+                in_quote = False
+            else:
+                in_quote = True
+                last_quote = ch
+        elif ch == ',' and not in_quote:
+            result.append(line[:i])
+            line = line[i+1:]
+            break
+
+    if not in_quote:
+        result.append(line)
+
+    return result
+```

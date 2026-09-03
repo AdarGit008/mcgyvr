@@ -1,0 +1,13 @@
+```python
+from typing import List
+
+def warm_up(readings: List[int], floor: int) -> List[int]:
+    """
+    Discard readings from the start until one is reached or surpassed the floor.
+    Returns everything from the first reading that reaches or exceeds the floor.
+    """
+    for reading in readings:
+        if reading >= floor:
+            return readings[readings.index(reading):]
+    return []
+```

@@ -1,0 +1,30 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party <= 0:
+        raise ValueError("Party size must be positive")
+
+    free_seats = []
+    current_run = []
+    for char in row:
+        if char == '.':
+            current_run.append('.')
+        elif char == 'x':
+            if current_run:
+                free_seats.append(current_run)
+                current_run = []
+        else:
+            raise ValueError("Invalid character in row")
+
+    if current_run:
+        free_seats.append(current_run)
+
+    if not free_seats:
+        return -1
+
+    free_seats.sort(key=lambda x: len(x), reverse=True)
+    for seat in free_seats:
+        if len(seat) >= party:
+            return row.index(seat[0])
+
+    return -1
+```

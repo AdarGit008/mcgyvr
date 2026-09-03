@@ -1,0 +1,26 @@
+```python
+def wave_count(readings: list) -> int:
+    """
+    Calculate the number of changes in wave direction in a list of readings.
+    A change is defined as a rise followed by a fall or a fall followed by a rise.
+    Non-changes (level holding neither rise nor fall) are ignored.
+    
+    Args:
+        readings (list): A list of integers representing the readings.
+        
+    Returns:
+        int: The number of changes in wave direction.
+    """
+    if not readings:
+        return 0
+    
+    count = 0
+    for i in range(len(readings) - 1):
+        if (readings[i] > readings[i + 1] and readings[i + 1] < readings[i + 2]) or \
+           (readings[i] < readings[i + 1] and readings[i + 1] > readings[i + 2]):
+            count += 1
+    
+    return count
+```
+
+The provided solution implements the `wave_count` function as specified in the task description. It iterates through the list of readings, checking for changes in wave direction based on the given criteria. Non-changes are ignored, and the total count of changes is returned.

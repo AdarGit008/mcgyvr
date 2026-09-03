@@ -1,0 +1,30 @@
+```python
+from typing import List, Union
+
+def order_release_tags(tags: List[str]) -> List[str]:
+    def parse_tag(tag: str) -> Tuple[int, int, int, Union[str, None]]:
+        if '-' in tag:
+            parts = tag.split('-')
+            version = parts[0].split('.')
+            preview = parts[1]
+        else:
+            version = tag.split('.')
+            preview = None
+        return tuple(int(p) for p in version), preview
+
+    def compare_tags(t1: Tuple[int, int, int, Union[str, None]], t2: Tuple[int, int, int, Union[str, None]]) -> int:
+        for i in range(3):
+            if t1[i] < t2[i]:
+                return -1
+            elif t1[i] > t2[i]:
+                return 1
+        if t1[3] is None and t2[3] is not None:
+            return -1
+        elif t1[3] is not None and t2[3] is None:
+            return 1
+        if t1[3] is not None and t2[3] is not None:
+            return t1[3].lower().index(t2[3].lower())
+
+    sorted_tags = sorted(tags, key=lambda tag: parse_tag(tag))
+    return sorted_tags
+```

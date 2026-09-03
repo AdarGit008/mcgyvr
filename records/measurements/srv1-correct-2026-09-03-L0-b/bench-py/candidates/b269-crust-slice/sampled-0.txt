@@ -1,0 +1,9 @@
+```python
+from typing import *
+from pathlib import *
+
+def crust_slice(name: str) -> str:
+    if not name:
+        return name
+    return name.rsplit('.', 1)[0]
+```

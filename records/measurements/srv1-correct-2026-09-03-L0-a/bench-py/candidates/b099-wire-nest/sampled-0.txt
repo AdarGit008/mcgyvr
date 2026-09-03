@@ -1,0 +1,44 @@
+```python
+def wire_text(text: str) -> str:
+    # Check if the text is empty
+    if not text:
+        raise ValueError("Text cannot be empty")
+
+    # Check for newline characters
+    if '\n' in text:
+        raise ValueError("Text cannot contain a newline character")
+
+    # Encode the text to bytes and then to a string with a colon separator
+    encoded = text.encode('utf-8')
+    return f"s{encoded.length}:{encoded.decode('utf-8')}"
+
+def wire_value(value) -> str:
+    # Check if the value is a string
+    if not isinstance(value, str):
+        raise ValueError("Value must be a string")
+
+    # Check for newline characters
+    if '\n' in value:
+        raise ValueError("Value cannot contain a newline character")
+
+    # Check if the value is a text
+    if not all(ord(c) < 128 for c in value):
+        raise ValueError("Value must be ASCII")
+
+    # Check if the value is a whole number
+    try:
+        value = int(value)
+    except ValueError:
+        raise ValueError("Value must be a whole number")
+
+    # Check if the value is a boolean
+    if value in (True, False):
+        raise ValueError("Value must be a whole number")
+
+    # Check if the value is a number
+    if not isinstance(value, (int, float)):
+        raise ValueError("Value must be a whole number")
+
+    # Encode the value to a string with a colon separator
+    return f"{value};" if value >= 0 else f"-{abs(value)};"
+```

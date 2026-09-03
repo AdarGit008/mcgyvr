@@ -1,0 +1,10 @@
+```python
+def line_number(block: str) -> str:
+    if not block:
+        return ""
+    
+    lines = block.splitlines()
+    numbers = [str(i + 1) + ": " for i in range(len(lines))]
+    
+    return "\n".join(numbers)
+```

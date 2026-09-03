@@ -1,0 +1,44 @@
+```python
+def unpack_frame(data: list) -> list:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list of bytes.")
+    
+    varint_bytes = []
+    for byte in data:
+        if not isinstance(byte, int) or byte < 0 or byte > 255:
+            raise ValueError("Byte must be an integer from 0 to 255.")
+        
+        varint_bytes.append(byte)
+        
+    if len(varint_bytes) % 2 != 0:
+        raise ValueError("Frame must end with exactly one trailer byte.")
+    
+    trailer = varint_bytes.pop()
+    if trailer != sum(varint_bytes) % 256:
+        raise ValueError("Trailer byte does not equal the byte sum.")
+    
+    varint_index = len(varint_bytes)
+    readings = []
+    while varint_index < len(varint_bytes):
+        if len(varint_bytes) - varint_index < 5:
+            raise ValueError("Varint longer than five bytes.")
+        
+        varint = 0
+        for i in range(5):
+            varint = (varint << 7) | varint_bytes[varint_index]
+            varint_index += 1
+        
+        if varint & 128:
+            varint >>= 7
+            while varint & 128:
+                varint >>= 7
+                varint |= byte(varint_index)
+                varint_index += 1
+        
+        readings.append(varint)
+    
+    if varint_index < len(varint_bytes):
+        raise ValueError("Bytes left over after the trailer.")
+    
+    return readings
+```

@@ -1,0 +1,55 @@
+```python
+def column_digest(rows: list, column: int) -> dict:
+    """
+    Summarize the column at the given zero-based index, reading a cell only from the rows long enough to reach it and taking those cells in sheet order.
+    Return a mapping of five fields: count, how many cells were read; min and max, the smallest and the largest of them; mean, their average; and median, the middle cell of them once sorted, or the average of the two middle cells when the count is even. Report mean and median cut to two decimals, a value sitting exactly halfway rounding upward, toward the larger value.
+    A column no row is long enough to reach yields a count of 0 with min, max, mean and median all 0.
+    
+    Args:
+    rows (list): A list of rows, each a list of numbers.
+    column (int): The zero-based index of the column to summarize.
+    
+    Returns:
+    dict: A dictionary containing the summary of the column.
+    """
+    if column < 0:
+        raise ValueError("Column index must be non-negative")
+    
+    count = 0
+    min_val = float('inf')
+    max_val = float('-inf')
+    total_sum = 0
+    sorted_values = []
+    
+    for row in rows:
+        if column < len(row):
+            count += 1
+            min_val = min(min_val, row[column])
+            max_val = max(max_val, row[column])
+            total_sum += row[column]
+            sorted_values.append(row[column])
+    
+    if count == 0:
+        return {
+            'count': 0,
+            'min': 0,
+            'max': 0,
+            'mean': 0,
+            'median': 0
+        }
+    
+    sorted_values.sort()
+    median_index = count // 2
+    median = sorted_values[median_index]
+    
+    mean = round(total_sum / count, 2)
+    median = round(median, 2)
+    
+    return {
+        'count': count,
+        'min': min_val,
+        'max': max_val,
+        'mean': mean,
+        'median': median
+    }
+```

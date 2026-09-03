@@ -1,0 +1,34 @@
+```python
+import math
+
+def count_trails(rows: int, cols: int, blocked: list) -> int:
+    """
+    Count the number of distinct routes from the top-left cell to the bottom-right cell
+    on a grid of rows by cols, avoiding blocked cells. Blocked cells are provided as a list
+    of two-item lists where each sublist represents a row and column index.
+    """
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise ValueError("Rows and cols must be positive integers.")
+    if not all(isinstance(cell, list) and len(cell) == 2 for cell in blocked):
+        raise ValueError("Blocked cells must be two-item lists.")
+    if not all(0 <= cell[0] < rows and 0 <= cell[1] < cols for cell in blocked):
+        raise ValueError("Blocked cells must be within the grid bounds.")
+    
+    if rows == 1 and cols == 1:
+        return 0
+    
+    blocked_set = set(blocked)
+    directions = [(1, 0), (0, 1)]
+    def dfs(r, c):
+        if (r, c) in blocked_set:
+            return 0
+        if r == rows - 1 and c == cols - 1:
+            return 1
+        count = 0
+        for dr, dc in directions:
+            new_r, new_c = r + dr, c + dc
+            if 0 <= new_r < rows and 0 <= new_c < cols:
+                count += dfs(new_r, new_c)
+        return count
+    return dfs(0, 0)
+```

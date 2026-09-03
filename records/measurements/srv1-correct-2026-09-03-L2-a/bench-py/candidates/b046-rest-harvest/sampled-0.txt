@@ -1,0 +1,16 @@
+```python
+def best_harvest(yields: list) -> int:
+    if not isinstance(yields, list):
+        raise ValueError("Input must be a list")
+    
+    if not all(isinstance(y, int) and y >= 0 for y in yields):
+        raise ValueError("All yields must be non-negative integers")
+    
+    total = 0
+    for i in range(len(yields)):
+        total += yields[i]
+        while i + 1 < len(yields) and yields[i] == yields[i + 1]:
+            i += 1
+    
+    return total
+```

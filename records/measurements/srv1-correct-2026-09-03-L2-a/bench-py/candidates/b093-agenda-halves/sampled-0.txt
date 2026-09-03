@@ -1,0 +1,44 @@
+```python
+from typing import List, Tuple
+
+def split_agenda(sessions: List[Tuple[int, int]], limit: int) -> List[Tuple[int, int]]:
+    if not sessions or not isinstance(sessions, list):
+        raise ValueError("sessions must be a non-empty list of tuples")
+
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("limit must be a whole number of at least one")
+
+    if any(not isinstance(session, tuple) or len(session) != 2 or not all(isinstance(x, int) for x in session):
+        raise ValueError("sessions must be a list of tuple pairs")
+
+    if any(session[0] >= session[1] for session in sessions):
+        raise ValueError("sessions must have start times before end times")
+
+    sessions.sort()
+
+    blocks = []
+    block_start = sessions[0][0]
+    block_end = sessions[0][1]
+    remaining_limit = limit
+
+    for session in sessions[1:]:
+        if session[0] > block_end:
+            blocks.append((block_start, block_end))
+            block_start = session[0]
+            block_end = session[1]
+            remaining_limit = limit
+        else:
+            if session[1] > block_end:
+                block_end = session[1]
+                remaining_limit -= session[1] - session[0]
+            else:
+                mid = (session[0] + session[1]) // 2
+                if session[0] != mid:
+                    session = (mid, session[1])
+                if session[1] > block_end:
+                    block_end = session[1]
+                    remaining_limit -= session[1] - session[0]
+    blocks.append((block_start, block_end))
+
+    return blocks
+```

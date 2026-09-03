@@ -1,0 +1,19 @@
+```python
+def line_cost(price: int, quantity: int) -> int:
+    """Returns what one line comes to: its unit price times its quantity."""
+    if not (isinstance(price, int) and isinstance(quantity, int)):
+        raise ValueError("Both price and quantity must be integers.")
+    if quantity <= 0:
+        raise ValueError("Quantity must be a positive integer.")
+    return price * quantity
+
+def basket_cost(lines: list, discount: int) -> int:
+    """Adds up every line and then takes off a whole-percent discount, rounding what is left down to whole pence."""
+    if not (isinstance(lines, list) and all(isinstance(line, (int, float)) for line in lines) and isinstance(discount, int)):
+        raise ValueError("Lines must be a list of integers or floats, and discount must be an integer.")
+    if discount < 0 or discount > 100:
+        raise ValueError("Discount must be between 0 and 100 percent.")
+    total_cost = sum(line_cost(price, quantity) for price, quantity in zip(lines, [1] * len(lines)))
+    discounted_cost = total_cost * (1 - discount / 100)
+    return int(discounted_cost)
+```

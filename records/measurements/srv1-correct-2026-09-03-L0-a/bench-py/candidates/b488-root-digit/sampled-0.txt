@@ -1,0 +1,22 @@
+```python
+def root_digit(value: int) -> int:
+    """Return the root digit of a given number.
+
+    A root digit is the single digit left after repeatedly adding the digits of a number
+    until a single digit is left. For example, the root digit of 987 is 6 because:
+    9 + 8 + 7 = 24, then 2 + 4 = 6.
+
+    Args:
+        value: The number to find the root digit of.
+
+    Returns:
+        The root digit of the given number.
+    """
+    if value < 10:
+        return value
+    total = 0
+    while value > 0:
+        total += value % 10
+        value = value // 10
+    return root_digit(total)
+```

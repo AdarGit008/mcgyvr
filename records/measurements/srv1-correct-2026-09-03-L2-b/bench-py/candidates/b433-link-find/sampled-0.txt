@@ -1,0 +1,24 @@
+```python
+def link_find(line: str, opens: str, closes: str) -> list:
+    if not opens or not closes:
+        raise ValueError("Opens and closes must not be empty")
+    
+    if len(opens) != len(closes):
+        raise ValueError("Opens and closes must be of the same length")
+    
+    result = []
+    depth = 0
+    for char in line:
+        if char == opens:
+            depth += 1
+        elif char == closes:
+            depth -= 1
+            if depth == 0:
+                result.append(line[start:i + 1])
+                start = i + 1
+    
+    if depth != 0:
+        raise ValueError(f"Unmatched closing marker: {line[start:]}")
+    
+    return result
+```

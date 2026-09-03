@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def hop_chain(hops: List[tuple]) -> bool:
+    """
+    Determines if the given list of hops form a continuous chain.
+    
+    Parameters:
+    hops (List[tuple]): A list of tuples where each tuple represents a hop with the start and end positions.
+    
+    Returns:
+    bool: True if the hops form a continuous chain, False otherwise.
+    """
+    if not hops or len(hops) == 1:  # Single hop or empty list
+        return True
+    
+    start, end = hops[0]
+    
+    for hop in hops[1:]:
+        if hop[0] != end:  # Check if the start of the next hop is the end of the current hop
+            return False
+        end = hop[1]  # Update the end position for the next hop
+    
+    return True
+```

@@ -1,0 +1,12 @@
+```python
+from typing import *
+from math import floor
+
+def pace_of(seconds: int, kilometres: int) -> int:
+    if kilometres == 0:
+        raise ValueError("Leg distance cannot be zero.")
+    return floor(seconds / kilometres)
+
+def pace_list(legs: list) -> list:
+    return [pace_of(seconds, distance) for seconds, distance in legs if distance > 0]
+```

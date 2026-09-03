@@ -1,0 +1,28 @@
+```python
+def window_max(readings: list[int], width: int) -> list[int]:
+    """
+    Given a list of readings and a window width, return a new list where each element
+    represents the maximum reading within a window of the specified width.
+    
+    Parameters:
+    readings (list[int]): The list of reading values.
+    width (int): The width of the window to consider for finding the maximum reading.
+    
+    Returns:
+    list[int]: A list of integers representing the maximum reading within each window.
+    """
+    if width < 1:
+        raise ValueError("Window width must be at least 1.")
+    
+    # Initialize the result list with None
+    result = [None] * len(readings)
+    
+    # Iterate through each possible window
+    for start in range(len(readings) - width + 1):
+        # Find the maximum reading in the current window
+        max_reading = max(readings[start:start+width])
+        # Append the maximum reading to the result list
+        result[start] = max_reading
+    
+    return result
+```

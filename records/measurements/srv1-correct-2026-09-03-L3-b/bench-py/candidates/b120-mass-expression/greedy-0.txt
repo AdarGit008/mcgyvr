@@ -1,0 +1,52 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Input must be a non-empty string.")
+    if not text or not unit:
+        raise ValueError("Input must not be empty.")
+    if len(text) % 2 != 1:
+        raise ValueError("Tally must alternate between terms and operators.")
+    if unit not in ['g', 'kg', 't']:
+        raise ValueError("Goal unit must be one of 'g', 'kg', or 't'.")
+    if not text.isalnum() or any(char not in '0123456789gkmt+-' for char in text):
+        raise ValueError("Tally must contain only digits, 'g', 'kg', 't', '0', '+' and '-'.")
+
+    def parse_term(term):
+        if term[0] == '0':
+            raise ValueError("Leading zero is not allowed.")
+        if term not in ['g', 'kg', 't']:
+            raise ValueError("Unknown or miscased unit.")
+        return int(term)
+
+    def parse_operator(operator):
+        if operator not in ['+', '-']:
+            raise ValueError("Operator must be '+' or '-'.")
+        return operator
+
+    def parse_tally(text):
+        terms = []
+        operator = None
+        for i in range(len(text)):
+            if text[i].isdigit():
+                term = parse_term(text[i:])
+                terms.append(term)
+            elif text[i] in ['g', 'kg', 't']:
+                term = parse_term(text[i:])
+                terms.append(term)
+            elif text[i] in ['+', '-']:
+                operator = parse_operator(text[i])
+        return terms, operator
+
+    terms, operator = parse_tally(text)
+    total = 0
+    for term in terms:
+        if operator == '+':
+            total += term
+        elif operator == '-':
+            total -= term
+        if total < 0:
+            raise ValueError("Running amount cannot dip below zero.")
+    if total % 1000 != 0:
+        raise ValueError("Total must come out whole in the goal unit.")
+    return total * 1000 if unit == 'g' else total * 100000 if unit == 'kg' else total
+```

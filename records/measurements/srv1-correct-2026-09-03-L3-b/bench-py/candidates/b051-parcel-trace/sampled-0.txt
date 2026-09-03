@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def trace_parcel(events: list) -> List[str]:
+    if not isinstance(events, list):
+        raise ValueError("Input must be a list")
+
+    def validate_event(event):
+        if event not in ["created", "packed", "shipped", "delivered", "returned"]:
+            raise ValueError(f"Invalid event: {event}")
+
+    def update_state(current_state, event):
+        if current_state == "created" and event == "packed":
+            return "packed"
+        elif current_state == "packed" and event == "shipped":
+            return "shipped"
+        elif current_state == "shipped" and event == "delivered":
+            return "delivered"
+        elif current_state == "delivered" and event == "returned":
+            return "returned"
+        elif current_state == "created" and event == "delivered":
+            raise ValueError("Event 'delivered' is not valid in state 'created'")
+        elif current_state == "packed" and event == "returned":
+            raise ValueError("Event 'returned' is not valid in state 'packed'")
+        elif current_state == "shipped" and event == "returned":
+            raise ValueError("Event 'returned' is not valid in state 'shipped'")
+        else:
+            return current_state
+
+    current_state = "created"
+    for event in events:
+        validate_event(event)
+        current_state = update_state(current_state, event)
+
+    return [state for state in events if state in ["created", "packed", "shipped", "delivered", "returned"]]
+```

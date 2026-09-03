@@ -1,0 +1,40 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in data):
+        raise ValueError("All elements must be integers from 0 to 255")
+    
+    if len(data) < 2:
+        raise ValueError("Frame must contain at least two bytes")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not match the sum of all bytes before it")
+    
+    if len(data) - 1 > 5:
+        raise ValueError("Frame is longer than five bytes")
+    
+    varint_length = 1
+    varint = data[0]
+    
+    readings = []
+    while varint_length < len(data):
+        if varint_length > 5:
+            raise ValueError("Varint is longer than five bytes")
+        
+        if varint & 0x80:
+            varint_length += 1
+            varint = (varint << 7) | data[varint_length - 1]
+        else:
+            readings.append(varint)
+            varint_length = 1
+            varint = data[varint_length - 1]
+    
+    if varint_length != 1:
+        raise ValueError("Varint is not a single byte")
+    
+    return readings
+```

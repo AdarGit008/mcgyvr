@@ -1,0 +1,19 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """
+    Return the original price before applying a whole-percent tax.
+
+    Args:
+    gross (int): The gross price with a whole-percent tax applied.
+    rate (int): The tax rate, which is a whole number.
+
+    Returns:
+    int: The original price before the tax was applied.
+
+    Raises:
+    ValueError: If the rate is negative.
+    """
+    if rate < 0:
+        raise ValueError("Tax rate cannot be negative.")
+    return gross // (100 + rate)
+```

@@ -1,0 +1,35 @@
+```python
+from typing import List, Tuple
+
+def line_clusters(stops: List[str], links: List[Tuple[str, str]]) -> List[List[str]]:
+    if not stops or not links:
+        return []
+
+    # Create a dictionary to store the stops and their links
+    stop_links = {}
+    for stop, link in links:
+        if stop not in stop_links:
+            stop_links[stop] = []
+        stop_links[stop].append(link)
+
+    # Find all clusters
+    clusters = []
+    visited = set()
+    for stop in stops:
+        if stop not in visited:
+            cluster = []
+            stack = [stop]
+            while stack:
+                current_stop = stack.pop()
+                cluster.append(current_stop)
+                visited.add(current_stop)
+                for linked_stop in stop_links[current_stop]:
+                    if linked_stop not in visited:
+                        stack.append(linked_stop)
+            clusters.append(cluster)
+
+    # Sort clusters by the first stop alphabetically
+    clusters.sort(key=lambda cluster: cluster[0])
+
+    return clusters
+```

@@ -1,0 +1,17 @@
+```python
+from typing import List
+
+def match_at(grid: List[List[int]], row: int, column: int, value: int) -> bool:
+    """Check if the cell at (row, column) holds the value."""
+    if not (0 <= row < len(grid) and 0 <= column < len(grid[0])):
+        raise ValueError("Row or column index out of bounds.")
+    return grid[row][column] == value
+
+def grid_find(grid: List[List[int]], value: int) -> List[int]:
+    """Find the first row and column where the value is found."""
+    for row in range(len(grid)):
+        for col in range(len(grid[0])):
+            if grid[row][col] == value:
+                return [row, col]
+    raise ValueError("Value not found in the grid.")
+```

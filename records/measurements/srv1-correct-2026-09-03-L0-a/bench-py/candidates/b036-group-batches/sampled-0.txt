@@ -1,0 +1,55 @@
+```python
+from typing import List, Tuple
+
+def group_batches(jobs: list, capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list):
+        raise ValueError("jobs must be a list")
+    if not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("each job must be a four-item list")
+    if not all(isinstance(name, str) and name for name in [job[0] for job in jobs]):
+        raise ValueError("each job name must be a non-empty string")
+    if not all(isinstance(group, str) and group for group in [job[1] for job in jobs]):
+        raise ValueError("each job group must be a non-empty string")
+    if not all(isinstance(priority, int) and priority >= 0 for priority in [job[2] for job in jobs]):
+        raise ValueError("each job priority must be an integer from 0 to the capacity")
+    if not all(isinstance(weight, int) and 1 <= weight <= capacity for weight in [job[3] for job in jobs]):
+        raise ValueError("each job weight must be an integer from 1 to the capacity")
+    if len(set(name for name in [job[0] for job in jobs])) != len(jobs):
+        raise ValueError("duplicate job names are not allowed")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+
+    jobs.sort(key=lambda job: (-job[2], job[0]))
+
+    batches = []
+    current_capacity = capacity
+    current_group = None
+    current_batch = []
+
+    for job in jobs:
+        if job[1] != current_group:
+            if current_batch:
+                batches.append(current_batch)
+                current_batch = []
+            current_capacity = capacity
+            current_group = job[1]
+            current_batch.append(job[0])
+            current_capacity -= job[3]
+            if current_capacity < 0:
+                batches.append(current_batch)
+                current_batch = []
+                current_capacity = capacity
+        else:
+            if current_capacity >= job[3]:
+                current_batch.append(job[0])
+                current_capacity -= job[3]
+            else:
+                batches.append(current_batch)
+                current_batch = [job[0]]
+                current_capacity = job[3]
+
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
+```

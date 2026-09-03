@@ -1,0 +1,11 @@
+```python
+def mark_list(scores: list, floor: int) -> list:
+    """Scores written out, with a star against those that reach a floor."""
+    out = []
+    for score in scores:
+        if score >= floor:
+            out.append(str(score) + "*")
+        else:
+            out.append(str(score))
+    return out
+```

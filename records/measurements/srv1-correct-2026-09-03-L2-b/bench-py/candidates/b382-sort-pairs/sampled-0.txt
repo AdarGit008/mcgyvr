@@ -1,0 +1,35 @@
+```python
+def field_of(record: dict, field: str) -> int:
+    """
+    Returns the value of a named field in a record, rejecting the record if it lacks the field.
+    
+    Args:
+    record (dict): The record to query.
+    field (str): The name of the field to retrieve the value from.
+    
+    Returns:
+    int: The value of the field if the record contains it, otherwise raises a ValueError.
+    
+    Raises:
+    ValueError: If the record lacks the specified field.
+    """
+    if field not in record:
+        raise ValueError(f"Record lacks field: {field}")
+    return record[field]
+
+def sort_pairs(records: list, field: str) -> list:
+    """
+    Sorts a list of records by a specified field, breaking a tie by leaving the earlier record earlier.
+    
+    Args:
+    records (list): The list of records to sort.
+    field (str): The name of the field to sort the records by.
+    
+    Returns:
+    list: A list of records sorted by the specified field.
+    
+    Note:
+    If records contain duplicate values for the specified field, the earlier record in the list will come first.
+    """
+    return sorted(records, key=lambda x: x[field])
+```

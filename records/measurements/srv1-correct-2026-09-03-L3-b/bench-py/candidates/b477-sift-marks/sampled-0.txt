@@ -1,0 +1,13 @@
+```python
+from typing import *
+from collections import *
+
+def sift_marks(entries: list[str], mark: str) -> list[list[str]]:
+    if not entries:
+        return [], []
+
+    marked_entries = [entry for entry in entries if entry.startswith(mark)]
+    unmarked_entries = [entry for entry in entries if not entry.startswith(mark)]
+
+    return [marked_entries, unmarked_entries]
+```

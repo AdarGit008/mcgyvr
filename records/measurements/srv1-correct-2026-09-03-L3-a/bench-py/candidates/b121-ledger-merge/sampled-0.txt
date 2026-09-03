@@ -1,0 +1,21 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    if not isinstance(base, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in base):
+        raise ValueError("base must be a list of two-item tuples")
+    if not isinstance(ours, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in ours):
+        raise ValueError("ours must be a list of two-item tuples")
+    if not isinstance(theirs, list) or not all(isinstance(item, tuple) and len(item) == 2 for item in theirs):
+        raise ValueError("theirs must be a list of two-item tuples")
+    
+    base_dict = {account: cents for account, cents in base}
+    ours_dict = {account: cents for account, cents in ours}
+    theirs_dict = {account: cents for account, cents in theirs}
+    
+    merged_dict = {account: base_dict.get(account, 0) + ours_dict.get(account, 0) + theirs_dict.get(account, 0) for account in set(base_dict) | set(ours_dict) | set(theirs_dict)}
+    
+    merged_sorted = sorted(merged_dict.items(), key=lambda x: x[0])
+    
+    return merged_sorted
+```

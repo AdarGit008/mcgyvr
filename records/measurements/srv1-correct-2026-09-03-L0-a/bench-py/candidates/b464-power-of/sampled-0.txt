@@ -1,0 +1,11 @@
+```python
+def power_of(base: int, power: int) -> int:
+    """
+    Raise a base to a whole power by multiplying it by itself that many times.
+    A power of nothing gives one, whatever the base.
+    Reject a power below nothing with an error.
+    """
+    if power < 0:
+        raise ValueError("Power must be non-negative")
+    return 1 if base == 0 else base * power_of(base, power - 1)
+```

@@ -1,0 +1,10 @@
+```python
+def line_number(block: str) -> str:
+    if not block:
+        return ""
+    
+    lines = block.split('\n')
+    max_width = len(max(lines, key=len))
+    
+    return '\n'.join(f"{i+1}:{line.ljust(max_width)}" for i, line in enumerate(lines))
+```

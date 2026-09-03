@@ -1,0 +1,20 @@
+```python
+def mean_window(readings: list, size: int) -> list:
+    """
+    Given readings and a window size, return the mean of every run of that many consecutive readings,
+    rounded down, in the order the runs begin. A window wider than the readings themselves gives an empty list.
+    """
+    if size <= 0:
+        raise ValueError("Window size must be a positive integer")
+    
+    if size > len(readings):
+        return []
+    
+    means = []
+    for i in range(len(readings) - size + 1):
+        window = readings[i:i+size]
+        if window:
+            means.append(int(sum(window) / size))
+    
+    return means
+```

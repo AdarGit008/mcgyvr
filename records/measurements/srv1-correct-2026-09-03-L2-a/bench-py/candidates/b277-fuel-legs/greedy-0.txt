@@ -1,0 +1,8 @@
+```python
+def fuel_legs(litres: int, burn: int) -> int:
+    if burn <= 0:
+        raise ValueError("Burn must be a positive integer")
+    if litres < burn:
+        return 0
+    return litres // burn
+```

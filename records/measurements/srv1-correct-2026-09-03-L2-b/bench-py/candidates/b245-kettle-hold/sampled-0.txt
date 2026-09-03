@@ -1,0 +1,16 @@
+```python
+def kettle_hold(readings: list, target: int) -> int:
+    if not readings or target < 0:
+        raise ValueError("Invalid input: readings must be non-empty and target must be non-negative")
+
+    holding_count = 0
+    current_temp = 0
+
+    for temp in readings:
+        if temp > target:
+            break
+        current_temp = temp
+        holding_count += 1
+
+    return holding_count
+```

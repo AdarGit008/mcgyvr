@@ -1,0 +1,21 @@
+```python
+def unpack_crates(crate: list) -> list:
+    """
+    Unpacks all items in a nested shipping crate into a flat list, in order.
+    """
+    def depth_helper(crate):
+        if not isinstance(crate, list) or not crate:
+            raise ValueError("Invalid entry")
+        if all(isinstance(item, str) and item for item in crate):
+            return 1
+        else:
+            return max(depth_helper(item) for item in crate) + 1
+
+    return [item for item in unpack_crate(crate) if isinstance(item, str)]
+
+def crate_depth(crate: list) -> int:
+    """
+    Returns the deepest nesting level of the crate.
+    """
+    return depth_helper(crate)
+```

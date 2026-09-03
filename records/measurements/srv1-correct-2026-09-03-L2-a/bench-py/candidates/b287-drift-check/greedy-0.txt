@@ -1,0 +1,17 @@
+```python
+def drift_check(readings: list, step: int) -> int:
+    """
+    Find the first reading that differs from the one immediately before it by more than the given step.
+    
+    Args:
+    readings (list): A list of sensor readings.
+    step (int): The maximum allowed difference between consecutive readings.
+    
+    Returns:
+    int: The index of the first reading that differs from the previous one by more than the step, or -1 if no such reading exists.
+    """
+    for i in range(1, len(readings)):
+        if abs(readings[i] - readings[i - 1]) > step:
+            return i
+    return -1
+```

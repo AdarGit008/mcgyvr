@@ -1,0 +1,29 @@
+```python
+from typing import List, Tuple
+
+def group_batches(jobs: List[Tuple[str, str, int, int]], capacity: int) -> List[List[str]]:
+    if not isinstance(jobs, list) or not all(isinstance(job, list) and len(job) == 4 for job in jobs):
+        raise ValueError("jobs must be a list of four-item lists")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("capacity must be a positive integer")
+    
+    jobs.sort(key=lambda x: (-x[2], x[0]))  # Sort by priority descending, then by arrival time ascending
+    batches = []
+    current_batch = []
+    current_capacity = capacity
+    
+    for job in jobs:
+        name, group, priority, weight = job
+        if name in current_batch:
+            continue
+        if weight > current_capacity:
+            continue
+        current_batch.append(name)
+        current_capacity -= weight
+        if len(current_batch) == len(set(current_batch)):  # Check if all jobs in the batch are unique
+            batches.append(current_batch)
+            current_batch = []
+            current_capacity = capacity
+    
+    return batches
+```

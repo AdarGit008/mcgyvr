@@ -1,0 +1,13 @@
+```python
+def turn_tail(entries: list[str], count: int) -> list[str]:
+    out = []
+    if count < 0:
+        raise ValueError("Count cannot be negative.")
+    if count == 0:
+        return entries
+    if count >= len(entries):
+        return entries[::-1]
+    out.extend(entries[:count][::-1])
+    out.extend(entries[count:])
+    return out
+```

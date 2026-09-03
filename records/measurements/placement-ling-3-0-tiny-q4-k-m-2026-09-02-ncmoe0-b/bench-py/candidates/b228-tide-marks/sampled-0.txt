@@ -1,0 +1,25 @@
+```python
+def tide_marks(levels: list) -> list:
+    """Return the indices of every local peak in a list of water levels.
+
+    A peak is a position whose level is strictly greater than the level
+    immediately before it and the level immediately after it. The first and
+    last positions are never peaks.
+
+    Args:
+        levels: A list of integer water levels.
+
+    Returns:
+        A list of indices (in increasing order) where local peaks occur.
+        Returns an empty list when there are no peaks.
+    """
+    if len(levels) < 3:
+        return []
+
+    peaks = []
+    for i in range(1, len(levels) - 1):
+        if levels[i] > levels[i - 1] and levels[i] > levels[i + 1]:
+            peaks.append(i)
+
+    return peaks
+```

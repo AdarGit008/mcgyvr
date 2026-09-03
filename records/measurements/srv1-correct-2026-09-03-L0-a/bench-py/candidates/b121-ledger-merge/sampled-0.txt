@@ -1,0 +1,52 @@
+```python
+from typing import List, Tuple
+
+def merge_ledgers(base: List[Tuple[str, int]], ours: List[Tuple[str, int]], theirs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    # Check if the inputs are lists
+    if not all(isinstance ledger, list) for ledger in [base, ours, theirs]):
+        raise ValueError("All inputs must be lists")
+
+    # Check if each input contains two-item pairs
+    for ledger in [base, ours, theirs]:
+        for entry in ledger:
+            if not isinstance(entry, list) or len(entry) != 2:
+                raise ValueError("Each entry must be a two-item list [account, cents]")
+
+    # Check if each account name is a non-empty string
+    for ledger in [base, ours, theirs]:
+        for entry in ledger:
+            if not isinstance(entry[0], str) or not entry[0]:
+                raise ValueError("Account names must be non-empty strings")
+
+    # Check if cents values are integers
+    for ledger in [base, ours, theirs]:
+        for entry in ledger:
+            if not isinstance(entry[1], int):
+                raise ValueError("Cents values must be integers")
+
+    # Check for duplicate accounts in one ledger
+    account_counts = {}
+    for ledger in [base, ours, theirs]:
+        for account, _ in ledger:
+            if account in account_counts:
+                raise ValueError("Account names must be unique within one ledger")
+            account_counts[account] = 0
+
+    # Merge the ledgers
+    merged = base[:]
+    for account, our_cents in ours:
+        if account not in merged:
+            merged.append((account, our_cents))
+        else:
+            merged[account] += our_cents
+    for account, their_cents in theirs:
+        if account not in merged:
+            merged.append((account, their_cents))
+        else:
+            merged[account] += their_cents
+
+    # Remove duplicates and sort by account name
+    merged = sorted(merged, key=lambda x: x[0])
+
+    return merged
+```

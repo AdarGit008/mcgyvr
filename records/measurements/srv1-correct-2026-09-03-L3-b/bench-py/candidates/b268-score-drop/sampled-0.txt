@@ -1,0 +1,13 @@
+```python
+def score_drop(scores: list) -> int:
+    """
+    Given a list of scores, return their total with the single lowest score left out.
+    When the lowest score appears more than once only one of them is dropped.
+    A list holding one score or none at all totals zero.
+    """
+    if not scores:
+        return 0
+    
+    scores.sort()
+    return sum(scores[1:])
+```

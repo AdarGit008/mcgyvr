@@ -1,0 +1,32 @@
+```python
+from typing import *
+
+def draw_tree_lines(root: dict) -> List[str]:
+    """
+    Draw a tree of nodes as a list of lines.
+    
+    Parameters:
+    - root (dict): The root node of the tree, with a 'name' and 'children' key.
+    
+    Returns:
+    - List[str]: A list of strings representing the tree lines.
+    """
+    if not isinstance(root, dict) or 'name' not in root or 'children' not in root:
+        raise ValueError("Root must be a dictionary with 'name' and 'children' keys.")
+    
+    def draw(node, indent):
+        if not isinstance(node['name'], str) or node['name'] == '\n':
+            raise ValueError("Node name must be a non-empty string.")
+        if not isinstance(node['children'], list) or not all(isinstance(child, dict) for child in node['children']):
+            raise ValueError("Node children must be a list of dictionaries.")
+        
+        lines = []
+        for i, child in enumerate(node['children']):
+            if i > 0:
+                lines.append("'-- " * (len(node['children']) - i - 1))
+            lines.append('|-- ' * indent + node['name'])
+            lines.extend(draw(child, indent + 1))
+        return lines
+    
+    return draw(root, 0)
+```

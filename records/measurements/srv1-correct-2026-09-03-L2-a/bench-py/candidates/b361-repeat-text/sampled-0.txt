@@ -1,0 +1,14 @@
+```python
+def repeat_text(phrase: str, times: int, between: str) -> str:
+    """
+    Repeat a phrase a given number of times, joined by a specified separator.
+
+    :param phrase: The phrase to repeat.
+    :param times: The number of times to repeat the phrase.
+    :param between: The string to separate each repetition of the phrase.
+    :return: A single string with the phrase repeated and separated by the separator.
+    """
+    if times < 1:
+        raise ValueError("Times must be a positive integer")
+    return between.join([phrase] * times)
+```

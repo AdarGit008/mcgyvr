@@ -1,0 +1,41 @@
+```python
+from typing import List, Tuple
+
+def line_clusters(stops: List[str], links: List[Tuple[str, str]]) -> List[List[str]]:
+    if not stops:
+        return []
+
+    # Create a dictionary to represent the graph
+    graph = {}
+    for stop in stops:
+        graph[stop] = []
+
+    # Add edges to the graph
+    for link in links:
+        graph[link[0]].append(link[1])
+        graph[link[1]].append(link[0])
+
+    # Perform DFS to find clusters
+    clusters = []
+    visited = set()
+
+    def dfs(node: str):
+        if node in visited:
+            return
+        visited.add(node)
+        cluster = [node]
+        for neighbor in graph[node]:
+            dfs(neighbor)
+            cluster.extend(graph[neighbor])
+        clusters.append(cluster)
+
+    # Iterate through stops to find clusters
+    for stop in stops:
+        if stop not in visited:
+            dfs(stop)
+
+    # Sort clusters by the first stop
+    clusters.sort(key=lambda cluster: cluster[0])
+
+    return clusters
+```

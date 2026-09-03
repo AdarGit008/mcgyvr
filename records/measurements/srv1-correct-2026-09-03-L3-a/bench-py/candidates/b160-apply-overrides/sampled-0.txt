@@ -1,0 +1,21 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("overrides must be a list")
+    
+    merged = dict(base)
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("overrides must be strings")
+        parts = override.split('=', 1)
+        if len(parts) != 2:
+            raise ValueError("overrides must have at most one equals sign")
+        setting, value = parts
+        if not setting:
+            raise ValueError("setting name must not be empty")
+        if setting not in merged:
+            raise ValueError(f"base does not have setting {setting}")
+        merged[setting] = value
+    
+    return merged
+```

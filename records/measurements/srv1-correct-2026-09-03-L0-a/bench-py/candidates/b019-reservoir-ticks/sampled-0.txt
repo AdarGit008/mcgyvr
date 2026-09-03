@@ -1,0 +1,32 @@
+```python
+from typing import List, Union
+
+def run_reservoir(capacity: int, start: int, ticks: List[List[int]]) -> dict:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if not isinstance(start, int) or start < 0 or start > capacity:
+        raise ValueError("Starting level must be an integer from 0 to the capacity")
+    if not all(isinstance(tick, list) and len(tick) == 2 for tick in ticks):
+        raise ValueError("Ticks must be two-item lists")
+    if not all(isinstance(x, int) and x >= 0 for tick in ticks for x in tick):
+        raise ValueError("Inflow and demand must be non-negative integers")
+
+    level = start
+    spilled = 0
+    shortfall = 0
+    served = 0
+
+    for inflow, demand in ticks:
+        if inflow > capacity:
+            spilled += inflow - capacity
+            level = capacity
+        else:
+            level += inflow
+            if level > capacity:
+                spilled += level - capacity
+                level = capacity
+        served += min(demand, level)
+        shortfall += max(0, demand - served)
+
+    return {"level": level, "spilled": spilled, "shortfall": shortfall, "served": served}
+```

@@ -1,0 +1,8 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    if length <= 0:
+        raise ValueError("Length must be greater than 0")
+    if not code.isalnum():
+        raise ValueError("Code must contain only capital letters and digits")
+    return len(code) == length
+```

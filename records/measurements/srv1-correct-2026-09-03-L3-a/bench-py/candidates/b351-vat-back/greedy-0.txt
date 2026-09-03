@@ -1,0 +1,27 @@
+```python
+def vat_back(gross: int, rate: int) -> int:
+    """
+    Return the price before a whole-percent tax was added, rounded down.
+    
+    Args:
+    gross (int): The gross price with a whole-percent tax.
+    rate (int): The tax rate in percent.
+    
+    Returns:
+    int: The price before the tax was added, rounded down.
+    
+    Raises:
+    ValueError: If the rate is below zero.
+    """
+    if rate < 0:
+        raise ValueError("Tax rate cannot be negative.")
+    
+    # Calculate the tax amount
+    tax_amount = gross * (rate / 100)
+    
+    # Calculate the price before tax
+    price_before_tax = gross - tax_amount
+    
+    # Return the price before tax, rounded down
+    return int(price_before_tax)
+```

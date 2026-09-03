@@ -1,0 +1,21 @@
+```python
+from typing import List
+
+class BridgeState:
+    LOWERED = "lowered"
+    RAISED = "raised"
+    LOCKED = "locked"
+
+def drive_bridge(commands: List[str]) -> str:
+    state = BridgeState.LOWERED
+    for command in commands:
+        if command.lower() not in ["raise", "lower", "lock", "unlock"]:
+            raise ValueError("Invalid command")
+        if state == BridgeState.LOWERED and command.lower() == "raise":
+            state = BridgeState.RAISED
+        elif state == BridgeState.RAISED and (command.lower() == "lower" or command.lower() == "lock"):
+            state = BridgeState.LOCKED
+        elif state == BridgeState.LOCKED and command.lower() == "unlock":
+            state = BridgeState.RAISED
+    return state
+```

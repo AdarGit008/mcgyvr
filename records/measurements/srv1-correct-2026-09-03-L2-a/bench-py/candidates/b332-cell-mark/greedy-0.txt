@@ -1,0 +1,23 @@
+```python
+from typing import List
+
+def live_count(neighbours: List[int]) -> int:
+    """
+    Returns how many of a cell's given neighbours are alive.
+    
+    :param neighbours: List of integers representing the cell's neighbours.
+    :return: The count of alive neighbours.
+    """
+    return sum(neighbour == 1 for neighbour in neighbours)
+
+def live_next(alive: bool, neighbours: List[int]) -> bool:
+    """
+    Says whether the cell is alive in the next round: a living cell survives on two or three living neighbours, and a dead one comes alive on exactly three.
+    
+    :param alive: Boolean indicating whether the cell is currently alive.
+    :param neighbours: List of integers representing the cell's neighbours.
+    :return: True if the cell should be alive in the next round, False otherwise.
+    """
+    alive_count = live_count(neighbours)
+    return alive and (alive_count == 2 or alive_count == 3) or not alive and alive_count == 3
+```

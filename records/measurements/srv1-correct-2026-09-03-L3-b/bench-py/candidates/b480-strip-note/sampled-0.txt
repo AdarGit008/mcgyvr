@@ -1,0 +1,19 @@
+```python
+def strip_note(title: str) -> str:
+    """
+    Strip a note from the given title. A note is a round bracket opening somewhere
+    in the title and closing at its very end, and only then is it removed, along
+    with any spaces left trailing. If the title does not contain a note, it is
+    returned unchanged.
+
+    :param title: The title from which to strip the note.
+    :return: The title with the note removed.
+    """
+    opened = title.find("(")
+    if opened == -1:
+        return title
+    closed = title.rfind(")")
+    if closed == -1:
+        raise ValueError("No closing parenthesis in title")
+    return title[:opened].rstrip() + title[closed + 1:]
+```

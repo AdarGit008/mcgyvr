@@ -1,0 +1,30 @@
+```python
+def clause_order(a: str, b: str) -> int:
+    if not isinstance(a, str) or not isinstance(b, str):
+        raise ValueError("Both arguments must be strings")
+
+    def parse_mark(mark):
+        if not mark:
+            return 0
+        if not mark.isdigit():
+            raise ValueError("Mark must be a string of digits")
+        if mark[0] == '0':
+            raise ValueError("Mark cannot start with zero")
+        return int(mark)
+
+    marks_a = [parse_mark(mark) for mark in a.split('.')]
+    marks_b = [parse_mark(mark) for mark in b.split('.')]
+
+    for i in range(min(len(marks_a), len(marks_b))):
+        if marks_a[i] < marks_b[i]:
+            return -1
+        elif marks_a[i] > marks_b[i]:
+            return 1
+
+    if len(marks_a) < len(marks_b):
+        return -1
+    elif len(marks_a) > len(marks_b):
+        return 1
+    else:
+        return 0
+```

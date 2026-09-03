@@ -1,0 +1,29 @@
+```python
+def in_quote(ch: str) -> bool:
+    # Quotation marks are ' or "
+    return ch in ('\'', '"')
+
+def quote_split(line: str) -> list:
+    # Initialize the list to hold the result
+    result = []
+    # Initialize variables to track the current piece and the state of the quotation marks
+    current_piece = ""
+    in_quote_state = False
+    # Iterate through each character in the line
+    for char in line:
+        # If we're inside a quotation mark, toggle the state
+        if char in ('\'', '"'):
+            in_quote_state = not in_quote_state
+        # If we're not inside a quotation mark, append the current piece to the result and reset it
+        elif not in_quote_state:
+            result.append(current_piece)
+            current_piece = char
+        # If we're inside a quotation mark, add the character to the current piece without toggling the state
+        else:
+            current_piece += char
+    # Append the last piece to the result if it's not empty
+    if current_piece:
+        result.append(current_piece)
+    # Return the result list
+    return result
+```

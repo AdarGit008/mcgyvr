@@ -1,0 +1,13 @@
+```python
+def split_at(entries: list, marker: str) -> list:
+    """Break a list in two at the first entry equal to a marker,
+    returning what stood before it and what stood after, with the marker itself in neither."""
+    try:
+        # Find the first occurrence of the marker
+        index = entries.index(marker)
+        # Return the two parts of the list
+        return entries[:index], entries[index + 1:]
+    except ValueError:
+        # If the marker is not found, return the entire list as the first part
+        return entries, []
+```

@@ -1,0 +1,14 @@
+```python
+def swap_keys(names: dict) -> dict:
+    """
+    Swap keys and values in the given dictionary.
+
+    Args:
+    names (dict): A dictionary where keys are names and values are codes.
+
+    Returns:
+    dict: A dictionary with keys and values swapped.
+    """
+    swapped_names = {value: key for key, value in names.items()}
+    return swapped_names
+```

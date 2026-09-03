@@ -1,0 +1,8 @@
+```python
+def code_valid(code: str, length: int) -> bool:
+    if length <= 0:
+        raise ValueError("Length must be greater than zero.")
+    if not code.isalnum():
+        return False
+    return len(code) == length
+```

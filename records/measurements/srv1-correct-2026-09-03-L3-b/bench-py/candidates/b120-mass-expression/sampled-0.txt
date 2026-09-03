@@ -1,0 +1,51 @@
+```python
+from typing import *
+from math import floor, ceil
+
+def mass_expression(text: str, unit: str) -> int:
+    if not isinstance(text, str) or not isinstance(unit, str):
+        raise ValueError("Invalid input: text must be a string and unit must be a string.")
+    
+    if not text or not unit:
+        raise ValueError("Invalid input: text and unit must not be empty.")
+    
+    if text == "0":
+        raise ValueError("Invalid input: 0 cannot be a count.")
+    
+    terms = text.split(" ")
+    if len(terms) % 2 != 1:
+        raise ValueError("Invalid input: terms must alternate.")
+    
+    total = 0
+    i = 0
+    while i < len(terms):
+        term = terms[i]
+        if not term.isdigit():
+            raise ValueError(f"Invalid input: term '{term}' is not a plain count.")
+        
+        unit = terms[i + 1]
+        if unit not in ["g", "kg", "t"]:
+            raise ValueError(f"Invalid input: unit '{unit}' is not one of the three.")
+        
+        if term.startswith("0"):
+            raise ValueError(f"Invalid input: term '{term}' starts with a leading zero.")
+        
+        count = int(term)
+        
+        if unit == "kg":
+            count *= 1000
+        elif unit == "t":
+            count *= 1000000
+        
+        if total + count < 0:
+            raise ValueError("Invalid input: draw would dip below zero.")
+        
+        total += count
+        
+        i += 2
+    
+    if total % 1 != 0:
+        raise ValueError("Invalid input: total is not whole in the goal unit.")
+    
+    return int(total / 1000) if unit == "kg" else int(total / 1000000)
+```

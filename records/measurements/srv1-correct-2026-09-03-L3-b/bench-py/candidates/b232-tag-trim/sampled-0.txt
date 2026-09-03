@@ -1,0 +1,8 @@
+```python
+def tag_trim(tag: str) -> str:
+    if not tag:
+        return tag
+
+    trimmed_tag = tag.strip('#:')
+    return trimmed_tag
+```

@@ -1,0 +1,8 @@
+```python
+def hold_queue(callers: list, limit: int) -> list:
+    if limit <= 0:
+        raise ValueError("limit must be a positive integer")
+    if len(callers) <= limit:
+        return callers
+    return callers[-limit:]
+```

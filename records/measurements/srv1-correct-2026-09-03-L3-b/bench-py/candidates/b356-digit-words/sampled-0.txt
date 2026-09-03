@@ -1,0 +1,31 @@
+```python
+from typing import Union
+
+def digit_word(digit: int) -> str:
+    """Name a single digit in English."""
+    if not 0 <= digit <= 9:
+        raise ValueError("Argument must be a digit from 0 to 9.")
+    return {
+        0: "zero",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine",
+    }[digit]
+
+def digit_words(digits: str) -> str:
+    """Name every digit of a run of digits in order, joined by single spaces."""
+    if not digits.isdigit():
+        raise ValueError("Argument must be a string of digits only.")
+    if len(digits) == 0:
+        return ""
+    result = []
+    for digit in digits:
+        result.append(digit_word(int(digit)))
+    return " ".join(result)
+```

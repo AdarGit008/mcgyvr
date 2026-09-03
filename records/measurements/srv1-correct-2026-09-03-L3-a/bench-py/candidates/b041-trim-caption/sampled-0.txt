@@ -1,0 +1,24 @@
+```python
+def trim_caption(text: str, limit: int) -> str:
+    if not isinstance(text, str):
+        raise ValueError("Text must be a string.")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive whole number.")
+    
+    # Ensure text is within the limit
+    if len(text) <= limit:
+        return text
+    
+    # Truncate by removing characters from the start
+    while len(text) > limit - 1:
+        if not text[-1].isspace():
+            text = text[:-1]
+        else:
+            break
+    
+    # Remove spaces before the ellipsis
+    text = text.rstrip()
+    
+    # Return the trimmed text
+    return text + "…" if text else ""
+```

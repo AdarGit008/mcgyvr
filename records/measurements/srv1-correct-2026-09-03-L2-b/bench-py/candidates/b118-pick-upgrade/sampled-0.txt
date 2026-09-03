@@ -1,0 +1,28 @@
+```python
+"""Firmware build selection within an installed release line."""
+
+
+def compare_builds(a, b):
+    left = [int(part) for part in a.split(".")]
+    right = [int(part) for part in b.split(".")]
+    for i in range(max(len(left), len(right))):
+        x = left[i] if i < len(left) else 0
+        y = right[i] if i < len(right) else 0
+        if x > y:
+            return 1
+        if x < y:
+            return -1
+    return 0
+
+
+def pick_upgrade(installed: str, offers: list) -> str | None:
+    if not isinstance(installed, str) or not isinstance(offers, list) or not all(isinstance(offer, str) and compare_builds(offer, installed) >= 0 for offer in offers):
+        raise ValueError("Invalid input")
+    best = installed
+    for offer in offers:
+        if offer.split(".")[0] != installed.split(".")[0]:
+            continue
+        if compare_builds(offer, installed) >= 0:
+            best = offer
+    return best
+```

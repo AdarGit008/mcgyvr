@@ -1,0 +1,16 @@
+```python
+def seat_run(row: str, party: int) -> int:
+    if party == 0:
+        return -1
+
+    start = 0
+    while start < len(row) and party > 0:
+        if row[start] == '.':
+            party -= 1
+        start += 1
+
+    if party == 0:
+        return start - 1
+    else:
+        return -1
+```

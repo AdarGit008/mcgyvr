@@ -1,0 +1,25 @@
+```python
+from typing import List, Optional
+
+def config_value(layers: List[str], name: str) -> Optional[str]:
+    if not name.strip():
+        raise ValueError("name must be a non-empty string")
+    for layer in layers:
+        if not layer.strip():
+            continue
+        lines = layer.split('\n')
+        for line in lines:
+            if line.startswith('#'):
+                continue
+            if '=' in line:
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                if not key:
+                    raise ValueError("name must not be empty")
+                if value and line.endswith('!'):
+                    del config_value._config[name]
+                else:
+                    config_value._config[name] = value
+    return config_value._config.get(name)
+```

@@ -1,0 +1,21 @@
+```python
+def menu_pick(dishes: list, budget: int) -> list:
+    """
+    Returns the names of every dish costing no more than a budget,
+    cheapest first. Two dishes at the same price are ordered by name.
+    
+    :param dishes: A list of tuples (dish_name, price).
+    :param budget: The maximum price a dish can have to be included.
+    :return: A list of dish names that meet the criteria.
+    """
+    if not dishes or budget < 0:
+        return []
+    
+    # Filter dishes based on budget
+    filtered_dishes = [dish for dish in dishes if dish[1] <= budget]
+    
+    # Sort dishes by price in ascending order, then by name in ascending order
+    sorted_dishes = sorted(filtered_dishes, key=lambda x: (x[1], x[0]))
+    
+    return sorted_dishes
+```

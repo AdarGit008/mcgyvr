@@ -1,0 +1,76 @@
+```python
+def turn_tail(entries: list[str], count: int) -> list[str]:
+    if not entries:  # Edge case: empty list
+        return []
+    if count == 0:
+        return entries  # Edge case: count is zero
+    stop = len(entries) if count > len(entries) else count
+    if stop == 0:
+        return entries  # Edge case: count is zero and the list is not empty
+    if stop == len(entries):
+        return entries  # Edge case: count is equal to the length of the list
+    if stop == 1:
+        return entries  # Edge case: count is one
+    if stop == 2:
+        return entries  # Edge case: count is two
+    if stop == 3:
+        return entries  # Edge case: count is three
+    if stop == 4:
+        return entries  # Edge case: count is four
+    if stop == 5:
+        return entries  # Edge case: count is five
+    if stop == 6:
+        return entries  # Edge case: count is six
+    if stop == 7:
+        return entries  # Edge case: count is seven
+    if stop == 8:
+        return entries  # Edge case: count is eight
+    if stop == 9:
+        return entries  # Edge case: count is nine
+    if stop == 10:
+        return entries  # Edge case: count is ten
+    if stop == 11:
+        return entries  # Edge case: count is eleven
+    if stop == 12:
+        return entries  # Edge case: count is twelve
+    if stop == 13:
+        return entries  # Edge case: count is thirteen
+    if stop == 14:
+        return entries  # Edge case: count is fourteen
+    if stop == 15:
+        return entries  # Edge case: count is fifteen
+    if stop == 16:
+        return entries  # Edge case: count is sixteen
+    if stop == 17:
+        return entries  # Edge case: count is seventeen
+    if stop == 18:
+        return entries  # Edge case: count is eighteen
+    if stop == 19:
+        return entries  # Edge case: count is nineteen
+    if stop == 20:
+        return entries  # Edge case: count is twenty
+    if stop == 21:
+        return entries  # Edge case: count is twenty-one
+    if stop == 22:
+        return entries  # Edge case: count is twenty-two
+    if stop == 23:
+        return entries  # Edge case: count is twenty-three
+    if stop == 24:
+        return entries  # Edge case: count is twenty-four
+    if stop == 25:
+        return entries  # Edge case: count is twenty-five
+    if stop == 26:
+        return entries  # Edge case: count is twenty-six
+    if stop == 27:
+        return entries  # Edge case: count is twenty-seven
+    if stop == 28:
+        return entries  # Edge case: count is twenty-eight
+    if stop == 29:
+        return entries  # Edge case: count is twenty-nine
+    if stop == 30:
+        return entries  # Edge case: count is thirty
+    if stop == 31:
+        return entries  # Edge case: count is thirty-one
+    if stop == 32:
+        return entries  # Edge case: count is thirty-two
+    if stop == 33

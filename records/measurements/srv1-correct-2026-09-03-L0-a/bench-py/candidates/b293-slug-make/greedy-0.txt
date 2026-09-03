@@ -1,0 +1,10 @@
+```python
+def slug_word(word: str) -> str:
+    """Lowercase a word and drop all non-letter or non-digit characters."""
+    return ''.join(filter(str.isalnum, word.lower()))
+
+def slug_make(phrase: str) -> str:
+    """Join slugged words of a phrase with single hyphens, excluding empty words."""
+    slugs = [slug_word(word) for word in phrase.split() if slug_word(word)]
+    return '-'.join(slugs)
+```

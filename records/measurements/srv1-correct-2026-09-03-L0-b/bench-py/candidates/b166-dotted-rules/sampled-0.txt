@@ -1,0 +1,27 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    def find_longest_match(rule, name):
+        if rule == "*":
+            return name
+        if rule.endswith(".*"):
+            return rule[:-2] + name
+        return ""
+    
+    longest_match = ""
+    for rule, value in rules.items():
+        if rule == name:
+            return value
+        if "*" in rule:
+            longest_match = find_longest_match(rule, name)
+            if longest_match and len(longest_match) > len(longest_match):
+                longest_match = rule
+        elif rule.startswith(name + "."):
+            longest_match = find_longest_match(rule, name)
+            if longest_match and len(longest_match) > len(longest_match):
+                longest_match = rule
+    
+    return longest_match if longest_match else None
+```

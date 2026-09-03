@@ -1,0 +1,45 @@
+```python
+def mass_expression(text: str, unit: str) -> int:
+    if not text or not (text[0].isalpha() and text[0].isupper() and text[1] == ' '):
+        raise ValueError("Invalid input. Tally must start with a capital letter followed by a space.")
+    
+    terms = text.split()
+    if len(terms) % 2 != 1:
+        raise ValueError("Invalid input. Tally must have an even number of terms.")
+    
+    units = ['g', 'kg', 't']
+    if unit not in units:
+        raise ValueError("Invalid input. Goal unit must be one of 'g', 'kg', or 't'.")
+    
+    units_dict = {'g': 1, 'kg': 1000, 't': 1000000}
+    total = 0
+    draw = 0
+    
+    for i in range(0, len(terms), 2):
+        term = terms[i]
+        operator = terms[i + 1]
+        
+        if not term.isdigit():
+            raise ValueError("Invalid term. Term must be a plain count directly on one of the three units.")
+        
+        if operator not in ['+', '-']:
+            raise ValueError("Invalid operator. Operator must be '+'.")
+        
+        if operator == '+' and total + int(term) > units_dict[unit]:
+            raise ValueError(f"Draw! Cannot add more than {units_dict[unit]} {unit}.")
+        
+        if operator == '-' and total - int(term) < 0:
+            raise ValueError(f"Draw! Cannot draw below zero {unit}.")
+        
+        if total + int(term) == units_dict[unit]:
+            total += int(term)
+        elif total - int(term) == 0:
+            total -= int(term)
+        else:
+            total += int(term)
+    
+    if total % units_dict[unit] != 0:
+        raise ValueError("Invalid input. Total must be whole in the goal unit.")
+    
+    return total
+```
