@@ -98,7 +98,7 @@ def _declaration() -> dict[str, object]:
 
 
 @pytest.mark.parametrize("host", ["srv1", "srv2"])
-def test_hosts_json_declares_the_rig_read_on_2026_09_02(host: str) -> None:
+def test_hosts_json_declares_the_rig_as_read_on_its_read_on_date(host: str) -> None:
     document = _declaration()
     entry = document.get(host)
     assert isinstance(entry, dict), f"hosts.json has no {host!r} object"

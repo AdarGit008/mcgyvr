@@ -131,6 +131,7 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_cc": "7.5",
         "driver": "580.173.02",
         "gpu_reserve_mib": "401",
+        "docker": "29.7.2",
     },
     "srv2": {
         "cpu_max_mhz": "5200",
@@ -143,10 +144,11 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_cc": "8.6",
         "driver": "595.84",
         "gpu_reserve_mib": "377",
+        "docker": "29.7.2",
     },
 }
 RIG_KEYS = frozenset(RIG["srv1"])
-RIG_READ_ON = "2026-09-02"
+RIG_READ_ON = "2026-09-03"
 
 
 def rows_module() -> ModuleType:
