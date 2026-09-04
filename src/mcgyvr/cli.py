@@ -19,7 +19,13 @@ from mcgyvr import __version__
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
-from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, Config, ConfigError
+from mcgyvr.config import (
+    CONFIG_FILENAME,
+    CONFIG_PATH_ENV,
+    Config,
+    ConfigError,
+    ConfigMissingError,
+)
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
@@ -792,6 +798,20 @@ def _run(args: argparse.Namespace) -> int:
     else:
         configured = config.get("journal.dir") if config is not None else None
         journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+
+    if config_error is not None and not isinstance(config_error, ConfigMissingError):
+        # Said, not swallowed. The floor runs without a config on purpose, so
+        # this is not an error — but a config that is *there* and cannot be
+        # used is not the same thing as none, and silence made the two
+        # identical: whatever `journal.dir` that file names is not the
+        # directory this run is about to write under, and the operator's only
+        # clue was a result file somewhere they had configured away from. So
+        # the note names the file, what is wrong with it, and where the run
+        # went instead.
+        print(
+            f"note: {path} is not usable ({config_error}); this run goes on "
+            f"without a config and lands under {journal_dir}"
+        )
 
     # One stamp names the run: the result file carries it and every journal
     # row keys on it, so a re-run of the same contract is a second run and
@@ -1715,11 +1735,27 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
     An id containing ``/`` is refused here too, because the id *is* the file
     name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write ``DIR/agent/a.jsonl``
     with its blobs under ``DIR/agent/blobs``, where an index over ``DIR`` finds
-    neither. A blank id is left to :class:`~mcgyvr.drive.Recording`, which has
-    refused one since it was written.
+    neither.
+
+    A blank id is refused here as well, and here is the only place that can do
+    it once. It used to be left to :class:`~mcgyvr.drive.Recording`, which
+    refuses one — but a deterministic contract never constructs a ``Recording``,
+    so ``--orchestrator ''`` ran to completion and left a result file naming
+    nobody, and on the ladder path the refusal arrived as exit 1 after a config
+    and a contract had been read, where the documented answer to a run with no
+    session is exit 2. The environment's session does not stand in for it: a
+    caller who typed the flag was naming the writer, and an empty value is that
+    caller getting the name wrong rather than declining to give one.
     """
     from mcgyvr.session import SessionError, resolve
 
+    if args.orchestrator is not None and not args.orchestrator.strip():
+        run.error(
+            "--orchestrator was given an empty id: a row that cannot say which "
+            "orchestrator produced it is the hole the field exists to close "
+            "(§9). Pass an ID, or leave the flag off to be named by the session "
+            "that typed this command."
+        )
     if args.orchestrator is not None and "/" in args.orchestrator:
         run.error(
             f"--orchestrator {args.orchestrator!r} cannot contain '/': the id "
