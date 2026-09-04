@@ -7,10 +7,10 @@ only be inferred, which is what the first repair of finding 7 did and what
 made it wrong.
 
 :class:`~mcgyvr.escalate.DispatchRaisedError` is the sentence the raise site gets to
-say: *this many draws left a row, and this one is the row I died in* (or
-``None``, for a raise before the first dispatch or after the last). ``escalate``
-copies it onto the history entry and invents nothing; a bare exception, from a
-driver that says nothing, is a raise that dispatched nothing.
+say: *this breadth was asked for, this many draws left a row, and this one is
+the row I died in* (or ``None``, for a raise no row of the attempt owns).
+``escalate`` copies it onto the history entry and invents nothing; a bare
+exception, from a driver that says nothing, is a raise that dispatched nothing.
 
 This is pinned here rather than only through ``mcgyvr run`` because the entry
 is ``escalate``'s alone: the caller that corrects the journal reads these two
@@ -46,7 +46,7 @@ def test_the_entry_names_the_draw_the_raise_site_named() -> None:
             config,
             pool,
             contract(),
-            _raising(DispatchRaisedError(cause, dispatched=2, draw=1)),
+            _raising(DispatchRaisedError(cause, draws=2, rows=2, draw=1)),
         )
     )
 
@@ -54,7 +54,7 @@ def test_the_entry_names_the_draw_the_raise_site_named() -> None:
     (entry,) = result.history
     assert entry.raised is True
     assert entry.verdict is Verdict.FAILED
-    assert (entry.draw, entry.draws) == (1, 2)
+    assert (entry.draw, entry.draws, entry.rows) == (1, 2, 2)
     assert (
         "RunnerError" in entry.detail and "DispatchRaisedError" not in entry.detail
     ), "the operator is told what died, not the envelope that carried the news"
@@ -69,12 +69,14 @@ def test_a_raise_after_the_draws_names_no_draw() -> None:
             config,
             pool,
             contract(),
-            _raising(DispatchRaisedError(RuntimeError("the judge died"), dispatched=2)),
+            _raising(
+                DispatchRaisedError(RuntimeError("the judge died"), draws=2, rows=2)
+            ),
         )
     )
 
     (entry,) = result.history
-    assert (entry.draw, entry.draws) == (None, 2)
+    assert (entry.draw, entry.draws, entry.rows) == (None, 2, 2)
 
 
 def test_a_driver_that_says_nothing_dispatched_nothing() -> None:
@@ -87,6 +89,6 @@ def test_a_driver_that_says_nothing_dispatched_nothing() -> None:
 
     (entry,) = result.history
     assert entry.raised is True
-    assert (entry.draw, entry.draws) == (None, 0), (
+    assert (entry.draw, entry.draws, entry.rows) == (None, 0, 0), (
         "the dataclass defaults claim draw 0 of 1, which is a dispatch nobody made"
     )

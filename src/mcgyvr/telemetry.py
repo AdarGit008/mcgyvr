@@ -234,22 +234,22 @@ def observe[T](
     here is the failure this module was built to end, and an unwritable path is
     an operator error that is cheap to fix at the moment it happens and
     impossible to notice a week later, when the answer is simply missing rows.
-    The blob store is a sink under the same rule — and the row still goes down
-    when it fails, because *exactly one record* is what this promises and a
-    dispatch that left none is one no caller can tell from a dispatch nobody
-    made.
+    The blob store is a sink under the same rule — *both* of its blobs — and
+    the row still goes down when either fails, because *exactly one record* is
+    what this promises and a dispatch that left none is one no caller can tell
+    from a dispatch nobody made.
     """
-    # Before the clock starts and before the attempt: what the attempt *is* —
-    # its prompt, its endpoint, the revision dispatching it — is known now and
-    # is the same fact whichever of the two rows below gets written. The
-    # prompt blob reaches disk here, which is what lets a raised attempt still
-    # name it; the clock starts after, so ``elapsed_s`` stays the attempt's.
-    identity = _identity(path, messages=messages, endpoint=endpoint)
-    if task_type is not None:
-        identity["task_type"] = task_type
-    if session_file is not None:
-        identity["session_file"] = str(session_file)
+    # The clock starts before anything this call can fail on, so that a row
+    # written because a blob could not be stored still carries an elapsed time.
+    # What it measures is this call, which is what ``elapsed_s`` says it is.
     started = time.monotonic()
+    # What the attempt *is* — its prompt, its endpoint, the revision
+    # dispatching it — is known before the attempt runs and is the same fact
+    # whichever of the two rows below gets written. `unlanded` reads it out of
+    # this dict rather than off a parameter, which is what lets a failure
+    # part-way through assembling it still write a row saying everything the
+    # steps before it knew.
+    identity: Record = {}
 
     def unlanded(failure: BaseException) -> Record:
         record = (
@@ -267,6 +267,26 @@ def observe[T](
         if model is not None:
             record["model"] = model
         return record
+
+    try:
+        # Assembling the identity touches the disk twice — the prompt blob is
+        # written to the store, the product revision is read off the checkout
+        # — and either can fail. Both used to sit outside every `try`, so an
+        # unwritable store raised out of this function before any row existed,
+        # which is the one thing "exactly one record per call" forbids. It was
+        # the *reply* blob that got the guard, and the prompt blob that was
+        # cited as the reason for it.
+        _identity(
+            identity,
+            path,
+            messages=messages,
+            endpoint=endpoint,
+            task_type=task_type,
+            session_file=session_file,
+        )
+    except BaseException as failure:
+        _append(path, unlanded(failure))
+        raise
 
     try:
         answer = attempt()
@@ -349,12 +369,39 @@ def _completion_fields(answer: Completion) -> Record:
     return fields
 
 
+def _prompt_identity(
+    path: Path, messages: Sequence[Mapping[str, str]] | None
+) -> Record:
+    """The prompt's own identity: its blob in the store, and the bundle digest.
+
+    Split out of :func:`_identity` because it is the step of an attempt's
+    identity that writes to the blob store, and the store is a sink: it raises
+    rather than being swallowed, so where the step sits decides whether the
+    dispatch it belongs to is recorded at all. Its caller runs it inside the
+    guard that turns that raise into a row.
+    """
+    if messages is None:
+        return {}
+    fields: Record = {"prompt_sha256": _store(path, _render(messages))}
+    system = next((m["content"] for m in messages if m.get("role") == "system"), None)
+    if system is not None:
+        # Raw, not scrubbed: this is the bench's ``bundle_sha256``
+        # (``sha256(prompt.system)``, tools/breadth/measure.py) and has to
+        # equal it for a live row to lie beside a bench cell. A digest
+        # discloses nothing, so scrubbing would only make the two disagree.
+        fields["bundle_sha256"] = hashlib.sha256(_bytes(system)).hexdigest()
+    return fields
+
+
 def _identity(
+    fields: Record,
     path: Path,
     *,
     messages: Sequence[Mapping[str, str]] | None,
     endpoint: str | None,
-) -> Record:
+    task_type: str | None,
+    session_file: Path | None,
+) -> None:
     """What the attempt is, known before it runs and shared by both rows it can write.
 
     The failing row and the succeeding row name the same prompt, endpoint and
@@ -363,27 +410,30 @@ def _identity(
     an attempt that is not a dispatch has no endpoint and no prompt — under the
     rule that keeps an unreported token count out of the row.
 
+    **Written into ``fields`` step by step rather than returned whole**, which
+    is the whole reason this takes a dict instead of building one. Two of the
+    steps touch the disk — :func:`_prompt_identity` writes the prompt to the
+    blob store, :func:`_product_revision` reads the checkout — and either can
+    raise. Filling the caller's dict as it goes means the row it writes for
+    that failure still carries everything the earlier steps established: what
+    endpoint was about to be asked, under what condition, and, past the blob,
+    which revision was asking. Returning a value would make that row empty of
+    all of it, and an empty row is the shape a reader cannot act on.
+
     ``condition`` is the one key always written: live work is the product as
     shipped, and the bench's word for "no ablation" is ``"stock"``.
     """
-    fields: Record = {"condition": STOCK}
+    fields["condition"] = STOCK
     if endpoint is not None:
         fields["endpoint"] = endpoint
-    if messages is not None:
-        fields["prompt_sha256"] = _store(path, _render(messages))
-        system = next(
-            (m["content"] for m in messages if m.get("role") == "system"), None
-        )
-        if system is not None:
-            # Raw, not scrubbed: this is the bench's ``bundle_sha256``
-            # (``sha256(prompt.system)``, tools/breadth/measure.py) and has to
-            # equal it for a live row to lie beside a bench cell. A digest
-            # discloses nothing, so scrubbing would only make the two disagree.
-            fields["bundle_sha256"] = hashlib.sha256(_bytes(system)).hexdigest()
+    fields |= _prompt_identity(path, messages)
     revision = _product_revision()
     if revision is not None:
         fields["round"], fields["product_sha256"] = revision
-    return fields
+    if task_type is not None:
+        fields["task_type"] = task_type
+    if session_file is not None:
+        fields["session_file"] = str(session_file)
 
 
 def _render(messages: Sequence[Mapping[str, str]]) -> bytes:
