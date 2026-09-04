@@ -61,6 +61,14 @@ class ConfigMissingError(ConfigFileError):
     dispatches nothing, needs no ladder, and an install with no config is a
     supported install — so a missing file is silence, while a file the
     operator wrote and this run could not use is something to say out loud.
+
+    Silence is the *default location's* to earn, not this class's. Whether the
+    path was one the caller named is what :func:`named_config_path` and
+    ``load(..., named=...)`` answer, and a caller that treats this exception as
+    "nothing to mention" has to ask: nobody chose the empty default, whereas
+    ``--config`` or ``$MCGYVR_CONFIG`` pointing at nothing is a typo, and a run
+    that goes quietly on under some other directory is the operator's problem
+    to discover later.
     """
 
 
@@ -1095,11 +1103,25 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
 
+def named_config_path() -> Path | None:
+    """The config path the environment names, or ``None`` if it names none.
+
+    Split out of :func:`config_path` because "somebody chose this path" is a
+    fact about the *caller*, not about the file, and it survives the file not
+    being there — which is the only moment it matters. A default location with
+    nothing in it is a bare install; ``$MCGYVR_CONFIG`` pointing at nothing is
+    a typo, and the two want different sentences. Callers that take a path from
+    a flag already know the answer and do not need this.
+    """
+    override = os.environ.get(CONFIG_PATH_ENV)
+    return Path(override).expanduser() if override else None
+
+
 def config_path() -> Path:
     """Locate the config file: explicit override, then cwd, then user config."""
-    override = os.environ.get(CONFIG_PATH_ENV)
-    if override:
-        return Path(override).expanduser()
+    override = named_config_path()
+    if override is not None:
+        return override
     local = Path.cwd() / CONFIG_FILENAME
     if local.is_file():
         return local
@@ -1158,15 +1180,41 @@ def parse(text: str, path: Path | None = None) -> Config:
     return Config(path=path, data=data, sources=sources, ladder=ladder)
 
 
-def load(path: Path | None = None) -> Config:
-    """Load and validate the config file."""
-    path = path or config_path()
+def load(path: Path | None = None, *, named: bool = False) -> Config:
+    """Load and validate the config file.
+
+    ``named`` says the caller was pointed at this path on purpose — a
+    ``--config`` flag, say — rather than handed the default location to probe.
+    It changes nothing about the load and one thing about a file that is not
+    there: "run `mcgyvr init`, or set ``$MCGYVR_CONFIG``" is the answer to
+    having no config, and telling someone who has just typed a path with a typo
+    in it to type a path is telling them to do again what did not work. A
+    caller that passed no path at all gets the answer from the environment,
+    which is right for every command that resolves the file itself.
+    """
+    if path is None:
+        named = named_config_path() is not None
+        path = config_path()
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigMissingError(
-            f"no config at {path}. Run `mcgyvr init` to generate one, or set "
-            f"{CONFIG_PATH_ENV} to point at an existing file."
+            f"no config at {path}. "
+            + (
+                "Name one that is there."
+                if named
+                else f"Run `mcgyvr init` to generate one, or set "
+                f"{CONFIG_PATH_ENV} to point at an existing file."
+            )
+        ) from exc
+    except UnicodeDecodeError as exc:
+        # Caught by name, not by family. It is a `ValueError`, so neither
+        # `except` below it saw it and it left `load` as a traceback — from a
+        # file that is present and unusable, which is the case every caller
+        # here already knows how to say something about. A `ConfigFileError`
+        # is what "there is a file and this run cannot use it" means.
+        raise ConfigFileError(
+            f"cannot read {path}: it is not UTF-8 text ({exc})"
         ) from exc
     except OSError as exc:
         raise ConfigFileError(f"cannot read {path}: {exc}") from exc

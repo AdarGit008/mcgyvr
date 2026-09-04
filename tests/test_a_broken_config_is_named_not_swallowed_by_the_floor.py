@@ -19,6 +19,21 @@ other notes: nothing failed, and the run is still worth doing, but the config
 the operator wrote is not the one this run used. :class:`ConfigMissingError` is
 what tells the two apart, so the answer is the config module's rather than a
 second guess at the file system here.
+
+"Missing" is narrower than it first looked, and the tests below draw the line
+where the operator does. A default location nobody named and nothing wrote to
+is the supported bare install: silence. A path someone typed — ``--config``, or
+``$MCGYVR_CONFIG`` — and that is not there is a typo, not an install, and
+saying nothing about it hands the operator a run under a directory they never
+chose. So only the implicit probe is silent.
+
+The note is one line, and every fact on it is true of the run that printed it.
+A YAML parse error is several lines long and used to spill out of its own
+prefix, so the reason is flattened into the note rather than printed under it.
+And what the note adds — where this run's answer went — is read off the result
+destination itself, which ``--result`` moves and which is the only thing that
+lands at all on the floor, where nothing is dispatched and so nothing is
+journaled.
 """
 
 from __future__ import annotations
@@ -28,6 +43,8 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr.config import JOURNAL_DIR_DEFAULT, ConfigFileError, ConfigMissingError
+from mcgyvr.config import load as load_config
 from tests import livejournal as lj
 
 FORMAT = """
@@ -41,6 +58,10 @@ scope:
 
 #: YAML that does not parse: an unclosed flow mapping.
 UNPARSEABLE = "version: 1\nsources: {workstation:\n"
+
+#: Not text at all: a UTF-16 byte order mark in front of otherwise fine YAML,
+#: which is what an editor told to save as UTF-16 leaves behind.
+NOT_UTF8 = b"\xff\xfeversion: 1\n"
 
 #: YAML that parses and is not a config: ``ladder.tiers`` names no source.
 OFF_SCHEMA = """
@@ -89,6 +110,18 @@ def floor_args(contract: Path, repo: Path, *extra: str) -> list[str]:
         "tempdir",
         *extra,
     ]
+
+
+def notes(stdout: str) -> list[str]:
+    """The ``note:`` lines a run printed, in order."""
+    return [line for line in stdout.splitlines() if line.startswith("note: ")]
+
+
+def config_note(stdout: str, config: Path) -> str:
+    """The one note this run wrote about ``config``."""
+    about = [line for line in notes(stdout) if str(config) in line]
+    assert len(about) == 1, stdout
+    return about[0]
 
 
 @needs_ruff
@@ -140,10 +173,40 @@ def test_a_config_that_fails_the_schema_is_named_too(
 
 
 @needs_ruff
-def test_no_config_at_all_is_the_silent_case_the_floor_is_built_for(
+def test_no_config_anywhere_is_the_silent_case_the_floor_is_built_for(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A missing config is not a defect on this path, so it is not a note.
+
+    The silence has to be earned by nobody having named a path, which is why
+    this drives the default probe — no ``--config``, no ``$MCGYVR_CONFIG``, no
+    ``mcgyvr.yaml`` in the working directory. This test used to point
+    ``--config`` at a file that is not there and assert silence, which is the
+    very case the two below say must be spoken about: it was asserting the
+    defect.
+    """
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+
+    code = lj.main(floor_args(contract, repo))
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    probe = home / ".config" / "mcgyvr" / "config.yaml"
+    assert not any(str(probe) in line for line in out.out.splitlines()), out.out
+    assert not any("without a config" in line for line in notes(out.out)), out.out
+
+
+@needs_ruff
+def test_a_config_named_on_the_command_line_and_absent_is_named_too(
     tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A missing config is not a defect on this path, so it is not a note."""
+    """``--config`` at a path that is not there is a typo, not a bare install."""
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
     absent = tmp_path / "nowhere" / "mcgyvr.yaml"
@@ -152,7 +215,151 @@ def test_no_config_at_all_is_the_silent_case_the_floor_is_built_for(
 
     out = capsys.readouterr()
     assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
-    assert not any(str(absent) in line for line in out.out.splitlines()), out.out
+    assert config_note(out.out, absent)
+
+
+@needs_ruff
+def test_a_config_named_in_the_environment_and_absent_is_named_too(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """And ``$MCGYVR_CONFIG`` is as much a naming as the flag is."""
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    absent = tmp_path / "nowhere" / "mcgyvr.yaml"
+    monkeypatch.setenv("MCGYVR_CONFIG", str(absent))
+
+    code = lj.main(floor_args(contract, repo))
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    assert config_note(out.out, absent)
+
+
+def test_a_named_config_that_is_absent_is_not_told_to_name_one(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The remedy differs with who chose the path, so the sentence does too.
+
+    "Run ``mcgyvr init``, or set ``$MCGYVR_CONFIG`` to point at an existing
+    file" is the answer to "I have no config". Said to someone who has just set
+    exactly that variable to a path with a typo in it, it is advice to do again
+    what did not work.
+    """
+    absent = tmp_path / "nowhere" / "mcgyvr.yaml"
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ConfigMissingError) as bare:
+        load_config()
+    assert "mcgyvr init" in str(bare.value)
+
+    monkeypatch.setenv("MCGYVR_CONFIG", str(absent))
+    with pytest.raises(ConfigMissingError) as from_env:
+        load_config()
+    assert "mcgyvr init" not in str(from_env.value)
+    assert str(absent) in str(from_env.value)
+
+    with pytest.raises(ConfigMissingError) as from_flag:
+        load_config(absent, named=True)
+    assert "mcgyvr init" not in str(from_flag.value)
+    assert str(absent) in str(from_flag.value)
+
+
+@needs_ruff
+def test_a_config_that_is_not_text_is_named_and_not_a_traceback(
+    tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Present and undecodable is present and unusable, not an unhandled error.
+
+    ``UnicodeDecodeError`` is a ``ValueError``, so it went past both of
+    ``load``'s excepts and out of the process: no note, no ``result:`` line and
+    no exit code, from the one situation this whole file exists to make
+    speakable.
+    """
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_bytes(NOT_UTF8)
+
+    code = lj.main(floor_args(contract, repo, "--config", str(config)))
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    assert config_note(out.out, config)
+    assert lj.result_path(out.out).is_file()
+
+
+def test_a_config_that_is_not_text_fails_the_loader_as_a_config_error(
+    tmp_path: Path,
+) -> None:
+    """And it fails that way for every command that loads one, not just ``run``."""
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_bytes(NOT_UTF8)
+
+    with pytest.raises(ConfigFileError) as raised:
+        load_config(config)
+    assert not isinstance(raised.value, ConfigMissingError)
+    assert str(config) in str(raised.value)
+
+
+@needs_ruff
+def test_the_note_names_where_this_run_actually_landed(
+    tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The note's one added fact has to be true of the run that printed it.
+
+    It used to be the journal dir, which under ``--result`` is a directory this
+    run never writes to, and which on the floor gets nothing at all — nothing
+    is dispatched, so nothing is journaled. What does land is the result file,
+    and where it lands is what the note names.
+    """
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_text(UNPARSEABLE, encoding="utf-8")
+    elsewhere = tmp_path / "elsewhere" / "answer.json"
+
+    code = lj.main(
+        floor_args(contract, repo, "--config", str(config), "--result", str(elsewhere))
+    )
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    assert lj.result_path(out.out) == elsewhere
+    note = config_note(out.out, config)
+    assert str(elsewhere) in note, note
+    assert str(Path(JOURNAL_DIR_DEFAULT).expanduser()) not in note, note
+
+
+@needs_ruff
+def test_a_multi_line_config_error_stays_inside_its_note(
+    tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A YAML error is several lines; a note that loses its prefix is not one.
+
+    The continuation lines carried the rest of the reason and the clause saying
+    where the run went, unprefixed, reading as output from the run itself
+    rather than as a remark about a file it could not use.
+    """
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_text(UNPARSEABLE, encoding="utf-8")
+
+    code = lj.main(floor_args(contract, repo, "--config", str(config)))
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    spilled = [
+        line
+        for line in out.out.splitlines()
+        if "expected the node content" in line and not line.startswith("note: ")
+    ]
+    assert not spilled, f"stdout: {out.out}"
+    assert "expected the node content" in config_note(out.out, config)
 
 
 def test_a_broken_config_is_still_fatal_where_a_ladder_is_needed(
