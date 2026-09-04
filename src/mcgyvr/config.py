@@ -52,6 +52,18 @@ class ConfigFileError(ConfigError):
     """The config file is missing, unreadable, or not parseable as YAML."""
 
 
+class ConfigMissingError(ConfigFileError):
+    """There is no config file at all.
+
+    A class rather than a message to grep, because "there is none" and "the
+    one that is there cannot be read" ask for different answers from a caller
+    that can run without a config. The deterministic floor is one: it
+    dispatches nothing, needs no ladder, and an install with no config is a
+    supported install — so a missing file is silence, while a file the
+    operator wrote and this run could not use is something to say out loud.
+    """
+
+
 class ConfigSchemaError(ConfigError):
     """The config parsed, but does not satisfy the schema."""
 
@@ -1152,7 +1164,7 @@ def load(path: Path | None = None) -> Config:
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
-        raise ConfigFileError(
+        raise ConfigMissingError(
             f"no config at {path}. Run `mcgyvr init` to generate one, or set "
             f"{CONFIG_PATH_ENV} to point at an existing file."
         ) from exc
