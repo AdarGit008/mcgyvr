@@ -583,10 +583,22 @@ def worker_attempt(
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
+            #
+            # `draws` is stated here for the same reason it is stated on the
+            # branch below: `send` wrote one journal row per dispatch, and the
+            # caller corrects `range(draws)` of them. Left at the dataclass
+            # default this said one draw about an attempt that had just paid
+            # for `draws`, so every suffixed row kept no outcome at all — the
+            # rows of the case breadth is most on trial for. The verdict is
+            # carried on draw 0 because no draw earned it: nothing was gated,
+            # the refusal names every draw, and 0 is both the row a reader
+            # reaches first and the only draw an unconfigured install has.
             judgement = Judgement(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
                 detail=str(exc),
+                draw=0,
+                draws=draws,
             )
         else:
             gate, bound = picked.gate, picked.winner
