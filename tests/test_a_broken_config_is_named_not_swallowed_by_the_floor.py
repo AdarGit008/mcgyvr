@@ -410,14 +410,18 @@ def test_a_broken_config_is_still_fatal_where_a_ladder_is_needed(
 def test_the_two_notes_one_run_prints_agree_about_where_the_result_went(
     tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """One run, two notes, one destination.
+    """One run, two notes, and neither says something the other contradicts.
 
-    The floor prints a second note when ``--record`` names a journal dir it
-    will not journal to, and that note went on saying the named directory
-    "gets this run's result file" after ``--result`` had moved the one file
-    that is written out of it entirely. Two notes two lines apart then told the
-    operator two different places, and only one of them matched the ``result:``
-    line under both.
+    The floor's note used to have to branch on ``--result``: the result file
+    was the only thing a recorded directory ever got, and ``--result`` moved it
+    out, so the note either claimed a file that went elsewhere or had to say
+    the directory got nothing at all. Two notes two lines apart then told the
+    operator two different places.
+
+    A ``--record`` copy is now a whole journal — a row, its verdict and a copy
+    of the result — so the note is one sentence that is true under both flags,
+    and ``--result`` moves only the copy the *caller* reads. The config note
+    still names that one, because it is the one the ``result:`` line names.
     """
     repo = misformatted(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
@@ -444,9 +448,12 @@ def test_the_two_notes_one_run_prints_agree_about_where_the_result_went(
     assert lj.result_path(out.out) == elsewhere
     about_record = [line for line in notes(out.out) if str(record) in line]
     assert len(about_record) == 1, out.out
-    assert "gets this run's result file" not in about_record[0], about_record[0]
-    assert str(elsewhere) in about_record[0], about_record[0]
-    assert not record.exists(), sorted(record.rglob("*"))
+    assert "no prompt or reply" in about_record[0], about_record[0]
+    # The one destination both notes have to agree about is the caller's, and
+    # the copy is beside it rather than instead of it.
+    assert str(elsewhere) in "\n".join(notes(out.out)), out.out
+    assert len(lj.rows(record)) == 1, sorted(record.rglob("*"))
+    assert len(lj.results(record)) == 1, sorted(record.rglob("*"))
 
 
 @needs_ruff

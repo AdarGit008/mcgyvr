@@ -113,7 +113,7 @@ def render(directory: Path, row: dict[str, Any]) -> str:
     lines = [
         f"=== {row.get('attempt_id', '<no attempt_id>')}  "
         f"orchestrator={row.get('orchestrator', '<none>')}  "
-        f"rung={row.get('rung', '<none>')}  "
+        f"rung={row.get('rung', '<none>')}{_tier(row)}  "
         f"outcome={row.get('outcome', UNCORRECTED)}{_byline(row)}  "
         f"round={row.get('round', '<none>')}  {ROUND_WORDS[index.off_round(row)]}"
     ]
@@ -139,6 +139,25 @@ def render(directory: Path, row: dict[str, Any]) -> str:
             )
         )
     return "\n".join(lines) + "\n"
+
+
+def _tier(row: dict[str, Any]) -> str:
+    """Which family the rung belongs to, when it is not a model's.
+
+    Beside the rung because it qualifies it: a floor row's ``rung`` is a
+    program (``ruff``) and a ladder row's is a config's tier name, and the two
+    are otherwise the same column with two vocabularies in it. Printed only for
+    the deterministic tier, which is the one whose rows have no prompt and no
+    reply — so ``rung=ruff (deterministic)`` above ``no prompt recorded`` reads
+    as an explanation rather than as a hole. On a ladder row the endpoint, the
+    model and the prompt below it already say what kind of row it is, and a
+    word repeated on every line is one a reviewer stops seeing.
+
+    Absent on every row written before the field existed, which prints as a
+    ladder row does: nothing. A journal is read as it was written.
+    """
+    tier = row.get("tier")
+    return f" ({tier})" if tier == index.DETERMINISTIC else ""
 
 
 def _byline(row: dict[str, Any]) -> str:

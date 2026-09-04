@@ -202,6 +202,9 @@ def observe[T](
     endpoint: str | None = None,
     task_type: str | None = None,
     session_file: Path | None = None,
+    tier: str | None = None,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
 ) -> T:
     """Run one attempt, append exactly one record for it, and hand back its answer.
 
@@ -249,6 +252,13 @@ def observe[T](
     # written because a blob could not be stored still carries an elapsed time.
     # What it measures is this call, which is what ``elapsed_s`` says it is.
     started = time.monotonic()
+
+    def append(record: Record) -> None:
+        _append(path, record, mirrors=mirrors, on_copy_error=on_copy_error)
+
+    def store(data: bytes) -> str:
+        return _store(path, data, mirrors=mirrors, on_copy_error=on_copy_error)
+
     # What the attempt *is* — its prompt, its endpoint, the revision
     # dispatching it — is known before the attempt runs and is the same fact
     # whichever of the two rows below gets written. `unlanded` reads it out of
@@ -284,14 +294,15 @@ def observe[T](
         # cited as the reason for it.
         _identity(
             identity,
-            path,
+            store,
             messages=messages,
             endpoint=endpoint,
             task_type=task_type,
             session_file=session_file,
+            tier=tier,
         )
     except BaseException as failure:
-        _append(path, unlanded(failure))
+        append(unlanded(failure))
         raise
 
     try:
@@ -302,7 +313,7 @@ def observe[T](
         # a hole in the record is hardest to account for afterwards. The record
         # is written before the re-raise, so the caller's exception is what
         # propagates and this line is not in its path.
-        _append(path, unlanded(failure))
+        append(unlanded(failure))
         raise
 
     record = (
@@ -336,11 +347,11 @@ def observe[T](
             # made, and the one that counted an attempt's rows to find the
             # draw a raise was about counted one short and blamed the draw
             # that answered.
-            record["reply_sha256"] = _store(path, _bytes(scrub(answer.text)))
+            record["reply_sha256"] = store(_bytes(scrub(answer.text)))
         except BaseException as failure:
-            _append(path, unlanded(failure))
+            append(unlanded(failure))
             raise
-    _append(path, record)
+    append(record)
     return answer
 
 
@@ -376,7 +387,7 @@ def _completion_fields(answer: Completion) -> Record:
 
 
 def _prompt_identity(
-    path: Path, messages: Sequence[Mapping[str, str]] | None
+    store: Callable[[bytes], str], messages: Sequence[Mapping[str, str]] | None
 ) -> Record:
     """The prompt's own identity: its blob in the store, and the bundle digest.
 
@@ -388,7 +399,7 @@ def _prompt_identity(
     """
     if messages is None:
         return {}
-    fields: Record = {"prompt_sha256": _store(path, _render(messages))}
+    fields: Record = {"prompt_sha256": store(_render(messages))}
     system = next((m["content"] for m in messages if m.get("role") == "system"), None)
     if system is not None:
         # Raw, not scrubbed: this is the bench's ``bundle_sha256``
@@ -401,12 +412,13 @@ def _prompt_identity(
 
 def _identity(
     fields: Record,
-    path: Path,
+    store: Callable[[bytes], str],
     *,
     messages: Sequence[Mapping[str, str]] | None,
     endpoint: str | None,
     task_type: str | None,
     session_file: Path | None,
+    tier: str | None = None,
 ) -> None:
     """What the attempt is, known before it runs and shared by both rows it can write.
 
@@ -446,7 +458,9 @@ def _identity(
         fields["task_type"] = task_type
     if session_file is not None:
         fields["session_file"] = str(session_file)
-    fields |= _prompt_identity(path, messages)
+    if tier is not None:
+        fields["tier"] = tier
+    fields |= _prompt_identity(store, messages)
     revision = _product_revision()
     if revision is not None:
         fields["round"], fields["product_sha256"] = revision
@@ -479,7 +493,13 @@ def _bytes(text: str) -> bytes:
     return text.encode("utf-8", "surrogateescape")
 
 
-def _store(path: Path, data: bytes) -> str:
+def _store(
+    path: Path,
+    data: bytes,
+    *,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
+) -> str:
     """Put ``data`` in the sink's blob store and return the name it is stored under.
 
     The name is the sha256 of the bytes, so the store is a store and not a
@@ -494,7 +514,20 @@ def _store(path: Path, data: bytes) -> str:
     directory must go is the cheapest way to be unwritable and is refused the
     same as a full disk. The row that would have named the blob is not
     written, which is the sink rule applied one level down.
+
+    ``mirrors`` get the same bytes under the same name. The digest is the
+    bytes' own, so every store that holds them agrees on it without being told,
+    and a copy that failed leaves a row naming a blob the *caller's* store
+    lacks — which ``tools/live/review.py`` already prints as missing, because
+    that is a thing a journal can be.
     """
+    digest = _store_one(path, data)
+    _also(mirrors, on_copy_error, lambda mirror: _store_one(mirror / path.name, data))
+    return digest
+
+
+def _store_one(path: Path, data: bytes) -> str:
+    """The store itself, for one directory: ``path.parent / BLOB_DIR``."""
     digest = hashlib.sha256(data).hexdigest()
     blobs = path.parent / BLOB_DIR
     blobs.mkdir(parents=True, exist_ok=True)
@@ -582,6 +615,8 @@ def correct(
     outcome: str,
     orchestrator: str,
     detail: str = "",
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
 ) -> None:
     """Append how one attempt's work finally landed, leaving its record alone.
 
@@ -597,13 +632,18 @@ def correct(
     correction that names no known attempt has no attempt row to borrow an
     author from: the one place an orphan could be anonymous is the one place a
     reader most needs to know who wrote it.
+
+    ``mirrors`` are the caller's copies of the journal, and a correction goes
+    to all of them for the same reason the attempt row did: a copy holding the
+    dispatch and not its verdict is a copy that reads as a run nobody ever
+    judged, which is the one reading breadth's telemetry must not invite.
     """
     record = _stamp(CORRECTION_KIND, attempt_id) | {
         "outcome": outcome,
         "detail": detail,
         "applied_by": orchestrator,
     }
-    _append(path, record)
+    _append(path, record, mirrors=mirrors, on_copy_error=on_copy_error)
 
 
 def fold(*, path: Path) -> list[Record]:
@@ -721,7 +761,52 @@ def _since(started: float) -> float:
     return round(time.monotonic() - started, 6)
 
 
-def _append(path: Path, record: Record) -> None:
+#: What a failed write to one of the caller's copies is reported through: the
+#: copy's directory and what went wrong. Called at most once per failed write,
+#: and never for the primary sink, which raises.
+type CopyError = Callable[[Path, BaseException], None]
+
+
+def _also(
+    mirrors: Sequence[Path],
+    on_copy_error: CopyError | None,
+    write: Callable[[Path], object],
+) -> None:
+    """Do the same write into each of the caller's copies, and survive it failing.
+
+    The asymmetry between this and the primary sink is deliberate and is the
+    whole of the copy feature's contract. ``journal.dir`` is where mcgyvr keeps
+    its own record and is a sink under the rule this module opens with: it
+    raises, because a run whose record is missing is the silence the module
+    exists to end. A copy is something a caller asked for on top of that, for
+    their own reading, in a directory of their choosing — and ending a run we
+    have recorded correctly, over a directory that is not ours and not needed,
+    would be the product punishing somebody for using a feature.
+
+    So a copy's failure is handed to ``on_copy_error`` and the write goes on.
+    A caller that passes none gets the sink rule for its copies too, which is
+    the right default for a caller that has not said what else to do.
+
+    ``Exception`` and not ``BaseException``: an interrupt is not this copy's
+    news to swallow, and a run being killed must not be turned into a note
+    about a directory.
+    """
+    for mirror in mirrors:
+        try:
+            write(mirror)
+        except Exception as exc:
+            if on_copy_error is None:
+                raise
+            on_copy_error(mirror, exc)
+
+
+def _append(
+    path: Path,
+    record: Record,
+    *,
+    mirrors: Sequence[Path] = (),
+    on_copy_error: CopyError | None = None,
+) -> None:
     """Add one line to the sink, whole, under an exclusive lock.
 
     The lock and the append mode do two different jobs, and both are needed for
@@ -732,8 +817,20 @@ def _append(path: Path, record: Record) -> None:
     is checked to end on a line boundary first — a torn line left by a crash is
     terminated, not glued onto — and the write is counted, because a short write
     on a full disk is a failure to signal, not a stump to leave behind.
+
+    ``mirrors`` are the caller's own copies of the journal, each a *directory*
+    the same line is appended into under this file's name. The line is
+    serialised once and written into ours first: a copy is a copy of a record
+    that exists, and one that got the line while the sink did not would be a
+    reader's only evidence of a run this machine has no record of.
     """
     line = (json.dumps(record) + "\n").encode("utf-8")
+    _append_line(path, line)
+    _also(mirrors, on_copy_error, lambda mirror: _append_line(mirror / path.name, line))
+
+
+def _append_line(path: Path, line: bytes) -> None:
+    """One line into one file, whole, under that file's own exclusive lock."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
     try:
