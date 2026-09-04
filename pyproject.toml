@@ -96,6 +96,15 @@ extend-exclude = [
     # every pin and change the instrument, not tidy it.
     "tools/bench/tasks",
     "tools/bench/reserve",
+    # tools/bench/serving/ggufscan.py is vendored VERBATIM from
+    # records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/ggufscan.py, which is
+    # excluded above for the reason every evidence file is. The gate ships this
+    # copy to a rig and runs it there, so the two must stay comparable line for
+    # line: a formatter pass on one of them and not the other would leave no way
+    # to tell a deliberate change to the parser from a cosmetic one, on the one
+    # file whose output decides whether a cell is admitted. Its only edit is a
+    # `if __name__ == "__main__"` guard, marked in place.
+    "tools/bench/serving/ggufscan.py",
 ]
 
 [tool.ruff.lint]
