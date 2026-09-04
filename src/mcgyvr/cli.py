@@ -77,9 +77,11 @@ def _capabilities(args: argparse.Namespace) -> int:
 
 
 def _config(args: argparse.Namespace) -> int:
-    path = Path(args.path) if args.path else resolve_config_path()
+    # `None` rather than a resolved path when no argument was given: a config
+    # that is not there has a different remedy depending on who named it, and
+    # resolving here throws that away — see `config.load`.
     try:
-        config = load_config(path)
+        config = load_config(Path(args.path) if args.path else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -112,9 +114,8 @@ def _pool(args: argparse.Namespace) -> int:
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import family_of
 
-    path = Path(args.path) if args.path else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(Path(args.path) if args.path else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -208,9 +209,8 @@ def _catalog(args: argparse.Namespace) -> int:
     config = None
     unservable: set[str] = set()
     if args.against is not False:
-        path = Path(args.against) if args.against else resolve_config_path()
         try:
-            config = load_config(path)
+            config = load_config(Path(args.against) if args.against else None)
         except ConfigError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
@@ -786,13 +786,18 @@ def _run(args: argparse.Namespace) -> int:
     # bare — a default the reference states, not one invented here.
     config: Config | None = None
     config_error: ConfigError | None = None
-    # A path the caller chose is kept apart from the one this probes when
-    # nobody chose: they are the same file to the loader and different
-    # situations to the operator, and only the second may go unmentioned.
-    named = Path(args.config) if args.config else named_config_path()
+    # `--config` or nothing, handed on as it came: the loader locates the file
+    # when nobody named one, because the remedy for a config that is not there
+    # turns on who chose the path and a caller that resolves it first has
+    # already lost that. What stays here is the question the loader cannot
+    # answer — whether anybody named a path at all — because that decides
+    # whether this run says anything: a default location with nothing in it is
+    # the supported bare install, and a path someone typed is not.
+    chosen = Path(args.config) if args.config else None
+    named = chosen if chosen is not None else named_config_path()
     path = named if named is not None else resolve_config_path()
     try:
-        config = load_config(path, named=named is not None)
+        config = load_config(chosen)
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
@@ -839,10 +844,19 @@ def _run(args: argparse.Namespace) -> int:
         # and the tail of a multi-line message printed under a `note:` prefix
         # is not part of the note as far as anything reading this output is
         # concerned.
+        #
+        # "sends its result to", not "its result lands at": this line is
+        # printed before the run, so the destination is all it has. Where the
+        # result *arrives* is not settled until `write` below returns, and
+        # `--result` at an unwritable path leaves the note having reported a
+        # file that was never created. Moving the note after the write would
+        # trade a false tense for a warning that arrives after the whole run,
+        # and after the failures that end it early — so the note keeps its
+        # place and states the fact it actually has.
         reason = " ".join(str(config_error).split())
         print(
             f"note: {path} is not usable ({reason}); this run goes on without "
-            f"a config and its result lands at {where}"
+            f"a config and sends its result to {where}"
         )
 
     report = RunResult(
@@ -905,10 +919,23 @@ def _floor(
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
 
     if args.record is not None:
+        # Two clauses, because `--result` decides between them. The floor
+        # dispatches nothing, so the recorded directory never gets a journal
+        # row; the result file is the only thing that would land there, and
+        # `--result` moves that one file out of the directory entirely. Under
+        # both flags the directory gets nothing at all, and saying it "gets
+        # this run's result file" contradicted the note two lines above and the
+        # `result:` line at the end of the same run.
+        gets = (
+            f"{args.record} gets no journal row — and --result sends the one "
+            f"file this run does write to {args.result} instead, so nothing "
+            f"lands there at all"
+            if args.result
+            else f"{args.record} gets this run's result file and no journal row"
+        )
         print(
             f"note: {contract.id} is a {contract.task_type!r} contract and runs "
-            f"on the deterministic floor; it dispatches nothing, so {args.record} "
-            f"gets this run's result file and no journal row"
+            f"on the deterministic floor; it dispatches nothing, so {gets}"
         )
     steps = tool_steps(contract)
     if not steps:
@@ -1502,9 +1529,8 @@ def _emit(args: argparse.Namespace) -> int:
     Nothing is started. See :mod:`mcgyvr.emit` — this hands the operator a
     launch spec and stops.
     """
-    path = Path(args.config) if args.config else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
