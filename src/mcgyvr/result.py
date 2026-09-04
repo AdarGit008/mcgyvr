@@ -45,11 +45,18 @@ class AttemptResult:
     detail: str = ""
     findings: list[str] = field(default_factory=list)
     attempt_id: str | None = None
-    #: ``null`` on an attempt that raised where no dispatch of it is the
-    #: culprit — before the first draw, or after the last. ``attempt_id`` is
-    #: ``null`` with it: there is no row to name.
+    #: Which draw the entry is about. ``null`` on an attempt that raised where
+    #: no dispatch of it is the culprit; ``attempt_id`` is ``null`` with it,
+    #: because there is no row to name. ``rows`` says which such raise it was:
+    #: ``0`` is a raise before any dispatch, and anything more is a raise past
+    #: draw ``rows - 1``, the last one that answered.
     draw: int | None = 0
+    #: The breadth the run asked for (``breadth.draws``), on every attempt and
+    #: whatever the verdict.
     draws: int = 1
+    #: How many of those draws left a journal row — how far the attempt got.
+    #: Below ``draws`` only where the attempt did not finish its draws.
+    rows: int = 1
 
 
 @dataclass

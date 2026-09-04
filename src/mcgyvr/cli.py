@@ -1146,15 +1146,17 @@ def _report_climb(
     drew before that was refused.
 
     **An attempt that raised accounts for every row it wrote, and the result
-    names the one it died in.** The entry's ``draws`` is the rows the attempt
-    wrote and its ``draw`` is the one that raised, both stated by the driver
-    (:class:`~mcgyvr.escalate.DispatchRaisedError`) because nothing else knows: an
-    exception carries no draw, and reading it back off the journal is inference
-    that mis-attributes twice over — a raise after the draws lands on a
-    dispatch that answered, and a draw whose row was lost shifts every draw
-    down one. A raise before the first dispatch wrote no rows, so nothing is
-    corrected; a correction appended for a row nobody wrote is an orphan
-    :func:`~mcgyvr.telemetry.fold` returns and the live view drops.
+    names the one it died in.** The entry's ``rows`` is how many rows the
+    attempt wrote — what is iterated here — its ``draws`` is the breadth it was
+    asked for, and its ``draw`` is the one that raised; all three are stated by
+    the driver (:class:`~mcgyvr.escalate.DispatchRaisedError`) because nothing
+    else knows: an exception carries no draw, and reading it back off the
+    journal is inference that mis-attributes twice over — a raise after the
+    draws lands on a dispatch that answered, and a draw whose row was lost
+    shifts every draw down one. A raise before the first dispatch wrote no
+    rows, so nothing is corrected; a correction appended for a row nobody wrote
+    is an orphan :func:`~mcgyvr.telemetry.fold` returns and the live view
+    drops.
 
     **Every one of those rows is ``error``, including the draws that answered
     before the raise.** They are not ``failed``: ``failed`` is a gate's word,
@@ -1189,7 +1191,7 @@ def _report_climb(
                 attempt_id = recording.attempt_id(
                     contract.id, step.rung, step.attempt, subject
                 )
-            for each in range(step.draws):
+            for each in range(step.rows):
                 correct(
                     path=recording.path,
                     attempt_id=recording.attempt_id(
@@ -1211,6 +1213,7 @@ def _report_climb(
                 attempt_id=attempt_id,
                 draw=step.draw,
                 draws=step.draws,
+                rows=step.rows,
             )
         )
 
@@ -1274,18 +1277,30 @@ def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
     verdict is about carries the gate's findings; a draw that lost to it says
     which draw won; the draw an attempt raised in carries the raise; and a draw
     of a raised attempt that is not that one says so and says where the raise
-    was instead — on another draw, or after all of them.
+    was instead — on another draw, or past the last draw that answered.
 
     That last sentence is why the raised rows are not simply left alone. An
     attempt accounts for every row it wrote: a suffixed row that keeps ``ok:
     true`` and no outcome is indistinguishable from a run that died before it
     could be corrected, which is precisely the reading breadth's own telemetry
     must not invite.
+
+    It used to read "after its draws", which was true of one raise and false of
+    two others wearing the same ``draw: null``: a gate that died on draw 0 of
+    three, and a draw whose ``pool.bind`` raised before it reached a row, both
+    left draws still to come. ``rows`` is what tells them apart — this line is
+    only ever written about a row that exists, so ``rows - 1`` is the last draw
+    that answered — and naming that draw is true of all three, the raise after
+    the last draw included.
     """
     if step.raised:
         if each == subject:
             return step.detail
-        where = f"on draw {subject}" if subject is not None else "after its draws"
+        where = (
+            f"on draw {subject}"
+            if subject is not None
+            else f"after draw {step.rows - 1} answered"
+        )
         return f"the attempt raised {where}; no verdict was reached for this draw"
     if each == subject:
         return "\n".join(step.findings) or step.detail

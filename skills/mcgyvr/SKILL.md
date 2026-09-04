@@ -256,7 +256,14 @@ what the run came to. The file's keys:
   `declined_throughout`, `error`).
 - `attempts[]` — every rung tried: `rung`, `attempt`, `verdict` (`passed`,
   `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines
-  behind a failure), `attempt_id`, `draw`, `draws`.
+  behind a failure), `attempt_id`, `draw`, `draws`, `rows`. `draws` is the
+  breadth the attempt asked for (`breadth.draws`), whatever the verdict;
+  `rows` is how many of those draws left a journal row, which is `draws`
+  unless the attempt raised part-way and `0` for a rung that declined or
+  raised before dispatching. `draw` is the draw the entry is about, and is
+  `null` — with `attempt_id` `null` beside it — on an `error` no single
+  dispatch caused: `rows: 0` means it raised before dispatching at all,
+  and anything more means it raised past draw `rows - 1`.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
 - `committed`, `commit`, `branch`, `handoff` — where the work went. Without

@@ -582,11 +582,15 @@ class Result:
     #: retry prompt quotes them. ``detail`` summarises ("rejected on
     #: acceptance"); this is what a caller replans from.
     findings: tuple[str, ...] = ()
-    #: Which draw the verdict is about, and how many the attempt made
-    #: (``breadth.draws``). One row is journaled per draw, so a caller that
-    #: corrects the journal needs to know which row the verdict belongs to.
+    #: Which draw the verdict is about, how many were asked for
+    #: (``breadth.draws``), and how many left a journal row. One row is
+    #: journaled per draw, so a caller that corrects the journal needs to know
+    #: which row the verdict belongs to and how many rows there are to correct.
+    #: The two counts differ only on an attempt that did not finish its draws;
+    #: an attempt that reached a verdict wrote a row for every one of them.
     draw: int = 0
     draws: int = 1
+    rows: int = 1
 
     @classmethod
     def passed(cls, detail: str = "") -> Result:
@@ -598,7 +602,9 @@ class Result:
 
     @classmethod
     def declined(cls, detail: str = "") -> Result:
-        return cls(verdict=Verdict.DECLINED, detail=detail)
+        # A decline is a rung stepping aside before it dispatches, so it wrote
+        # no row: the default of one would claim a journal row nobody wrote.
+        return cls(verdict=Verdict.DECLINED, detail=detail, rows=0)
 
 
 @dataclass(frozen=True)
@@ -615,12 +621,20 @@ class Attempted:
     verdict: Verdict
     detail: str = ""
     findings: tuple[str, ...] = ()
-    #: Which draw the entry is about, and how many the attempt made. ``None``
-    #: is reachable only on a raised entry and says no draw is the subject:
-    #: the attempt died before its first dispatch, or after its last, and
-    #: naming one would pin the failure on a dispatch that answered.
+    #: Which draw the entry is about. ``None`` is reachable only on a raised
+    #: entry and says no draw is the subject, because naming one would pin the
+    #: failure on a dispatch that answered. Which raise it was is read off
+    #: ``rows``: ``0`` is a raise before any dispatch, and anything more is a
+    #: raise past draw ``rows - 1``, which had answered and left its row.
     draw: int | None = 0
+    #: The breadth the attempt was configured for (``breadth.draws``), on every
+    #: entry and whatever the verdict, so no reader has to check the verdict
+    #: before reading the number.
     draws: int = 1
+    #: How many of those draws left a journal row: what a caller correcting the
+    #: journal iterates, and how far the attempt actually got. Equal to
+    #: ``draws`` on any attempt that reached a verdict.
+    rows: int = 1
     #: The attempt raised instead of judging. Kept in the history so the
     #: climb's record is complete — a raised attempt still dispatched and
     #: still has a journal row — and so a reader can tell "the gate refused"
@@ -645,6 +659,7 @@ def attempted(rung: str, attempt: int, result: Result) -> Attempted:
         findings=result.findings,
         draw=result.draw,
         draws=result.draws,
+        rows=result.rows,
     )
 
 
