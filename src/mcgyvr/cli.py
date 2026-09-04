@@ -1843,6 +1843,49 @@ def _architectures() -> dict[str, str]:
     }
 
 
+def _named_path(value: str) -> str:
+    """A path argument's value, refused when it names nothing.
+
+    Argparse's own ``type``, so the refusal is the subparser's usage error —
+    exit 2, with the argument's name in it — and arrives before a contract, a
+    repository or a config file is opened. That is the same seam and the same
+    code as the blank ``--orchestrator`` (:func:`_name_the_writer`), because it
+    is the same mistake: an argument given a value that names nothing.
+
+    **A blank is not "the caller named none", and reading it that way is silent
+    in every case.** Every path here is optional and every one of them resolves
+    a default when it is absent, so the empty string — falsy, and equal to
+    ``Path('.')`` once it reaches :class:`~pathlib.Path` — slid into the absent
+    branch and the run went on under a default nobody chose. ``--record ''``
+    was the worst of them, because it is tested with ``is not None``: the
+    journal, its blobs and the result file landed in the *current directory*,
+    which is the repository the 2026-09-03 ruling exists to keep clean, and the
+    ``result:`` line came out relative to a working directory the caller may
+    not still be in. ``--config ''`` and ``--result ''`` were quieter and the
+    same shape.
+
+    What puts a blank there is not somebody typing two quotes. It is
+    ``--record "$JOURNAL_DIR"`` with the variable unset, which is the shape
+    every wrapper script has, and a wrapper is exactly the caller who will not
+    read the scrollback to notice.
+
+    Whitespace counts as blank, as it does for the orchestrator id. A directory
+    named three spaces is legal on this filesystem and is not what anybody
+    meant; the value is otherwise handed on untouched, because a path with a
+    space at either end is legal too and stripping it would be this function
+    choosing a different file than the caller named.
+    """
+    if not value.strip():
+        raise argparse.ArgumentTypeError(
+            "a blank value is not a path. It is what an unset variable leaves "
+            "behind, and a blank used to read as 'nobody named a path' — so "
+            "the command resolved a default the caller never chose, which for a "
+            "directory is the current one. Pass a path, or leave the argument "
+            "off to take the default on purpose."
+        )
+    return value
+
+
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Resolve who is writing the journal, or refuse at parse time.
 
@@ -1924,6 +1967,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
+        type=_named_path,
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     conf.set_defaults(func=_config)
@@ -1936,6 +1980,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
+        type=_named_path,
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     pool.add_argument(
@@ -1971,6 +2016,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=False,
         const=None,
+        type=_named_path,
         metavar="CONFIG",
         help=(
             "resolve against a configured ladder and name the types it cannot "
@@ -2034,6 +2080,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     emi.add_argument(
         "--config",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
@@ -2245,6 +2292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--config",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=(
             "ladder to climb when the contract is not deterministic. Which rung "
@@ -2256,6 +2304,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--repo",
         default=".",
+        type=_named_path,
         metavar="PATH",
         help="the git repository the work is done against (default: .)",
     )
@@ -2280,6 +2329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--record",
         default=None,
+        type=_named_path,
         metavar="DIR",
         help=(
             "journal this run under DIR instead of the config's `journal.dir`: "
@@ -2303,6 +2353,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--result",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=(
             "where to write this run's result file (default: "
