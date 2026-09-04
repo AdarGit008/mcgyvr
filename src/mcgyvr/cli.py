@@ -1168,9 +1168,11 @@ def _report_climb(
     attempt saying where the work went. A rung that declined dispatched
     nothing and has no row to correct. An attempt that drew more than once
     (``breadth.draws``) wrote one row per draw: the verdict lands on the draw
-    it is about and every other draw of that attempt is ``failed``, because
-    ``best_of`` stops at the first draw the gate accepts and everything it
-    drew before that was refused.
+    it is about and every other draw of that attempt is ``failed``. ``best_of``
+    does not stop early — it draws all of them, gates each and ranks the lot —
+    so the rows beside the verdict's are draws whose work did not land, which
+    is what ``failed`` says about them here whatever their own gate thought of
+    them on its own.
 
     **An attempt that raised accounts for every row it wrote, and the result
     names the one it died in.** The entry's ``rows`` is how many rows the
