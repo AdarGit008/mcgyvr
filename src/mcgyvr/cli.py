@@ -25,6 +25,7 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     ConfigMissingError,
+    named_config_path,
 )
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
@@ -784,9 +785,13 @@ def _run(args: argparse.Namespace) -> int:
     # bare — a default the reference states, not one invented here.
     config: Config | None = None
     config_error: ConfigError | None = None
-    path = Path(args.config) if args.config else resolve_config_path()
+    # A path the caller chose is kept apart from the one this probes when
+    # nobody chose: they are the same file to the loader and different
+    # situations to the operator, and only the second may go unmentioned.
+    named = Path(args.config) if args.config else named_config_path()
+    path = named if named is not None else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(path, named=named is not None)
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
@@ -799,24 +804,46 @@ def _run(args: argparse.Namespace) -> int:
         configured = config.get("journal.dir") if config is not None else None
         journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
 
-    if config_error is not None and not isinstance(config_error, ConfigMissingError):
+    # One stamp names the run: the result file carries it and every journal
+    # row keys on it, so a re-run of the same contract is a second run and
+    # not a second copy of the first (`Recording.run`). The destination is
+    # settled here rather than at the end because the note below states it,
+    # and a note may not state something the run has not decided.
+    stamp = run_stamp()
+    where = (
+        Path(args.result)
+        if args.result
+        else result_path(journal_dir, contract.id, stamp)
+    )
+
+    bare_install = isinstance(config_error, ConfigMissingError) and named is None
+    if config_error is not None and not bare_install:
         # Said, not swallowed. The floor runs without a config on purpose, so
         # this is not an error — but a config that is *there* and cannot be
         # used is not the same thing as none, and silence made the two
         # identical: whatever `journal.dir` that file names is not the
         # directory this run is about to write under, and the operator's only
         # clue was a result file somewhere they had configured away from. So
-        # the note names the file, what is wrong with it, and where the run
+        # the note names the file, what is wrong with it, and where the answer
         # went instead.
+        #
+        # It names the result file and not the journal dir because the journal
+        # dir is not where this run lands. Only the floor ever reaches this
+        # line — a climb without a ladder was refused above — the floor
+        # dispatches nothing, and nothing is journaled; and `--result` moves
+        # the one file that is written out of that directory entirely. A note
+        # exists to add a true fact.
+        #
+        # The reason is flattened first: a YAML parse error is several lines,
+        # and the tail of a multi-line message printed under a `note:` prefix
+        # is not part of the note as far as anything reading this output is
+        # concerned.
+        reason = " ".join(str(config_error).split())
         print(
-            f"note: {path} is not usable ({config_error}); this run goes on "
-            f"without a config and lands under {journal_dir}"
+            f"note: {path} is not usable ({reason}); this run goes on without "
+            f"a config and its result lands at {where}"
         )
 
-    # One stamp names the run: the result file carries it and every journal
-    # row keys on it, so a re-run of the same contract is a second run and
-    # not a second copy of the first (`Recording.run`).
-    stamp = run_stamp()
     report = RunResult(
         contract=contract.id,
         task_type=contract.task_type,
@@ -848,11 +875,6 @@ def _run(args: argparse.Namespace) -> int:
         code = _climb(args, contract, repo, config, recording=recording, report=report)
 
     report.exit_code = code
-    where = (
-        Path(args.result)
-        if args.result
-        else result_path(journal_dir, contract.id, stamp)
-    )
     try:
         written = write(where, report)
     except OSError as exc:
