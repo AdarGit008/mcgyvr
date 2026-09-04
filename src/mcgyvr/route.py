@@ -615,7 +615,11 @@ class Attempted:
     verdict: Verdict
     detail: str = ""
     findings: tuple[str, ...] = ()
-    draw: int = 0
+    #: Which draw the entry is about, and how many the attempt made. ``None``
+    #: is reachable only on a raised entry and says no draw is the subject:
+    #: the attempt died before its first dispatch, or after its last, and
+    #: naming one would pin the failure on a dispatch that answered.
+    draw: int | None = 0
     draws: int = 1
     #: The attempt raised instead of judging. Kept in the history so the
     #: climb's record is complete — a raised attempt still dispatched and

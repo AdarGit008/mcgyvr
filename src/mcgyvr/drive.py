@@ -57,7 +57,13 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
-from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
+from mcgyvr.escalate import (
+    DispatchRaisedError,
+    Judgement,
+    RetryNotes,
+    judge,
+    required_policy,
+)
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
@@ -335,6 +341,27 @@ class Recording:
         return row if draw == 0 else f"{row}#{draw}"
 
 
+@dataclass
+class _Dispatches:
+    """What one attempt has sent so far, kept so a raise can say it.
+
+    Mutable and deliberately so: it is written by the dispatch that is
+    happening and read by the ``except`` that ends the attempt, which is the
+    one moment the two facts still exist together. Everything below has thrown
+    them away — an exception carries no draw — and everything above can only
+    infer them, which is what :class:`~mcgyvr.escalate.DispatchRaisedError` exists
+    to stop.
+
+    ``rows`` is how many draws left a journal row, counted where the row is
+    written and not where the dispatch was intended. ``in_flight`` is the draw
+    the attempt is inside, and ``None`` between draws and after the last one,
+    so a verifier or a cleanup that dies is charged to no dispatch at all.
+    """
+
+    rows: int = 0
+    in_flight: int | None = None
+
+
 def worker_attempt(
     config: Config,
     pool: SourceMap,
@@ -361,6 +388,17 @@ def worker_attempt(
     after each failure, so an attempt that raises cannot leave the next one
     judging a tree it did not produce — a ``finally`` that tidies up is one
     exception away from not having run.
+
+    **Everything it raises comes out as
+    :class:`~mcgyvr.escalate.DispatchRaisedError`,** carrying the cause and two
+    facts nothing above can recover: how many of this attempt's draws left a
+    journal row, and which one it was in when it died — or that it died where
+    no dispatch was, before the first draw or after the last. Only the function
+    making the dispatches holds either; the caller that corrects those rows
+    used to read them back off the journal, which named a dispatch that had
+    answered whenever the raise came from the gate, the cleanup or the
+    verifier. :func:`~mcgyvr.escalate.escalate` unwraps the envelope, so the
+    operator is still told what died and not what carried the news.
 
     **The retry note comes from the last judgement on the same rung — the last
     one, not the last one that had something to say.**
@@ -458,6 +496,21 @@ def worker_attempt(
     tidying = bool(config.get("cleanup.enabled", False))
 
     def attempt(this: Try) -> Judgement:
+        # The whole of this function's failure path, in one place. Everything
+        # `_attempt` can raise is turned into the one sentence only a driver
+        # can say — which of its dispatches left a journal row, and which one
+        # it was in — because the caller that corrects those rows has no other
+        # way to learn it and used to count them and guess. `climb` unwraps
+        # this into `_AttemptError`, so nothing downstream sees the envelope.
+        made = _Dispatches()
+        try:
+            return _attempt(this, made)
+        except Exception as exc:
+            raise DispatchRaisedError(
+                exc, dispatched=made.rows, draw=made.in_flight
+            ) from exc
+
+    def _attempt(this: Try, made: _Dispatches) -> Judgement:
         family = family_of(config, this.rung.name)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
@@ -510,7 +563,21 @@ def worker_attempt(
                 return completion
 
             if recording is None:
+                # No journal, so no rows — but this dispatch was still made and
+                # paid for, and `draws` on the result counts dispatches.
+                made.rows, made.in_flight = draw + 1, draw
                 return once()
+            # The journal exists to be reviewed, and a review needs the prompt
+            # as the runner sent it and the endpoint that served it. Read here,
+            # before the attempt, so the row of an attempt that raised still
+            # says what it asked and where.
+            #
+            # Read *before* the count, too: `pool.bind` can raise, and a
+            # dispatch that never reached `observe` left no row for a
+            # correction to land on. What is counted is rows, not intentions.
+            endpoint = pool.bind(this.rung.name).base_url
+            messages = _as_sent(prompt)
+            made.rows, made.in_flight = draw + 1, draw
             return observe(
                 once,
                 path=recording.path,
@@ -520,17 +587,17 @@ def worker_attempt(
                 orchestrator=recording.orchestrator,
                 rung=this.rung.name,
                 model=this.rung.model,
-                # The journal exists to be reviewed, and a review needs the
-                # prompt as the runner sent it and the endpoint that served
-                # it. Bound here, before the attempt, so the row of an attempt
-                # that raised still says what it asked and where.
-                messages=_as_sent(prompt),
-                endpoint=pool.bind(this.rung.name).base_url,
+                messages=messages,
+                endpoint=endpoint,
                 task_type=contract.task_type,
                 session_file=recording.session_file,
             )
 
         def sample(draw: int) -> str | Unusable:
+            # This draw owns no row yet. A raise between here and the one
+            # `send` writes belongs to no dispatch, and leaving the previous
+            # draw's number standing would put it on a dispatch that answered.
+            made.in_flight = None
             completion = send(draw)
             parsed = parse_reply(
                 completion.text,
@@ -580,6 +647,10 @@ def worker_attempt(
                 sandbox=sandbox,
             )
         except NoUsableDrawError as exc:
+            # The draws are over: whatever raises from here on — the cleanup,
+            # the gate, the verifier, this module's own bookkeeping — raised
+            # after every dispatch answered, and belongs to none of them.
+            made.in_flight = None
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
@@ -601,6 +672,8 @@ def worker_attempt(
                 draws=draws,
             )
         else:
+            # See the branch above: past `best_of`, no dispatch is in flight.
+            made.in_flight = None
             gate, bound = picked.gate, picked.winner
             if tidying:
                 gate, bound = _cleaned(

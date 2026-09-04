@@ -873,6 +873,7 @@ def test_a_dispatch_failure_feeds_the_cooldown(
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
+    from mcgyvr.escalate import DispatchRaisedError
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.runner import RunnerError
@@ -890,8 +891,13 @@ def test_a_dispatch_failure_feeds_the_cooldown(
 
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
-        with pytest.raises(RunnerError):
+        # `DispatchRaisedError` is the envelope every raise out of a driven attempt
+        # now travels in: it carries the draw that died, which nothing above it
+        # can infer. What died is still the `RunnerError`, and the cooldown —
+        # the subject here — is fed inside the dispatch, before either.
+        with pytest.raises(DispatchRaisedError) as raised:
             attempt(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+    assert isinstance(raised.value.cause, RunnerError)
 
     # One failure is a hiccup; three consecutive arm the removal.
     assert cooldown.unavailable([endpoint]) == {}

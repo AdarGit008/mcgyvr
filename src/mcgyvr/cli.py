@@ -42,6 +42,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted
     from mcgyvr.gate import GateResult
     from mcgyvr.result import RunResult
+    from mcgyvr.route import Attempted
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
@@ -1122,17 +1123,25 @@ def _report_climb(
     ``best_of`` stops at the first draw the gate accepts and everything it
     drew before that was refused.
 
-    **An attempt that raised is corrected on the dispatch that raised, or on
-    nothing.** Its history entry names no draw — an exception is not a verdict
-    and carries neither the draw it died on nor whether one had been sent — so
-    which row the ``error`` belongs on is read from the rows the attempt wrote
-    (:func:`_dispatches_recorded`). Believing the entry's defaults instead put
-    the error on draw 0 of an attempt that died on draw 1, leaving the row that
-    raised uncorrected and the result naming a dispatch that had answered; and
-    for a raise before the first dispatch — a sandbox reset, a bind, a prompt
-    that would not build — it appended a correction for a row nobody had
-    written, which :func:`~mcgyvr.telemetry.fold` returns as an orphan and the
-    live view drops. Nothing was recorded, so nothing is corrected.
+    **An attempt that raised accounts for every row it wrote, and the result
+    names the one it died in.** The entry's ``draws`` is the rows the attempt
+    wrote and its ``draw`` is the one that raised, both stated by the driver
+    (:class:`~mcgyvr.escalate.DispatchRaisedError`) because nothing else knows: an
+    exception carries no draw, and reading it back off the journal is inference
+    that mis-attributes twice over — a raise after the draws lands on a
+    dispatch that answered, and a draw whose row was lost shifts every draw
+    down one. A raise before the first dispatch wrote no rows, so nothing is
+    corrected; a correction appended for a row nobody wrote is an orphan
+    :func:`~mcgyvr.telemetry.fold` returns and the live view drops.
+
+    **Every one of those rows is ``error``, including the draws that answered
+    before the raise.** They are not ``failed``: ``failed`` is a gate's word,
+    and while the earlier draws may well have been gated, the *attempt* they
+    belong to reached no verdict at all — writing one on them would report a
+    judgement that never happened, the same coinage this project refuses for a
+    draw that produced nothing. What distinguishes the row that actually raised
+    is not a different word but ``attempt_id``: the result names it, and only
+    it, and names nothing when the raise was no dispatch's.
 
     The accepted attempt is the last entry of the history: ``route.climb``
     returns the moment an attempt passes, right after recording it.
@@ -1148,51 +1157,28 @@ def _report_climb(
         for finding in step.findings:
             print(f"    ✗ {finding}")
         attempt_id: str | None = None
-        draw, draws = step.draw, step.draws
+        # The draw the entry is about: the one the gate judged, or the one the
+        # attempt died in. `None` comes off a raised entry only, and says no
+        # dispatch of the attempt is the subject — so there is no row for the
+        # result to name, and every row it wrote is corrected all the same.
+        subject = step.draw
         if recording is not None and step.verdict is not Verdict.DECLINED:
-            if step.raised:
-                # The rows the attempt actually wrote say which dispatch it
-                # died on: `observe` writes one per draw, in order, and the
-                # last of them is the one that was in flight. Nothing else
-                # knows — the exception carried no draw (see `_AttemptError`)
-                # — and the two ways of guessing are both wrong: the first
-                # draw is a dispatch that answered, and a draw nobody made has
-                # no row for a correction to land on.
-                draws = _dispatches_recorded(
-                    recording, contract, step.rung, step.attempt
-                )
-                draw = max(draws - 1, 0)
-                if draws:
-                    attempt_id = recording.attempt_id(
-                        contract.id, step.rung, step.attempt, draw
-                    )
-                    correct(
-                        path=recording.path,
-                        attempt_id=attempt_id,
-                        outcome=word,
-                        detail=step.detail,
-                        orchestrator=recording.orchestrator,
-                    )
-            else:
+            if subject is not None:
                 attempt_id = recording.attempt_id(
-                    contract.id, step.rung, step.attempt, step.draw
+                    contract.id, step.rung, step.attempt, subject
                 )
-                for each in range(step.draws):
-                    losing = each != step.draw
-                    correct(
-                        path=recording.path,
-                        attempt_id=recording.attempt_id(
-                            contract.id, step.rung, step.attempt, each
-                        ),
-                        outcome=Verdict.FAILED.value if losing else word,
-                        detail=(
-                            f"a losing draw; the attempt's verdict is on "
-                            f"draw {step.draw}"
-                            if losing
-                            else "\n".join(step.findings) or step.detail
-                        ),
-                        orchestrator=recording.orchestrator,
-                    )
+            for each in range(step.draws):
+                correct(
+                    path=recording.path,
+                    attempt_id=recording.attempt_id(
+                        contract.id, step.rung, step.attempt, each
+                    ),
+                    outcome=(
+                        word if step.raised or each == subject else Verdict.FAILED.value
+                    ),
+                    detail=_correction_detail(step, each, subject),
+                    orchestrator=recording.orchestrator,
+                )
         report.attempts.append(
             AttemptResult(
                 rung=step.rung,
@@ -1201,8 +1187,8 @@ def _report_climb(
                 detail=step.detail,
                 findings=list(step.findings),
                 attempt_id=attempt_id,
-                draw=draw,
-                draws=draws,
+                draw=step.draw,
+                draws=step.draws,
             )
         )
 
@@ -1243,41 +1229,45 @@ def _report_climb(
         report,
         recording=recording,
         attempt_id=(
-            recording.attempt_id(contract.id, landed.rung, landed.attempt, landed.draw)
+            recording.attempt_id(
+                contract.id,
+                landed.rung,
+                landed.attempt,
+                # An accepted attempt was judged, and a judged entry names the
+                # draw it was judged on. Only a raised entry leaves this unset,
+                # and a raise is never the last entry of a `Delivered`.
+                landed.draw or 0,
+            )
             if recording is not None
             else None
         ),
     )
 
 
-def _dispatches_recorded(
-    recording: Recording, contract: Contract, rung: str, attempt: int
-) -> int:
-    """How many of one attempt's draws reached the journal, read off its rows.
+def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
+    """What the correction on one draw's row says, in this caller's vocabulary.
 
-    :func:`~mcgyvr.telemetry.observe` writes exactly one row per dispatch, in
-    draw order, and writes it for a dispatch that raised as well as for one
-    that answered — so the rows an attempt left are its draws counted from
-    zero: ``2`` means draws 0 and 1 were sent and the second is the one the
-    attempt was in when it died. ``0`` means it raised before sending
-    anything, and there is nothing to correct.
+    Four sentences, because a row is corrected for four different reasons and a
+    reader of the journal has only this line to tell them apart: the draw the
+    verdict is about carries the gate's findings; a draw that lost to it says
+    which draw won; the draw an attempt raised in carries the raise; and a draw
+    of a raised attempt that is not that one says so and says where the raise
+    was instead — on another draw, or after all of them.
 
-    Counted by asking ``recording`` for each draw's id in turn rather than by
-    parsing one, because the ``#draw`` spelling is
-    :meth:`~mcgyvr.drive.Recording.attempt_id`'s and a second reading of it
-    here would be a second place for it to change.
+    That last sentence is why the raised rows are not simply left alone. An
+    attempt accounts for every row it wrote: a suffixed row that keeps ``ok:
+    true`` and no outcome is indistinguishable from a run that died before it
+    could be corrected, which is precisely the reading breadth's own telemetry
+    must not invite.
     """
-    from mcgyvr.telemetry import ATTEMPT_KIND, fold
-
-    written = {
-        str(row.get("attempt_id", ""))
-        for row in fold(path=recording.path)
-        if row.get("record_kind") == ATTEMPT_KIND
-    }
-    made = 0
-    while recording.attempt_id(contract.id, rung, attempt, made) in written:
-        made += 1
-    return made
+    if step.raised:
+        if each == subject:
+            return step.detail
+        where = f"on draw {subject}" if subject is not None else "after its draws"
+        return f"the attempt raised {where}; no verdict was reached for this draw"
+    if each == subject:
+        return "\n".join(step.findings) or step.detail
+    return f"a losing draw; the attempt's verdict is on draw {subject}"
 
 
 def _report_run(
