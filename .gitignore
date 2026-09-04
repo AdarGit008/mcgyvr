@@ -47,6 +47,7 @@ okf/*
 !okf/index.md
 !okf/config/
 !okf/must-read/
+!okf/models/
 .okfrag/
 
 # graphify's output directory. `graphify-out/` holds a generated knowledge graph
