@@ -158,15 +158,21 @@ CORRECTION_KIND = "correction"
 # What a correction is allowed to say about its attempt, and the whole of it. A
 # correction that could set any field could rewrite which orchestrator ran the
 # work or how long it took, which is the in-place edit this shape exists to
-# refuse — spelled differently. The three move together because the detail is
-# the winning outcome's own words and ``applied_by`` is the writer who gave it:
-# keeping a superseded correction's prose or byline beside a newer verdict
-# would report a reason, or name an author, nobody gave for it. ``applied_by``
-# is carried and not left on the correction line alone because a folded row is
-# all a reader of the fold gets, and under §9 the one applying a correction
-# need not be the one that ran the attempt — ``orchestrator`` says who ran, and
-# only this says who judged.
-_CORRECTABLE = ("outcome", "detail", "applied_by")
+# refuse — spelled differently.
+#
+# ``outcome`` is the verdict, and the other two are attributes of *that*
+# verdict: the detail is its own words and ``applied_by`` is the writer who
+# gave it. So :func:`fold` moves the three as one block rather than field by
+# field — a byline left standing beside somebody else's newer verdict is a row
+# that credits a judgement to whoever last happened to write prose about the
+# attempt, and ``tools/live/index.py`` copies that into a column whose whole
+# question is "who judged this". ``applied_by`` is carried onto the row rather
+# than left on the correction line alone because a folded row is all a reader
+# of the fold gets, and under §9 the one applying a correction need not be the
+# one that ran the attempt — ``orchestrator`` says who ran, and only this says
+# who judged.
+_VERDICT = "outcome"
+_CORRECTABLE = (_VERDICT, "detail", "applied_by")
 
 # Where the text lives: a directory beside the sink, one file per distinct
 # scrubbed text, named by the sha256 of its bytes. Beside rather than inside
@@ -556,6 +562,19 @@ def fold(*, path: Path) -> list[Record]:
     than being dropped. It is a mistake somebody made, and a mistake that is
     visible costs one question; a mistake that deletes itself costs the trust in
     every other number in the file.
+
+    **A verdict arrives whole.** ``outcome``, ``detail`` and ``applied_by``
+    are one statement, not three fields, and a correction that states an
+    outcome supplies all three — a field it does not state is left off the
+    folded row instead of inherited from the verdict it supersedes. A
+    correction stating no outcome judges nothing and repaints none of them.
+    :func:`correct` always writes all three, so this only ever decides what a
+    line written elsewhere means; that is most of the point, since the sink is
+    shared by other hosts, other processes and other versions of this module
+    by construction. The alternative — each field latest-wins on its own —
+    produces a row whose ``applied_by`` names somebody who did not give its
+    ``outcome``, which is a lie ``tools/live/index.py`` then stores in a
+    column and a reviewer then weighs.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
@@ -579,11 +598,21 @@ def fold(*, path: Path) -> list[Record]:
             orphans.append(correction)
             continue
         base = attempts[match]
+        if correction.get(_VERDICT) is None:
+            # No verdict, so nothing to attach a detail or a byline to: a line
+            # that judges nothing does not get to rewrite how the work landed,
+            # nor to sign somebody else's judgement. Absence is not a
+            # retraction — the standing verdict keeps all three of its fields.
+            continue
         for key in _CORRECTABLE:
-            # ``None`` is "this correction does not say", which leaves whatever
-            # an earlier one said standing. Absence is not a retraction.
-            if correction.get(key) is not None:
-                base[key] = correction[key]
+            # The whole block, from this one correction: a field it does not
+            # state is absent from the row rather than inherited from the
+            # verdict this one supersedes.
+            value = correction.get(key)
+            if value is None:
+                base.pop(key, None)
+            else:
+                base[key] = value
 
     return attempts + orphans
 
