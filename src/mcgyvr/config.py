@@ -410,6 +410,26 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: Where the live journal goes when `journal.dir` is left out. A literal with
+#: `~` rather than an expanded path so the reference reads the same on every
+#: machine; expanded at the point of use. The XDG state dir is the convention
+#: `mcgyvr scan` already keeps its records under.
+JOURNAL_DIR_DEFAULT = "~/.local/state/mcgyvr/journal"
+
+JOURNAL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "dir",
+        "str",
+        "Where every dispatching run journals what it asked, what came back and "
+        "how it landed: one `<orchestrator>.jsonl` per writer, the prompts and "
+        "replies content-addressed under `blobs/`, and each run's result file "
+        "under `results/`. This is mcgyvr's own record and never lands in the "
+        "repository a run works on. `mcgyvr run --record DIR` overrides it for "
+        "one run. Read it back with `tools/live/review.py DIR`.",
+        default=JOURNAL_DIR_DEFAULT,
+    ),
+)
+
 BUDGET_FIELDS: tuple[Field, ...] = (
     Field(
         "max_escalations",
@@ -559,6 +579,12 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "What may be fixed without asking a model.",
         block=CLEANUP_FIELDS,
+    ),
+    Field(
+        "journal",
+        "block",
+        "Where mcgyvr keeps its own record of what it dispatched.",
+        block=JOURNAL_FIELDS,
     ),
 )
 

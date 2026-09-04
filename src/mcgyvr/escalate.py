@@ -145,6 +145,7 @@ from mcgyvr.route import (
     Step,
     Try,
     Verdict,
+    attempted,
     climb,
     fanout_of,
     plan,
@@ -323,10 +324,25 @@ class Judgement:
     reviewer_failed: bool = False
     retry: RetryNotes | None = None
     detail: str = ""
+    #: Which draw the verdict is about and how many were made; see
+    #: :class:`~mcgyvr.route.Result`.
+    draw: int = 0
+    draws: int = 1
 
     def as_result(self) -> Result:
-        """The routing verdict alone, for :func:`~mcgyvr.route.climb`."""
-        return Result(verdict=self.verdict, detail=self.detail)
+        """The routing verdict, for :func:`~mcgyvr.route.climb`, with the findings.
+
+        The finding lines ride along so the climb's record can say *why* a
+        rung failed and not only that it did; ``route`` never reads them.
+        """
+        findings = self.retry.lines if self.retry is not None else ()
+        return Result(
+            verdict=self.verdict,
+            detail=self.detail,
+            findings=findings,
+            draw=self.draw,
+            draws=self.draws,
+        )
 
 
 # --- policy ----------------------------------------------------------------
@@ -936,9 +952,10 @@ class _AttemptError(Exception):
     tell a dead socket from a bug it owns.
     """
 
-    def __init__(self, rung: str, cause: BaseException) -> None:
+    def __init__(self, rung: str, attempt: int, cause: BaseException) -> None:
         super().__init__(rung)
         self.rung = rung
+        self.attempt = attempt
         self.cause = cause
 
 
@@ -1017,6 +1034,13 @@ def escalate(
     accepted_judgement: Judgement | None = None
     history: list[Attempted] = []
     entered: list[Family] = []
+    # The judged attempts of the climb in progress, kept here as they are
+    # judged. `climb` keeps the same list and returns it — unless an attempt
+    # raises, when the exception ends the call and the list goes with it. The
+    # attempts before the raise dispatched, wrote journal rows and produced
+    # findings; a history that dropped them would count them in
+    # `attempts_spent` and list them nowhere.
+    judged: list[Attempted] = []
 
     def permit(step: Step, number: int) -> bool:
         nonlocal stopped_by
@@ -1044,14 +1068,16 @@ def escalate(
             # work"; here is the seam that turns it into a terminal outcome of
             # its own, carrying the rung so the operator knows which tier to
             # fix.
-            raise _AttemptError(this.rung.name, exc) from exc
+            raise _AttemptError(this.rung.name, this.attempt, exc) from exc
         if judgement.verdict is not Verdict.DECLINED:
             attempts_spent += 1
             if this.rung.name not in spent_rungs:
                 spent_rungs.append(this.rung.name)
         if judgement.verdict is Verdict.PASSED:
             accepted_judgement = judgement
-        return judgement.as_result()
+        result = judgement.as_result()
+        judged.append(attempted(this.rung.name, this.attempt, result))
+        return result
 
     try:
         for each in route.plans:
@@ -1071,21 +1097,37 @@ def escalate(
             taking = claimed if claimed in each.rungs else None
             if taking is not None:
                 claimed = None
+            judged.clear()
             try:
                 result = climb(
                     each, observed, capacity=capacity, permit=permit, claimed=taking
                 )
             except _AttemptError as raised:
+                detail = (
+                    f"rung {raised.rung!r} raised "
+                    f"{type(raised.cause).__name__}: {raised.cause}"
+                )
+                # Every attempt judged before the raise, then the raise. The
+                # judged ones dispatched and were counted; the raising one is
+                # in the history too, because a record that omitted it would
+                # show a climb that never touched the rung it died on.
+                history.extend(judged)
+                history.append(
+                    Attempted(
+                        rung=raised.rung,
+                        attempt=raised.attempt,
+                        verdict=Verdict.FAILED,
+                        detail=detail,
+                        raised=True,
+                    )
+                )
                 return Halted(
                     outcome=Outcome.ERROR,
                     entered=tuple(entered),
                     history=tuple(history),
                     attempts_spent=attempts_spent,
                     escalations=max(0, len(spent_rungs) - 1),
-                    detail=(
-                        f"rung {raised.rung!r} raised "
-                        f"{type(raised.cause).__name__}: {raised.cause}"
-                    ),
+                    detail=detail,
                 )
             history.extend(result.history)
             if result.history:

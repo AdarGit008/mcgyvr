@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """A reviewer's table over the live journal — folded and joined, never the journal.
 
-The journal ``mcgyvr run --record DIR --orchestrator ID`` writes is append-only
+The journal ``mcgyvr run`` writes (under the config's ``journal.dir``, or
+``--record DIR``) is append-only
 for two reasons :mod:`mcgyvr.telemetry` states — several orchestrators can write
 one directory, and a crash mid-write loses one line — and both hold only as
 long as nothing else opens a ``.jsonl`` for writing. A reviewer wants the
@@ -89,9 +90,15 @@ PRODUCT_SLOT = "bench_product"
 COLUMNS: tuple[tuple[str, str], ...] = (
     ("attempt_id", "TEXT"),
     ("orchestrator", "TEXT"),
+    ("session_file", "TEXT"),
+    ("task_type", "TEXT"),
     ("rung", "TEXT"),
     ("ok", "INTEGER"),
     ("ts", "REAL"),
+    ("elapsed_s", "REAL"),
+    ("latency_s", "REAL"),
+    ("input_tokens", "INTEGER"),
+    ("output_tokens", "INTEGER"),
     ("model", "TEXT"),
     ("endpoint", "TEXT"),
     ("protocol", "TEXT"),
@@ -106,7 +113,9 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("reply_text", "TEXT"),
     ("outcome", "TEXT"),
     ("detail", "TEXT"),
+    ("applied_by", "TEXT"),
     ("error", "TEXT"),
+    ("error_detail", "TEXT"),
     ("journal", "TEXT"),
 )
 

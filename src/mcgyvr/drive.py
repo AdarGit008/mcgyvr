@@ -273,20 +273,33 @@ class Recording:
     two orchestrators sharing a stream would then write rows that agree about who
     produced them, and the field's whole purpose is telling them apart.
 
-    Recording is optional because a run that cannot write its telemetry should
-    fail loudly rather than silently — ``observe`` raises on an unwritable sink
-    on purpose — and a caller that has not chosen a sink has not chosen to
-    accept that failure.
+    Recording is optional at this seam because a run that cannot write its
+    telemetry should fail loudly rather than silently — ``observe`` raises on
+    an unwritable sink on purpose — and a caller that has not chosen a sink
+    has not chosen to accept that failure. ``mcgyvr run`` always chooses one
+    for a dispatching contract: the config's ``journal.dir``, or ``--record``.
 
     ``path`` is the line sink. The prompts and replies the run dispatches land
     beside it, content-addressed under ``path.parent / "blobs"``, so two
     orchestrators recording into one directory share one blob store and own
-    one file each — the layout ``mcgyvr run --record DIR --orchestrator ID``
-    (``DIR/<ID>.jsonl``) relies on.
+    one file each — the layout ``<journal dir>/<orchestrator>.jsonl`` relies
+    on.
+
+    ``run`` tells one run of a contract from the next. The orchestrator is now
+    a whole session, and a session re-runs a contract exactly when the last
+    run failed, so without it two runs would key their rows identically and
+    :func:`~mcgyvr.telemetry.fold` would bind every correction to the latest
+    row — erasing the failure from the folded view. It is the stamp the run's
+    result file carries, so a row and its result name the same run.
     """
 
     path: Path
     orchestrator: str
+    run: str = ""
+    #: The transcript of the session that typed the command, when the
+    #: orchestrator is one (:mod:`mcgyvr.session`). Written on every row so an
+    #: attempt can be followed back to the conversation that produced it.
+    session_file: Path | None = None
 
     def __post_init__(self) -> None:
         if not self.orchestrator.strip():
@@ -317,7 +330,8 @@ class Recording:
         superseding key must not change meaning under a stream that already
         holds rows.
         """
-        row = f"{self.orchestrator}:{contract}:{rung}:{attempt}"
+        who = f"{self.orchestrator}:{self.run}" if self.run else self.orchestrator
+        row = f"{who}:{contract}:{rung}:{attempt}"
         return row if draw == 0 else f"{row}#{draw}"
 
 
@@ -512,6 +526,8 @@ def worker_attempt(
                 # that raised still says what it asked and where.
                 messages=_as_sent(prompt),
                 endpoint=pool.bind(this.rung.name).base_url,
+                task_type=contract.task_type,
+                session_file=recording.session_file,
             )
 
         def sample(draw: int) -> str | Unusable:
@@ -608,6 +624,13 @@ def worker_attempt(
                     )
                 ),
             )
+            # Which draw the verdict is about, and how many were paid for: one
+            # journal row per draw was written above, keyed by the *dispatch*
+            # index `send` was called with. `picked.chosen` counts candidates
+            # and skips the draws that produced none, so under an unreadable
+            # first reply it named the wrong row; `dispatched` is the index
+            # the row was keyed by.
+            judgement = replace(judgement, draw=picked.dispatched, draws=len(picked))
             if gate.accepted:
                 # The winner's own binding, minted by `best_of` one line after
                 # its gate and one line before its reset — in the tree the

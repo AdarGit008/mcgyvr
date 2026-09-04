@@ -23,6 +23,34 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 
 
+@pytest.fixture(autouse=True)
+def _own_home_and_session(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every test runs in a HOME of its own, as the session ``claude-pytest``.
+
+    ``mcgyvr run`` journals under ``~/.local/state`` by default and files every
+    row under the session that typed it (:mod:`mcgyvr.session`); this test
+    process itself runs inside a developer's session, with a real HOME. Left
+    alone, a test that drives ``run`` would write into the developer's state
+    dir as the developer's own session. So HOME is a fresh directory, the
+    session variables the process inherited are cleared, and one synthetic
+    Claude session — a transcript that exists, so the resolver is satisfied
+    the honest way — stands in. A test about what happens with *no* session
+    clears it again (``tests/livejournal.clean_env``). The directory is not
+    ``tmp_path``: a test that indexes or lists its own ``tmp_path`` must not
+    find a home in it.
+    """
+    home = tmp_path_factory.mktemp("home")
+    project = home / ".claude" / "projects" / "-pytest"
+    project.mkdir(parents=True, exist_ok=True)
+    (project / "pytest.jsonl").write_text('{"type": "session"}\n', encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    for name in ("PI_SESSION_FILE", "CLAUDE_CONFIG_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "pytest")
+
+
 def _load_instruments() -> types.ModuleType:
     cached = sys.modules.get("instruments")
     if cached is not None:

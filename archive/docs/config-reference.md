@@ -52,6 +52,7 @@ them rather than documenting them and hoping:
 | `budgets` | block | no | — | The ceilings that bound one task's cost. |
 | `breadth` | block | no | — | How many answers one attempt asks for. Separate from `budgets` because breadth is not a ceiling: it is what a single attempt spends, and every budget in this file still counts that attempt once. |
 | `cleanup` | block | no | — | What may be fixed without asking a model. |
+| `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
 
 ## `sources`
 
@@ -167,3 +168,11 @@ What may be fixed without asking a model.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `enabled` | boolean | no | `false` | Reformat a change the gate rejected only on formatting, and judge it again, instead of spending an attempt asking a model to insert a space. The formatter is the one the gate already checks with, so a cleanup produces the shape the format rung asks for rather than a second opinion about it, and it costs no tokens by construction. Off by default because it rewrites a file after the gate has spoken about it: the bytes that come back are not the bytes the worker sent, and an operator reading a diff should have said yes to that. Nothing else is ever tidied — a lint code, a failed acceptance command or a rung that could not say what bar it applied leaves the change exactly as the worker wrote it. |
+
+## `journal`
+
+Where mcgyvr keeps its own record of what it dispatched.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every dispatching run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. This is mcgyvr's own record and never lands in the repository a run works on. `mcgyvr run --record DIR` overrides it for one run. Read it back with `tools/live/review.py DIR`. |
