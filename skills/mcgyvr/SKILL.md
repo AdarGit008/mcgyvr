@@ -270,6 +270,18 @@ what the run came to. The file's keys:
   `--commit` the accepted file is left in the working tree, uncommitted.
 - `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,
   `journal`, `exit_code`.
+- `copy_errors` — a `--record DIR` copy that could not be written, and
+  why. Empty on almost every run. mcgyvr's own record under `journal`
+  is complete whatever this says; a copy is not a sink and its failure
+  does not stop a run.
+
+Every run is journaled under the config's `journal.dir` and nothing on
+the command line moves it — that one directory is where every run there
+has ever been can be counted, which is the only thing that makes the
+record worth keeping. Deterministic runs are there too, as a row naming
+the program that did the work with `tier: deterministic` and no prompt
+or reply beside it. `--record DIR` adds a complete second copy for your
+own use; `--result PATH` says where you read the result file.
 
 Exit codes: 0 accepted, 1 not accepted or error, 2 usage (including no
 session to file the run under).

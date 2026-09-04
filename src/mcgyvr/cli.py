@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import os
 import sys
 import textwrap
 from collections.abc import Iterable, Sequence
@@ -749,17 +750,35 @@ def _run(args: argparse.Namespace) -> int:
     it would drop the linter's own account of what it will not fix, which is
     printed here instead.
 
-    **Every dispatching run is journaled, and every run writes a result.** The
-    journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl`` with
-    the prompts and replies content-addressed under ``blobs/`` — where
-    ``journal.dir`` is the config's and ``--record DIR`` overrides it for one
-    run. The orchestrator is the session that typed the command
+    **Every run is journaled, in one place, and nothing a caller passes moves
+    it.** The journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl``
+    with the prompts and replies content-addressed under ``blobs/`` and each
+    run's result under ``results/``. It exists to be *compounded*: how often the
+    floor finishes a task type on its own, what a rung costs per accepted
+    change, whether escalating paid are all questions about every run there has
+    been, and they can only be asked where every run is. ``--record DIR`` used
+    to answer them by making them unanswerable — it replaced this directory
+    rather than adding to it, so a run made with it was recorded there and
+    nowhere else, in a directory that is usually inside a repository, and
+    repositories are cloned, go stale and are thrown away. It is now a complete
+    second copy for the caller's own reading, and a copy that cannot be written
+    is a line on stderr rather than the end of a run mcgyvr has already
+    recorded. ``--result PATH`` is the same bargain for the result file: it
+    says where the *caller* reads it, and ours keeps its own.
+
+    **Both paths, not only the dispatching one.** A deterministic contract
+    sends nothing to a model and used to journal nothing with it, which left
+    the corpus holding only the runs the floor did not handle — and the ratio
+    that justifies having a deterministic tier at all cannot be computed from a
+    table missing its denominator. The floor writes one row naming the program
+    that did the work, with ``tier: deterministic`` beside it and no prompt,
+    reply or token counts, because it made no dispatch and must not look as
+    though it did.
+
+    The orchestrator is the session that typed the command
     (:mod:`mcgyvr.session`), resolved in :func:`main` before anything here runs,
-    so a row can be followed back to the conversation. The result
-    (:mod:`mcgyvr.result`) is one JSON file under ``results/`` and the only
-    thing printed about it is its path: the caller reads a file, not the
-    scrollback. Only a dispatch is journaled — a deterministic contract
-    dispatches nothing — but every run, both paths, leaves a result.
+    so a row can be followed back to the conversation. The only thing printed
+    about the result is its path: the caller reads a file, not the scrollback.
     """
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
@@ -804,11 +823,38 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {config_error}", file=sys.stderr)
         return 1
 
-    if args.record is not None:
-        journal_dir = Path(args.record)
-    else:
-        configured = config.get("journal.dir") if config is not None else None
-        journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    # Ours, and nothing a caller passes moves it. The journal is a corpus to be
+    # compounded — how often the floor finishes a task type on its own, what a
+    # rung costs per accepted change, whether escalating paid — and every one of
+    # those questions is about *all* the runs there have been. `--record DIR`
+    # used to replace this directory rather than add to it, so a run made with
+    # it was recorded there and nowhere else, and the corpus was whatever was
+    # left over with no way to know which runs were missing. The directory a
+    # caller passes is usually inside the repository they are working in, and
+    # repositories are cloned, go stale and are thrown away: a record kept only
+    # there has a half-life.
+    configured = config.get("journal.dir") if config is not None else None
+    journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    # Theirs, for their own reading. A complete copy — every line, every blob,
+    # the result file — so `tools/live/review.py DIR` reads it exactly as it
+    # reads ours, and a failure to write one is a note rather than the end of a
+    # run we have already recorded correctly (`Recording.copy_failed`).
+    #
+    # A copy of the corpus *into* the corpus is dropped rather than made, and
+    # this is not a nicety: the copy is written to `<dir>/<orchestrator>.jsonl`
+    # by the same name ours is, so naming our own directory appended every line
+    # to the same file twice. `fold` survives that — a re-logged attempt id
+    # supersedes — but `tools/live/index.py` appends a table row per attempt
+    # record and would have counted one dispatch as two, which is exactly the
+    # kind of quiet double-count a corpus is kept in order not to have.
+    # Resolved before comparing, because `--record .` and an absolute
+    # `journal.dir` are the same directory spelled two ways.
+    asked = Path(args.record).expanduser() if args.record is not None else None
+    mirrors = (
+        (asked,)
+        if asked is not None and asked.resolve() != journal_dir.resolve()
+        else ()
+    )
 
     # One stamp names the run: the result file carries it and every journal
     # row keys on it, so a re-run of the same contract is a second run and
@@ -816,11 +862,11 @@ def _run(args: argparse.Namespace) -> int:
     # settled here rather than at the end because the note below states it,
     # and a note may not state something the run has not decided.
     stamp = run_stamp()
-    where = (
-        Path(args.result)
-        if args.result
-        else result_path(journal_dir, contract.id, stamp)
-    )
+    # Ours is written whatever else is; `--result` says where the *caller*
+    # reads it, and that is the path the `result:` line names. The two are the
+    # same file when the flag is off, and `write` is called once for it.
+    keep = result_path(journal_dir, contract.id, stamp)
+    where = Path(args.result) if args.result else keep
 
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config_error is not None and not bare_install:
@@ -869,29 +915,74 @@ def _run(args: argparse.Namespace) -> int:
         journal=str(journal_dir),
     )
 
-    recording: Recording | None = None
-    if not contract.is_deterministic:
-        try:
-            recording = Recording(
-                path=journal_dir / f"{session.orchestrator}.jsonl",
-                orchestrator=session.orchestrator,
-                run=stamp,
-                session_file=session.session_file,
-            )
-        except ValueError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 1
-        print(f"journal: {recording.path}", file=sys.stderr)
+    # Every run, both paths. A deterministic contract dispatches nothing and
+    # used to journal nothing with it, which left the corpus holding only the
+    # runs the floor did *not* handle — and "how often does the floor finish
+    # this task type on its own" is the ladder's whole economic case and cannot
+    # be computed from a table missing its denominator.
+    try:
+        recording = Recording(
+            path=journal_dir / f"{session.orchestrator}.jsonl",
+            orchestrator=session.orchestrator,
+            run=stamp,
+            session_file=session.session_file,
+            mirrors=mirrors,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    # Asked before the run rather than discovered during it. Our sink raises on
+    # an unwritable path, by the rule `telemetry` opens with — but raising from
+    # inside a dispatch reached the caller as a traceback with no `result:`
+    # line, and a directory that is a file or a path with no permission is an
+    # operator error that is free to state now and expensive to read later. A
+    # full disk part-way through is still a raise; this is the cheap half.
+    try:
+        journal_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(
+            f"error: the journal at {journal_dir} cannot be written ({exc}). "
+            f"Every run is recorded there, so this one is refused rather than "
+            f"run unrecorded. Fix the directory, or set `journal.dir` to one "
+            f"that works.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"journal: {recording.path}", file=sys.stderr)
 
     if contract.is_deterministic:
-        code = _floor(args, contract, repo, report)
+        code = _floor(args, contract, repo, report, recording=recording)
     else:
         assert config is not None  # refused above when it could not load
         code = _climb(args, contract, repo, config, recording=recording, report=report)
 
     report.exit_code = code
+    # Said once, at the end, and not per row: a directory that is a file fails
+    # identically for every line of the run, and a thousand notes about one
+    # mistake is a way of not reporting it. The result file carries it too, so
+    # a caller who reads the file rather than the scrollback — which is what the
+    # skill tells them to do — learns their copy is short.
+    for mirror, why in recording.copy_errors.items():
+        report.copy_errors[str(mirror)] = why
+        print(
+            f"error: the copy of this run's journal asked for in {mirror} could "
+            f"not be written ({why}). mcgyvr's own record under {journal_dir} is "
+            f"complete and the run was not stopped for it.",
+            file=sys.stderr,
+        )
+
+    # Serialised once and copied, never written twice. `write` stamps
+    # ``finished`` from the clock on each call, so a second call would produce
+    # a file that differs from the first in the one field a reader would use to
+    # tell two runs apart — and these are one run. The caller's path is the one
+    # written, because it is what the `result:` line names and what they would
+    # notice missing; ours is a copy of those exact bytes.
+    failed = where
     try:
         written = write(where, report)
+        if keep != where:
+            failed = keep
+            _copy(written, keep)
     except OSError as exc:
         # Said, not thrown. By now the run has happened — an accepted change
         # is already in the working tree — and a traceback with no `result:`
@@ -899,43 +990,112 @@ def _run(args: argparse.Namespace) -> int:
         # names the path, the reason and what the run came to is the whole of
         # what the file would have said that matters.
         print(
-            f"error: the result could not be written to {where}: {exc}. "
+            f"error: the result could not be written to {failed}: {exc}. "
             f"The run came to {report.outcome}"
             + (f": {report.detail}" if report.detail else "")
             + f" (exit {code}).",
             file=sys.stderr,
         )
         return 1
+
+    # Their copy of the result, under their copy of the journal, so a directory
+    # `--record` named is a whole journal and not a journal missing its answers.
+    # Not fatal, for the reason none of their copies are: ours is written.
+    for mirror in mirrors:
+        try:
+            _copy(written, result_path(mirror, contract.id, stamp))
+        except OSError as exc:
+            print(
+                f"error: this run's result could not be copied into {mirror}: "
+                f"{exc}. It is at {written}.",
+                file=sys.stderr,
+            )
     print(f"result: {written}")
     return code
 
 
+def _copy(source: Path, target: Path) -> None:
+    """The same bytes at a second path, whole or not at all.
+
+    Through a staging name and :func:`os.replace`, as
+    :func:`~mcgyvr.result.write` does, so a reader never opens a half-written
+    result — and the same tidy-up, so a copy that failed part-way leaves no
+    ``.part`` for the next reader to wonder about.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staging = target.with_name(f".{target.name}.part")
+    try:
+        staging.write_bytes(source.read_bytes())
+        os.replace(staging, target)
+    except OSError:
+        staging.unlink(missing_ok=True)
+        raise
+
+
+class FloorStoppedError(Exception):
+    """The floor's program did not do the work, and said why.
+
+    A local exception rather than an early ``return``, because the run has to
+    reach :func:`~mcgyvr.telemetry.observe`'s ``except`` to leave a row. A
+    ``ruff`` that is not installed, and one that exits 2 on a config it cannot
+    load, are both things the corpus has to be able to count — "the floor could
+    not" is an answer to "how often does the floor finish this on its own", and
+    a run that returned quietly was indistinguishable from one that never
+    happened.
+    """
+
+
 def _floor(
-    args: argparse.Namespace, contract: Contract, repo: Path, report: RunResult
+    args: argparse.Namespace,
+    contract: Contract,
+    repo: Path,
+    report: RunResult,
+    *,
+    recording: Recording,
 ) -> int:
-    """Run a deterministic contract's program and gate what it did."""
+    """Run a deterministic contract's program, gate what it did, and record it.
+
+    **The floor journals, on the same terms as a dispatch.** It writes no
+    prompt and no reply because it sent none, but it is a run, and a corpus
+    that held only the runs the floor did *not* handle could not answer the one
+    question the deterministic tier exists to raise: how much work finishes
+    here, for free and in one attempt, rather than on a model. That is a ratio,
+    and its denominator was the missing half.
+
+    The row is written before the gate and corrected after it, which is the
+    dispatch's own shape: :func:`~mcgyvr.telemetry.observe` records that the
+    work happened, and the correction records how it was judged and where it
+    went. ``rung`` is the program that did it — ``ruff``, not a model — and
+    ``tier`` is ``deterministic`` beside it, so one query can count a floor run
+    against a ladder attempt without the two vocabularies colliding in one
+    column.
+
+    What is deliberately outside the row: opening the sandbox. It is the
+    floor's ``pool.bind`` — the step before the work that decides whether there
+    is any — and the ladder does not journal a dispatch it could not make
+    either. What is counted is what ran.
+    """
     from mcgyvr.deterministic import tool_steps
     from mcgyvr.drive import DriveError, gate_workspace, run_tool_step
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.telemetry import correct, observe
 
     if args.record is not None:
-        # Two clauses, because `--result` decides between them. The floor
-        # dispatches nothing, so the recorded directory never gets a journal
-        # row; the result file is the only thing that would land there, and
-        # `--result` moves that one file out of the directory entirely. Under
-        # both flags the directory gets nothing at all, and saying it "gets
-        # this run's result file" contradicted the note two lines above and the
-        # `result:` line at the end of the same run.
-        gets = (
-            f"{args.record} gets no journal row — and --result sends the one "
-            f"file this run does write to {args.result} instead, so nothing "
-            f"lands there at all"
-            if args.result
-            else f"{args.record} gets this run's result file and no journal row"
-        )
+        # It dispatches nothing and journals all the same, which is the whole
+        # of what changed here: the directory gets this run's row, its verdict
+        # and a copy of its result — a journal `tools/live/review.py` reads —
+        # and mcgyvr's own copy under `journal.dir` gets the same, because that
+        # is the one that has to hold every run there has ever been.
+        # One clause under both flags, which is new: the note used to have to
+        # branch on `--result`, because the result file was the only thing the
+        # recorded directory ever got and `--result` took it away, leaving the
+        # note describing a directory that ended up empty. A copy is now a
+        # whole journal — row, verdict, result — so there is one true sentence.
         print(
             f"note: {contract.id} is a {contract.task_type!r} contract and runs "
-            f"on the deterministic floor; it dispatches nothing, so {gets}"
+            f"on the deterministic floor; it dispatches nothing, so the copy in "
+            f"{args.record} is a row naming the program that did the work and a "
+            f"copy of this run's result, with no prompt or reply beside them"
         )
     steps = tool_steps(contract)
     if not steps:
@@ -951,40 +1111,86 @@ def _floor(
     except SandboxError as exc:
         return _error(report, str(exc))
 
+    # One row per run, not per step: `tool_steps` returns one step or none —
+    # "a tool fails identically on retry" — and a key per step would invent a
+    # breadth the floor does not have.
+    rung = steps[0].tool.program or contract.task_type
+    attempt_id = recording.attempt_id(contract.id, rung, 1)
+
+    def work() -> GateResult:
+        for note in sandbox.notes:
+            print(f"note: {note}")
+        for step in steps:
+            outcome = run_tool_step(step, sandbox)
+            print(f"  $ {' '.join(step.argv)}")
+            if not outcome.ran:
+                raise FloorStoppedError(str(outcome.environment_issue))
+            assert outcome.result is not None  # `ran` is `result is not None`
+            if not outcome.performed:
+                raise FloorStoppedError(
+                    (outcome.result.stderr or outcome.result.stdout).strip()
+                )
+            if not outcome.ok:
+                # Reported, not swallowed. The tool did what its type
+                # guarantees and is telling us what it will not do — for
+                # `lint_fix`, "a diagnostic the linter will not fix itself
+                # is explicitly out of scope for this type". Printing it is
+                # how the operator learns there is work left that no
+                # deterministic rung is going to take, and it goes to stdout
+                # beside the command rather than to stderr, because nothing
+                # here failed.
+                left = (outcome.result.stdout or outcome.result.stderr).strip()
+                print(
+                    f"  note: {step.tool.program} applied its fixes and left "
+                    f"what it does not fix (exit {outcome.result.exit_code}); "
+                    f"the gate judges what remains:"
+                )
+                print(textwrap.indent(left, "    "))
+        return gate_workspace(contract, sandbox)
+
     try:
         with sandbox:
-            for note in sandbox.notes:
-                print(f"note: {note}")
-            for step in steps:
-                outcome = run_tool_step(step, sandbox)
-                print(f"  $ {' '.join(step.argv)}")
-                if not outcome.ran:
-                    return _error(report, str(outcome.environment_issue))
-                assert outcome.result is not None  # `ran` is `result is not None`
-                if not outcome.performed:
-                    detail = (outcome.result.stderr or outcome.result.stdout).strip()
-                    return _error(report, detail)
-                if not outcome.ok:
-                    # Reported, not swallowed. The tool did what its type
-                    # guarantees and is telling us what it will not do — for
-                    # `lint_fix`, "a diagnostic the linter will not fix itself
-                    # is explicitly out of scope for this type". Printing it is
-                    # how the operator learns there is work left that no
-                    # deterministic rung is going to take, and it goes to stdout
-                    # beside the command rather than to stderr, because nothing
-                    # here failed.
-                    left = (outcome.result.stdout or outcome.result.stderr).strip()
-                    print(
-                        f"  note: {step.tool.program} applied its fixes and left "
-                        f"what it does not fix (exit {outcome.result.exit_code}); "
-                        f"the gate judges what remains:"
-                    )
-                    print(textwrap.indent(left, "    "))
-            result = gate_workspace(contract, sandbox)
-            return _report_run(args, contract, sandbox, repo, result, report)
-    except DriveError as exc:
-        return _error(report, str(exc))
-    except SandboxError as exc:
+            result = observe(
+                work,
+                path=recording.path,
+                attempt_id=attempt_id,
+                orchestrator=recording.orchestrator,
+                rung=rung,
+                task_type=contract.task_type,
+                session_file=recording.session_file,
+                tier=DETERMINISTIC,
+                mirrors=recording.mirrors,
+                on_copy_error=recording.copy_failed,
+            )
+            return _report_run(
+                args,
+                contract,
+                sandbox,
+                repo,
+                result,
+                report,
+                recording=recording,
+                attempt_id=attempt_id,
+            )
+    except (FloorStoppedError, DriveError, SandboxError) as exc:
+        # The row exists by now — `observe` writes one on both of its paths,
+        # and everything caught here is raised from inside it or from the
+        # sandbox closing around it — so the verdict is written the way a
+        # climb's raised attempt's is. An uncorrected row reads as a run that
+        # died before anything could judge it, and "the floor could not" is an
+        # answer the corpus is being kept in order to count: a tier that
+        # finishes nothing on this machine is a different fact from a tier
+        # nobody asked. `open_sandbox` failing is caught above instead, where
+        # there is no row yet and a correction would be an orphan.
+        correct(
+            path=recording.path,
+            attempt_id=attempt_id,
+            outcome=RAISED,
+            detail=str(exc),
+            orchestrator=recording.orchestrator,
+            mirrors=recording.mirrors,
+            on_copy_error=recording.copy_failed,
+        )
         return _error(report, str(exc))
 
 
@@ -1231,6 +1437,8 @@ def _report_climb(
                     ),
                     detail=_correction_detail(step, each, subject),
                     orchestrator=recording.orchestrator,
+                    mirrors=recording.mirrors,
+                    on_copy_error=recording.copy_failed,
                 )
         report.attempts.append(
             AttemptResult(
@@ -1343,9 +1551,23 @@ def _report_run(
     repo: Path,
     result: GateResult,
     report: RunResult,
+    *,
+    recording: Recording | None = None,
+    attempt_id: str | None = None,
 ) -> int:
-    """Print the gate verdict, and commit it when asked."""
+    """Print the gate verdict, correct the row it is about, and commit when asked.
+
+    ``recording`` and ``attempt_id`` arrive from :func:`_floor`, its only
+    caller, which writes one row per run and needs it corrected the way
+    :func:`_report_climb` corrects a climb's: the row says the program ran, and
+    the correction says how the gate judged it. They are optional because the
+    correcting is the only part of this a caller can decline, not because there
+    is a second caller that declines it — a climb never comes through here, it
+    reports itself and reaches :func:`_commit` directly.
+    """
     from mcgyvr.deliver import Accepted, DeliveryError
+    from mcgyvr.route import Verdict
+    from mcgyvr.telemetry import correct
 
     print(f"\n{contract.id}: gate {'accepted' if result.accepted else 'rejected'}")
     for finding in result.findings:
@@ -1353,6 +1575,20 @@ def _report_run(
     for issue in result.environment_issues:
         print(f"  ? {issue}")
     report.findings = [str(finding) for finding in result.findings]
+    if recording is not None and attempt_id is not None:
+        # The gate's word for it, in the gate's vocabulary — the same two words
+        # a climb's attempts are corrected with, so one query counts them
+        # together. `_commit` appends a second correction on top saying where
+        # the work went, and the folded row is that later one.
+        correct(
+            path=recording.path,
+            attempt_id=attempt_id,
+            outcome=(Verdict.PASSED if result.accepted else Verdict.FAILED).value,
+            detail="\n".join(str(finding) for finding in result.findings),
+            orchestrator=recording.orchestrator,
+            mirrors=recording.mirrors,
+            on_copy_error=recording.copy_failed,
+        )
     if not result.accepted:
         report.outcome = "rejected"
         return 1
@@ -1364,7 +1600,16 @@ def _report_run(
     # Only now: `accepted` tells the caller the change is in the target, and
     # until the bytes are bound there is nothing to put there.
     report.outcome = "accepted"
-    return _commit(args, contract, repo, sandbox.source_base_commit(), bound, report)
+    return _commit(
+        args,
+        contract,
+        repo,
+        sandbox.source_base_commit(),
+        bound,
+        report,
+        recording=recording,
+        attempt_id=attempt_id,
+    )
 
 
 #: The words :func:`_commit` appends to the accepted attempt's row. The
@@ -1375,6 +1620,15 @@ DELIVERY_REFUSED = "delivery_refused"
 #: The word for an attempt that raised instead of judging: the row says
 #: ``ok: false`` already, and the correction says the climb counted it.
 RAISED = "error"
+
+#: The ``tier`` a floor row carries. The catalog's own name for the family that
+#: runs programs rather than models (``catalog().families`` — ``deterministic``,
+#: ``local``, ``api``), so a floor row and a ladder row, whose tier is
+#: ``family_of(...).name``, are comparable in one column rather than in two
+#: vocabularies that happen to look alike. It is a literal and not a lookup
+#: because the floor has no rung to ask the catalog about, and
+#: ``test_a_floor_run_is_in_the_corpus_too`` holds the two together.
+DETERMINISTIC = "deterministic"
 
 
 def _commit(
@@ -1422,6 +1676,8 @@ def _commit(
                 outcome=outcome,
                 detail=detail,
                 orchestrator=recording.orchestrator,
+                mirrors=recording.mirrors,
+                on_copy_error=recording.copy_failed,
             )
 
     if not args.commit:
@@ -2332,10 +2588,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=_named_path,
         metavar="DIR",
         help=(
-            "journal this run under DIR instead of the config's `journal.dir`: "
-            "one line per attempt appended to DIR/<ID>.jsonl, the prompt and "
-            "the reply kept content-addressed under DIR/blobs/, the result "
-            "under DIR/results/. Read it back with tools/live/review.py DIR"
+            "also journal this run under DIR, as a complete second copy for "
+            "your own reading: DIR/<ID>.jsonl, DIR/blobs/, DIR/results/, read "
+            "back with tools/live/review.py DIR. This does not move mcgyvr's "
+            "own record, which is always written under the config's "
+            "`journal.dir` so that every run there has ever been can be counted "
+            "in one place; a copy that cannot be written is reported and does "
+            "not stop the run"
         ),
     )
     run.add_argument(
@@ -2356,9 +2615,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=_named_path,
         metavar="PATH",
         help=(
-            "where to write this run's result file (default: "
-            "<journal dir>/results/<contract>-<utc stamp>.json). The path is "
-            "printed as `result: PATH`; the caller reads the file"
+            "where *you* read this run's result file (default: <journal "
+            "dir>/results/<contract>-<utc stamp>.json). The path is printed as "
+            "`result: PATH`; the caller reads the file. mcgyvr keeps its own "
+            "copy under the journal directory either way"
         ),
     )
     run.set_defaults(func=_run)

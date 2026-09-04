@@ -49,7 +49,7 @@ already settles in one place a second place to be settled differently.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -306,6 +306,36 @@ class Recording:
     #: orchestrator is one (:mod:`mcgyvr.session`). Written on every row so an
     #: attempt can be followed back to the conversation that produced it.
     session_file: Path | None = None
+    #: Directories the caller asked for a copy of this journal in (``--record``).
+    #: Every line and every blob goes to each of them as well as to
+    #: :attr:`path`, which is mcgyvr's own and is the one that cannot move: the
+    #: journal is a corpus to be compounded, and a run recorded only in a
+    #: directory somebody chose for that run is a run no later question reaches.
+    #: A copy lives in a repository as often as not, and repositories are
+    #: cloned, go stale and are thrown away.
+    mirrors: tuple[Path, ...] = ()
+    #: The first failure seen per copy, kept rather than raised. Mutable inside
+    #: a frozen record on purpose: the failures are learned while the run is
+    #: happening and are reported once when it ends, and the alternative — a
+    #: line per row — is thousands of lines about one full disk.
+    #:
+    #: Out of ``__eq__`` and ``__hash__`` (``compare=False``), which a frozen
+    #: dataclass generates from its fields: two recordings pointed at the same
+    #: sink are the same recording whatever has since gone wrong with somebody's
+    #: copy, and a dict field left in would make this class unhashable the day
+    #: anything put one in a set.
+    copy_errors: dict[Path, str] = field(default_factory=dict, compare=False)
+
+    def copy_failed(self, mirror: Path, exc: BaseException) -> None:
+        """Keep the first thing that went wrong with one copy, and carry on.
+
+        Handed to :mod:`mcgyvr.telemetry` as its ``on_copy_error``. First and
+        not last, because the first is the one that says what happened: a
+        directory that is a file fails identically on every row after the
+        first, and the last failure of a thousand identical ones is no more
+        informative than the first and arrives with the wrong timestamp.
+        """
+        self.copy_errors.setdefault(mirror, f"{type(exc).__name__}: {exc}")
 
     def __post_init__(self) -> None:
         if not self.orchestrator.strip():
@@ -619,6 +649,14 @@ def worker_attempt(
                     endpoint=endpoint,
                     task_type=contract.task_type,
                     session_file=recording.session_file,
+                    # The tier this rung belongs to, so one query can count a
+                    # ladder dispatch against a floor run: the floor's rows
+                    # carry a program's name in `rung` and `deterministic`
+                    # here, and without the second field the two vocabularies
+                    # share a column and nothing tells them apart.
+                    tier=family.name,
+                    mirrors=recording.mirrors,
+                    on_copy_error=recording.copy_failed,
                 )
             finally:
                 # In `finally`, because the row is written on both of

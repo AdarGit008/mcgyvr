@@ -74,12 +74,16 @@ def test_the_second_draws_unwritable_blob_still_names_the_second_draw(
     real_store = telemetry._store
     stored = 0
 
-    def store_until_the_disk_fills(path: Path, data: bytes) -> str:
+    def store_until_the_disk_fills(path: Path, data: bytes, **kept: object) -> str:
+        # `**kept` is the caller's copies (`mirrors`, `on_copy_error`): this
+        # fake stands in for the store, not for the copying, and a signature
+        # that refused them would fail the dispatch with a `TypeError` rather
+        # than with the full disk the test is about.
         nonlocal stored
         stored += 1
         if stored == LAST_BLOB_OF_THE_SECOND_DRAW:
             raise OSError(28, "No space left on device")
-        return real_store(path, data)
+        return real_store(path, data, **kept)  # type: ignore[arg-type]
 
     monkeypatch.setattr(telemetry, "_store", store_until_the_disk_fills)
     repo = lj.make_repo(tmp_path / "repo")

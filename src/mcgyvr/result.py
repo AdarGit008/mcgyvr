@@ -85,6 +85,14 @@ class RunResult:
     branch: str = ""
     handoff: str = ""
     exit_code: int | None = None
+    #: A copy of the journal the caller asked for (``--record DIR``) that could
+    #: not be written, and why — keyed by the directory. Empty on almost every
+    #: run. It is here and not only on stderr because the skill tells a caller
+    #: to read this file rather than the scrollback, and "your copy is short"
+    #: is exactly the kind of fact a caller reading the file would otherwise
+    #: never learn. mcgyvr's own record under ``journal`` is complete whatever
+    #: this says: a copy is not a sink, and its failure does not stop a run.
+    copy_errors: dict[str, str] = field(default_factory=dict)
     started: float = field(default_factory=time.time)
     finished: float | None = None
 

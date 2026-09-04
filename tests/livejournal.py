@@ -179,6 +179,35 @@ def run_args(contract: Path, repo: Path, config: Path, *extra: str) -> list[str]
     ]
 
 
+def rows(journal_dir: Path) -> list[dict[str, Any]]:
+    """Every folded record of every journal directly under ``journal_dir``.
+
+    Folded rather than raw, because what a test of the corpus asks is what a
+    reader of it sees: :func:`~mcgyvr.telemetry.fold` is the only reader
+    ``tools/live`` has, and a row's outcome is a correction until it folds.
+    """
+    from mcgyvr.telemetry import fold
+
+    found: list[dict[str, Any]] = []
+    for path in sorted(journal_dir.glob("*.jsonl")):
+        found.extend(fold(path=path))
+    return found
+
+
+def blobs(journal_dir: Path) -> set[str]:
+    """The digests in a journal directory's blob store."""
+    store = journal_dir / "blobs"
+    if not store.is_dir():
+        return set()
+    return {p.name for p in store.iterdir() if not p.name.startswith(".")}
+
+
+def results(journal_dir: Path) -> list[Path]:
+    """The result files a journal directory holds."""
+    where = journal_dir / "results"
+    return sorted(where.glob("*.json")) if where.is_dir() else []
+
+
 def result_path(stdout: str) -> Path:
     """The result file a run announced, from its ``result: <path>`` line."""
     lines = [line for line in stdout.splitlines() if line.startswith("result: ")]
