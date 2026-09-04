@@ -30,10 +30,17 @@ chose. So only the implicit probe is silent.
 The note is one line, and every fact on it is true of the run that printed it.
 A YAML parse error is several lines long and used to spill out of its own
 prefix, so the reason is flattened into the note rather than printed under it.
-And what the note adds — where this run's answer went — is read off the result
-destination itself, which ``--result`` moves and which is the only thing that
-lands at all on the floor, where nothing is dispatched and so nothing is
-journaled.
+And what the note adds — where this run's answer is going — is read off the
+result destination itself, which ``--result`` moves and which is the only thing
+that lands at all on the floor, where nothing is dispatched and so nothing is
+journaled. Going, not gone: the note is printed before the run, so arrival is
+not yet a fact it has, and a ``--result`` that cannot be written left it
+reporting a file that was never created.
+
+That destination is stated twice when ``--record`` is also given, and the
+floor's own note went on naming the recorded directory as the one that gets the
+result file after ``--result`` had moved it elsewhere. One run may not print two
+notes that disagree, so the second reads the same flag as the first.
 """
 
 from __future__ import annotations
@@ -43,7 +50,12 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import JOURNAL_DIR_DEFAULT, ConfigFileError, ConfigMissingError
+from mcgyvr.config import (
+    CONFIG_PATH_ENV,
+    JOURNAL_DIR_DEFAULT,
+    ConfigFileError,
+    ConfigMissingError,
+)
 from mcgyvr.config import load as load_config
 from tests import livejournal as lj
 
@@ -243,10 +255,18 @@ def test_a_named_config_that_is_absent_is_not_told_to_name_one(
 ) -> None:
     """The remedy differs with who chose the path, so the sentence does too.
 
-    "Run ``mcgyvr init``, or set ``$MCGYVR_CONFIG`` to point at an existing
-    file" is the answer to "I have no config". Said to someone who has just set
-    exactly that variable to a path with a typo in it, it is advice to do again
-    what did not work.
+    Three situations, not two. "Run ``mcgyvr init``, or set
+    ``$MCGYVR_CONFIG`` to point at an existing file" is the answer to "I have
+    no config", and it is right only where neither has been done. Said to
+    someone who has just set exactly that variable, it is advice to do again
+    what did not work — and what they are one step from is ``init``, which
+    writes to that very path. Said to someone who typed ``--config``, only a
+    different path helps.
+
+    This used to lump the last two together and answer both with "name one
+    that is there", which on a fresh install with the documented
+    ``export MCGYVR_CONFIG=...`` in place withholds the one command that fixes
+    it.
     """
     absent = tmp_path / "nowhere" / "mcgyvr.yaml"
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
@@ -255,16 +275,19 @@ def test_a_named_config_that_is_absent_is_not_told_to_name_one(
     with pytest.raises(ConfigMissingError) as bare:
         load_config()
     assert "mcgyvr init" in str(bare.value)
+    assert CONFIG_PATH_ENV in str(bare.value)
 
-    monkeypatch.setenv("MCGYVR_CONFIG", str(absent))
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(absent))
     with pytest.raises(ConfigMissingError) as from_env:
         load_config()
-    assert "mcgyvr init" not in str(from_env.value)
+    assert "mcgyvr init" in str(from_env.value)
+    assert CONFIG_PATH_ENV not in str(from_env.value)
     assert str(absent) in str(from_env.value)
 
     with pytest.raises(ConfigMissingError) as from_flag:
-        load_config(absent, named=True)
-    assert "mcgyvr init" not in str(from_flag.value)
+        load_config(absent)
+    assert "Name one that is there" in str(from_flag.value)
+    assert CONFIG_PATH_ENV not in str(from_flag.value)
     assert str(absent) in str(from_flag.value)
 
 
@@ -381,3 +404,77 @@ def test_a_broken_config_is_still_fatal_where_a_ladder_is_needed(
     assert code == 1, f"stdout: {out.out}\nstderr: {out.err}"
     assert str(config) in out.err, out.err
     assert sent == []
+
+
+@needs_ruff
+def test_the_two_notes_one_run_prints_agree_about_where_the_result_went(
+    tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One run, two notes, one destination.
+
+    The floor prints a second note when ``--record`` names a journal dir it
+    will not journal to, and that note went on saying the named directory
+    "gets this run's result file" after ``--result`` had moved the one file
+    that is written out of it entirely. Two notes two lines apart then told the
+    operator two different places, and only one of them matched the ``result:``
+    line under both.
+    """
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_text(UNPARSEABLE, encoding="utf-8")
+    record = tmp_path / "record"
+    elsewhere = tmp_path / "elsewhere" / "answer.json"
+
+    code = lj.main(
+        floor_args(
+            contract,
+            repo,
+            "--config",
+            str(config),
+            "--record",
+            str(record),
+            "--result",
+            str(elsewhere),
+        )
+    )
+
+    out = capsys.readouterr()
+    assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
+    assert lj.result_path(out.out) == elsewhere
+    about_record = [line for line in notes(out.out) if str(record) in line]
+    assert len(about_record) == 1, out.out
+    assert "gets this run's result file" not in about_record[0], about_record[0]
+    assert str(elsewhere) in about_record[0], about_record[0]
+    assert not record.exists(), sorted(record.rglob("*"))
+
+
+@needs_ruff
+def test_the_note_says_where_the_result_is_sent_not_that_it_arrived(
+    tmp_path: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The note is printed before the run, so it may not report the run's end.
+
+    Its destination is settled by then and its arrival is not: ``--result`` at
+    a path that cannot be written leaves the run exiting 1 with no file, after
+    a note that had already said the result landed there. The note keeps the
+    fact it actually has — where this run is sending its answer — and the
+    failure is stderr's to report.
+    """
+    repo = misformatted(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
+    config = tmp_path / "mcgyvr.yaml"
+    config.write_text(UNPARSEABLE, encoding="utf-8")
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+
+    code = lj.main(
+        floor_args(contract, repo, "--config", str(config), "--result", str(blocked))
+    )
+
+    out = capsys.readouterr()
+    assert code == 1, f"stdout: {out.out}\nstderr: {out.err}"
+    assert "could not be written" in out.err, out.err
+    note = config_note(out.out, config)
+    assert str(blocked) in note, note
+    assert "lands at" not in note, note

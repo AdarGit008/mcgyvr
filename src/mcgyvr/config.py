@@ -63,12 +63,11 @@ class ConfigMissingError(ConfigFileError):
     operator wrote and this run could not use is something to say out loud.
 
     Silence is the *default location's* to earn, not this class's. Whether the
-    path was one the caller named is what :func:`named_config_path` and
-    ``load(..., named=...)`` answer, and a caller that treats this exception as
-    "nothing to mention" has to ask: nobody chose the empty default, whereas
-    ``--config`` or ``$MCGYVR_CONFIG`` pointing at nothing is a typo, and a run
-    that goes quietly on under some other directory is the operator's problem
-    to discover later.
+    path was one the caller named is what :func:`named_config_path` answers,
+    and a caller that treats this exception as "nothing to mention" has to ask:
+    nobody chose the empty default, whereas ``--config`` or ``$MCGYVR_CONFIG``
+    pointing at nothing is a path somebody typed, and a run that goes quietly
+    on under some other directory is the operator's problem to discover later.
     """
 
 
@@ -1110,8 +1109,9 @@ def named_config_path() -> Path | None:
     fact about the *caller*, not about the file, and it survives the file not
     being there — which is the only moment it matters. A default location with
     nothing in it is a bare install; ``$MCGYVR_CONFIG`` pointing at nothing is
-    a typo, and the two want different sentences. Callers that take a path from
-    a flag already know the answer and do not need this.
+    a variable set ahead of the ``init`` that fills it, or a typo, and the two
+    want different sentences. Callers that take a path from a flag already know
+    the answer and do not need this.
     """
     override = os.environ.get(CONFIG_PATH_ENV)
     return Path(override).expanduser() if override else None
@@ -1180,32 +1180,58 @@ def parse(text: str, path: Path | None = None) -> Config:
     return Config(path=path, data=data, sources=sources, ladder=ladder)
 
 
-def load(path: Path | None = None, *, named: bool = False) -> Config:
+def _absent_remedy(path: Path | None) -> str:
+    """What to do about a config that is not there, given who chose the path.
+
+    Three situations wearing one exception. ``path`` is what the caller named
+    on purpose — a ``--config`` flag — or ``None`` when nobody did and
+    :func:`load` located the file itself; in that second case
+    ``$MCGYVR_CONFIG`` may still have named it, and that is a third answer
+    again.
+
+    Nobody named one: both remedies are open and both are said. The variable
+    named it: ``mcgyvr init`` writes to exactly that path — ``_init`` resolves
+    its destination the same way and its help says so — so a fresh install
+    with the documented ``export MCGYVR_CONFIG=...`` already done is one
+    command from finished, and answering it with "set the variable" is advice
+    to do again what has just been done. A flag named it: the file typed is not
+    there, and only a different path helps.
+    """
+    if path is not None:
+        return "Name one that is there."
+    if named_config_path() is not None:
+        return (
+            "`mcgyvr init` writes there: run it to generate one, or "
+            "name a file that already exists."
+        )
+    return (
+        f"Run `mcgyvr init` to generate one, or set {CONFIG_PATH_ENV} "
+        f"to point at an existing file."
+    )
+
+
+def load(path: Path | None = None) -> Config:
     """Load and validate the config file.
 
-    ``named`` says the caller was pointed at this path on purpose — a
-    ``--config`` flag, say — rather than handed the default location to probe.
-    It changes nothing about the load and one thing about a file that is not
-    there: "run `mcgyvr init`, or set ``$MCGYVR_CONFIG``" is the answer to
-    having no config, and telling someone who has just typed a path with a typo
-    in it to type a path is telling them to do again what did not work. A
-    caller that passed no path at all gets the answer from the environment,
-    which is right for every command that resolves the file itself.
+    ``path`` is one the caller was pointed at on purpose — a ``--config`` flag,
+    say. ``None`` means nobody named one, and this locates the file rather than
+    the caller: that is not a convenience, it is the only way the remedy for a
+    file that is not there can be right. Which of ``$MCGYVR_CONFIG``, a flag,
+    or nothing at all put this path here is a fact about the *caller*, and a
+    caller that resolves the path itself has thrown it away before this
+    function can be asked. It was a ``named`` keyword the caller passed
+    alongside a resolved path, and four of the five commands that load a config
+    never passed it — so each shipped "set ``$MCGYVR_CONFIG``" to operators
+    whose ``$MCGYVR_CONFIG`` was the reason they were reading the message.
     """
+    chosen = path
     if path is None:
-        named = named_config_path() is not None
         path = config_path()
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigMissingError(
-            f"no config at {path}. "
-            + (
-                "Name one that is there."
-                if named
-                else f"Run `mcgyvr init` to generate one, or set "
-                f"{CONFIG_PATH_ENV} to point at an existing file."
-            )
+            f"no config at {path}. {_absent_remedy(chosen)}"
         ) from exc
     except UnicodeDecodeError as exc:
         # Caught by name, not by family. It is a `ValueError`, so neither
