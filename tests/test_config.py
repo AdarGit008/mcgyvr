@@ -430,8 +430,24 @@ def test_an_unset_environment_variable_names_the_variable(
 # --- file handling --------------------------------------------------------
 
 
-def test_a_missing_file_says_how_to_get_one(tmp_path: Path) -> None:
+def test_a_missing_file_says_how_to_get_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two answers, and which is right turns on who chose the path.
+
+    This asked for "run ``mcgyvr init``" from a path passed straight in, and
+    got it because that was the answer to everything — including to a caller
+    who had named a file and mistyped it. The remedy now follows the naming
+    (see ``tests/test_a_command_told_where_the_config_is_...``), so the
+    generative half is asserted where it belongs: on the location nobody named.
+    """
+    monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
     with pytest.raises(ConfigFileError, match="mcgyvr init"):
+        load()
+    with pytest.raises(ConfigFileError, match="Name one that is there"):
         load(tmp_path / "absent.yaml")
 
 

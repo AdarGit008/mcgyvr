@@ -57,7 +57,13 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
-from mcgyvr.escalate import Judgement, RetryNotes, judge, required_policy
+from mcgyvr.escalate import (
+    DispatchRaisedError,
+    Judgement,
+    RetryNotes,
+    judge,
+    required_policy,
+)
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
@@ -335,6 +341,43 @@ class Recording:
         return row if draw == 0 else f"{row}#{draw}"
 
 
+@dataclass
+class _Dispatches:
+    """What one attempt has sent so far, kept so a raise can say it.
+
+    Mutable and deliberately so: it is written by the dispatch that is
+    happening and read by the ``except`` that ends the attempt, which is the
+    one moment the two facts still exist together. Everything below has thrown
+    them away — an exception carries no draw — and everything above can only
+    infer them, which is what :class:`~mcgyvr.escalate.DispatchRaisedError` exists
+    to stop.
+
+    ``rows`` is how many draws left a journal row. It is counted around
+    :func:`~mcgyvr.telemetry.observe`, which writes exactly one record per
+    call — the answering row or the failing one — and never where a dispatch
+    was merely intended: ``pool.bind``, the prompt and the row's id are all
+    read *before* the count, so a draw that died on its way to ``observe``
+    left no row and is not counted as one. A driver built without a
+    ``recording`` reaches ``observe`` never and counts nothing, which is the
+    same rule and not an exception to it: this is rows written, not draws
+    taken. The single case the count cannot see is the journal file itself
+    being unwritable, which loses every row of the run and not one of them.
+
+    ``in_flight`` is the draw whose dispatch is happening right now: set as
+    ``observe`` is entered and cleared the moment it returns. It is ``None``
+    everywhere else, which is deliberately three-quarters of an attempt — the
+    gate that judges a draw, the preparation of the next one, the cleanup and
+    the verifier all run between dispatches and none of them is a dispatch's
+    fault. ``rows`` says which of those moments it was: ``0`` is before the
+    first dispatch, and anything more is past draw ``rows - 1`` — a reading
+    that belongs to a run with a journal, since a run without one has no rows
+    to count and says ``0`` for every moment.
+    """
+
+    rows: int = 0
+    in_flight: int | None = None
+
+
 def worker_attempt(
     config: Config,
     pool: SourceMap,
@@ -361,6 +404,17 @@ def worker_attempt(
     after each failure, so an attempt that raises cannot leave the next one
     judging a tree it did not produce — a ``finally`` that tidies up is one
     exception away from not having run.
+
+    **Everything it raises comes out as
+    :class:`~mcgyvr.escalate.DispatchRaisedError`,** carrying the cause and two
+    facts nothing above can recover: how many of this attempt's draws left a
+    journal row, and which one it was in when it died — or that it died where
+    no dispatch was, before the first draw or after the last. Only the function
+    making the dispatches holds either; the caller that corrects those rows
+    used to read them back off the journal, which named a dispatch that had
+    answered whenever the raise came from the gate, the cleanup or the
+    verifier. :func:`~mcgyvr.escalate.escalate` unwraps the envelope, so the
+    operator is still told what died and not what carried the news.
 
     **The retry note comes from the last judgement on the same rung — the last
     one, not the last one that had something to say.**
@@ -458,6 +512,22 @@ def worker_attempt(
     tidying = bool(config.get("cleanup.enabled", False))
 
     def attempt(this: Try) -> Judgement:
+        # The whole of this function's failure path, in one place. Everything
+        # `_attempt` can raise is turned into the one sentence only a driver
+        # can say — what breadth it was asked for, how many of its dispatches
+        # left a journal row, and which one it was in — because the caller that
+        # corrects those rows has no other way to learn it and used to count
+        # them and guess. `climb` unwraps this into `_AttemptError`, so nothing
+        # downstream sees the envelope.
+        made = _Dispatches()
+        try:
+            return _attempt(this, made)
+        except Exception as exc:
+            raise DispatchRaisedError(
+                exc, draws=draws, rows=made.rows, draw=made.in_flight
+            ) from exc
+
+    def _attempt(this: Try, made: _Dispatches) -> Judgement:
         family = family_of(config, this.rung.name)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
@@ -477,6 +547,11 @@ def worker_attempt(
                         f"rung {this.rung.name!r} is on source {endpoint.source!r}, "
                         f"which is cooling down: {cooling[endpoint.source]}"
                     ),
+                    # The breadth this rung would have spent, and the nothing
+                    # it did spend: a decline costs no dispatch, so it wrote no
+                    # row, and the dataclass default claimed one.
+                    draws=draws,
+                    rows=0,
                 )
 
         def send(draw: int) -> Completion:
@@ -510,25 +585,57 @@ def worker_attempt(
                 return completion
 
             if recording is None:
-                return once()
-            return observe(
-                once,
-                path=recording.path,
-                attempt_id=recording.attempt_id(
-                    contract.id, this.rung.name, this.attempt, draw
-                ),
-                orchestrator=recording.orchestrator,
-                rung=this.rung.name,
-                model=this.rung.model,
-                # The journal exists to be reviewed, and a review needs the
-                # prompt as the runner sent it and the endpoint that served
-                # it. Bound here, before the attempt, so the row of an attempt
-                # that raised still says what it asked and where.
-                messages=_as_sent(prompt),
-                endpoint=pool.bind(this.rung.name).base_url,
-                task_type=contract.task_type,
-                session_file=recording.session_file,
+                # No journal, so no rows to count and none to correct. The
+                # dispatch still happened, and `in_flight` still names it, so a
+                # raise from inside it is still reported as this draw's.
+                made.in_flight = draw
+                completion = once()
+                made.in_flight = None
+                return completion
+            # The journal exists to be reviewed, and a review needs the prompt
+            # as the runner sent it and the endpoint that served it. Read here,
+            # before the attempt, so the row of an attempt that raised still
+            # says what it asked and where.
+            #
+            # Read *before* the count, too, along with the row's id: each of
+            # these can raise, and a dispatch that never reached `observe` left
+            # no row for a correction to land on. What is counted is rows, not
+            # intentions.
+            endpoint = pool.bind(this.rung.name).base_url
+            messages = _as_sent(prompt)
+            attempt_id = recording.attempt_id(
+                contract.id, this.rung.name, this.attempt, draw
             )
+            made.in_flight = draw
+            try:
+                completion = observe(
+                    once,
+                    path=recording.path,
+                    attempt_id=attempt_id,
+                    orchestrator=recording.orchestrator,
+                    rung=this.rung.name,
+                    model=this.rung.model,
+                    messages=messages,
+                    endpoint=endpoint,
+                    task_type=contract.task_type,
+                    session_file=recording.session_file,
+                )
+            finally:
+                # In `finally`, because the row is written on both of
+                # `observe`'s paths: it promises exactly one record per call,
+                # the answering row or the failing one, and a dispatch that
+                # left none is one no caller can tell from a dispatch nobody
+                # made. So the count is of rows on disk and not of intentions
+                # — which is what it has to be, or the correction for the last
+                # one names a row nobody wrote.
+                made.rows = draw + 1
+            # The dispatch is over and its row is down. Everything the attempt
+            # does from here — gating this draw, preparing the next, the
+            # cleanup, the verifier — is between dispatches, and a raise out of
+            # any of it belongs to no dispatch. Leaving this draw's number
+            # standing is what charged a gate's death to the draw it judged.
+            made.in_flight = None
+            return completion
 
         def sample(draw: int) -> str | Unusable:
             completion = send(draw)
@@ -583,10 +690,26 @@ def worker_attempt(
             # No retry note: the note vocabulary is the gate's findings, and
             # nothing was gated. What the next attempt would need to hear is the
             # refusal itself, which `detail` carries to the caller's report.
+            #
+            # `rows` is stated here for the same reason it is stated on the
+            # branch below: `send` wrote one journal row per dispatch, and the
+            # caller corrects `range(rows)` of them. Left at the dataclass
+            # default this said one draw about an attempt that had just paid
+            # for `draws`, so every suffixed row kept no outcome at all — the
+            # rows of the case breadth is most on trial for. It is read off
+            # `made`, which counted the rows that went down, rather than off
+            # the breadth, which is what was asked for: with no `recording`
+            # there is no journal and the honest count is none. The verdict is
+            # carried on draw 0 because no draw earned it: nothing was gated,
+            # the refusal names every draw, and 0 is both the row a reader
+            # reaches first and the only draw an unconfigured install has.
             judgement = Judgement(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
                 detail=str(exc),
+                draw=0,
+                draws=draws,
+                rows=made.rows,
             )
         else:
             gate, bound = picked.gate, picked.winner
@@ -624,13 +747,21 @@ def worker_attempt(
                     )
                 ),
             )
-            # Which draw the verdict is about, and how many were paid for: one
-            # journal row per draw was written above, keyed by the *dispatch*
-            # index `send` was called with. `picked.chosen` counts candidates
-            # and skips the draws that produced none, so under an unreadable
-            # first reply it named the wrong row; `dispatched` is the index
-            # the row was keyed by.
-            judgement = replace(judgement, draw=picked.dispatched, draws=len(picked))
+            # Which draw the verdict is about, how many were asked for, and how
+            # many left a row: one journal row per draw was written above,
+            # keyed by the *dispatch* index `send` was called with.
+            # `picked.chosen` counts candidates and skips the draws that
+            # produced none, so under an unreadable first reply it named the
+            # wrong row; `dispatched` is the index the row was keyed by. An
+            # attempt that reached a verdict finished its draws, so with a
+            # journal `made.rows == len(picked) == draws` here — the numbers
+            # are stated separately anyway, because what makes them equal is
+            # this branch and not the fields. `made.rows` is the one of the
+            # three that stays true without a journal: a driver built with no
+            # `recording` wrote nothing, and `rows` is what was written.
+            judgement = replace(
+                judgement, draw=picked.dispatched, draws=draws, rows=made.rows
+            )
             if gate.accepted:
                 # The winner's own binding, minted by `best_of` one line after
                 # its gate and one line before its reset — in the tree the

@@ -19,7 +19,14 @@ from mcgyvr import __version__
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
-from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, Config, ConfigError
+from mcgyvr.config import (
+    CONFIG_FILENAME,
+    CONFIG_PATH_ENV,
+    Config,
+    ConfigError,
+    ConfigMissingError,
+    named_config_path,
+)
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
@@ -36,6 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted
     from mcgyvr.gate import GateResult
     from mcgyvr.result import RunResult
+    from mcgyvr.route import Attempted
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
@@ -69,9 +77,11 @@ def _capabilities(args: argparse.Namespace) -> int:
 
 
 def _config(args: argparse.Namespace) -> int:
-    path = Path(args.path) if args.path else resolve_config_path()
+    # `None` rather than a resolved path when no argument was given: a config
+    # that is not there has a different remedy depending on who named it, and
+    # resolving here throws that away — see `config.load`.
     try:
-        config = load_config(path)
+        config = load_config(Path(args.path) if args.path else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -104,9 +114,8 @@ def _pool(args: argparse.Namespace) -> int:
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import family_of
 
-    path = Path(args.path) if args.path else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(Path(args.path) if args.path else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -200,9 +209,8 @@ def _catalog(args: argparse.Namespace) -> int:
     config = None
     unservable: set[str] = set()
     if args.against is not False:
-        path = Path(args.against) if args.against else resolve_config_path()
         try:
-            config = load_config(path)
+            config = load_config(Path(args.against) if args.against else None)
         except ConfigError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
@@ -778,9 +786,18 @@ def _run(args: argparse.Namespace) -> int:
     # bare — a default the reference states, not one invented here.
     config: Config | None = None
     config_error: ConfigError | None = None
-    path = Path(args.config) if args.config else resolve_config_path()
+    # `--config` or nothing, handed on as it came: the loader locates the file
+    # when nobody named one, because the remedy for a config that is not there
+    # turns on who chose the path and a caller that resolves it first has
+    # already lost that. What stays here is the question the loader cannot
+    # answer — whether anybody named a path at all — because that decides
+    # whether this run says anything: a default location with nothing in it is
+    # the supported bare install, and a path someone typed is not.
+    chosen = Path(args.config) if args.config else None
+    named = chosen if chosen is not None else named_config_path()
+    path = named if named is not None else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(chosen)
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
@@ -795,8 +812,53 @@ def _run(args: argparse.Namespace) -> int:
 
     # One stamp names the run: the result file carries it and every journal
     # row keys on it, so a re-run of the same contract is a second run and
-    # not a second copy of the first (`Recording.run`).
+    # not a second copy of the first (`Recording.run`). The destination is
+    # settled here rather than at the end because the note below states it,
+    # and a note may not state something the run has not decided.
     stamp = run_stamp()
+    where = (
+        Path(args.result)
+        if args.result
+        else result_path(journal_dir, contract.id, stamp)
+    )
+
+    bare_install = isinstance(config_error, ConfigMissingError) and named is None
+    if config_error is not None and not bare_install:
+        # Said, not swallowed. The floor runs without a config on purpose, so
+        # this is not an error — but a config that is *there* and cannot be
+        # used is not the same thing as none, and silence made the two
+        # identical: whatever `journal.dir` that file names is not the
+        # directory this run is about to write under, and the operator's only
+        # clue was a result file somewhere they had configured away from. So
+        # the note names the file, what is wrong with it, and where the answer
+        # went instead.
+        #
+        # It names the result file and not the journal dir because the journal
+        # dir is not where this run lands. Only the floor ever reaches this
+        # line — a climb without a ladder was refused above — the floor
+        # dispatches nothing, and nothing is journaled; and `--result` moves
+        # the one file that is written out of that directory entirely. A note
+        # exists to add a true fact.
+        #
+        # The reason is flattened first: a YAML parse error is several lines,
+        # and the tail of a multi-line message printed under a `note:` prefix
+        # is not part of the note as far as anything reading this output is
+        # concerned.
+        #
+        # "sends its result to", not "its result lands at": this line is
+        # printed before the run, so the destination is all it has. Where the
+        # result *arrives* is not settled until `write` below returns, and
+        # `--result` at an unwritable path leaves the note having reported a
+        # file that was never created. Moving the note after the write would
+        # trade a false tense for a warning that arrives after the whole run,
+        # and after the failures that end it early — so the note keeps its
+        # place and states the fact it actually has.
+        reason = " ".join(str(config_error).split())
+        print(
+            f"note: {path} is not usable ({reason}); this run goes on without "
+            f"a config and sends its result to {where}"
+        )
+
     report = RunResult(
         contract=contract.id,
         task_type=contract.task_type,
@@ -828,11 +890,6 @@ def _run(args: argparse.Namespace) -> int:
         code = _climb(args, contract, repo, config, recording=recording, report=report)
 
     report.exit_code = code
-    where = (
-        Path(args.result)
-        if args.result
-        else result_path(journal_dir, contract.id, stamp)
-    )
     try:
         written = write(where, report)
     except OSError as exc:
@@ -862,10 +919,23 @@ def _floor(
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
 
     if args.record is not None:
+        # Two clauses, because `--result` decides between them. The floor
+        # dispatches nothing, so the recorded directory never gets a journal
+        # row; the result file is the only thing that would land there, and
+        # `--result` moves that one file out of the directory entirely. Under
+        # both flags the directory gets nothing at all, and saying it "gets
+        # this run's result file" contradicted the note two lines above and the
+        # `result:` line at the end of the same run.
+        gets = (
+            f"{args.record} gets no journal row — and --result sends the one "
+            f"file this run does write to {args.result} instead, so nothing "
+            f"lands there at all"
+            if args.result
+            else f"{args.record} gets this run's result file and no journal row"
+        )
         print(
             f"note: {contract.id} is a {contract.task_type!r} contract and runs "
-            f"on the deterministic floor; it dispatches nothing, so {args.record} "
-            f"gets this run's result file and no journal row"
+            f"on the deterministic floor; it dispatches nothing, so {gets}"
         )
     steps = tool_steps(contract)
     if not steps:
@@ -1098,9 +1168,33 @@ def _report_climb(
     attempt saying where the work went. A rung that declined dispatched
     nothing and has no row to correct. An attempt that drew more than once
     (``breadth.draws``) wrote one row per draw: the verdict lands on the draw
-    it is about and every other draw of that attempt is ``failed``, because
-    ``best_of`` stops at the first draw the gate accepts and everything it
-    drew before that was refused.
+    it is about and every other draw of that attempt is ``failed``. ``best_of``
+    does not stop early — it draws all of them, gates each and ranks the lot —
+    so the rows beside the verdict's are draws whose work did not land, which
+    is what ``failed`` says about them here whatever their own gate thought of
+    them on its own.
+
+    **An attempt that raised accounts for every row it wrote, and the result
+    names the one it died in.** The entry's ``rows`` is how many rows the
+    attempt wrote — what is iterated here — its ``draws`` is the breadth it was
+    asked for, and its ``draw`` is the one that raised; all three are stated by
+    the driver (:class:`~mcgyvr.escalate.DispatchRaisedError`) because nothing
+    else knows: an exception carries no draw, and reading it back off the
+    journal is inference that mis-attributes twice over — a raise after the
+    draws lands on a dispatch that answered, and a draw whose row was lost
+    shifts every draw down one. A raise before the first dispatch wrote no
+    rows, so nothing is corrected; a correction appended for a row nobody wrote
+    is an orphan :func:`~mcgyvr.telemetry.fold` returns and the live view
+    drops.
+
+    **Every one of those rows is ``error``, including the draws that answered
+    before the raise.** They are not ``failed``: ``failed`` is a gate's word,
+    and while the earlier draws may well have been gated, the *attempt* they
+    belong to reached no verdict at all — writing one on them would report a
+    judgement that never happened, the same coinage this project refuses for a
+    draw that produced nothing. What distinguishes the row that actually raised
+    is not a different word but ``attempt_id``: the result names it, and only
+    it, and names nothing when the raise was no dispatch's.
 
     The accepted attempt is the last entry of the history: ``route.climb``
     returns the moment an attempt passes, right after recording it.
@@ -1116,23 +1210,26 @@ def _report_climb(
         for finding in step.findings:
             print(f"    ✗ {finding}")
         attempt_id: str | None = None
+        # The draw the entry is about: the one the gate judged, or the one the
+        # attempt died in. `None` comes off a raised entry only, and says no
+        # dispatch of the attempt is the subject — so there is no row for the
+        # result to name, and every row it wrote is corrected all the same.
+        subject = step.draw
         if recording is not None and step.verdict is not Verdict.DECLINED:
-            attempt_id = recording.attempt_id(
-                contract.id, step.rung, step.attempt, step.draw
-            )
-            for draw in range(step.draws):
-                losing = draw != step.draw
+            if subject is not None:
+                attempt_id = recording.attempt_id(
+                    contract.id, step.rung, step.attempt, subject
+                )
+            for each in range(step.rows):
                 correct(
                     path=recording.path,
                     attempt_id=recording.attempt_id(
-                        contract.id, step.rung, step.attempt, draw
+                        contract.id, step.rung, step.attempt, each
                     ),
-                    outcome=Verdict.FAILED.value if losing else word,
-                    detail=(
-                        f"a losing draw; the attempt's verdict is on draw {step.draw}"
-                        if losing
-                        else "\n".join(step.findings) or step.detail
+                    outcome=(
+                        word if step.raised or each == subject else Verdict.FAILED.value
                     ),
+                    detail=_correction_detail(step, each, subject),
                     orchestrator=recording.orchestrator,
                 )
         report.attempts.append(
@@ -1145,6 +1242,7 @@ def _report_climb(
                 attempt_id=attempt_id,
                 draw=step.draw,
                 draws=step.draws,
+                rows=step.rows,
             )
         )
 
@@ -1185,11 +1283,57 @@ def _report_climb(
         report,
         recording=recording,
         attempt_id=(
-            recording.attempt_id(contract.id, landed.rung, landed.attempt, landed.draw)
+            recording.attempt_id(
+                contract.id,
+                landed.rung,
+                landed.attempt,
+                # An accepted attempt was judged, and a judged entry names the
+                # draw it was judged on. Only a raised entry leaves this unset,
+                # and a raise is never the last entry of a `Delivered`.
+                landed.draw or 0,
+            )
             if recording is not None
             else None
         ),
     )
+
+
+def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
+    """What the correction on one draw's row says, in this caller's vocabulary.
+
+    Four sentences, because a row is corrected for four different reasons and a
+    reader of the journal has only this line to tell them apart: the draw the
+    verdict is about carries the gate's findings; a draw that lost to it says
+    which draw won; the draw an attempt raised in carries the raise; and a draw
+    of a raised attempt that is not that one says so and says where the raise
+    was instead — on another draw, or past the last draw that answered.
+
+    That last sentence is why the raised rows are not simply left alone. An
+    attempt accounts for every row it wrote: a suffixed row that keeps ``ok:
+    true`` and no outcome is indistinguishable from a run that died before it
+    could be corrected, which is precisely the reading breadth's own telemetry
+    must not invite.
+
+    It used to read "after its draws", which was true of one raise and false of
+    two others wearing the same ``draw: null``: a gate that died on draw 0 of
+    three, and a draw whose ``pool.bind`` raised before it reached a row, both
+    left draws still to come. ``rows`` is what tells them apart — this line is
+    only ever written about a row that exists, so ``rows - 1`` is the last draw
+    that answered — and naming that draw is true of all three, the raise after
+    the last draw included.
+    """
+    if step.raised:
+        if each == subject:
+            return step.detail
+        where = (
+            f"on draw {subject}"
+            if subject is not None
+            else f"after draw {step.rows - 1} answered"
+        )
+        return f"the attempt raised {where}; no verdict was reached for this draw"
+    if each == subject:
+        return "\n".join(step.findings) or step.detail
+    return f"a losing draw; the attempt's verdict is on draw {subject}"
 
 
 def _report_run(
@@ -1387,9 +1531,8 @@ def _emit(args: argparse.Namespace) -> int:
     Nothing is started. See :mod:`mcgyvr.emit` — this hands the operator a
     launch spec and stops.
     """
-    path = Path(args.config) if args.config else resolve_config_path()
     try:
-        config = load_config(path)
+        config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
@@ -1700,6 +1843,49 @@ def _architectures() -> dict[str, str]:
     }
 
 
+def _named_path(value: str) -> str:
+    """A path argument's value, refused when it names nothing.
+
+    Argparse's own ``type``, so the refusal is the subparser's usage error —
+    exit 2, with the argument's name in it — and arrives before a contract, a
+    repository or a config file is opened. That is the same seam and the same
+    code as the blank ``--orchestrator`` (:func:`_name_the_writer`), because it
+    is the same mistake: an argument given a value that names nothing.
+
+    **A blank is not "the caller named none", and reading it that way is silent
+    in every case.** Every path here is optional and every one of them resolves
+    a default when it is absent, so the empty string — falsy, and equal to
+    ``Path('.')`` once it reaches :class:`~pathlib.Path` — slid into the absent
+    branch and the run went on under a default nobody chose. ``--record ''``
+    was the worst of them, because it is tested with ``is not None``: the
+    journal, its blobs and the result file landed in the *current directory*,
+    which is the repository the 2026-09-03 ruling exists to keep clean, and the
+    ``result:`` line came out relative to a working directory the caller may
+    not still be in. ``--config ''`` and ``--result ''`` were quieter and the
+    same shape.
+
+    What puts a blank there is not somebody typing two quotes. It is
+    ``--record "$JOURNAL_DIR"`` with the variable unset, which is the shape
+    every wrapper script has, and a wrapper is exactly the caller who will not
+    read the scrollback to notice.
+
+    Whitespace counts as blank, as it does for the orchestrator id. A directory
+    named three spaces is legal on this filesystem and is not what anybody
+    meant; the value is otherwise handed on untouched, because a path with a
+    space at either end is legal too and stripping it would be this function
+    choosing a different file than the caller named.
+    """
+    if not value.strip():
+        raise argparse.ArgumentTypeError(
+            "a blank value is not a path. It is what an unset variable leaves "
+            "behind, and a blank used to read as 'nobody named a path' — so "
+            "the command resolved a default the caller never chose, which for a "
+            "directory is the current one. Pass a path, or leave the argument "
+            "off to take the default on purpose."
+        )
+    return value
+
+
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Resolve who is writing the journal, or refuse at parse time.
 
@@ -1715,11 +1901,27 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
     An id containing ``/`` is refused here too, because the id *is* the file
     name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write ``DIR/agent/a.jsonl``
     with its blobs under ``DIR/agent/blobs``, where an index over ``DIR`` finds
-    neither. A blank id is left to :class:`~mcgyvr.drive.Recording`, which has
-    refused one since it was written.
+    neither.
+
+    A blank id is refused here as well, and here is the only place that can do
+    it once. It used to be left to :class:`~mcgyvr.drive.Recording`, which
+    refuses one — but a deterministic contract never constructs a ``Recording``,
+    so ``--orchestrator ''`` ran to completion and left a result file naming
+    nobody, and on the ladder path the refusal arrived as exit 1 after a config
+    and a contract had been read, where the documented answer to a run with no
+    session is exit 2. The environment's session does not stand in for it: a
+    caller who typed the flag was naming the writer, and an empty value is that
+    caller getting the name wrong rather than declining to give one.
     """
     from mcgyvr.session import SessionError, resolve
 
+    if args.orchestrator is not None and not args.orchestrator.strip():
+        run.error(
+            "--orchestrator was given an empty id: a row that cannot say which "
+            "orchestrator produced it is the hole the field exists to close "
+            "(§9). Pass an ID, or leave the flag off to be named by the session "
+            "that typed this command."
+        )
     if args.orchestrator is not None and "/" in args.orchestrator:
         run.error(
             f"--orchestrator {args.orchestrator!r} cannot contain '/': the id "
@@ -1765,6 +1967,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
+        type=_named_path,
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     conf.set_defaults(func=_config)
@@ -1777,6 +1980,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
+        type=_named_path,
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     pool.add_argument(
@@ -1812,6 +2016,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=False,
         const=None,
+        type=_named_path,
         metavar="CONFIG",
         help=(
             "resolve against a configured ladder and name the types it cannot "
@@ -1875,6 +2080,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     emi.add_argument(
         "--config",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
@@ -2086,6 +2292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--config",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=(
             "ladder to climb when the contract is not deterministic. Which rung "
@@ -2097,6 +2304,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--repo",
         default=".",
+        type=_named_path,
         metavar="PATH",
         help="the git repository the work is done against (default: .)",
     )
@@ -2121,6 +2329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--record",
         default=None,
+        type=_named_path,
         metavar="DIR",
         help=(
             "journal this run under DIR instead of the config's `journal.dir`: "
@@ -2144,6 +2353,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--result",
         default=None,
+        type=_named_path,
         metavar="PATH",
         help=(
             "where to write this run's result file (default: "

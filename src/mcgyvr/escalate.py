@@ -324,10 +324,11 @@ class Judgement:
     reviewer_failed: bool = False
     retry: RetryNotes | None = None
     detail: str = ""
-    #: Which draw the verdict is about and how many were made; see
-    #: :class:`~mcgyvr.route.Result`.
+    #: Which draw the verdict is about, how many were asked for, and how many
+    #: left a journal row; see :class:`~mcgyvr.route.Result`.
     draw: int = 0
     draws: int = 1
+    rows: int = 1
 
     def as_result(self) -> Result:
         """The routing verdict, for :func:`~mcgyvr.route.climb`, with the findings.
@@ -342,6 +343,7 @@ class Judgement:
             findings=findings,
             draw=self.draw,
             draws=self.draws,
+            rows=self.rows,
         )
 
 
@@ -940,6 +942,72 @@ class Halted:
         return False
 
 
+class DispatchRaisedError(Exception):
+    """An attempt function's own account of the dispatch it died on.
+
+    An attempt that asks its rung for several candidates (``breadth.draws``)
+    makes one dispatch per draw and one journal row per dispatch. When it
+    raises instead of judging, two facts decide which of those rows the failure
+    belongs on, and *only the attempt function holds either*: how many of its
+    draws reached a row, and which one it was in when it died. A plain `raise`
+    carries neither, and every party downstream can do no better than infer.
+
+    Inference is what this class exists to end. The rows were counted once —
+    take the last one, "the dispatch in flight" — and that sentence is false
+    twice over: for a raise *after* the draws (a verifier, a cleanup, a gate)
+    it pins the failure on a dispatch that answered, and for a draw whose row
+    was lost (an unwritable blob store, a torn last line) it shifts every draw
+    down one and lands on the dispatch that answered. Both are the bug the
+    counting was written to fix.
+
+    So the raise site says it, in three numbers that are three different
+    quantities and never stand in for one another:
+
+    ``draws`` is the breadth the attempt was configured for (``breadth.draws``)
+    and means that on every entry there is, whatever the verdict. It used to be
+    the rows on a raised entry and the breadth on a judged one, so a two-draw
+    run that raised after one row reported ``draws: 1`` and read as a run
+    configured for one draw.
+
+    ``rows`` is how many of those draws left a journal row — ``0`` for a raise
+    before the first dispatch — and it is what a caller correcting the journal
+    iterates. It is never larger than ``draws``, and is smaller when the
+    attempt died part-way or when the driver keeps no journal at all: it counts
+    what was written, not what was drawn, and a driver holding no ``recording``
+    writes nothing whatever it draws.
+
+    ``draw`` is the row the attempt died *in*, or ``None`` when no row of its
+    own is the culprit. ``None`` is not one case but two, and ``rows`` tells
+    them apart without a third field: ``rows == 0`` is a raise before any
+    dispatch, and ``rows > 0`` is a raise past draw ``rows - 1``, which had
+    answered and left its row — the gate that judged it, the preparation of the
+    next draw, or everything after the last one. That is what lets a reader be
+    told where the attempt died rather than only that no dispatch owns it.
+
+    A driver that raises anything else says nothing, and is read as having
+    asked for nothing and written nothing.
+    """
+
+    def __init__(
+        self,
+        cause: BaseException,
+        *,
+        draws: int,
+        rows: int,
+        draw: int | None = None,
+    ) -> None:
+        super().__init__(str(cause))
+        #: What actually went wrong. This class is an envelope, and the
+        #: operator is told what died and not what carried the news.
+        self.cause = cause
+        #: The breadth the attempt was configured for.
+        self.draws = draws
+        #: How many of the attempt's draws left a journal row.
+        self.rows = rows
+        #: The row the attempt died in, or ``None`` for a raise no row owns.
+        self.draw = draw
+
+
 class _AttemptError(Exception):
     """An attempt function raised instead of returning a judgement.
 
@@ -950,13 +1018,24 @@ class _AttemptError(Exception):
     carried together so :func:`escalate` can name them in the terminal
     :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
     tell a dead socket from a bug it owns.
+
+    **The draw comes from the raise site or not at all.** A driver that wrapped
+    its failure in :class:`DispatchRaisedError` has stated the breadth it asked
+    for, how many of its dispatches left a row and which one it died in; this
+    seam unwraps it, so ``cause`` is the failure itself and the envelope is
+    never what the operator reads. A driver that raised anything else has said
+    nothing, and nothing is what is recorded: no breadth, no rows and no draw.
     """
 
     def __init__(self, rung: str, attempt: int, cause: BaseException) -> None:
+        stated = cause if isinstance(cause, DispatchRaisedError) else None
         super().__init__(rung)
         self.rung = rung
         self.attempt = attempt
-        self.cause = cause
+        self.cause = stated.cause if stated is not None else cause
+        self.draws = stated.draws if stated is not None else 0
+        self.rows = stated.rows if stated is not None else 0
+        self.draw = stated.draw if stated is not None else None
 
 
 def escalate(
@@ -1119,6 +1198,20 @@ def escalate(
                         verdict=Verdict.FAILED,
                         detail=detail,
                         raised=True,
+                        # Copied from the raise site and never inferred here.
+                        # `draws` is the breadth the attempt asked for and
+                        # means that on every entry; `rows` is how many of
+                        # those draws left a journal row, which is what the
+                        # caller corrects; `draw` is the one it died in, or
+                        # `None` when no row of it is the culprit. The
+                        # dataclass defaults said "draw 0 of 1" — not "unknown"
+                        # but a claim — and the caller believed it, so under
+                        # `breadth.draws > 1` the error went onto a dispatch
+                        # that had answered. See `DispatchRaisedError` for why a
+                        # driver is the only party that can say any of them.
+                        draw=raised.draw,
+                        draws=raised.draws,
+                        rows=raised.rows,
                     )
                 )
                 return Halted(
