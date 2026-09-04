@@ -22,7 +22,8 @@ rebuilt cannot be stale. Running it twice yields the same rows.
 **One row per folded attempt.** ``fold`` applies corrections latest-wins in
 file order and returns orphan corrections — a correction naming no attempt —
 verbatim after the attempts. Here a correction is a column (``outcome``,
-``detail``) and not a row, and an orphan is dropped: ``fold`` surfaces it for
+``detail``, ``applied_by`` — the winning verdict, its words and the writer who
+gave it) and not a row, and an orphan is dropped: ``fold`` surfaces it for
 a reader of the journal, but it is not an attempt, and a table of attempts
 that listed it would count a mistake as a dispatch.
 
