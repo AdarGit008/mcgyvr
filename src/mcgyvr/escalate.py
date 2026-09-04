@@ -950,6 +950,16 @@ class _AttemptError(Exception):
     carried together so :func:`escalate` can name them in the terminal
     :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
     tell a dead socket from a bug it owns.
+
+    **It carries no draw, and that is the answer rather than an omission.** An
+    attempt that asks its rung for several candidates (``breadth.draws``) makes
+    one dispatch per draw, and the exception says nothing about which of them
+    was in flight — or whether any had been sent at all, since a sandbox reset,
+    a bind or a prompt that will not build all raise before the first one. The
+    attempt function is the only party that knows, and it has no way to say it
+    through a `raise`. So this seam records the rung and the attempt, which it
+    does know, and :func:`escalate` marks the history entry as naming no
+    dispatch (``draws=0``) rather than defaulting to the first.
     """
 
     def __init__(self, rung: str, attempt: int, cause: BaseException) -> None:
@@ -1119,6 +1129,21 @@ def escalate(
                         verdict=Verdict.FAILED,
                         detail=detail,
                         raised=True,
+                        # A raise is not a draw, and this entry names none.
+                        # `draw`/`draws` say which dispatch of an attempt a
+                        # verdict is about and how many were paid for, and both
+                        # are facts the exception did not carry: it arrived in
+                        # place of a judgement, and nothing here can tell a rung
+                        # that died on its second draw from one that died before
+                        # it sent the first. The dataclass defaults said "draw 0
+                        # of 1", which is not "unknown" but a claim, and the
+                        # caller that corrects the journal from this history
+                        # believed it — under `breadth.draws > 1` it wrote the
+                        # error onto the row of a dispatch that had answered and
+                        # left the one that raised uncorrected. Zero draws says
+                        # what is true, and the caller holding the rows is the
+                        # one that can name the dispatch.
+                        draws=0,
                     )
                 )
                 return Halted(
