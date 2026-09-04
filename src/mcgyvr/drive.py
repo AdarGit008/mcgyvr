@@ -625,10 +625,12 @@ def worker_attempt(
                 ),
             )
             # Which draw the verdict is about, and how many were paid for: one
-            # journal row per draw was written above, and a correction that
-            # did not know the winner would land on draw 0 whether or not it
-            # was the one bound.
-            judgement = replace(judgement, draw=picked.chosen, draws=len(picked))
+            # journal row per draw was written above, keyed by the *dispatch*
+            # index `send` was called with. `picked.chosen` counts candidates
+            # and skips the draws that produced none, so under an unreadable
+            # first reply it named the wrong row; `dispatched` is the index
+            # the row was keyed by.
+            judgement = replace(judgement, draw=picked.dispatched, draws=len(picked))
             if gate.accepted:
                 # The winner's own binding, minted by `best_of` one line after
                 # its gate and one line before its reset — in the tree the

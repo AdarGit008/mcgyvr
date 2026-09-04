@@ -833,7 +833,23 @@ def _run(args: argparse.Namespace) -> int:
         if args.result
         else result_path(journal_dir, contract.id, stamp)
     )
-    print(f"result: {write(where, report)}")
+    try:
+        written = write(where, report)
+    except OSError as exc:
+        # Said, not thrown. By now the run has happened — an accepted change
+        # is already in the working tree — and a traceback with no `result:`
+        # line reads to the caller as a run that never started. One line that
+        # names the path, the reason and what the run came to is the whole of
+        # what the file would have said that matters.
+        print(
+            f"error: the result could not be written to {where}: {exc}. "
+            f"The run came to {report.outcome}"
+            + (f": {report.detail}" if report.detail else "")
+            + f" (exit {code}).",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"result: {written}")
     return code
 
 
@@ -902,9 +918,17 @@ def _floor(
         return _error(report, str(exc))
 
 
-def _error(report: RunResult, detail: str) -> int:
-    """Print an error the way every branch here does, and keep it for the result."""
+def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
+    """Print an error the way every branch here does, and keep it for the result.
+
+    The outcome is set here, not left to whatever the caller had written
+    before things went wrong: ``_report_run`` used to file ``accepted`` the
+    moment the gate accepted, and a refusal one line later — a symlinked
+    target, say — went out as ``outcome: accepted, exit_code: 1`` with nothing
+    in the tree. A caller reporting under a more specific word passes it.
+    """
     print(f"error: {detail}", file=sys.stderr)
+    report.outcome = outcome
     report.detail = detail
     return 1
 
@@ -1188,12 +1212,14 @@ def _report_run(
     if not result.accepted:
         report.outcome = "rejected"
         return 1
-    report.outcome = "accepted"
 
     try:
         bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
     except DeliveryError as exc:
         return _error(report, str(exc))
+    # Only now: `accepted` tells the caller the change is in the target, and
+    # until the bytes are bound there is nothing to put there.
+    report.outcome = "accepted"
     return _commit(args, contract, repo, sandbox.source_base_commit(), bound, report)
 
 
@@ -1256,11 +1282,10 @@ def _commit(
 
     if not args.commit:
         try:
-            place(repo=repo, contract=contract, content=bound)
+            place(repo=repo, contract=contract, content=bound, base=base)
         except DeliveryError as exc:
             landed(DELIVERY_REFUSED, str(exc))
-            report.outcome = DELIVERY_REFUSED
-            return _error(report, str(exc))
+            return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
         landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
         report.detail = f"change left in {contract.target}"
@@ -1270,8 +1295,7 @@ def _commit(
         delivery = deliver(repo=repo, contract=contract, content=bound, base=base)
     except DeliveryError as exc:
         landed(DELIVERY_REFUSED, str(exc))
-        report.outcome = DELIVERY_REFUSED
-        return _error(report, str(exc))
+        return _error(report, str(exc), outcome=DELIVERY_REFUSED)
 
     print(f"\n{delivery}")
     report.committed = delivery.committed

@@ -145,6 +145,7 @@ from mcgyvr.route import (
     Step,
     Try,
     Verdict,
+    attempted,
     climb,
     fanout_of,
     plan,
@@ -1033,6 +1034,13 @@ def escalate(
     accepted_judgement: Judgement | None = None
     history: list[Attempted] = []
     entered: list[Family] = []
+    # The judged attempts of the climb in progress, kept here as they are
+    # judged. `climb` keeps the same list and returns it — unless an attempt
+    # raises, when the exception ends the call and the list goes with it. The
+    # attempts before the raise dispatched, wrote journal rows and produced
+    # findings; a history that dropped them would count them in
+    # `attempts_spent` and list them nowhere.
+    judged: list[Attempted] = []
 
     def permit(step: Step, number: int) -> bool:
         nonlocal stopped_by
@@ -1067,7 +1075,9 @@ def escalate(
                 spent_rungs.append(this.rung.name)
         if judgement.verdict is Verdict.PASSED:
             accepted_judgement = judgement
-        return judgement.as_result()
+        result = judgement.as_result()
+        judged.append(attempted(this.rung.name, this.attempt, result))
+        return result
 
     try:
         for each in route.plans:
@@ -1087,6 +1097,7 @@ def escalate(
             taking = claimed if claimed in each.rungs else None
             if taking is not None:
                 claimed = None
+            judged.clear()
             try:
                 result = climb(
                     each, observed, capacity=capacity, permit=permit, claimed=taking
@@ -1096,9 +1107,11 @@ def escalate(
                     f"rung {raised.rung!r} raised "
                     f"{type(raised.cause).__name__}: {raised.cause}"
                 )
-                # The raising attempt is in the history: it dispatched, it has
-                # a journal row, and a record that omitted it would show a
-                # climb that never touched the rung it died on.
+                # Every attempt judged before the raise, then the raise. The
+                # judged ones dispatched and were counted; the raising one is
+                # in the history too, because a record that omitted it would
+                # show a climb that never touched the rung it died on.
+                history.extend(judged)
                 history.append(
                     Attempted(
                         rung=raised.rung,

@@ -1348,41 +1348,81 @@ def _encoded(content: str) -> bytes:
     return content.encode("utf-8", "surrogateescape")
 
 
-def place(*, repo: Path | str, contract: Contract, content: Accepted) -> Path:
+def place(
+    *, repo: Path | str, contract: Contract, content: Accepted, base: str
+) -> Path:
     """Leave the accepted content in the working tree as ``contract.target``.
 
     What a run does by default (owner's ruling, 2026-09-03): no commit, no
     branch, no receipt — the output file, where the contract said it goes.
     The bytes are the ones the gate judged, written the way :func:`deliver`
     writes them and refused for the same reason when they have no encoding.
-    The one thing git is consulted for is whether the target is safe to
-    overwrite. The sandbox judged HEAD's copy of the file; a target the user
-    has edited since, or one they never committed, holds work this write
-    would destroy with no way back, and it is refused the way :func:`deliver`
-    refuses it (M2). The rest of the tree is theirs: other dirty files are
-    not this write's business.
+
+    Git is consulted for one question: whether the target is safe to
+    overwrite, which has two halves. ``base`` is the revision the worker
+    started from — :meth:`~mcgyvr.sandbox.Sandbox.source_base_commit`, the
+    same value :func:`deliver` takes and for the same reason (M3). The sandbox
+    judged *that* copy of the file. A target the user has committed to since
+    the sandbox was opened — a climb takes minutes — holds work the accepted
+    bytes were never judged against, and a clean tree says nothing about it;
+    it is refused here rather than overwritten with exit 0. And a target the
+    user has edited or never committed holds work the write would destroy
+    with no way back, refused the way :func:`deliver` refuses it (M2). The
+    rest of the tree is theirs: other files that moved are not this write's
+    business.
+
+    Under the repository's delivery lock, as :func:`deliver` is: a concurrent
+    ``--commit`` delivery's undo restores the target to what it snapshotted,
+    and a write that landed between its snapshot and its undo was gone.
     """
     root = Path(repo)
     rel = _target(root, contract)
-    if rel in _uncommitted(root, rel):
-        raise DeliveryError(
-            f"{rel} has uncommitted changes in the working tree, and the "
-            f"accepted change was judged against the committed copy; writing "
-            f"it would overwrite work no one has kept. Commit or restore "
-            f"{rel} and run again."
-        )
-    target = root / rel
-    try:
-        payload = _encoded(content.content)
-    except UnicodeEncodeError as exc:
-        raise DeliveryError(
-            f"{contract.target} cannot be written: the character at position "
-            f"{exc.start} is the lone surrogate "
-            f"U+{ord(content.content[exc.start]):04X}, which has no UTF-8 "
-            f"encoding and stands for no byte."
-        ) from exc
-    _write(target, payload)
-    return target
+    _named_base(base)
+    with _exclusive(root):
+        resolved = _resolve(root, base)
+        moved = _moved_since(root, resolved, rel)
+        if moved:
+            raise DeliveryError(
+                f"{rel} was committed to after the run started: the accepted "
+                f"change was judged against {_shown(resolved)}, and HEAD "
+                f"({moved[:12]}) holds a different {rel}. Writing it would "
+                f"overwrite work that was committed while the ladder was "
+                f"climbing. Review the accepted change against the new copy, "
+                f"or run again from the current HEAD."
+            )
+        if rel in _uncommitted(root, rel):
+            raise DeliveryError(
+                f"{rel} has uncommitted changes in the working tree, and the "
+                f"accepted change was judged against the committed copy; writing "
+                f"it would overwrite work no one has kept. Commit or restore "
+                f"{rel} and run again."
+            )
+        target = root / rel
+        try:
+            payload = _encoded(content.content)
+        except UnicodeEncodeError as exc:
+            raise DeliveryError(
+                f"{contract.target} cannot be written: the character at position "
+                f"{exc.start} is the lone surrogate "
+                f"U+{ord(content.content[exc.start]):04X}, which has no UTF-8 "
+                f"encoding and stands for no byte."
+            ) from exc
+        _write(target, payload)
+        return target
+
+
+def _moved_since(root: Path, base: str, rel: str) -> str:
+    """``HEAD`` when ``rel`` differs between ``base`` and ``HEAD``, else ``""``.
+
+    A repository with no commit yet has no ``HEAD`` to have moved, and a base
+    that does not resolve is the caller's error: git's own complaint is
+    re-raised as a refusal rather than read as "nothing moved".
+    """
+    head = _head(root)
+    if not head:
+        return ""
+    changed = _git(root, "diff", "--name-only", base, head, "--", rel)
+    return head if changed.strip() else ""
 
 
 def _write(path: Path, payload: bytes) -> None:

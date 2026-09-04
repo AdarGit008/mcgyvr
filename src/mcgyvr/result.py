@@ -97,8 +97,15 @@ def write(path: Path, result: RunResult) -> Path:
     result.finished = time.time()
     path.parent.mkdir(parents=True, exist_ok=True)
     staging = path.with_name(f".{path.name}.part")
-    staging.write_text(
-        json.dumps(result.as_json(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    os.replace(staging, path)
+    try:
+        staging.write_text(
+            json.dumps(result.as_json(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(staging, path)
+    except OSError:
+        # The same tidy-up `telemetry._store` makes: a write that failed
+        # partway leaves no `.part` for the next reader to wonder about.
+        staging.unlink(missing_ok=True)
+        raise
     return path

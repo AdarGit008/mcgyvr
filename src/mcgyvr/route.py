@@ -624,6 +624,26 @@ class Attempted:
     raised: bool = False
 
 
+def attempted(rung: str, attempt: int, result: Result) -> Attempted:
+    """The history entry for one judged attempt.
+
+    One builder, because two callers keep this record: :func:`climb`, in the
+    history it returns, and :func:`~mcgyvr.escalate.escalate`, which mirrors
+    the entries as they are judged so that an attempt raising later in the
+    same climb does not take the judged ones with it — ``climb``'s own list is
+    local to the call that the exception ends.
+    """
+    return Attempted(
+        rung=rung,
+        attempt=attempt,
+        verdict=result.verdict,
+        detail=result.detail,
+        findings=result.findings,
+        draw=result.draw,
+        draws=result.draws,
+    )
+
+
 @dataclass(frozen=True)
 class Accepted:
     """A climb that ended with a rung producing an acceptable result.
@@ -1199,17 +1219,7 @@ def climb(
                         capacity=capacity,
                     )
                 )
-                history.append(
-                    Attempted(
-                        rung=step.rung.name,
-                        attempt=number,
-                        verdict=result.verdict,
-                        detail=result.detail,
-                        findings=result.findings,
-                        draw=result.draw,
-                        draws=result.draws,
-                    )
-                )
+                history.append(attempted(step.rung.name, number, result))
                 if result.verdict is Verdict.PASSED:
                     return Accepted(
                         family=plan.family,
