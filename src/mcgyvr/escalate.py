@@ -940,6 +940,45 @@ class Halted:
         return False
 
 
+class DispatchRaisedError(Exception):
+    """An attempt function's own account of the dispatch it died on.
+
+    An attempt that asks its rung for several candidates (``breadth.draws``)
+    makes one dispatch per draw and one journal row per dispatch. When it
+    raises instead of judging, two facts decide which of those rows the failure
+    belongs on, and *only the attempt function holds either*: how many of its
+    draws reached a row, and which one it was in when it died. A plain `raise`
+    carries neither, and every party downstream can do no better than infer.
+
+    Inference is what this class exists to end. The rows were counted once —
+    take the last one, "the dispatch in flight" — and that sentence is false
+    twice over: for a raise *after* the draws (a verifier, a cleanup, a gate)
+    it pins the failure on a dispatch that answered, and for a draw whose row
+    was lost (an unwritable blob store, a torn last line) it shifts every draw
+    down one and lands on the dispatch that answered. Both are the bug the
+    counting was written to fix.
+
+    So the raise site says it. ``dispatched`` is how many draws left a row —
+    ``0`` for a raise before the first one, and the count the caller corrects.
+    ``draw`` is the row the attempt died in, or ``None`` when no row of its own
+    is the culprit: before the first dispatch, between a dispatch and its row,
+    or after the last draw. A driver that raises anything else says nothing,
+    and is read as having dispatched nothing.
+    """
+
+    def __init__(
+        self, cause: BaseException, *, dispatched: int, draw: int | None = None
+    ) -> None:
+        super().__init__(str(cause))
+        #: What actually went wrong. This class is an envelope, and the
+        #: operator is told what died and not what carried the news.
+        self.cause = cause
+        #: How many of the attempt's draws left a journal row.
+        self.dispatched = dispatched
+        #: The row the attempt died in, or ``None`` for a raise no row owns.
+        self.draw = draw
+
+
 class _AttemptError(Exception):
     """An attempt function raised instead of returning a judgement.
 
@@ -951,22 +990,22 @@ class _AttemptError(Exception):
     :attr:`Outcome.ERROR` rather than let them escape to a caller that cannot
     tell a dead socket from a bug it owns.
 
-    **It carries no draw, and that is the answer rather than an omission.** An
-    attempt that asks its rung for several candidates (``breadth.draws``) makes
-    one dispatch per draw, and the exception says nothing about which of them
-    was in flight — or whether any had been sent at all, since a sandbox reset,
-    a bind or a prompt that will not build all raise before the first one. The
-    attempt function is the only party that knows, and it has no way to say it
-    through a `raise`. So this seam records the rung and the attempt, which it
-    does know, and :func:`escalate` marks the history entry as naming no
-    dispatch (``draws=0``) rather than defaulting to the first.
+    **The draw comes from the raise site or not at all.** A driver that wrapped
+    its failure in :class:`DispatchRaisedError` has stated which of its dispatches
+    left a row and which one it died in; this seam unwraps it, so ``cause`` is
+    the failure itself and the envelope is never what the operator reads. A
+    driver that raised anything else has said nothing, and nothing is what is
+    recorded: no draw, and no dispatch to correct.
     """
 
     def __init__(self, rung: str, attempt: int, cause: BaseException) -> None:
+        stated = cause if isinstance(cause, DispatchRaisedError) else None
         super().__init__(rung)
         self.rung = rung
         self.attempt = attempt
-        self.cause = cause
+        self.cause = stated.cause if stated is not None else cause
+        self.dispatched = stated.dispatched if stated is not None else 0
+        self.draw = stated.draw if stated is not None else None
 
 
 def escalate(
@@ -1129,21 +1168,17 @@ def escalate(
                         verdict=Verdict.FAILED,
                         detail=detail,
                         raised=True,
-                        # A raise is not a draw, and this entry names none.
-                        # `draw`/`draws` say which dispatch of an attempt a
-                        # verdict is about and how many were paid for, and both
-                        # are facts the exception did not carry: it arrived in
-                        # place of a judgement, and nothing here can tell a rung
-                        # that died on its second draw from one that died before
-                        # it sent the first. The dataclass defaults said "draw 0
-                        # of 1", which is not "unknown" but a claim, and the
-                        # caller that corrects the journal from this history
-                        # believed it — under `breadth.draws > 1` it wrote the
-                        # error onto the row of a dispatch that had answered and
-                        # left the one that raised uncorrected. Zero draws says
-                        # what is true, and the caller holding the rows is the
-                        # one that can name the dispatch.
-                        draws=0,
+                        # Copied from the raise site and never inferred here.
+                        # `draws` is the rows the attempt wrote, which is what
+                        # the caller corrects; `draw` is the one it died in, or
+                        # `None` when no row of it is the culprit. The
+                        # dataclass defaults said "draw 0 of 1" — not "unknown"
+                        # but a claim — and the caller believed it, so under
+                        # `breadth.draws > 1` the error went onto a dispatch
+                        # that had answered. See `DispatchRaisedError` for why a
+                        # driver is the only party that can say either.
+                        draw=raised.draw,
+                        draws=raised.dispatched,
                     )
                 )
                 return Halted(

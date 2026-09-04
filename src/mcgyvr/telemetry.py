@@ -234,7 +234,10 @@ def observe[T](
     here is the failure this module was built to end, and an unwritable path is
     an operator error that is cheap to fix at the moment it happens and
     impossible to notice a week later, when the answer is simply missing rows.
-    The blob store is a sink under the same rule.
+    The blob store is a sink under the same rule — and the row still goes down
+    when it fails, because *exactly one record* is what this promises and a
+    dispatch that left none is one no caller can tell from a dispatch nobody
+    made.
     """
     # Before the clock starts and before the attempt: what the attempt *is* —
     # its prompt, its endpoint, the revision dispatching it — is known now and
@@ -247,14 +250,8 @@ def observe[T](
     if session_file is not None:
         identity["session_file"] = str(session_file)
     started = time.monotonic()
-    try:
-        answer = attempt()
-    except BaseException as failure:
-        # BaseException rather than Exception: an interrupted run is still an
-        # attempt that happened, and the moment a run is killed is exactly when
-        # a hole in the record is hardest to account for afterwards. The record
-        # is written before the re-raise, so the caller's exception is what
-        # propagates and this line is not in its path.
+
+    def unlanded(failure: BaseException) -> Record:
         record = (
             _stamp(ATTEMPT_KIND, attempt_id)
             | {
@@ -269,7 +266,17 @@ def observe[T](
         )
         if model is not None:
             record["model"] = model
-        _append(path, record)
+        return record
+
+    try:
+        answer = attempt()
+    except BaseException as failure:
+        # BaseException rather than Exception: an interrupted run is still an
+        # attempt that happened, and the moment a run is killed is exactly when
+        # a hole in the record is hardest to account for afterwards. The record
+        # is written before the re-raise, so the caller's exception is what
+        # propagates and this line is not in its path.
+        _append(path, unlanded(failure))
         raise
 
     record = (
@@ -289,11 +296,24 @@ def observe[T](
     )
     if isinstance(answer, Completion):
         record |= _completion_fields(answer)
-        # Stored before the row that names it is appended, never after: a
-        # reader must not find a row whose ``reply_sha256`` names nothing on
-        # disk. A blob that cannot be written raises here and the row is not
-        # written — the sink rule, not an exception to it.
-        record["reply_sha256"] = _store(path, _bytes(scrub(answer.text)))
+        try:
+            # Stored before the row that names it is appended, never after: a
+            # reader must not find a row whose ``reply_sha256`` names nothing
+            # on disk. A blob that cannot be written still raises — the sink
+            # rule, not an exception to it — but the row goes down first, as
+            # the failure it now is, with no ``reply_sha256`` on it.
+            #
+            # The row is what makes "exactly one record per call" true, and it
+            # was not: an unwritable blob store (``ENOSPC``, a ``blobs/``
+            # replaced by a file) left a dispatch that happened with no trace
+            # of it at all. A caller cannot tell that from a dispatch nobody
+            # made, and the one that counted an attempt's rows to find the
+            # draw a raise was about counted one short and blamed the draw
+            # that answered.
+            record["reply_sha256"] = _store(path, _bytes(scrub(answer.text)))
+        except BaseException as failure:
+            _append(path, unlanded(failure))
+            raise
     _append(path, record)
     return answer
 

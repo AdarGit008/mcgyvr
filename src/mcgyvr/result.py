@@ -45,7 +45,10 @@ class AttemptResult:
     detail: str = ""
     findings: list[str] = field(default_factory=list)
     attempt_id: str | None = None
-    draw: int = 0
+    #: ``null`` on an attempt that raised where no dispatch of it is the
+    #: culprit — before the first draw, or after the last. ``attempt_id`` is
+    #: ``null`` with it: there is no row to name.
+    draw: int | None = 0
     draws: int = 1
 
 

@@ -111,7 +111,14 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
     first, second = _rows(journal)
     assert second["attempt_id"] == f"{first['attempt_id']}#1", (first, second)
     assert second.get("outcome") == "error", "the raise is corrected onto its own row"
-    assert first.get("outcome") is None, "the draw that answered got no verdict"
+    # Not "no outcome": the draw that answered is still a row this attempt
+    # wrote, and an attempt accounts for every row it wrote (finding 8). It
+    # carries `error` too — the attempt reached no verdict, so nothing here is
+    # `failed` — and what says the raise is *this* row's is `attempt_id` below.
+    assert first.get("outcome") == "error", "the draw that answered is accounted for"
+    assert first["detail"] == (
+        "the attempt raised on draw 1; no verdict was reached for this draw"
+    ), first
     assert _orphans(journal) == []
 
     result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
