@@ -158,11 +158,15 @@ CORRECTION_KIND = "correction"
 # What a correction is allowed to say about its attempt, and the whole of it. A
 # correction that could set any field could rewrite which orchestrator ran the
 # work or how long it took, which is the in-place edit this shape exists to
-# refuse — spelled differently. ``outcome`` and ``detail`` move together
-# because the detail is the winning outcome's own words: keeping a superseded
-# correction's prose beside a newer verdict would report a reason nobody gave
-# for it.
-_CORRECTABLE = ("outcome", "detail")
+# refuse — spelled differently. The three move together because the detail is
+# the winning outcome's own words and ``applied_by`` is the writer who gave it:
+# keeping a superseded correction's prose or byline beside a newer verdict
+# would report a reason, or name an author, nobody gave for it. ``applied_by``
+# is carried and not left on the correction line alone because a folded row is
+# all a reader of the fold gets, and under §9 the one applying a correction
+# need not be the one that ran the attempt — ``orchestrator`` says who ran, and
+# only this says who judged.
+_CORRECTABLE = ("outcome", "detail", "applied_by")
 
 # Where the text lives: a directory beside the sink, one file per distinct
 # scrubbed text, named by the sha256 of its bytes. Beside rather than inside
