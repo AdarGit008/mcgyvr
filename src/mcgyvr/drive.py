@@ -357,9 +357,11 @@ class _Dispatches:
     call — the answering row or the failing one — and never where a dispatch
     was merely intended: ``pool.bind``, the prompt and the row's id are all
     read *before* the count, so a draw that died on its way to ``observe``
-    left no row and is not counted as one. The single case the count cannot
-    see is the journal file itself being unwritable, which loses every row of
-    the run and not one of them.
+    left no row and is not counted as one. A driver built without a
+    ``recording`` reaches ``observe`` never and counts nothing, which is the
+    same rule and not an exception to it: this is rows written, not draws
+    taken. The single case the count cannot see is the journal file itself
+    being unwritable, which loses every row of the run and not one of them.
 
     ``in_flight`` is the draw whose dispatch is happening right now: set as
     ``observe`` is entered and cleared the moment it returns. It is ``None``
@@ -367,7 +369,9 @@ class _Dispatches:
     gate that judges a draw, the preparation of the next one, the cleanup and
     the verifier all run between dispatches and none of them is a dispatch's
     fault. ``rows`` says which of those moments it was: ``0`` is before the
-    first dispatch, and anything more is past draw ``rows - 1``.
+    first dispatch, and anything more is past draw ``rows - 1`` — a reading
+    that belongs to a run with a journal, since a run without one has no rows
+    to count and says ``0`` for every moment.
     """
 
     rows: int = 0
@@ -692,7 +696,10 @@ def worker_attempt(
             # caller corrects `range(rows)` of them. Left at the dataclass
             # default this said one draw about an attempt that had just paid
             # for `draws`, so every suffixed row kept no outcome at all — the
-            # rows of the case breadth is most on trial for. The verdict is
+            # rows of the case breadth is most on trial for. It is read off
+            # `made`, which counted the rows that went down, rather than off
+            # the breadth, which is what was asked for: with no `recording`
+            # there is no journal and the honest count is none. The verdict is
             # carried on draw 0 because no draw earned it: nothing was gated,
             # the refusal names every draw, and 0 is both the row a reader
             # reaches first and the only draw an unconfigured install has.
@@ -702,7 +709,7 @@ def worker_attempt(
                 detail=str(exc),
                 draw=0,
                 draws=draws,
-                rows=draws,
+                rows=made.rows,
             )
         else:
             gate, bound = picked.gate, picked.winner
@@ -741,16 +748,19 @@ def worker_attempt(
                 ),
             )
             # Which draw the verdict is about, how many were asked for, and how
-            # many were paid for: one journal row per draw was written above,
+            # many left a row: one journal row per draw was written above,
             # keyed by the *dispatch* index `send` was called with.
             # `picked.chosen` counts candidates and skips the draws that
             # produced none, so under an unreadable first reply it named the
             # wrong row; `dispatched` is the index the row was keyed by. An
-            # attempt that reached a verdict finished its draws, so `len(picked)
-            # == draws` here — the two are stated separately anyway, because
-            # what makes them equal is this branch and not the field.
+            # attempt that reached a verdict finished its draws, so with a
+            # journal `made.rows == len(picked) == draws` here — the numbers
+            # are stated separately anyway, because what makes them equal is
+            # this branch and not the fields. `made.rows` is the one of the
+            # three that stays true without a journal: a driver built with no
+            # `recording` wrote nothing, and `rows` is what was written.
             judgement = replace(
-                judgement, draw=picked.dispatched, draws=draws, rows=len(picked)
+                judgement, draw=picked.dispatched, draws=draws, rows=made.rows
             )
             if gate.accepted:
                 # The winner's own binding, minted by `best_of` one line after

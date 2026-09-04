@@ -971,8 +971,10 @@ class DispatchRaisedError(Exception):
 
     ``rows`` is how many of those draws left a journal row — ``0`` for a raise
     before the first dispatch — and it is what a caller correcting the journal
-    iterates. It is never larger than ``draws`` and is smaller exactly when the
-    attempt died part-way.
+    iterates. It is never larger than ``draws``, and is smaller when the
+    attempt died part-way or when the driver keeps no journal at all: it counts
+    what was written, not what was drawn, and a driver holding no ``recording``
+    writes nothing whatever it draws.
 
     ``draw`` is the row the attempt died *in*, or ``None`` when no row of its
     own is the culprit. ``None`` is not one case but two, and ``rows`` tells

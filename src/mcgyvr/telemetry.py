@@ -426,20 +426,30 @@ def _identity(
     which revision was asking. Returning a value would make that row empty of
     all of it, and an empty row is the shape a reader cannot act on.
 
+    **Which makes the order a contract and not a layout.** Everything the
+    caller handed in — the condition, the endpoint, the task type, the session
+    file — is established by being passed and cannot fail, so all of it is
+    written before either step that can. Writing a fact after a step that may
+    raise gives it away for nothing: ``observe`` promises ``task_type`` and
+    ``session_file`` on both rows and a reader takes their absence to mean the
+    caller had neither, so a full disk would silently unsay what the caller
+    said. The only keys a failure row can be missing are the two nothing can
+    establish without touching the disk.
+
     ``condition`` is the one key always written: live work is the product as
     shipped, and the bench's word for "no ablation" is ``"stock"``.
     """
     fields["condition"] = STOCK
     if endpoint is not None:
         fields["endpoint"] = endpoint
-    fields |= _prompt_identity(path, messages)
-    revision = _product_revision()
-    if revision is not None:
-        fields["round"], fields["product_sha256"] = revision
     if task_type is not None:
         fields["task_type"] = task_type
     if session_file is not None:
         fields["session_file"] = str(session_file)
+    fields |= _prompt_identity(path, messages)
+    revision = _product_revision()
+    if revision is not None:
+        fields["round"], fields["product_sha256"] = revision
 
 
 def _render(messages: Sequence[Mapping[str, str]]) -> bytes:
@@ -615,9 +625,19 @@ def fold(*, path: Path) -> list[Record]:
 
     **A verdict arrives whole.** ``outcome``, ``detail`` and ``applied_by``
     are one statement, not three fields, and a correction that states an
-    outcome supplies all three — a field it does not state is left off the
-    folded row instead of inherited from the verdict it supersedes. A
-    correction stating no outcome judges nothing and repaints none of them.
+    outcome supplies all three — a field it does not state is not inherited
+    from the verdict it supersedes. A correction stating no outcome judges
+    nothing and repaints none of them.
+
+    What a verdict replaces is the last verdict, not the row under it. The
+    corrections are an overlay: a field the newest one leaves unstated falls
+    back to what the *attempt row itself* said, and is absent only where the
+    row said nothing either. An attempt row of this module's carries none of
+    the three, so this is invisible here and decides a foreign row — one whose
+    ``detail`` is "run 42, arm B", the runner's own word for what it ran. That
+    is the attempt's statement about itself, and a merge gate appending
+    ``{outcome: "merged"}`` has said nothing about it; saying nothing must not
+    delete it.
     :func:`correct` always writes all three, so this only ever decides what a
     line written elsewhere means; that is most of the point, since the sink is
     shared by other hosts, other processes and other versions of this module
@@ -642,6 +662,14 @@ def fold(*, path: Path) -> list[Record]:
         latest[str(record.get("attempt_id", ""))] = index
 
     orphans: list[Record] = []
+    # What each attempt row said about itself, before any verdict was painted
+    # over it. A verdict is an overlay on the row and not a rewrite of it: the
+    # block it replaces is the *previous verdict's*, so lifting one uncovers
+    # what the row underneath stated rather than a hole. Nothing this module
+    # writes puts a `detail` or an `applied_by` on an attempt row, but a
+    # foreign writer's "run 42, arm B" is its own statement, and a correction
+    # that says nothing about it has not said to delete it.
+    said: dict[int, Record] = {}
     for _, correction in sorted(corrections, key=lambda entry: entry[0]):
         match = latest.get(str(correction.get("attempt_id", "")))
         if match is None:
@@ -654,11 +682,17 @@ def fold(*, path: Path) -> list[Record]:
             # nor to sign somebody else's judgement. Absence is not a
             # retraction — the standing verdict keeps all three of its fields.
             continue
+        own = said.setdefault(
+            match, {key: base[key] for key in _CORRECTABLE if key in base}
+        )
         for key in _CORRECTABLE:
             # The whole block, from this one correction: a field it does not
-            # state is absent from the row rather than inherited from the
-            # verdict this one supersedes.
+            # state is not inherited from the verdict this one supersedes. It
+            # falls back to the row's own word for it, and where the row had
+            # none it is absent.
             value = correction.get(key)
+            if value is None:
+                value = own.get(key)
             if value is None:
                 base.pop(key, None)
             else:

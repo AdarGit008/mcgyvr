@@ -117,6 +117,38 @@ def test_a_run_that_raised_before_dispatching_still_says_it_asked_for_two(
     assert (landed["draw"], landed["draws"], landed["rows"]) == (None, 2, 0)
 
 
+def test_a_rung_that_steps_aside_states_the_breadth_it_stepped_aside_from() -> None:
+    """A decline spent no draw, and still says how many it was configured for.
+
+    :meth:`~mcgyvr.route.Result.declined` is the documented way a driver says
+    "not my rung", and the only one a driver that is not
+    :mod:`mcgyvr.drive` has. It set ``rows`` to nothing and left ``draws`` at
+    the dataclass default, so a decline under ``breadth.draws: 3`` read as a
+    run configured for one — the misreport this field was split in two to end,
+    surviving in the helper that documents the split.
+    """
+    from mcgyvr.route import Result, Verdict, attempted
+
+    entry = attempted("local_qwen-7b", 1, Result.declined("not my rung", draws=3))
+
+    assert entry.verdict is Verdict.DECLINED
+    assert (entry.draws, entry.rows) == (3, 0), (
+        "a decline dispatched nothing, so it wrote no row; the breadth it "
+        "would have spent is stated all the same"
+    )
+
+
+def test_a_verdict_a_driver_reaches_states_the_breadth_it_was_reached_over() -> None:
+    """Every draw of a judged attempt left a row, whichever way the verdict went."""
+    from mcgyvr.route import Result, attempted
+
+    passed = attempted("local_qwen-7b", 1, Result.passed("gate ok", draws=3))
+    failed = attempted("local_qwen-7b", 2, Result.failed("gate said no", draws=3))
+
+    assert (passed.draws, passed.rows) == (3, 3)
+    assert (failed.draws, failed.rows) == (3, 3)
+
+
 def test_a_judged_attempt_says_the_same_number_twice(
     tmp_path: Path,
     home: Path,
