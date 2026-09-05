@@ -39,6 +39,7 @@ must be a directory and not a link.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -124,13 +125,34 @@ def main() -> int:
 
     # AFTER against BEFORE. Gate 2 read `containers=` before the step and
     # refused unless it was `none`, so whatever is up now the step left —
-    # named for this run or not.
-    before = _ids(pre.get("containers"))
+    # named for this run or not. A serve run reads differently, and says so
+    # in its own vocabulary: `serve up` EXPECTS the containers the door read
+    # from the compose file, and every one of them, while `serve down`
+    # opened on a busy daemon and expects it empty — so there `before` is
+    # not a licence, and anything up at all is named.
+    serve = os.environ.get("RUN_SERVE", "")
+    expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
+    before = set() if serve == "down" else _ids(pre.get("containers"))
     up = _containers_up()
     if up is None:
         status = 1
     else:
         left = {ident: name for ident, name in up.items() if ident not in before}
+        if serve == "up":
+            serving = {ident: name for ident, name in left.items() if name in expected}
+            left = {ident: name for ident, name in left.items() if name not in expected}
+            missing = sorted(expected - set(serving.values()))
+            if serving:
+                names = " ".join(sorted(serving.values()))
+                print(f"gate 7: serving, as declared: {names}")
+            if missing:
+                print(
+                    "gate 7: serve up ended with declared units not running: "
+                    f"{' '.join(missing)} — the ladder is not up, and the run is "
+                    "not green",
+                    file=sys.stderr,
+                )
+                status = 1
         if left:
             yours = [n for n in left.values() if n.startswith(f"{run_id}-")]
             others = [n for n in left.values() if not n.startswith(f"{run_id}-")]

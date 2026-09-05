@@ -93,6 +93,13 @@ BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
 #: The step a caller gets without naming one.
 DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
+#: The door's own serve steps, one per direction. Shipped beside the gates
+#: because, like the default step, they belong to no campaign: a live ladder
+#: is not an experiment, and the envelope it files under is the host's.
+SERVE_STEPS = {
+    "up": GATE_SCRIPTS / "serve-up.py",
+    "down": GATE_SCRIPTS / "serve-down.py",
+}
 #: The door's vocabulary, and the daemon's: neither may be inherited.
 MINTED_PREFIXES = ("RUN_", "DOCKER_")
 #: A step's own output override, and its exists-check waiver. Refused before
@@ -235,6 +242,25 @@ ALWAYS: tuple[Entry, ...] = (
     ),
 )
 
+#: THE SERVE RUN (`python -m mcgyvr.serving.run serve up|down --host H
+#: --compose FILE`). A second fixed sequence, not a switch on the first: a
+#: live ladder is started and LEFT RUNNING, which is the one thing the
+#: campaign run exists to refuse, so the two cannot share gate 7's reading of
+#: "left a container". What they share is every gate that makes a rig the
+#: declared rig — the round, the machine, the daemon, the envelope — and the
+#: two that run after whatever the step did. Gate 4 (the pinned workload) and
+#: the three data scripts (a checkpoint's geometry and placement) are about
+#: one model under measurement and have no meaning for a compose file
+#: `mcgyvr emit` already sized; they are not skipped, they are not in this
+#: run. Order and membership are enforced exactly as for SEQUENCE.
+SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
+    entry
+    for entry in SEQUENCE
+    if entry.script
+    in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
+)
+SERVE_ALWAYS: tuple[Entry, ...] = ALWAYS
+
 #: The full vocabulary a gate script may read. A script that wants something
 #: not on this list is asking for a fact nobody gated.
 EXPORTED = (
@@ -247,6 +273,11 @@ EXPORTED = (
     "RUN_PARALLEL",
     "RUN_CTX_PER_SLOT",
     "RUN_UBATCH",
+    # The serve run's own three: which direction, which file, and the
+    # container names the door read out of it before anything ran.
+    "RUN_SERVE",
+    "RUN_COMPOSE",
+    "RUN_SERVE_EXPECTED",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -272,7 +303,7 @@ def _check_manifest() -> None:
         e.script
         for e in (*SEQUENCE, *ALWAYS)
         if not (GATE_SCRIPTS / e.script).is_file()
-    ]
+    ] + [step.name for step in SERVE_STEPS.values() if not step.is_file()]
     if missing:
         _refuse(
             2,
@@ -286,7 +317,7 @@ def _check_manifest() -> None:
         e.script
         for e in (*SEQUENCE, *ALWAYS)
         if not os.access(GATE_SCRIPTS / e.script, os.X_OK)
-    ]
+    ] + [step.name for step in SERVE_STEPS.values() if not os.access(step, os.X_OK)]
     if unrunnable:
         _refuse(
             2,
@@ -535,8 +566,106 @@ def _rel(path: Path) -> str:
         return str(path)
 
 
+def _serve_parse(argv: list[str]) -> argparse.Namespace:
+    """The serve run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    parser = argparse.ArgumentParser(
+        prog="python -m mcgyvr.serving.run serve",
+        description="start a live ladder on a rig and leave it running, or stop it",
+    )
+    parser.add_argument("mode", choices=sorted(SERVE_STEPS), help="up | down")
+    parser.add_argument(
+        "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
+    )
+    parser.add_argument(
+        "--compose",
+        required=True,
+        help="the compose file `mcgyvr emit` wrote for this host",
+    )
+    parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
+    parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
+    return parser.parse_args(argv)
+
+
+def _serve(argv: list[str]) -> int:
+    """`serve up|down`: the second fixed sequence, to completion."""
+    opts = _serve_parse(argv)
+    inherited = _ambient()
+    if inherited is not None:
+        print(
+            f"run.py: REFUSED — {inherited} is set in the calling environment; "
+            "unset it and rerun; the door mints its own vocabulary",
+            file=sys.stderr,
+        )
+        return 2
+    compose_file = Path(opts.compose)
+    compose_file = (
+        compose_file if compose_file.is_absolute() else Path.cwd() / compose_file
+    )
+    if not compose_file.is_file():
+        print(
+            f"run.py: REFUSED — --compose {opts.compose} is not a file; "
+            "`mcgyvr emit` writes one per host",
+            file=sys.stderr,
+        )
+        return 2
+    # Read here, before any gate, so the names gate 7 will expect are the
+    # door's reading of the file and not the step's: a step that could
+    # declare its own expected set could declare away a stranger.
+    from mcgyvr.serving import servelib
+
+    try:
+        units = servelib.services(compose_file)
+    except servelib.ComposeError as escape:
+        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+        return 2
+
+    env = dict(os.environ)
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    env.update(
+        RUN_ROOT=str(ROOT),
+        RUN_CAMPAIGN=f"live-{opts.host}",
+        RUN_STEP_FILE=str(SERVE_STEPS[opts.mode].resolve()),
+        RUN_HOST=opts.host,
+        RUN_SUFFIX=opts.suffix,
+        RUN_SERVE=opts.mode,
+        RUN_COMPOSE=str(compose_file.resolve()),
+        RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
+    )
+    if opts.date:
+        env["RUN_DATE"] = opts.date
+
+    interrupted = False
+    step_status = 0
+    try:
+        _check_manifest()
+        for entry in SERVE_SEQUENCE:
+            status = _run_entry(entry, env)
+            if status != 0:
+                if entry.script != "06-step.py":
+                    return _stop(entry, status, env)
+                step_status = status
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    except KeyboardInterrupt:
+        interrupted = True
+        print(
+            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+            "state is unknown is the one that ended silently",
+            file=sys.stderr,
+        )
+
+    after = _always(env)
+    if interrupted:
+        return 130
+    return step_status or after
+
+
 def main(argv: list[str] | None = None) -> int:
-    opts, step_args = _parse(list(sys.argv[1:] if argv is None else argv))
+    given = list(sys.argv[1:] if argv is None else argv)
+    if given[:1] == ["serve"]:
+        return _serve(given[1:])
+    opts, step_args = _parse(given)
 
     # Every refusal below happens before a gate runs: nothing checked, nothing
     # made, no rig read.

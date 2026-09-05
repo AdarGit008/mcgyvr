@@ -272,19 +272,29 @@ case $cmd in
   "bash -s")
     cat >/dev/null
     if [ -f "$STUBS/moved-flag" ] && [ -e "$(cat "$STUBS/moved-flag")" ]; then
-      cat "$STUBS/snapshot-moved.txt"
+      f="$STUBS/snapshot-moved.txt"
     else
-      cat "$STUBS/snapshot.txt"
+      f="$STUBS/snapshot.txt"
+    fi
+    # While the daemon lists serving units (serving-names), the rig reads
+    # busy: the card is held and containers are up, as a serving rig is.
+    if [ -f "$STUBS/serving-names" ]; then
+      sed -e 's/^containers=.*/containers=c0ffee000011;c0ffee000012/' \
+          -e 's/^gpu_procs=.*/gpu_procs=4242,llama-server,5584MiB/' "$f"
+    else
+      cat "$f"
     fi ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   *'echo $HOME'*) echo "$STUB_RIG_HOME" ;;
   *"cat >>"*) cat >/dev/null ;;
   *mkdir*) : ;;
+  *"memory.used,memory.free"*) echo "$STUB_USED, $STUB_FREE" ;;
   *memory.free*) echo "$STUB_FREE" ;;
   *memory.used*) echo "$STUB_USED" ;;
   *constraint_0_power_limit_uw*) echo 95000000 ;;
   *constraint_1_power_limit_uw*) echo 120000000 ;;
   *query-compute-apps*) : ;;
+  *"v1/models"*) echo '{"data":[{"id":"stub-model"}]}' ;;
   *health*) : ;;
   *completion*) echo '{"content":"hi"}' ;;
   *) echo "ssh stub: no answer for: ${cmd:0:120}" >&2; exit 1 ;;
@@ -329,12 +339,37 @@ _DOCKER_BODY = """\
 case "${1:-}" in
   ps)
     if [ -f "$STUBS/ps-sleep" ]; then sleep "$(cat "$STUBS/ps-sleep")"; fi
+    case "$*" in *ID*) with_id=1 ;; *) with_id=0 ;; esac
+    row() {
+      if [ "$with_id" = 1 ]; then printf '%s\\t%s\\n' "$1" "$2"
+      else printf '%s\\n' "$2"; fi
+    }
     if [ -f "$STUBS/leftover-flag" ] && [ -e "$(cat "$STUBS/leftover-flag")" ]; then
-      printf 'c0ffee000001\\t%s-lcps\\n' "${RUN_ID:-norunid}"
+      row c0ffee000001 "${RUN_ID:-norunid}-lcps"
     fi
     if [ -f "$STUBS/stray-flag" ] && [ -e "$(cat "$STUBS/stray-flag")" ]; then
-      printf 'c0ffee000002\\t%s\\n' "STRAY_NAME"
+      row c0ffee000002 "STRAY_NAME"
     fi
+    if [ -f "$STUBS/serving-names" ]; then
+      n=10
+      while read -r name; do
+        [ -n "$name" ] || continue
+        n=$((n + 1))
+        row "c0ffee0000$n" "$name"
+      done < "$STUBS/serving-names"
+    fi
+    exit 0 ;;
+  compose)
+    # `compose ... up -d` brings up what a test queued (serving-pending
+    # becomes serving-names, which `ps` and the rig's snapshot then list);
+    # `down` clears it, unless a test pinned the names in place
+    # (compose-down-sticks).
+    case " $* " in
+      *" up "*)
+        [ -f "$STUBS/serving-pending" ] &&
+          mv "$STUBS/serving-pending" "$STUBS/serving-names" ;;
+      *" down "*) [ -e "$STUBS/compose-down-sticks" ] || rm -f "$STUBS/serving-names" ;;
+    esac
     exit 0 ;;
   image | inspect) ;;
   *) exit 0 ;;
@@ -901,5 +936,60 @@ def bash(
         capture_output=True,
         text=True,
         timeout=120,
+        check=False,
+    )
+
+
+# --------------------------------------------------------------------------
+# the serve run
+# --------------------------------------------------------------------------
+
+
+def serving(
+    where: Path,
+    names: tuple[str, ...],
+    *,
+    already_up: bool = False,
+    sticks: bool = False,
+) -> None:
+    """What ``compose up`` will bring up on the stubbed rig — or, with
+    ``already_up``, what its daemon lists right now. Once up, the names stay
+    until ``compose down`` clears them, or for good when ``sticks`` says a
+    down that does not stop them is the case under test."""
+    target = "serving-names" if already_up else "serving-pending"
+    for stale in ("serving-names", "serving-pending"):
+        (where / stale).unlink(missing_ok=True)
+    (where / target).write_text(
+        "".join(f"{name}\n" for name in names), encoding="utf-8"
+    )
+    flag = where / "compose-down-sticks"
+    if sticks:
+        flag.touch()
+    else:
+        flag.unlink(missing_ok=True)
+
+
+def serve_door(
+    root: Path,
+    mode: str,
+    compose: Path,
+    *,
+    host: str = "srv1",
+    date: str = RUN_DATE,
+    suffix: str = "",
+) -> subprocess.CompletedProcess[str]:
+    """One `serve up|down` invocation from the fixture, to completion."""
+    argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
+    argv += ["--host", host, "--compose", str(compose), "--date", date]
+    if suffix:
+        argv += ["--suffix", suffix]
+    return subprocess.run(
+        argv,
+        cwd=root,
+        env=door_env(root),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=600,
         check=False,
     )
