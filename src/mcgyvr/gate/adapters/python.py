@@ -67,10 +67,25 @@ _RUFF_CONFIG_FILES = ("ruff.toml", ".ruff.toml")
 
 
 def declares_ruff_config(repo: Path) -> bool:
-    """Whether ``repo`` states a ruff configuration of its own at its root."""
+    """Whether ``repo`` states a ruff configuration of its own at its root.
+
+    A ``pyproject.toml`` that does not parse counts as declared: ruff must be
+    let read it and fault, loudly, on the rung — the default is for the
+    repository that said nothing, never for one whose statement is broken.
+    A linter that could not load its config and quietly lints under another
+    is the hole that looks like a pass (#261).
+    """
     if any((repo / name).is_file() for name in _RUFF_CONFIG_FILES):
         return True
-    return _has_toml_table(repo / "pyproject.toml", "ruff")
+    pyproject = repo / "pyproject.toml"
+    if not pyproject.is_file():
+        return False
+    try:
+        with pyproject.open("rb") as handle:
+            tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return True
+    return _has_toml_table(pyproject, "ruff")
 
 
 def ruff_config_args(repo: Path) -> list[str]:

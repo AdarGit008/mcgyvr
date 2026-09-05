@@ -64,6 +64,8 @@ task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
 acceptance: ["sh -c 'grep -q RETRY {TARGET}'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

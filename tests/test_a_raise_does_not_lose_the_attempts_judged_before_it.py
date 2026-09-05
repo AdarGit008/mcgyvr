@@ -24,7 +24,9 @@ from tests import livejournal as lj
 from tests.test_escalate import KEYLESS, contract, halted, mapped
 
 LADDER_WITH_THREE_ATTEMPTS = lj.LADDER + "      attempts: 3\n"
-CONTRACT_WITH_THREE_ATTEMPTS = lj.MODEL_CONTRACT + "limits:\n  attempts: 3\n"
+CONTRACT_WITH_THREE_ATTEMPTS = lj.MODEL_CONTRACT.replace(
+    "  max_output_tokens: 256\n", "  max_output_tokens: 256\n  attempts: 3\n"
+)
 
 
 @pytest.fixture
