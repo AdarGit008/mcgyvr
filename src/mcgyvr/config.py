@@ -195,6 +195,16 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         choices=("llama.cpp", "vllm"),
         bind_hint="leave it out unless the backend is not llama-server",
     ),
+    Field(
+        "image",
+        "str",
+        "Container image `mcgyvr emit` writes for this source's process, as a "
+        "tag or a digest. Absent means the engine's own default, and that is a "
+        "floating tag: srv1's numbers are only valid against a stated build "
+        "(okf/must-read/touching-rigs.md), so a source that must run one "
+        "image says which here.",
+        bind_hint="e.g. vllm/vllm-openai@sha256:<hex>, or llamacpp:b10644-L3",
+    ),
 )
 
 MODEL_FIELDS: tuple[Field, ...] = (
@@ -259,6 +269,29 @@ MODEL_FIELDS: tuple[Field, ...] = (
         "off the card. Not inferable from the other numbers: it is the "
         "difference between `does not fit` and `fits differently here`.",
         default=False,
+    ),
+    Field(
+        "hf_cache",
+        "str",
+        "The HuggingFace cache on the rig that holds this model's weights, as "
+        "an absolute path there. Required for a model served by vLLM, which "
+        "loads a repository id from that cache rather than a file from the "
+        "weights directory; `mcgyvr emit` mounts it read-only and starts the "
+        "server offline, so nothing is downloaded on a rig at load. Not read "
+        "for a llama.cpp model.",
+        bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
+    ),
+    Field(
+        "serve_args",
+        "str_list",
+        "Arguments appended verbatim to the server's command line after the "
+        "ones mcgyvr derives, for what no scan can know: `--gpu-memory-"
+        "utilization` for vLLM (measured per rig, #337, never inherited), or "
+        "`--chat-template-kwargs` to turn a thinking model's reasoning off. "
+        "One flag or value per entry; an entry containing whitespace is "
+        "refused at emit, because the compose file and the pasted command "
+        "cannot spell it the same way.",
+        default=(),
     ),
 )
 
@@ -666,6 +699,7 @@ class Source:
     max_parallel: int
     api_key_env: str | None
     engine: str | None = None
+    image: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -1182,6 +1216,7 @@ def parse(text: str, path: Path | None = None) -> Config:
             max_parallel=block["max_parallel"],
             api_key_env=block["api_key_env"],
             engine=block["engine"],
+            image=block["image"],
         )
         for name, block in data["sources"].items()
     }

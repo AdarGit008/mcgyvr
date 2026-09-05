@@ -36,7 +36,7 @@ from mcgyvr.emit import EmitError, emit_all
 from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
-from mcgyvr.serving import ModelSpec, UnitError, host_of, units_for
+from mcgyvr.serving import ModelSpec, UnitError, hold_together, host_of, units_for
 
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
@@ -1834,6 +1834,7 @@ def _emit(args: argparse.Namespace) -> int:
     # reads an unscanned host. A malformed capability table is a real error.
     try:
         units = units_for(config, scans, specs=_model_specs())
+        hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
