@@ -3,7 +3,7 @@
 # tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh
 #   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-llama-bench.tsv
 #
-# Campaign step 3 (`PLAN.md:117-118`):
+# Campaign step 3 (`archive/docs/srv1-kernel-arms-PLAN.md:117-118`):
 #
 #   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1
 #             x {L0,L1,L2,L3,L4,A3,A1}
@@ -60,13 +60,13 @@
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the file lands in
 # $RUN_OUT_DIR, and each arm's tag is resolved to a digest ONCE (image_digest,
 # gate 3) before llama-bench is started from it.
 # RUN_ARTIFACTS: srv1-llama-bench.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "3-llama-bench.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "3-llama-bench.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -227,7 +227,7 @@ resolve_bench_entry() {
     return 1
 }
 
-# The step-3 command line, verbatim from PLAN.md:117-118, on
+# The step-3 command line, verbatim from archive/docs/srv1-kernel-arms-PLAN.md:117-118, on
 # whichever of the two entrypoints this arm's image actually has.
 bench_cmd() {
     local arm=$1 image entry
@@ -493,13 +493,14 @@ run_bench() {
     "${cmd[@]}" >"$json" 2>"$TMP/$arm.err"
 }
 
-# The backend the image DECLARES, from its own label, through the docker seam.
+# The backend the image DECLARES, from its own label, through the docker the
+# door put first on PATH.
 # A daemon that cannot answer is `label` — a refusal — and never read as "the
 # image declares nothing": that reading is exactly how a CPU number would be
 # filed under a vulkan tag again. Only an image that answers with an empty
 # label (A1, upstream, unlabelled) is exempt from the verdict.
 declared_backend_of() {
-    "${RUN_DOCKER:-docker}" image inspect \
+    docker image inspect \
         --format '{{index .Config.Labels "org.mcgyvr.build.backend"}}' "$1" 2>/dev/null
 }
 

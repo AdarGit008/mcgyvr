@@ -93,7 +93,7 @@ target goes on deciding — :func:`parse_pinned` opens what came back only where
 the target could not hold it as a file, so pinning a schema never turns a real
 ``.json`` file into one of its own fields.
 
-Ported from local-ai's ``extract_code`` (``docs/port-from-local-ai.md``, D14).
+Ported from local-ai's ``extract_code`` (``archive/docs/port-from-local-ai.md``, D14).
 Its second half — a regex that digs a Python triple-quoted string out of
 *invalid* JSON — is deliberately not here: text that is not JSON is not read as
 JSON, or this module has gone back to guessing.

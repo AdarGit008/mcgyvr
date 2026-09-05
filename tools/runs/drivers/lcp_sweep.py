@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import socket
 import subprocess
 import sys
 import threading
@@ -33,8 +32,9 @@ from tools.runs import workload
 # A bare run of this file printed byte-compatible rows with no stamps — no rig
 # state, no round, no workload digest — and nothing downstream could tell them
 # from a run that passed every gate (BRIEF "The problem being solved"). So:
-# (1) RUN_ID is minted by tools/runs/run.sh and only there; without it this
-# process was not started by the door and exits 2 having done nothing.
+# (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
+# only there; without it this process was not started by the door and exits 2
+# having done nothing.
 # (2) LCP_IMG must be a DIGEST (`repo@sha256:<hex>` or `sha256:<hex>`),
 # resolved once by `image_digest` in tools/runs/_common.sh (gate 3). A tag is
 # a pointer: the same `img=` on two rows can name two images a week apart,
@@ -43,8 +43,9 @@ from tools.runs import workload
 RUN_ID = os.environ.get("RUN_ID", "")
 if not RUN_ID:
     print(
-        "lcp_sweep: RUN_ID is unset — this driver is started by tools/runs/run.sh, "
-        "never bare; a bare run prints unstamped rows nothing can file",
+        "lcp_sweep: RUN_ID is unset — this driver is started by the door, "
+        "python -m mcgyvr.serving.run, never bare; a bare run prints unstamped "
+        "rows nothing can file",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -58,14 +59,25 @@ if not ("@sha256:" in IMG or IMG.startswith("sha256:")):
         file=sys.stderr,
     )
     sys.exit(2)
-# The daemon, behind the one seam a test may replace it with (RUN_DOCKER).
-DOCKER = os.environ.get("RUN_DOCKER", "docker")
-# The container carries the run's name so gate 7 of run.sh can find what this
-# process left behind (`docker ps --filter name=^<RUN_ID>-`).
+# The daemon is the `docker` the door put first on PATH, which lands on --host;
+# there is no variable that names a substitute.
+# The container carries the run's name so gate 7 (07-teardown.py) can find what
+# this process left behind (`docker ps --filter name=^<RUN_ID>-`).
 NAME = f"{RUN_ID}-lcps"
 MODEL, MDIR, TAG = sys.argv[1], sys.argv[2], sys.argv[3]
 CELLS = sys.argv[4:]
-PORT, H = 8094, socket.gethostname()
+PORT = 8094
+# The rig, exported by the door (gate 5). The container runs THERE, so the host
+# column, the health poll and the card reading all name it; the machine this
+# process runs on is nobody's row.
+H = os.environ.get("RUN_HOST", "")
+if not H:
+    print(
+        "lcp_sweep: RUN_HOST is unset — the door exports the rig a run serves on "
+        "(gate 5); without it there is no host to poll and no host column",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def sh(c):
@@ -93,7 +105,7 @@ def post(out, idx):
         }
     ).encode()
     r = urllib.request.Request(
-        f"http://localhost:{PORT}/v1/chat/completions",
+        f"http://{H}:{PORT}/v1/chat/completions",
         data=b,
         headers={"Content-Type": "application/json"},
     )
@@ -128,21 +140,21 @@ for cell in CELLS:
             flush=True,
         )
         continue
-    sh(f"{DOCKER} rm -f {NAME}")
+    sh(f"docker rm -f {NAME}")
     extra = f"--n-cpu-moe {ncm}" if ncm != "0" else ""
     sh(
-        f"{DOCKER} run -d --name {NAME} --gpus all -v {MDIR}:/models:ro "
+        f"docker run -d --name {NAME} --gpus all -v {MDIR}:/models:ro "
         f"-p {PORT}:8080 {IMG} "
         f"-m /models/{MODEL.split('/')[-1]} -ngl 99 -np {np_} -c {total_c} {extra} "
         f"-fa on --no-warmup --host 0.0.0.0 --port 8080"
     )
-    probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
+    probe = f"curl -sf -m 3 http://{H}:{PORT}/health >/dev/null && echo Y"
     ok = False
     for _ in range(400):
         if sh(probe) == "Y":
             ok = True
             break
-        if NAME not in sh(DOCKER + " ps --format '{{.Names}}'"):
+        if NAME not in sh("docker ps --format '{{.Names}}'"):
             break
         time.sleep(2)
     if not ok:
@@ -152,23 +164,25 @@ for cell in CELLS:
         # dangling HF-blob symlink -- a `no such file` the truncated reason did
         # not show -- and were read as a capability limit.
         why = sh(
-            f"{DOCKER} logs {NAME} 2>&1 | grep -vE '^[0-9.]+ I ' | "
+            f"docker logs {NAME} 2>&1 | grep -vE '^[0-9.]+ I ' | "
             "grep -iE 'error|out of memory|no such file|failed|cannot' | tail -2"
         )
         if not why:
-            why = sh(f"{DOCKER} logs {NAME} 2>&1 | tail -3")
+            why = sh(f"docker logs {NAME} 2>&1 | tail -3")
         why = " | ".join(why.splitlines())[:240]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
-    log = sh(f"{DOCKER} logs {NAME} 2>&1")
+    log = sh(f"docker logs {NAME} 2>&1")
     real_slot = re.search(r"n_ctx_slot = (\d+)", log)
-    vram = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
+    vram = sh(
+        f"ssh {H} nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits"
+    )
     warm = [None]
     post(warm, 0)
     if warm[0][0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
     # A cell that stops on the first token measures nothing, and the old code
     # let it through: it only refused otok==0, so an immediate stop produced a
@@ -181,7 +195,7 @@ for cell in CELLS:
             f"measuring this cell would record artifacts",
             flush=True,
         )
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
     print(
         f"{H}\t{lab}\tCONFIG\timg={IMG}"
@@ -213,5 +227,5 @@ for cell in CELLS:
             f"\twall={wall:.1f}",
             flush=True,
         )
-    sh(f"{DOCKER} rm -f {NAME}")
+    sh(f"docker rm -f {NAME}")
     time.sleep(2)

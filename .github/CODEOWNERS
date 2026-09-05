@@ -1,7 +1,3 @@
 # Default owner for everything in this repository.
 *       @AdarGit008
 
-# The vendored baseline tree is hash-pinned (REC-06); changes to it must be a
-# deliberate re-vendor, not an edit.
-/tools/baseline/        @AdarGit008
-/tools/baseline.lock.json  @AdarGit008

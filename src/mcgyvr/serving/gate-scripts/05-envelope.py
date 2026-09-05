@@ -83,10 +83,36 @@ def step_of_run_id(run_id: str, campaign: str, steps: list[str]) -> str | None:
     return max(matches, key=len) if matches else None
 
 
+#: The step a caller gets without naming one. It belongs to no campaign
+#: directory, so it is the one step an unknown --campaign may file under.
+DEFAULT_STEP = Path(__file__).resolve().parent / "default-step.sh"
+
+
 def main() -> int:
     step_file = Path(need("RUN_STEP_FILE"))
     campaign = need("RUN_CAMPAIGN")
     suffix = os.environ.get("RUN_SUFFIX", "")
+
+    # The archived door's first check (archive/runs/run.sh, check_argv): a
+    # campaign is a directory under tools/runs/campaigns/, and a name that is
+    # not one mints nothing — a typo would otherwise open a fresh envelope
+    # beside the real one and file a run where nobody looks. The default step
+    # is the exception, deliberately: it is not a campaign's step.
+    campaigns_dir = root() / "tools" / "runs" / "campaigns"
+    campaign_dir = campaigns_dir / campaign
+    if not campaign_dir.is_dir() and step_file.resolve() != DEFAULT_STEP:
+        known = (
+            sorted(p.name for p in campaigns_dir.iterdir() if p.is_dir())
+            if campaigns_dir.is_dir()
+            else []
+        )
+        refuse(
+            f"gate 5: no campaign {campaign!r} under tools/runs/campaigns/ "
+            f"(known: {', '.join(known) or 'none'}). A step files under its "
+            "campaign's envelope, and a campaign nobody declared has none; "
+            "only the default step (gate-scripts/default-step.sh) needs no "
+            "campaign directory. Nothing is minted"
+        )
 
     declared = declarations(step_file)
     every = [name for names in declared.values() for name in names]
@@ -117,7 +143,6 @@ def main() -> int:
 
     # `<n>-<name>.sh` -> `<name>`, matching how a run id is parsed back.
     step_name = re.sub(r"^\d+-", "", step_file.stem)
-    campaign_dir = root() / "tools" / "runs" / "campaigns" / campaign
     siblings = (
         [re.sub(r"^\d+-", "", p.stem) for p in sorted(campaign_dir.glob("[0-9]*-*.sh"))]
         if campaign_dir.is_dir()
@@ -236,6 +261,10 @@ def main() -> int:
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
     export("RUN_APPEND_STATE", json.dumps(append_state, separators=(",", ":")))
+    # What was moved aside, so gate 8 can put it back if this run never
+    # writes the successor: a rewrite pass that filed nothing must not leave
+    # the earlier pass vacated under its own name.
+    export("RUN_SUPERSEDED", json.dumps(aside_of, separators=(",", ":")))
     print(f"gate 5: RUN_ID={run_id} -> {out_dir}")
     return 0
 

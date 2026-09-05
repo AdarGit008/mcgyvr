@@ -135,12 +135,44 @@ EOF
 
 docker_version() {
     local out
-    out=$("${RUN_DOCKER:-docker}" version --format '{{.Server.Version}}' 2>/dev/null) || out=
+    out=$(docker version --format '{{.Server.Version}}' 2>/dev/null) || out=
     out=$(tok "${out:-}")
     # A Vulkan ICD manifest is mounted by one docker version and not by another,
     # so the daemon version is a fact of the rig and not of the tooling.
     [ -n "$out" ] || fail "cannot read the docker daemon's version"
     printf '%s' "$out"
+}
+
+# The daemon gate 3 reaches by `docker info --format '{{.Name}}'` reports
+# this, so a container started through the door is started on the machine
+# gate 2 read and not on one that happens to answer the same address.
+host_name() {
+    local out
+    out=$(tok "$(hostname 2>/dev/null)")
+    [ -n "$out" ] || fail "cannot read the hostname"
+    printf '%s' "$out"
+}
+
+# Whose the card is, before anything of ours runs: `pid,process_name,used_memory`
+# per process, one per `;`, or `none`. A card held by somebody else is the
+# difference between the two VRAM numbers (touching-rigs: "read used, and find
+# out whose it is"), and gate 2 refuses a card that is not idle.
+gpu_procs() {
+    local out
+    out=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null) ||
+        fail "cannot list the card's compute processes (nvidia-smi --query-compute-apps)"
+    out=$(printf '%s\n' "$out" | sed -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' | paste -sd';' -)
+    printf '%s' "${out:-none}"
+}
+
+# Containers up before the step, by id, one per `;`, or `none`. An uncleaned
+# container held srv1 at zero free RAM for eight minutes; gate 2 refuses a
+# daemon that is not idle rather than measuring beside a stranger.
+containers() {
+    local out
+    out=$(docker ps -q 2>/dev/null) || fail "cannot list containers (docker ps -q)"
+    out=$(printf '%s\n' "$out" | sed '/^[[:space:]]*$/d' | tr '\n' ';' | sed 's/;$//')
+    printf '%s' "${out:-none}"
 }
 
 mem_available_kib() {
@@ -160,3 +192,6 @@ nvidia
 printf 'docker=%s\n'          "$(docker_version)"
 printf 'mem_available_kib=%s\n' "$(mem_available_kib)"
 printf 'nproc=%s\n'           "$(nproc 2>/dev/null || echo NA)"
+printf 'hostname=%s\n'        "$(host_name)"
+printf 'gpu_procs=%s\n'       "$(gpu_procs)"
+printf 'containers=%s\n'      "$(containers)"

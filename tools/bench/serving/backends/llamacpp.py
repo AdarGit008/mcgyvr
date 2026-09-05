@@ -64,6 +64,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.serving import ggufscan, vramfit
+
 
 def _contract() -> types.ModuleType:
     """The shared contract, by path — ``tools/`` is not a package.
@@ -86,30 +88,6 @@ def _contract() -> types.ModuleType:
 
 
 contract = _contract()
-
-
-def _vramfit() -> types.ModuleType:
-    """The VRAM arithmetic, shared through one slot.
-
-    Held here rather than imported at module scope for the reason
-    :func:`_contract` is: ``tools/`` is not a package, so the sibling is
-    reached by path. One slot, so the gate and anything else that derives a
-    placement cannot end up on two copies of the laws.
-    """
-    cached = sys.modules.get("serving_vramfit")
-    if cached is not None:
-        return cached
-    spec = importlib.util.spec_from_file_location(
-        "serving_vramfit", Path(__file__).resolve().parents[1] / "vramfit.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["serving_vramfit"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-vramfit = _vramfit()
 
 
 def _fingerprint() -> types.ModuleType:
@@ -495,7 +473,7 @@ def _geometry(host: str, model: str) -> dict[str, Any] | None:
     ``None`` when the host could not answer or the parser refused the blob --
     the caller records the gate as not applied rather than as passed.
     """
-    source = (Path(__file__).resolve().parent.parent / "ggufscan.py").read_bytes()
+    source = Path(ggufscan.__file__).read_bytes()
     blob = base64.b64encode(source).decode("ascii")
     # `python3 -` takes the program on stdin and leaves argv[1:] to the script,
     # so the file never lands on the rig's disk and nothing needs cleaning up

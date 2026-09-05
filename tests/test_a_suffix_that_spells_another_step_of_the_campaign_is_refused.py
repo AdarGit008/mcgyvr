@@ -8,10 +8,10 @@ may supersede it; with steps ``probe`` and ``probe-again`` in one campaign,
 other step's: ``probe-again`` was let supersede ``probe``'s file, and ``probe``
 was refused over its own.
 
-So the door refuses a ``--suffix`` that makes ``<step>-<suffix>`` equal
-another step's name or start with ``<other step>-``: every id it mints parses
-back to exactly one step by longest match. Refused before gate 1, nothing
-written.
+So gate 5 (``05-envelope.py``) refuses a ``--suffix`` that makes
+``<step>-<suffix>`` equal another step's name or start with ``<other step>-``:
+every id it mints parses back to exactly one step by longest match. Refused
+before the envelope is made, so nothing is written and the step never runs.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 
 @pytest.fixture
@@ -41,20 +42,11 @@ def root(tmp_path: Path) -> Path:
     return repo
 
 
-@pytest.fixture
-def env(root: Path, tmp_path: Path) -> dict[str, str]:
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    return onedoor.door_env(root, stubs)
-
-
 @pytest.mark.parametrize("suffix", ["again", "again-2"])
 def test_a_suffix_that_forges_another_steps_id_is_refused(
-    root: Path, env: dict[str, str], tmp_path: Path, suffix: str
+    root: Path, tmp_path: Path, suffix: str
 ) -> None:
-    result = onedoor.door(
-        root, ["alpha", "probe", "--host", "srv1", "--suffix", suffix], env
-    )
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", suffix=suffix))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "probe-again" in result.stderr, result.stderr
     assert "--suffix" in result.stderr, result.stderr
@@ -62,14 +54,10 @@ def test_a_suffix_that_forges_another_steps_id_is_refused(
     assert not (tmp_path / "e1").exists(), "the step ran under a forged id"
 
 
-def test_a_suffix_that_forges_no_step_is_accepted(
-    root: Path, env: dict[str, str], tmp_path: Path
-) -> None:
-    result = onedoor.door(
-        root, ["alpha", "probe", "--host", "srv1", "--suffix", "pass2"], env
-    )
+def test_a_suffix_that_forges_no_step_is_accepted(root: Path, tmp_path: Path) -> None:
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", suffix="pass2"))
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert (
         onedoor.read_env_file(tmp_path / "e1")["RUN_ID"]
-        == "2026-09-02-alpha-probe-pass2"
+        == f"{onedoor.RUN_DATE}-alpha-probe-pass2"
     )

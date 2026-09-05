@@ -20,9 +20,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse, root
+from mcgyvr.serving.gatelib import export, need, refuse, root, ssh
 
 HERE = Path(__file__).resolve().parent
+
+#: What the reader prints beyond the declared keys that must read `none`: a
+#: card held by a process, or a container up, before the step starts, is a
+#: machine somebody else is using. Run contract §4 — a cell never repairs a
+#: machine it found wrong — so the refusal names them and leaves them.
+IDLE_KEYS = ("gpu_procs", "containers")
 
 
 def snapshot(host: str) -> dict[str, str]:
@@ -33,14 +39,7 @@ def snapshot(host: str) -> dict[str, str]:
     """
     reader = (HERE / "rig-snapshot.sh").read_text(encoding="utf-8")
     try:
-        done = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "bash -s"],
-            input=reader,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            check=False,
-        )
+        done = ssh(host, "bash -s", timeout=180, input=reader)
     except subprocess.TimeoutExpired:
         refuse(
             f"gate 2: {host} did not answer in 180s. A rig that cannot be read "
@@ -99,6 +98,17 @@ def main() -> int:
             f"on {declared_all[host].get('read_on')}; either the wrong --host "
             "was named, or the rig moved before this run. Fix the machine or "
             "re-declare it deliberately"
+        )
+
+    busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
+    busy = {key: value for key, value in busy.items() if value != "none"}
+    if busy:
+        refuse(
+            f"gate 2: {host} is not idle — "
+            + ", ".join(f"{key}={value}" for key, value in busy.items())
+            + ". Nothing is measured on a card or a daemon something else is "
+            "using, and the door does not clean a machine it found busy: kill "
+            "what you started; okf/must-read/touching-rigs.md"
         )
 
     # Gate 2b, only where a campaign says it serves: D8's rule is verify the

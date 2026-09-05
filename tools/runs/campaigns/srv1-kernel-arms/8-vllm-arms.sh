@@ -84,13 +84,13 @@
 #   RUN_HOST RUN_REPO RUN_RETRY_SLEEP   — see tools/runs/_common.sh
 #   HF_TOKEN                            — passed through to the fetch if set
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the file lands in
 # $RUN_OUT_DIR, and IMG is resolved to a digest ONCE (image_digest, gate 3)
 # before the driver sees it — the driver refuses a tag.
 # RUN_ARTIFACTS: srv1-vllm-arms.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "8-vllm-arms.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "8-vllm-arms.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/8-vllm-arms.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 

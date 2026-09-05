@@ -17,41 +17,55 @@ anything at all is the operator's — :mod:`mcgyvr.emit` writes a file and stops
 A unit is a *launch spec*, which is why it can be built on a laptop for a rig
 it has never touched.
 
-Every number in it is read off a :class:`~mcgyvr.scan.Scan` rather than
-declared, because the questions this module answers are the ones a nameplate
-cannot. Free VRAM decides a fit today; total VRAM decides nothing. And a model
-too big for the card is not automatically a model the machine cannot serve: an
-MoE spills its experts to RAM, so fit is a question about a *machine* — card,
-memory and disk together — not about a GPU.
+Every number in it is read off a :class:`~mcgyvr.scan.Scan` or off the model's
+own GGUF header, and none is declared. Free VRAM decides a fit today; total
+VRAM decides nothing. And a model too big for the card is not automatically a
+model the machine cannot serve: an MoE spills its experts to RAM, so fit is a
+question about a *machine* — card, memory and disk together — not about a GPU.
 
-The arithmetic below is anchored on the sweep in
-``records/measurements/serving-sweep-2026-08-25/``, which timed 32
-configurations on the two rigs this module was written for. Where a constant
-here has a number in it, that record is where the number came from.
+The card arithmetic is :mod:`mcgyvr.serving.vramfit`'s, applied here and not
+restated. What a placement costs is the non-expert weights, the cache and the
+recurrent state the header implies for this many slots, one scratch allowance,
+and the expert blocks left on the card — summed block by block from the
+tensor table, never averaged. The geometry that feeds it is one ``ggufscan``
+row (:attr:`ModelSpec.geometry`), and a model nobody has scanned is not sized
+from anything else: an MoE without its geometry is refused and told where to
+get one, and a dense model without it is served on the scalar figures its
+spec states, one slot wide. Every constant this module used to carry for that
+arithmetic — a cache cost per slot, an expert share, a block count, a working
+set — was measured on one checkpoint and wrong on the next, and none survives.
 """
 
 from __future__ import annotations
 
-import math
+import json
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr.config import Config
-from mcgyvr.detect import MIB_PER_GB
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
+from mcgyvr.serving import vramfit
 
 # The engine a unit gets when nothing says otherwise. A source's ``api`` is a
 # wire protocol (:class:`mcgyvr.pool.Protocol`) and cannot answer this: vLLM
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 
-# The context every sweep cell ran at. Held here so the slot arithmetic below
-# and the emitted ``-c`` cannot drift apart.
+# Context PER SLOT. llama-server's ``-c`` is the total across slots (measured
+# 2026-09-05: ``-c 8192`` allocates the same cache at ``-np 8``, ``-np 4`` and
+# ``-np 1``), so the argv states this times the slot count and the cache law
+# is fed the same product. One number, two readers, no drift.
 DEFAULT_CONTEXT = 4096
+
+# The micro-batch the cache law is sized at, and what the argv states as
+# ``-ub`` and ``-b``. A sliding-window cache grows with it, so it has to be the
+# number :func:`vramfit.kv_bytes` saw: stated rather than left to the engine,
+# whose default the law would otherwise be guessing at.
+DEFAULT_UBATCH = 512
 
 # llama.cpp's own default port — what the engine would bind if nothing said
 # otherwise. It is the fallback and never a preference: a unit built from a
@@ -59,57 +73,27 @@ DEFAULT_CONTEXT = 4096
 # where nobody wrote one down, so stating it costs nothing and changes nothing.
 DEFAULT_PORT = 8080
 
-# MoE geometry. ``--n-cpu-moe N`` keeps the expert tensors of N blocks on the
-# CPU, so sizing it needs two things a model knows about itself: how many
-# blocks it has, and how much of its weight is experts. Both are now fields on
-# :class:`ModelSpec` rather than constants here, and a spec that states neither
-# is refused by :func:`fit`.
-#
-# There used to be an ``EXPERT_SHARE = 0.92`` and a ``MOE_BLOCKS = 48``. Read
-# against the file the provenance comment cited — Qwen3.6-35B-A3B-UD-IQ3_XXS,
-# byte-identical to the sweep's — both were wrong, and so was the unit they
-# were applied in:
-#
-#   block count   48 declared, 40 actual
-#   expert share  0.92 declared, 0.8416 actual
-#   disk_gb       a decimal-GB numeral from the capability table, divided as
-#                 though it were GiB (``detect.MIB_PER_GB = 1024.0``)
-#
-# The three errors multiplied to 0.978, so the per-block figure they produced
-# was within 1% of the sweep's measurement and correcting any one of them
-# alone made it worse. The complement did not cancel: ``1 - 0.92`` against a
-# true residue fraction of 0.1475 left the resident floor at roughly half what
-# the file leaves non-expert, which is the direction that OOMs a host. A
-# constant that is only right because three mistakes cancel is not a constant
-# to correct — it is one to delete, which is what happened here.
-#
-# The expert mass is per model and per quant: the same architecture at another
-# quantisation has a different one, and the layers are not uniform (this file
-# runs 262 MiB for 37 blocks and 300 MiB for 3). Nothing derivable from a name
-# or a parameter count answers it, so the spec carries it or the fit refuses.
-
 # What system memory holds beyond the offloaded experts themselves: context,
 # compute buffers, and the copy paths that do not live on the card. Measured
-# across the sweep's six ``--n-cpu-moe`` cells on srv2, where
-# ``RSS - blocks * expert_per_block`` sat at 1.52-1.53 GiB at every setting
-# from 4 blocks to 20 — flat, which is what makes it an intercept rather than
-# a rate. It applies only where experts actually spill: a model held entirely
+# across the sweep's six ``--n-cpu-moe`` cells on srv2
+# (``records/measurements/serving-sweep-2026-08-25/``), where
+# ``RSS - offloaded expert bytes`` sat at 1.52-1.53 GiB at every setting from
+# 4 blocks to 20 — flat, which is what makes it an intercept rather than a
+# rate. It applies only where experts actually spill: a model held entirely
 # on the card is not paying it, and a dense model has no spill to pay it for.
 RUNTIME_RESIDENT_GB = 1.53
-
-# What one extra slot costs on the card. The sweep bounds it from below: q8_0
-# KV freed 36 MiB across 4 slots at 4096 (11,882 -> 11,846 MiB on an otherwise
-# identical cell), so f16 KV is ~18 MiB per slot for that family. 64 MiB is a
-# deliberate over-allowance of about 3.5x — a slot also costs compute buffers,
-# and a model with wider KV heads costs more per slot than this one. It is not
-# a larger margin than that, because the margin is subtracted from the slots a
-# rig is allowed to serve: the previous 0.25 was 256 MiB, fourteen times the
-# measurement, and it cost a 12 GB card ten slots it could measurably hold.
-KV_GB_PER_SLOT = 0.0625
 
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on
 # a 12 GB card). Past it this arithmetic would be extrapolating.
 MAX_WIDTH = 32
+
+# How far a stated ``disk_gb`` may sit from the scanned ``size_bytes`` and
+# still be the same figure written to two decimals. Past it they are two
+# claims about one file, and the rule is that each deviation from a scan
+# requires a new scan — not a tie-break in favour of whichever was typed last.
+SIZE_TOLERANCE_GB = 0.005
+
+_BYTES_PER_GIB = 1024**3
 
 
 class UnitError(Exception):
@@ -120,37 +104,43 @@ class UnitError(Exception):
 class ModelSpec:
     """What a model costs, in the three places a machine can run out.
 
-    ``vram_gb`` is the working set on the card — what it holds with nothing
-    offloaded, which is not the same as the weights on disk, because a working
-    set carries buffers (deepseek-coder-v2:16b's is 0.5 GB larger than its
-    weights). ``disk_gb`` is those weights.
+    ``geometry`` is the model's own account of itself: one row of
+    ``python -m mcgyvr.serving.ggufscan <gguf>`` (or the ``geometry.json`` a
+    serving-door run leaves in its envelope), carrying the tensor table summed
+    per block, the cache geometry per layer and the recurrent-state
+    parameters. When it is present it is the source of truth for the model's
+    bytes. ``disk_gb`` is read from its ``size_bytes``, ``moe`` from whether it
+    has placeable expert blocks, and the card figure from the law in
+    :mod:`mcgyvr.serving.vramfit`. A spec that states a ``disk_gb`` the
+    geometry disagrees with is refused at construction rather than reconciled,
+    and so is a geometry scanned from a file this spec does not name: each
+    deviation from a scan requires a new scan, because the alternative is a
+    number measured once on some other file that looks measured here.
 
-    ``ram_gb`` is what system memory may be asked to hold: zero for a dense
-    model, which has nowhere to spill to, and for an MoE the experts it can
-    push off the card. It is a claim about the model and not a split of it —
-    how much actually spills depends on the card and is derived per machine by
-    :func:`fit`, which refuses on whichever of the two numbers is larger.
+    Without it the spec is scalar. ``vram_gb`` is then the working set on the
+    card — what it holds with nothing offloaded, which is not the same as the
+    weights on disk, because a working set carries buffers — and ``disk_gb``
+    is those weights. That is enough to place a dense model on one slot and
+    nothing more: an MoE has a knob for *where* its weights sit, the knob is
+    priced per block from the tensor table, and no scalar stands in for a
+    tensor table. :func:`fit` refuses an MoE without its geometry and says
+    where to get one. ``vram_gb`` is not read when a geometry is present.
 
-    ``moe`` is not cosmetic and not inferable from the numbers: it says the
-    model has a knob for *where* its weights sit, which is the difference
-    between "does not fit" and "fits differently on this machine".
+    ``ram_gb`` is a floor on what system memory may be asked to hold: zero for
+    a dense model, which has nowhere to spill to, and for an MoE whatever an
+    operator knows that this module cannot see. How much actually spills is
+    derived per machine by :func:`fit`.
 
-    ``blocks`` is what that knob counts — ``--n-cpu-moe N`` moves the experts
-    of N transformer blocks — and ``expert_gb`` is how much weight those blocks
-    hold between them. ``None`` on either says nobody has stated it, and an MoE
-    missing either is refused rather than sized from a family default: the
-    per-block cost is the expert mass over the block count, so a wrong value in
-    the numerator or the denominator is not a rounding difference but gigabytes
-    placed in the wrong memory.
-
-    Both default to ``None`` on purpose. There is no honest default for either
-    — the block count varies by architecture and the expert mass varies by
-    quantisation of the *same* architecture — and the constants that used to
-    stand in for them were wrong in both places at once. They arrive from a
-    reader that has seen the file, or from an operator who states them, or the
-    fit declines. Every unit in this module is in GiB, which is the convention
+    ``moe`` is not cosmetic and not inferable from the scalar numbers: it says
+    the model has a knob for *where* its weights sit, which is the difference
+    between "does not fit" and "fits differently on this machine". Every unit
+    in this module is in GiB, which is the convention
     :data:`mcgyvr.detect.MIB_PER_GB` sets; a caller holding decimal GB converts
     before it builds a spec.
+
+    ``geometry`` takes no part in equality or hashing. Two specs naming one
+    file at one size are one spec; the geometry is a reading of that file, not
+    a further fact about it.
     """
 
     name: str
@@ -158,8 +148,35 @@ class ModelSpec:
     ram_gb: float
     disk_gb: float
     moe: bool = False
-    blocks: int | None = None
-    expert_gb: float | None = None
+    geometry: Mapping[str, Any] | None = field(default=None, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.geometry is None:
+            return
+        scanned = Path(str(self.geometry.get("file") or "")).name
+        wanted = _weights_file_name(self.name)
+        if scanned != wanted:
+            raise UnitError(
+                f"{self.name}: its geometry was scanned from {scanned!r} and this "
+                f"model serves {wanted!r}. A scan describes one file and this is "
+                f"not it; re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
+            )
+        size_bytes = self.geometry.get("size_bytes")
+        if not isinstance(size_bytes, int) or isinstance(size_bytes, bool):
+            raise UnitError(
+                f"{self.name}: its geometry states no size_bytes, so it is not a "
+                f"ggufscan row; re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
+            )
+        measured = size_bytes / _BYTES_PER_GIB
+        if self.disk_gb and abs(self.disk_gb - measured) > SIZE_TOLERANCE_GB:
+            raise UnitError(
+                f"{self.name}: disk_gb says {self.disk_gb!r} GiB and the geometry "
+                f"says {measured:.3f} GiB ({size_bytes} bytes). Each deviation "
+                f"from a scan requires a new scan: drop disk_gb, or re-scan: "
+                f"python -m mcgyvr.serving.ggufscan <gguf>"
+            )
+        object.__setattr__(self, "disk_gb", measured)
+        object.__setattr__(self, "moe", bool(self.geometry.get("placeable_blocks")))
 
 
 @dataclass(frozen=True)
@@ -169,7 +186,11 @@ class Width:
     A width mcgyvr derived from a card and a width an operator wrote in the
     config are different facts, and a unit that lost the difference could not
     explain itself. ``how`` is ``"written"`` only when the caller stated the
-    number.
+    number; ``"derived"`` when the cache law sized it against the card; and
+    ``"default"`` for a spec with no geometry to price a second slot from —
+    one slot, because the per-slot cost is the law's and the law needs the
+    header. Write ``max_parallel`` on the rung, or supply the geometry, to be
+    wider than that.
     """
 
     value: int
@@ -180,10 +201,13 @@ class Width:
 class Fit:
     """Whether this machine can hold this model right now, and why.
 
-    ``headroom_gb`` is what was held back on the card rather than what was left
-    over: the reserve is the claim being made, and it is absolute because what
-    it protects — KV cache and compute buffers — is sized by tokens and not by
-    GPU (CAV-04, and :meth:`mcgyvr.capability.CapabilityTable.fitting`).
+    ``headroom_gb`` is what was held back on the card rather than what was
+    left over: the reserve is the claim being made. For a spec with a
+    geometry it is :data:`vramfit.SCRATCH_AND_CONTEXT_MIB`, the one allowance
+    inside the card figure — compute scratch and the allocation the engine
+    never names, everything else in that figure being read from the header.
+    For a scalar spec it is :data:`mcgyvr.propose.DEFAULT_HEADROOM_GB`, held
+    back on top of the stated working set.
     """
 
     fits: bool
@@ -247,7 +271,7 @@ class Unit:
         return self.weights.parent
 
 
-def fit(scan: Scan, spec: ModelSpec) -> Fit:
+def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
     """Whether ``scan``'s machine can hold ``spec``, measured not declared.
 
     Four refusals, checked in the order that makes the message useful. A spec
@@ -256,43 +280,29 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
     it. Disk is next because weights that are not on the machine cannot be
     loaded however much memory there is, and a report that says "needs more
     VRAM" about a model that was never downloaded sends someone to the wrong
-    shop. Memory comes before the card because an MoE that clears the card by
-    spilling experts has only moved the demand, and the message an operator can
-    act on names the memory it moved into.
+    shop. The card and memory are then one question asked of one
+    :func:`_placement`: the lowest offload the card admits decides what
+    memory is asked to hold, so a card that admits none is refused as a card
+    and a spill the host cannot hold is refused as memory.
 
-    The RAM and VRAM refusals both read one :func:`_placement`, which is the
-    same call :func:`unit_for` makes to size ``--n-cpu-moe``. That is the point
-    of this function: checking a number here that the emitted argv does not
-    honour is how a fit says yes to an offload the machine cannot hold, which
-    is a compose file that passes review and swaps the host.
+    ``width`` is the slot count the unit will be emitted at, when someone
+    wrote one. The cache and the recurrent state are priced per slot, so the
+    floor the argv carries depends on it, and a fit checked at another width
+    is a fit for another process. That is the point of this function: checking
+    a number here that the emitted argv does not honour is how a fit says yes
+    to an offload the machine cannot hold, which is a compose file that passes
+    review and swaps the host.
 
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
     """
-    free_vram = _free_vram_gb(scan)
+    free_bytes = _free_vram_bytes(scan)
+    free_vram = free_bytes / _BYTES_PER_GIB
     available_ram = scan.memory.available_gb if scan.memory else 0.0
 
-    if spec.moe and (not spec.blocks or spec.expert_gb is None):
-        missing = " and ".join(
-            name
-            for name, absent in (
-                ("a block count", not spec.blocks),
-                ("an expert mass", spec.expert_gb is None),
-            )
-            if absent
-        )
+    if spec.moe and spec.geometry is None:
         return Fit(
-            fits=False,
-            headroom_gb=DEFAULT_HEADROOM_GB,
-            why=(
-                f"{spec.name}: sizing an MoE offload needs a block count and an "
-                f"expert mass, and this spec is missing {missing}. --n-cpu-moe "
-                "counts blocks and the per-block cost is the expert mass over "
-                "that count, so both are the model's own and neither is "
-                "derivable from its name, its parameter count or its file size. "
-                "Refusing rather than guessing: state them under `models:` in "
-                "the config, or point this at a reader that has seen the file"
-            ),
+            fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_needs_geometry(spec)
         )
     if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
         return Fit(
@@ -304,7 +314,10 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
             ),
         )
 
-    placed = _placement(spec, free_vram)
+    try:
+        placed = _placement(spec, free_bytes, width)
+    except UnitError as exc:
+        return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
     if placed.ram_gb > available_ram:
         return Fit(
             fits=False,
@@ -315,7 +328,7 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
                 f"{available_ram:.1f} GB available"
             ),
         )
-    if placed.vram_gb + DEFAULT_HEADROOM_GB > free_vram:
+    if spec.geometry is None and placed.vram_gb + DEFAULT_HEADROOM_GB > free_vram:
         return Fit(
             fits=False,
             headroom_gb=DEFAULT_HEADROOM_GB,
@@ -326,6 +339,13 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
             ),
         )
 
+    if spec.geometry is None:
+        held = f"{DEFAULT_HEADROOM_GB:.1f} GB headroom held back"
+    else:
+        held = (
+            f"{placed.width} slot(s) at {DEFAULT_CONTEXT} context each, "
+            f"{placed.headroom_gb:.2f} GB of it scratch allowance"
+        )
     spilled = (
         f", {placed.ram_gb:.1f} GB of experts in RAM{_offload_note(spec, placed)}"
         if spec.moe and placed.ram_gb
@@ -333,11 +353,10 @@ def fit(scan: Scan, spec: ModelSpec) -> Fit:
     )
     return Fit(
         fits=True,
-        headroom_gb=DEFAULT_HEADROOM_GB,
+        headroom_gb=placed.headroom_gb,
         why=(
             f"{spec.name}: {placed.vram_gb:.1f} GB on the card of "
-            f"{free_vram:.1f} GB free, "
-            f"{DEFAULT_HEADROOM_GB:.1f} GB headroom held back{spilled}"
+            f"{free_vram:.1f} GB free, {held}{spilled}"
         ),
     )
 
@@ -361,30 +380,35 @@ def unit_for(
     takes :data:`DEFAULT_PORT`, which is the number the engine would have
     chosen anyway. :func:`units_for` is where the config's answer arrives.
     """
-    sized = fit(scan, spec)
+    sized = fit(scan, spec, width=width)
     if not sized.fits:
         raise UnitError(f"{scan.machine.host}: {sized.why}")
 
     gpu = _roomiest_gpu(scan)
-    free_vram = gpu.vram.free_mib / MIB_PER_GB
     # The same derivation :func:`fit` just approved, not a second one that
     # agrees today: an argv whose offload differs from the one the fit checked
     # is a unit that was never sized for this machine.
-    placed = _placement(spec, free_vram)
-    chosen = (
-        Width(value=width, how="written")
-        if width is not None
-        else Width(value=_derived_width(free_vram, placed.vram_gb), how="derived")
-    )
+    placed = _placement(spec, gpu.vram.free_mib << 20, width)
+    if width is not None:
+        chosen = Width(value=width, how="written")
+    elif spec.geometry is not None:
+        chosen = Width(value=placed.width, how="derived")
+    else:
+        chosen = Width(value=placed.width, how="default")
     weights = _weights_path(scan, spec)
 
     # Flag → value throughout, which is the shape both renderings of a launch
     # spec need; a valueless switch would have to be a special case in each of
-    # them, so anything that is one is not expressed here.
+    # them, so anything that is one is not expressed here. ``-c`` is the total
+    # across slots and ``-ub``/``-b`` the micro-batch, stated because they are
+    # exactly the numbers the cache law was fed: an argv that left either to
+    # the engine would be sized for one cache and allocate another.
     args: dict[str, str] = {
         "--model": str(weights),
         "-ngl": "99",
-        "-c": str(DEFAULT_CONTEXT),
+        "-c": str(DEFAULT_CONTEXT * chosen.value),
+        "-ub": str(DEFAULT_UBATCH),
+        "-b": str(DEFAULT_UBATCH),
         "-fa": "on",
         "--parallel": str(chosen.value),
         "-t": str(_threads(scan)),
@@ -393,8 +417,8 @@ def unit_for(
     # ``--n-cpu-moe 0`` is a no-op printed into a file a person reads: it says
     # this rig offloads experts when it does not, and invites tuning a number
     # that was never in play.
-    if spec.moe and placed.blocks > 0:
-        args["--n-cpu-moe"] = str(placed.blocks)
+    if placed.n_cpu_moe > 0:
+        args["--n-cpu-moe"] = str(placed.n_cpu_moe)
 
     return Unit(
         key=UnitKey(host=scan.machine.host, model=spec.name, engine=engine, port=port),
@@ -513,11 +537,17 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
     """Serving specs an operator wrote down, which override the shipped table.
 
     mcgyvr sizes from what it can measure, and this is the seam where somebody
-    states what it cannot. Nothing here is second-guessed: a declaration that
-    is wrong produces a launch spec that fails on the rig, and that is the
-    operator's call to make rather than this module's to prevent. What the
-    module still owes them is to say what it measured — which it does, in the
-    fit's ``why`` — and then do what it was told.
+    states what it cannot — or points at a measurement of their own:
+    ``geometry_json`` names a ``ggufscan`` row, and from there the model's
+    bytes are the scan's and not the block's. A block that states a
+    ``disk_gb`` beside a geometry it disagrees with is refused
+    (:class:`ModelSpec`), because two numbers for one file is the situation a
+    scan exists to end. Everything else an operator writes is honoured: a
+    ``ram_gb`` floor this module cannot see, a ``vram_gb`` for a dense model
+    nobody has scanned.
+
+    A relative ``geometry_json`` is read against the config file's own
+    directory, so a config and the scan it cites travel together.
 
     It lives here rather than in :mod:`mcgyvr.config` because a
     :class:`ModelSpec` is a serving type and config cannot import serving
@@ -525,18 +555,110 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
     because a unit is the one thing a reader cannot check by eye.
     """
     blocks: Mapping[str, Any] = config.data.get("models") or {}
-    return {
-        name: ModelSpec(
+    specs: dict[str, ModelSpec] = {}
+    for name, block in blocks.items():
+        geometry: dict[str, Any] | None = None
+        stated = block.get("geometry_json")
+        if stated:
+            where = Path(str(stated)).expanduser()
+            if not where.is_absolute() and config.path is not None:
+                where = config.path.parent / where
+            geometry = load_geometry(where, name=name)
+        specs[name] = ModelSpec(
             name=name,
             vram_gb=block.get("vram_gb") or 0.0,
             ram_gb=block.get("ram_gb") or 0.0,
             disk_gb=block.get("disk_gb") or 0.0,
             moe=bool(block.get("moe")),
-            blocks=block.get("blocks"),
-            expert_gb=block.get("expert_gb"),
+            geometry=geometry,
         )
-        for name, block in blocks.items()
-    }
+    return specs
+
+
+#: What a ``ggufscan`` row carries that this module reads. A file missing one
+#: of these is not a scan, whatever else it says, and is refused by name.
+_GEOMETRY_KEYS = (
+    "file",
+    "size_bytes",
+    "n_layer",
+    "bytes_nonexpert",
+    "bytes_experts",
+    "placeable_blocks",
+    "expert_bytes_by_block",
+    "kv_layers",
+)
+
+
+def load_geometry(path: Path | str, *, name: str | None = None) -> dict[str, Any]:
+    """One ``ggufscan`` row from ``path``, refused rather than repaired.
+
+    Two shapes are read. A serving-door envelope's ``geometry.json`` is one
+    row; ``python -m mcgyvr.serving.ggufscan <gguf>`` prints a list of them,
+    one per file it was pointed at. A list of one is that one; a list of more
+    needs ``name`` to choose by, and the row chosen is the one whose ``file``
+    is the weights file that model serves — never the first, because the
+    first row of a directory scan is whichever file sorts first.
+
+    A row ``ggufscan`` could not read is written as ``{"file": …, "error":
+    …}`` rather than dropped, so that a directory scan says which file it
+    failed on. It is refused here for the same reason: a placement derived
+    from an error row would be derived from nothing.
+    """
+    where = Path(path)
+    try:
+        raw = json.loads(where.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise UnitError(f"{where}: cannot read a geometry from it: {exc}") from exc
+
+    if isinstance(raw, dict):
+        rows: list[Any] = [raw]
+    elif isinstance(raw, list):
+        rows = raw
+    else:
+        raise UnitError(
+            f"{where}: a geometry is one ggufscan row or a list of them, and this "
+            f"is {type(raw).__name__}; re-scan: python -m mcgyvr.serving.ggufscan "
+            f"<gguf>"
+        )
+    if not rows:
+        raise UnitError(f"{where}: holds no geometry rows at all")
+    if len(rows) == 1:
+        row = rows[0]
+    elif name is None:
+        raise UnitError(
+            f"{where}: holds {len(rows)} geometry rows and nothing says which "
+            f"model to choose one for"
+        )
+    else:
+        wanted = _weights_file_name(name)
+        matched = [
+            r
+            for r in rows
+            if isinstance(r, dict) and Path(str(r.get("file") or "")).name == wanted
+        ]
+        if len(matched) != 1:
+            raise UnitError(
+                f"{where}: {len(matched)} of {len(rows)} geometry rows were "
+                f"scanned from {wanted!r}, and {name} needs exactly one"
+            )
+        row = matched[0]
+
+    if not isinstance(row, dict):
+        raise UnitError(f"{where}: a geometry row is a mapping, found {row!r}")
+    if "error" in row:
+        raise UnitError(
+            f"{where}: ggufscan could not read {row.get('file')!r}: "
+            f"{row['error']}. Nothing is sized from an error row; fix the file "
+            f"and re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
+        )
+    missing = [key for key in _GEOMETRY_KEYS if key not in row]
+    if missing:
+        raise UnitError(
+            f"{where}: not a ggufscan row — it has no {', '.join(missing)}; "
+            f"re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
+        )
+    geometry: dict[str, Any] = row
+    return geometry
 
 
 def host_of(base_url: str) -> str:
@@ -578,172 +700,191 @@ def _roomiest_gpu(scan: Scan) -> Gpu:
     return max(scan.gpus, key=lambda gpu: gpu.vram.free_mib)
 
 
-def _free_vram_gb(scan: Scan) -> float:
-    """Free VRAM on the roomiest card — free, because used memory is someone's."""
+def _free_vram_bytes(scan: Scan) -> int:
+    """Free VRAM on the roomiest card — free, because used memory is someone's.
+
+    Read off the scan every time and cached nowhere: the number is a fact
+    about the card at the moment it was scanned, and a unit is sized against
+    that moment.
+    """
     if not scan.gpus:
-        return 0.0
-    return max(gpu.vram.free_mib for gpu in scan.gpus) / MIB_PER_GB
+        return 0
+    return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
+
+
+def _allowance_gb(spec: ModelSpec) -> float:
+    """What a fit for ``spec`` holds back on the card, in GiB."""
+    if spec.geometry is None:
+        return DEFAULT_HEADROOM_GB
+    return vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
+
+
+def _needs_geometry(spec: ModelSpec) -> str:
+    return (
+        f"{spec.name}: sizing an MoE needs its geometry: run "
+        f"python -m mcgyvr.serving.ggufscan <gguf> and set "
+        f"models.{spec.name}.geometry_json, or point it at the envelope's "
+        f"geometry.json. --n-cpu-moe moves whole blocks, and what each block's "
+        f"experts weigh is in the tensor table and nowhere else — not in a "
+        f"name, a parameter count or a file size"
+    )
 
 
 @dataclass(frozen=True)
 class _Placement:
-    """Where one model's weights end up on one machine, and the flag that says so.
+    """Where one model's weights end up on one machine, and the flags that say so.
 
     Private because it is an intermediate answer and not a fact about a unit:
     what survives into a :class:`Unit` is the argv and the :class:`Fit`. It
-    exists so that the card figure, the memory figure and ``--n-cpu-moe`` are
-    one derivation read three times rather than three derivations that have to
-    be kept in step by hand.
+    exists so that the card figure, the memory figure, the slot count and
+    ``--n-cpu-moe`` are one derivation read four times rather than four
+    derivations that have to be kept in step by hand.
+
+    ``n_cpu_moe`` is a block INDEX, as the flag reads it: blocks below it go
+    to the CPU whether or not they carry experts. ``vram_gb`` is the predicted
+    card figure with the scratch allowance inside it (or the stated working
+    set, on the scalar path), and ``headroom_gb`` is that allowance.
     """
 
-    blocks: int
+    n_cpu_moe: int
+    width: int
     vram_gb: float
     ram_gb: float
+    headroom_gb: float
 
 
-def _placement(spec: ModelSpec, free_vram_gb: float) -> _Placement:
-    """How this card splits this model, in the two places the split lands.
+def _placement(
+    spec: ModelSpec,
+    free_bytes: int,
+    width: int | None = None,
+    *,
+    ctx_per_slot: int = DEFAULT_CONTEXT,
+    n_ubatch: int = DEFAULT_UBATCH,
+) -> _Placement:
+    """How this card splits this model, and how wide it can be served.
 
-    Derived here and nowhere else, because the offload is three answers at once
-    — what the card holds, what memory holds, and the number written into
-    ``--n-cpu-moe`` — and three separate derivations of it are three chances to
-    disagree. The disagreement is not academic: a fit that checks the fully
-    offloaded floor while the argv offloads half of it approves a placement
-    nobody sized.
+    Derived here and nowhere else, because the offload is four answers at once
+    — what the card holds, what memory holds, how many slots, and the number
+    written into ``--n-cpu-moe`` — and separate derivations of it are chances
+    to disagree. The disagreement is not academic: a fit that checks one width
+    while the argv emits another approves a placement nobody sized.
 
-    A dense model has no knob, so its working set is the demand and whatever
-    the spec says about system memory stands. So does an MoE whose block count
-    nobody stated — :func:`fit` refuses that one before it reaches here, and
-    answering "no offload" is the honest shape for a knob this module cannot
-    turn.
+    With a geometry the card figure is :mod:`vramfit`'s law and nothing here
+    is a constant of this module's: ``C(w)`` is the non-expert weights plus
+    the cache and recurrent state the header implies for ``w`` slots at
+    ``ctx_per_slot`` each (``-c`` being the total, ``-ub`` the micro-batch the
+    cache is padded against), plus the one scratch allowance; the floor is the
+    lowest ``--n-cpu-moe`` whose remaining expert blocks fit beside ``C`` on
+    this card, walked block by block off the tensor table. ``None`` from that
+    walk means the card cannot hold ``C`` alone — a statement about the card,
+    refused as one. A dense geometry has no placeable blocks and the same walk
+    stops at zero, so a dense model with its header is sized by the same law.
+
+    The width, when nobody wrote one, is as wide as the card allows without
+    moving one more expert block off it: the largest ``w`` up to
+    :data:`MAX_WIDTH` whose floor is still the floor at one slot. A slot is
+    cache and state on the card; the moment a further slot costs a block of
+    experts it is paid for in tokens per second on every request, and that is
+    a trade for an operator to write down (``max_parallel`` on the rung), not
+    one to make silently. A written width is honoured and the floor recomputed
+    at it, so the argv's ``--parallel`` and its ``--n-cpu-moe`` were sized
+    together.
 
     The RAM figure is what this card actually spills, plus the runtime that
-    spilling carries with it — not the whole model weight. It used to be
-    ``max(spec.ram_gb, spilled)`` with ``spec.ram_gb`` set to the entire file
-    for every MoE, which made the ``max()`` win every time and the block count
-    irrelevant to the answer: four blocks offloaded and thirty-six both claimed
-    13.2 GB. Against the sweep's own cells that over-claimed by 1.9x to 4.8x.
-    The declaration is still honoured as a floor, so an operator who states a
-    memory demand this module cannot see is not overruled by it.
+    spilling carries with it — not the whole model weight. The declaration is
+    still honoured as a floor, so an operator who states a memory demand this
+    module cannot see is not overruled by it.
+
+    Without a geometry there is only the scalar path: the stated working set,
+    the stated memory floor, no offload, and one slot unless one was written.
+    An MoE has no scalar path; it is refused here and by :func:`fit`.
     """
-    if not spec.moe or not spec.blocks or spec.expert_gb is None:
-        return _Placement(blocks=0, vram_gb=spec.vram_gb, ram_gb=spec.ram_gb)
-    total = spec.blocks
-    blocks = _offload_blocks(spec, free_vram_gb, total)
-    spilled = (
-        blocks * _expert_gb_per_block(spec, total) + RUNTIME_RESIDENT_GB
-        if blocks
-        else 0.0
-    )
+    if spec.geometry is None:
+        if spec.moe:
+            raise UnitError(_needs_geometry(spec))
+        return _Placement(
+            n_cpu_moe=0,
+            width=width if width is not None else 1,
+            vram_gb=spec.vram_gb,
+            ram_gb=spec.ram_gb,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+        )
+
+    geometry = dict(spec.geometry)
+
+    def constant(slots: int) -> int:
+        try:
+            kv = vramfit.kv_bytes(
+                geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch
+            )
+            rs = vramfit.rs_bytes(geometry, n_seq_max=slots)
+        except ValueError as exc:
+            # Never caught into a default: an undeclared sliding-window split
+            # or a recurrent model with no state size is a request for a
+            # measurement, and the message says which one.
+            raise UnitError(
+                f"{spec.name}: the cache cannot be sized, so nothing is placed "
+                f"from an invented split: {exc}"
+            ) from exc
+        return (
+            int(geometry["bytes_nonexpert"])
+            + kv["total"]
+            + rs["total"]
+            + (vramfit.SCRATCH_AND_CONTEXT_MIB << 20)
+        )
+
+    def floor_at(slots: int) -> int | None:
+        return vramfit.floor(geometry, free_bytes, constant(slots))
+
+    if width is not None:
+        slots = width
+        n_cpu_moe = floor_at(slots)
+    else:
+        n_cpu_moe = floor_at(1)
+        slots = (
+            max(w for w in range(1, MAX_WIDTH + 1) if floor_at(w) == n_cpu_moe)
+            if n_cpu_moe is not None
+            else 1
+        )
+    if n_cpu_moe is None:
+        raise UnitError(
+            f"{spec.name}: does not fit at any offload on a card with "
+            f"{free_bytes >> 20} MiB free at {slots} slot(s): the non-expert "
+            f"weights, cache, state and scratch alone want "
+            f"{constant(slots) >> 20} MiB with every expert block off the card. "
+            f"This is the card being too small, not the config being wrong"
+        )
+    card = vramfit.predict(geometry, n_cpu_moe, constant(slots))
     return _Placement(
-        blocks=blocks,
-        vram_gb=_resident_gb(spec, blocks, total),
-        ram_gb=max(spec.ram_gb, spilled),
+        n_cpu_moe=n_cpu_moe,
+        width=slots,
+        vram_gb=card / _BYTES_PER_GIB,
+        ram_gb=max(spec.ram_gb, _host_gb(geometry, n_cpu_moe)),
+        headroom_gb=vramfit.SCRATCH_AND_CONTEXT_MIB / 1024,
     )
+
+
+def _host_gb(geometry: dict[str, Any], n_cpu_moe: int) -> float:
+    """What system memory holds at this offload: the spilled experts, plus the
+    runtime that spilling carries — and nothing when nothing spills."""
+    offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
+        geometry, n_cpu_moe
+    )
+    if offloaded <= 0:
+        return 0.0
+    return offloaded / _BYTES_PER_GIB + RUNTIME_RESIDENT_GB
 
 
 def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
     """The offload a refusal is about, so the reader can check the arithmetic."""
-    if not spec.moe or not spec.blocks:
+    if spec.geometry is None or not spec.moe:
         return ""
-    return f" ({placed.blocks} of {spec.blocks} blocks of experts on the CPU)"
-
-
-def _expert_gb_per_block(spec: ModelSpec, blocks: int) -> float:
-    """What one block's experts weigh: the expert mass over the model's blocks.
-
-    Both numbers are the model's own. Neither is derived from the other, and
-    neither is a share of the file — the previous form divided ``disk_gb`` by a
-    constant fraction and a constant block count, and was wrong in the mass,
-    the count and the unit simultaneously.
-
-    This is an average across blocks and the blocks are not equal: the file the
-    sweep drove carries 262 MiB of experts in 37 of its blocks and 300 MiB in
-    the other 3. ``--n-cpu-moe N`` takes the *first* N, so an offload that stays
-    inside the cheap band costs less than this says and one that reaches the
-    expensive blocks costs more. Averaging is the conservative direction for
-    small N, which is the direction a small card offloads in.
-    """
-    if spec.expert_gb is None:  # pragma: no cover - fit() refuses first
-        raise UnitError(f"{spec.name}: no expert mass stated")
-    return spec.expert_gb / blocks
-
-
-def _resident_floor_gb(spec: ModelSpec) -> float:
-    """What stays on the card with every expert block offloaded.
-
-    Attention, embeddings and the norms: ``--n-cpu-moe`` cannot move them, so
-    this is the smallest a model can be made on a GPU, and the number a fit
-    against a small card is really asking about.
-
-    Now a subtraction between two figures the model states rather than a
-    fraction of one of them. That matters in the direction it was wrong before:
-    the old ``disk_gb * 0.08`` put this at 1082 MiB for a file that leaves 1995
-    MiB non-expert, and a floor set below what the weights actually leave is a
-    fit approved against room the card will not have.
-    """
-    if spec.expert_gb is None:  # pragma: no cover - fit() refuses first
-        raise UnitError(f"{spec.name}: no expert mass stated")
-    return max(0.0, spec.disk_gb - spec.expert_gb)
-
-
-def _offload_blocks(spec: ModelSpec, free_vram_gb: float, blocks: int) -> int:
-    """How many blocks of experts this card needs pushed onto the CPU.
-
-    Derived, never tabulated. With ``-ngl 99`` the card holds every weight
-    except the experts of the blocks named here, so the deficit is what the
-    weights want minus what the card has after the headroom is held back, and
-    each block moved buys back one block's worth of experts. Two rigs with
-    different free VRAM therefore get different numbers from the same model,
-    and the smaller card gets the larger one — which is the shape the sweep
-    measured (srv1, 6 GB: 28 blocks; srv2, 12 GB: 4, on the same weights).
-
-    Rounded up and capped at ``blocks``, the model's own count: a fractional
-    block does not exist, and offloading more blocks than there are is the
-    CPU-only case, not an error.
-    """
-    budget = free_vram_gb - DEFAULT_HEADROOM_GB
-    deficit = spec.disk_gb - budget
-    if deficit <= 0.0:
-        return 0
-    return min(blocks, math.ceil(deficit / _expert_gb_per_block(spec, blocks)))
-
-
-def _resident_gb(spec: ModelSpec, blocks: int, total: int) -> float:
-    """What the card ends up holding once ``blocks`` of experts are on the CPU.
-
-    It starts from the spec's own working set rather than from the weights: the
-    card holds buffers too, which is why deepseek-coder-v2:16b measures 9.4 GB
-    of VRAM for 8.9 GB of weights, and a placement that quietly substituted the
-    smaller number would under-state every MoE by whatever its buffers cost.
-    Each offloaded block takes its experts off that, down to the floor.
-    """
-    if not spec.moe:
-        return spec.vram_gb
-    return max(
-        _resident_floor_gb(spec),
-        spec.vram_gb - blocks * _expert_gb_per_block(spec, total),
+    placeable = list(spec.geometry["placeable_blocks"])
+    on_card = sum(1 for block in placeable if block >= placed.n_cpu_moe)
+    return (
+        f" (--n-cpu-moe {placed.n_cpu_moe}: {on_card} of {len(placeable)} expert "
+        f"blocks on the card)"
     )
-
-
-def _derived_width(free_vram_gb: float, resident_gb: float) -> int:
-    """Slots for the room the weights left, rather than the one slot nobody chose.
-
-    A default of 1 is a claim — that this rig serves one request at a time —
-    and it was never measured; #366 found 32 slots on a 12 GB card reaching
-    254 tok/s against ~67 single-stream. What actually bounds the number is
-    the VRAM the weights did not take, so that is what is divided here.
-
-    Minus the headroom, because :func:`fit` already held it back and slots are
-    exactly what it was held back from. A 9.9 GB model on a 12 GB card is a fit
-    that reports "2.0 GB headroom held back" and a width of 8 that spends 2.0
-    GB of it on KV — the module contradicting itself inside one unit, and the
-    contradiction resolving on the rig as an OOM under load. The floor of one
-    slot stands: a server with no slot serves nothing, and a machine that
-    cannot afford the first one is a fit this module should not have approved.
-    """
-    spare = free_vram_gb - resident_gb - DEFAULT_HEADROOM_GB
-    return max(1, min(MAX_WIDTH, int(spare / KV_GB_PER_SLOT)))
 
 
 def _threads(scan: Scan) -> int:
@@ -758,6 +899,17 @@ def _threads(scan: Scan) -> int:
     if scan.cpu is None:
         return 1
     return max(1, min(scan.cpu.cores or scan.cpu.threads, scan.cpu.threads))
+
+
+def _weights_file_name(name: str) -> str:
+    """The file a model id is served from, and the name a geometry must carry.
+
+    The separator is flattened rather than followed (see :func:`_weights_path`)
+    and the extension is this module's, so a geometry scanned from
+    ``Qwen_Qwen2.5-Coder-7B-Instruct-AWQ.gguf`` belongs to the id
+    ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`` and to nothing spelled differently.
+    """
+    return f"{name.replace('/', '_')}.gguf"
 
 
 def _weights_path(scan: Scan, spec: ModelSpec) -> Path:
@@ -777,4 +929,4 @@ def _weights_path(scan: Scan, spec: ModelSpec) -> Path:
     stays in the directory the scan is a statement about.
     """
     root = scan.disk.path if scan.disk is not None else default_weights_dir()
-    return root / f"{spec.name.replace('/', '_')}.gguf"
+    return root / _weights_file_name(spec.name)

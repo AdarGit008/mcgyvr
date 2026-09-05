@@ -7,9 +7,10 @@ now deleted) hardwired the 11-token prompt the repo had already ruled 2.4x
 misleading. Copies agree until one is edited. ``WORKLOAD_DIGEST`` in
 ``tools/runs/rows.py`` (``2f2bb7932a0b660653def819``) is the check that would
 catch a divergence, and it ran only in CI, post-hoc, over one directory. Now
-the block lives here once, every driver imports it, and gate 4 of
-``tools/runs/run.sh`` re-derives the digest from THIS file before a step
-starts. ``tests/test_one_door.py`` holds the tree to exactly one definition.
+the block lives here once, every driver imports it, and gate 4 of the door
+(``src/mcgyvr/serving/gate-scripts/04-workload.py``) re-derives the digest from
+THIS file before a step starts. ``tests/test_one_door.py`` holds the tree to
+exactly one definition.
 
 **The digest is over generated prompts, not over this file's text.**
 ``rows.workload_digest`` execs everything from the first decile list to the

@@ -228,7 +228,8 @@ def test_a_refused_cell_is_recorded_rather_than_deleted() -> None:
 def test_the_recorded_run_measured_the_grid_it_was_asked_for() -> None:
     """The wiring, end to end. A cell that reported `ok` must carry a level for
     every n, and each level must carry a rate -- `tokens_per_s`, which is what
-    ``run.py`` emits. ``sweep.py`` names the same quantity `agg_tok_s`, and a
+    ``run.py`` emits. The retired ``sweep.py`` named the same quantity
+    `agg_tok_s`, and a
     consumer reading the wrong key sees None at every level and reads it as a
     dead run. That happened once on 2026-08-30 and cost a false alarm."""
     journals = sorted(EVIDENCE.glob("*.jsonl"))

@@ -37,7 +37,7 @@
 # ONE FILE, TWO STEPS -- AND THIS SCRIPT OWNS IT. srv1-moe-slots.tsv is also the
 # crash study's file (step 7, behaviour 8: the L2 boundary sweep and L3's 60
 # trials). That work is the KERNEL question and is not this script's:
-# PLAN.md's "Not worth rig time" list puts ncmoe cells for the
+# archive/docs/srv1-kernel-arms-PLAN.md's "Not worth rig time" list puts ncmoe cells for the
 # kernel question out of scope, and this script's grid is exactly two placement
 # cells of one model at one width.
 #
@@ -86,13 +86,13 @@
 # before this script starts: this script creates that artifact, and a second
 # step-6 pass appended under a first one would file two placement nulls as one.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, both files land in
 # $RUN_OUT_DIR, and --img is resolved to a digest ONCE (image_digest, gate 3)
 # before a container is started from it.
 # RUN_ARTIFACTS: srv1-moe-slots.tsv placement-null.json
 
-[ -n "${RUN_ID:-}" ] || { echo "6-moe-slots.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "6-moe-slots.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -101,6 +101,10 @@ ROOT=$(cd -- "$HERE/../../../.." && pwd)
 # shellcheck source=tools/runs/_common.sh disable=SC1091
 . "$HERE/../../_common.sh"
 door_required
+# The rig the door was given (gate 5). The container runs THERE, so the health
+# poll and the endpoint name it; under `set -u` an unset one would die as a
+# bash error rather than as a refusal, so it is checked here, once.
+[ -n "${RUN_HOST:-}" ] || { _fail "RUN_HOST is unset — the door exports the rig a run serves on (gate 5), and this step polls and measures that host" || exit 2; }
 
 # The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
 OUT_DIR=$RUN_OUT_DIR
@@ -218,7 +222,7 @@ measure_argv() {
     local run=$1
     MEASURE_ARGV=(
         uv run --no-sync python tools/breadth/measure.py
-        --endpoint "http://127.0.0.1:$PORT" --protocol openai
+        --endpoint "http://$RUN_HOST:$PORT" --protocol openai
         --model "$SERVED_NAME" --tier "$TIER" --draws "$DRAWS"
         --out "$MEASUREMENTS/$run/$TIER"
     )
@@ -246,7 +250,7 @@ launch_cell() {
     i=0
     while [ "$i" -lt "$HEALTH_TRIES" ]; do
         i=$((i + 1))
-        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" || true)
+        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://$RUN_HOST:$PORT/health" || true)
         if [ "$code" = "200" ]; then
             docker logs "$CONTAINER" >>"$LAUNCH_LOG" 2>&1 || true
             return 0
@@ -269,7 +273,7 @@ log_last_line() {
 }
 
 gpu_process_mib() {
-    nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null |
+    ssh "$RUN_HOST" nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null |
         awk '{ s += $1 + 0 } END { if (s > 0) printf "%d", s }'
 }
 
@@ -352,8 +356,8 @@ kv_get() {
 if [ "$DRY_RUN" -eq 1 ]; then
     printf '# 6-moe-slots.sh --dry-run\n'
     printf '# artifacts: %s (created here, then appended one line at a time)\n#            %s\n' "$OUT" "$JSON"
-    printf '# step 6 OWNS %s: it creates it. Step 7 (tools/runs/run.sh srv1-kernel-arms crash,\n' "$OUT_NAME"
-    printf '# 7-crash.sh) appends to it and refuses to run before this script has.\n'
+    printf '# step 6 OWNS %s: it creates it. Step 7 (7-crash.sh, through the door)\n' "$OUT_NAME"
+    printf '# appends to it and refuses to run before this script has.\n'
     if [ -e "$OUT" ]; then
         printf '# NOTE: %s already exists. A real run would STOP here (the door refuses it at gate 5).\n' "$OUT"
     fi
@@ -405,7 +409,7 @@ IMG_DIGEST=$(image_digest "$IMG") || die "$IMG resolves to no digest on this hos
 # or a previous step 6 is on disk -- and appending a second placement null under
 # the first would file two runs as one measurement.
 if [ -e "$OUT" ]; then
-    die "$OUT already exists. This script CREATES that artifact (step 6); step 7 (tools/runs/run.sh srv1-kernel-arms crash, 7-crash.sh) only appends to it. Either a previous step 6 wrote it, or step 7 ran out of order. Move the file aside deliberately -- the door's gate 5 refuses this before the step starts, and nothing here replaces evidence."
+    die "$OUT already exists. This script CREATES that artifact (step 6); step 7 (7-crash.sh, through the door) only appends to it. Either a previous step 6 wrote it, or step 7 ran out of order. Move the file aside deliberately -- the door's gate 5 refuses this before the step starts, and nothing here replaces evidence."
 fi
 : >"$OUT"
 

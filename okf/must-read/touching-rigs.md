@@ -20,13 +20,21 @@ Any ssh, any launch, any measurement on srv1 or srv2.
 
 ## What a context costs
 
-**KV is 2 KiB per token per attention layer at f16, on every MoE checkpoint
-measured.** `2 × n_kv_heads × head_dim × 2 B` lands on 2048 for head counts of
-2, 4 and 8 alike. **Multiply by the layers that cache, not by `block_count`.**
+**KV is `kv_bytes` in `src/mcgyvr/serving/vramfit.py` — per layer, over the
+layers the header declares as caching, never one width for all of them.** Each
+layer's `k_elems`/`v_elems` come from ggufscan, and no scalar survives this
+store: deepseek2 reads 4320 MiB at `-c 16384 -np 8` where the 2 KiB-per-token
+law says 864. **Multiply by the layers that cache, not by `block_count`.**
 Qwen3.6-35B and KAT declare `full_attention_interval = 4` — 10 of 40 layers, so
-20.2 KiB/token measured, not the 80 the layer count predicts. gpt-oss-20b
-declares `sliding_window = 128` on alternating layers: 28.0. Qwen3-Coder-30B
-caches every layer: 96.2, against 96.0 predicted.
+20.2 KiB/token measured, not the 80 the layer count predicts. Qwen3-Coder-30B
+caches every layer: 96.2, against 96.0 predicted. **An undeclared
+sliding-window split is refused, not guessed.** gpt-oss-20b declares
+`sliding_window = 128` and no per-layer pattern, and an alternating guess is
+wrong for two of the three split checkpoints measured. llama.cpp prints a
+`llama_kv_cache: size = … (… N layers …)` line for each cache it creates on
+startup (under `llama_kv_cache_iswa: creating non-SWA/SWA KV cache`); pass
+those rows as `kv_bytes(layers=…)`.
+→ `records/evidence/2026-09-05-context-decomposition/srv2-deepseek-coder-v2-16b/c16384-r1.log`
 
 **The non-caching layers charge per slot, and not per token.** Qwen3.6's 30
 linear layers each hold `ssm_inner_size 4096 × ssm_state_size 128 × 4 B` =
@@ -98,11 +106,14 @@ KAT-Coder-V2.5-Dev Q2_K floors at 7 (0 and 4 refuse): 47.2 / 70.3 / 71.2.
 → `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/srv2-ncmoe-floor.tsv`
 
 **Derive the floor, then walk down to it. Do not guess and do not copy a
-neighbour's value.** The budget is `free VRAM − CUDA context (~1.0 GB) −
-non-expert weights − KV − slot state`; what remains, over total expert bytes, is
-the resident fraction, and `(1 − fraction) × n_layers` is the floor. Both weight
-terms come from the tensor table, never from the file size.
-→ `records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/ggufscan.py`
+neighbour's value.** The budget is `free VRAM − scratch and context −
+non-expert weights − KV − slot state`, where the CUDA context measured 85–147
+MiB and not 1.0 GB and is folded, with the compute buffer, into
+`SCRATCH_AND_CONTEXT_MIB = 768` in `src/mcgyvr/serving/vramfit.py`; what
+remains, over total expert bytes, is the resident fraction, and `(1 − fraction)
+× n_layers` is the floor. Both weight terms come from the tensor table, never
+from the file size.
+→ `src/mcgyvr/serving/ggufscan.py`
 
 **Take the VRAM term from `free`, never from `total − reserve`.** The two
 agree only on an idle card, and the wrong one places experts on a card with no

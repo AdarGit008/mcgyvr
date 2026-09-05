@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh — step 2 of the srv1 kernel-arms run
-# (`PLAN.md:116`), written against
-# `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md` §5.6.
+# (`archive/docs/srv1-kernel-arms-PLAN.md:116`), written against
+# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` §5.6.
 #
 # Produces `records/evidence/2026-09-02-srv1-kernel-arms/srv1-aa-null.tsv`.
 #
@@ -41,13 +41,13 @@
 #
 # --dry-run prints the exact command line for every cell and touches nothing.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the file lands in
 # $RUN_OUT_DIR, and the arm's tag is resolved to a digest ONCE (image_digest,
 # gate 3) before the driver sees it — the driver refuses a tag.
 # RUN_ARTIFACTS: srv1-aa-null.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "2-aa-null.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "2-aa-null.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/2-aa-null.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -195,7 +195,7 @@ log_tail_stop() {
 }
 
 # Read, never inferred from the path: `a checkpoint's name is not evidence of
-# its format` (PLAN.md:143).
+# its format` (archive/docs/srv1-kernel-arms-PLAN.md:143).
 log_file_type() {
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=

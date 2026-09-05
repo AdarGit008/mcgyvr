@@ -7,12 +7,13 @@ parsed the name and guarded nothing: a step whose only declaration was
 and the door exited 0 — the write-once-on-recorded-history rule the
 ``RUN_REWRITES`` refusal exists for did not reach this directive.
 
-So gate 5 holds an appended file to the ``RUN_REWRITES`` rule minus the move:
-it must exist, and its ``### START`` must carry a ``run_id`` a step of this
-campaign minted (a legacy file, or no file, is exit 2 and the step does not
-start). And gate 8 checks that the bytes there before the step are still the
-file's prefix afterwards, and that something followed them: a step that
-rewrote the file, or appended nothing, is exit 1 naming it.
+So gate 5 (``05-envelope.py``) holds an appended file to the ``RUN_REWRITES``
+rule minus the move: it must exist, and its ``### START`` must carry a
+``run_id`` a step of this campaign minted (a legacy file, or no file, is exit
+2 and the step does not start). And gate 8 (``08-parse.py``) checks that the
+bytes there before the step are still the file's prefix afterwards, and that
+something followed them: a step that rewrote the file, or appended nothing,
+is exit 1 naming it.
 """
 
 from __future__ import annotations
@@ -22,12 +23,15 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 LEGACY_START = (
     f"### START uptime_since={onedoor.UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
     "pl1_source=constraint_0_power_limit_uw cpu_max_mhz=4600 ram_mt_s=3600\n"
     f"srv1\tprobe\tCONFIG\timg=sha256:{onedoor.LOCAL_ID_HEX}\n"
 )
+OTHER = Scenario("alpha", "1-other.sh")
+PROBE = Scenario("alpha", "2-probe.sh")
 
 
 def appender(env_file: Path) -> str:
@@ -37,14 +41,14 @@ def appender(env_file: Path) -> str:
         "# RUN_APPENDS: probe.tsv\n"
         "set -euo pipefail\n"
         '[ -n "${RUN_ID:-}" ] || { echo "probe: RUN_ID is unset; start me '
-        'through tools/runs/run.sh" >&2; exit 2; }\n'
+        'through python -m mcgyvr.serving.run" >&2; exit 2; }\n'
         f"printf 'RUN_ID=%s\\n' \"$RUN_ID\" > '{env_file}'\n"
         "{\n"
         f"printf '### START uptime_since={onedoor.UPTIME} pl1_uw=95000000 "
         "pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw "
         'cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s\\n\' "$RUN_ID"\n'
-        f"printf '### ROUND id={onedoor.ROUND_ID} "
-        f"product_sha256={onedoor.PRODUCT_SHA256}\\n'\n"
+        "printf '### ROUND id=%s product_sha256=%s\\n' "
+        '"${RUN_ROUND:-}" "${RUN_PRODUCT_SHA256:-}"\n'
         f"printf '%s\\tprobe\\tCRASH\\timg=sha256:{onedoor.LOCAL_ID_HEX}\\tn=2\\n' "
         '"${RUN_HOST:-nohost}"\n'
         f"printf '### END uptime_since={onedoor.UPTIME} pl1_uw=95000000 "
@@ -63,28 +67,21 @@ def root(tmp_path: Path) -> Path:
     return repo
 
 
-@pytest.fixture
-def env(root: Path, tmp_path: Path) -> dict[str, str]:
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    return onedoor.door_env(root, stubs)
-
-
-def _created_by_the_door(root: Path, env: dict[str, str]) -> tuple[Path, str]:
-    first = onedoor.door(root, ["alpha", "other", "--host", "srv1"], env)
+def _created_by_the_door(root: Path) -> tuple[Path, str]:
+    first = onedoor.door(root, OTHER)
     assert first.returncode == 0, (first.stdout, first.stderr)
     artifact = onedoor.envelope(root, "alpha") / "probe.tsv"
     return artifact, artifact.read_text(encoding="utf-8")
 
 
 def test_a_legacy_file_with_no_run_id_is_refused_and_untouched(
-    root: Path, env: dict[str, str], tmp_path: Path
+    root: Path, tmp_path: Path
 ) -> None:
     onedoor.add_step(root, "alpha", "2-probe.sh", appender(tmp_path / "e"))
     out_dir = onedoor.envelope(root, "alpha")
     out_dir.mkdir(parents=True)
     (out_dir / "probe.tsv").write_text(LEGACY_START, encoding="utf-8")
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "probe.tsv" in result.stderr, result.stderr
     assert (out_dir / "probe.tsv").read_text(encoding="utf-8") == LEGACY_START
@@ -92,10 +89,10 @@ def test_a_legacy_file_with_no_run_id_is_refused_and_untouched(
 
 
 def test_a_file_that_is_not_there_cannot_be_appended_to(
-    root: Path, env: dict[str, str], tmp_path: Path
+    root: Path, tmp_path: Path
 ) -> None:
     onedoor.add_step(root, "alpha", "2-probe.sh", appender(tmp_path / "e"))
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "probe.tsv" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
@@ -103,11 +100,11 @@ def test_a_file_that_is_not_there_cannot_be_appended_to(
 
 
 def test_a_step_that_appended_is_green_and_the_earlier_bytes_lead(
-    root: Path, env: dict[str, str], tmp_path: Path
+    root: Path, tmp_path: Path
 ) -> None:
     onedoor.add_step(root, "alpha", "2-probe.sh", appender(tmp_path / "e"))
-    artifact, created = _created_by_the_door(root, env)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    artifact, created = _created_by_the_door(root)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 0, (result.stdout, result.stderr)
     text = artifact.read_text(encoding="utf-8")
     assert text.startswith(created), (
@@ -117,7 +114,7 @@ def test_a_step_that_appended_is_green_and_the_earlier_bytes_lead(
 
 
 def test_a_step_that_rewrote_the_file_is_exit_1_and_named(
-    root: Path, env: dict[str, str], tmp_path: Path
+    root: Path, tmp_path: Path
 ) -> None:
     # probe_step writes with `>`: the step truncates what it declared it appends to.
     onedoor.add_step(
@@ -126,21 +123,18 @@ def test_a_step_that_rewrote_the_file_is_exit_1_and_named(
         "2-probe.sh",
         onedoor.probe_step(tmp_path / "e", directive="RUN_APPENDS"),
     )
-    artifact, created = _created_by_the_door(root, env)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    artifact, created = _created_by_the_door(root)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert "probe.tsv" in result.stderr, result.stderr
-    assert "run.sh: green" not in result.stderr, result.stderr
     assert not artifact.read_text(encoding="utf-8").startswith(created)
 
 
-def test_a_step_that_appended_nothing_is_not_green(
-    root: Path, env: dict[str, str], tmp_path: Path
-) -> None:
+def test_a_step_that_appended_nothing_is_not_green(root: Path, tmp_path: Path) -> None:
     body = appender(tmp_path / "e").replace("{\n", "exit 0\n{\n", 1)
     onedoor.add_step(root, "alpha", "2-probe.sh", body)
-    artifact, created = _created_by_the_door(root, env)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    artifact, created = _created_by_the_door(root)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert "probe.tsv" in result.stderr, result.stderr
     assert artifact.read_text(encoding="utf-8") == created

@@ -15,19 +15,29 @@ declared ``vulkan`` that measured ``CPU`` exits non-zero with the reason; an
 image that declares nothing (the upstream ``server-cuda`` image, arm A1) is
 not judged. ``3-llama-bench.sh`` files a ``refused`` row on that verdict
 instead of ``BENCH`` rows.
+
+Through the door, step 3 benches its default arm list: its arm selection and
+models directory are environment knobs (``RUN_ARMS``, ``RUN_MODELS_DIR``) the
+door refuses as ambient, so what a test can reach is the door's own
+``--model`` (relative to ``$HOME/models``, which the step checks locally) and
+a ``sleep`` on PATH that returns at once, in front of the ``retry3`` waits.
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 BENCH_SH = onedoor.KERNEL_ARMS / "3-llama-bench.sh"
+CAMPAIGN = "srv1-kernel-arms"
+MODEL_FILE = "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
 
 
 def _parser_source() -> str:
@@ -41,7 +51,7 @@ def _parser_source() -> str:
 def _entry(**override: object) -> dict[str, object]:
     base: dict[str, object] = {
         "build_commit": "d7a207411",
-        "model_filename": "/models/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
+        "model_filename": f"/models/{MODEL_FILE}",
         "model_type": "qwen2 3B Q4_K - Medium",
         "n_gpu_layers": 99,
         "flash_attn": 1,
@@ -134,28 +144,40 @@ def _report(backend: str) -> str:
     return json.dumps(entries)
 
 
+def _bench_fixture(tmp_path: Path, docker_body: str) -> tuple[Path, dict[str, str]]:
+    """The real step 3 in the fixture, a ``docker`` of the test's own behind
+    the shim, an instant ``sleep``, and a checkpoint where the step's local
+    preflight looks for it: ``$HOME/models/<--model>``."""
+    root = onedoor.fixture_repo(tmp_path)
+    shutil.copytree(
+        onedoor.KERNEL_ARMS, root / "tools" / "runs" / "campaigns" / CAMPAIGN
+    )
+    stubs = onedoor.stubs_dir(root)
+    onedoor.executable(stubs / "docker", onedoor.docker_stub_text(docker_body))
+    onedoor.stub_sleep(stubs)
+    home = tmp_path / "home"
+    (home / "models" / "dense").mkdir(parents=True)
+    (home / "models" / "dense" / MODEL_FILE).write_bytes(b"gguf")
+    return root, {"HOME": str(home)}
+
+
+def _bench(root: Path, env_extra: dict[str, str], *args: str) -> Scenario:
+    return Scenario(
+        CAMPAIGN, "3-llama-bench.sh", model=f"dense/{MODEL_FILE}", step_args=args
+    )
+
+
 def _bench_through_the_door(
     tmp_path: Path, *, declared: str, measured: str
 ) -> tuple[subprocess.CompletedProcess[str], str]:
-    """The real step 3 through the real door, against a docker on PATH whose
-    image is labelled ``declared`` and whose llama-bench reports ``measured``."""
-    import os
-    import shutil
-
-    campaign = "srv1-kernel-arms"
-    root = onedoor.fixture_repo(tmp_path)
-    shutil.copytree(
-        onedoor.KERNEL_ARMS, root / "tools" / "runs" / "campaigns" / campaign
-    )
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
+    """The real step 3 through the real door, against a docker whose image is
+    labelled ``declared`` and whose llama-bench reports ``measured``."""
     report = tmp_path / "report.json"
     report.write_text(_report(measured), encoding="utf-8")
     inspect = f'[{{"Id":"sha256:{onedoor.LOCAL_ID_HEX}","RepoDigests":[]}}]'
     # `ps` first: the run id carries the step name, so a looser match on
     # "llama-bench" would answer gate 7's `docker ps` with the report.
-    stub = f"""#!/usr/bin/env bash
-case "$*" in
+    body = f"""case "$*" in
   ps*) exit 0 ;;
   *org.mcgyvr.build.backend*) printf '%s\\n' '{declared}'; exit 0 ;;
   image*) printf '%s\\n' '{inspect}'; exit 0 ;;
@@ -163,18 +185,10 @@ case "$*" in
   *) exit 0 ;;
 esac
 """
-    docker = onedoor.executable(stubs / "docker", stub)
-    models = tmp_path / "models" / "dense"
-    models.mkdir(parents=True)
-    (models / "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf").write_bytes(b"gguf")
-    env = onedoor.door_env(root, stubs, docker=docker)
-    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
-    env["RUN_ARMS"] = "L3"
-    env["RUN_MODELS_DIR"] = str(tmp_path / "models")
-    env["RUN_RETRY_SLEEP"] = "0"
-    result = onedoor.door(root, [campaign, "llama-bench", "--host", "srv1"], env)
+    root, env_extra = _bench_fixture(tmp_path, body)
+    result = onedoor.door(root, _bench(root, env_extra), env_extra=env_extra)
     text = ""
-    artifact = onedoor.envelope(root, campaign) / "srv1-llama-bench.tsv"
+    artifact = onedoor.envelope(root, CAMPAIGN) / "srv1-llama-bench.tsv"
     if artifact.is_file():
         text = artifact.read_text(encoding="utf-8")
     return result, text
@@ -183,17 +197,18 @@ esac
 def test_the_bench_step_files_a_cpu_run_under_a_vulkan_tag_as_a_refusal(
     tmp_path: Path,
 ) -> None:
-    """The 2026-09-02 A3 scenario, end to end: one REFUSED row that names both
-    backends, no BENCH row, the bench goes on to ``### END`` and exits 0."""
+    """The 2026-09-02 A3 scenario, end to end: every arm's row is REFUSED and
+    names both backends, no BENCH row, the bench goes on to ``### END`` and
+    exits 0."""
     result, text = _bench_through_the_door(tmp_path, declared="vulkan", measured="CPU")
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])
     rows = [line.split("\t") for line in text.splitlines() if "\t" in line]
-    kinds = sorted(r[2] for r in rows)
-    assert kinds == ["REFUSED"], text
-    refused = rows[0]
-    assert "declared_backend=vulkan" in refused, text
-    assert "measured_backend=CPU" in refused, text
-    assert "tries=3" in refused, text
+    assert rows, text
+    assert {r[2] for r in rows} == {"REFUSED"}, text
+    for refused in rows:
+        assert "declared_backend=vulkan" in refused, text
+        assert "measured_backend=CPU" in refused, text
+        assert "tries=3" in refused, text
     assert any(line.startswith("### END") for line in text.splitlines()), text
 
 
@@ -214,25 +229,9 @@ def test_the_vulkan_arm_requests_the_device_through_cdi(tmp_path: Path) -> None:
     legacy hook, which mounts the driver libraries and not the manifest, so the
     loader finds no driver. ``--device nvidia.com/gpu=all`` names the CDI spec
     on both hosts. CUDA arms keep ``--gpus all``."""
-    import os
-    import shutil
-
-    campaign = "srv1-kernel-arms"
-    root = onedoor.fixture_repo(tmp_path)
-    shutil.copytree(
-        onedoor.KERNEL_ARMS, root / "tools" / "runs" / "campaigns" / campaign
-    )
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    models = tmp_path / "models" / "dense"
-    models.mkdir(parents=True)
-    (models / "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf").write_bytes(b"gguf")
-    env = onedoor.door_env(root, stubs)
-    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
-    env["RUN_ARMS"] = "L0 A3"
-    env["RUN_MODELS_DIR"] = str(tmp_path / "models")
+    root, env_extra = _bench_fixture(tmp_path, "exit 0\n")
     result = onedoor.door(
-        root, [campaign, "llama-bench", "--host", "srv1", "--", "--dry-run"], env
+        root, _bench(root, env_extra, "--dry-run"), env_extra=env_extra
     )
     # A dry run writes nothing, so gate 8 exits 1 after it; only a gate before
     # the step (exit 2) would mean the plan was never printed.

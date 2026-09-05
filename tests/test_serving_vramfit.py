@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tools.bench.serving import vramfit
+
+from mcgyvr.serving import vramfit
 
 MIB = 1024**2
 GEOMETRY = json.loads(

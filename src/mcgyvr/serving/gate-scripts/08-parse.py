@@ -32,6 +32,7 @@ def main() -> int:
 
     declared = json.loads(need("RUN_DECLARED"))
     state = json.loads(need("RUN_APPEND_STATE"))
+    superseded = json.loads(need("RUN_SUPERSEDED"))
     out_dir = Path(need("RUN_OUT_DIR"))
     appended = set(declared.get("RUN_APPENDS", []))
     status = 0
@@ -45,6 +46,17 @@ def main() -> int:
                 file=sys.stderr,
             )
             status = 1
+            # Gate 5 moved the earlier pass aside for a successor that never
+            # came. Nothing recorded is lost, and the name still resolves:
+            # it goes back under its own name (the archived door's rule).
+            aside = out_dir / str(superseded.get(name, ""))
+            if name in superseded and aside.is_file():
+                aside.rename(path)
+                print(
+                    f"gate 8: {name} was not rewritten; {aside.name} is back "
+                    "under its own name",
+                    file=sys.stderr,
+                )
             continue
 
         if name in appended:
@@ -69,7 +81,14 @@ def main() -> int:
                 status = 1
                 continue
             if len(raw) == size_before:
-                print(f"gate 8: {name} was declared under RUN_APPENDS and did not grow")
+                print(
+                    f"gate 8: {name} was declared under RUN_APPENDS and did not "
+                    "grow; a step that appended nothing measured nothing, and "
+                    "the run is not green",
+                    file=sys.stderr,
+                )
+                status = 1
+                continue
 
         try:
             if path.suffix == ".json":

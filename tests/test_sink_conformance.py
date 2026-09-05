@@ -1908,6 +1908,10 @@ def test_the_stamp_reaches_the_ramp_launch_sleep_and_survey_rows_and_every_claim
     """Through the real sinks, to real files, read back."""
     monkeypatch.setattr(calibrate, "STAMP", dict(FAKE_STAMP))
     monkeypatch.setattr(contract, "ramp", lambda *a, **k: produced)
+    # `identify` reads the card over contract.ssh, which is the door's
+    # transport and refuses outside a door run; the identity block is not
+    # this test's subject, so the read answers nothing (an unread card).
+    monkeypatch.setattr(contract, "ssh", lambda *a, **k: None)
     out = tmp_path / "calibrate.jsonl"
     calibrate._one_ramp(out, "http://s", "m", "h", "vllm", 4, 475, declared={})
     calibrate.emit(out, calibrate._launch_row("h", "m", 4, claimed))

@@ -16,7 +16,13 @@ with the name in hand.
 A RIG THAT MOVED IS STAMPED INTO THE ARTIFACTS. Rows produced under two
 machines have to say so, so every TSV this run wrote gets a `### RIGMOVED`
 line after the step's own `### END`; a non-TSV cannot carry the line and gets a
-`<name>.RIGMOVED` sidecar instead.
+`<name>.RIGMOVED` sidecar instead. The stamp is `k=v` throughout
+(`<key>=<after> <key>_start=<before>`), so the parser gate 8 runs next reads
+it as a stamp and not as a loose token; and it lands on a line of its own even
+when an interrupted step died mid-line.
+
+`docker` here is the door's shim, so `docker ps` asks the RIG's daemon — the
+same one gate 3 matched to the machine gate 2 read.
 """
 
 from __future__ import annotations
@@ -26,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import docker, need
+from mcgyvr.serving.gatelib import need
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from importlib.machinery import SourceFileLoader
@@ -58,26 +64,36 @@ COMPARED = (
 def main() -> int:
     status = 0
     run_id = need("RUN_ID")
-    cli = docker()
 
-    listed = subprocess.run(
-        [cli, "ps", "--filter", f"name=^{run_id}-", "--format", "{{.Names}}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if listed.returncode != 0:
+    try:
+        listed = subprocess.run(
+            ["docker", "ps", "--filter", f"name=^{run_id}-", "--format", "{{.Names}}"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
         print(
-            f"gate 7: '{cli} ps' failed; whether the run left a container is unknown",
+            "gate 7: 'docker ps' did not answer in 120s; whether the run left a "
+            "container is unknown",
             file=sys.stderr,
         )
+        listed = None
+    if listed is None or listed.returncode != 0:
+        if listed is not None:
+            print(
+                "gate 7: 'docker ps' failed; whether the run left a container is "
+                f"unknown. {listed.stderr.strip()[:300]}",
+                file=sys.stderr,
+            )
         status = 1
     elif listed.stdout.strip():
         left = " ".join(listed.stdout.split())
         print(
             f"gate 7: the step left containers named for this run: {left} — a "
-            f"run that leaves a container is not green (kill what you started: "
-            f"{cli} rm -f <name>)",
+            "run that leaves a container is not green (kill what you started: "
+            "docker rm -f <name>)",
             file=sys.stderr,
         )
         status = 1
@@ -95,14 +111,19 @@ def main() -> int:
         return 1
 
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
-    moved = [
-        f"{key}:{pre.get(key)}->{post.get(key)}"
-        for key in COMPARED
-        if pre.get(key) != post.get(key)
-    ]
+    moved = [key for key in COMPARED if pre.get(key) != post.get(key)]
     if moved:
-        stamp = f"### RIGMOVED run_id={run_id} " + " ".join(moved)
-        print(f"gate 7: {stamp}", file=sys.stderr)
+        stamp = f"### RIGMOVED run_id={run_id} " + " ".join(
+            f"{key}={post.get(key, 'unread')} {key}_start={pre.get(key, 'unread')}"
+            for key in moved
+        )
+        print(
+            "gate 7: THE RIG MOVED UNDER THIS RUN — "
+            + ", ".join(f"{k} ({pre.get(k)} -> {post.get(k)})" for k in moved)
+            + ". The rows were not all produced under one machine state; "
+            f"{stamp!r} is stamped after the step's ### END and the run is not green",
+            file=sys.stderr,
+        )
         status = 1
         declared = json.loads(need("RUN_DECLARED"))
         appended = set(declared.get("RUN_APPENDS", []))
@@ -118,11 +139,21 @@ def main() -> int:
             ):
                 continue
             if path.suffix == ".tsv":
+                # On its own line: a step that died mid-row (an interrupt, a
+                # hard lock) leaves no trailing newline, and a stamp glued to
+                # a half row is a stamp the parser never sees.
+                raw = path.read_bytes()
                 with path.open("a", encoding="utf-8") as handle:
+                    if raw and not raw.endswith(b"\n"):
+                        handle.write("\n")
                     handle.write(stamp + "\n")
             else:
-                path.with_name(path.name + ".RIGMOVED").write_text(
-                    stamp + "\n", encoding="utf-8"
+                sidecar = path.with_name(path.name + ".RIGMOVED")
+                sidecar.write_text(stamp + "\n", encoding="utf-8")
+                print(
+                    f"gate 7: {name} is not a TSV and is left readable; the "
+                    f"stamp is beside it in {sidecar.name}",
+                    file=sys.stderr,
                 )
     return status
 

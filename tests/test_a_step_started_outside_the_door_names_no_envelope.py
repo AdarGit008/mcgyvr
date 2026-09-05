@@ -10,15 +10,15 @@ bytes on a run that then exited 1. Twice in one session, by accident.
 
 So ``door_required`` (``_common.sh``) refuses with exit 2 unless ``RUN_ID``,
 ``RUN_OUT_DIR``, ``RUN_ROUND`` and ``RUN_PRODUCT_SHA256`` are all set — the
-four things only ``tools/runs/run.sh`` exports — and no step names the
-recorded directory any more. Pinned against a copy of the campaign and of the
-recorded envelope, never the tree.
+four things only ``python -m mcgyvr.serving.run`` exports — and no step names
+the recorded directory any more. Pinned against a copy of the campaign and of
+the recorded envelope, never the tree. The steps are run BARE here, on
+purpose: this is what happens outside the door.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -53,22 +53,18 @@ def test_a_bare_step_with_a_stale_run_id_refuses_and_touches_no_record(
     envelope = root / "records" / "evidence" / "2026-09-02-srv1-kernel-arms"
     shutil.copytree(RECORDED, envelope)
     before = _digest_tree(envelope)
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
     env = onedoor.bare_env(
-        stubs,
+        tmp_path / "stubs",
         RUN_REPO=str(root),
         RUN_ID="stale-from-my-shell",
-        RUN_RIG_SNAPSHOT_CMD=str(onedoor.rig_stub(stubs, "srv1")),
-        RUN_SSH=str(onedoor.ssh_stub(stubs)),
         RUN_RETRY_SLEEP="0",
     )
-    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
     assert "RUN_OUT_DIR" not in env
     result = subprocess.run(
         [str(root / "tools" / "runs" / "campaigns" / "srv1-kernel-arms" / step)],
         cwd=root,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=120,
@@ -76,5 +72,5 @@ def test_a_bare_step_with_a_stale_run_id_refuses_and_touches_no_record(
     )
     assert result.returncode == 2, (step, result.returncode, result.stderr[-400:])
     assert "RUN_OUT_DIR" in result.stderr, (step, result.stderr[-400:])
-    assert "run.sh" in result.stderr, (step, result.stderr[-400:])
+    assert "mcgyvr.serving.run" in result.stderr, (step, result.stderr[-400:])
     assert _digest_tree(envelope) == before, f"{step} touched the recorded envelope"

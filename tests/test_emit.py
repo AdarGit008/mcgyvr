@@ -8,6 +8,7 @@ the command it replaces is a second configuration nobody is reading.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import tempfile
@@ -22,17 +23,21 @@ from mcgyvr.emit import EmitError, emit_all, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 
-# blocks and expert_gb are the model's own geometry and there is no default
-# for either: Qwen3-Coder-30B-A3B carries 48 blocks, and ~84% of an MoE file
-# of this shape is expert tensors.
+# An MoE is sized off its own GGUF geometry and nothing else: the row for
+# Qwen3.6-35B-A3B at IQ3_XXS, as `ggufscan` read it (40 placeable blocks of
+# 262 and 300 MiB, 12.3 GiB on disk). The name is the file's, because a
+# geometry belongs to one file.
+GEOMETRY: dict[str, dict[str, Any]] = json.loads(
+    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
+        encoding="utf-8"
+    )
+)
 MOE = ModelSpec(
-    name="qwen3-coder-30b",
-    vram_gb=5.0,
-    ram_gb=13.6,
-    disk_gb=18.6,
-    moe=True,
-    blocks=48,
-    expert_gb=15.6,
+    name="Qwen3.6-35B-A3B-UD-IQ3_XXS",
+    vram_gb=0.0,
+    ram_gb=0.0,
+    disk_gb=0.0,
+    geometry=GEOMETRY["Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"],
 )
 SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
 

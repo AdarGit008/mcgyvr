@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+# The `ssh` a gate or a step finds on PATH under the door. It admits exactly
+# the host the door was opened for, then becomes the real ssh with BatchMode
+# and a connect timeout in front of whatever the caller passed.
+#
+# Not a .py file: it has to be named `ssh` to be found, and a shim that could
+# be imported would be a shim that could be replaced. The rule it applies is
+# gatelib's, so the logic is type-checked and tested where it lives.
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+OWN = Path(__file__).resolve().parent
+
+
+def _gatelib():  # noqa: ANN202 - a shim, outside the checked tree
+    try:
+        from mcgyvr.serving import gatelib
+    except ImportError:
+        # docker resolves `ssh` through whatever python3 is first on PATH; if
+        # that interpreter has no mcgyvr installed, the module is still right
+        # here, two directories up, and needs nothing but the stdlib.
+        spec = importlib.util.spec_from_file_location(
+            "gatelib", OWN.parents[1] / "gatelib.py"
+        )
+        assert spec is not None and spec.loader is not None
+        gatelib = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gatelib)
+    return gatelib
+
+
+_gatelib().shim_ssh(sys.argv[1:], own=OWN)

@@ -1,8 +1,9 @@
 """A shim: ``tests.sweeprows`` is ``tools.runs.rows``, re-exported under its old name.
 
 The parser moved beside the door. As ``tests/sweeprows.py`` it ran only in CI,
-post-hoc, over one hard-coded directory; ``tools/runs/run.sh`` now reads every
-artifact a step wrote back through ``rows.read()`` before it exits 0 (gate 8),
+post-hoc, over one hard-coded directory; the door (``python -m
+mcgyvr.serving.run``) now reads every artifact a step wrote back through
+``rows.read()`` before it exits 0 (gate 8, ``08-parse.py``),
 so the module the door trusts is the module the tests trust. The twelve
 behaviour tests still import it by this name, and this file keeps that import
 working without becoming a second parser: every public name here IS the object

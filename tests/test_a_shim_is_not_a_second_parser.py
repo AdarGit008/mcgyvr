@@ -1,6 +1,7 @@
 """``tests/sweeprows.py`` is a shim over ``tools/runs/rows.py``, not a second parser.
 
-The parser moved: the door (``tools/runs/run.sh``) reads back every artifact a
+The parser moved: the door (``python -m mcgyvr.serving.run``) reads back every
+artifact a
 step wrote with ``rows.read()`` before it exits 0 (BRIEF.md gate 8), and a
 parser that lived under ``tests/`` was one that ran only in CI, post-hoc, over
 one hard-coded directory. The twelve behaviour tests keep importing

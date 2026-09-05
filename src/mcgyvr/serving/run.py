@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """The one access point to the rigs.
 
-    python -m mcgyvr.serving.run --host srv1 --campaign <name> --step <path>
-                                 [--suffix S] [-- STEP ARGS...]
+    python -m mcgyvr.serving.run --host srv1 --campaign <name> --model <blob>
+                                 [--step <path>] [--suffix S] [-- STEP ARGS...]
 
 Nothing else opens an ssh to srv1/srv2 or starts a container on one. A caller
-that wants rig time writes its own script and names it as ``--step``; the door
-runs the gates around it. The step is the only part a caller supplies, and it
-is the only part that is not fixed here.
+that wants rig time writes its own script and names it as ``--step``, or takes
+the shipped ``gate-scripts/default-step.sh``; the door runs the gates around
+it. The step is the only part a caller supplies, and it is the only part that
+is not fixed here.
+
+HOW THE DOOR IS THE ONLY WAY IN. The environment a gate or a step runs under
+has ``gate-scripts/bin`` first on PATH, where ``ssh`` and ``docker`` are shims
+that admit exactly the host the door was opened for and refuse any process
+the door did not start (:func:`mcgyvr.serving.gatelib.under_door` reads the
+parent chain from /proc, which nothing can set). ``docker`` under the door is
+the RIG's daemon (``-H ssh://<host>``), never the operator's. And the door
+refuses to start under an ambient ``RUN_*`` or ``DOCKER_*`` variable: it mints
+its own vocabulary, and a value inherited from the shell is one no gate set.
 
 WHAT "NONE IS SKIPPABLE" MEANS, MECHANICALLY. :data:`SEQUENCE` is the whole
 run. There is no flag that omits an entry, no environment variable that short
@@ -49,6 +59,7 @@ import subprocess
 import sys
 import types
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
@@ -57,6 +68,17 @@ from typing import NoReturn
 #: `from mcgyvr.serving.gate_scripts import ...` could also replace one.
 HERE = Path(__file__).resolve().parent
 GATE_SCRIPTS = HERE / "gate-scripts"
+#: What `ssh` and `docker` resolve to for everything the door starts.
+BIN = GATE_SCRIPTS / "bin"
+SHIMS = ("docker", "ssh")
+#: The step a caller gets without naming one.
+DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
+#: The door's vocabulary, and the daemon's: neither may be inherited.
+MINTED_PREFIXES = ("RUN_", "DOCKER_")
+#: A step's own output override, and its exists-check waiver. Refused before
+#: gate 1 unless the path they name is inside the envelope (see
+#: :func:`_check_step_args`).
+OUTPUT_FLAGS = ("--out", "--out-dir")
 
 #: The repo root, four levels up from this file (src/mcgyvr/serving/run.py).
 #: Read from the file's own location and never from the caller's cwd, because a
@@ -134,6 +156,7 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_HOST",
             "RUN_DECLARED",
             "RUN_APPEND_STATE",
+            "RUN_SUPERSEDED",
         ),
     ),
     # --- data scripts: the facts a placement needs, taken in the only order
@@ -200,7 +223,6 @@ EXPORTED = (
     "RUN_STEP_FILE",
     "RUN_HOST",
     "RUN_SUFFIX",
-    "RUN_DOCKER",
     "RUN_MODEL",
     "RUN_PARALLEL",
     "RUN_CTX_PER_SLOT",
@@ -234,7 +256,7 @@ def _check_manifest() -> None:
         _refuse(
             2,
             f"the door is incomplete: {', '.join(missing)} not under "
-            f"{GATE_SCRIPTS.relative_to(ROOT)}. Every entry in SEQUENCE runs on "
+            f"{_rel(GATE_SCRIPTS)}. Every entry in SEQUENCE runs on "
             "every run; a missing one is a refusal and never a skip, because "
             "'the file was gone' is how a check stops running without anyone "
             "deciding it should",
@@ -249,6 +271,22 @@ def _check_manifest() -> None:
             2,
             f"not executable: {', '.join(unrunnable)}. chmod +x, or the door "
             "cannot run a gate it is holding you to",
+        )
+    # The shims are what make `ssh` and `docker` under the door reach the
+    # door's host and nothing else; a missing one means PATH falls through to
+    # the operator's binaries, which is every hole at once.
+    shims_gone = [
+        name
+        for name in SHIMS
+        if not ((BIN / name).is_file() and os.access(BIN / name, os.X_OK))
+    ]
+    if shims_gone:
+        _refuse(
+            2,
+            f"the door is incomplete: {', '.join(shims_gone)} not executable "
+            f"under {_rel(BIN)}. Under the door every rig connection and every "
+            "docker call goes through these shims; without one, PATH falls "
+            "through to the operator's binary and nothing admits the host",
         )
 
 
@@ -278,8 +316,16 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         write_fd = -1
         with os.fdopen(read_fd, "r", encoding="utf-8", errors="replace") as pipe:
             read_fd = -1
-            reported = pipe.read()
-        status = proc.wait()
+            try:
+                reported = pipe.read()
+                status = proc.wait()
+            except KeyboardInterrupt:
+                # The entry is ended BEFORE the door moves on: gate 7 re-reads
+                # the rig and looks for containers, and a step still running
+                # under it would make both readings lies. A terminal's Ctrl-C
+                # already reached the child; a bare `kill` of the door did not.
+                _end(proc)
+                raise
     finally:
         for fd in (read_fd, write_fd):
             if fd >= 0:
@@ -337,7 +383,10 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument("--campaign", required=True, help="names the evidence envelope")
     parser.add_argument(
-        "--step", required=True, help="the caller's own script; gate 6 runs it"
+        "--step",
+        default="",
+        help="the caller's own script; gate 6 runs it (default: "
+        "gate-scripts/default-step.sh)",
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
@@ -357,23 +406,139 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     return parser.parse_args(argv), step_args
 
 
+def _end(proc: subprocess.Popen[bytes]) -> None:
+    """Stop a child that outlived the interrupt, and wait for it to be gone."""
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
+def _ambient() -> str | None:
+    """The first inherited variable the door would otherwise have to trust.
+
+    ``RUN_*`` is the door's vocabulary and ``DOCKER_*`` is the daemon's
+    (``DOCKER_HOST`` alone redirects every container to another machine). A
+    value that was in the shell before the door ran is one no gate set, and a
+    gate reads its environment as fact.
+    """
+    for name in sorted(os.environ):
+        if name.startswith(MINTED_PREFIXES):
+            return name
+    return None
+
+
+def _inside(path: Path, envelope: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(envelope.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
+    """A step's own output flag may not leave the envelope — the door owns it.
+
+    Ported from the archived door (archive/runs/run.sh, check_step_args): six
+    steps kept an output override from their bare-run days and three a
+    ``--force``; through the door, ``-- --out <recorded file>`` overwrote
+    committed evidence under a green line and ``-- --out-dir <anywhere>``
+    filed a run where gates 5, 7 and 8 could not see it. Refused here, before
+    gate 1, so nothing is checked and nothing is made. An output flag naming
+    a path INSIDE the envelope is the one form that changes nothing, so it is
+    admitted; ``--force`` has no such form.
+    """
+    for index, token in enumerate(step_args):
+        if token == "--force":
+            return (
+                f"step argument '{token}' is refused: the door owns the envelope "
+                f"({_rel(envelope)}/) and every declared artifact is written "
+                "there, once. A re-run is --suffix S over a RUN_REWRITES "
+                "declaration; nothing is written elsewhere, or by force"
+            )
+        for flag in OUTPUT_FLAGS:
+            if token == flag:
+                value = step_args[index + 1] if index + 1 < len(step_args) else ""
+            elif token.startswith(flag + "="):
+                value = token[len(flag) + 1 :]
+            else:
+                continue
+            target = Path(value)
+            target = target if target.is_absolute() else ROOT / target
+            if not value or not _inside(target, envelope):
+                return (
+                    f"step argument '{flag} {value}' is refused: it names a path "
+                    f"outside the envelope {_rel(envelope)}/, and the door owns "
+                    "the envelope — every declared artifact is written there, "
+                    "once. A re-run is --suffix S over a RUN_REWRITES "
+                    "declaration; nothing is written elsewhere"
+                )
+    return None
+
+
+def _rel(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main(argv: list[str] | None = None) -> int:
     opts, step_args = _parse(list(sys.argv[1:] if argv is None else argv))
 
-    step = Path(opts.step)
-    step = step if step.is_absolute() else (Path.cwd() / step)
-    if not step.is_file():
-        print(f"run.py: --step {opts.step} is not a file", file=sys.stderr)
+    # Every refusal below happens before a gate runs: nothing checked, nothing
+    # made, no rig read.
+    inherited = _ambient()
+    if inherited is not None:
+        print(
+            f"run.py: REFUSED — {inherited} is set in the calling environment; "
+            "unset it and rerun; the door mints its own vocabulary (RUN_* and "
+            "DOCKER_* are the door's to set, and a value inherited from the "
+            "shell is one no gate set)",
+            file=sys.stderr,
+        )
+        return 2
+
+    if opts.step:
+        step = Path(opts.step)
+        step = step if step.is_absolute() else (Path.cwd() / step)
+        if not step.is_file():
+            print(
+                f"run.py: REFUSED — --step {opts.step} is not a file", file=sys.stderr
+            )
+            return 2
+    else:
+        step = DEFAULT_STEP
+        if not step.is_file():
+            print(
+                f"run.py: REFUSED — the default step is missing: "
+                f"{_rel(DEFAULT_STEP)} does not exist, and the door does not "
+                "write one; name a step with --step PATH",
+                file=sys.stderr,
+            )
+            return 2
+
+    run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
+    envelope = ROOT / "records" / "evidence" / f"{run_date}-{opts.campaign}"
+    escape = _check_step_args(step_args, envelope)
+    if escape is not None:
+        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
 
     env = dict(os.environ)
+    # The shims come first, so `ssh` and `docker` under the door are the
+    # door's; whatever PATH the operator had follows for everything else.
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
     env.update(
         RUN_ROOT=str(ROOT),
         RUN_CAMPAIGN=opts.campaign,
         RUN_STEP_FILE=str(step.resolve()),
         RUN_HOST=opts.host,
         RUN_SUFFIX=opts.suffix,
-        RUN_DOCKER=env.get("RUN_DOCKER", "docker"),
         RUN_MODEL=opts.model,
         RUN_PARALLEL=str(opts.parallel),
         RUN_CTX_PER_SLOT=str(opts.ctx_per_slot),
@@ -400,6 +565,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
     except KeyboardInterrupt:
+        # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
+        # was running has been ended by `_run_entry`; what follows is the
+        # main flow, not a signal handler, so gate 7's own ssh is not the
+        # nested read that came back empty in the shell door.
         interrupted = True
         print(
             "run.py: interrupted — gates 7 and 8 still run; a run whose end "

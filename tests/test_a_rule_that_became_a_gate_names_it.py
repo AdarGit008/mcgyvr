@@ -1,7 +1,8 @@
 """A rule in ``okf/must-read/touching-rigs.md`` that became a gate says which one.
 
-Three of that file's rules are now code checks inside ``tools/runs/run.sh``
-(BRIEF.md, "Gates, in order"): prove reachability is gate 2 (the live rig
+Three of that file's rules are now code checks the door runs
+(``src/mcgyvr/serving/gate-scripts/``, ``run.py``'s SEQUENCE): prove
+reachability is gate 2 (the live rig
 compared with its declaration); ``img=`` on every srv1 row is gate 3 (a tag
 resolved once to a digest, which is what the driver receives); kill what you
 started is gate 7 (the trap that finds the run's containers gone and the rig

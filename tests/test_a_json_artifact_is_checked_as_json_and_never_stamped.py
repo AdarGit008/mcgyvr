@@ -8,10 +8,11 @@ needed to stay readable — a rig that moved — was the run that broke them
 skips every line that is neither ``###`` nor tab-separated: any JSON
 "parsed", and the green line said it was checked.
 
-So gate 7 appends the stamp only to ``*.tsv``; for any other declared file it
-writes the line to a ``<name>.RIGMOVED`` sidecar and names it on stderr. Gate
-8 validates ``*.json`` with ``json.loads`` and everything else with
-``rows.read``, so ``checked`` means checked.
+So gate 7 (``07-teardown.py``) appends the stamp only to ``*.tsv``; for any
+other declared file it writes the line to a ``<name>.RIGMOVED`` sidecar and
+names it on stderr. Gate 8 (``08-parse.py``) validates ``*.json`` with
+``json.loads`` and everything else with ``rows.read``, so ``checked`` means
+checked.
 """
 
 from __future__ import annotations
@@ -20,6 +21,9 @@ import json
 from pathlib import Path
 
 from tests import onedoor
+from tests.onedoor import Scenario
+
+PROBE = Scenario("alpha", "1-probe.sh")
 
 
 def _json_step(env_file: Path, after: str, *, json_text: str = '{"flips": 0}') -> str:
@@ -42,11 +46,8 @@ def test_a_rig_that_moved_leaves_the_json_readable_and_notes_it_beside(
     onedoor.add_step(
         root, "alpha", "1-probe.sh", _json_step(tmp_path / "e", f"touch '{flag}'")
     )
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    rig = onedoor.rig_stub(stubs, "srv1", moved_flag=flag)
-    env = onedoor.door_env(root, stubs, rig=rig)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    onedoor.rig_stub(onedoor.stubs_dir(root), "srv1", moved_flag=flag)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 1, (result.stdout, result.stderr)
     out_dir = onedoor.envelope(root, "alpha")
     assert json.loads((out_dir / "probe.json").read_text(encoding="utf-8")) == {
@@ -72,13 +73,9 @@ def test_a_json_artifact_that_does_not_parse_is_exit_1_and_named(
         "1-probe.sh",
         _json_step(tmp_path / "e", "", json_text='{"flips": '),
     )
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    result = onedoor.door(root, PROBE)
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert "probe.json" in result.stderr, result.stderr
-    assert "run.sh: green" not in result.stderr, result.stderr
     assert (onedoor.envelope(root, "alpha") / "probe.json").read_text(
         encoding="utf-8"
     ) == '{"flips": \n'

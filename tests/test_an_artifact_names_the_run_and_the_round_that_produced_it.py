@@ -5,9 +5,9 @@
 nothing in it says which invocation produced it or which revision of the
 product was checked out when it did. A file produced through the door carries
 both: ``### START ... run_id=<RUN_ID>`` (from ``start_stamp``) and a
-``### ROUND id=<round> product_sha256=<hex>`` stamp (from ``round_stamp``, new
-in ``_common.sh``, fed by the two values gate 1 exported as ``RUN_ROUND`` and
-``RUN_PRODUCT_SHA256``).
+``### ROUND id=<round> product_sha256=<hex>`` stamp (from ``round_stamp`` in
+``_common.sh``, fed by the two values gate 1 exported as ``RUN_ROUND`` and
+``RUN_PRODUCT_SHA256`` after ``product.require_pinned()`` passed).
 
 The parser holds the pair together: ``rows.read`` exposes ``sweep.round`` and
 raises when a ``### START`` carries ``run_id=`` but no ``### ROUND`` follows —
@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 LEGACY = (
     onedoor.REPO
@@ -34,13 +35,15 @@ LEGACY = (
     / "srv1-vllm-arms.tsv"
 )
 
+#: A step written the way a campaign step is: over ``_common.sh``, reached
+#: from ``RUN_ROOT`` (the door's export), stamping only what the door handed it.
 STAMPED_STEP = (
     "#!/usr/bin/env bash\n"
     "# RUN_ARTIFACTS: stamped.tsv\n"
     "set -euo pipefail\n"
     '[ -n "${RUN_ID:-}" ] || { echo "stamped: RUN_ID is unset; start me through '
-    'tools/runs/run.sh" >&2; exit 2; }\n'
-    '. "${RUN_REPO:?}/tools/runs/_common.sh"\n'
+    'python -m mcgyvr.serving.run" >&2; exit 2; }\n'
+    '. "${RUN_ROOT:?}/tools/runs/_common.sh"\n'
     "{\n"
     "microbench_stamp\n"
     "start_stamp\n"
@@ -55,22 +58,21 @@ STAMPED_STEP = (
 def test_a_step_run_through_the_door_stamps_run_id_and_round(tmp_path: Path) -> None:
     root = onedoor.fixture_repo(tmp_path)
     onedoor.add_step(root, "alpha", "1-stamped.sh", STAMPED_STEP)
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs)
-    result = onedoor.door(root, ["alpha", "stamped", "--host", "srv1"], env)
+    result = onedoor.door(root, Scenario("alpha", "1-stamped.sh"))
     assert result.returncode == 0, (result.stdout, result.stderr)
     artifact = onedoor.envelope(root, "alpha") / "stamped.tsv"
     assert artifact.is_file(), onedoor.written_under_records(root)
     rows = onedoor.rows_module()
     sweep = rows.read(artifact)
     start = sweep.stamp("START")
-    assert start.get("run_id", "").startswith("2026-09-02-alpha-stamped"), start
+    assert start.get("run_id", "").startswith(f"{onedoor.RUN_DATE}-alpha-stamped"), (
+        start
+    )
     assert start.get("pl1_source") == "constraint_0_power_limit_uw", start
-    assert sweep.round == {
-        "id": onedoor.ROUND_ID,
-        "product_sha256": onedoor.PRODUCT_SHA256,
-    }, sweep.stamp("ROUND")
+    round_id, digest = onedoor.pinned(root)
+    assert sweep.round == {"id": round_id, "product_sha256": digest}, sweep.stamp(
+        "ROUND"
+    )
     names = [line.split()[1] for _, line in sweep.markers]
     assert names.index("START") < names.index("ROUND") < names.index("END"), names
     assert sweep.of_kind("CONFIG")[0].host == "srv1"

@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+# The `docker` a gate or a step finds on PATH under the door. It admits the
+# door, then becomes the real docker pointed at the rig's daemon
+# (`-H ssh://RUN_HOST`) — so `docker info`, `docker ps` and `docker run` in a
+# gate or a step all reach the machine the run was opened for, through the
+# `ssh` shim beside this one.
+#
+# Not a .py file: it has to be named `docker` to be found, and a shim that
+# could be imported would be a shim that could be replaced.
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+OWN = Path(__file__).resolve().parent
+
+
+def _gatelib():  # noqa: ANN202 - a shim, outside the checked tree
+    try:
+        from mcgyvr.serving import gatelib
+    except ImportError:
+        spec = importlib.util.spec_from_file_location(
+            "gatelib", OWN.parents[1] / "gatelib.py"
+        )
+        assert spec is not None and spec.loader is not None
+        gatelib = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gatelib)
+    return gatelib
+
+
+_gatelib().shim_docker(sys.argv[1:], own=OWN)

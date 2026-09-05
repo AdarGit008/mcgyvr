@@ -11,8 +11,8 @@ only, is piped over as `python3 -`, and nothing lands on the rig's disk. The
 model file is where it is; a 13 GB blob is not copied to answer a question
 about its header.
 
-WHY IT IS NOT VENDORED HERE. `tools/bench/serving/ggufscan.py` is the one copy,
-read by path. A second copy under this directory would be a second parser, and
+WHY IT IS NOT VENDORED HERE. `mcgyvr.serving.ggufscan` is the one copy, read
+by path. A second copy under this directory would be a second parser, and
 the first thing a second parser does is disagree with the first about the file
 a published measurement was computed from.
 """
@@ -24,9 +24,12 @@ import json
 import subprocess
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse, root
+from mcgyvr.serving import ggufscan
+from mcgyvr.serving.gatelib import export, need, refuse, ssh
 
-SCANNER = Path("tools") / "bench" / "serving" / "ggufscan.py"
+#: The real file's bytes are what ship; the module is imported only to be
+#: located, and its `__main__` guard is what keeps the import silent.
+SCANNER = Path(ggufscan.__file__)
 
 #: A model has TWO rig-side paths and they are not interchangeable. A step
 #: launches a container with `-v $HOME/models:/models` and passes `-m
@@ -47,7 +50,7 @@ def host_path(model: str) -> str:
 
 
 def main() -> int:
-    source = root() / SCANNER
+    source = SCANNER
     if not source.is_file():
         refuse(
             f"the geometry reader {SCANNER} is missing. Nothing is sized from "
@@ -62,21 +65,7 @@ def main() -> int:
     remote = host_path(model)
 
     try:
-        done = subprocess.run(
-            [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=10",
-                host,
-                f"echo {blob} | base64 -d | python3 - {remote}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
-        )
+        done = ssh(host, f"echo {blob} | base64 -d | python3 - {remote}", timeout=600)
     except subprocess.TimeoutExpired:
         refuse(f"the geometry read of {remote} on {host} did not finish in 600s")
         raise

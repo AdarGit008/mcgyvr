@@ -7,9 +7,9 @@ and the first ``image_digest`` failure landed inside the step — after
 ``start_stamp``/``round_stamp`` — so the artifact carried WORKLOAD/START/ROUND
 and then REFUSED rows whose reason was the daemon, filed against the arm.
 
-So gate 3 asks ``docker info`` and refuses with exit 2 when it fails, before
-gate 4, the envelope and the step. Seam: ``RUN_DOCKER`` (a stub whose ``info``
-fails the way a CLI with no daemon does).
+So gate 3 (``03-image.py``) asks ``docker info`` — the ``docker`` on the
+door's PATH, which lands on the rig's daemon — and refuses with exit 2 when
+it fails, before gate 4, the envelope and the step.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 
 def test_a_docker_cli_with_no_daemon_is_exit_2_with_nothing_written(
@@ -24,11 +25,8 @@ def test_a_docker_cli_with_no_daemon_is_exit_2_with_nothing_written(
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
     onedoor.add_step(root, "alpha", "1-probe.sh", onedoor.probe_step(tmp_path / "e"))
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    docker = onedoor.docker_stub(stubs, daemon_down=True)
-    env = onedoor.door_env(root, stubs, docker=docker)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    onedoor.docker_stub(onedoor.stubs_dir(root), daemon_down=True)
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "gate 3" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
@@ -36,6 +34,6 @@ def test_a_docker_cli_with_no_daemon_is_exit_2_with_nothing_written(
     assert not (tmp_path / "e").exists(), (
         "the step ran with no daemon to resolve a tag through"
     )
-    assert any(line.startswith("info") for line in onedoor.docker_log(docker)), (
+    assert any(line.startswith("info") for line in onedoor.docker_log(root)), (
         "the door never asked the daemon"
     )

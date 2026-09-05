@@ -1,24 +1,24 @@
-"""``launch.py`` keeps its marker check and loses its launch path; run.sh launches.
+"""``launch.py`` keeps its marker check and loses its launch path; the door launches.
 
 ``tools/bench/serving/launch.py`` was written after 1.5 h of rig time went to
 a run whose patch never reached the file (D8): verify the markers, then launch,
 as ONE step. The verification is worth keeping. The launch is not: it was the
 second of four live entry points to the rigs, with its own ``nohup``, its own
-trap, its own ``--release`` — none of it stamping rig state, round or workload
-(BRIEF.md, "The problem being solved"). The door does all of that once.
+trap, its own ``--release`` — none of it stamping rig state, round or workload.
+The door does all of that once.
 
 So the fold is two halves. ``launch.py`` exposes ``verify_markers(repo) ->
 list[str]`` — the problems, or an empty list — and has no way to launch; run as
-a script it points at ``tools/runs/run.sh``. And run.sh runs that check before
-any step of a campaign whose ``campaign.json`` (beside ``PLAN.md``) declares
-``{"serving": true}``, refusing with exit 2 and nothing written when a marker
-is missing — which is exactly the run D8 was written to refuse. A campaign that
-does not serve is not held to the serving markers.
+a script it points at ``python -m mcgyvr.serving.run``. And the door runs that
+check as gate 2b (``02-rig.py``) before any step of a campaign whose
+``campaign.json`` declares ``{"serving": true}``, refusing with exit 2 and
+nothing written when a marker is missing — which is exactly the run D8 was
+written to refuse. A campaign that does not serve is not held to the serving
+markers.
 
-The seams are ``tests/onedoor.py``'s: ``RUN_REPO`` points run.sh at a
-throw-away copy of the tree (here with ``tools/bench/serving`` copied in and
-one marker broken on purpose); ``RUN_PRODUCT_CHECK``, ``RUN_RIG_SNAPSHOT_CMD``,
-``RUN_DOCKER`` and ``RUN_SSH`` are stubs. No rig is reachable from here.
+The fixture is ``tests/onedoor.py``'s: a throw-away copy of the tree with
+``tools/bench/serving`` copied in and one marker broken on purpose. No rig is
+reachable from here.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ import types
 from pathlib import Path
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 REPO = Path(__file__).resolve().parent.parent
 LAUNCH = REPO / "tools" / "bench" / "serving" / "launch.py"
@@ -43,6 +44,7 @@ BROKEN = ("tools/bench/serving/contract.py", "RAMP_TOKENS = 475")
 REFUSAL = "MISSING"
 
 CAMPAIGN = "fixture"
+SERVE = Scenario(CAMPAIGN, "1-serve.sh")
 
 
 def _launch() -> types.ModuleType:
@@ -88,9 +90,10 @@ def _campaign(tmp_path: Path, *, serving: bool) -> tuple[Path, Path]:
     _copy("tools/bench/serving", root)
     _marker_files(root)
     _break_a_marker(root)
+    # Nothing copied is under the product surface; the pin stands as taken.
+    assert onedoor.pinned(root)[1] == onedoor.pin(root)
     campaign = root / "tools" / "runs" / "campaigns" / CAMPAIGN
     campaign.mkdir(parents=True)
-    (campaign / "PLAN.md").write_text("# fixture campaign\n", encoding="utf-8")
     (campaign / "campaign.json").write_text(
         json.dumps({"serving": serving}) + "\n", encoding="utf-8"
     )
@@ -105,17 +108,6 @@ def _campaign(tmp_path: Path, *, serving: bool) -> tuple[Path, Path]:
         "echo 'the step ran'\n",
     )
     return root, canary
-
-
-def _forbidding_rig(stubs: Path) -> Path:
-    """A ``RUN_RIG_SNAPSHOT_CMD`` that refuses: the control stops at gate 2."""
-    path = stubs / "rig-forbidden"
-    path.write_text(
-        '#!/usr/bin/env bash\necho "RIG READ FORBIDDEN by the test" >&2\nexit 1\n',
-        encoding="utf-8",
-    )
-    path.chmod(0o755)
-    return path
 
 
 # --------------------------------------------------------------------------
@@ -152,7 +144,9 @@ def test_run_as_a_script_it_points_at_the_door() -> None:
     )
     out = done.stdout + done.stderr
     assert done.returncode != 0, f"exit {done.returncode}: {out[-400:]}"
-    assert "tools/runs/run.sh" in out, f"no pointer at the door in: {out[-400:]}"
+    assert "python -m mcgyvr.serving.run" in out, (
+        f"no pointer at the door in: {out[-400:]}"
+    )
 
 
 def test_the_launch_path_is_gone() -> None:
@@ -164,23 +158,20 @@ def test_the_launch_path_is_gone() -> None:
         if "nohup" in line or "--campaign" in line or "--release" in line
     ]
     assert not left, (
-        f"launch.py still carries a launch path — {left[:4]}; run.sh is the launcher"
+        f"launch.py still carries a launch path — {left[:4]}; the door is the launcher"
     )
 
 
 # --------------------------------------------------------------------------
-# run.sh: the check runs before a serving step, and only a serving step
+# the door: the check runs before a serving step, and only a serving step
 # --------------------------------------------------------------------------
 
 
-def test_run_sh_refuses_a_serving_step_when_a_marker_is_missing(
+def test_the_door_refuses_a_serving_step_when_a_marker_is_missing(
     tmp_path: Path,
 ) -> None:
     root, canary = _campaign(tmp_path, serving=True)
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs)
-    done = onedoor.door(root, [CAMPAIGN, "1", "--host", "srv1"], env)
+    done = onedoor.door(root, SERVE)
     out = done.stdout + done.stderr
     assert done.returncode == 2, f"exit {done.returncode}: {out[-600:]}"
     assert REFUSAL in out and BROKEN[1] in out, (
@@ -188,22 +179,21 @@ def test_run_sh_refuses_a_serving_step_when_a_marker_is_missing(
     )
     assert not canary.exists(), "the step ran on a harness that failed its markers"
     assert onedoor.written_under_records(root) == [], "a refusal wrote an envelope"
-    assert not (stubs / "ssh.reached").exists(), "a rig was reached from a test"
+    assert onedoor.docker_log(root) == [], "gate 3 ran after gate 2 refused"
 
 
-def test_run_sh_does_not_hold_a_non_serving_step_to_the_serving_markers(
+def test_the_door_does_not_hold_a_non_serving_step_to_the_serving_markers(
     tmp_path: Path,
 ) -> None:
     root, canary = _campaign(tmp_path, serving=False)
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs, rig=_forbidding_rig(stubs))
-    done = onedoor.door(root, [CAMPAIGN, "1", "--host", "srv1"], env)
+    # The control stops at gate 2 instead: a rig that cannot be read.
+    onedoor.rig_unreadable(onedoor.stubs_dir(root))
+    done = onedoor.door(root, SERVE)
     out = done.stdout + done.stderr
     assert BROKEN[1] not in out and REFUSAL not in out, (
         f"a campaign that does not serve was refused for a serving marker: {out[-600:]}"
     )
-    # The rig stub refuses at gate 2, so the run stops there — loudly.
     assert done.returncode == 2, f"exit {done.returncode}: {out[-600:]}"
+    assert "gate 2" in out, out[-600:]
     assert not canary.exists(), "the step ran past a rig that could not be read"
-    assert not (stubs / "ssh.reached").exists(), "a rig was reached from a test"
+    assert onedoor.written_under_records(root) == []

@@ -17,9 +17,10 @@ nothing in this module deduplicates.
 
 This module lives beside the door and not under ``tests/``. As
 ``tests/sweeprows.py`` it ran only in CI, post-hoc, over one hard-coded
-directory; ``tools/runs/run.sh`` now reads every artifact a step wrote back
-through :func:`read` before it exits 0 (gate 8), so the parser the door trusts
-and the parser the tests trust are one module object. ``tests/sweeprows.py``
+directory; the door's gate 8 (``src/mcgyvr/serving/gate-scripts/08-parse.py``)
+now reads every artifact a step wrote back through :func:`read` before the run
+exits 0, so the parser the door trusts and the parser the tests trust are one
+module object. ``tests/sweeprows.py``
 remains as a re-export so the twelve behaviour tests keep their import.
 """
 
@@ -51,7 +52,7 @@ def _pairs(tokens: list[str]) -> dict[str, str]:
 
 #: The arm prefixes this campaign puts in front of a cell tag: the ``L``-ladder
 #: rungs ``L0``-``L4``, the ``A`` bounds ``A1``/``A3``, and the ``B`` vLLM pair
-#: (``tools/runs/campaigns/srv1-kernel-arms/PLAN.md:37-54``). All of them strip,
+#: (``archive/docs/srv1-kernel-arms-PLAN.md:37-54``). All of them strip,
 #: so ``<ARM>-<cell>`` is
 #: one labelling convention for every file rather than two that contradict.
 ARM_PREFIX = re.compile(r"[ABL][0-9]")
@@ -251,7 +252,7 @@ def _door_produced(markers: list[tuple[int, str]]) -> bool:
 def _round_of(path: Path, markers: list[tuple[int, str]]) -> dict[str, str]:
     """Every stamp validated, and the ``### ROUND`` a door-produced file owes.
 
-    Gate 8 of ``tools/runs/run.sh`` reads the artifact back through
+    Gate 8 of the door (``08-parse.py``) reads the artifact back through
     :func:`read` before it exits 0, so this is where a run turns red on the
     rig rather than a commit later in CI. Two rules a legacy file is not held
     to, because it was written before either existed:
@@ -449,18 +450,22 @@ def evidence_path(name: str) -> Path:
 #: ``srv1-moe-slots.sh`` by a fourth, and ``srv1-vllm-arms.tsv`` likewise. The
 #: string is never compared, so nothing broke — which is exactly why it drifted.
 #: The campaign's step list runs these as separate sessions, in the order that
-#: loses least if srv1 locks (``tools/runs/campaigns/srv1-kernel-arms/PLAN.md:
+#: loses least if srv1 locks (``archive/docs/srv1-kernel-arms-PLAN.md:
 #: 111-128``), so the file names the one step that produces it — started through
 #: the door, because a step run bare refuses without ``RUN_ID``.
-_DOOR = "run tools/runs/run.sh srv1-kernel-arms"
+_DOOR = (
+    "python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms "
+    "--model <blob as the rig sees it> "
+    "--step tools/runs/campaigns/srv1-kernel-arms/"
+)
 BEHAVIOUR = {
-    "srv1-lcpp-arms.tsv": f"{_DOOR} kernel-arms --host srv1",
-    "srv1-moe-slots.tsv": f"{_DOOR} moe-slots --host srv1",
-    "srv1-vllm-arms.tsv": f"{_DOOR} vllm-arms --host srv1",
-    "srv1-llama-bench.tsv": f"{_DOOR} llama-bench --host srv1",
-    "srv1-build-ladder.tsv": f"{_DOOR} build-ladder --host srv1",
-    "srv1-aa-null.tsv": f"{_DOOR} aa-null --host srv1",
-    "srv1-ncmoe-floor.tsv": f"{_DOOR} ncmoe-floor --host srv1",
+    "srv1-lcpp-arms.tsv": f"{_DOOR}4-kernel-arms.sh",
+    "srv1-moe-slots.tsv": f"{_DOOR}6-moe-slots.sh",
+    "srv1-vllm-arms.tsv": f"{_DOOR}8-vllm-arms.sh",
+    "srv1-llama-bench.tsv": f"{_DOOR}3-llama-bench.sh",
+    "srv1-build-ladder.tsv": f"{_DOOR}1-build-ladder.sh",
+    "srv1-aa-null.tsv": f"{_DOOR}2-aa-null.sh",
+    "srv1-ncmoe-floor.tsv": f"{_DOOR}9-ncmoe-floor.sh",
 }
 
 

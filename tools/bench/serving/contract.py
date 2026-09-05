@@ -654,13 +654,15 @@ def ssh(host: str, command: str, timeout: float = STEP_TIMEOUT_S) -> str | None:
     the gap instead of failing over it. Callers that need certainty check the
     reading rather than trusting the call.
     """
+    # The door's transport, imported when called and not when this module
+    # loads: the tests that stub this function never touch gatelib, and outside
+    # a door run gatelib refuses with SystemExit naming the door. That refusal
+    # propagates -- `except Exception` is for a timeout or a dead host, which
+    # are readings, and never for the door saying no.
+    from mcgyvr.serving.gatelib import ssh as door_ssh
+
     try:
-        proc = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, command],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = door_ssh(host, command, timeout=timeout)
     except Exception:
         return None
     return proc.stdout.strip() or None

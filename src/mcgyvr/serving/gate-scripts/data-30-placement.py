@@ -17,23 +17,14 @@ it costs nothing — instead of at load, where it costs the rig night.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse, root
-
-VRAMFIT = Path("tools") / "bench" / "serving" / "vramfit.py"
+from mcgyvr.serving import vramfit
+from mcgyvr.serving.gatelib import export, need, refuse
 
 
 def main() -> int:
-    source = root() / VRAMFIT
-    if not source.is_file():
-        refuse(f"the placement arithmetic {VRAMFIT} is missing")
-    spec = importlib.util.spec_from_file_location("serving_vramfit", source)
-    assert spec is not None and spec.loader is not None
-    vramfit = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(vramfit)
     # The allowance is vramfit's, not this script's: the bench gate derives the
     # same floor from the same number, and two copies that drifted would have
     # the door and the gate disagree about one card.
