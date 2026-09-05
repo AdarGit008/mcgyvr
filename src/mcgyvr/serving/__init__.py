@@ -87,6 +87,22 @@ RUNTIME_RESIDENT_GB = 1.53
 # The widest configuration anyone has measured on these rigs (#366, 32 slots on
 # a 12 GB card). Past it this arithmetic would be extrapolating.
 MAX_WIDTH = 32
+# vLLM sizes its own cache from ``--gpu-memory-utilization`` and prices a
+# request against ``--max-model-len``, so these two are what a vLLM unit
+# states and the cache law is not consulted. 8192 is a contract's 4096-token
+# prompt ceiling with as much again for the reply, and the length the live
+# ladder was measured at (2026-09-05: the 7B AWQ held 3.48 such requests at
+# 0.68 of srv2's card, the 3B 4.40 at 0.33). The utilisation itself is the
+# operator's, in ``serve_args``: #337 measures it per rig and never inherits.
+VLLM_MAX_MODEL_LEN = 8192
+# The sequence cap a vLLM unit gets when no rung wrote a width. A scheduler
+# cap, not an allocation — the engine's cache decides how many actually run
+# — so unlike a llama.cpp slot it costs nothing to state, and 8 is what every
+# driver on these rigs has started vLLM with.
+VLLM_DEFAULT_SEQS = 8
+# Where the rig's HuggingFace cache appears inside a vLLM container: the
+# image's own default, so the model id resolves there with no further flag.
+HF_CACHE_MOUNT = "/root/.cache/huggingface"
 
 # How far a stated ``disk_gb`` may sit from the scanned ``size_bytes`` and
 # still be the same figure written to two decimals. Past it they are two
@@ -142,6 +158,14 @@ class ModelSpec:
     ``geometry`` takes no part in equality or hashing. Two specs naming one
     file at one size are one spec; the geometry is a reading of that file, not
     a further fact about it.
+
+    ``hf_cache`` is where a vLLM model's weights are on the rig — the
+    HuggingFace cache a repository id resolves in — and ``serve_args`` is what
+    the server needs said that no scan can derive: the utilisation vLLM sizes
+    its cache from, or the template argument that turns a thinking model's
+    reasoning off. Both are the operator's, read off the config's ``models``
+    block, and both ride on the spec because they are facts about serving
+    this model and not about any machine.
     """
 
     name: str
@@ -150,6 +174,8 @@ class ModelSpec:
     disk_gb: float
     moe: bool = False
     geometry: Mapping[str, Any] | None = field(default=None, compare=False)
+    hf_cache: str = ""
+    serve_args: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.geometry is None:
@@ -214,6 +240,11 @@ class Fit:
     fits: bool
     headroom_gb: float
     why: str
+    #: The card figure this fit was judged on, in GiB — the predicted figure
+    #: for a scanned model, the stated working set for a scalar one, zero for
+    #: a refusal. Carried so that the units on one host can be summed: each
+    #: fitting alone is how a 12 GB card ends up asked for 13.
+    vram_gb: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -265,10 +296,17 @@ class Unit:
     fit: Fit
     port: int = DEFAULT_PORT
     rungs: tuple[str, ...] = ()
+    #: The container image the source pinned, or ``None`` for the engine's
+    #: default. A vLLM unit's ``weights`` is the HuggingFace cache directory
+    #: itself, and ``extra`` is the spec's ``serve_args``, appended verbatim.
+    image: str | None = None
+    extra: tuple[str, ...] = ()
 
     @property
     def weights_dir(self) -> Path:
         """The directory to mount; the container sees the file inside it."""
+        if self.engine == "vllm":
+            return self.weights
         return self.weights.parent
 
 
@@ -354,6 +392,7 @@ def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
     )
     return Fit(
         fits=True,
+        vram_gb=placed.vram_gb,
         headroom_gb=placed.headroom_gb,
         why=(
             f"{spec.name}: {placed.vram_gb:.1f} GB on the card of "
@@ -381,11 +420,43 @@ def unit_for(
     takes :data:`DEFAULT_PORT`, which is the number the engine would have
     chosen anyway. :func:`units_for` is where the config's answer arrives.
     """
+    if engine == "vllm" and not spec.hf_cache:
+        raise UnitError(
+            f"{spec.name}: served by vLLM, which loads a repository id from the "
+            f"rig's HuggingFace cache, and nothing says where that cache is — "
+            f"set models.{spec.name}.hf_cache to its absolute path on the rig"
+        )
     sized = fit(scan, spec, width=width)
     if not sized.fits:
         raise UnitError(f"{scan.machine.host}: {sized.why}")
 
     gpu = _roomiest_gpu(scan)
+    if engine == "vllm":
+        # vLLM has no offload knob this module prices and sizes its own cache
+        # from the utilisation the operator states, so the argv is the engine's
+        # two ceilings and nothing the cache law computed.
+        if width is not None:
+            seqs = Width(value=width, how="written")
+        else:
+            seqs = Width(value=VLLM_DEFAULT_SEQS, how="default")
+        host = scan.machine.host
+        return Unit(
+            key=UnitKey(host=host, model=spec.name, engine=engine, port=port),
+            host=host,
+            model=spec.name,
+            engine=engine,
+            gpu=gpu.index,
+            weights=Path(spec.hf_cache),
+            width=seqs,
+            args={
+                "--max-num-seqs": str(seqs.value),
+                "--max-model-len": str(VLLM_MAX_MODEL_LEN),
+            },
+            fit=sized,
+            port=port,
+            rungs=(),
+            extra=spec.serve_args,
+        )
     # The same derivation :func:`fit` just approved, not a second one that
     # agrees today: an argv whose offload differs from the one the fit checked
     # is a unit that was never sized for this machine.
@@ -433,6 +504,7 @@ def unit_for(
         fit=sized,
         port=port,
         rungs=(),
+        extra=spec.serve_args,
     )
 
 
@@ -475,6 +547,7 @@ def units_for(
     hosts: dict[UnitKey, Scan] = {}
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
+    images: dict[UnitKey, str | None] = {}
 
     for tier in config.ladder.tiers:
         source = config.sources.get(tier.source)
@@ -510,6 +583,7 @@ def units_for(
         grouped.setdefault(key, []).append(tier.name)
         hosts.setdefault(key, scan)
         models.setdefault(key, spec)
+        images.setdefault(key, source.image)
         if tier.max_parallel is not None:
             # One process, one slot count. Two rungs asking for different
             # widths get the larger, because a slot the second rung never uses
@@ -519,19 +593,59 @@ def units_for(
             # rung that states nothing has stated nothing about this process.
             widths[key] = max(widths.get(key, 0), tier.max_parallel)
 
-    return tuple(
-        _with_rungs(
-            unit_for(
-                hosts[key],
-                models[key],
-                engine=key.engine,
-                width=widths.get(key),
-                port=key.port,
+    units = tuple(
+        replace(
+            _with_rungs(
+                unit_for(
+                    hosts[key],
+                    models[key],
+                    engine=key.engine,
+                    width=widths.get(key),
+                    port=key.port,
+                ),
+                tuple(rungs),
             ),
-            tuple(rungs),
+            image=images[key],
         )
         for key, rungs in grouped.items()
     )
+    return units
+
+
+def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> None:
+    """The units on one host, summed against the card they will share.
+
+    :func:`fit` judges one unit against a free card, and every unit on a
+    host passes that test on its own — which is exactly how a 12 GB card
+    gets a compose file asking for 13. So the card figures are added up per
+    host and held to the free VRAM the scan read, with no headroom on top:
+    the headroom is inside each figure already, and the sum is what the card
+    will actually be asked to hold. Measured 2026-09-05 on srv2: 7.12 + 3.49
+    GiB on 11.63 free, and the card held it with 1.0 GiB to spare.
+
+    A check of its own rather than a rule inside :func:`units_for`, because
+    that function answers "which processes does this ladder imply" and two
+    units that will not share a card are still two processes; whether the
+    machine can hold them both is the question asked just before a file is
+    written, and :func:`mcgyvr.cli._emit` asks it there.
+    """
+    by_host: dict[str, list[Unit]] = {}
+    for unit in units:
+        by_host.setdefault(unit.host, []).append(unit)
+    for host, shared in by_host.items():
+        if len(shared) < 2 or host not in scans:
+            continue
+        free = _free_vram_bytes(scans[host]) / _BYTES_PER_GIB
+        asked = sum(unit.fit.vram_gb for unit in shared)
+        if asked > free:
+            listed = ", ".join(
+                f"{unit.model} ({unit.fit.vram_gb:.2f} GB)" for unit in shared
+            )
+            raise UnitError(
+                f"{host}: {listed} fit the card one at a time and not together — "
+                f"{asked:.2f} GB summed against {free:.2f} GB free. Drop a unit, "
+                f"or state a smaller working set you have measured"
+            )
 
 
 def declared_models(config: Config) -> dict[str, ModelSpec]:
@@ -572,6 +686,8 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             disk_gb=block.get("disk_gb") or 0.0,
             moe=bool(block.get("moe")),
             geometry=geometry,
+            hf_cache=str(block.get("hf_cache") or ""),
+            serve_args=tuple(str(arg) for arg in (block.get("serve_args") or ())),
         )
     return specs
 

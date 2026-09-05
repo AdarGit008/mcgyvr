@@ -227,6 +227,8 @@ task: Set the value.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
 acceptance: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """
@@ -379,6 +381,8 @@ task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
 acceptance: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

@@ -131,7 +131,8 @@ def test_a_unit_is_keyed_by_host_model_and_engine(scans: dict[str, Scan]) -> Non
 
 def test_a_different_engine_is_a_different_unit(scans: dict[str, Scan]) -> None:
     llama = unit_for(scans["desktop-2"], MID, engine="llama.cpp")
-    vllm = unit_for(scans["desktop-2"], MID, engine="vllm")
+    served = replace(MID, hf_cache="/home/someone/.cache/huggingface")
+    vllm = unit_for(scans["desktop-2"], served, engine="vllm")
     assert llama.key != vllm.key
 
 

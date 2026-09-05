@@ -539,7 +539,7 @@ def worker_attempt(
     # an unnamed reviewer establishes no distance.
     reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
     draws = int(config.get("breadth.draws", 1))
-    tidying = bool(config.get("cleanup.enabled", False))
+    tidying = bool(config.get("cleanup.enabled", True))
 
     def attempt(this: Try) -> Judgement:
         # The whole of this function's failure path, in one place. Everything
@@ -697,7 +697,10 @@ def worker_attempt(
             # a sandbox and nowhere else (ADR-0005). `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
-            return gate_workspace(contract, space, adapters=adapters)
+            result = gate_workspace(contract, space, adapters=adapters)
+            if result.accepted or not tidying:
+                return result
+            return _repair_and_regate(contract, space, result, adapters=adapters)
 
         # Before the writes rather than after the last one, which is the same
         # bargain `gate_in_sandbox` makes and for the same reason: `best_of`
@@ -909,6 +912,69 @@ def _cleaned(
     regated = gate_in_sandbox(contract, sandbox, cleanup.content, adapters=adapters)
     return regated, Accepted.read(
         repo=sandbox.workspace, contract=contract, result=regated
+    )
+
+
+def _repair_and_regate(
+    contract: Contract,
+    sandbox: Sandbox,
+    rejected: GateResult,
+    *,
+    adapters: Sequence[LanguageAdapter] | None = None,
+) -> GateResult:
+    """The D21 loop, on the same rung and with no model retry.
+
+    The gate judges and never writes; :func:`mcgyvr.repair.repair` writes and
+    never judges — the declared imports, the linter's own autofixes and the
+    formatter, over the contract's scope and nothing else. Measured on the
+    first live ladder (2026-09-05): every one of nine replies was rejected on
+    findings a tool clears for nothing — a line the formatter would reflow,
+    whitespace on a blank line, an unsorted import block — and each rejection
+    bought a climb to a dearer rung. The owner's ruling is that running the
+    fixers after a rung is done is the point: it lifts every task the
+    deterministic floor could not take outright. So a rejected draw is
+    repaired in place and judged again before the ladder spends anything,
+    under ``cleanup.enabled``, which is on unless an install says otherwise.
+
+    The tree is what is delivered. ``best_of`` mints the winner's binding off
+    this sandbox one line after this returns, so an accepted verdict here is
+    a verdict about the repaired bytes and the file that leaves is the file
+    that was judged; the reply the model sent is in the journal. When the
+    tools changed nothing the first verdict stands unrepeated — a second
+    gate over identical bytes is a subprocess for an answer already in hand.
+    A repair that ran is said out loud as an observation, so a reader of the
+    row knows the delivered file is not the reply verbatim; what the repair
+    could not run rides along as an environment issue.
+    """
+    from mcgyvr.gate.findings import Finding
+    from mcgyvr.gate.typecheck import STYLE
+    from mcgyvr.repair import repair
+
+    outcome = repair(sandbox=sandbox, contract=contract)
+    if not outcome.changed:
+        if outcome.environment_issues:
+            return replace(
+                rejected,
+                environment_issues=(
+                    *rejected.environment_issues,
+                    *outcome.environment_issues,
+                ),
+            )
+        return rejected
+    regated = gate_workspace(contract, sandbox, adapters=adapters)
+    noted = tuple(
+        Finding(
+            check=STYLE,
+            path=path,
+            message="repair: the deterministic tools rewrote this file before "
+            "the verdict; what is delivered is the repaired tree, not the reply",
+        )
+        for path in outcome.repaired
+    )
+    return replace(
+        regated,
+        observations=(*regated.observations, *noted),
+        environment_issues=(*regated.environment_issues, *outcome.environment_issues),
     )
 
 

@@ -358,7 +358,10 @@ def test_a_gate_run_by_hand_exits_2(env: dict[str, str], script: str) -> None:
 
 
 def test_every_entry_in_sequence_is_a_shipped_script() -> None:
-    assert sorted(e.script for e in (*run.SEQUENCE, *run.ALWAYS)) == GATES
+    """Every shipped .py under gate-scripts is a gate the door runs, or one of
+    the door's own serve steps — nothing shipped there is reachable by no run."""
+    steps = [path.name for path in run.SERVE_STEPS.values()]
+    assert sorted([*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]) == GATES
 
 
 # --------------------------------------------------------------------------

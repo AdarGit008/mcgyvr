@@ -78,7 +78,7 @@ from typing import TYPE_CHECKING
 from mcgyvr.contract import Contract, Dependency
 from mcgyvr.gate.adapter import ToolUnavailableError, plain_env, require_tool
 from mcgyvr.gate.adapters import PythonAdapter
-from mcgyvr.gate.adapters.python import RUFF
+from mcgyvr.gate.adapters.python import RUFF, ruff_config_args
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.lines import parser_lines, terminator
 
@@ -352,7 +352,7 @@ def _run_ruff(
     """
     try:
         proc = subprocess.run(
-            [ruff, *args, "--", *paths],
+            [ruff, *ruff_config_args(repo), *args, "--", *paths],
             cwd=repo,
             capture_output=True,
             text=True,

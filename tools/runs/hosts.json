@@ -23,7 +23,7 @@
     },
     "read_on": "2026-09-03",
     "llamacpp_image": "llamacpp:b10644-L3",
-    "cpu_expert_offload": false
+    "cpu_expert_offload": true
   },
   "srv2": {
     "rig": {
@@ -76,5 +76,5 @@
     "after": "systemctl daemon-reload && systemctl restart ollama",
     "verify": "systemctl show ollama -p Environment — the reading the survey captures as `service_environment`."
   },
-  "_procedure_doc": "Per-host keys read by the door's default step (`src/mcgyvr/serving/gate-scripts/default-step.sh`): `llamacpp_image` is the image every row is stamped with (srv1 is only valid against a stated image: the stock server-cuda build runs emulated tensor-core kernels on TU116 -> okf/must-read/touching-rigs.md), and `cpu_expert_offload` says whether the procedure may launch with `--n-cpu-moe > 0` on this host at all; srv1 hard-locked three times under CPU expert offload on 2026-09-01 and a lock wipes its BIOS profile, so the step refuses rather than launches there until the lock is understood (touching-rigs.md, 'srv1 hard-locks')."
+  "_procedure_doc": "Per-host keys read by the door's default step (`src/mcgyvr/serving/gate-scripts/default-step.sh`): `llamacpp_image` is the image every row is stamped with (srv1 is only valid against a stated image: the stock server-cuda build runs emulated tensor-core kernels on TU116 -> okf/must-read/touching-rigs.md), and `cpu_expert_offload` says whether the procedure may launch with `--n-cpu-moe > 0` on this host at all; srv1 hard-locked three times under CPU expert offload on 2026-09-01 and a lock wipes its BIOS profile, so the step refused there until 2026-09-05, when the owner declared the lock fixed: the 09-04 floor sweep (records/evidence/2026-09-04-srv1-ncmoe-floor/) and the 09-05 spike ran Qwen3.6-35B at --n-cpu-moe 29-32 on srv1 with uptime unbroken since 2026-09-01T08:11, and the live ladder's top rung is that placement (touching-rigs.md, 'srv1 hard-locks')."
 }

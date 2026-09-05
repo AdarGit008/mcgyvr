@@ -39,13 +39,18 @@ from pathlib import Path
 
 import yaml
 
-from mcgyvr.serving import Unit
+from mcgyvr.serving import HF_CACHE_MOUNT, Unit
 
 # The engines this module can render, and what each one is. An engine it has no
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
 # image is a server that fails at load with a message about neither.
-ENGINE_BINARIES = {"llama.cpp": "llama-server"}
-ENGINE_IMAGES = {"llama.cpp": "ghcr.io/ggml-org/llama.cpp:server-cuda"}
+ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
+ENGINE_IMAGES = {
+    "llama.cpp": "ghcr.io/ggml-org/llama.cpp:server-cuda",
+    # The build measured on srv2 on 2026-09-05; the digest pinned on a source
+    # (`sources.<name>.image`) is what a live row is valid against.
+    "vllm": "vllm/vllm-openai:v0.26.0",
+}
 
 # Where the weights directory appears inside the container. A convention, not a
 # choice the spec makes — see the module docstring on why the argv does not use
@@ -88,7 +93,17 @@ def argv(unit: Unit) -> tuple[str, ...]:
     compose file and the pasted command cannot disagree about it.
     """
     flags = {**unit.args, "--port": str(unit.port)}
-    parts = tuple(part for flag in sorted(flags) for part in (flag, str(flags[flag])))
+    # vLLM takes the model as its first positional argument, and it is the
+    # model id — a repository path the cache resolves — never a file. Then
+    # the derived flags, then whatever the spec's ``serve_args`` said, in the
+    # order it said it: a flag repeated there overrides, which is what
+    # "verbatim" has to mean for an argv the engine reads left to right.
+    lead = (unit.model,) if unit.engine == "vllm" else ()
+    parts = (
+        *lead,
+        *(part for flag in sorted(flags) for part in (flag, str(flags[flag]))),
+        *unit.extra,
+    )
     for part in parts:
         if part.split() != [part]:
             raise EmitError(
@@ -115,7 +130,7 @@ def render_command(unit: Unit) -> str:
     compose file says — image, mounts, device reservation — is Docker's way of
     arranging what a person on the machine has already arranged.
     """
-    return shlex.join((_binary(unit), *argv(unit)))
+    return shlex.join((*_command(unit), *argv(unit)))
 
 
 def render_compose(unit: Unit | None) -> str:
@@ -211,6 +226,8 @@ def _service(unit: Unit) -> dict[str, object]:
     handing the container every GPU: on a two-card rig ``all`` is how two units
     sized for two different cards end up fighting over one.
     """
+    if unit.engine == "vllm":
+        return _vllm_service(unit)
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
@@ -252,16 +269,53 @@ def _service(unit: Unit) -> dict[str, object]:
     }
 
 
-def _binary(unit: Unit) -> str:
-    binary = ENGINE_BINARIES.get(unit.engine)
-    if binary is None:
+def _vllm_service(unit: Unit) -> dict[str, object]:
+    """A vLLM unit as a compose service.
+
+    The weights are a repository id resolved in the rig's HuggingFace cache,
+    so that cache is what gets mounted — read-only, at the image's own cache
+    path so the id resolves with no further flag — and the server is started
+    offline, so a rig never downloads at load. ``ipc: host`` is what vLLM's
+    own image documents for its shared-memory tensors, and what every driver
+    on these rigs has started it with.
+    """
+    return {
+        "image": _image(unit),
+        "container_name": f"mcgyvr-{_safe_host(unit.host)}-{_service_name(unit)}",
+        "command": list(argv(unit)),
+        "network_mode": "host",
+        "ipc": "host",
+        "environment": {"HF_HUB_OFFLINE": "1"},
+        "restart": "unless-stopped",
+        "volumes": [f"{unit.weights_dir}:{HF_CACHE_MOUNT}:ro"],
+        "deploy": {
+            "resources": {
+                "reservations": {
+                    "devices": [
+                        {
+                            "driver": "nvidia",
+                            "device_ids": [str(unit.gpu)],
+                            "capabilities": ["gpu"],
+                        }
+                    ]
+                }
+            }
+        },
+    }
+
+
+def _command(unit: Unit) -> tuple[str, ...]:
+    command = ENGINE_COMMANDS.get(unit.engine)
+    if command is None:
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
         )
-    return binary
+    return command
 
 
 def _image(unit: Unit) -> str:
+    if unit.image:
+        return unit.image
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
         raise EmitError(

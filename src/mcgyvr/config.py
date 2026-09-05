@@ -42,6 +42,12 @@ import yaml
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
+#: The user-level config directory (owner, 2026-09-05). A literal with `~` so
+#: help text reads the same on every machine; expanded at the point of use.
+#: This is the third and last place a config is looked for, after the
+#: environment override and the working directory, and where `mcgyvr init`
+#: writes when nobody names a path. `$XDG_CONFIG_HOME` is not consulted.
+USER_CONFIG_DIR = "~/.mcgyvr/config"
 
 
 class ConfigError(Exception):
@@ -189,6 +195,16 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         choices=("llama.cpp", "vllm"),
         bind_hint="leave it out unless the backend is not llama-server",
     ),
+    Field(
+        "image",
+        "str",
+        "Container image `mcgyvr emit` writes for this source's process, as a "
+        "tag or a digest. Absent means the engine's own default, and that is a "
+        "floating tag: srv1's numbers are only valid against a stated build "
+        "(okf/must-read/touching-rigs.md), so a source that must run one "
+        "image says which here.",
+        bind_hint="e.g. vllm/vllm-openai@sha256:<hex>, or llamacpp:b10644-L3",
+    ),
 )
 
 MODEL_FIELDS: tuple[Field, ...] = (
@@ -253,6 +269,29 @@ MODEL_FIELDS: tuple[Field, ...] = (
         "off the card. Not inferable from the other numbers: it is the "
         "difference between `does not fit` and `fits differently here`.",
         default=False,
+    ),
+    Field(
+        "hf_cache",
+        "str",
+        "The HuggingFace cache on the rig that holds this model's weights, as "
+        "an absolute path there. Required for a model served by vLLM, which "
+        "loads a repository id from that cache rather than a file from the "
+        "weights directory; `mcgyvr emit` mounts it read-only and starts the "
+        "server offline, so nothing is downloaded on a rig at load. Not read "
+        "for a llama.cpp model.",
+        bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
+    ),
+    Field(
+        "serve_args",
+        "str_list",
+        "Arguments appended verbatim to the server's command line after the "
+        "ones mcgyvr derives, for what no scan can know: `--gpu-memory-"
+        "utilization` for vLLM (measured per rig, #337, never inherited), or "
+        "`--chat-template-kwargs` to turn a thinking model's reasoning off. "
+        "One flag or value per entry; an entry containing whitespace is "
+        "refused at emit, because the compose file and the pasted command "
+        "cannot spell it the same way.",
+        default=(),
     ),
 )
 
@@ -512,18 +551,24 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
     Field(
         "enabled",
         "bool",
-        "Reformat a change the gate rejected only on formatting, and judge it "
-        "again, instead of spending an attempt asking a model to insert a "
-        "space. The formatter is the one the gate already checks with, so a "
-        "cleanup produces the shape the format rung asks for rather than a "
-        "second opinion about it, and it costs no tokens by construction. Off "
-        "by default because it rewrites a file after the gate has spoken about "
-        "it: the bytes that come back are not the bytes the worker sent, and an "
-        "operator reading a diff should have said yes to that. Nothing else is "
-        "ever tidied — a lint code, a failed acceptance command or a rung that "
-        "could not say what bar it applied leaves the change exactly as the "
-        "worker wrote it.",
-        default=False,
+        "Repair a change the gate rejected with the deterministic tools — the "
+        "declared imports, the linter's own autofixes, the formatter — and "
+        "judge it again on the same rung, instead of spending an attempt or a "
+        "climb on what a tool clears for nothing. The tools are the ones the "
+        "gate already checks with, so a repair produces the shape the rungs "
+        "ask for rather than a second opinion about it, and it costs no tokens "
+        "by construction. On by default (owner, 2026-09-05): the first live "
+        "ladder rejected all nine replies on a reflowed line, whitespace on a "
+        "blank line or an unsorted import block and paid a climb for each, "
+        "and running the fixers after a rung is done is the point — it lifts "
+        "every task the deterministic floor could not take outright. It "
+        "rewrites a file after the gate has spoken about it, so the bytes "
+        "that come back are not the bytes the worker sent: the journal keeps "
+        "the reply, the tree keeps the repaired file, and the verdict says a "
+        "repair ran. Set false to have the rejection stand as the gate "
+        "reached it. What no tool fixes — a failed acceptance command, a "
+        "name, a line too long to wrap — is rejected exactly as before.",
+        default=True,
     ),
 )
 
@@ -660,6 +705,7 @@ class Source:
     max_parallel: int
     api_key_env: str | None
     engine: str | None = None
+    image: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -1121,17 +1167,28 @@ def named_config_path() -> Path | None:
     return Path(override).expanduser() if override else None
 
 
+def user_config_path() -> Path:
+    """``~/.mcgyvr/config/mcgyvr.yaml``, expanded against the current HOME."""
+    return Path(USER_CONFIG_DIR).expanduser() / CONFIG_FILENAME
+
+
 def config_path() -> Path:
-    """Locate the config file: explicit override, then cwd, then user config."""
+    """Locate the config file: explicit override, then cwd, then the user dir.
+
+    The user dir is :data:`USER_CONFIG_DIR` and nothing else: the XDG config
+    home was the third answer until 2026-09-05, and the owner asked for one
+    directory of mcgyvr's own. A path that depends on an environment variable
+    only some shells export is a config that is found from one terminal and
+    not another, which is the same file in two places as far as an operator
+    debugging it is concerned.
+    """
     override = named_config_path()
     if override is not None:
         return override
     local = Path.cwd() / CONFIG_FILENAME
     if local.is_file():
         return local
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-    return base / "mcgyvr" / "config.yaml"
+    return user_config_path()
 
 
 def parse(text: str, path: Path | None = None) -> Config:
@@ -1165,6 +1222,7 @@ def parse(text: str, path: Path | None = None) -> Config:
             max_parallel=block["max_parallel"],
             api_key_env=block["api_key_env"],
             engine=block["engine"],
+            image=block["image"],
         )
         for name, block in data["sources"].items()
     }

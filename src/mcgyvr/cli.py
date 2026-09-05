@@ -23,6 +23,7 @@ from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_FILENAME,
     CONFIG_PATH_ENV,
+    USER_CONFIG_DIR,
     Config,
     ConfigError,
     ConfigMissingError,
@@ -35,7 +36,13 @@ from mcgyvr.emit import EmitError, emit_all
 from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
-from mcgyvr.serving import ModelSpec, UnitError, host_of, units_for
+from mcgyvr.serving import ModelSpec, UnitError, hold_together, host_of, units_for
+
+#: The three places a config is looked for, in order, as every `--config`
+#: help line states them: one sentence, so no command names a fourth.
+CONFIG_DEFAULT_HELP = (
+    f"${CONFIG_PATH_ENV}, ./{CONFIG_FILENAME} or {USER_CONFIG_DIR}/{CONFIG_FILENAME}"
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
@@ -274,6 +281,28 @@ def _catalog(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cap_undeclared(contract: Contract) -> str | None:
+    """Why a model contract with no declared reply cap is refused, or None.
+
+    The loader derives ``limits.max_output_tokens`` from the task type's own
+    evidence, silently, because the bench and the corpus need a number. A
+    person's run does not get that silence (owner, 2026-09-05: "fail loud
+    when no budget is declared"): the first live ladder cut the top rung's
+    reply at a derived 1024 after a 41-second climb, and nobody had chosen
+    the number. The derived figure is printed as the value to start from. A
+    deterministic contract has no reply to cap and is not asked.
+    """
+    if contract.is_deterministic or contract.max_output_tokens_declared:
+        return None
+    return (
+        f"limits.max_output_tokens is not declared, and {contract.task_type} is "
+        f"executed by a model: a reply cut at a cap nobody chose is spent "
+        f"silently. State the cap in the contract — the type's own evidence "
+        f"would size it at {contract.limits.max_output_tokens} tokens, which is "
+        f"a starting value, not a measurement."
+    )
+
+
 def _contract(args: argparse.Namespace) -> int:
     import json
 
@@ -286,6 +315,10 @@ def _contract(args: argparse.Namespace) -> int:
         # it names the field and what a valid value looks like.
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    undeclared = _cap_undeclared(contract)
+    if undeclared is not None:
+        print(f"error: {undeclared}", file=sys.stderr)
+        return Exit.USAGE
 
     if args.worker_view:
         print(json.dumps(contract.worker_view(), indent=2))
@@ -793,6 +826,12 @@ def _run(args: argparse.Namespace) -> int:
     except ContractError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    undeclared = _cap_undeclared(contract)
+    if undeclared is not None:
+        # Before the repo, the config, the session and the journal: nothing is
+        # filed for a run that was refused for what its contract left out.
+        print(f"error: {undeclared}", file=sys.stderr)
+        return Exit.USAGE
 
     repo = Path(args.repo).resolve()
     if not (repo / ".git").exists():
@@ -1236,8 +1275,8 @@ def _climb(
     from it.
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
-    command's does — ``$MCGYVR_CONFIG``, then the working directory, then the
-    user config dir — because a second resolution order for the same file is a
+    command's does — ``$MCGYVR_CONFIG``, then the working directory, then
+    ``~/.mcgyvr/config/`` — because a second resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
     a rung is chosen.
@@ -1827,6 +1866,7 @@ def _emit(args: argparse.Namespace) -> int:
     # reads an unscanned host. A malformed capability table is a real error.
     try:
         units = units_for(config, scans, specs=_model_specs())
+        hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
@@ -2214,7 +2254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     conf.set_defaults(func=_config)
 
@@ -2227,7 +2267,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     pool.add_argument(
         "--probe",
@@ -2266,7 +2306,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="CONFIG",
         help=(
             "resolve against a configured ladder and name the types it cannot "
-            f"start (default config: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+            f"start (default config: {CONFIG_DEFAULT_HELP})"
         ),
     )
     cat.add_argument(
@@ -2328,7 +2368,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         type=_named_path,
         metavar="PATH",
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     emi.add_argument(
         "--out",
@@ -2378,7 +2418,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
-        help=f"where to write (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"where to write (default: {CONFIG_DEFAULT_HELP})",
     )
     ini.add_argument(
         "--force",
@@ -2544,7 +2584,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ladder to climb when the contract is not deterministic. Which rung "
             "runs is this file's — the tier order, each tier's `attempts` and the "
             "`budgets` ceilings — never a flag "
-            f"(default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+            f"(default: {CONFIG_DEFAULT_HELP})"
         ),
     )
     run.add_argument(

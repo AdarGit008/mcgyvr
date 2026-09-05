@@ -16,6 +16,7 @@ machines have to say so.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -103,6 +104,20 @@ def main() -> int:
 
     busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
     busy = {key: value for key, value in busy.items() if value != "none"}
+    if os.environ.get("RUN_SERVE") == "down":
+        # Taking a live ladder down is the one run that opens on a busy rig by
+        # design: the units it is here to stop hold the card and the daemon.
+        # Nothing is admitted on that account beyond the run itself — gate 7
+        # expects an EMPTY daemon after this mode's step and names whatever
+        # is still up, ours or not.
+        if busy:
+            print(
+                f"gate 2: {host} is serving ("
+                + ", ".join(f"{key}={value}" for key, value in busy.items())
+                + "); serve down opens on it to stop that, and gate 7 requires "
+                "nothing left"
+            )
+        busy = {}
     if busy:
         refuse(
             f"gate 2: {host} is not idle — "
