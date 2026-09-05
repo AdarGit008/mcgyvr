@@ -65,9 +65,18 @@ def test_the_default_journal_dir_is_the_xdg_state_dir_under_home(
     assert sink.is_file(), sorted(str(p) for p in home.rglob("*.jsonl"))
 
 
-def test_record_dir_overrides_the_config(
+def test_record_dir_adds_a_copy_and_leaves_the_configured_one_alone(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """``--record`` used to *override* this, and that is what changed.
+
+    A journal is worth keeping because it can be compounded, and a flag that
+    moved one run's record out of the corpus made every later question about
+    the corpus unanswerable — not wrong, unanswerable, since nothing said which
+    runs were missing. The caller's directory now gets a complete copy and the
+    configured one keeps its own, which is what "we keep ours, they keep
+    theirs" has to mean for ours to be worth reading.
+    """
     lj.scripted(monkeypatch, lj.GOOD_REPLY)
     repo = lj.make_repo(tmp_path / "repo")
     configured = tmp_path / "configured"
@@ -79,7 +88,7 @@ def test_record_dir_overrides_the_config(
 
     assert code == 0
     assert (envelope / "claude-s1.jsonl").is_file()
-    assert not configured.exists()
+    assert (configured / "claude-s1.jsonl").is_file()
 
 
 def test_the_repo_shows_only_the_accepted_target_and_no_commit(

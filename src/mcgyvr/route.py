@@ -582,23 +582,39 @@ class Result:
     #: retry prompt quotes them. ``detail`` summarises ("rejected on
     #: acceptance"); this is what a caller replans from.
     findings: tuple[str, ...] = ()
-    #: Which draw the verdict is about, and how many the attempt made
-    #: (``breadth.draws``). One row is journaled per draw, so a caller that
-    #: corrects the journal needs to know which row the verdict belongs to.
+    #: Which draw the verdict is about, how many were asked for
+    #: (``breadth.draws``), and how many left a journal row. One row is
+    #: journaled per draw, so a caller that corrects the journal needs to know
+    #: which row the verdict belongs to and how many rows there are to correct.
+    #: The two counts differ where the attempt did not finish its draws — and
+    #: where the driver keeps no journal at all, which makes ``rows`` zero
+    #: whatever the verdict, because zero rows is what was written.
     draw: int = 0
     draws: int = 1
+    rows: int = 1
+
+    # ``draws`` is the breadth the attempt was configured for and is the same
+    # number whatever the verdict, so each builder takes it and none infers it.
+    # What differs is ``rows``: a verdict was reached over every draw and wrote
+    # a row for each, and a decline stepped aside before dispatching and wrote
+    # none. A driver that leaves it out is one that draws once, which is what
+    # an unconfigured install does.
+    @classmethod
+    def passed(cls, detail: str = "", *, draws: int = 1) -> Result:
+        return cls(verdict=Verdict.PASSED, detail=detail, draws=draws, rows=draws)
 
     @classmethod
-    def passed(cls, detail: str = "") -> Result:
-        return cls(verdict=Verdict.PASSED, detail=detail)
+    def failed(cls, detail: str = "", *, draws: int = 1) -> Result:
+        return cls(verdict=Verdict.FAILED, detail=detail, draws=draws, rows=draws)
 
     @classmethod
-    def failed(cls, detail: str = "") -> Result:
-        return cls(verdict=Verdict.FAILED, detail=detail)
-
-    @classmethod
-    def declined(cls, detail: str = "") -> Result:
-        return cls(verdict=Verdict.DECLINED, detail=detail)
+    def declined(cls, detail: str = "", *, draws: int = 1) -> Result:
+        # A decline is a rung stepping aside before it dispatches, so it wrote
+        # no row: the default of one would claim a journal row nobody wrote.
+        # Its breadth is stated all the same — the field says what the attempt
+        # was configured for, and a reader who had to check the verdict first
+        # would read a three-draw run as a one-draw run.
+        return cls(verdict=Verdict.DECLINED, detail=detail, draws=draws, rows=0)
 
 
 @dataclass(frozen=True)
@@ -615,8 +631,23 @@ class Attempted:
     verdict: Verdict
     detail: str = ""
     findings: tuple[str, ...] = ()
-    draw: int = 0
+    #: Which draw the entry is about. ``None`` is reachable only on a raised
+    #: entry and says no draw is the subject, because naming one would pin the
+    #: failure on a dispatch that answered. Which raise it was is read off
+    #: ``rows``: ``0`` is a raise before any dispatch, and anything more is a
+    #: raise past draw ``rows - 1``, which had answered and left its row. That
+    #: reading is a journal's — a driver keeping none writes no rows to count,
+    #: and ``0`` there says only that nothing was recorded.
+    draw: int | None = 0
+    #: The breadth the attempt was configured for (``breadth.draws``), on every
+    #: entry and whatever the verdict, so no reader has to check the verdict
+    #: before reading the number.
     draws: int = 1
+    #: How many of those draws left a journal row: what a caller correcting the
+    #: journal iterates, and how far the attempt actually got. Equal to
+    #: ``draws`` on an attempt that reached a verdict over a journal; a driver
+    #: keeping none wrote no rows and reports none, whatever it drew.
+    rows: int = 1
     #: The attempt raised instead of judging. Kept in the history so the
     #: climb's record is complete — a raised attempt still dispatched and
     #: still has a journal row — and so a reader can tell "the gate refused"
@@ -641,6 +672,7 @@ def attempted(rung: str, attempt: int, result: Result) -> Attempted:
         findings=result.findings,
         draw=result.draw,
         draws=result.draws,
+        rows=result.rows,
     )
 
 

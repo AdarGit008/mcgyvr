@@ -452,6 +452,41 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     assert judgement.accepted.accepted is True
 
 
+def test_a_driver_with_no_journal_reports_the_rows_it_did_not_write(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``rows`` is journal rows, and a driver built without a ``recording`` writes none.
+
+    ``worker_attempt``'s ``recording`` is optional, and without one no draw
+    reaches :func:`~mcgyvr.telemetry.observe`. The judged branch reported
+    ``rows`` as the number of draws it took anyway, so the one field a caller
+    correcting the journal iterates claimed rows that were never written —
+    while a raise out of the same attempt reported the truthful zero. One name,
+    two quantities, decided by which branch the attempt left through.
+    """
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try, Verdict
+
+    config = parse_config(LADDER + "breadth:\n  draws: 2\n")
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)
+    _driven(monkeypatch, "```python\nVALUE = 1\n```", "```python\nVALUE = 1\n```")
+
+    with TempDirSandbox(repo) as sandbox:
+        judgement = worker_attempt(config, pool, contract, sandbox)(
+            Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1)
+        )
+
+    assert judgement.verdict is Verdict.PASSED
+    assert judgement.draws == 2, "the breadth is what the run asked for"
+    assert judgement.rows == 0, (
+        "no journal was configured, so no draw left a row for anyone to "
+        f"correct: {judgement.rows}"
+    )
+
+
 def test_a_hand_authored_contract_shows_the_target_file_in_the_prompt(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -873,6 +908,7 @@ def test_a_dispatch_failure_feeds_the_cooldown(
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
+    from mcgyvr.escalate import DispatchRaisedError
     from mcgyvr.pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.runner import RunnerError
@@ -890,8 +926,13 @@ def test_a_dispatch_failure_feeds_the_cooldown(
 
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(config, pool, contract, sandbox, cooldown=cooldown)
-        with pytest.raises(RunnerError):
+        # `DispatchRaisedError` is the envelope every raise out of a driven attempt
+        # now travels in: it carries the draw that died, which nothing above it
+        # can infer. What died is still the `RunnerError`, and the cooldown —
+        # the subject here — is fed inside the dispatch, before either.
+        with pytest.raises(DispatchRaisedError) as raised:
             attempt(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+    assert isinstance(raised.value.cause, RunnerError)
 
     # One failure is a hiccup; three consecutive arm the removal.
     assert cooldown.unavailable([endpoint]) == {}

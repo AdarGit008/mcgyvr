@@ -45,8 +45,18 @@ class AttemptResult:
     detail: str = ""
     findings: list[str] = field(default_factory=list)
     attempt_id: str | None = None
-    draw: int = 0
+    #: Which draw the entry is about. ``null`` on an attempt that raised where
+    #: no dispatch of it is the culprit; ``attempt_id`` is ``null`` with it,
+    #: because there is no row to name. ``rows`` says which such raise it was:
+    #: ``0`` is a raise before any dispatch, and anything more is a raise past
+    #: draw ``rows - 1``, the last one that answered.
+    draw: int | None = 0
+    #: The breadth the run asked for (``breadth.draws``), on every attempt and
+    #: whatever the verdict.
     draws: int = 1
+    #: How many of those draws left a journal row — how far the attempt got.
+    #: Below ``draws`` only where the attempt did not finish its draws.
+    rows: int = 1
 
 
 @dataclass
@@ -75,6 +85,14 @@ class RunResult:
     branch: str = ""
     handoff: str = ""
     exit_code: int | None = None
+    #: A copy of the journal the caller asked for (``--record DIR``) that could
+    #: not be written, and why — keyed by the directory. Empty on almost every
+    #: run. It is here and not only on stderr because the skill tells a caller
+    #: to read this file rather than the scrollback, and "your copy is short"
+    #: is exactly the kind of fact a caller reading the file would otherwise
+    #: never learn. mcgyvr's own record under ``journal`` is complete whatever
+    #: this says: a copy is not a sink, and its failure does not stop a run.
+    copy_errors: dict[str, str] = field(default_factory=dict)
     started: float = field(default_factory=time.time)
     finished: float | None = None
 

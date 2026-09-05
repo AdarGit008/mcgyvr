@@ -22,7 +22,8 @@ rebuilt cannot be stale. Running it twice yields the same rows.
 **One row per folded attempt.** ``fold`` applies corrections latest-wins in
 file order and returns orphan corrections — a correction naming no attempt —
 verbatim after the attempts. Here a correction is a column (``outcome``,
-``detail``) and not a row, and an orphan is dropped: ``fold`` surfaces it for
+``detail``, ``applied_by`` — the winning verdict, its words and the writer who
+gave it) and not a row, and an orphan is dropped: ``fold`` surfaces it for
 a reader of the journal, but it is not an attempt, and a table of attempts
 that listed it would count a mistake as a dispatch.
 
@@ -93,6 +94,13 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("session_file", "TEXT"),
     ("task_type", "TEXT"),
     ("rung", "TEXT"),
+    # Which family did the work: `deterministic`, `local`, `api` — the
+    # catalog's own names. A floor run's `rung` is a program (`ruff`) and a
+    # ladder attempt's is a config's tier name, and without this the two share
+    # one column with nothing to tell them apart. It is also the column the
+    # ladder's economic question is asked through: how much work finishes on
+    # the floor, for free and in one attempt, rather than on a model.
+    ("tier", "TEXT"),
     ("ok", "INTEGER"),
     ("ts", "REAL"),
     ("elapsed_s", "REAL"),
@@ -118,6 +126,13 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("error_detail", "TEXT"),
     ("journal", "TEXT"),
 )
+
+#: The tier a floor row carries, matching ``mcgyvr.cli.DETERMINISTIC``. The one
+#: value a reader of this table filters on by name rather than by discovery —
+#: ``SELECT count(*) FROM attempts WHERE tier = 'deterministic'`` is how much
+#: work finished without a model — so it is a constant rather than a literal
+#: repeated at each call site.
+DETERMINISTIC = "deterministic"
 
 # What a name in a content-addressed store looks like. A row is data written
 # by somebody else's process; a value that is not a digest names nothing in

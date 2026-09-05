@@ -52,6 +52,25 @@ class ConfigFileError(ConfigError):
     """The config file is missing, unreadable, or not parseable as YAML."""
 
 
+class ConfigMissingError(ConfigFileError):
+    """There is no config file at all.
+
+    A class rather than a message to grep, because "there is none" and "the
+    one that is there cannot be read" ask for different answers from a caller
+    that can run without a config. The deterministic floor is one: it
+    dispatches nothing, needs no ladder, and an install with no config is a
+    supported install — so a missing file is silence, while a file the
+    operator wrote and this run could not use is something to say out loud.
+
+    Silence is the *default location's* to earn, not this class's. Whether the
+    path was one the caller named is what :func:`named_config_path` answers,
+    and a caller that treats this exception as "nothing to mention" has to ask:
+    nobody chose the empty default, whereas ``--config`` or ``$MCGYVR_CONFIG``
+    pointing at nothing is a path somebody typed, and a run that goes quietly
+    on under some other directory is the operator's problem to discover later.
+    """
+
+
 class ConfigSchemaError(ConfigError):
     """The config parsed, but does not satisfy the schema."""
 
@@ -420,12 +439,16 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     Field(
         "dir",
         "str",
-        "Where every dispatching run journals what it asked, what came back and "
-        "how it landed: one `<orchestrator>.jsonl` per writer, the prompts and "
-        "replies content-addressed under `blobs/`, and each run's result file "
-        "under `results/`. This is mcgyvr's own record and never lands in the "
-        "repository a run works on. `mcgyvr run --record DIR` overrides it for "
-        "one run. Read it back with `tools/live/review.py DIR`.",
+        "Where every run journals what it asked, what came back and how it "
+        "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
+        "content-addressed under `blobs/`, and each run's result file under "
+        "`results/`. Deterministic runs are here too, with a row naming the "
+        "program instead of a model. This is mcgyvr's own record, it never "
+        "lands in the repository a run works on, and nothing on the command "
+        "line moves it: it is the one place every run is, which is what makes "
+        "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
+        "copy for your own use. Read either back with `tools/live/review.py "
+        "DIR`.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )
@@ -1083,11 +1106,26 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
 
+def named_config_path() -> Path | None:
+    """The config path the environment names, or ``None`` if it names none.
+
+    Split out of :func:`config_path` because "somebody chose this path" is a
+    fact about the *caller*, not about the file, and it survives the file not
+    being there — which is the only moment it matters. A default location with
+    nothing in it is a bare install; ``$MCGYVR_CONFIG`` pointing at nothing is
+    a variable set ahead of the ``init`` that fills it, or a typo, and the two
+    want different sentences. Callers that take a path from a flag already know
+    the answer and do not need this.
+    """
+    override = os.environ.get(CONFIG_PATH_ENV)
+    return Path(override).expanduser() if override else None
+
+
 def config_path() -> Path:
     """Locate the config file: explicit override, then cwd, then user config."""
-    override = os.environ.get(CONFIG_PATH_ENV)
-    if override:
-        return Path(override).expanduser()
+    override = named_config_path()
+    if override is not None:
+        return override
     local = Path.cwd() / CONFIG_FILENAME
     if local.is_file():
         return local
@@ -1146,15 +1184,67 @@ def parse(text: str, path: Path | None = None) -> Config:
     return Config(path=path, data=data, sources=sources, ladder=ladder)
 
 
+def _absent_remedy(path: Path | None) -> str:
+    """What to do about a config that is not there, given who chose the path.
+
+    Three situations wearing one exception. ``path`` is what the caller named
+    on purpose — a ``--config`` flag — or ``None`` when nobody did and
+    :func:`load` located the file itself; in that second case
+    ``$MCGYVR_CONFIG`` may still have named it, and that is a third answer
+    again.
+
+    Nobody named one: both remedies are open and both are said. The variable
+    named it: ``mcgyvr init`` writes to exactly that path — ``_init`` resolves
+    its destination the same way and its help says so — so a fresh install
+    with the documented ``export MCGYVR_CONFIG=...`` already done is one
+    command from finished, and answering it with "set the variable" is advice
+    to do again what has just been done. A flag named it: the file typed is not
+    there, and only a different path helps.
+    """
+    if path is not None:
+        return "Name one that is there."
+    if named_config_path() is not None:
+        return (
+            "`mcgyvr init` writes there: run it to generate one, or "
+            "name a file that already exists."
+        )
+    return (
+        f"Run `mcgyvr init` to generate one, or set {CONFIG_PATH_ENV} "
+        f"to point at an existing file."
+    )
+
+
 def load(path: Path | None = None) -> Config:
-    """Load and validate the config file."""
-    path = path or config_path()
+    """Load and validate the config file.
+
+    ``path`` is one the caller was pointed at on purpose — a ``--config`` flag,
+    say. ``None`` means nobody named one, and this locates the file rather than
+    the caller: that is not a convenience, it is the only way the remedy for a
+    file that is not there can be right. Which of ``$MCGYVR_CONFIG``, a flag,
+    or nothing at all put this path here is a fact about the *caller*, and a
+    caller that resolves the path itself has thrown it away before this
+    function can be asked. It was a ``named`` keyword the caller passed
+    alongside a resolved path, and four of the five commands that load a config
+    never passed it — so each shipped "set ``$MCGYVR_CONFIG``" to operators
+    whose ``$MCGYVR_CONFIG`` was the reason they were reading the message.
+    """
+    chosen = path
+    if path is None:
+        path = config_path()
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
+        raise ConfigMissingError(
+            f"no config at {path}. {_absent_remedy(chosen)}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        # Caught by name, not by family. It is a `ValueError`, so neither
+        # `except` below it saw it and it left `load` as a traceback — from a
+        # file that is present and unusable, which is the case every caller
+        # here already knows how to say something about. A `ConfigFileError`
+        # is what "there is a file and this run cannot use it" means.
         raise ConfigFileError(
-            f"no config at {path}. Run `mcgyvr init` to generate one, or set "
-            f"{CONFIG_PATH_ENV} to point at an existing file."
+            f"cannot read {path}: it is not UTF-8 text ({exc})"
         ) from exc
     except OSError as exc:
         raise ConfigFileError(f"cannot read {path}: {exc}") from exc
