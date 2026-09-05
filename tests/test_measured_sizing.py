@@ -441,7 +441,11 @@ def test_the_table_is_decimal_and_the_conversion_is_explicit() -> None:
 def test_a_source_names_the_engine_and_it_reaches_the_unit() -> None:
     config = config_for("qwen2.5-coder:7b", engine="vllm")
     assert config.sources["local"].engine == "vllm"
-    spec = ModelSpec("qwen2.5-coder:7b", 5.0, 0.0, 4.7)
+    # A vLLM unit loads a repository id from the rig's HF cache, so the spec
+    # says where that is; without it the unit is refused by name.
+    spec = ModelSpec(
+        "qwen2.5-coder:7b", 5.0, 0.0, 4.7, hf_cache="/home/someone/.cache/huggingface"
+    )
     unit = units_for(config, {"localhost": srv2()}, specs=(spec,))[0]
     assert unit.engine == "vllm"
     assert unit.key.engine == "vllm", "the engine is part of what makes a process"
