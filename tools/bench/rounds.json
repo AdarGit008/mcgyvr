@@ -1,9 +1,9 @@
 {
   "doctrine": {
     "_source": "ADR-0032 (#291), which makes ADR-0018 Q3 operational; the batching clause was decided on #276 and lived only in the body of a closed issue until 2026-08-17.",
-    "_read_by": "tools/bench/product.py \u2014 load_doctrine, printed by --open. Clauses added here are stated by the tool without touching that module.",
+    "_read_by": "tools/bench/product.py — load_doctrine, printed by --open. Clauses added here are stated by the tool without touching that module.",
     "clauses": [
-      "A round boundary is DRAINED, not TAKEN. Every identity change waiting on a boundary lands in the same round. Landing them one at a time, with runs in between, converts one re-baseline into several rounds whose arms are comparable only within themselves \u2014 and spends the rig time once per round.",
+      "A round boundary is DRAINED, not TAKEN. Every identity change waiting on a boundary lands in the same round. Landing them one at a time, with runs in between, converts one re-baseline into several rounds whose arms are comparable only within themselves — and spends the rig time once per round.",
       "An adopted change is anything that moves product_sha256, or any field of tools/bench/identity.py's GROUPS that a run records. The pin is over file contents, so 'does the digest move' is the test, and --check answers it.",
       "--open records the batch and does not verify it. Nothing here can know which issues are still open. What is enforced is that the batch is NAMED (--adopted) and that what moved is printed, at the one moment the rule is violable.",
       "Arms measured under two rounds are not comparable. round and product_sha256 are keyed fields (identity.KEY), so a table mixing them is refused by require_comparable rather than annotated."
@@ -426,7 +426,7 @@
       "id": "r5-05-09-2026",
       "opened": "2026-09-05",
       "issue": null,
-      "product_sha256": "eeb8f955c59774543d0caf24f364857df06f595e3621ce26b1fb1b4d965476c0",
+      "product_sha256": "d3b98de548c31799d33ae97efd9d85ef601eb831c97b32b0d992dc0b6c21ea33",
       "why": "main merged into the door branch after round r4 landed its two commissioning runs: eight surface files (cli, config, docgen, drive, escalate, result, route, telemetry) changed under the merge, so a run after it is not comparable with the r4 runs. Nothing about the door or the law moved at this boundary.",
       "adopted": [
         "#409 green/408-findings-6-10 merged from main into the door branch",
@@ -518,7 +518,7 @@
         "src/mcgyvr/serving/gate-scripts/data-10-scan.py": "0b36dd8c050f7357cfa1f208e809148038bd60052776beadd1969a59cd50ac2d",
         "src/mcgyvr/serving/gate-scripts/data-20-geometry.py": "5d8db615dd11116d6be6b7cc5f9f3ad745036ea023846914545b4e2220b117eb",
         "src/mcgyvr/serving/gate-scripts/data-30-placement.py": "58b0635a37a13cae1f64d1d028d398b907bd9da8d28c81139a8ca9947664f05e",
-        "src/mcgyvr/serving/gate-scripts/default-step.sh": "3ad6edb2f3fa5a71c195c8eae7da035ca1180f2bd65d92fb08bd7a668ab72964",
+        "src/mcgyvr/serving/gate-scripts/default-step.sh": "a1c1721d910af92910d711c4d6717dd3b9cbdef156f37a6469100b728caf783c",
         "src/mcgyvr/serving/gate-scripts/rig-snapshot.sh": "5a9883d12e750caf98979701cedf72a579b7cdda44315136ca6106bd0ede69a8",
         "src/mcgyvr/serving/gatelib.py": "f7b8c4794005326d18eb2122c1eef219748dc9288ba7ea7b3d24b7f1dbf01244",
         "src/mcgyvr/serving/ggufscan.py": "8c640635e848f36a58b7629b0cc176700af89689fd42b58d3c2260b4f7569937",

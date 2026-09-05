@@ -174,6 +174,7 @@ img=$("$DOCKER" image inspect \
 # ---------------------------------------------------------------------------
 # the rig's own paths and the rig-side copy of the artifact
 # ---------------------------------------------------------------------------
+# shellcheck disable=SC2016  # $HOME must expand on the rig, not here
 RIG_HOME=$("$SSH" "$RUN_HOST" 'echo $HOME' | tr -d '[:space:]') || RIG_HOME=
 [ -n "$RIG_HOME" ] || refuse "$RUN_HOST did not answer 'echo \$HOME'; the bind mount is the rig's path and is never expanded on this machine"
 "$SSH" "$RUN_HOST" "mkdir -p ~/mcgyvr-runs/$RUN_ID" \
@@ -224,6 +225,7 @@ rig_pl() {
 logtail() { "$DOCKER" logs --tail 5 "$1" 2>&1 | oneline || true; }
 
 CURRENT=
+# shellcheck disable=SC2317,SC2329  # reached through the EXIT/INT/TERM trap
 on_exit() {
     local status=$?
     if [ -n "$CURRENT" ]; then
