@@ -528,6 +528,23 @@ NOT_A_FIGURE = {
         "of a run. It reads no run directory and no row, so there is no tier "
         "attribution to declare, the same exemption `run.py` holds beside it"
     ),
+    "tools/bench/serving/ggufscan.py": (
+        "the GGUF header reader. It sums a file's tensor table and reports its "
+        "geometry — bytes per expert block, which blocks cache, which slide, "
+        "which hold recurrent state. Every figure is a property of a FILE, "
+        "read before anything is launched; it opens no run directory, scores "
+        "no task and states no rate. What it will not report is the point: an "
+        "undeclared sliding-window split comes back as `None` rather than as a "
+        "number, so a cache cannot be sized from an assumption"
+    ),
+    "tools/bench/serving/vramfit.py": (
+        "what a checkpoint will hold on a card, and the lowest `--n-cpu-moe` "
+        "that fits. Its figures are BYTES — cache, recurrent state, expert "
+        "weight per block, and the measured constant the rest is weighed "
+        "against — and its verdict is a placement, not an outcome. It reads no "
+        "run directory and no row, and a byte count is not a rate a tier could "
+        "hide a floor in, the same exemption `ceiling.py` holds for durations"
+    ),
     "tools/bench/serving/contract.py": (
         "the backend interface and the pieces no engine owns — the ramp and "
         "the machine readings. It describes servers, never runs"

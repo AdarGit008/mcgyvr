@@ -88,6 +88,30 @@ def _contract() -> types.ModuleType:
 contract = _contract()
 
 
+def _vramfit() -> types.ModuleType:
+    """The VRAM arithmetic, shared through one slot.
+
+    Held here rather than imported at module scope for the reason
+    :func:`_contract` is: ``tools/`` is not a package, so the sibling is
+    reached by path. One slot, so the gate and anything else that derives a
+    placement cannot end up on two copies of the laws.
+    """
+    cached = sys.modules.get("serving_vramfit")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "serving_vramfit", Path(__file__).resolve().parents[1] / "vramfit.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["serving_vramfit"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+vramfit = _vramfit()
+
+
 def _fingerprint() -> types.ModuleType:
     """The serving-config fingerprint, shared through one slot."""
     cached = sys.modules.get("serving_fingerprint")
@@ -396,27 +420,10 @@ def _available_bytes(host: str) -> int | None:
     return contract.first_int(raw)
 
 
-#: What ``llama-server`` holds in VRAM beyond weights and KV: CUDA context,
-#: compute buffers, graph scratch. An ALLOWANCE and not a fitted residue --
-#: the sibling engine's equivalent constant was fitted on one host and found
-#: wrong by 400 MiB on the other, so this is a round number the cells clear by
-#: a margin rather than a precision it has not earned.
-#: ``okf/must-read/touching-rigs.md`` states it as "~1.0 GB".
-CUDA_CONTEXT_MIB = 1024
-
-#: KV is 2 KiB per token per ATTENTION layer at f16 on every MoE checkpoint
-#: measured: ``2 x n_kv_heads x head_dim x 2 B`` lands on 2048 for head counts
-#: of 2, 4 and 8 alike. **Multiply by the layers that CACHE, not by
-#: ``block_count``** -- ``qwen35moe`` declares ``full_attention_interval = 4``,
-#: so 10 of 40 layers cache and the layer count over-predicts by 4x.
-KV_BYTES_PER_TOKEN_PER_CACHING_LAYER = 2048
-
-#: The layers that do NOT cache still charge, per SLOT rather than per token:
-#: ``qwen35moe``'s 30 linear layers each hold ``ssm_inner_size 4096 x
-#: ssm_state_size 128 x 4 B`` = 2 MiB, measured across np 1/4/8 at fixed ``-c``.
-#: Consequence for any cell that raises one of them: ``-c`` is cheap on these
-#: layers and ``-np`` is not.
-STATE_MIB_PER_LINEAR_LAYER_PER_SLOT = 2
+#: From :mod:`vramfit`, which owns it: the door's placement script derives
+#: the same floor from the same allowance, and two copies that drifted
+#: would have the gate and the door disagree about one card.
+SCRATCH_AND_CONTEXT_MIB = vramfit.SCRATCH_AND_CONTEXT_MIB
 
 #: What the process holds in host RAM BEYOND the offloaded experts themselves.
 #: ``RSS - blocks * expert_per_block`` sat at 1.52-1.53 GiB at every setting
@@ -514,45 +521,105 @@ def expert_floor(
     """The FEWEST blocks of experts this card can leave in host RAM.
 
     This is the ``--n-cpu-moe`` floor, and it is what the gate must judge a
-    model by. ``okf/must-read/touching-rigs.md``: the budget is
-    ``usable VRAM - CUDA context - non-expert weights - KV``; what remains,
-    over total expert bytes, is the resident fraction, and
-    ``(1 - fraction) x n_layers`` is the floor.
+    model by. Every term but one now comes from the blob's own tensor table or
+    from :mod:`vramfit`'s measured laws; :data:`SCRATCH_AND_CONTEXT_MIB` is the
+    only allowance left.
 
-    **Derived, and then to be walked down to -- not trusted as a measurement.**
-    :data:`CUDA_CONTEXT_MIB` and :data:`STATE_MIB_PER_LINEAR_LAYER_PER_SLOT`
-    are allowances, so this number is a prediction. The refusal is the
-    measurement: run one cell below it on purpose and it names the true edge.
-    Retry any refusal three times before believing it; a launch near the memory
-    edge is a 1-in-3 coin flip.
+    **Four fitted constants were retired here, each stable, plausible and
+    wrong** (evidence under ``records/evidence/2026-09-05-context-decomposition``
+    and ``2026-09-04-srv1-ncmoe-floor``):
+
+    ``CUDA_CONTEXT_MIB = 1024``
+        against 85.5-135.1 MiB of actual unnamed residue, measured on both rigs.
+
+    ``KV_BYTES_PER_TOKEN_PER_CACHING_LAYER = 2048``
+        one width for every layer of every model. ``deepseek2`` caches a
+        192-wide key against a 128-wide value; ``gemma4`` runs two head counts
+        and two key widths in one file; a sliding-window checkpoint allocates
+        TWO caches over disjoint layer sets, and the sliding one stops growing
+        once the window binds. :func:`vramfit.kv_bytes` reproduces the engine's
+        own figure exactly on every checkpoint measured.
+
+    ``STATE_MIB_PER_LINEAR_LAYER_PER_SLOT = 2``
+        drops the convolution term, 4.7% of the buffer on ``qwen35moe``, and
+        counts recurrent layers as ``n_layer - caching``, which doubles the
+        buffer on ``nemotron_h_moe`` (52 blocks = 6 attention + 23 mamba + 23
+        MLP-only). :func:`vramfit.rs_bytes` counts the blocks that carry
+        ``ssm_*`` tensors and charges per SEQUENCE.
+
+    ``bytes_experts / n_layer``
+        an average block, which matches no block in nine of ten checkpoints.
+        ``--n-cpu-moe`` moves WHOLE blocks and takes ``N`` as a block INDEX, so
+        what a placement needs is the marginal block.
+        :func:`vramfit.experts_on_card` sums the blocks actually left on the
+        card, skipping a grafted MTP head the knob never places.
+
+    **Still derived, and still to be walked down to.** The remaining allowance
+    makes this a prediction, and it is stated GENEROUSLY on purpose: too high
+    costs throughput until the walk-down, too low admits a cell that clears the
+    gate and then OOMs at load. The refusal is the measurement -- run one cell
+    below it deliberately and it names the true edge. Retry any refusal three
+    times before believing it; a launch near the memory edge is a 1-in-3 coin
+    flip.
+
+    **Returns ``derived: False`` rather than a number it cannot stand behind.**
+    :func:`vramfit.kv_bytes` refuses a checkpoint that declares a sliding
+    window without the per-layer pattern saying which layers use it, because
+    the split is not in the header and inventing one is how the retired
+    constants got written. The caller weighs the blob whole instead, which is
+    the conservative direction.
     """
+    vf = vramfit
     n_layer = int(geometry.get("n_layer") or 0)
     expert_bytes = int(geometry.get("bytes_experts") or 0)
     nonexpert_bytes = int(geometry.get("bytes_nonexpert") or 0)
-    interval = geometry.get("full_attn_interval")
-    caching = n_layer // int(interval) if interval else n_layer
-    linear = n_layer - caching
+    placeable = list(geometry.get("placeable_blocks") or [])
 
     slots = int(serve.get("parallel") or 1)
-    tokens = int(serve.get("ctx_per_slot") or 0) * slots
-    kv_mib = caching * tokens * KV_BYTES_PER_TOKEN_PER_CACHING_LAYER / 1024**2
-    state_mib = linear * slots * STATE_MIB_PER_LINEAR_LAYER_PER_SLOT
+    # `-c` is the TOTAL context across slots, not the per-slot window: measured
+    # 2026-09-05, `-c 8192` gives the same cache at `-np 8`, `-np 4` and
+    # `-np 1`, and llama.cpp reports `n_ctx_seq = 1024` for the first of those.
+    # `kv_bytes` does that division, and the PAD256 that goes with it.
+    n_ctx = int(serve.get("ctx_per_slot") or 0) * slots
+    n_ubatch = int(serve.get("n_ubatch") or 512)
 
-    for_weights = spendable_mib - CUDA_CONTEXT_MIB - kv_mib - state_mib
-    for_experts = for_weights - nonexpert_bytes / 1024**2
-    per_block_mib = expert_bytes / n_layer / 1024**2 if n_layer else 0.0
-    resident = 0 if per_block_mib <= 0 else int(for_experts // per_block_mib)
-    resident = max(0, min(n_layer, resident))
+    try:
+        kv = vf.kv_bytes(geometry, n_ctx, n_seq_max=slots, n_ubatch=n_ubatch)
+        rs = vf.rs_bytes(geometry, n_seq_max=slots)
+    except ValueError as exc:
+        return {
+            "derived": False,
+            "n_layer": n_layer,
+            "why": str(exc),
+        }
+
+    scratch = SCRATCH_AND_CONTEXT_MIB * 1024**2
+    constant = nonexpert_bytes + kv["total"] + rs["total"] + scratch
+    floor_n = vf.floor(geometry, spendable_mib * 1024**2, constant)
+    # `None` means the card cannot hold the constant alone -- no placement
+    # rescues it. Report the full-offload placement so the caller still has a
+    # number to weigh, and let `fits` fail on the resident mass.
+    on_card = [] if floor_n is None else [b for b in placeable if b >= floor_n]
+    expert_on_card = 0 if floor_n is None else vf.experts_on_card(geometry, floor_n)
     return {
+        "derived": True,
         "n_layer": n_layer,
-        "caching_layers": caching,
-        "kv_mib": round(kv_mib, 1),
-        "state_mib": round(state_mib, 1),
+        "n_placeable": len(placeable),
+        "caching_layers": len(geometry.get("kv_layers") or []),
+        "recurrent_layers": int(geometry.get("n_recurrent") or 0),
+        "kv_mib": round(kv["total"] / 1024**2, 1),
+        "kv_swa_mib": round(kv["swa"] / 1024**2, 1),
+        "n_ctx_seq": kv["n_ctx_seq"],
+        "state_mib": round(rs["total"] / 1024**2, 1),
         "nonexpert_mib": round(nonexpert_bytes / 1024**2, 1),
-        "expert_mib_per_block": round(per_block_mib, 1),
-        "vram_for_experts_mib": round(for_experts, 1),
-        "resident_blocks": resident,
-        "floor_n_cpu_moe": n_layer - resident,
+        "scratch_allowance_mib": SCRATCH_AND_CONTEXT_MIB,
+        "constant_mib": round(constant / 1024**2, 1),
+        "vram_for_experts_mib": round(spendable_mib - constant / 1024**2, 1),
+        "expert_mib_on_card": round(expert_on_card / 1024**2, 1),
+        "expert_mib_total": round(expert_bytes / 1024**2, 1),
+        "resident_blocks": len(on_card),
+        "floor_n_cpu_moe": len(placeable) if floor_n is None else floor_n,
+        "floor_is_reachable": floor_n is not None,
     }
 
 
@@ -646,11 +713,31 @@ def mmap_gate(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
         return gate
 
     floor = expert_floor(geometry, serve, usable)
-    per_block = expert_bytes / floor["n_layer"]
-    declared = min(int(serve.get("n_cpu_moe") or 0), floor["n_layer"])
+    if not floor.get("derived"):
+        gate["basis"] = "blob"
+        gate["card"] = card
+        gate["floor"] = floor
+        gate["why_basis"] = (
+            "the floor could not be derived from this header, so the blob is "
+            f"weighed whole -- the conservative direction: {floor.get('why')}"
+        )
+        gate["fits"] = size <= budget
+        return gate
 
-    def resident(blocks: int) -> int:
-        return int(blocks * per_block) + RUNTIME_RESIDENT_BYTES
+    placeable = list(geometry.get("placeable_blocks") or [])
+    declared = min(int(serve.get("n_cpu_moe") or 0), len(placeable))
+
+    def resident(n_cpu_moe: int) -> int:
+        """Host bytes at a placement: the experts NOT on the card, plus runtime.
+
+        ``expert_bytes - experts_on_card(N)`` and never ``N x average block``.
+        The average matches no block in nine of ten checkpoints here, and the
+        knob takes ``N`` as a block INDEX -- a dense leading block means the
+        first step moves nothing at all, which the multiplication cannot say.
+        """
+        return int(expert_bytes - vramfit.experts_on_card(geometry, n_cpu_moe)) + (
+            RUNTIME_RESIDENT_BYTES
+        )
 
     at_floor, at_declared = resident(floor["floor_n_cpu_moe"]), resident(declared)
     gate.update(
@@ -660,6 +747,7 @@ def mmap_gate(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             "geometry": {
                 "arch": geometry.get("arch"),
                 "n_layer": floor["n_layer"],
+                "n_placeable": floor["n_placeable"],
                 "bytes_experts": expert_bytes,
                 "bytes_nonexpert": geometry.get("bytes_nonexpert"),
             },
@@ -815,7 +903,7 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
                 f"{model} spills {gate['resident_at_floor_gb']} GB of experts "
                 f"into host RAM even at its FLOOR of --n-cpu-moe "
                 f"{floor['floor_n_cpu_moe']} ({floor['resident_blocks']} of "
-                f"{floor['n_layer']} blocks resident on a card with "
+                f"{floor['n_placeable']} placeable blocks on a card with "
                 f"{gate['card']['spendable_mib']} MiB free), against a "
                 f"{gate['budget_gb']} GB budget on {host}. Max offload was "
                 "tried and still failed, so this is the host being too small "

@@ -29,7 +29,10 @@ earlier, so a typo fails in a second instead of after a teardown.
 
 from __future__ import annotations
 
+import functools
+import importlib.util
 import json
+import types
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +40,25 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 CONFIGS = REPO / "tools" / "bench" / "serving" / "configs"
+
+
+@functools.lru_cache(maxsize=1)
+def _backend() -> types.ModuleType:
+    """The llama.cpp backend, IMPORTED rather than read as text.
+
+    The sync checks below used to grep its source for constant declarations.
+    That is satisfiable by a comment: the backend deleted all three constants
+    one such check looked for, and went on passing, because the docstring
+    recording the retirement quotes them by name and value. Importing asks the
+    module what it actually holds.
+    """
+    path = REPO / "tools" / "bench" / "serving" / "backends" / "llamacpp.py"
+    spec = importlib.util.spec_from_file_location("llamacpp_backend", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 #: 475-token completion budget plus 512 tokens of room for the prompt. Mirrors
 #: ``backends/llamacpp.py``'s ``MIN_CTX_PER_SLOT``; asserted equal below so the
@@ -72,11 +94,22 @@ USABLE_CARD_MIB = {
     host: CARD_TOTAL_MIB[host] - CARD_RESERVED_MIB[host] for host in CARD_TOTAL_MIB
 }
 
-#: The CUDA context alone, in VRAM, separate from :data:`COMPUTE_ALLOWANCE_MIB`
-#: because the floor derivation in ``okf/must-read/touching-rigs.md`` names it
-#: separately ("~1.0 GB"). Also an allowance. Mirrors the backend's
-#: ``CUDA_CONTEXT_MIB``; asserted equal below.
-CUDA_CONTEXT_MIB = 1024
+#: This suite's own VRAM allowance, and deliberately LARGER than the gate's.
+#:
+#: The backend derives its floor from :mod:`vramfit`: exact per-layer cache
+#: bytes, counted recurrent state, per-block expert mass, and one measured
+#: allowance (``SCRATCH_AND_CONTEXT_MIB``) for the compute buffer and the
+#: unnamed residue. This suite cannot do that arithmetic, and the reason is in
+#: :data:`GEOMETRY` below: it pins each blob as a four-tuple read on
+#: 2026-08-30, which has a layer COUNT where the exact laws need a per-block
+#: table and a per-layer cache descriptor.
+#:
+#: So the two derivations are not identical and are not asserted to be. What
+#: IS asserted, below, is the direction: a static screen that admits a cell the
+#: runtime gate would refuse is the failure mode that matters, so this figure
+#: must never be smaller than the gate's. It is not a mirror any more; it is a
+#: bound.
+SUITE_VRAM_ALLOWANCE_MIB = 1024
 
 #: What ``llama-server`` holds beyond weights and KV -- CUDA context, compute
 #: buffers, graph scratch. Deliberately an ALLOWANCE and not a fitted residue:
@@ -157,10 +190,12 @@ def _floor_blocks(
     the per-block expert mass, is what the card can hold; the rest is the floor.
     Mirrors ``backends/llamacpp.py``'s ``expert_floor``.
 
-    Derived and not measured: the CUDA-context and slot-state figures are
-    allowances, so this is a prediction to walk down to. It is used here to
-    answer one question only -- whether ANY placement fits -- and that answer
+    Derived and not measured, and COARSER than the gate's on purpose: this is
+    the four-tuple screen described at :data:`SUITE_VRAM_ALLOWANCE_MIB`, which
+    answers one question only -- whether ANY placement fits -- and that answer
     is insensitive to a hundred MiB either way for every cell in these configs.
+    The gate itself uses the exact per-layer laws; see
+    ``backends/llamacpp.py``'s ``expert_floor``.
 
     **Judged against an IDLE card, which is where this suite differs from the
     gate on purpose.** ``USABLE_CARD_MIB`` is total-less-reserve; the gate uses
@@ -179,7 +214,7 @@ def _floor_blocks(
     state_mib = (n_layer - caching) * slots * 2
     for_experts = (
         USABLE_CARD_MIB[host]
-        - CUDA_CONTEXT_MIB
+        - SUITE_VRAM_ALLOWANCE_MIB
         - kv_mib
         - state_mib
         - nonexpert_bytes / 1024**2
@@ -236,13 +271,12 @@ def test_there_are_llamacpp_entries_to_check() -> None:
 
 def test_the_floor_here_matches_the_backend() -> None:
     """Two copies of 987 that could drift apart, pinned to each other."""
-    source = (
-        REPO / "tools" / "bench" / "serving" / "backends" / "llamacpp.py"
-    ).read_text(encoding="utf-8")
-    assert "PROMPT_HEADROOM_TOKENS = 512" in source, (
+    backend = _backend()
+    assert backend.PROMPT_HEADROOM_TOKENS == 512, (
         "the backend's prompt headroom moved; MIN_CTX_PER_SLOT here is derived "
         "from it and is now stale"
     )
+    assert backend.MIN_CTX_PER_SLOT == MIN_CTX_PER_SLOT
 
 
 def test_the_sizing_allowances_here_match_the_backend() -> None:
@@ -253,20 +287,31 @@ def test_the_sizing_allowances_here_match_the_backend() -> None:
     suite goes on passing cells the rig will refuse -- which is the failure the
     987 pin above already exists to prevent, one constant over.
     """
-    source = (
-        REPO / "tools" / "bench" / "serving" / "backends" / "llamacpp.py"
-    ).read_text(encoding="utf-8")
-    for constant in (
-        f"CUDA_CONTEXT_MIB = {CUDA_CONTEXT_MIB}",
-        "KV_BYTES_PER_TOKEN_PER_CACHING_LAYER = 2048",
-        "STATE_MIB_PER_LINEAR_LAYER_PER_SLOT = 2",
-        "RUNTIME_RESIDENT_BYTES = int(1.53 * 1024**3)",
-        f"MMAP_HEADROOM_BYTES = {MMAP_HEADROOM_BYTES // 1000**3} * 1000**3",
-    ):
-        assert constant in source, (
-            f"{constant!r} is not what the backend says; this suite's floor "
-            "derivation has drifted from the gate's"
-        )
+    backend = _backend()
+
+    # ATTRIBUTES, not a substring search of the source. The grep this replaced
+    # passed against a backend that had deleted all three constants it looked
+    # for, because the docstring recording their retirement quotes them by name
+    # and value -- `CUDA_CONTEXT_MIB = 1024` appears in prose saying it is gone.
+    # A guard that a comment can satisfy is not a guard.
+    assert not hasattr(backend, "CUDA_CONTEXT_MIB"), (
+        "the backend has a CUDA_CONTEXT_MIB again; the floor is supposed to "
+        "come from vramfit's measured laws now"
+    )
+    assert not hasattr(backend, "KV_BYTES_PER_TOKEN_PER_CACHING_LAYER")
+    assert not hasattr(backend, "STATE_MIB_PER_LINEAR_LAYER_PER_SLOT")
+
+    assert int(1.53 * 1024**3) == backend.RUNTIME_RESIDENT_BYTES
+    assert backend.MMAP_HEADROOM_BYTES == MMAP_HEADROOM_BYTES
+
+    # The one direction that matters: this suite must not admit a cell the gate
+    # would refuse. Equality is not required and is not the point.
+    assert SUITE_VRAM_ALLOWANCE_MIB >= backend.SCRATCH_AND_CONTEXT_MIB, (
+        f"this suite allows {SUITE_VRAM_ALLOWANCE_MIB} MiB of VRAM overhead "
+        f"against the gate's {backend.SCRATCH_AND_CONTEXT_MIB}; the static "
+        "screen is now the LESS conservative of the two and will pass cells "
+        "the rig refuses"
+    )
 
 
 def _case_id(value: Any) -> str:

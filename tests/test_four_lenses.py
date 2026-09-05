@@ -89,6 +89,16 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # Different engines ship different images; equal values here would mean one
     # backend was launching the other's container.
     "CONTAINER_IMAGE": False,
+    # Must agree: the container mount point and the host tree behind it are one
+    # deployment fact seen from two sides — the bench backend launches with
+    # `-v $HOME/models:/models`, and the door's geometry script translates a
+    # container path back to the host one to read a header OUTSIDE any
+    # container. Not made one definition of the other on purpose: the door
+    # would then import a bench backend, which is the dependency the door
+    # exists to remove. If these two stop agreeing, ggufscan reads a path that
+    # is not the blob the step serves, and the placement describes another file.
+    "CONTAINER_MODELS": True,
+    "HOST_MODELS": True,
     # Must differ: one name for both would have the two backends tear down and
     # reuse each other's container, which is the collision `release()` exists to
     # make impossible.

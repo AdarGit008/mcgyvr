@@ -85,17 +85,173 @@ def scan(path):
     # expert tensors: ffn_*_exps  |  shared/dense ffn and attention = the rest
     exp=[t for t in tensors if "_exps" in t[0]]
     expb=sum(t[3] for t in exp)
-    # per-layer expert bytes
-    layers=set()
+
+    # PER-BLOCK expert bytes, keyed by block index.
+    #
+    # `bytes_experts / n_layer` is the WRONG number to place a block with, and
+    # it is wrong for 9 of the 10 checkpoints in this store. The distribution is
+    # bimodal wherever a quant is non-uniform: Qwen3.6 IQ3_XXS is 262.0 MiB on
+    # 37 blocks and 300.0 on 3 (the UD mix lifts ffn_down_exps to IQ4_XS), so
+    # the mean of 264.85 matches NO block in the file. `--n-cpu-moe` moves whole
+    # blocks, so what a placement decision needs is the MARGINAL block, never
+    # the average. Worst case measured: nemotron_h_moe declares block_count 52
+    # while only 23 blocks carry experts, making the mean wrong by 2.26x.
+    per_block={}
     for t in exp:
-        p=t[0].split(".")
-        if len(p)>2 and p[1]=="blk": layers.add(p[2])
-        elif p[0]=="blk": layers.add(p[1])
+        parts=t[0].split(".")
+        idx=None
+        if len(parts)>2 and parts[1]=="blk": idx=parts[2]
+        elif parts[0]=="blk": idx=parts[1]
+        if idx is not None: per_block[int(idx)]=per_block.get(int(idx),0)+t[3]
+
+    # The blocks `--n-cpu-moe` can actually move, in the order it moves them.
+    # It keeps blocks 0..N-1 on the CPU (verified 24/23/22/1/0, no off-by-one),
+    # so the marginal block for a floor of N is block N-1. A grafted MTP head
+    # (KAT/Ornith blk 40, 816 MiB) carries expert tensors but is NEVER placed by
+    # this knob: counting it put a predicted floor 3 steps above the true one.
+    blocks=sorted(per_block)
+    layers=len(blocks)
+
+    # Blocks that carry experts but that `--n-cpu-moe` NEVER places.
+    #
+    # A grafted multi-token-prediction head is a block by tensor naming and not
+    # a block by placement: KAT/Ornith `blk.40` carries the full expert set plus
+    # `nextn.{eh_proj,enorm,hnorm,shared_head_norm}` and weighs 816 MiB against
+    # its neighbours' 364. Counting it as placeable put a predicted floor THREE
+    # steps above the true one. Proof it is excluded: at ncmoe 8 the card held
+    # 9976.83 - 1080.83 = 8896.00 MiB = 32 x 278.0 exactly, i.e. blocks 8..39
+    # with block 40 absent.
+    #
+    # Detected by tensor name, which is self-evidencing and needs no per-arch
+    # key; `<arch>.nextn_predict_layers` is read too and disagreement is
+    # reported rather than resolved silently.
+    nextn=sorted({int(x.split(".")[1]) for x in
+                  (t[0] for t in tensors)
+                  if x.startswith("blk.") and ".nextn." in x})
+    placeable=[b for b in blocks if b not in set(nextn)]
+
+    # Blocks carrying recurrent (SSM) tensors -- counted, not inferred from
+    # `n_layer - caching_layers`. That subtraction assumes every non-attention
+    # layer is recurrent, which holds on qwen35moe and fails on
+    # nemotron_h_moe: 52 blocks = 6 attention + 23 mamba + 23 MLP-only, so the
+    # subtraction says 46 and doubles the state buffer.
+    recurrent=sorted({int(x.split(".")[1]) for x in (t[0] for t in tensors)
+                      if x.startswith("blk.") and ".ssm_" in x})
+
     types={}
     for t in tensors: types[NAME.get(t[2],t[2])]=types.get(NAME.get(t[2],t[2]),0)+t[3]
     g=lambda *ks: next((kv[k] for k in ks if k in kv), None)
     arch=kv.get("general.architecture")
     pre=f"{arch}." if arch else ""
+    # A PER-LAYER cache descriptor, because no single pair of numbers describes
+    # these files. Three checkpoints in this store defeat any scalar summary:
+    #
+    #  * gemma4 caches 5 layers at head_count_kv 2 x key_length 512 and slides
+    #    25 at head_count_kv 8 x key_length_SWA 256 -- two widths and two head
+    #    counts in one file. Taking max(head_count_kv) and one key_length is
+    #    4x wrong on the full layers and 2x wrong on the sliding ones.
+    #  * cohere2moe slides 36 of 49 and caches 13, on a 1-in-4 pattern.
+    #  * bailingmoe3 absorbs V into the compressed KV and allocates NO V cache
+    #    at all -- the engine prints `V (f16): 0.00 MiB`.
+    #
+    # So each caching layer states its own width here, and the callers sum.
+    hkv=g(pre+"attention.head_count_kv")
+    n_layer_kv=g(pre+"block_count") or 0
+    n_head=g(pre+"attention.head_count")
+    kl=g(pre+"attention.key_length"); vl=g(pre+"attention.value_length")
+    kl_swa=g(pre+"attention.key_length_swa"); vl_swa=g(pre+"attention.value_length_swa")
+    nemb=g(pre+"embedding_length")
+    if kl is None and nemb and n_head: kl=vl=nemb//n_head
+
+    # `sliding_window_pattern` is DECLARED by both checkpoints whose split is
+    # not 1:1, and it is the engine's own per-layer is_swa assignment. Reading
+    # it removes the last fitted constant here: an assumed alternating split,
+    # which is right for gpt-oss and wrong for cohere2moe (13/36) and gemma4
+    # (5/25). True in the pattern means the layer SLIDES.
+    pattern=g(pre+"attention.sliding_window_pattern")
+    swa_window=g(pre+"attention.sliding_window")
+
+    # MLA that absorbs V: `key_length == kv_lora_rank + rope_dim` is the
+    # signature of a checkpoint caching one compressed vector per token instead
+    # of a K and a V. bailingmoe3 matches (576 = 512 + 64) and allocates no V;
+    # deepseek2 declares kv_lora_rank too but caches K and V separately
+    # (key_length 192, not 576), so the test must be this equality and not the
+    # mere presence of the key.
+    # PRIMARY signal is the header's own `key_length_mla`, which is the key
+    # llama.cpp itself reads and what a current converter writes for an MLA
+    # checkpoint. The arithmetic identity `key_length == kv_lora_rank +
+    # rope_dim` is a DERIVATION of the absorbed width, not a test for
+    # absorption: it separates the two checkpoints here only because
+    # deepseek2's is an older conversion that caches K and V outright, and it
+    # would go false on any converter writing rope.dimension_count as the full
+    # head dim (gemma4 already does). Disagreement between the two is reported
+    # rather than resolved silently.
+    lora=g(pre+"attention.kv_lora_rank"); rope=g(pre+"rope.dimension_count")
+    kl_mla=g(pre+"attention.key_length_mla")
+    mla_absorbed=kl_mla is not None
+    mla_by_identity=bool(lora and rope and kl == lora + rope)
+
+    # UNKNOWN, not a guess, when a sliding window is declared WITHOUT the
+    # per-layer pattern saying which layers use it. `l % 2 == 0` stood here and
+    # was measured on gpt-oss alone -- the one checkpoint where it cannot be
+    # caught, because its sliding and full layers are the same width, so only
+    # the 12/12 COUNT matters and any half-split reproduces the bytes exactly.
+    #
+    # It is wrong as a rule. gemma4 slides 25 of 30 and cohere2moe 36 of 49 on
+    # a 1-in-4 pattern, and gemma4's sliding layers are TWICE the width of its
+    # full ones -- so there the ASSIGNMENT, not just the count, sets the total.
+    # Both declare their pattern and never reach this branch, which is the only
+    # reason the assumption has never been caught being wrong. A checkpoint
+    # that is undeclared, not 1:1 and not uniform in width would be sized wrong
+    # with nothing in the output saying anything had been assumed.
+    #
+    # `None` propagates to `is_swa` and `vramfit.kv_bytes` refuses on it, the
+    # way `rs_bytes` refuses a recurrent model that states no state size. The
+    # split is OBSERVABLE where it matters: llama.cpp prints
+    # `llama_kv_cache_iswa: creating non-SWA KV cache` and `... SWA KV cache`
+    # with a layer count on each, so a caller who has measured it hands the
+    # rows to `kv_bytes(layers=...)` instead of having them invented here.
+    def _is_swa(l):
+        if isinstance(pattern,list) and l < len(pattern): return bool(pattern[l])
+        if swa_window: return None
+        return False
+
+    kv_layers=[]
+    if isinstance(hkv,list):
+        caching_from="head_count_kv array (non-zero entries)"
+        heads=[(l,h) for l,h in enumerate(hkv) if h]
+    elif interval_v:=g(pre+"full_attention_interval"):
+        caching_from="full_attention_interval"
+        heads=[(l,hkv) for l in range(n_layer_kv) if l % int(interval_v) == int(interval_v)-1]
+    elif recurrent:
+        caching_from="n_layer - recurrent blocks"
+        rec=set(recurrent); heads=[(l,hkv) for l in range(n_layer_kv) if l not in rec]
+    else:
+        caching_from="every layer caches"
+        heads=[(l,hkv) for l in range(n_layer_kv)]
+    for l,h in heads:
+        swa=_is_swa(l)
+        k=(kl_swa if (swa and kl_swa) else kl) or 0
+        v=(vl_swa if (swa and vl_swa) else vl) or 0
+        kv_layers.append({"layer":l,"is_swa":swa,
+                          "k_elems":int(h)*int(k),
+                          "v_elems":0 if mla_absorbed else int(h)*int(v)})
+    caching=len(kv_layers)
+
+    # Recurrent state parameters. bailingmoe3 states none of the `ssm.*` size
+    # keys and describes the same state under `kda.*`; a reader that requires
+    # `ssm.inner_size` silently reports 0 for a model whose engine allocates
+    # 154.12 MiB, and a missing key becomes indistinguishable from a model with
+    # no state at all.
+    ssm_inner=g(pre+"ssm.inner_size"); ssm_state=g(pre+"ssm.state_size")
+    ssm_groups=g(pre+"ssm.group_count"); ssm_conv=g(pre+"ssm.conv_kernel")
+    kda=g(pre+"kda.head_dim")
+    if ssm_inner is None and kda and n_head:
+        ssm_inner=int(n_head)*int(kda); ssm_state=int(kda); ssm_groups=int(n_head)
+        ssm_from="kda.head_dim x head_count"
+    else:
+        ssm_from="ssm.* keys" if ssm_inner is not None else None
+
     return {
       "file": path,
       "size_bytes": os.path.getsize(path),
@@ -105,17 +261,45 @@ def scan(path):
       "n_layer": g(pre+"block_count"),
       "n_expert": g(pre+"expert_count"),
       "n_expert_used": g(pre+"expert_used_count"),
-      "n_embd": g(pre+"embedding_length"),
-      "n_head_kv": g(pre+"attention.head_count_kv"),
+      "n_embd": nemb,
+      "n_head_kv": (max(hkv) if isinstance(hkv,list) else hkv),
       "n_ctx_train": g(pre+"context_length"),
       "rope_dim": g(pre+"rope.dimension_count"),
       "full_attn_interval": g(pre+"full_attention_interval"),
       "sliding_window": g(pre+"attention.sliding_window"),
       "bytes_total_tensors": tot,
       "bytes_experts": expb,
-      "expert_layers": len(layers),
+      "expert_layers": layers,
       "bytes_nonexpert": tot-expb,
       "type_bytes": types,
+      # --- added for placement arithmetic; see the comments above each ---
+      "expert_blocks": blocks,
+      "nextn_blocks": nextn,
+      "nextn_predict_layers": g(pre+"nextn_predict_layers"),
+      "placeable_blocks": placeable,
+      "recurrent_blocks": recurrent,
+      "n_recurrent": len(recurrent),
+      "n_placeable": len(placeable),
+      "expert_bytes_by_block": {str(b): per_block[b] for b in blocks},
+      "caching_layers": caching,
+      "caching_layers_from": caching_from,
+      "kv_layers": kv_layers,
+      "mla_absorbed_v": mla_absorbed,
+      "mla_by_identity": mla_by_identity,
+      "key_length_mla": kl_mla,
+      "sliding_window_pattern_declared": isinstance(pattern,list),
+      "swa_pattern_from": ("attention.sliding_window_pattern"
+                           if isinstance(pattern,list) else
+                           (None if swa_window else "no sliding window declared")),
+      "key_length": kl,
+      "value_length": vl,
+      "key_length_swa": kl_swa,
+      "value_length_swa": vl_swa,
+      "ssm_inner_size": ssm_inner,
+      "ssm_state_size": ssm_state,
+      "ssm_conv_kernel": ssm_conv,
+      "ssm_group_count": ssm_groups,
+      "ssm_params_from": ssm_from,
     }
 
 # Guarded, unlike the evidence copy: `mmap_gate` ships this file to the serving
