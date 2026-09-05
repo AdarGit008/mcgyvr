@@ -1,0 +1,14 @@
+### HOST srv1 2026-09-05T02:02:59+00:00 uptime_since=2026-09-01 08:11:08
+### GPU NVIDIA GeForce GTX 1660 SUPER, 6144 MiB, 401 MiB, 580.173.02
+### IMG llamacpp:b10644-L3
+### DIGEST llamacpp@sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6sha256:d869b98f2b7b70a511a0dbd4c0d1cab25faf5919ca1116bd78dff363178e6dd6
+### MODEL /models/moe/gpt-oss-20b-MXFP4.gguf bytes=12109566624 ncmoe=20 np=8 ub=256
+### PL1 95000000
+ctx	rep	idle_used	vram_min	vram_max	free_before	status	logfile
+2048	1	17	3228	3228	5727	OK	c2048-r1.log
+2048	2	17	3228	3228	5727	OK	c2048-r2.log
+2048	3	17	3228	3228	5727	OK	c2048-r3.log
+8192	1	17	3420	3420	5727	OK	c8192-r1.log
+8192	2	17	3420	3420	5727	OK	c8192-r2.log
+8192	3	17	3420	3420	5727	OK	c8192-r3.log
+### END 2026-09-05T02:08:14+00:00 uptime_since=2026-09-01 08:11:08 PL1 95000000
