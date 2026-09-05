@@ -1,20 +1,20 @@
 """Gate 2: the rig is compared with its declaration, not only with itself.
 
-``_common.sh`` reads the machine at start and at end and refuses if the two
-disagree (``rig_assert_unchanged``). That catches a rig that moved *during* a
-run; it says nothing about a rig that moved *before* one. RAM swapped between
-srv1 and srv2 twice in six days, srv1's max clock went 4800 -> 4600 unattended,
-and every artifact produced in between was internally consistent (BRIEF gate
-2: "Today: start==end only").
+A step reads the machine at start and at end and refuses if the two disagree
+(``rig_assert_unchanged``). That catches a rig that moved *during* a run; it
+says nothing about a rig that moved *before* one. RAM swapped between srv1
+and srv2 twice in six days, srv1's max clock went 4800 -> 4600 unattended, and
+every artifact produced in between was internally consistent.
 
-So ``tools/runs/hosts.json`` carries a ``rig`` block per host — the ten values
-read live on 2026-09-02, with the date they were read — and the door compares
-a fresh ``rig_snapshot`` with it field by field before the step starts. Any
-difference is exit 2, naming the key and both values, having written nothing.
-``uptime_since`` is not declared (it changes per boot) and is not compared
-here.
-
-``RUN_RIG_SNAPSHOT_CMD`` is the seam: its stdout replaces ``rig_snapshot``'s.
+So ``tools/runs/hosts.json`` carries a ``rig`` block per host — the eleven
+values read live, with the date they were read — and gate 2 (``02-rig.py``)
+ships ``rig-snapshot.sh`` to the rig and compares what comes back with the
+block field by field before the step starts. Any difference is exit 2,
+naming the key and both values, having written nothing. ``uptime_since`` is
+not declared (it changes per boot) and is not compared here. The same
+reading must also show an idle machine: a card held by somebody else, or a
+container already up, is refused and named, and the door does not clean a
+machine it found busy.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 
 @pytest.fixture
@@ -34,21 +35,11 @@ def root(tmp_path: Path) -> Path:
     return repo
 
 
-def _rig_reading(where: Path, host: str, **override: str) -> Path:
-    lines = onedoor.snapshot_lines(host, **override)
-    return onedoor.executable(
-        where / "rig-snapshot", f"#!/usr/bin/env bash\nprintf '%s' '{lines}'\n"
-    )
-
-
 def test_one_field_off_the_declaration_exits_2_naming_key_and_both_values(
     root: Path, tmp_path: Path
 ) -> None:
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    reading = _rig_reading(stubs, "srv1", ram_mt_s="2933")
-    env = onedoor.door_env(root, stubs, rig=reading)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    onedoor.rig_stub(onedoor.stubs_dir(root), "srv1", ram_mt_s="2933")
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
     assert result.returncode == 2, (result.stdout, result.stderr)
     for word in ("ram_mt_s", "3600", "2933"):
         assert word in result.stderr, f"{word!r} is not in the refusal: {result.stderr}"
@@ -60,25 +51,39 @@ def test_the_other_rigs_reading_under_this_host_name_is_refused(
     root: Path, tmp_path: Path
 ) -> None:
     """``--host srv2`` on a machine that reads like srv1 is the wrong rig."""
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    reading = _rig_reading(stubs, "srv1")
-    env = onedoor.door_env(root, stubs, rig=reading)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv2"], env)
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", host="srv2"))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "gpu_name" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
+    assert not (tmp_path / "e").exists()
+
+
+def test_a_card_somebody_else_holds_is_refused_and_named(
+    root: Path, tmp_path: Path
+) -> None:
+    """A foreign process held 3,374 of 5,743 MiB on srv1 with nothing of ours
+    running; a measurement beside it would be a measurement of the stranger."""
+    onedoor.rig_stub(onedoor.stubs_dir(root), "srv1", gpu_procs="4711,python3,3374MiB")
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert "is not idle" in result.stderr and "gpu_procs=" in result.stderr, (
+        result.stderr
+    )
+    assert "4711" in result.stderr, result.stderr
+    assert onedoor.written_under_records(root) == []
+    assert not any(line.startswith("rm") for line in onedoor.docker_log(root)), (
+        "the door cleaned a machine it found busy"
+    )
+    assert not (tmp_path / "e").exists()
 
 
 def test_a_reading_that_matches_the_declaration_proceeds(
     root: Path, tmp_path: Path
 ) -> None:
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs, rig=_rig_reading(stubs, "srv1"))
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1"], env)
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert (onedoor.envelope(root, "alpha") / "probe.tsv").is_file()
+    assert onedoor.read_env_file(tmp_path / "e")["RUN_HOST"] == "srv1"
 
 
 # ---------------------------------------------------------------------------
@@ -88,10 +93,7 @@ def test_a_reading_that_matches_the_declaration_proceeds(
 
 def _declaration() -> dict[str, object]:
     path = onedoor.HOSTS_JSON
-    assert path.is_file(), (
-        f"{path.relative_to(onedoor.REPO)} does not exist; "
-        "tools/bench/serving/configs/hosts.json has not moved (BRIEF layout)"
-    )
+    assert path.is_file(), f"{path.relative_to(onedoor.REPO)} does not exist"
     document = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(document, dict)
     return document

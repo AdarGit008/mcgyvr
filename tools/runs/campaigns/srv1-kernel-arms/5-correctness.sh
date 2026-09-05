@@ -52,7 +52,7 @@
 #
 # THE STEP SERVES ITS OWN ARMS. Until 2026-09-02 this script took
 # `--arm ARM=ENDPOINT=BUILD` and measured whatever answered at ENDPOINT, and
-# nothing in the campaign started that server: run.sh is the one executable
+# nothing in the campaign started that server: the door is the one executable
 # allowed to start a container on a rig, and only the step it starts may do so
 # on its behalf. So the endpoints were nobody's job and the step could not run
 # at all. Now `--arm ARM=IMAGE`: the tag is resolved to a digest ONCE before
@@ -97,11 +97,11 @@
 #
 # Environment: RUN_HOST RUN_REPO RUN_RETRY_SLEEP — see tools/runs/_common.sh
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run and the
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run and the
 # artifact lands in $RUN_OUT_DIR beside the ladder it reads its verdict from.
 # RUN_ARTIFACTS: correctness.json
 
-[ -n "${RUN_ID:-}" ] || { echo "5-correctness.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "5-correctness.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/5-correctness.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -109,6 +109,10 @@ _here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=./_common.sh disable=SC1091
 . "$_here/../../_common.sh"
 door_required
+# The rig the door was given (gate 5). The container runs THERE, so the health
+# poll and the endpoint name it; under `set -u` an unset one would die as a
+# bash error rather than as a refusal, so it is checked here, once.
+[ -n "${RUN_HOST:-}" ] || { _fail "RUN_HOST is unset — the door exports the rig a run serves on (gate 5), and this step polls and measures that host" || exit 2; }
 
 ARTIFACT="correctness.json"
 MEASURE="tools/breadth/measure.py"
@@ -125,7 +129,7 @@ CTX=4096
 HEALTH_TRIES=90
 DRY_RUN=0
 STAMP=""
-DOCKER=${RUN_DOCKER:-docker}
+DOCKER=docker
 
 ARMS=()
 IMAGES=()
@@ -387,7 +391,7 @@ add_arm() {
     # An endpoint (scheme, or a bare host:port) or a third field is refused;
     # a registry with a port (`localhost:5000/img:tag`) and a digest are images.
     if [ -z "$image" ] || [[ $image == *=* || $image == *://* || $image =~ ^[^/]+:[0-9]+$ ]]; then
-        _fail "--arm wants ARM=IMAGE; got '$1'. This step starts the server it measures (run.sh is the one door, and only the step it started may start a container), so an endpoint or a build typed here names a server nobody in the campaign started"
+        _fail "--arm wants ARM=IMAGE; got '$1'. This step starts the server it measures (python -m mcgyvr.serving.run is the one door, and only the step it started may start a container), so an endpoint or a build typed here names a server nobody in the campaign started"
         return 1
     fi
     [ -n "$name" ] && [ "$name" != "$spec" ] || {
@@ -415,7 +419,7 @@ resolve_images() {
     for i in "${!ARMS[@]}"; do
         digest=$(image_digest "${IMAGES[$i]}") || return 1
         DIGESTS[$i]=$digest
-        ENDPOINTS[$i]="http://127.0.0.1:$PORT"
+        ENDPOINTS[$i]="http://$RUN_HOST:$PORT"
         BUILDS[$i]="llama.cpp@${IMAGES[$i]}@$digest"
     done
 }
@@ -431,7 +435,7 @@ launch_argv() {
     model_base=$(basename -- "$GGUF")
     LAUNCH_ARGV=(
         docker run -d --name "$(container_of "$arm")" --runtime=nvidia --gpus all
-        -v "$model_dir:/models:ro" -p "127.0.0.1:$PORT:$PORT" "$digest"
+        -v "$model_dir:/models:ro" -p "$PORT:$PORT" "$digest"
         -m "/models/$model_base" --alias "$MODEL" --host 0.0.0.0 --port "$PORT"
         -c "$CTX" -ngl 99 --parallel 1
     )
@@ -482,7 +486,7 @@ launch_arm() {
     i=0
     while [ "$i" -lt "$HEALTH_TRIES" ]; do
         i=$((i + 1))
-        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" || true)
+        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://$RUN_HOST:$PORT/health" || true)
         if [ "$code" = "200" ]; then
             served_backend_ok "$name" "$digest" || return 1
             return 0
@@ -524,7 +528,7 @@ EOF
             "$arm" "${IMAGES[$i]}" "${BUILDS[$i]}" "${ENDPOINTS[$i]}"
         launch_argv "$arm" "${DIGESTS[$i]}"
         show "${LAUNCH_ARGV[*]}"
-        show "curl -m 5 http://127.0.0.1:$PORT/health   # until 200; at most $HEALTH_TRIES tries of up to 7 s, x3 through retry3"
+        show "curl -m 5 http://$RUN_HOST:$PORT/health   # until 200; at most $HEALTH_TRIES tries of up to 7 s, x3 through retry3"
         show "docker exec $(container_of "$arm") /app/llama-server --list-devices   # must list the backend the image declares (backend_verdict)"
         show "$(measure_cmdline "$arm" a "${ENDPOINTS[$i]}")"
         show "$(measure_cmdline "$arm" b "${ENDPOINTS[$i]}")"

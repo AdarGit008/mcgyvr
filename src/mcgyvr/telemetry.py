@@ -39,7 +39,7 @@ properties is load-bearing:
   error the rule exists to prevent; one that reads it as "not reported" is
   reading the store correctly.
 
-**The v2 constraint (docs/port-from-local-ai.md §9).** The queue architecture
+**The v2 constraint (archive/docs/port-from-local-ai.md §9).** The queue architecture
 puts several orchestrators behind one stream, so this module holds no state:
 there is no logger object, no default sink, and nothing module-level for a
 second orchestrator to share by accident. ``path`` is required at every call —

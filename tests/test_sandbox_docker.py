@@ -13,11 +13,12 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
 from mcgyvr.sandbox import docker as docker_module
-from mcgyvr.sandbox.base import credential_env_names
+from mcgyvr.sandbox.base import SandboxError, credential_env_names, open_sandbox
 from mcgyvr.sandbox.docker import (
     ENDPOINTS_ENV,
     HOST_ALIAS,
@@ -218,3 +219,57 @@ def test_run_before_open_is_an_error(git_repo: Path) -> None:
     sandbox = DockerSandbox(git_repo, image="img:latest", runner=RecordingRunner())
     with pytest.raises(SandboxError):
         sandbox.run(["pytest"])
+
+
+# --- this machine's daemon, or nowhere -----------------------------------
+
+
+def _never(*args: object, **kwargs: object) -> NoReturn:
+    raise AssertionError(f"docker was spawned: {args} {kwargs}")
+
+
+def test_an_exec_under_a_daemon_override_raises_before_spawning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The second place a docker argv is built takes the same refusal as the
+    first, and raises it: a command that ran wherever DOCKER_CONTEXT points
+    would not be a sandbox result, so it is not made."""
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
+    monkeypatch.setenv("DOCKER_CONTEXT", "srv1")
+    monkeypatch.setattr(subprocess, "run", _never)
+    with pytest.raises(SandboxError, match="DOCKER_CONTEXT=srv1 is set"):
+        docker_module._docker_exec(["exec", "c", "true"], None)
+
+
+def test_the_container_mode_under_a_daemon_override_refuses_to_open(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The product path: ``open_sandbox`` as ``mcgyvr run --sandbox docker``
+    takes it, with the default runner. Refused before the daemon is even
+    probed, with the one message; the CLI reports a SandboxError as
+    ``error:`` and exits non-zero."""
+    monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
+    monkeypatch.setenv("DOCKER_HOST", "ssh://srv1")
+    monkeypatch.setattr(subprocess, "run", _never)
+    with (
+        pytest.raises(SandboxError, match="the sandbox runs on this machine's daemon"),
+        open_sandbox(git_repo, mode="docker", image="img:latest"),
+    ):
+        pass
+
+
+def test_a_container_that_started_is_still_refused_an_exec_under_an_override(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Set between start and run — the only way past the first check — the
+    override is caught at the second, and the container is still torn down."""
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
+    monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
+    runner = RecordingRunner()
+    with (
+        pytest.raises(SandboxError, match="must never land on a rig"),
+        DockerSandbox(git_repo, image="img:latest", runner=runner) as sb,
+    ):
+        monkeypatch.setenv("DOCKER_HOST", "ssh://srv2")
+        sb.run(["true"])
+    assert any(c[:2] == ["rm", "--force"] for c in runner.calls)

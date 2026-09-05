@@ -459,8 +459,9 @@ NOT_A_FIGURE = {
     "tools/bench/mode.py": "the declaration",
     "tools/bench/serving/launch.py": (
         "the harness marker check (D8). It reads the serving source for the "
-        "decision markers and reports which are missing; tools/runs/run.sh "
-        "runs it as gate 2b and it launches nothing itself. It measures "
+        "decision markers and reports which are missing; the door's gate 2 "
+        "(02-rig.py) runs it as sub-check 2b and it launches nothing itself. "
+        "It measures "
         "nothing, states no rate, and describes no run"
     ),
     "tools/bench/product.py": "the pin the declaration reads",

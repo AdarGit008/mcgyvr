@@ -1,0 +1,10 @@
+### HOST srv2 2026-09-05T02:06:44+00:00 uptime_since=2026-09-01 05:20:12
+### GPU NVIDIA GeForce RTX 3060, 12288 MiB, 377 MiB, 595.84
+### IMG ghcr.io/ggml-org/llama.cpp:server-cuda-b10644  MODEL /models/moe/deepseek-coder-v2-16b.gguf  c=16384 np=8 ub=256
+ncmoe	try	idle	free_before	vram	status	logfile
+6	1	1	11911	11471	OK	n6-t1.log
+5	1	1	11911	11771	OK	n5-t1.log
+4	1	1	11911	-	REFUSED	n4-t1.log
+4	2	1	11911	-	REFUSED	n4-t2.log
+4	3	1	11911	-	REFUSED	n4-t3.log
+### END 2026-09-05T02:07:27+00:00 uptime_since=2026-09-01 05:20:12

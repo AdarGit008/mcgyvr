@@ -2033,23 +2033,14 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     cosmetic: a dense model that does not fit is a refusal, while an MoE that
     does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
 
-    ``ram_gb`` is what system memory may be asked to hold, which is only ever
-    non-zero for an MoE — a dense model has nowhere to spill to, and claiming
-    RAM it would never use would refuse rigs that can serve it. For an MoE it
-    is the whole weight, because the table does not state the split: it carries
-    a working set and a weight, and ``weights - working`` is zero or negative
-    for all three MoE rows it ships, so subtracting one from the other claimed
-    that a model spilling five gigabytes of experts needs no memory at all.
-    The whole weight is the one figure that cannot under-state the demand, and
-    under-stating it is the direction that swaps somebody's host.
-
-    ``blocks`` and ``expert_gb`` are ``None`` for every row because the table
-    carries neither for any model. That refuses an MoE rather than guessing
-    (:func:`mcgyvr.serving.fit`): the block count varies by architecture and
-    the expert mass varies by quantisation of the *same* architecture, so
-    nothing derivable from a name, a parameter count or a file size answers
-    either. An operator who has read the file states them under ``models:``,
-    and that lifts the refusal for the model they stated.
+    ``geometry`` is ``None`` for every row because the table carries no GGUF
+    geometry for any model. A dense row is therefore sized on its scalar
+    figures, one slot wide; an MoE row is refused rather than sized
+    (:func:`mcgyvr.serving.fit`), because ``--n-cpu-moe`` moves whole blocks
+    and what each block's experts weigh is in the tensor table and nowhere
+    else. An operator who has scanned the file points ``models.<id>.geometry_json``
+    at the scan, and that lifts the refusal for the model they scanned — on
+    the scan's numbers, not the table's.
 
     **The table is in decimal GB and this module is in GiB.** Tied to a real
     file: ``deepseek-coder-v2-16b.gguf`` is 8_905_109_984 bytes and its row
@@ -2077,8 +2068,7 @@ def _model_specs() -> tuple[ModelSpec, ...]:
                 ram_gb=0.0,
                 disk_gb=model.weights_gb / GB_PER_GIB,
                 moe=moe,
-                blocks=None,
-                expert_gb=None,
+                geometry=None,
             )
         )
     return tuple(specs)

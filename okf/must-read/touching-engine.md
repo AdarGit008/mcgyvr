@@ -98,7 +98,10 @@ zero crashes.
 **Serve srv1 on `llamacpp:b10644-L3`.** `llamacpp:b10644-nomma-dp4a` is retired.
 It changes nothing on srv2, whose Ampere card has real tensor cores and should
 keep the stock image. Build recipe:
-`tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh`, through `run.sh`.
+`tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh`, through the door:
+`python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step
+tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --model <blob as the
+rig sees it>`.
 → `records/evidence/2026-09-02-srv1-kernel-arms/{mmvq.patch,patch_mmvq.py,MMVQ-PATCH.md}`
 
 **Attributed 2026-09-02/03 by a one-variable ladder, round r2-02-09-2026.** Six

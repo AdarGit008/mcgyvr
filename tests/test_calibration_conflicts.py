@@ -877,7 +877,7 @@ def _declared_settings(directory: Path) -> dict[str, set[str]]:
         "declared live on 2026-08-22, so this goes green on the next "
         "campaign's survey. The regression risk this reason first named — "
         "nothing in the repo stating or asserting the values — is closed by "
-        "tools/bench/serving/configs/hosts.json and "
+        "tools/runs/hosts.json and "
         "tests/test_declared_host_state.py, which check the VALUE where this "
         "checks the name"
     ),

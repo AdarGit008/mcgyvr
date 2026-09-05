@@ -193,10 +193,33 @@ SOURCE_FIELDS: tuple[Field, ...] = (
 
 MODEL_FIELDS: tuple[Field, ...] = (
     Field(
+        "geometry_json",
+        "str",
+        "Path to this model's GGUF geometry: the `geometry.json` a serving-door "
+        "run leaves in its envelope, or the output of `python -m "
+        "mcgyvr.serving.ggufscan <gguf>` (a list; the row scanned from "
+        "`<model>.gguf` is the one read). Once set it is the source of truth "
+        "for the model's bytes — `disk_gb` is read from its `size_bytes`, and "
+        "the card figure, the slot count and `--n-cpu-moe` are derived from "
+        "its tensor table and cache geometry by the law in "
+        "`mcgyvr.serving.vramfit`. A stated `disk_gb` that disagrees with it "
+        "is refused, and so is a geometry scanned from a file this model does "
+        "not serve: each deviation from a scan requires a new scan. Required "
+        "for an MoE; a dense model without it is sized from `vram_gb` alone, "
+        "one slot wide. A relative path is read against the config file's "
+        "directory.",
+        bind_hint=(
+            "on a machine holding the file, `python -m mcgyvr.serving.ggufscan "
+            "<gguf> > <model>.geometry.json`, and name that file here"
+        ),
+    ),
+    Field(
         "vram_gb",
         "float",
-        "Working set on the card with nothing offloaded, in GiB. Not the "
-        "weight on disk: a working set carries buffers.",
+        "Working set on the card with nothing offloaded, in GiB, for a dense "
+        "model that has no `geometry_json`. Not the weight on disk: a working "
+        "set carries buffers. Not read when `geometry_json` is set — the card "
+        "figure is then derived from the header.",
         min_value=0.0,
         bind_hint=(
             "set it to what the server reports resident on the card with "
@@ -206,8 +229,11 @@ MODEL_FIELDS: tuple[Field, ...] = (
     Field(
         "disk_gb",
         "float",
-        "Weight on disk, in GiB. Note the unit — a file listed as 13.2 GB by "
-        "a tool using decimal gigabytes is 12.3 GiB here.",
+        "Weight on disk, in GiB, for a model that has no `geometry_json`. "
+        "Note the unit — a file listed as 13.2 GB by a tool using decimal "
+        "gigabytes is 12.3 GiB here. Leave it out when `geometry_json` is set: "
+        "it is then read from the scan's `size_bytes`, and a stated value that "
+        "differs from that by more than rounding to two decimals is refused.",
         min_value=0.0,
         bind_hint="set it to `ls -l` on the weights file divided by 1024^3",
     ),
@@ -227,32 +253,6 @@ MODEL_FIELDS: tuple[Field, ...] = (
         "off the card. Not inferable from the other numbers: it is the "
         "difference between `does not fit` and `fits differently here`.",
         default=False,
-    ),
-    Field(
-        "blocks",
-        "int",
-        "How many transformer blocks this model has — what `--n-cpu-moe` "
-        "counts. Required for an MoE, meaningless for a dense model. Read it "
-        "from the file rather than a model card: it is the GGUF metadata key "
-        "`<arch>.block_count`.",
-        min_value=1,
-        bind_hint=(
-            "read it off the file, e.g. `gguf-parser --path <file> --json` "
-            "or the block_count key any GGUF reader exposes"
-        ),
-    ),
-    Field(
-        "expert_gb",
-        "float",
-        "How much weight this model's expert tensors hold between them, in "
-        "GiB. Required for an MoE. It varies by quantisation of the same "
-        "architecture, so it is per file and not per model: sum the tensors "
-        "whose names match `blk.*.ffn_*_exps.*`.",
-        min_value=0.0,
-        bind_hint=(
-            "sum the `blk.*.ffn_*_exps.*` tensor sizes in the file and "
-            "divide by 1024^3; a GGUF reader lists them"
-        ),
     ),
 )
 
@@ -924,7 +924,7 @@ def _value(raw: object, spec: Field, path: str) -> Any:
 
     if spec.kind == "float":
         # An int is a valid decimal, but a bool is not: `moe: true` and
-        # `expert_gb: true` must not both be accepted by the same rule.
+        # `disk_gb: true` must not both be accepted by the same rule.
         if not isinstance(raw, (int, float)) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"

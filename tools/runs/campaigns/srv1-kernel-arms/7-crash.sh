@@ -14,11 +14,11 @@
 # RUN_STEP=crash, and 4-kernel-arms.sh holds its --step to that.
 #
 # Through the door only:
-#   tools/runs/run.sh srv1-kernel-arms crash --host srv1 [-- --dry-run ...]
+#   python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/7-crash.sh --model <blob> [-- --dry-run ...]
 # Everything after -- reaches 4-kernel-arms.sh (--crash-cells, --trials, ...).
 # RUN_APPENDS: srv1-moe-slots.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "7-crash.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "7-crash.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/7-crash.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 

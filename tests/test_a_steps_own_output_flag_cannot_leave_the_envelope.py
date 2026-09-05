@@ -9,9 +9,10 @@ door, ``-- --out <the recorded 2026-09-02 file>`` overwrote committed evidence
 while the door printed green, and ``-- --out-dir <anywhere>`` filed a run where
 no gate could see it.
 
-The door owns the envelope. It refuses those tokens before gate 1 — nothing is
-checked, nothing is made, no rig is read — and the steps no longer parse them:
-the sanctioned re-run path is ``--suffix`` over a ``RUN_REWRITES`` declaration.
+The door owns the envelope. It refuses those tokens before gate 1
+(``run.py:_check_step_args``) — nothing is checked, nothing is made, no rig is
+read — and the steps no longer parse them: the sanctioned re-run path is
+``--suffix`` over a ``RUN_REWRITES`` declaration.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 ESCAPES = (
     ["--out", "/tmp/elsewhere.tsv"],
@@ -42,15 +44,14 @@ def test_an_output_or_force_token_after_the_dashes_is_refused_before_any_gate(
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
     onedoor.add_step(root, "alpha", "1-probe.sh", onedoor.probe_step(tmp_path / "e"))
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    env = onedoor.door_env(root, stubs)
-    result = onedoor.door(root, ["alpha", "probe", "--host", "srv1", "--", *args], env)
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", step_args=tuple(args)))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert args[0].split("=")[0] in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
     assert not (tmp_path / "e").exists(), "the step ran with an output override"
-    assert onedoor.docker_log(Path(env["RUN_DOCKER"])) == [], "a gate ran first"
+    assert onedoor.docker_log(root) == [] and onedoor.ssh_log(root) == [], (
+        "a gate ran first"
+    )
 
 
 def test_no_kernel_arms_step_parses_an_output_override_or_force() -> None:

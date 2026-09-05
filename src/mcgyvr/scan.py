@@ -55,7 +55,6 @@ from mcgyvr.detect import COMMAND_TIMEOUT_S, MIB_PER_GB
 # A remote scan measures bandwidth on the far end, so it is not instant; the
 # budget is for a rig that is up and working, not for one that is gone.
 SSH_TIMEOUT_S = 60.0
-CONNECT_TIMEOUT_S = 5.0
 
 # What a remote host is asked to run. It is this module, over there: the whole
 # point is that the far end measures itself.
@@ -549,23 +548,24 @@ def measure_bandwidth(
 def _ssh(host: str, command: str) -> str:
     """Run one command on another machine, or say the machine is not there.
 
-    ``BatchMode`` keeps a host whose key is not set up from parking the sweep
-    on a password prompt: no credentials means unreachable, which is an
-    outcome this can report.
+    Through :func:`mcgyvr.serving.gatelib.ssh`, the one place this repository
+    opens an ssh: outside ``mcgyvr.serving.run``, or to a host the door was
+    not opened for, it refuses (exit 2) and that refusal propagates — a remote
+    scan is a rig read, and a rig is read through the door. ``BatchMode`` in
+    it keeps a host whose key is not set up from parking the sweep on a
+    password prompt: no credentials means unreachable, which is an outcome
+    this can report.
     """
-    output = _run(
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        f"ConnectTimeout={CONNECT_TIMEOUT_S:g}",
-        host,
-        command,
-        timeout=SSH_TIMEOUT_S,
-    )
-    if output is None:
+    # Imported here and not at the top: `mcgyvr.serving` imports this module.
+    from mcgyvr.serving import gatelib
+
+    try:
+        done = gatelib.ssh(host, command, timeout=SSH_TIMEOUT_S)
+    except (OSError, subprocess.SubprocessError):
+        raise Unreachable(host) from None
+    if done.returncode != 0:
         raise Unreachable(host)
-    return output
+    return done.stdout
 
 
 def default_root() -> Path:

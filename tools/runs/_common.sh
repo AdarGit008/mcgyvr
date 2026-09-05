@@ -1,11 +1,17 @@
 # shellcheck shell=bash
-# tools/runs/_common.sh — the one emitter the door (`tools/runs/run.sh`) and
-# every campaign step under `tools/runs/campaigns/` source. Written against
-# `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md` (the
+# tools/runs/_common.sh — the one emitter every campaign step under
+# `tools/runs/campaigns/` sources. The door is `python -m mcgyvr.serving.run`
+# (src/mcgyvr/serving/run.py): it runs the gates around a step and exports the
+# run to it, and a step reaches the rig only through the door's `ssh` and
+# `docker` shims (gate-scripts/bin), which land on --host: rig_snapshot and
+# image_digest prove the door first (gatelib.under_door, read from /proc) and
+# resolve the shim by path from RUN_ROOT, never from $PATH. Written against
+# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
 # authority) and the parser it cites, `tools/runs/rows.py` (once
 # `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
 # door trusts and the parser the tests trust are one module). Section numbers
-# below are that contract's; "gate N" is run.sh's.
+# below are that contract's; "gate N" is an entry of run.py's SEQUENCE — the
+# script under src/mcgyvr/serving/gate-scripts/ that owns the rule.
 #
 #   _fail / _tok / _kv_ok        internal; a loud stderr message and a non-zero
 #                                return. Nothing here ever substitutes a
@@ -27,17 +33,22 @@
 #                                matching ARM_PREFIX `[ABL][0-9]`
 #                                (`rows.py:ARM_PREFIX`).
 #   rig_snapshot                 §2.2/§2.3 — reads the live rig, one `k=v` per
-#                                line. GPU name/VRAM/compute-cap/driver/reserve
-#                                from nvidia-smi; CPU model and cpu_max from
-#                                /sys (else lscpu); DDR speed from dmidecode;
-#                                PL1/PL2 from `constraint_0/1_power_limit_uw`.
+#                                line, over `ssh "$RUN_HOST"`: gate 2's own
+#                                reader (src/mcgyvr/serving/gate-scripts/
+#                                rig-snapshot.sh) is shipped on stdin, so the
+#                                step and the door read one machine one way.
+#                                Never the machine this step runs on.
 #   rig_stamp                    §2.2 — `### RIG` carrying all six RIG_FIELDS
 #                                (`rows.py:RIG_FIELDS`) plus the card and CPU
 #                                identity. Emit once before the first row and
 #                                re-stamp per arm (`test_a_row_without_...:9-11`).
 #   start_stamp / end_stamp      §2.3 — `### START` (with
 #                                `pl1_source=constraint_0_power_limit_uw`) and
-#                                `### END`. start_stamp also records the reading
+#                                `### END`, both carrying `run_id=$RUN_ID`: gate
+#                                8 holds a run's START, ROUND and END to the id
+#                                and round the door exported, so a file whose
+#                                stamps name another run — or none — is not
+#                                green. start_stamp also records the reading
 #                                that rig_assert_unchanged compares against.
 #   rig_assert_unchanged         §2.3 and guideline 7's "start equals end" — a
 #                                fresh read, compared field by field with the
@@ -54,7 +65,7 @@
 #                                and both values.
 #   round_stamp                  gate 1's receipt — `### ROUND id=
 #                                product_sha256=` from RUN_ROUND and
-#                                RUN_PRODUCT_SHA256, which run.sh exports after
+#                                RUN_PRODUCT_SHA256, which gate 1 exports after
 #                                `tools/bench/product.require_pinned()` passed.
 #                                Fails when either is unset: a round nobody
 #                                checked is not stamped from a guess.
@@ -93,20 +104,24 @@
 # under `set -euo pipefail`.
 #
 # Environment read (never required, never fabricated from):
-#   RUN_HOST          host column; default `hostname`.
+#   RUN_HOST          host column, and the rig rig_snapshot reads over ssh;
+#                     exported by the door (gate 5). Defaults to `hostname`
+#                     for the column only — a snapshot refuses without it.
 #   RUN_REPO          repo root; default `git rev-parse --show-toplevel`.
 #   RUN_RETRY_SLEEP   seconds between retry3 attempts; default 5.
-#   RUN_ID            minted by run.sh (gate 5); start_stamp writes it as
-#                     `run_id=` and refuses without it.
+#   RUN_ID            minted by the door (gate 5, 05-envelope.py); start_stamp
+#                     writes it as `run_id=` and refuses without it.
 #   RUN_ROUND / RUN_PRODUCT_SHA256
-#                     exported by run.sh (gate 1); round_stamp writes them.
+#                     exported by the door (gate 1, 01-round.py); round_stamp
+#                     writes them.
 #
-# Seams, so a test can drive every gate without touching a rig (BRIEF: "a test
-# may not touch a rig"). Each replaces exactly one read of the machine or the
-# daemon, and nothing else:
-#   RUN_RIG_SNAPSHOT_CMD   a command whose stdout replaces rig_snapshot's
-#                          (`k=v` lines, uptime_since included).
-#   RUN_DOCKER             invoked in place of `docker`, with docker's argv.
+# There is no seam. A test that needs a rig or a daemon answered puts an `ssh`
+# or `docker` of its own first on PATH — the shim, having admitted the host,
+# execs the next binary of that name — and runs under the door or a stand-in
+# whose path ends in mcgyvr/serving/run.py, because nothing here reaches a
+# rig without proving the door; nothing here reads a variable that names a
+# substitute, because a variable that replaces a reading is a variable that
+# skips one.
 
 # --------------------------------------------------------------------------
 # internals
@@ -185,6 +200,37 @@ _py() {
     local root
     root=$(_repo_root) || return 1
     (cd "$root" && uv run --no-sync --quiet python "$@")
+}
+
+# _door_proof — 0 iff an ancestor of this shell is the door, read from /proc by
+# gatelib.under_door. Non-zero for ANY reason (no python3 on PATH, no mcgyvr
+# on it, /proc unreadable) is a refusal: the door is proved or it is not, and
+# "could not check" is not. What the proof said comes back on stdout so a
+# refusal can quote it.
+_door_proof() {
+    python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemExit(0 if under_door() else 2)' 2>&1 >/dev/null
+}
+
+# _door_shim NAME — the path of the door's ssh or docker shim, the door proved
+# first. By path from RUN_ROOT and never from $PATH: a PATH reordered mid-step
+# would find the real binary. The shim refuses by itself outside the door, so
+# RUN_ROOT being the environment's word is fine. Returns 2 on refusal.
+_door_shim() {
+    local said shim
+    said=$(_door_proof) || {
+        _fail "$1 refused: this process was not started by the door — no ancestor is mcgyvr.serving.run${said:+; the proof said: $(printf '%s' "$said" | tail -n 1)} — and RUN_* set by hand does not stand in for one. Start the run as: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <step> --model <blob as the rig sees it>"
+        return 2
+    }
+    if [ -z "${RUN_ROOT:-}" ]; then
+        _fail "$1 refused: RUN_ROOT is unset; the door exports its own tree there, and the $1 this file runs is the door's shim under it (src/mcgyvr/serving/gate-scripts/bin/$1), never the one on PATH"
+        return 2
+    fi
+    shim=$RUN_ROOT/src/mcgyvr/serving/gate-scripts/bin/$1
+    if [ ! -x "$shim" ]; then
+        _fail "$1 refused: $shim is missing or not executable; the door's shim is the only $1 this file runs"
+        return 2
+    fi
+    printf '%s\n' "$shim"
 }
 
 # --------------------------------------------------------------------------
@@ -308,223 +354,45 @@ arm_label() {
 # §2.2/§2.3  the live rig
 # --------------------------------------------------------------------------
 
-_rig_uptime_since() {
-    local btime out
-    # /proc/stat's btime is the boot instant as an epoch second: exact, and
-    # stable across the run. `uptime -s` derives now-minus-uptime and can read
-    # one second apart at the two ends, which would fail the start==end check
-    # for a reason that is not the rig moving.
-    btime=$(awk '/^btime /{print $2; exit}' /proc/stat 2>/dev/null) || btime=
-    if [ -n "$btime" ]; then
-        out=$(date -u -d "@$btime" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || out=
-    fi
-    if [ -z "${out:-}" ] && command -v uptime >/dev/null 2>&1; then
-        out=$(uptime -s 2>/dev/null | tr ' ' 'T') || out=
-    fi
-    out=$(_tok "${out:-}")
-    [ -n "$out" ] || { _fail "cannot read the boot time (/proc/stat btime, uptime -s)"; return 1; }
-    printf '%s' "$out"
-}
+# Gate 2's reader, relative to the repo root. One reader for the door and the
+# step: the `_rig_*` functions that once lived here were its source, and were
+# a second copy the moment it existed.
+RIG_READER=src/mcgyvr/serving/gate-scripts/rig-snapshot.sh
 
-_rig_cpu_max_mhz() {
-    local khz out
-    if [ -r /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq ]; then
-        khz=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq)
-        case $khz in
-            *[!0-9]* | '') khz= ;;
-        esac
-        [ -n "$khz" ] && out=$((khz / 1000))
-    fi
-    if [ -z "${out:-}" ] && command -v lscpu >/dev/null 2>&1; then
-        out=$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^CPU max MHz:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
-    fi
-    out=$(_tok "${out:-}")
-    [ -n "$out" ] || { _fail "cannot read cpu_max_mhz (cpufreq/cpuinfo_max_freq, lscpu). srv1's max clock moved 4800 -> 4600 unattended; a row that cannot name it is not comparable"; return 1; }
-    printf '%s' "$out"
-}
-
-_rig_cpu_model() {
-    local out
-    out=$(sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo 2>/dev/null | head -n 1) || out=
-    if [ -z "$out" ] && command -v lscpu >/dev/null 2>&1; then
-        out=$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^Model name:[[:space:]]*//p' | head -n 1)
-    fi
-    out=$(_tok "${out:-}")
-    [ -n "$out" ] || { _fail "cannot read the CPU model (/proc/cpuinfo, lscpu)"; return 1; }
-    printf '%s' "$out"
-}
-
-_rig_ram_mt_s() {
-    local raw speeds count out
-    raw=
-    if command -v dmidecode >/dev/null 2>&1; then
-        raw=$(dmidecode -t memory 2>/dev/null) || raw=
-        if [ -z "$raw" ] && command -v sudo >/dev/null 2>&1; then
-            raw=$(sudo -n dmidecode -t memory 2>/dev/null) || raw=
-        fi
-    fi
-    [ -n "$raw" ] || { _fail "cannot read the DDR speed: dmidecode -t memory produced nothing (needs root, or sudo -n). RAM has moved between these rigs twice in six days; do not guess it"; return 1; }
-    speeds=$(printf '%s\n' "$raw" | sed -n 's/^[[:space:]]*Configured Memory Speed:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*MT\/s.*/\1/p' | sort -u)
-    [ -n "$speeds" ] || { _fail "dmidecode reported no 'Configured Memory Speed' line; the DDR speed is unread"; return 1; }
-    count=$(printf '%s\n' "$speeds" | wc -l)
-    if [ "$count" -ne 1 ]; then
-        _fail "dmidecode reports $count different configured memory speeds ($(printf '%s' "$speeds" | tr '\n' ' ')); one token cannot name them honestly"
+# One reading of the machine, `k=v` per line, taken ON THE RIG over
+# `ssh "$RUN_HOST"`. The step runs on the operator's machine and the container
+# on the rig, so a local /sys or nvidia-smi describes the wrong box; the reader
+# goes over on stdin to `bash -s` and is never installed there, so gate 7 has
+# nothing extra to find. Every value is one whitespace-free token, so each line
+# is legal in a marker as-is (§1.6). A rig that cannot be read is unread —
+# nothing below fills a line in.
+rig_snapshot() {
+    local root out line ssh_bin
+    if [ -z "${RUN_HOST:-}" ]; then
+        _fail "rig_snapshot: RUN_HOST is unset. The rig is read over ssh to the host the door was given (gate 5 exports it); nothing here reads the machine a step happens to run on"
         return 1
     fi
-    out=$(_tok "$speeds")
-    printf '%s' "$out"
-}
-
-# The package RAPL domain. PL1 is constraint_0 (long_term), PL2 is constraint_1
-# (short_term). Guideline 7: never `constraint_0_max_power_uw`, which is the
-# rated TDP and reads 95000000 whether or not the cap is in force — it looks
-# exactly like the BIOS profile a hard lock has already wiped.
-_rig_rapl_dir() {
-    local d name
-    for d in /sys/class/powercap/intel-rapl:*; do
-        [ -r "$d/name" ] || continue
-        name=$(cat "$d/name" 2>/dev/null) || continue
-        [ "$name" = "package-0" ] || continue
-        printf '%s' "$d"
-        return 0
-    done
-    _fail "no RAPL package-0 domain under /sys/class/powercap; PL1/PL2 cannot be read"
-    return 1
-}
-
-_rig_power_limit() {
-    local which d idx want got out
-    which=$1
-    d=$(_rig_rapl_dir) || return 1
-    case $which in
-        pl1) idx=0; want=long_term ;;
-        pl2) idx=1; want=short_term ;;
-        *) _fail "_rig_power_limit: pl1 or pl2"; return 1 ;;
-    esac
-    if [ ! -r "$d/constraint_${idx}_power_limit_uw" ]; then
-        _fail "$d/constraint_${idx}_power_limit_uw is unreadable; $which is unread. Do not fall back to constraint_${idx}_max_power_uw (guideline 7)"
+    ssh_bin=$(_door_shim ssh) || return 2
+    root=$(_repo_root) || return 1
+    if [ ! -f "$root/$RIG_READER" ]; then
+        _fail "rig_snapshot: $root/$RIG_READER is missing; that file is the one reader of a rig (gate 2's), and a step reads the machine with it or not at all"
         return 1
     fi
-    got=$(cat "$d/constraint_${idx}_name" 2>/dev/null) || got=
-    if [ -n "$got" ] && [ "$got" != "$want" ]; then
-        _fail "$d/constraint_${idx}_name reads '$got', not '$want'; the constraint indices are not what $which assumes"
-        return 1
-    fi
-    out=$(_tok "$(cat "$d/constraint_${idx}_power_limit_uw")")
-    case $out in
-        '' | *[!0-9]*)
-            _fail "$which read '$out', which is not a number of microwatts"
-            return 1
-            ;;
-    esac
-    printf '%s' "$out"
-}
-
-# One nvidia-smi call, five fields, first GPU. `memory.reserved` is absent on
-# older drivers, so it falls back to total - (used + free) — the same quantity,
-# arithmetic instead of a query, and still measured.
-_rig_nvidia() {
-    local out line name total cc drv reserved used free f
-    command -v nvidia-smi >/dev/null 2>&1 || {
-        _fail "nvidia-smi is not on PATH. This library reads the rig it is running on; off-rig it emits nothing, because a placeholder rig stamp is a fabricated row"
+    out=$("$ssh_bin" "$RUN_HOST" bash -s <"$root/$RIG_READER") || {
+        _fail "rig_snapshot: reading $RUN_HOST over ssh failed; the rig is unread and no stamp is written from a guess"
         return 1
     }
-    out=$(nvidia-smi --query-gpu=name,memory.total,compute_cap,driver_version,memory.reserved,memory.used,memory.free --format=csv,noheader,nounits 2>/dev/null) || out=
-    if [ -z "$out" ]; then
-        out=$(nvidia-smi --query-gpu=name,memory.total,compute_cap,driver_version --format=csv,noheader,nounits 2>/dev/null) || out=
-        [ -n "$out" ] || { _fail "nvidia-smi returned nothing; the GPU state is unread"; return 1; }
-        out="$out, [N/A], [N/A], [N/A]"
-    fi
-    line=$(printf '%s\n' "$out" | head -n 1)
-    IFS=, read -r name total cc drv reserved used free <<EOF
-$line
-EOF
-    name=$(_tok "$name")
-    total=$(_tok "$total")
-    cc=$(_tok "$cc")
-    drv=$(_tok "$drv")
-    reserved=$(_tok "${reserved:-}")
-    used=$(_tok "${used:-}")
-    free=$(_tok "${free:-}")
-    case $reserved in
-        '' | *[!0-9]*)
-            case $total$used$free in
-                *[!0-9]*)
-                    _fail "nvidia-smi reports no memory.reserved and no usable total/used/free; gpu_reserve_mib is unread (it differs per boot)"
-                    return 1
-                    ;;
-                '')
-                    _fail "nvidia-smi reports no memory figures at all"
-                    return 1
-                    ;;
-            esac
-            reserved=$((total - used - free))
-            ;;
-    esac
-    for f in "$name" "$total" "$cc" "$drv"; do
-        [ -n "$f" ] || { _fail "nvidia-smi left one of name/memory.total/compute_cap/driver_version empty: '$line'"; return 1; }
-    done
-    printf 'gpu_name=%s\ngpu_vram_mib=%s\ngpu_cc=%s\ndriver=%s\ngpu_reserve_mib=%s\n' \
-        "$name" "$total" "$cc" "$drv" "$reserved"
-}
-
-# _rig_docker — the daemon's version, through the RUN_DOCKER seam. On
-# 2026-09-03 one image listed Vulkan0 on srv2 and benched the CPU on srv1 with
-# identical driver libraries injected: docker 29.7.1 routes `--gpus all`
-# through the CDI spec (which mounts the NVIDIA Vulkan ICD manifest) and
-# 29.1.3 through the legacy hook (which does not). Nothing declared the two
-# rigs ran different dockers, so nothing could refuse the comparison. Now the
-# version is read here, declared in hosts.json[HOST].rig.docker and compared
-# by gate 2 like the hardware.
-_rig_docker() {
-    local out
-    out=$("${RUN_DOCKER:-docker}" version --format '{{.Server.Version}}' 2>/dev/null) || out=
-    out=$(_tok "${out:-}")
-    [ -n "$out" ] || { _fail "cannot read the docker daemon's version ('${RUN_DOCKER:-docker} version' answered nothing); the containers this rig runs are a version-dependent fact of the rig (a Vulkan ICD manifest is mounted by one docker and not by another), and a row that cannot name it is not comparable"; return 1; }
-    printf '%s' "$out"
-}
-
-# The seam behind rig_snapshot. A test cannot read a rig, so the whole reading
-# — uptime_since included — comes from the command's stdout, in the same
-# `k=v`-per-line shape; a command that fails or prints nothing is a rig that
-# was not read, and nothing below fills it in.
-_rig_snapshot_seam() {
-    local out line
-    out=$(bash -c "$RUN_RIG_SNAPSHOT_CMD") || {
-        _fail "RUN_RIG_SNAPSHOT_CMD ('$RUN_RIG_SNAPSHOT_CMD') failed; the rig is unread and no stamp is written from a guess"
-        return 1
-    }
-    [ -n "$out" ] || { _fail "RUN_RIG_SNAPSHOT_CMD ('$RUN_RIG_SNAPSHOT_CMD') printed nothing; the rig is unread"; return 1; }
+    [ -n "$out" ] || { _fail "rig_snapshot: $RUN_HOST answered nothing; the rig is unread"; return 1; }
     while IFS= read -r line; do
         [ -n "$line" ] || continue
         if ! _kv_ok "$line" || _has_space "$line"; then
-            _fail "RUN_RIG_SNAPSHOT_CMD printed '$line', which is not one whitespace-free key=value; a snapshot line must be legal in a stamp as-is (§1.6)"
+            _fail "rig_snapshot: $RUN_HOST printed '$line', which is not one whitespace-free key=value; a snapshot line must be legal in a stamp as-is (§1.6)"
             return 1
         fi
     done <<EOF
 $out
 EOF
     printf '%s\n' "$out"
-}
-
-# One reading of the machine, `k=v` per line. Every value is a single
-# whitespace-free token, so each line is legal in a marker as-is (§1.6).
-rig_snapshot() {
-    local uptime_since cpu_max_mhz cpu_model ram_mt_s pl1 pl2 nv dockerv
-    if [ -n "${RUN_RIG_SNAPSHOT_CMD:-}" ]; then
-        _rig_snapshot_seam
-        return
-    fi
-    uptime_since=$(_rig_uptime_since) || return 1
-    cpu_max_mhz=$(_rig_cpu_max_mhz) || return 1
-    cpu_model=$(_rig_cpu_model) || return 1
-    ram_mt_s=$(_rig_ram_mt_s) || return 1
-    pl1=$(_rig_power_limit pl1) || return 1
-    pl2=$(_rig_power_limit pl2) || return 1
-    nv=$(_rig_nvidia) || return 1
-    dockerv=$(_rig_docker) || return 1
-    printf 'uptime_since=%s\ncpu_max_mhz=%s\ncpu_model=%s\nram_mt_s=%s\npl1_uw=%s\npl2_uw=%s\n%s\ndocker=%s\n' \
-        "$uptime_since" "$cpu_max_mhz" "$cpu_model" "$ram_mt_s" "$pl1" "$pl2" "$nv" "$dockerv"
 }
 
 _snap_get() {
@@ -558,7 +426,7 @@ rig_stamp() {
 start_stamp() {
     local snap
     if [ -z "${RUN_ID:-}" ]; then
-        _fail "start_stamp: RUN_ID is unset. A ### START names the run that produced it, and only tools/runs/run.sh mints one — start this step through the door"
+        _fail "start_stamp: RUN_ID is unset. A ### START names the run that produced it, and only the door mints one (gate 5, 05-envelope.py) — start this step through it: python -m mcgyvr.serving.run"
         return 1
     fi
     snap=$(rig_snapshot) || return 1
@@ -573,7 +441,8 @@ start_stamp() {
         "run_id=$RUN_ID"
 }
 
-# Gate 1's receipt in the file. run.sh runs `tools/bench/product.require_pinned()`
+# Gate 1's receipt in the file. The door's gate 1 (01-round.py) runs
+# `tools/bench/product.require_pinned()`
 # before anything else and exports what it returned; a step writes it straight
 # after START so a reader knows which product revision the rows were measured
 # under (ADR-0018: every arm in a round runs against one revision). Both values
@@ -581,16 +450,22 @@ start_stamp() {
 round_stamp() {
     [ "$#" -eq 0 ] || { _fail "round_stamp: takes no arguments; it writes RUN_ROUND and RUN_PRODUCT_SHA256"; return 1; }
     if [ -z "${RUN_ROUND:-}" ] || [ -z "${RUN_PRODUCT_SHA256:-}" ]; then
-        _fail "round_stamp: RUN_ROUND='${RUN_ROUND:-}' RUN_PRODUCT_SHA256='${RUN_PRODUCT_SHA256:-}'. Gate 1 of tools/runs/run.sh exports both after require_pinned() passes; a ### ROUND is never written from anything else"
+        _fail "round_stamp: RUN_ROUND='${RUN_ROUND:-}' RUN_PRODUCT_SHA256='${RUN_PRODUCT_SHA256:-}'. Gate 1 of the door (01-round.py) exports both after require_pinned() passes; a ### ROUND is never written from anything else"
         return 1
     fi
     stamp ROUND "id=$RUN_ROUND" "product_sha256=$RUN_PRODUCT_SHA256"
 }
 
 # §2.3. A fresh read, emitted whatever it says — if the rig moved, the file must
-# say so. Call rig_assert_unchanged after this, not instead of it.
+# say so. Call rig_assert_unchanged after this, not instead of it. Names the
+# run it closes, as START names the run it opens: gate 8 reads `run_id=` off
+# both and refuses a file whose END is another run's, or nobody's.
 end_stamp() {
     local snap
+    if [ -z "${RUN_ID:-}" ]; then
+        _fail "end_stamp: RUN_ID is unset. A ### END names the run it closes, and only the door mints one (gate 5, 05-envelope.py) — start this step through it: python -m mcgyvr.serving.run"
+        return 1
+    fi
     snap=$(rig_snapshot) || return 1
     RUN_RIG_END=$snap
     stamp END \
@@ -598,7 +473,8 @@ end_stamp() {
         "pl1_uw=$(_snap_get "$snap" pl1_uw)" \
         "pl2_uw=$(_snap_get "$snap" pl2_uw)" \
         "cpu_max_mhz=$(_snap_get "$snap" cpu_max_mhz)" \
-        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)"
+        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)" \
+        "run_id=$RUN_ID"
 }
 
 # Guideline 7's "start equals end", read on the rig rather than asserted about
@@ -633,7 +509,7 @@ rig_assert_unchanged() {
 
 # The eleven keys `tools/runs/hosts.json[HOST].rig` declares. `uptime_since`
 # is deliberately absent — it changes per boot and is compared start==end only.
-# `docker` joined on 2026-09-03 (see _rig_docker).
+# `docker` joined on 2026-09-03 (the reader's docker_version).
 RIG_DECLARED_KEYS="cpu_max_mhz cpu_model ram_mt_s pl1_uw pl2_uw gpu_name gpu_vram_mib gpu_cc driver gpu_reserve_mib docker"
 
 # _hosts_declared — every top-level host in hosts.json that carries a `rig`
@@ -677,7 +553,8 @@ PY
 }
 
 # rig_assert_declared HOST [SNAPSHOT] — gate 2. SNAPSHOT is a rig_snapshot
-# reading already taken (run.sh keeps its pre-step reading for gate 7); without
+# reading already taken (the door keeps its pre-step reading, RUN_PRE_RIG, for
+# gate 7); without
 # one the rig is read here. Every difference is named with both values, so the
 # refusal says what moved and by how much rather than that something did.
 rig_assert_declared() {
@@ -712,15 +589,16 @@ rig_assert_declared() {
 # driver refuses a non-digest, so a failed resolution cannot leak through as a
 # tag. Plain JSON rather than `--format`, so one call answers both cases.
 image_digest() {
-    local tag json digest
+    local tag json digest docker_bin
     [ "$#" -eq 1 ] || { _fail "image_digest: usage: image_digest TAG"; return 1; }
     tag=$1
     if [ -z "$tag" ] || _has_space "$tag"; then
         _fail "image_digest: tag '$tag' is empty or holds whitespace"
         return 1
     fi
-    json=$("${RUN_DOCKER:-docker}" image inspect "$tag") || {
-        _fail "image_digest: '${RUN_DOCKER:-docker} image inspect $tag' failed; '$tag' is not an image this daemon holds, so it resolves to no digest and no container is started from it (gate 3)"
+    docker_bin=$(_door_shim docker) || return 2
+    json=$("$docker_bin" image inspect "$tag") || {
+        _fail "image_digest: 'docker image inspect $tag' failed; '$tag' is not an image this daemon holds, so it resolves to no digest and no container is started from it (gate 3)"
         return 1
     }
     # The two FIELDS, read from the parsed document — not the first
@@ -765,7 +643,7 @@ else:
 # a step is started by the door, or not at all
 # --------------------------------------------------------------------------
 
-# door_required — the four things only tools/runs/run.sh exports: RUN_ID
+# door_required — the four things only the door exports: RUN_ID
 # (gate 5), RUN_OUT_DIR (the envelope, gate 5), RUN_ROUND and
 # RUN_PRODUCT_SHA256 (gate 1). A step once guarded itself on RUN_ID alone and
 # then resolved its envelope as `${RUN_OUT_DIR:-<the committed 2026-09-02
@@ -773,20 +651,26 @@ else:
 # shell took a bare step straight to recorded evidence, where it truncated its
 # file before round_stamp could refuse — twice in one session. No RUN_OUT_DIR
 # is no envelope, and no envelope is nothing to write. Called by every step
-# after the RUN_ID guard, before it parses an argument.
+# after the RUN_ID guard, before it parses an argument. Then the door itself
+# is proved (_door_proof): all four variables can be typed into a shell, and
+# a full hand-set RUN_* environment once took a step to a real `ssh srv1`
+# with no shim on PATH to stop it.
 door_required() {
-    local v missing=
+    local v said missing=
     for v in RUN_ID RUN_OUT_DIR RUN_ROUND RUN_PRODUCT_SHA256; do
         [ -n "${!v:-}" ] || missing="${missing:+$missing }$v"
     done
     # `_fail || exit 2`: the caller runs under `set -e`, where _fail's own
     # return 1 would end the step with THAT status before the exit 2 it owes.
     if [ -n "$missing" ]; then
-        _fail "$missing unset — only tools/runs/run.sh exports them (gates 1 and 5), so this step was not started by the door; it has no envelope and writes nothing. Start me through tools/runs/run.sh" || exit 2
+        _fail "$missing unset — only the door exports them (gates 1 and 5), so this step was not started by it; it has no envelope and writes nothing. Start me through the door: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <this file> --model <blob as the rig sees it>" || exit 2
     fi
     if [ ! -d "$RUN_OUT_DIR" ]; then
-        _fail "RUN_OUT_DIR='$RUN_OUT_DIR' is not a directory; the envelope tools/runs/run.sh makes (gate 5) is the only place a step writes. Start me through tools/runs/run.sh" || exit 2
+        _fail "RUN_OUT_DIR='$RUN_OUT_DIR' is not a directory; the envelope the door makes (gate 5, 05-envelope.py) is the only place a step writes. Start me through the door: python -m mcgyvr.serving.run" || exit 2
     fi
+    said=$(_door_proof) || {
+        _fail "this step was not started by the door — no ancestor is mcgyvr.serving.run${said:+; the proof said: $(printf '%s' "$said" | tail -n 1)} — and RUN_* set by hand does not stand in for one. Start me through the door: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <this file> --model <blob as the rig sees it>" || exit 2
+    }
 }
 
 # --------------------------------------------------------------------------

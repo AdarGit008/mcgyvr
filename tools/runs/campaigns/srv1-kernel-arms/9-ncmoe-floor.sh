@@ -28,7 +28,7 @@
 # a 1-in-3 coin flip, and two REFUSED rows on 2026-09-01 turned out to be a
 # dangling HF-blob symlink read as a capability limit.
 #
-# SCOPE -- this is step 9, not the kernel grid. PLAN.md's "Not
+# SCOPE -- this is step 9, not the kernel grid. archive/docs/srv1-kernel-arms-PLAN.md's "Not
 # worth rig time" list rules out ncmoe cells for the *kernel* question, because
 # the bottleneck moves to host RAM and srv1 hard-locks under that load. So:
 #   * no serving sweep, no width ladder, no replicates. Every cell here is one
@@ -63,13 +63,13 @@
 #   --port N            host port for the container (default 8094).
 #   --dry-run           print every cell's exact command line, run nothing.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the file lands in
 # $RUN_OUT_DIR, and every --arm's IMG is resolved to a digest ONCE
 # (image_digest, gate 3) before a container is started from it.
 # RUN_ARTIFACTS: srv1-ncmoe-floor.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "9-ncmoe-floor.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "9-ncmoe-floor.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/9-ncmoe-floor.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -78,6 +78,10 @@ ROOT=$(cd -- "$HERE/../../../.." && pwd)
 # shellcheck source=tools/runs/_common.sh disable=SC1091
 . "$HERE/../../_common.sh"
 door_required
+# The rig the door was given (gate 5). The container runs THERE, so the health
+# poll and the endpoint name it; under `set -u` an unset one would die as a
+# bash error rather than as a refusal, so it is checked here, once.
+[ -n "${RUN_HOST:-}" ] || { _fail "RUN_HOST is unset — the door exports the rig a run serves on (gate 5), and this step polls and measures that host" || exit 2; }
 
 # The envelope: the door's $RUN_OUT_DIR (door_required refused without it).
 OUT_DIR=$RUN_OUT_DIR
@@ -209,7 +213,7 @@ launch_once() {
     i=0
     while [ "$i" -lt "$HEALTH_TRIES" ]; do
         i=$((i + 1))
-        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" || true)
+        code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://$RUN_HOST:$PORT/health" || true)
         if [ "$code" = "200" ]; then
             docker logs "$CONTAINER" >>"$LAUNCH_LOG" 2>&1 || true
             return 0
@@ -247,7 +251,7 @@ sum_mib() {
 }
 
 gpu_process_mib() {
-    nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null |
+    ssh "$RUN_HOST" nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null |
         awk '{ s += $1 + 0 } END { if (s > 0) printf "%d", s }'
 }
 
@@ -268,7 +272,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         printf '# probe: maximum offload, the arm smallest VRAM footprint, and the\n'
         printf '#   one launch that yields all six derivation inputs.\n'
         launch_cmd "$img" "$OFFLOAD_ALL"
-        printf 'nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits\n'
+        printf 'ssh %s nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits\n' "$RUN_HOST"
         printf 'docker logs %s\n' "$CONTAINER"
         printf 'docker rm -f %s\n' "$CONTAINER"
         if [ -n "$START_NCMOE" ]; then

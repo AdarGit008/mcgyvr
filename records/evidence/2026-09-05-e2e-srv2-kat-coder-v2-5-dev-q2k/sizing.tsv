@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv2-kat-coder-v2-5-dev-q2k-size host=srv2
+### ROUND id=r3-05-09-2026 product_sha256=247d1386fbe4de0cd674d710f86fb39039643e14902b723d6e6ed198677db333
+srv2	KAT-Coder-V2.5-Dev.Q2_K	SIZED	arch=qwen35moe	n_layer=40	placeable=40	floor_n_cpu_moe=8	kv_mib=320.0	experts_on_card_mib=8896.0	predicted_mib=11696.2	free_mib=11911
+### END run_id=2026-09-05-e2e-srv2-kat-coder-v2-5-dev-q2k-size

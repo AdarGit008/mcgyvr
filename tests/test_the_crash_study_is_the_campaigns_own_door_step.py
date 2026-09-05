@@ -1,7 +1,7 @@
 """Step 7 of srv1-kernel-arms runs through the door as its own step file.
 
-RUN-ORDER.md runs ``4-kernel-arms.sh`` twice: ``--step serve`` (invocation 5,
-creates ``srv1-lcpp-arms.tsv``) and, three steps later, ``--step crash``
+The run order runs ``4-kernel-arms.sh`` twice: ``--step serve`` (invocation
+5, creates ``srv1-lcpp-arms.tsv``) and, three steps later, ``--step crash``
 (invocation 8, only APPENDS to step 6's ``srv1-moe-slots.tsv``). One file
 declared ``# RUN_ARTIFACTS: srv1-lcpp-arms.tsv`` for both, so gate 5 refused
 invocation 8 the moment invocation 5 had run — the only way through was to
@@ -13,18 +13,20 @@ only ``# RUN_APPENDS: srv1-moe-slots.tsv`` and hands off to
 started) and ``4-kernel-arms.sh`` refuses a ``--step`` that is not the one it
 was started as, and ``--step all`` outright: one door invocation, one file.
 
-Seams: the ``tests/onedoor.py`` stubs; the real campaign copied into the
-fixture; ``--dry-run`` so nothing is launched.
+The real campaign is copied into the fixture; ``--dry-run`` so nothing is
+launched.
 """
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
 import pytest
 
 from tests import onedoor
+from tests.onedoor import Scenario
 
 CAMPAIGN = "srv1-kernel-arms"
 
@@ -65,26 +67,21 @@ def root(tmp_path: Path) -> Path:
     return repo
 
 
-@pytest.fixture
-def env(root: Path, tmp_path: Path) -> dict[str, str]:
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    return onedoor.door_env(root, stubs)
-
-
-def test_the_door_lists_crash_as_a_step_of_the_campaign(
-    root: Path, env: dict[str, str]
-) -> None:
-    result = onedoor.door(root, [CAMPAIGN], env)
-    assert result.returncode == 2, result.stderr
-    assert "7-crash" in result.stderr, result.stderr
+def test_the_crash_study_is_a_step_file_that_declares_only_its_append() -> None:
+    step = onedoor.KERNEL_ARMS / "7-crash.sh"
+    assert step.is_file(), "7-crash.sh is not a step of the campaign"
+    text = step.read_text(encoding="utf-8")
+    declared = re.findall(
+        r"^#\s*(RUN_ARTIFACTS|RUN_REWRITES|RUN_APPENDS):\s*(.*)$", text, re.M
+    )
+    assert declared == [("RUN_APPENDS", "srv1-moe-slots.tsv")], declared
 
 
 def test_the_crash_step_passes_gate_5_after_serve_has_written_its_file(
-    root: Path, env: dict[str, str]
+    root: Path,
 ) -> None:
     result = onedoor.door(
-        root, [CAMPAIGN, "crash", "--host", "srv1", "--", "--dry-run"], env
+        root, Scenario(CAMPAIGN, "7-crash.sh", step_args=("--dry-run",))
     )
     assert result.returncode != 2, (result.stdout, result.stderr)
     assert "written once" not in result.stderr, result.stderr
@@ -94,13 +91,12 @@ def test_the_crash_step_passes_gate_5_after_serve_has_written_its_file(
 
 @pytest.mark.parametrize("mode", ["crash", "all"])
 def test_kernel_arms_refuses_a_step_it_was_not_started_as(
-    root: Path, env: dict[str, str], mode: str
+    root: Path, mode: str
 ) -> None:
     (onedoor.envelope(root, CAMPAIGN) / "srv1-lcpp-arms.tsv").unlink()
     result = onedoor.door(
         root,
-        [CAMPAIGN, "kernel-arms", "--host", "srv1", "--", "--step", mode, "--dry-run"],
-        env,
+        Scenario(CAMPAIGN, "4-kernel-arms.sh", step_args=("--step", mode, "--dry-run")),
     )
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "7-crash" in result.stderr, result.stderr

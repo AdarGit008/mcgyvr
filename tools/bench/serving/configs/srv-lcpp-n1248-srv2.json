@@ -3,8 +3,7 @@
   "_excluded": {
     "Qwen3.8-27B-UD-IQ3_XXS.gguf": "dense -ngl 99 needs 10,423 MiB weights + 2,080 MiB KV (65 layers x 4 KV heads x 256 x 2 x 2 = 266,240 B/token) + ~400 MiB = 12,903 MiB against 11,908 usable. Over by 995 MiB, and still over at the 987/slot floor.",
     "Ling-3.0-tiny-Q4_K_M.gguf": "not present on srv2 -- downloaded to srv1 only 2026-08-30. Declared on srv1 alone rather than declared here and refused at launch.",
-    "gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf": "not present on srv2 -- downloaded to srv1 only 2026-08-30, where it is declared. Not pulled a second time: srv2 already carries seven MoE blobs and the ladder does not need the same weights measured twice on one rig.",
-    "Qwen3.6-35B-A3B-UD-IQ2_M.gguf": "not present on srv2; srv1 only. srv2 carries the IQ3_XXS of the same model, which is declared."
+    "gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf": "not present on srv2 -- downloaded to srv1 only 2026-08-30, where it is declared. Not pulled a second time: srv2 already carries seven MoE blobs and the ladder does not need the same weights measured twice on one rig."
   },
   "hosts": [
     "srv2"

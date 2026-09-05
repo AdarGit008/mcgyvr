@@ -2,7 +2,6 @@ import itertools
 import json
 import os
 import re
-import socket
 import subprocess
 import sys
 import threading
@@ -72,18 +71,36 @@ from tools.runs import workload
 # A bare run of this file printed byte-compatible rows with no stamps — no rig
 # state, no round, no workload digest — and nothing downstream could tell them
 # from a run that passed every gate (BRIEF "The problem being solved"). So:
-# (1) RUN_ID is minted by tools/runs/run.sh and only there; without it this
-# process was not started by the door and exits 2 having done nothing.
+# (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
+# only there; without it this process was not started by the door and exits 2
+# having done nothing.
 # (2) VLLM_IMG must be a DIGEST (`repo@sha256:<hex>` or `sha256:<hex>`),
 # resolved once by `image_digest` in tools/runs/_common.sh (gate 3). A tag is
 # a pointer: the same `img=` on two rows can name two images a week apart,
 # which is the floating `:server-cuda` mistake the pin only half ended. There
 # is no default image — a default is a tag by another name.
+# THE DOOR'S PROOF, before either refusal below. Both variables they read can
+# be typed into a shell, and a driver that took them on faith reached a real
+# `ssh srv1` by hand with no shim on PATH to stop it. gatelib.door_required
+# reads the parent chain from /proc, which nothing can set; a gatelib that
+# will not import is a refusal too, not a pass.
+try:
+    from mcgyvr.serving import gatelib
+except ImportError:
+    print(
+        "vllm_cores: mcgyvr.serving.gatelib will not import, so the door cannot be "
+        "proved and nothing is started — this driver runs under the door, "
+        "python -m mcgyvr.serving.run, on the interpreter that has mcgyvr",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+gatelib.door_required("vllm_cores")
 RUN_ID = os.environ.get("RUN_ID", "")
 if not RUN_ID:
     print(
-        "vllm_cores: RUN_ID is unset — this driver is started by tools/runs/run.sh, "
-        "never bare; a bare run prints unstamped rows nothing can file",
+        "vllm_cores: RUN_ID is unset — this driver is started by the door, "
+        "python -m mcgyvr.serving.run, never bare; a bare run prints unstamped "
+        "rows nothing can file",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -97,8 +114,8 @@ if not ("@sha256:" in IMG or IMG.startswith("sha256:")):
         file=sys.stderr,
     )
     sys.exit(2)
-# The daemon, behind the one seam a test may replace it with (RUN_DOCKER).
-DOCKER = os.environ.get("RUN_DOCKER", "docker")
+# The daemon is the `docker` the door put first on PATH, which lands on --host;
+# there is no variable that names a substitute.
 PAIR, UTIL, MAXLEN, SEQS, KV = sys.argv[1:6]
 LEVELS = [int(x) for x in sys.argv[6].split(",")]
 # tag=model, or tag=model=util to override the shared util for one server.
@@ -106,7 +123,17 @@ LEVELS = [int(x) for x in sys.argv[6].split(",")]
 # express it: q15 needs ~1.4 GiB of weights and q7 needs ~5.3, so an even
 # half-card each starves the large one while wasting the small one's share.
 SPECS = [s.split("=") for s in sys.argv[7:]]
-H = socket.gethostname()
+# The rig, exported by the door (gate 5). The container runs THERE, so the host
+# column, the health poll and the card reading all name it; the machine this
+# process runs on is nobody's row.
+H = os.environ.get("RUN_HOST", "")
+if not H:
+    print(
+        "vllm_cores: RUN_HOST is unset — the door exports the rig a run serves on "
+        "(gate 5); without it there is no host to poll and no host column",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 BASE_PORT = 8100
 # Attempts per server before a refusal is believed. See the RETRY note below.
 LAUNCH_TRIES = 3
@@ -114,6 +141,12 @@ LAUNCH_TRIES = 3
 
 def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
+
+
+def rig(c):
+    """A command on the rig, through the one ssh in the product: gatelib.ssh
+    refuses outside the door and to any host but the door's."""
+    return gatelib.ssh(H, c).stdout.strip()
 
 
 def teardown(names):
@@ -130,9 +163,9 @@ def teardown(names):
     configuration in the same script refused for that reason alone.
     """
     for n in names:
-        sh(f"{DOCKER} rm -f {n}")
+        sh(f"docker rm -f {n}")
     for _ in range(30):
-        if not sh("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
+        if not rig("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
             return
         time.sleep(2)
 
@@ -162,7 +195,7 @@ def post(port, model, item, out, idx):
         }
     ).encode()
     r = urllib.request.Request(
-        f"http://localhost:{port}/v1/chat/completions",
+        f"http://{H}:{port}/v1/chat/completions",
         data=b,
         headers={"Content-Type": "application/json"},
     )
@@ -235,13 +268,13 @@ servers, alive = [], []
 for i, spec in enumerate(SPECS):
     tag, model = spec[0], spec[1]
     util = spec[2] if len(spec) > 2 else UTIL
-    # The container carries the run's name so gate 7 of run.sh can find what
-    # this process left behind (`docker ps --filter name=^<RUN_ID>-`).
+    # The container carries the run's name so gate 7 (07-teardown.py) can find
+    # what this process left behind (`docker ps --filter name=^<RUN_ID>-`).
     name, port = f"{RUN_ID}-vcore{i}", BASE_PORT + i
-    sh(f"{DOCKER} rm -f {name}")
+    sh(f"docker rm -f {name}")
     kvflag = f"--kv-cache-dtype {KV}" if KV != "auto" else ""
     sh(
-        f"{DOCKER} run -d --name {name} --runtime=nvidia --gpus all "
+        f"docker run -d --name {name} --runtime=nvidia --gpus all "
         f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
         f"-v $HOME/models:/models:ro -p {port}:8000 --ipc=host {IMG} {model} "
         f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
@@ -258,24 +291,24 @@ for i, spec in enumerate(SPECS):
     # up` and `q15 at 0.40 refused` were both lucky draws, minutes apart, on
     # settings that had already worked.
     ok, attempts = False, 0
-    probe = f"curl -sf -m 3 http://localhost:{s['port']}/health >/dev/null && echo Y"
+    probe = f"curl -sf -m 3 http://{H}:{s['port']}/health >/dev/null && echo Y"
     for attempts in range(1, LAUNCH_TRIES + 1):
         for _ in range(450):
             if sh(probe) == "Y":
                 ok = True
                 break
-            if s["name"] not in sh(DOCKER + " ps --format '{{.Names}}'"):
+            if s["name"] not in sh("docker ps --format '{{.Names}}'"):
                 break
             time.sleep(2)
         if ok or attempts == LAUNCH_TRIES:
             break
-        sh(f"{DOCKER} rm -f {s['name']}")
+        sh(f"docker rm -f {s['name']}")
         for _ in range(30):
-            if not sh("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
+            if not rig("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
                 break
             time.sleep(2)
         sh(
-            f"{DOCKER} run -d --name {name} --runtime=nvidia --gpus all "
+            f"docker run -d --name {name} --runtime=nvidia --gpus all "
             f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
             f"-v $HOME/models:/models:ro -p {port}:8000 --ipc=host {IMG} {model} "
             f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
@@ -287,19 +320,19 @@ for i, spec in enumerate(SPECS):
         # root cause above` -- the wrapper, not the cause. Ask for the cause
         # first and fall back to the general tail only if there is none.
         why = sh(
-            f"{DOCKER} logs {s['name']} 2>&1 | grep -oE "
+            f"docker logs {s['name']} 2>&1 | grep -oE "
             "'(ValueError|RuntimeError|OutOfMemoryError|AssertionError): .*' | "
             "grep -viE 'Engine core init|Cannot send a request' | tail -1"
         )
         if not why:
             why = sh(
-                f"{DOCKER} logs {s['name']} 2>&1 | "
+                f"docker logs {s['name']} 2>&1 | "
                 "grep -vE '(INFO|DEBUG|WARNING) [0-9]{2}-[0-9]{2} ' | "
                 "grep -iE 'error|traceback|out of memory|no such file|capability' "
                 "| tail -2"
             )
         if not why:
-            why = sh(f"{DOCKER} logs {s['name']} 2>&1 | tail -3")
+            why = sh(f"docker logs {s['name']} 2>&1 | tail -3")
         print(
             f"{H}\t{PAIR}\t{s['tag']}\tREFUSED\tafter {attempts} attempts: "
             f"{' | '.join(why.splitlines())[:360]}",
@@ -319,10 +352,10 @@ if len(alive) < len(servers):
     teardown([x["name"] for x in servers])
     sys.exit(1)
 
-vram = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
+vram = rig("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
 for s in alive:
     kvlog = sh(
-        f"{DOCKER} logs {s['name']} 2>&1 | grep -oE "
+        f"docker logs {s['name']} 2>&1 | grep -oE "
         "'(GPU KV cache size: [0-9,]+ tokens|"
         "Maximum concurrency for [0-9,]+ tokens per request: [0-9.]+x)' | tail -2"
     )

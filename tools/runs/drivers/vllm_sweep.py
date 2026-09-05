@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import socket
 import subprocess
 import sys
 import threading
@@ -40,18 +39,36 @@ from tools.runs import workload
 # A bare run of this file printed byte-compatible rows with no stamps — no rig
 # state, no round, no workload digest — and nothing downstream could tell them
 # from a run that passed every gate (BRIEF "The problem being solved"). So:
-# (1) RUN_ID is minted by tools/runs/run.sh and only there; without it this
-# process was not started by the door and exits 2 having done nothing.
+# (1) RUN_ID is minted by the door, python -m mcgyvr.serving.run (gate 5), and
+# only there; without it this process was not started by the door and exits 2
+# having done nothing.
 # (2) VLLM_IMG must be a DIGEST (`repo@sha256:<hex>` or `sha256:<hex>`),
 # resolved once by `image_digest` in tools/runs/_common.sh (gate 3). A tag is
 # a pointer: the same `img=` on two rows can name two images a week apart,
 # which is the floating `:server-cuda` mistake the pin only half ended. There
 # is no default image — a default is a tag by another name.
+# THE DOOR'S PROOF, before either refusal below. Both variables they read can
+# be typed into a shell, and a driver that took them on faith reached a real
+# `ssh srv1` by hand with no shim on PATH to stop it. gatelib.door_required
+# reads the parent chain from /proc, which nothing can set; a gatelib that
+# will not import is a refusal too, not a pass.
+try:
+    from mcgyvr.serving import gatelib
+except ImportError:
+    print(
+        "vllm_sweep: mcgyvr.serving.gatelib will not import, so the door cannot be "
+        "proved and nothing is started — this driver runs under the door, "
+        "python -m mcgyvr.serving.run, on the interpreter that has mcgyvr",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+gatelib.door_required("vllm_sweep")
 RUN_ID = os.environ.get("RUN_ID", "")
 if not RUN_ID:
     print(
-        "vllm_sweep: RUN_ID is unset — this driver is started by tools/runs/run.sh, "
-        "never bare; a bare run prints unstamped rows nothing can file",
+        "vllm_sweep: RUN_ID is unset — this driver is started by the door, "
+        "python -m mcgyvr.serving.run, never bare; a bare run prints unstamped "
+        "rows nothing can file",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -65,18 +82,35 @@ if not ("@sha256:" in IMG or IMG.startswith("sha256:")):
         file=sys.stderr,
     )
     sys.exit(2)
-# The daemon, behind the one seam a test may replace it with (RUN_DOCKER).
-DOCKER = os.environ.get("RUN_DOCKER", "docker")
-# The container carries the run's name so gate 7 of run.sh can find what this
-# process left behind (`docker ps --filter name=^<RUN_ID>-`).
+# The daemon is the `docker` the door put first on PATH, which lands on --host;
+# there is no variable that names a substitute.
+# The container carries the run's name so gate 7 (07-teardown.py) can find what
+# this process left behind (`docker ps --filter name=^<RUN_ID>-`).
 NAME = f"{RUN_ID}-vsweep"
 TAG, MODEL = sys.argv[1], sys.argv[2]
 CELLS = sys.argv[3:]
-PORT, H = 8095, socket.gethostname()
+PORT = 8095
+# The rig, exported by the door (gate 5). The container runs THERE, so the host
+# column, the health poll and the card reading all name it; the machine this
+# process runs on is nobody's row.
+H = os.environ.get("RUN_HOST", "")
+if not H:
+    print(
+        "vllm_sweep: RUN_HOST is unset — the door exports the rig a run serves on "
+        "(gate 5); without it there is no host to poll and no host column",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
+
+
+def rig(c):
+    """A command on the rig, through the one ssh in the product: gatelib.ssh
+    refuses outside the door and to any host but the door's."""
+    return gatelib.ssh(H, c).stdout.strip()
 
 
 def post(out, idx):
@@ -99,7 +133,7 @@ def post(out, idx):
         }
     ).encode()
     r = urllib.request.Request(
-        f"http://localhost:{PORT}/v1/chat/completions",
+        f"http://{H}:{PORT}/v1/chat/completions",
         data=b,
         headers={"Content-Type": "application/json"},
     )
@@ -124,10 +158,10 @@ for cell in CELLS:
     # The runner rule, applied here so no caller has to remember it. Offload is
     # a V1-runner feature; under V2 the flag is accepted and silently dropped.
     env = "-e VLLM_USE_V2_MODEL_RUNNER=0 " if "--cpu-offload" in extra else ""
-    sh(f"{DOCKER} rm -f {NAME}")
+    sh(f"docker rm -f {NAME}")
     kvflag = f"--kv-cache-dtype {kv}" if kv != "auto" else ""
     cmd = (
-        f"{DOCKER} run -d --name {NAME} --runtime=nvidia --gpus all "
+        f"docker run -d --name {NAME} --runtime=nvidia --gpus all "
         f"-v $HOME/.cache/huggingface:/root/.cache/huggingface "
         f"-v $HOME/models:/models:ro "
         f"-v $HOME/ggufs:/ggufs:ro "
@@ -148,13 +182,13 @@ for cell in CELLS:
         )
         continue
     sh(cmd)
-    probe = f"curl -sf -m 3 http://localhost:{PORT}/health >/dev/null && echo Y"
+    probe = f"curl -sf -m 3 http://{H}:{PORT}/health >/dev/null && echo Y"
     ok = False
     for _ in range(450):
         if sh(probe) == "Y":
             ok = True
             break
-        if NAME not in sh(DOCKER + " ps --format '{{.Names}}'"):
+        if NAME not in sh("docker ps --format '{{.Names}}'"):
             break
         time.sleep(2)
     if not ok:
@@ -165,23 +199,23 @@ for cell in CELLS:
         # reason. Drop the levelled INFO/DEBUG/WARNING lines first, and fall
         # back to the raw tail so the field is never blank.
         why = sh(
-            f"{DOCKER} logs {NAME} 2>&1 | "
+            f"docker logs {NAME} 2>&1 | "
             "grep -vE '(INFO|DEBUG|WARNING) [0-9]{2}-[0-9]{2} ' | "
             "grep -iE 'error|traceback|not supported|out of memory|"
             "no such file|capability|assert' | tail -2"
         )
         if not why:
-            why = sh(f"{DOCKER} logs {NAME} 2>&1 | tail -3")
+            why = sh(f"docker logs {NAME} 2>&1 | tail -3")
         why = " | ".join(why.splitlines())[:400]
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
-    vram = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
+    vram = rig("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
     warm = [None]
     post(warm, 0)
     if warm[0][0] == 0:
         print(f"{H}\t{lab}\tREFUSED\twarmup request failed", flush=True)
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
     # A cell that stops on the first token measures nothing, and the old code
     # let it through: it only refused otok==0, so an immediate stop produced a
@@ -194,7 +228,7 @@ for cell in CELLS:
             f"measuring this cell would record artifacts",
             flush=True,
         )
-        sh(f"{DOCKER} rm -f {NAME}")
+        sh(f"docker rm -f {NAME}")
         continue
     # **Asserted, not assumed.** `nvidia-smi memory.used` cannot see an
     # offload -- gpu_memory_utilization backfills the freed weight space with
@@ -204,7 +238,7 @@ for cell in CELLS:
     offl = ""
     if "--cpu-offload" in extra:
         offl = sh(
-            f"{DOCKER} logs {NAME} 2>&1 | "
+            f"docker logs {NAME} 2>&1 | "
             "grep -oE 'Total CPU offloaded parameters:.*' | head -1"
         )
         if not offl:
@@ -213,7 +247,7 @@ for cell in CELLS:
                 f"printed no `Total CPU offloaded parameters` line",
                 flush=True,
             )
-            sh(f"{DOCKER} rm -f {NAME}")
+            sh(f"docker rm -f {NAME}")
             continue
     # WIDTH READBACK. `--max-num-seqs` is a scheduler cap, not an allocation:
     # under `--gpu-memory-utilization` the KV pool is sized from whatever VRAM
@@ -223,7 +257,7 @@ for cell in CELLS:
     # result 62f0ab65 closed on the harness path. vLLM has no /props, but it
     # states the pool it allocated, so read that instead of trusting the flag.
     kvlog = sh(
-        f"{DOCKER} logs {NAME} 2>&1 | grep -oE "
+        f"docker logs {NAME} 2>&1 | grep -oE "
         "'(GPU KV cache size: [0-9,]+ tokens|"
         "Maximum concurrency for [0-9,]+ tokens per request: [0-9.]+x)' | tail -2"
     )
@@ -277,5 +311,5 @@ for cell in CELLS:
             f"\twall={wall:.1f}",
             flush=True,
         )
-    sh(f"{DOCKER} rm -f {NAME}")
+    sh(f"docker rm -f {NAME}")
     time.sleep(2)

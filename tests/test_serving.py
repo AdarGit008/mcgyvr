@@ -1791,7 +1791,8 @@ def test_the_launcher_passes_on_the_tree_it_is_launching() -> None:
 
 
 # Two tests pinned launch.py's driver text here (dry-run report, interrupt trap);
-# retired: run.sh gates 5-7 own it — tests/test_a_marker_check_is_not_a_launcher.py
+# retired: the door's gates 5, 7 and 8 (05-envelope, 07-teardown, 08-parse) own it
+# — tests/test_a_marker_check_is_not_a_launcher.py
 
 
 def test_the_launcher_refuses_the_exact_failure_it_exists_for(
@@ -1885,7 +1886,8 @@ def test_the_launched_width_is_read_off_the_host_not_off_our_own_variable(
 
 
 # Two tests pinned launch.py's serial guard and CAMPAIGN table here; retired:
-# tools/runs/run.sh gates 5-7 own it — tests/test_a_marker_check_is_not_a_launcher.py
+# the door's gates 5, 7 and 8 (05-envelope, 07-teardown, 08-parse) own it
+# — tests/test_a_marker_check_is_not_a_launcher.py
 
 
 def test_a_crashed_survey_resumes_instead_of_restarting(

@@ -3,7 +3,7 @@
 # tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh
 #   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-build-ladder.tsv
 #
-# Campaign steps 0 and 1 (`PLAN.md:113-118`):
+# Campaign steps 0 and 1 (`archive/docs/srv1-kernel-arms-PLAN.md:113-118`):
 #
 #   0  static   cuobjdump L0..L3      free, can end the campaign early
 #   1  build    L0 L1 L2 L3 L4 A3     srv2 builds, direct-push to srv1
@@ -57,8 +57,10 @@
 #            instrument has not run yet. Exits 0 saying what is still owed.
 #   step 3   3-llama-bench.sh                    the instrument
 #   pass 2   1-build-ladder.sh                   (--stage all, the default)
-#            Through the door as `run.sh srv1-kernel-arms build-ladder --host
-#            srv1 --suffix pass2`: a same-day re-run needs its own run id.
+#            Through the door as `python -m mcgyvr.serving.run --host srv1
+#            --campaign srv1-kernel-arms --step tools/runs/campaigns/
+#            srv1-kernel-arms/1-build-ladder.sh --model <blob> --suffix
+#            pass2`: a same-day re-run needs its own run id.
 #            Reuses the images, re-writes the file WITH the BENCH rows.
 #
 # The default stage REFUSES TO START when `srv1-llama-bench.tsv` is absent —
@@ -106,7 +108,7 @@
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, and the artifact lands
 # in $RUN_OUT_DIR. Two passes over one file is why it is declared under
 # RUN_REWRITES and not RUN_ARTIFACTS: gate 5 admits the pass-1 file only if its
@@ -116,7 +118,7 @@
 # file stays beside the result), and refuses another step's file outright.
 # RUN_REWRITES: srv1-build-ladder.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "1-build-ladder.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "1-build-ladder.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/1-build-ladder.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -224,7 +226,7 @@ on_host() {
         # SC2029: expanding client-side is the point — printf %q quotes every
         # argument for the remote shell, and an arch list carries a `;`.
         # shellcheck disable=SC2029
-        "${RUN_SSH:-ssh}" "$host" "$(printf '%q ' "$@")"
+        ssh "$host" "$(printf '%q ' "$@")"
     fi
 }
 
@@ -246,7 +248,7 @@ quiet_on_host() {
 }
 
 # --------------------------------------------------------------------------
-# the arms table (PLAN.md:39-47)
+# the arms table (archive/docs/srv1-kernel-arms-PLAN.md:39-47)
 # --------------------------------------------------------------------------
 #
 #   L0  75-real;75-virtual      FORCE_MMQ off              local-build baseline
@@ -270,7 +272,7 @@ arm_spec() {
         L4) printf 'backend=cuda\ncuda_architectures=75-real;75-virtual\nforce_mmq=OFF\nggml_native=ON\ncpu_all_variants=OFF\npatched=no\n' ;;
         A3) printf 'backend=vulkan\ncuda_architectures=none\nforce_mmq=OFF\nggml_native=OFF\ncpu_all_variants=ON\npatched=no\nicd_deps=x11-egl\n' ;;
         *)
-            _fail "arm_spec: '$1' is not on this campaign's arms table (PLAN.md:39-47)"
+            _fail "arm_spec: '$1' is not on this campaign's arms table (archive/docs/srv1-kernel-arms-PLAN.md:39-47)"
             return 1
             ;;
     esac
@@ -891,7 +893,7 @@ gate_the_mechanism() {
         say "from, so it can be recomputed rather than believed."
         say "If L2/L3 still contain mma.sync on the SELECTED path the arch spoof"
         say "did not take, and no throughput number can be attributed to removing"
-        say "it (PLAN.md guideline 6). Not one second of rig time"
+        say "it (archive/docs/srv1-kernel-arms-PLAN.md guideline 6). Not one second of rig time"
         say "is worth spending on the arms below until this reads clean."
         say "=============================================================="
         return 1

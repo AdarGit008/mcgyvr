@@ -1,60 +1,69 @@
-"""The seams the one-door tests drive ``tools/runs/run.sh`` through.
+"""The seam the one-door tests drive ``python -m mcgyvr.serving.run`` through.
 
-``run.sh`` is the one executable allowed to start a container or open an ssh
-pipe to a rig (BRIEF "Target design"). A test may not touch a rig, so every
-place the door would read the machine or the daemon is a named seam the brief
-lists — ``RUN_RIG_SNAPSHOT_CMD``, ``RUN_DOCKER``, ``RUN_SSH``, ``RUN_DATE``,
-``RUN_REPO``, ``RUN_PRODUCT_CHECK`` — and this module builds the stubs that
-stand behind them, plus a throw-away copy of the repository for the door to
-work in, so an assertion like "exit 2 having written nothing" is a statement
-about a filesystem nobody else is writing to.
+``src/mcgyvr/serving/run.py`` is the one access point to the rigs. A test may
+not touch a rig, and the door has no variable that names a substitute for a
+reading — the archived door's three seam variables left with it
+(``tests/test_no_retired_door_names.py`` spells them), because a variable
+that replaces a reading is a variable that skips one. What the door DOES have
+is a PATH: it puts its own ``ssh`` and ``docker`` shims first, and each shim,
+having admitted the host, execs the NEXT binary of that name on PATH. So a
+test stands an ``ssh`` and a ``docker`` of its own behind the shims, in a
+directory the door's environment leads with, and answers by the remote
+command it is handed.
 
-``tools/runs/rows.py`` is imported as ``tools.runs.rows`` (``rows_module``):
-``tools/`` is a namespace package from the repo root, which is how the shim
-``tests/sweeprows.py`` re-exports it and how ``tests/test_one_door.py`` reads
-it, so every test in one process holds the one module object rather than a
-by-path second copy.
+Everything here is built around one idea: a :class:`Scenario` is what an
+operator would type, and :func:`door` is the only code that knows how that
+becomes an argv. A test never spells ``--host`` itself.
 
-The contract these helpers assume — every name below is one the implementer
-must honour, and the test that pins it says so in its docstring:
+The fixture (:func:`fixture_repo`) is a throw-away checkout the door can be
+run FROM — it is invoked as ``python <fixture>/src/mcgyvr/serving/run.py``,
+because the door derives its repo root from its own file — holding:
 
-* ``tools/runs/run.sh <campaign> <step> --host srv1|srv2 [-- STEP ARGS...]``;
-  no arguments or ``--help`` exit 2 and list the campaigns found under
-  ``$RUN_REPO/tools/runs/campaigns/``.
-* a campaign is a directory ``tools/runs/campaigns/<campaign>/``; a step is a
-  file ``<n>-<name>.sh`` in it, addressed by ``<n>`` or by ``<name>``.
-* a step declares what it writes on one comment line, ``# RUN_ARTIFACTS: a.tsv
-  [b.tsv ...]``, relative to the envelope; the door refuses to start a step
-  whose declared artifact already exists. A step that runs twice over one file
-  declares it under ``# RUN_REWRITES:`` instead: the door admits an existing
-  file only if its ``### START run_id=`` names this same step, and moves it to
-  ``<name>.superseded-<run_id>.<ext>`` before the step starts.
-* the door exports ``RUN_ID``, ``RUN_OUT_DIR`` (the envelope
-  ``records/evidence/<RUN_DATE>-<campaign>``), ``RUN_HOST``, ``RUN_ROUND`` and
-  ``RUN_PRODUCT_SHA256`` (the two words ``RUN_PRODUCT_CHECK`` printed) to the
-  step. ``RUN_ID`` is ``<RUN_DATE>-<campaign>-<step name>`` with an optional
-  ``-<suffix>``, whitespace-free and legal as a docker container-name prefix.
-* ``RUN_PRODUCT_CHECK`` prints ``round=<id> product_sha256=<hex>`` on success
-  and exits non-zero with its reason on stderr otherwise.
-* ``RUN_RIG_SNAPSHOT_CMD`` prints ``k=v`` lines in ``rig_snapshot``'s shape.
-* ``RUN_DOCKER`` is invoked in place of ``docker`` by ``_common.sh``, ``run.sh``
-  and the three drivers, with docker's own argv.
+* a copy of ``src/mcgyvr/serving/`` (the door, its gates and its shims) and of
+  ``tools/bench/product.py``; every other entry of ``product.SURFACE`` exists
+  as a stub so gate 1's digest can be taken; ``rounds.json`` is written LAST,
+  pinning that digest, so gate 1 admits the tree as built;
+* ``tools/runs/`` minus the campaigns (``hosts.json``, ``rows.py``,
+  ``workload.py``, ``_common.sh``, the drivers), so the tests own the campaign
+  list; the tree is ``git init``ed because ``_common.sh`` locates the repo
+  with ``git rev-parse`` when ``RUN_REPO`` is unset — and the door refuses
+  ``RUN_REPO`` from the calling shell like every other ``RUN_*``;
+* ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
+  rig-snapshot request off its command line and answers from
+  ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
+  exists — the reading srv1 gave after a hard lock wiped its BIOS profile), the
+  geometry read from ``geometry.json`` (one row seeded from a recorded
+  envelope), and the rest with canned lines; the ``docker`` logs every argv it
+  is handed and answers ``info``, ``version``, ``image inspect`` and ``ps``.
+
+The driver-seam tests do not go through the door: :func:`bare_env` puts the
+same two stubs on PATH with ``RUN_HOST`` set. A driver and the emitter's two
+rig-reaching functions prove the door before anything else, though, so a
+test that must get PAST that proof runs them under :func:`fake_door` — a
+stand-in whose path ends in ``mcgyvr/serving/run.py``, which is what
+``gatelib.under_door`` reads off /proc — with ``RUN_ROOT`` naming this tree,
+where the emitter finds the real shims by path.
 """
 
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import shutil
 import stat
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "tools" / "runs"
-RUN_SH = RUNS / "run.sh"
+#: The door and everything it spawns. Copied whole into a fixture.
+SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
+DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
+PRODUCT_PY = REPO / "tools" / "bench" / "product.py"
 COMMON_SH = RUNS / "_common.sh"
 ROWS_PY = RUNS / "rows.py"
 WORKLOAD_PY = RUNS / "workload.py"
@@ -62,10 +71,20 @@ HOSTS_JSON = RUNS / "hosts.json"
 DRIVERS = RUNS / "drivers"
 CAMPAIGNS = RUNS / "campaigns"
 KERNEL_ARMS = CAMPAIGNS / "srv1-kernel-arms"
+#: One geometry the door once read on srv1, so the placement the fixture's
+#: run derives is derived from a real tensor table and not from a number
+#: invented to fit.
+GEOMETRY_JSON = (
+    REPO
+    / "records"
+    / "evidence"
+    / "2026-09-05-e2e-srv1-gemma-4-26b-a4b-it-ud-iq3xxs"
+    / "geometry.json"
+)
+MODEL = "/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf"
 
 DRIVER_NAMES = ("lcp_sweep.py", "vllm_sweep.py", "vllm_cores.py")
-#: The image variable each driver reads (``tools/runs/drivers/lcp_sweep.py:51``,
-#: ``tools/runs/drivers/vllm_sweep.py:58``, ``tools/runs/drivers/vllm_cores.py:90``).
+#: The image variable each driver reads.
 DRIVER_IMG_VAR = {
     "lcp_sweep.py": "LCP_IMG",
     "vllm_sweep.py": "VLLM_IMG",
@@ -79,8 +98,7 @@ DRIVER_ARGV = {
     "vllm_sweep.py": ["T", "org/model", "0.9:2048:8:auto:1"],
     "vllm_cores.py": ["pair", "0.45", "2048", "128", "auto", "1", "a=org/model"],
 }
-#: The eight ``srv1-*.sh`` steps, by the name that follows ``<n>-`` after the
-#: move (BRIEF layout: ``tools/runs/campaigns/srv1-kernel-arms/<n>-<name>.sh``).
+#: The nine steps of the kernel-arms campaign, by the name that follows ``<n>-``.
 STEP_NAMES = frozenset(
     {
         "aa-null",
@@ -95,8 +113,11 @@ STEP_NAMES = frozenset(
     }
 )
 
-RUN_DATE = "2026-09-02"
+RUN_DATE = "2026-09-05"
 ROUND_ID = "r9-onedoor"
+#: A digest-shaped value for artifacts a test writes BY HAND to stand for an
+#: earlier run. The digest the door itself stamps is the fixture's own —
+#: :func:`pinned` reads it back — and is never this constant.
 PRODUCT_SHA256 = "3f9c1a7e5b2d4c6f8a0e1b3d5f7a9c2e4b6d8f0a1c3e5b7d9f2a4c6e8b0d1f3a"
 #: Digests the docker stub knows. ``vllm/vllm-openai:v0.26.0`` has a registry
 #: digest; ``llamacpp:b10644-L3`` is a local build and has only an image id.
@@ -116,9 +137,15 @@ LCP_DIGEST = f"ghcr.io/ggml-org/llama.cpp@sha256:{REPO_DIGEST_HEX}"
 TOOLKIT_DIGEST = "nvidia/cuda@sha256:" + "a" * 64
 
 UPTIME = "2026-09-01T08:11:08Z"
+#: The rig's own ``$HOME`` as the ssh stub answers it.
+RIG_HOME = "/home/x"
+#: What ``bare_env`` names as the rig. RFC 6761 reserves ``.invalid``: it never
+#: resolves, so a driver's health probe fails at once and no real machine is
+#: touched by a test that runs a driver bare.
+BARE_HOST = "rig.invalid"
 
-#: BRIEF "Rig values read live on 2026-09-02". Strings, because that is what a
-#: ``k=v`` line carries and what ``hosts.json`` is compared against.
+#: The declared keys — ``tools/runs/hosts.json[host].rig``, what gate 2
+#: compares. Strings, because that is what a ``k=v`` line carries.
 RIG: dict[str, dict[str, str]] = {
     "srv1": {
         "cpu_max_mhz": "4600",
@@ -149,167 +176,389 @@ RIG: dict[str, dict[str, str]] = {
 }
 RIG_KEYS = frozenset(RIG["srv1"])
 RIG_READ_ON = "2026-09-03"
+#: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
+#: figures a placement spends, the host memory, the thread count, the name
+#: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
+#: to ``none``. srv1's are the recorded 2026-09-05 scan.
+LIVE: dict[str, dict[str, str]] = {
+    "srv1": {
+        "gpu_used_mib": "17",
+        "gpu_free_mib": "5727",
+        "mem_available_kib": "14835712",
+        "nproc": "6",
+        "hostname": "srv1",
+        "gpu_procs": "none",
+        "containers": "none",
+    },
+    "srv2": {
+        "gpu_used_mib": "0",
+        "gpu_free_mib": "11911",
+        "mem_available_kib": "26214400",
+        "nproc": "20",
+        "hostname": "srv2",
+        "gpu_procs": "none",
+        "containers": "none",
+    },
+}
 
 
 def rows_module() -> ModuleType:
-    """``tools.runs.rows`` — the parser at its new home. Raises if it is not there.
-
-    The existence check comes first so the RED failure names the move rather
-    than reading as a broken import.
-    """
+    """``tools.runs.rows`` — the parser gate 8 reads an artifact with."""
     if not ROWS_PY.is_file():
-        raise FileNotFoundError(
-            f"{ROWS_PY.relative_to(REPO)} does not exist; tests/sweeprows.py "
-            "has not moved to tools/runs/rows.py (BRIEF layout)"
-        )
+        raise FileNotFoundError(f"{ROWS_PY.relative_to(REPO)} does not exist")
     return importlib.import_module("tools.runs.rows")
 
 
+def _product() -> ModuleType:
+    return importlib.import_module("tools.bench.product")
+
+
 def snapshot_lines(host: str, **override: str) -> str:
-    """One ``rig_snapshot`` reading for ``host``, as the seam prints it."""
-    values = {"uptime_since": UPTIME, **RIG[host], **override}
+    """One ``rig-snapshot.sh`` reading for ``host``, as the rig prints it."""
+    values = {"uptime_since": UPTIME, **RIG[host], **LIVE[host], **override}
     return "".join(f"{k}={v}\n" for k, v in values.items())
 
 
 def executable(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return path
 
 
-def rig_stub(where: Path, host: str, *, moved_flag: Path | None = None) -> Path:
-    """A ``RUN_RIG_SNAPSHOT_CMD`` that reads ``host``'s declared values.
-
-    Once ``moved_flag`` exists it reads PL1 at 4095 W instead — the reading
-    srv1 gave at 05:57 after a hard lock wiped its BIOS profile.
-    """
-    normal = snapshot_lines(host)
-    moved = snapshot_lines(host, pl1_uw="4095000000")
-    flag = str(moved_flag) if moved_flag else "/nonexistent/never"
-    return executable(
-        where / "rig-snapshot",
-        "#!/usr/bin/env bash\n"
-        f"if [ -e '{flag}' ]; then\n"
-        f"printf '%s' '{moved}'\n"
-        "else\n"
-        f"printf '%s' '{normal}'\n"
-        "fi\n",
-    )
+#: A stand-in for the door: a file whose path ends in mcgyvr/serving/run.py —
+#: as a copy of the door in a fixture tree does — that runs its arguments as
+#: a child. What the child reads in /proc is exactly what a gate, a step or a
+#: driver reads under the real door: ``gatelib.is_door`` matches the suffix.
+FAKE_DOOR = (
+    "import subprocess, sys\n"
+    "raise SystemExit(subprocess.run(sys.argv[1:]).returncode)\n"
+)
 
 
-def docker_stub(
-    where: Path, *, leftover_flag: Path | None = None, daemon_down: bool = False
-) -> Path:
-    """A ``RUN_DOCKER`` that logs every argv line to ``docker.log`` beside it.
-
-    ``ps`` prints nothing until ``leftover_flag`` exists, then names a container
-    that carries this run's ``RUN_ID`` prefix. ``image inspect`` answers for
-    the two tags the tests use and refuses any other, honouring ``--format``
-    for the two fields the brief names (``RepoDigests``, ``Id``); the plain
-    JSON it prints has the real document's shape — ``RepoDigests`` first, then
-    a ``Config.Labels`` block whose toolkit label carries ``TOOLKIT_DIGEST``.
-    ``daemon_down`` makes ``info`` fail the way a CLI with no daemon does.
-    """
-    flag = str(leftover_flag) if leftover_flag else "/nonexistent/never"
-    log = where / "docker.log"
-    info = (
-        "    echo 'Cannot connect to the Docker daemon at "
-        "unix:///var/run/docker.sock' >&2\n"
-        "    exit 1 ;;\n"
-        if daemon_down
-        else "    exit 0 ;;\n"
-    )
-    return executable(
-        where / "docker",
-        "#!/usr/bin/env bash\n"
-        f"printf '%s\\n' \"$*\" >> '{log}'\n"
-        'case "${1:-}" in\n'
-        "  info)\n" + info + "  ps)\n"
-        f"    [ -e '{flag}' ] && printf '%s-lcps\\n' \"${{RUN_ID:-norunid}}\"\n"
-        "    exit 0 ;;\n"
-        "  image | inspect) ;;\n"
-        "  *) exit 0 ;;\n"
-        "esac\n"
-        "tag= ; fmt=\n"
-        'while [ "$#" -gt 0 ]; do\n'
-        "  case $1 in\n"
-        "    --format | -f) fmt=$2; shift ;;\n"
-        "    --format=*) fmt=${1#--format=} ;;\n"
-        "    image | inspect) ;;\n"
-        "    -*) ;;\n"
-        "    *) tag=$1 ;;\n"
-        "  esac\n"
-        "  shift\n"
-        "done\n"
-        'case "$tag" in\n'
-        f"  {VLLM_TAG}) id={IMAGE_ID_HEX}; rd='{VLLM_DIGEST}' ;;\n"
-        f"  {LOCAL_TAG}) id={LOCAL_ID_HEX}; rd= ;;\n"
-        '  *) printf "Error response from daemon: No such image: %s\\n" '
-        '"$tag" >&2; exit 1 ;;\n'
-        "esac\n"
-        'if [ -n "$fmt" ]; then\n'
-        '  case "$fmt" in\n'
-        '    *RepoDigests*) [ -n "$rd" ] && { printf "%s\\n" "$rd"; exit 0; }\n'
-        '      case "$fmt" in *Id*) printf "sha256:%s\\n" "$id" ;; esac\n'
-        "      exit 0 ;;\n"
-        '    *Id*) printf "sha256:%s\\n" "$id"; exit 0 ;;\n'
-        "  esac\n"
-        "fi\n"
-        'printf \'[\\n    {\\n        "Id": "sha256:%s",\\n'
-        '        "RepoTags": [\\n            "%s"\\n        ],\\n'
-        '        "RepoDigests": [%s],\\n'
-        '        "Config": {\\n            "Labels": {\\n'
-        f'                "org.mcgyvr.build.toolkit": "{TOOLKIT_DIGEST}"\\n'
-        "            }\\n        }\\n    }\\n]\\n' "
-        '"$id" "$tag" "${rd:+\\"$rd\\"}"\n',
-    )
+def fake_door(tmp_path: Path) -> Path:
+    return executable(tmp_path / "door" / "mcgyvr" / "serving" / "run.py", FAKE_DOOR)
 
 
-def docker_log(stub: Path) -> list[str]:
-    log = stub.parent / "docker.log"
-    if not log.is_file():
-        return []
-    return log.read_text(encoding="utf-8").splitlines()
+# --------------------------------------------------------------------------
+# the stubs behind the shims
+# --------------------------------------------------------------------------
+
+#: The ``ssh`` the door's shim execs. The shim has already admitted the host
+#: and prepended ``-o BatchMode=yes -o ConnectTimeout=10``; what is left is
+#: ``[-o X ...] HOST COMMAND...``, and the answer depends on COMMAND alone.
+#: stdin is read only where the caller is known to pipe something (the
+#: reader shipped to ``bash -s``, a line teed with ``cat >>``): a stub that
+#: read an inherited stdin would hang a door run under a terminal.
+SSH_STUB = """\
+#!/usr/bin/env bash
+set -u
+STUBS=$(cd "$(dirname "$0")" && pwd)
+printf '%.200s\\n' "$*" >> "$STUBS/ssh.log"
+while [ $# -gt 0 ]; do
+  case $1 in
+    -o) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+host=${1:-}; shift || true
+cmd="$*"
+if [ -e "$STUBS/ssh-down" ]; then
+  echo "ssh: connect to host $host port 22: Connection refused" >&2
+  exit 255
+fi
+case $cmd in
+  "bash -s")
+    cat >/dev/null
+    if [ -f "$STUBS/moved-flag" ] && [ -e "$(cat "$STUBS/moved-flag")" ]; then
+      cat "$STUBS/snapshot-moved.txt"
+    else
+      cat "$STUBS/snapshot.txt"
+    fi ;;
+  *"python3 -"*) cat "$STUBS/geometry.json" ;;
+  *'echo $HOME'*) echo "$STUB_RIG_HOME" ;;
+  *"cat >>"*) cat >/dev/null ;;
+  *mkdir*) : ;;
+  *memory.free*) echo "$STUB_FREE" ;;
+  *memory.used*) echo "$STUB_USED" ;;
+  *constraint_0_power_limit_uw*) echo 95000000 ;;
+  *constraint_1_power_limit_uw*) echo 120000000 ;;
+  *query-compute-apps*) : ;;
+  *health*) : ;;
+  *completion*) echo '{"content":"hi"}' ;;
+  *) echo "ssh stub: no answer for: ${cmd:0:120}" >&2; exit 1 ;;
+esac
+"""
+
+#: What every ``docker`` stub starts with. Under the door the shim prepends
+#: ``-H ssh://RUN_HOST``; the prologue checks it names the door's host and
+#: drops it, logs docker's own argv, and answers the two questions gate 3
+#: asks — ``info`` (the daemon's name, which must be the machine gate 2 read)
+#: and ``version`` — from the same snapshot the ssh stub serves, unless a
+#: test has written ``docker-name`` / ``docker-version`` beside it.
+DOCKER_PROLOGUE = """\
+#!/usr/bin/env bash
+set -u
+STUBS=$(cd "$(dirname "$0")" && pwd)
+if [ "${1:-}" = -H ]; then
+  if [ "${2:-}" != "ssh://${RUN_HOST:-}" ]; then
+    echo "docker stub: -H ${2:-} is not the door's host ssh://${RUN_HOST:-}" >&2
+    exit 1
+  fi
+  shift 2
+fi
+printf '%s\\n' "$*" >> "$STUBS/docker.log"
+case "${1:-}" in
+  info)
+    if [ -e "$STUBS/daemon-down" ]; then
+      echo "Cannot connect to the Docker daemon at ssh://${RUN_HOST:-}" >&2
+      exit 1
+    fi
+    if [ -f "$STUBS/docker-name" ]; then cat "$STUBS/docker-name"
+    else sed -n 's/^hostname=//p' "$STUBS/snapshot.txt"; fi
+    exit 0 ;;
+  version)
+    if [ -f "$STUBS/docker-version" ]; then cat "$STUBS/docker-version"
+    else sed -n 's/^docker=//p' "$STUBS/snapshot.txt"; fi
+    exit 0 ;;
+esac
+"""
+
+_DOCKER_BODY = """\
+case "${1:-}" in
+  ps)
+    if [ -f "$STUBS/ps-sleep" ]; then sleep "$(cat "$STUBS/ps-sleep")"; fi
+    if [ -f "$STUBS/leftover-flag" ] && [ -e "$(cat "$STUBS/leftover-flag")" ]; then
+      printf 'c0ffee000001\\t%s-lcps\\n' "${RUN_ID:-norunid}"
+    fi
+    if [ -f "$STUBS/stray-flag" ] && [ -e "$(cat "$STUBS/stray-flag")" ]; then
+      printf 'c0ffee000002\\t%s\\n' "STRAY_NAME"
+    fi
+    exit 0 ;;
+  image | inspect) ;;
+  *) exit 0 ;;
+esac
+tag= ; fmt=
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    --format | -f) fmt=$2; shift ;;
+    --format=*) fmt=${1#--format=} ;;
+    image | inspect) ;;
+    -*) ;;
+    *) tag=$1 ;;
+  esac
+  shift
+done
+case "$tag" in
+  VLLM_TAG) id=IMAGE_ID_HEX; rd='VLLM_DIGEST' ;;
+  LOCAL_TAG) id=LOCAL_ID_HEX; rd= ;;
+  *) printf "Error response from daemon: No such image: %s\\n" "$tag" >&2; exit 1 ;;
+esac
+if [ -n "$fmt" ]; then
+  case "$fmt" in
+    *RepoDigests*) [ -n "$rd" ] && { printf "%s\\n" "$rd"; exit 0; }
+      case "$fmt" in *Id*) printf "sha256:%s\\n" "$id" ;; esac
+      exit 0 ;;
+    *Id*) printf "sha256:%s\\n" "$id"; exit 0 ;;
+  esac
+fi
+printf '[\\n    {\\n        "Id": "sha256:%s",\\n\
+        "RepoTags": [\\n            "%s"\\n        ],\\n\
+        "RepoDigests": [%s],\\n\
+        "Config": {\\n            "Labels": {\\n\
+                "org.mcgyvr.build.toolkit": "TOOLKIT_DIGEST"\\n\
+            }\\n        }\\n    }\\n]\\n' "$id" "$tag" "${rd:+\\"$rd\\"}"
+"""
+
+
+def docker_stub_text(body: str) -> str:
+    """A complete ``docker`` stub: :data:`DOCKER_PROLOGUE`, then ``body``,
+    which sees docker's own argv in ``$@`` and the stub directory in ``$STUBS``."""
+    return DOCKER_PROLOGUE + body
 
 
 def ssh_stub(where: Path) -> Path:
-    """A ``RUN_SSH`` that records the attempt and refuses: no test reaches a rig."""
-    marker = where / "ssh.reached"
-    return executable(
-        where / "ssh",
-        "#!/usr/bin/env bash\n"
-        f"printf '%s\\n' \"$*\" >> '{marker}'\n"
-        "echo 'ssh reached from a test' >&2\n"
-        "exit 1\n",
+    """The ``ssh`` that stands behind the shim in ``where``. Reaches nothing."""
+    return executable(where / "ssh", SSH_STUB)
+
+
+#: What the docker stub calls a container the run did NOT name: no ``RUN_ID-``
+#: prefix, the shape a driver's own ``--name`` or a hand-started server has.
+STRAY_NAME = "vllm-someone-elses"
+
+
+def docker_stub(
+    where: Path,
+    *,
+    leftover_flag: Path | None = None,
+    stray_flag: Path | None = None,
+    daemon_down: bool = False,
+    ps_sleep: float | None = None,
+) -> Path:
+    """The default ``docker`` in ``where``; every argv line lands in ``docker.log``.
+
+    ``ps`` prints nothing until ``leftover_flag`` exists, then lists (id and
+    name, tab-separated, as ``--format '{{.ID}}\\t{{.Names}}'`` does) a
+    container that carries the run's ``RUN_ID`` prefix; once ``stray_flag``
+    exists it lists :data:`STRAY_NAME` too, a container with no such prefix.
+    ``ps_sleep`` makes every ``ps`` take that many seconds first, after the
+    argv is logged — for a test that must catch the door inside gate 7.
+    ``image inspect`` answers for the two tags the tests use and refuses any
+    other, honouring ``--format`` for ``RepoDigests`` and ``Id``; the plain
+    JSON it prints has the real document's shape — ``RepoDigests`` first,
+    then a ``Config.Labels`` block whose toolkit label carries
+    :data:`TOOLKIT_DIGEST`. ``daemon_down`` makes ``info`` fail the way a CLI
+    with no daemon behind it does.
+    """
+    body = (
+        _DOCKER_BODY.replace("VLLM_TAG", VLLM_TAG)
+        .replace("VLLM_DIGEST", VLLM_DIGEST)
+        .replace("IMAGE_ID_HEX", IMAGE_ID_HEX)
+        .replace("LOCAL_TAG", LOCAL_TAG)
+        .replace("LOCAL_ID_HEX", LOCAL_ID_HEX)
+        .replace("TOOLKIT_DIGEST", TOOLKIT_DIGEST)
+        .replace("STRAY_NAME", STRAY_NAME)
     )
-
-
-def product_stub(where: Path, *, pinned: bool, moved_from: str = "r8-prior") -> Path:
-    """A ``RUN_PRODUCT_CHECK``: the open round and its digest, or the refusal
-    ``tools/bench/product.require_pinned`` raises (``product.py:274``)."""
-    if pinned:
-        body = f"printf 'round=%s product_sha256=%s\\n' {ROUND_ID} {PRODUCT_SHA256}\n"
+    for filename, value in (
+        ("leftover-flag", leftover_flag),
+        ("stray-flag", stray_flag),
+    ):
+        flag = where / filename
+        if value is None:
+            flag.unlink(missing_ok=True)
+        else:
+            flag.write_text(str(value), encoding="utf-8")
+    down = where / "daemon-down"
+    if daemon_down:
+        down.touch()
     else:
-        body = (
-            f"echo 'the product has moved off round `{moved_from}`: it pins "
-            "deadbeef and this tree is cafef00d' >&2\n"
-            "exit 1\n"
-        )
-    return executable(where / "product-check", "#!/usr/bin/env bash\n" + body)
+        down.unlink(missing_ok=True)
+    delay = where / "ps-sleep"
+    if ps_sleep is None:
+        delay.unlink(missing_ok=True)
+    else:
+        delay.write_text(str(ps_sleep), encoding="utf-8")
+    return executable(where / "docker", docker_stub_text(body))
 
 
-def fixture_repo(tmp_path: Path) -> Path:
-    """A throw-away checkout the door can write into.
+def rig_stub(
+    where: Path, host: str, *, moved_flag: Path | None = None, **override: str
+) -> Path:
+    """What the rig answers ``bash -s`` with: ``host``'s reading, ``override``
+    applied. Once ``moved_flag`` exists it reads PL1 at 4095 W instead — the
+    reading srv1 gave at 05:57 after a hard lock wiped its BIOS profile."""
+    (where / "snapshot.txt").write_text(
+        snapshot_lines(host, **override), encoding="utf-8"
+    )
+    (where / "snapshot-moved.txt").write_text(
+        snapshot_lines(host, **override, pl1_uw="4095000000"), encoding="utf-8"
+    )
+    flag = where / "moved-flag"
+    if moved_flag is None:
+        flag.unlink(missing_ok=True)
+    else:
+        flag.write_text(str(moved_flag), encoding="utf-8")
+    return where / "snapshot.txt"
 
-    ``tools/runs`` is copied whole (minus any campaign, so the tests own the
-    campaign list), ``tests/sweeprows.py`` and ``tests/__init__.py`` come along
-    so ``_repo_root`` recognises it, ``pyproject.toml``/``uv.lock`` with a
-    symlinked ``.venv`` let ``uv run --no-sync`` work inside it, and
-    ``tools/runs/hosts.json`` is written from the brief's rig table.
+
+def rig_unreadable(where: Path) -> None:
+    """Every ssh fails the way a rig that is down does."""
+    (where / "ssh-down").touch()
+
+
+def stub_sleep(where: Path) -> Path:
+    """A ``sleep`` that returns at once, for a step whose retry loop would
+    otherwise wait real seconds between attempts a stub decides."""
+    return executable(where / "sleep", "#!/usr/bin/env bash\nexit 0\n")
+
+
+def stubs_dir(root: Path) -> Path:
+    return root / "stubs"
+
+
+def _log(where: Path, name: str) -> list[str]:
+    directory = where if where.is_dir() else where.parent
+    if (directory / "stubs").is_dir():
+        directory = directory / "stubs"
+    path = directory / name
+    if not path.is_file():
+        return []
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def docker_log(where: Path) -> list[str]:
+    """Every argv the docker stub saw, one line each. ``where`` is the fixture
+    root, the stub directory, or the stub itself."""
+    return _log(where, "docker.log")
+
+
+def ssh_log(where: Path) -> list[str]:
+    return _log(where, "ssh.log")
+
+
+# --------------------------------------------------------------------------
+# the fixture
+# --------------------------------------------------------------------------
+
+
+def hosts_document() -> str:
+    doc: dict[str, object] = {"hosts": ["srv1", "srv2"]}
+    for host, rig in RIG.items():
+        doc[host] = {"rig": dict(rig), "read_on": RIG_READ_ON}
+    return json.dumps(doc, indent=2) + "\n"
+
+
+def pin(root: Path) -> str:
+    """Write ``rounds.json`` for the tree as it stands NOW, and return the digest.
+
+    Called last by :func:`fixture_repo`; a test that changes a file under
+    ``product.SURFACE`` afterwards calls it again, or gate 1 refuses.
+    """
+    digest: str = _product().digest(root)
+    rounds = {
+        "rounds": [
+            {
+                "id": ROUND_ID,
+                "opened": RUN_DATE,
+                "product_sha256": digest,
+                "why": "the one-door fixture, pinned as built",
+                "adopted": [],
+            }
+        ]
+    }
+    (root / "tools" / "bench" / "rounds.json").write_text(
+        json.dumps(rounds, indent=1) + "\n", encoding="utf-8"
+    )
+    return digest
+
+
+def unpin(root: Path) -> None:
+    """Pin a digest this tree does not have: gate 1 must refuse."""
+    pin(root)
+    path = root / "tools" / "bench" / "rounds.json"
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc["rounds"][-1]["product_sha256"] = "deadbeef" * 8
+    path.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+
+
+def pinned(root: Path) -> tuple[str, str]:
+    """The round id and digest the fixture's ``rounds.json`` declares."""
+    doc = json.loads(
+        (root / "tools" / "bench" / "rounds.json").read_text(encoding="utf-8")
+    )
+    last = doc["rounds"][-1]
+    return str(last["id"]), str(last["product_sha256"])
+
+
+def fixture_repo(tmp_path: Path, *, host: str = "srv1") -> Path:
+    """A throw-away checkout the door can be run from and write into.
+
+    The machine behind the stubs reads as ``host``'s declaration (srv1 unless
+    said otherwise); :func:`rig_stub` changes that.
     """
     root = tmp_path / "repo"
     (root / "tests").mkdir(parents=True)
-    (root / "tools").mkdir()
     for name in ("pyproject.toml", "uv.lock"):
         shutil.copy(REPO / name, root / name)
     os.symlink(REPO / ".venv", root / ".venv")
@@ -321,19 +570,40 @@ def fixture_repo(tmp_path: Path) -> Path:
         ignore=shutil.ignore_patterns("__pycache__", "campaigns"),
     )
     (root / "tools" / "runs" / "campaigns").mkdir()
-    (root / "tools" / "runs" / "hosts.json").write_text(
-        hosts_document(), encoding="utf-8"
+    shutil.copytree(
+        SERVING_SRC,
+        root / "src" / "mcgyvr" / "serving",
+        ignore=shutil.ignore_patterns("__pycache__"),
     )
+    (root / "tools" / "bench").mkdir(parents=True)
+    shutil.copy2(PRODUCT_PY, root / "tools" / "bench" / "product.py")
+    # Every other entry of the product surface, so the digest can be taken:
+    # a declared entry that is missing is a refusal in surface_files.
+    for entry in _product().SURFACE:
+        target = root / entry
+        if target.exists():
+            continue
+        if (REPO / entry).is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(f"# {entry}: a stub for the surface digest\n")
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull},
+    )
+    stubs = stubs_dir(root)
+    stubs.mkdir()
+    ssh_stub(stubs)
+    docker_stub(stubs)
+    rig_stub(stubs, host)
+    geometry = json.loads(GEOMETRY_JSON.read_text(encoding="utf-8"))
+    (stubs / "geometry.json").write_text(json.dumps([geometry]), encoding="utf-8")
+    pin(root)
     return root
-
-
-def hosts_document() -> str:
-    import json
-
-    doc: dict[str, object] = {"hosts": ["srv1", "srv2"]}
-    for host, rig in RIG.items():
-        doc[host] = {"rig": dict(rig), "read_on": RIG_READ_ON}
-    return json.dumps(doc, indent=2) + "\n"
 
 
 def add_step(root: Path, campaign: str, filename: str, body: str) -> Path:
@@ -357,11 +627,15 @@ def probe_step(
     once the artifact is complete (a flag for a stub); ``end_line`` replaces
     the ``### END`` line, for the parse gate; ``directive`` is the comment
     line the file is declared under (``RUN_REWRITES`` for a step that may run
-    twice over it).
+    twice over it). The round it stamps is the one the door handed it, and
+    both START and END name the run it was handed (``end_line`` may carry a
+    ``%s`` for it, or not).
     """
+    # `%s` is filled with "$RUN_ID" by the printf below: END names the run it
+    # closes, as START names the one it opens, and gate 8 reads both.
     end = end_line or (
         f"### END uptime_since={UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
-        "cpu_max_mhz=4600 ram_mt_s=3600"
+        "cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s"
     )
     rig = " ".join(f"{k}={v}" for k, v in RIG["srv1"].items())
     return (
@@ -369,70 +643,147 @@ def probe_step(
         f"# {directive}: probe.tsv\n"
         "set -euo pipefail\n"
         '[ -n "${RUN_ID:-}" ] || { echo "probe: RUN_ID is unset; start me '
-        'through tools/runs/run.sh" >&2; exit 2; }\n'
+        'through python -m mcgyvr.serving.run" >&2; exit 2; }\n'
         f"printf 'RUN_ID=%s\\nRUN_OUT_DIR=%s\\nRUN_HOST=%s\\nRUN_ROUND=%s\\n"
-        "RUN_PRODUCT_SHA256=%s\\n' "
+        "RUN_PRODUCT_SHA256=%s\\nRUN_STEP=%s\\n' "
         '"$RUN_ID" "${RUN_OUT_DIR:-}" "${RUN_HOST:-}" "${RUN_ROUND:-}" '
-        f"\"${{RUN_PRODUCT_SHA256:-}}\" > '{env_file}'\n"
+        f'"${{RUN_PRODUCT_SHA256:-}}" "${{RUN_STEP:-}}" > \'{env_file}\'\n'
         'out="${RUN_OUT_DIR:?}/probe.tsv"\n'
         "{\n"
         "printf '### WORKLOAD digest=none comparable_with=microbenchmark-only\\n'\n"
         f"printf '### START uptime_since={UPTIME} pl1_uw=95000000 "
         "pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw "
         'cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s\\n\' "$RUN_ID"\n'
-        f"printf '### ROUND id={ROUND_ID} product_sha256={PRODUCT_SHA256}\\n'\n"
+        "printf '### ROUND id=%s product_sha256=%s\\n' "
+        '"${RUN_ROUND:-}" "${RUN_PRODUCT_SHA256:-}"\n'
         f"printf '### RIG {rig}\\n'\n"
         "printf '%s\\tprobe\\tCONFIG\\timg=sha256:%s\\n' "
         f'"${{RUN_HOST:-nohost}}" {LOCAL_ID_HEX}\n'
-        f"printf '{end}\\n'\n"
+        f"printf '{end}\\n' \"$RUN_ID\"\n"
         '} > "$out"\n' + after + "\n"
     )
 
 
-def door_env(
-    root: Path,
-    stubs: Path,
-    *,
-    host: str = "srv1",
-    pinned: bool = True,
-    rig: Path | None = None,
-    docker: Path | None = None,
-) -> dict[str, str]:
-    """The environment a door invocation runs under: every seam set, no
-    ``RUN_*`` or image variable inherited from the developer's shell."""
+# --------------------------------------------------------------------------
+# the door
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Scenario:
+    """What an operator types. ``step`` is a file name under
+    ``tools/runs/campaigns/<campaign>/``, a path relative to the fixture root
+    (or absolute), or ``""`` for the shipped default step. An empty ``host``
+    leaves ``--host`` out, for the test that asks what the door does then."""
+
+    campaign: str
+    step: str
+    host: str = "srv1"
+    suffix: str = ""
+    step_args: tuple[str, ...] = ()
+    model: str = MODEL
+    date: str = RUN_DATE
+    parallel: int = 8
+    ctx_per_slot: int = 2048
+    ubatch: int = 512
+
+
+def _step_path(root: Path, scenario: Scenario) -> Path:
+    step = Path(scenario.step)
+    if step.is_absolute():
+        return step
+    if len(step.parts) == 1:
+        return root / "tools" / "runs" / "campaigns" / scenario.campaign / step
+    return root / step
+
+
+def _command(root: Path, scenario: Scenario | None) -> list[str]:
+    """The ONLY place the door's path and argv shape are known."""
+    argv = [sys.executable, str(root / DOOR_REL)]
+    if scenario is None:
+        return [*argv, "--help"]
+    if scenario.host:
+        argv += ["--host", scenario.host]
+    argv += ["--campaign", scenario.campaign, "--model", scenario.model]
+    argv += ["--date", scenario.date]
+    argv += ["--parallel", str(scenario.parallel)]
+    argv += ["--ctx-per-slot", str(scenario.ctx_per_slot)]
+    argv += ["--ubatch", str(scenario.ubatch)]
+    if scenario.step:
+        argv += ["--step", str(_step_path(root, scenario))]
+    if scenario.suffix:
+        argv += ["--suffix", scenario.suffix]
+    if scenario.step_args:
+        argv += ["--", *scenario.step_args]
+    return argv
+
+
+def door_env(root: Path) -> dict[str, str]:
+    """The environment a door invocation runs under: no ``RUN_*`` or
+    ``DOCKER_*`` inherited (the door refuses them by name), no image variable
+    from the developer's shell, and the fixture's stubs first on PATH — the
+    door puts its own shims ahead of them."""
     env = {
         k: v
         for k, v in os.environ.items()
-        if not k.startswith("RUN_") and k not in ("LCP_IMG", "VLLM_IMG")
+        if not k.startswith(("RUN_", "DOCKER_")) and k not in ("LCP_IMG", "VLLM_IMG")
     }
-    env["RUN_REPO"] = str(root)
-    env["RUN_DATE"] = RUN_DATE
-    env["RUN_PRODUCT_CHECK"] = str(product_stub(stubs, pinned=pinned))
-    env["RUN_RIG_SNAPSHOT_CMD"] = str(rig or rig_stub(stubs, host))
-    env["RUN_DOCKER"] = str(docker or docker_stub(stubs))
-    env["RUN_SSH"] = str(ssh_stub(stubs))
+    parts = [str(stubs_dir(root)), str(Path(sys.executable).parent)]
+    parts += (env.get("PATH") or os.defpath).split(os.pathsep)
+    env["PATH"] = os.pathsep.join(parts)
+    env["STUB_RIG_HOME"] = RIG_HOME
+    env["STUB_FREE"] = LIVE["srv1"]["gpu_free_mib"]
+    env["STUB_USED"] = LIVE["srv1"]["gpu_used_mib"]
     return env
 
 
 def door(
-    root: Path, argv: list[str], env: dict[str, str]
+    root: Path, scenario: Scenario, *, env_extra: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """Run the fixture's copy of ``run.sh``; the real one must exist to copy."""
-    assert RUN_SH.is_file(), f"{RUN_SH.relative_to(REPO)} does not exist"
-    assert os.access(RUN_SH, os.X_OK), f"{RUN_SH.relative_to(REPO)} is not executable"
+    """One door invocation from the fixture, to completion."""
+    env = door_env(root)
+    env.update(env_extra or {})
     return subprocess.run(
-        [str(root / "tools" / "runs" / "run.sh"), *argv],
+        _command(root, scenario),
         cwd=root,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=600,
         check=False,
     )
 
 
-def envelope(root: Path, campaign: str) -> Path:
-    return root / "records" / "evidence" / f"{RUN_DATE}-{campaign}"
+def door_process(root: Path, scenario: Scenario) -> subprocess.Popen[str]:
+    """The door started in its own session, for a test that signals it."""
+    return subprocess.Popen(
+        _command(root, scenario),
+        cwd=root,
+        env=door_env(root),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+
+
+def door_help(root: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        _command(root, None),
+        cwd=root,
+        env=door_env(root),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def envelope(root: Path, campaign: str, date: str = RUN_DATE) -> Path:
+    return root / "records" / "evidence" / f"{date}-{campaign}"
 
 
 def written_under_records(root: Path) -> list[str]:
@@ -440,6 +791,33 @@ def written_under_records(root: Path) -> list[str]:
     if not records.exists():
         return []
     return sorted(str(p.relative_to(root)) for p in records.rglob("*") if p.is_file())
+
+
+#: What the door files in an envelope before the step, whatever the step does.
+DOOR_FACTS = frozenset({"scan.json", "geometry.json", "placement.json"})
+
+
+def is_claim(name: str) -> bool:
+    """Whether ``name`` is gate 5's claim on a RUN_ID (``.<RUN_ID>.running``),
+    which exists only while a run is in progress and is the door's, not a
+    step's."""
+    return name.startswith(".") and name.endswith(".running")
+
+
+def filed_by_steps(root: Path) -> list[str]:
+    """Files under ``records/`` that a STEP wrote — the door's own three facts
+    (scan, geometry, placement) and its claim on the RUN_ID left out."""
+    return [
+        p
+        for p in written_under_records(root)
+        if Path(p).name not in DOOR_FACTS and not is_claim(Path(p).name)
+    ]
+
+
+def claims(root: Path) -> list[str]:
+    """Every claim marker under ``records/`` right now. Empty after any run
+    the door finished, however it ended."""
+    return [p for p in written_under_records(root) if is_claim(Path(p).name)]
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -450,23 +828,36 @@ def read_env_file(path: Path) -> dict[str, str]:
     return out
 
 
+# --------------------------------------------------------------------------
+# the drivers and the emitter, run bare
+# --------------------------------------------------------------------------
+
+
 def driver(
     name: str,
     env: dict[str, str],
     *,
     argv: list[str] | None = None,
+    door: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``tools/runs/drivers/<name>`` with the interpreter the tests use.
 
     The file must exist first: ``python missing.py`` exits 2 on its own, which
-    would read exactly like the refusal these tests are looking for.
+    would read exactly like the refusal these tests are looking for. ``door``
+    is a :func:`fake_door` to run it under; without one the driver's own
+    proof refuses it, which is what a test of that refusal wants.
     """
     path = DRIVERS / name
     assert path.is_file(), f"{path.relative_to(REPO)} does not exist"
+    command = [sys.executable, str(path)]
+    command += argv if argv is not None else DRIVER_ARGV[name]
+    if door is not None:
+        command = [sys.executable, str(door), *command]
     return subprocess.run(
-        [sys.executable, str(path), *(argv if argv is not None else DRIVER_ARGV[name])],
+        command,
         cwd=REPO,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=120,
@@ -475,24 +866,38 @@ def driver(
 
 
 def bare_env(stubs: Path, **extra: str) -> dict[str, str]:
-    """An environment with no ``RUN_*`` in it, plus a docker stub and ``extra``."""
+    """An environment for a driver or the emitter run BARE: no ``RUN_*`` from
+    the shell, the two stubs first on PATH, ``RUN_HOST`` naming a machine that
+    does not exist, plus ``extra``."""
     env = {
         k: v
         for k, v in os.environ.items()
-        if not k.startswith("RUN_") and k not in ("LCP_IMG", "VLLM_IMG")
+        if not k.startswith(("RUN_", "DOCKER_")) and k not in ("LCP_IMG", "VLLM_IMG")
     }
-    env["RUN_DOCKER"] = str(docker_stub(stubs))
+    stubs.mkdir(parents=True, exist_ok=True)
+    docker_stub(stubs)
+    ssh_stub(stubs)
+    env["PATH"] = f"{stubs}{os.pathsep}{env.get('PATH') or os.defpath}"
+    env["RUN_HOST"] = BARE_HOST
+    env["STUB_RIG_HOME"] = RIG_HOME
+    env["STUB_FREE"] = LIVE["srv1"]["gpu_free_mib"]
+    env["STUB_USED"] = LIVE["srv1"]["gpu_used_mib"]
     env.update(extra)
     return env
 
 
 def bash(
-    script: str, env: dict[str, str], cwd: Path
+    script: str, env: dict[str, str], cwd: Path, *, door: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
+    """``bash -c script``; under ``door`` (a :func:`fake_door`) when given."""
+    command = ["bash", "-c", script]
+    if door is not None:
+        command = [sys.executable, str(door), *command]
     return subprocess.run(
-        ["bash", "-c", script],
+        command,
         cwd=cwd,
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=120,

@@ -53,7 +53,7 @@ evidence directory and refuses a difference.
 Usage::
 
     python3 tools/bench/serving/knobs.py build <out-dir> <evidence-dir>...
-    python3 tools/bench/serving/knobs.py declared <host|local> <out-dir>
+    python3 tools/bench/serving/knobs.py declared <host> <out-dir>
 """
 
 from __future__ import annotations
@@ -61,7 +61,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
-import subprocess
 import sys
 import types
 from pathlib import Path
@@ -75,8 +74,8 @@ def _vllm_backend() -> types.ModuleType:
     uses: the image pin has one home and this module reads it rather than
     restating it. It used to read `sweep.py`'s `IMAGE`; that file hardwired an
     11-token prompt the repo had ruled 2.4x misleading and was retired when
-    `tools/runs/run.sh` became the one door to the rigs (2026-09-02), so the
-    pin's home is the backend that launches the container."""
+    the rigs got one door (2026-09-02; today `python -m mcgyvr.serving.run`),
+    so the pin's home is the backend that launches the container."""
     slot = "serving_backend_vllm"
     cached = sys.modules.get(slot)
     if cached is not None:
@@ -89,7 +88,24 @@ def _vllm_backend() -> types.ModuleType:
     return module
 
 
+def _contract() -> types.ModuleType:
+    """`contract.py` by path, through the slot every serving module shares, so
+    the one ssh this file makes is `contract.ssh` -- the door's transport --
+    and a test that stubs it on one module has stubbed it on all of them."""
+    slot = "serving_contract"
+    cached = sys.modules.get(slot)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(slot, HERE / "contract.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[slot] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 IMAGE: str = _vllm_backend().CONTAINER_IMAGE
+contract = _contract()
 
 SURFACE_RECORD = "knob-surface/1"
 SERVING_ENGINE = "vllm"
@@ -205,20 +221,19 @@ def parse_help(text: str) -> list[dict[str, Any]]:
 
 def capture_declared(host: str, out_dir: Path) -> Path:
     """Run `--help=all` in the pinned image on `host` and write the parsed
-    surface beside its digest. `host == "local"` runs docker here."""
+    surface beside its digest. Over `contract.ssh` -- the door's transport --
+    so this file opens no ssh of its own and has no "local" branch: a capture
+    is taken on a declared rig through the door, or not at all."""
 
     def run(cmd: str) -> str:
-        argv = (
-            [cmd] if host == "local" else ["ssh", "-o", "ConnectTimeout=10", host, cmd]
-        )
-        r = subprocess.run(
-            argv, shell=host == "local", capture_output=True, text=True, timeout=900
-        )
-        if r.returncode != 0:
+        out = contract.ssh(host, cmd, timeout=900)
+        if out is None:
             raise SystemExit(
-                f"{cmd!r} on {host} exited {r.returncode}:\n{r.stderr[-2000:]}"
+                f"{cmd!r} on {host} answered nothing: the host did not answer, "
+                "the command timed out, or it printed no stdout. The declared "
+                "column is written from a capture and never from a guess"
             )
-        return r.stdout
+        return out
 
     digest = run(DIGEST_COMMAND).strip()
     text = run(HELP_COMMAND)

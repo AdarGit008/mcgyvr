@@ -53,7 +53,9 @@ is what keeps a model that cannot fit from thrashing instead.
 
 from __future__ import annotations
 
+import base64
 import importlib.util
+import json
 import re
 import shlex
 import sys
@@ -61,6 +63,8 @@ import time
 import types
 from pathlib import Path
 from typing import Any
+
+from mcgyvr.serving import ggufscan, vramfit
 
 
 def _contract() -> types.ModuleType:
@@ -394,7 +398,210 @@ def _available_bytes(host: str) -> int | None:
     return contract.first_int(raw)
 
 
-def mmap_gate(host: str, model: str) -> dict[str, Any]:
+#: From :mod:`vramfit`, which owns it: the door's placement script derives
+#: the same floor from the same allowance, and two copies that drifted
+#: would have the gate and the door disagree about one card.
+SCRATCH_AND_CONTEXT_MIB = vramfit.SCRATCH_AND_CONTEXT_MIB
+
+#: What the process holds in host RAM BEYOND the offloaded experts themselves.
+#: ``RSS - blocks * expert_per_block`` sat at 1.52-1.53 GiB at every setting
+#: measured, which is why it is a constant here and not a rate. Mirrors
+#: :data:`mcgyvr.serving.RUNTIME_RESIDENT_GB`, which fitted it.
+RUNTIME_RESIDENT_BYTES = int(1.53 * 1024**3)
+
+
+def _card_mib(host: str) -> dict[str, int | None]:
+    """The card's four buckets, in MiB. Read, never assumed.
+
+    **A card has four buckets and ``total`` is not the one a process can
+    spend:** ``total = reserved + used + free``. The reserve is GSP firmware, a
+    coprocessor on the die whose code lives in card memory, and CUDA does not
+    report it as existing at all -- PyTorch calls srv2's 12,288 MiB card "a
+    total capacity of 11.63 GiB", which is 12,288 - 380.
+
+    **``spendable`` is ``free``, not ``total - reserved``.** Those two agree
+    only on an idle card, and the card is not always idle: measured on srv1
+    2026-09-04, foreign processes held 3,374 MiB with no container of ours
+    running, leaving 2,370 free against a 5,743 total-less-reserve. Deriving a
+    floor from 5,743 there would place seven blocks of experts on a card with
+    room for none, and the cell would OOM at load having passed the gate.
+
+    **This reads the number and asks nothing about whose it is.** Who else
+    wants the card is the orchestrator's decision, not a backend's -- and
+    whatever holds it at this moment is something the campaign did not start
+    and must not stop (run contract 4). :func:`mmap_gate` runs after
+    :func:`release`, which is the only moment the reading describes what the
+    next launch actually gets: occupancy is a fact about the machine, and the
+    gate's job is to see it rather than to assume it away.
+    """
+    raw = contract.ssh(
+        host,
+        "timeout 10 nvidia-smi "
+        "--query-gpu=memory.total,memory.reserved,memory.used,memory.free "
+        "--format=csv,noheader,nounits",
+    )
+    line = raw.strip().splitlines()[0] if raw and raw.strip() else ""
+    parts = [p.strip() for p in line.split(",")]
+    if len(parts) != 4:
+        return dict.fromkeys(
+            ("total_mib", "reserved_mib", "used_mib", "free_mib", "spendable_mib")
+        )
+    total, reserved, used, free = (contract.first_int(p) for p in parts)
+    return {
+        "total_mib": total,
+        "reserved_mib": reserved,
+        "used_mib": used,
+        "free_mib": free,
+        # What the floor is derived from. `free` already excludes both the GSP
+        # reserve and whatever a stranger holds, which is exactly the quantity
+        # a launch gets to allocate.
+        "spendable_mib": free,
+    }
+
+
+def _geometry(host: str, model: str) -> dict[str, Any] | None:
+    """The blob's tensor table, read on the serving host.
+
+    **Shipped and run there rather than tabulated here.** A constant table of
+    expert masses is exactly the shape of the ``EXPERT_SHARE = 0.92`` /
+    ``MOE_BLOCKS = 48`` pair that ``mcgyvr.serving`` had to retract: read
+    against the file they cited, the block count was 40 and the share 0.8416,
+    and the three compounding errors happened to land within 1% of the truth so
+    that correcting any one of them alone made the answer worse. A number about
+    a file belongs to the file.
+
+    ``None`` when the host could not answer or the parser refused the blob --
+    the caller records the gate as not applied rather than as passed.
+    """
+    source = Path(ggufscan.__file__).read_bytes()
+    blob = base64.b64encode(source).decode("ascii")
+    # `python3 -` takes the program on stdin and leaves argv[1:] to the script,
+    # so the file never lands on the rig's disk and nothing needs cleaning up
+    # afterwards -- gate 7 has enough to do.
+    raw = contract.ssh(
+        host,
+        f"echo {blob} | base64 -d | python3 - {shlex.quote(model)} 2>/dev/null || true",
+    )
+    if not raw:
+        return None
+    try:
+        rows = json.loads(raw)
+    except Exception:
+        return None
+    if not rows or not isinstance(rows, list) or "error" in rows[0]:
+        return None
+    return rows[0]
+
+
+def expert_floor(
+    geometry: dict[str, Any], serve: dict[str, Any], spendable_mib: int
+) -> dict[str, Any]:
+    """The FEWEST blocks of experts this card can leave in host RAM.
+
+    This is the ``--n-cpu-moe`` floor, and it is what the gate must judge a
+    model by. Every term but one now comes from the blob's own tensor table or
+    from :mod:`vramfit`'s measured laws; :data:`SCRATCH_AND_CONTEXT_MIB` is the
+    only allowance left.
+
+    **Four fitted constants were retired here, each stable, plausible and
+    wrong** (evidence under ``records/evidence/2026-09-05-context-decomposition``
+    and ``2026-09-04-srv1-ncmoe-floor``):
+
+    ``CUDA_CONTEXT_MIB = 1024``
+        against 85.5-135.1 MiB of actual unnamed residue, measured on both rigs.
+
+    ``KV_BYTES_PER_TOKEN_PER_CACHING_LAYER = 2048``
+        one width for every layer of every model. ``deepseek2`` caches a
+        192-wide key against a 128-wide value; ``gemma4`` runs two head counts
+        and two key widths in one file; a sliding-window checkpoint allocates
+        TWO caches over disjoint layer sets, and the sliding one stops growing
+        once the window binds. :func:`vramfit.kv_bytes` reproduces the engine's
+        own figure exactly on every checkpoint measured.
+
+    ``STATE_MIB_PER_LINEAR_LAYER_PER_SLOT = 2``
+        drops the convolution term, 4.7% of the buffer on ``qwen35moe``, and
+        counts recurrent layers as ``n_layer - caching``, which doubles the
+        buffer on ``nemotron_h_moe`` (52 blocks = 6 attention + 23 mamba + 23
+        MLP-only). :func:`vramfit.rs_bytes` counts the blocks that carry
+        ``ssm_*`` tensors and charges per SEQUENCE.
+
+    ``bytes_experts / n_layer``
+        an average block, which matches no block in nine of ten checkpoints.
+        ``--n-cpu-moe`` moves WHOLE blocks and takes ``N`` as a block INDEX, so
+        what a placement needs is the marginal block.
+        :func:`vramfit.experts_on_card` sums the blocks actually left on the
+        card, skipping a grafted MTP head the knob never places.
+
+    **Still derived, and still to be walked down to.** The remaining allowance
+    makes this a prediction, and it is stated GENEROUSLY on purpose: too high
+    costs throughput until the walk-down, too low admits a cell that clears the
+    gate and then OOMs at load. The refusal is the measurement -- run one cell
+    below it deliberately and it names the true edge. Retry any refusal three
+    times before believing it; a launch near the memory edge is a 1-in-3 coin
+    flip.
+
+    **Returns ``derived: False`` rather than a number it cannot stand behind.**
+    :func:`vramfit.kv_bytes` refuses a checkpoint that declares a sliding
+    window without the per-layer pattern saying which layers use it, because
+    the split is not in the header and inventing one is how the retired
+    constants got written. The caller weighs the blob whole instead, which is
+    the conservative direction.
+    """
+    vf = vramfit
+    n_layer = int(geometry.get("n_layer") or 0)
+    expert_bytes = int(geometry.get("bytes_experts") or 0)
+    nonexpert_bytes = int(geometry.get("bytes_nonexpert") or 0)
+    placeable = list(geometry.get("placeable_blocks") or [])
+
+    slots = int(serve.get("parallel") or 1)
+    # `-c` is the TOTAL context across slots, not the per-slot window: measured
+    # 2026-09-05, `-c 8192` gives the same cache at `-np 8`, `-np 4` and
+    # `-np 1`, and llama.cpp reports `n_ctx_seq = 1024` for the first of those.
+    # `kv_bytes` does that division, and the PAD256 that goes with it.
+    n_ctx = int(serve.get("ctx_per_slot") or 0) * slots
+    n_ubatch = int(serve.get("n_ubatch") or 512)
+
+    try:
+        kv = vf.kv_bytes(geometry, n_ctx, n_seq_max=slots, n_ubatch=n_ubatch)
+        rs = vf.rs_bytes(geometry, n_seq_max=slots)
+    except ValueError as exc:
+        return {
+            "derived": False,
+            "n_layer": n_layer,
+            "why": str(exc),
+        }
+
+    scratch = SCRATCH_AND_CONTEXT_MIB * 1024**2
+    constant = nonexpert_bytes + kv["total"] + rs["total"] + scratch
+    floor_n = vf.floor(geometry, spendable_mib * 1024**2, constant)
+    # `None` means the card cannot hold the constant alone -- no placement
+    # rescues it. Report the full-offload placement so the caller still has a
+    # number to weigh, and let `fits` fail on the resident mass.
+    on_card = [] if floor_n is None else [b for b in placeable if b >= floor_n]
+    expert_on_card = 0 if floor_n is None else vf.experts_on_card(geometry, floor_n)
+    return {
+        "derived": True,
+        "n_layer": n_layer,
+        "n_placeable": len(placeable),
+        "caching_layers": len(geometry.get("kv_layers") or []),
+        "recurrent_layers": int(geometry.get("n_recurrent") or 0),
+        "kv_mib": round(kv["total"] / 1024**2, 1),
+        "kv_swa_mib": round(kv["swa"] / 1024**2, 1),
+        "n_ctx_seq": kv["n_ctx_seq"],
+        "state_mib": round(rs["total"] / 1024**2, 1),
+        "nonexpert_mib": round(nonexpert_bytes / 1024**2, 1),
+        "scratch_allowance_mib": SCRATCH_AND_CONTEXT_MIB,
+        "constant_mib": round(constant / 1024**2, 1),
+        "vram_for_experts_mib": round(spendable_mib - constant / 1024**2, 1),
+        "expert_mib_on_card": round(expert_on_card / 1024**2, 1),
+        "expert_mib_total": round(expert_bytes / 1024**2, 1),
+        "resident_blocks": len(on_card),
+        "floor_n_cpu_moe": len(placeable) if floor_n is None else floor_n,
+        "floor_is_reachable": floor_n is not None,
+    }
+
+
+def mmap_gate(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     """Refuse a model that cannot be held in RAM, BEFORE it is launched.
 
     **The gate is on ``available`` at the moment of the check, and the moment
@@ -407,6 +614,31 @@ def mmap_gate(host: str, model: str) -> dict[str, Any]:
     A refusal here is the campaign's intended outcome for an oversized model,
     not an error to route around: the alternative is a cell that runs, thrashes,
     and reports a disk benchmark as a decode throughput.
+
+    **What is weighed is the RESIDENT share, not the blob.** This gate used to
+    compare ``stat -c %s`` against the budget, and that is the wrong quantity
+    for every split cell. ``-ngl 99 --n-cpu-moe N`` puts the non-expert weights
+    and the experts of ``n_layer - N`` blocks on the CARD; under mmap those
+    pages are read once, uploaded, and are then clean and evictable. They never
+    need to be resident at the same time as the CPU-side experts. Judged by
+    blob size, ``Qwen3.6-35B-A3B-UD-IQ3_XXS`` is 13.21 GB against srv1's
+    12.38 GB budget and refused -- while the experts it would actually hold in
+    RAM weigh 9.16 GB at its floor and 11.11 GB with every block offloaded.
+    Two further cells were refused the same way and would have run.
+
+    **The refusal is made only if MAX OFFLOAD still failed.** ``fits`` is
+    judged at :func:`expert_floor` -- the fewest blocks this card can leave in
+    RAM -- and not at the ``n_cpu_moe`` the entry happens to declare. A cell
+    whose declared value spills more than the budget but whose floor fits is
+    ADMITTED, with ``declared_fits`` false to say so: the model fits this rig
+    and the config is what needs moving, which is a finding rather than a
+    reason to skip the measurement. Only a model that overflows RAM even with
+    the card as full as it can be made is genuinely too big for the host.
+
+    Falls back to the blob-size test when the geometry cannot be read or the
+    checkpoint has no experts. That is the right test for a dense model -- it
+    has nothing to spill and no ``--n-cpu-moe`` to spill it with -- and for an
+    unreadable blob it is the conservative direction.
     """
     size = _gguf_bytes(host, model)
     available = _available_bytes(host)
@@ -422,7 +654,7 @@ def mmap_gate(host: str, model: str) -> dict[str, Any]:
             ),
         }
     budget = available - MMAP_HEADROOM_BYTES
-    return {
+    gate: dict[str, Any] = {
         "checked": True,
         "gguf_bytes": size,
         "gguf_gb": round(size / 1000**3, 2),
@@ -431,8 +663,85 @@ def mmap_gate(host: str, model: str) -> dict[str, Any]:
         "headroom_bytes": MMAP_HEADROOM_BYTES,
         "budget_bytes": budget,
         "budget_gb": round(budget / 1000**3, 2),
-        "fits": size <= budget,
     }
+
+    geometry = _geometry(host, model)
+    expert_bytes = int((geometry or {}).get("bytes_experts") or 0)
+    if not geometry or expert_bytes <= 0:
+        gate["basis"] = "blob"
+        gate["why_basis"] = (
+            "no expert tensors in this checkpoint, or its header could not be "
+            "read; a model with nothing to spill is weighed whole"
+        )
+        gate["fits"] = size <= budget
+        return gate
+
+    card = _card_mib(host)
+    usable = card.get("spendable_mib")
+    if usable is None:
+        gate["basis"] = "blob"
+        gate["card"] = card
+        gate["why_basis"] = (
+            f"the card on {host} could not be read, so the floor cannot be "
+            "derived and the blob is weighed whole -- the conservative "
+            "direction, and a refusal here is a reading failure to chase "
+            "rather than a model that is too big"
+        )
+        gate["fits"] = size <= budget
+        return gate
+
+    floor = expert_floor(geometry, serve, usable)
+    if not floor.get("derived"):
+        gate["basis"] = "blob"
+        gate["card"] = card
+        gate["floor"] = floor
+        gate["why_basis"] = (
+            "the floor could not be derived from this header, so the blob is "
+            f"weighed whole -- the conservative direction: {floor.get('why')}"
+        )
+        gate["fits"] = size <= budget
+        return gate
+
+    placeable = list(geometry.get("placeable_blocks") or [])
+    declared = min(int(serve.get("n_cpu_moe") or 0), len(placeable))
+
+    def resident(n_cpu_moe: int) -> int:
+        """Host bytes at a placement: the experts NOT on the card, plus runtime.
+
+        ``expert_bytes - experts_on_card(N)`` and never ``N x average block``.
+        The average matches no block in nine of ten checkpoints here, and the
+        knob takes ``N`` as a block INDEX -- a dense leading block means the
+        first step moves nothing at all, which the multiplication cannot say.
+        """
+        return int(expert_bytes - vramfit.experts_on_card(geometry, n_cpu_moe)) + (
+            RUNTIME_RESIDENT_BYTES
+        )
+
+    at_floor, at_declared = resident(floor["floor_n_cpu_moe"]), resident(declared)
+    gate.update(
+        {
+            "basis": "resident",
+            "card": card,
+            "geometry": {
+                "arch": geometry.get("arch"),
+                "n_layer": floor["n_layer"],
+                "n_placeable": floor["n_placeable"],
+                "bytes_experts": expert_bytes,
+                "bytes_nonexpert": geometry.get("bytes_nonexpert"),
+            },
+            "floor": floor,
+            "runtime_resident_bytes": RUNTIME_RESIDENT_BYTES,
+            "declared_n_cpu_moe": declared,
+            "resident_at_declared_bytes": at_declared,
+            "resident_at_declared_gb": round(at_declared / 1000**3, 2),
+            "resident_at_floor_bytes": at_floor,
+            "resident_at_floor_gb": round(at_floor / 1000**3, 2),
+            "declared_fits": at_declared <= budget,
+            # The rejection rule: max offload, and nothing else.
+            "fits": at_floor <= budget,
+        }
+    )
+    return gate
 
 
 def validate_serve(serve: dict[str, Any]) -> int:
@@ -560,16 +869,36 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
     3. Launch, then read ``total_slots`` back and refuse a width we did not get.
     """
     freed = release(host)
-    gate = mmap_gate(host, model)
+    gate = mmap_gate(host, model, serve)
     if gate.get("checked") and not gate.get("fits"):
+        # Two shapes of refusal, and they say different things to an operator.
+        # The resident one has already tried the card as full as it goes, so
+        # there is no `--n-cpu-moe` left to reach for; the blob one is the
+        # fallback path and names the reason the floor could not be derived.
+        if gate.get("basis") == "resident":
+            floor = gate["floor"]
+            detail = (
+                f"{model} spills {gate['resident_at_floor_gb']} GB of experts "
+                f"into host RAM even at its FLOOR of --n-cpu-moe "
+                f"{floor['floor_n_cpu_moe']} ({floor['resident_blocks']} of "
+                f"{floor['n_placeable']} placeable blocks on a card with "
+                f"{gate['card']['spendable_mib']} MiB free), against a "
+                f"{gate['budget_gb']} GB budget on {host}. Max offload was "
+                "tried and still failed, so this is the host being too small "
+                "for the model rather than the config being wrong."
+            )
+        else:
+            detail = (
+                f"{model} is {gate['gguf_gb']} GB against a "
+                f"{gate['budget_gb']} GB budget on {host}, weighed whole "
+                f"because {gate.get('why_basis')}"
+            )
         raise contract.NotCleanError(
-            f"{model} is {gate['gguf_gb']} GB and {host} has "
-            f"{gate['available_gb']} GB available, leaving a budget of "
-            f"{gate['budget_gb']} GB after {MMAP_HEADROOM_BYTES / 1000**3:.0f} GB "
-            "of headroom. mmap'd past `available` the server thrashes instead "
-            "of refusing, and the throughput it then reports is a disk "
-            "benchmark. Nothing was measured, and this is a refusal rather "
-            "than an error."
+            f"{detail} {host} has {gate['available_gb']} GB available and the "
+            f"headroom is {MMAP_HEADROOM_BYTES / 1000**3:.0f} GB. mmap'd past "
+            "`available` the server thrashes instead of refusing, and the "
+            "throughput it then reports is a disk benchmark. Nothing was "
+            "measured, and this is a refusal rather than an error."
         )
     args = _launch_args(model, serve, width)
     environment = serve.get("env", {})

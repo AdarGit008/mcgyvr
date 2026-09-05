@@ -62,7 +62,7 @@ a round every time a problem is authored, which is corpus work and not a product
 change. ``data/task-catalog.json`` is a different thing and *is* in: it is the
 vocabulary a contract is validated against, read by the product at run time, not
 the set of problems. ``tests/`` — a test cannot change what a worker is sent or
-how a candidate is scored. ``records/`` and ``docs/`` for the same reason. And
+how a candidate is scored. ``records/`` and ``archive/`` for the same reason. And
 the read-time tools — ``report.py``, ``identity.py``, ``mode.py`` — which
 describe runs already on disk and neither dispatch nor score; a change to how a
 table is printed must not re-baseline the measurements it prints.

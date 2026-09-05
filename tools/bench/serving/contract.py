@@ -241,8 +241,9 @@ LATENCY_TOLERANCE = 0.10
 #:
 #: **#356, 2026-08-24: the boundary is far from every graphs-on curve.** D7
 #: showed 0.02 separating "excluded" from "valid" (srv1 width 1 at 1.00
-#: against srv2's 1.02, `calibration-2026-08-19/README.md:996-1000`) -- both
-#: were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
+#: against srv2's 1.02,
+#: `archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:996-1000`)
+#: -- both were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
 #: speedup over n=1 is 3.39 (srv1, eager) and 3.61 (srv1, graphs); srv2's
 #: lowest is 7.5. Nothing is within a factor of three of the floor, so the
 #: constant excludes nothing in the new regime and its sensitivity stays a
@@ -654,13 +655,15 @@ def ssh(host: str, command: str, timeout: float = STEP_TIMEOUT_S) -> str | None:
     the gap instead of failing over it. Callers that need certainty check the
     reading rather than trusting the call.
     """
+    # The door's transport, imported when called and not when this module
+    # loads: the tests that stub this function never touch gatelib, and outside
+    # a door run gatelib refuses with SystemExit naming the door. That refusal
+    # propagates -- `except Exception` is for a timeout or a dead host, which
+    # are readings, and never for the door saying no.
+    from mcgyvr.serving.gatelib import ssh as door_ssh
+
     try:
-        proc = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, command],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = door_ssh(host, command, timeout=timeout)
     except Exception:
         return None
     return proc.stdout.strip() or None

@@ -3,7 +3,7 @@
 # tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh
 #   -> records/evidence/2026-09-02-srv1-kernel-arms/srv1-llama-bench.tsv
 #
-# Campaign step 3 (`PLAN.md:117-118`):
+# Campaign step 3 (`archive/docs/srv1-kernel-arms-PLAN.md:117-118`):
 #
 #   3  bench  llama-bench -p 512,2048 -n 128 -r 9 -fa 0,1
 #             x {L0,L1,L2,L3,L4,A3,A1}
@@ -25,7 +25,7 @@
 # (ARTIFACT-CONTRACT.md §6.4); it is a projection, never a second measurement.
 #
 # Two properties are asserted here and nowhere else
-# (test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py:52-71):
+# (test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py:42-66):
 #
 #   reps / stddev  the same build read 55.7 t/s at -r 3 and 86.4 t/s at -r 9.
 #                  `reps` is COUNTED from the sample array llama-bench reports,
@@ -52,7 +52,9 @@
 #   RUN_ARMS         arms to bench.        default "L0 L1 L2 L3 L4 A3 A1"
 #   RUN_TAG_PREFIX   image tag prefix.     default llamacpp:b10644-
 #   RUN_MODELS_DIR   mounted at /models.   default $HOME/models
-#   RUN_MODEL        model, relative to RUN_MODELS_DIR
+#   RUN_MODEL        the door's --model, the blob AS THE RIG SEES IT
+#                    (/models/<path>, the container form); the /models/
+#                    mount prefix is stripped to place it under RUN_MODELS_DIR
 #   RUN_PP / RUN_TG / RUN_REPS / RUN_FA / RUN_NGL   the step-3 command line
 #   RUN_HOST / RUN_REPO / RUN_RETRY_SLEEP           read by tools/runs/_common.sh
 #
@@ -60,13 +62,13 @@
 #   --dry-run     print the exact command line for every cell, execute nothing,
 #                 read nothing off the rig, write no file.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the file lands in
 # $RUN_OUT_DIR, and each arm's tag is resolved to a digest ONCE (image_digest,
 # gate 3) before llama-bench is started from it.
 # RUN_ARTIFACTS: srv1-llama-bench.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "3-llama-bench.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "3-llama-bench.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/3-llama-bench.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -80,7 +82,11 @@ ARTIFACT=srv1-llama-bench.tsv
 
 TAG_PREFIX=${RUN_TAG_PREFIX:-llamacpp:b10644-}
 MODELS_DIR=${RUN_MODELS_DIR:-$HOME/models}
-MODEL=${RUN_MODEL:-dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf}
+MODEL=${RUN_MODEL:-/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf}
+# The door admits only the container-absolute form (run.py:MODEL_PATH), so
+# the mount prefix is what comes off; a value the door never saw keeps its
+# shape and fails the local preflight below by name.
+MODEL=${MODEL#/models/}
 PP=${RUN_PP:-512,2048}
 TG=${RUN_TG:-128}
 REPS=${RUN_REPS:-9}
@@ -227,7 +233,7 @@ resolve_bench_entry() {
     return 1
 }
 
-# The step-3 command line, verbatim from PLAN.md:117-118, on
+# The step-3 command line, verbatim from archive/docs/srv1-kernel-arms-PLAN.md:117-118, on
 # whichever of the two entrypoints this arm's image actually has.
 bench_cmd() {
     local arm=$1 image entry
@@ -493,13 +499,14 @@ run_bench() {
     "${cmd[@]}" >"$json" 2>"$TMP/$arm.err"
 }
 
-# The backend the image DECLARES, from its own label, through the docker seam.
+# The backend the image DECLARES, from its own label, through the docker the
+# door put first on PATH.
 # A daemon that cannot answer is `label` — a refusal — and never read as "the
 # image declares nothing": that reading is exactly how a CPU number would be
 # filed under a vulkan tag again. Only an image that answers with an empty
 # label (A1, upstream, unlabelled) is exempt from the verdict.
 declared_backend_of() {
-    "${RUN_DOCKER:-docker}" image inspect \
+    docker image inspect \
         --format '{{index .Config.Labels "org.mcgyvr.build.backend"}}' "$1" 2>/dev/null
 }
 

@@ -8,7 +8,7 @@ them, nothing set them and nothing would have noticed them regressing between
 campaigns — so the ruling was true of a Saturday afternoon rather than of the
 instrument. ADR-0037 rule 1: a finding is a check, not a paragraph.
 
-``tools/bench/serving/configs/hosts.json`` is now the declaration, and the
+``tools/runs/hosts.json`` is now the declaration, and the
 checks below are the two halves the gap had:
 
 * the declaration is complete and self-describing — green, and it fails the

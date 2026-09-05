@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv1-qwen3-coder-30b-size host=srv1
+### ROUND id=r3-05-09-2026 product_sha256=247d1386fbe4de0cd674d710f86fb39039643e14902b723d6e6ed198677db333
+srv1	qwen3-coder-30b	SIZED	arch=qwen3moe	n_layer=48	placeable=48	floor_n_cpu_moe=42	kv_mib=1536.0	experts_on_card_mib=2241.0	predicted_mib=5496.3	free_mib=5727
+### END run_id=2026-09-05-e2e-srv1-qwen3-coder-30b-size

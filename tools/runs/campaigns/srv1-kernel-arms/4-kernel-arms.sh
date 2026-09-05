@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh — steps 4 (serve) and 7 (crash) of the srv1
-# kernel-arms run (`PLAN.md:111-128`), written against
-# `records/evidence/2026-09-02-srv1-kernel-arms/ARTIFACT-CONTRACT.md`.
+# kernel-arms run (`archive/docs/srv1-kernel-arms-PLAN.md:111-128`), written against
+# `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md`.
 #
 # It drives `tools/runs/drivers/lcp_sweep.py` over `tools/runs/workload.py` —
 # the workload the whole campaign shares —
@@ -71,22 +71,22 @@
 #
 # --dry-run prints the exact command line for every cell and touches nothing.
 #
-# Through the door only (tools/runs/run.sh): RUN_ID names the run in ### START,
+# Through the door only (python -m mcgyvr.serving.run): RUN_ID names the run in ### START,
 # ### ROUND records the product round gate 1 checked, the files land in
 # $RUN_OUT_DIR, and an arm's tag is resolved to a digest ONCE (image_digest,
 # gate 3) before the driver sees it — the driver refuses a tag.
 #
 # ONE FILE, TWO DOOR STEPS. The door guards what a step file DECLARES, and one
 # declaration cannot be write-once for step 4 and append-only for step 7, so
-# each campaign step is its own door step: `run.sh srv1-kernel-arms
-# kernel-arms` is step 4 (serve; this file, declaring the file it creates)
-# and `run.sh srv1-kernel-arms crash` is step 7 (7-crash.sh, declaring
+# each campaign step is its own door step: `--step .../4-kernel-arms.sh`
+# is step 4 (serve; this file, declaring the file it creates) and
+# `--step .../7-crash.sh` is step 7 (7-crash.sh, declaring
 # `RUN_APPENDS: srv1-moe-slots.tsv` and exec'ing this file with --step
 # crash). The door exports RUN_STEP — the step it started — and the mode is
 # held to it below; `--step all` is refused through the door.
 # RUN_ARTIFACTS: srv1-lcpp-arms.tsv
 
-[ -n "${RUN_ID:-}" ] || { echo "4-kernel-arms.sh: RUN_ID is unset — start me through tools/runs/run.sh" >&2; exit 2; }
+[ -n "${RUN_ID:-}" ] || { echo "4-kernel-arms.sh: RUN_ID is unset — start me through the door: python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh --model <blob as the rig sees it>" >&2; exit 2; }
 
 set -euo pipefail
 
@@ -112,7 +112,7 @@ SERVE_ARMS="L0 L1 L2 L3 L4 A1"
 SERVE_CELLS="d3b mling"
 SERVE_LEVELS="1,4,8"
 REPS=5
-# The unpatched arm and its patch. `PLAN.md:43-44`.
+# The unpatched arm and its patch. `archive/docs/srv1-kernel-arms-PLAN.md:43-44`.
 CRASH_ARM=L2
 FIX_ARM=L3
 CRASH_CELLS="mling moss4b"
@@ -152,16 +152,16 @@ done
 case ${RUN_STEP:-} in
     kernel-arms) : "${STEP:=serve}" ;;
     crash) : "${STEP:=crash}" ;;
-    *) _fail "RUN_STEP='${RUN_STEP:-}' names no door step this file serves (kernel-arms, or crash via 7-crash.sh); start me through tools/runs/run.sh" || exit 2 ;;
+    *) _fail "RUN_STEP='${RUN_STEP:-}' names no door step this file serves (kernel-arms, or crash via 7-crash.sh); start me through the door: python -m mcgyvr.serving.run --step .../4-kernel-arms.sh or .../7-crash.sh" || exit 2 ;;
 esac
 # `_fail || exit 2`: under `set -e`, _fail's own return 1 would otherwise end
 # the script with that status before the exit 2 a refusal owes.
 case $STEP in
     serve)
-        [ "$RUN_STEP" = kernel-arms ] || _fail "--step serve is step 4, started as 'tools/runs/run.sh srv1-kernel-arms kernel-arms'; this run was started as step '$RUN_STEP' (7-crash.sh), which declares only the file the crash study appends to" || exit 2
+        [ "$RUN_STEP" = kernel-arms ] || _fail "--step serve is step 4, started as 'python -m mcgyvr.serving.run ... --step tools/runs/campaigns/srv1-kernel-arms/4-kernel-arms.sh'; this run was started as step '$RUN_STEP' (7-crash.sh), which declares only the file the crash study appends to" || exit 2
         ;;
     crash)
-        [ "$RUN_STEP" = crash ] || _fail "--step crash is step 7, started as 'tools/runs/run.sh srv1-kernel-arms crash' (7-crash.sh, which declares RUN_APPENDS: srv1-moe-slots.tsv); this run was started as step '$RUN_STEP', whose declaration guards srv1-lcpp-arms.tsv write-once and would not see the append" || exit 2
+        [ "$RUN_STEP" = crash ] || _fail "--step crash is step 7, started as 'python -m mcgyvr.serving.run ... --step tools/runs/campaigns/srv1-kernel-arms/7-crash.sh' (7-crash.sh, which declares RUN_APPENDS: srv1-moe-slots.tsv); this run was started as step '$RUN_STEP', whose declaration guards srv1-lcpp-arms.tsv write-once and would not see the append" || exit 2
         ;;
     all)
         _fail "--step all is refused through the door: step 4 (serve, creates srv1-lcpp-arms.tsv) and step 7 (crash, appends to srv1-moe-slots.tsv) are two door invocations — 'kernel-arms' and 'crash' (7-crash.sh) — each declaring the one file it writes" || exit 2
@@ -332,7 +332,7 @@ log_tail_stop() {
 
 # What `quantization_config` is to a GPTQ checkpoint, `print_info: file type` is
 # to a GGUF: read, not inferred from the path. `A checkpoint's name is not
-# evidence of its format` (PLAN.md:143).
+# evidence of its format` (archive/docs/srv1-kernel-arms-PLAN.md:143).
 log_file_type() { # LOGFILE
     local out
     out=$(sed -n 's/.*file type *= *//p' "$1" 2>/dev/null | head -n 1) || out=
@@ -736,7 +736,7 @@ guard() { # FILE
 require_slots_owner() {
     local f=$RUN_DIR/$SLOTS_TSV
     if [ ! -e "$f" ]; then
-        _fail "$f does not exist, and this script does not create it. Step 6 owns that file: run 'tools/runs/run.sh srv1-kernel-arms moe-slots --host srv1 -- --model <ling.gguf>' first, then step 7 as 'tools/runs/run.sh srv1-kernel-arms crash --host srv1'. Appending step 7's crash rows to a file with no step-6 block would file the crash study under the placement null's name"
+        _fail "$f does not exist, and this script does not create it. Step 6 owns that file: run 'python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/6-moe-slots.sh --model <ling.gguf> -- --model <ling.gguf>' first, then step 7 as 'python -m mcgyvr.serving.run --host srv1 --campaign srv1-kernel-arms --step tools/runs/campaigns/srv1-kernel-arms/7-crash.sh --model <ling.gguf>'. Appending step 7's crash rows to a file with no step-6 block would file the crash study under the placement null's name"
         exit 1
     fi
     if ! grep -qE '^### +INSTRUMENT( .*)? step=6( |$)' "$f"; then

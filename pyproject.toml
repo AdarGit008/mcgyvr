@@ -2,7 +2,6 @@
 name = "mcgyvr"
 version = "0.0.0"
 description = "Offload scoped coding work from your agent to a configurable worker ladder"
-readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
@@ -84,6 +83,10 @@ src = ["src", "tests"]
 extend-exclude = [
     "records/measurements",
     "records/evidence",
+    # evidence prose moved out of records/evidence on 2026-09-05 (round r4) and
+    # stays as it was written; a formatter pass on it would alter the record.
+    "archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md",
+    "archive/docs/2026-09-02-srv1-kernel-arms-RUN-ORDER.md",
     "tools/bundle/python/tasks",
     # tools/problems/tasks/ is digest-pinned by tools/problems/admissions.jsonl the
     # way the python arm is pinned by test_python_arm.py: run directories pin
@@ -96,6 +99,19 @@ extend-exclude = [
     # every pin and change the instrument, not tidy it.
     "tools/bench/tasks",
     "tools/bench/reserve",
+    # src/mcgyvr/serving/ggufscan.py began as a verbatim copy of
+    # records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/ggufscan.py, excluded
+    # above for the reason every evidence file is. It has since DIVERGED: the
+    # GGUF parser (the `T`/`NAME` type maps and the reader) is still byte-for-
+    # byte the evidence copy, and everything after the tensor walk is new --
+    # per-block expert bytes, NextN/MTP and recurrent block detection, the
+    # caching-layer rules, and the KV/SSM geometry. The parser half is what must
+    # stay comparable line for line, because it is the half a formatter pass
+    # would make impossible to diff against the file a published measurement was
+    # computed with. Keeping the whole file excluded is the cheap way to hold
+    # that half still; the added half is covered by tests/test_serving_vramfit.py
+    # against measured rig readings rather than by the formatter.
+    "src/mcgyvr/serving/ggufscan.py",
 ]
 
 [tool.ruff.lint]
@@ -112,6 +128,13 @@ indent-style = "space"
 python_version = "3.12"
 files = ["src", "tests"]
 strict = true
+
+# ggufscan.py is held byte-comparable with the evidence copy (see the ruff
+# exclusion above); it is shipped to the rig as text and checked by
+# tests/test_ggufscan_self_contained.py and tests/test_serving_vramfit.py.
+[[tool.mypy.overrides]]
+module = "mcgyvr.serving.ggufscan"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

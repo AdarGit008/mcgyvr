@@ -9,50 +9,39 @@ re-run cost a move-aside.
 
 So the SKIP branch returns 0 like every other filed-nothing branch, and the
 loop goes on to the next arm. Pinned through the door against the real step
-with a docker on PATH whose llama-bench prints nothing.
+with a docker behind the shim whose llama-bench prints nothing: every arm of
+the step's default list files a SKIP, and ``### END`` follows the last.
 """
 
 from __future__ import annotations
 
-import os
-import shutil
 from pathlib import Path
 
 from tests import onedoor
+from tests.test_a_vulkan_arm_that_measured_the_cpu_is_refused_not_filed import (
+    CAMPAIGN,
+    _bench,
+    _bench_fixture,
+)
 
-CAMPAIGN = "srv1-kernel-arms"
 
-
-def test_two_unreadable_reports_are_two_skip_rows_under_one_end(tmp_path: Path) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    shutil.copytree(
-        onedoor.KERNEL_ARMS, root / "tools" / "runs" / "campaigns" / CAMPAIGN
-    )
-    stubs = tmp_path / "stubs"
-    stubs.mkdir()
-    docker = onedoor.executable(
-        stubs / "docker",
-        "#!/usr/bin/env bash\n"
+def test_unreadable_reports_are_skip_rows_under_one_end(tmp_path: Path) -> None:
+    body = (
         'case "${1:-}" in\n'
         f'  image) printf \'[{{"Id":"sha256:{onedoor.LOCAL_ID_HEX}",'
         '"RepoDigests":[]}]\\n\'; exit 0 ;;\n'
         "  *) exit 0 ;;\n"  # `run --entrypoint test` passes; llama-bench prints nothing
-        "esac\n",
+        "esac\n"
     )
-    models = tmp_path / "models" / "dense"
-    models.mkdir(parents=True)
-    (models / "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf").write_bytes(b"gguf")
-    env = onedoor.door_env(root, stubs, docker=docker)
-    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
-    env["RUN_ARMS"] = "L0 L1"
-    env["RUN_MODELS_DIR"] = str(tmp_path / "models")
-    env["RUN_RETRY_SLEEP"] = "0"
-    result = onedoor.door(root, [CAMPAIGN, "llama-bench", "--host", "srv1"], env)
+    root, env_extra = _bench_fixture(tmp_path, body)
+    result = onedoor.door(root, _bench(root, env_extra), env_extra=env_extra)
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])
     text = (onedoor.envelope(root, CAMPAIGN) / "srv1-llama-bench.tsv").read_text(
         encoding="utf-8"
     )
     rows = [line.split("\t") for line in text.splitlines() if "\t" in line]
-    skipped = sorted(r[1] for r in rows if r[2] == "SKIP")
-    assert skipped == ["L0-p512", "L1-p512"], text
+    assert rows, text
+    assert {r[2] for r in rows} == {"SKIP"}, text
+    skipped = sorted(r[1] for r in rows)
+    assert {"L0-p512", "L1-p512"} <= set(skipped), text
     assert any(line.startswith("### END") for line in text.splitlines()), text

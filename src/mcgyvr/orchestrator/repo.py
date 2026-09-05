@@ -55,6 +55,17 @@ _URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 # colon must not start with a backslash.
 _SCP_LIKE = re.compile(r"^([\w.-]+@)?[\w.-]+:(?![\\]).+$")
 
+# The schemes git resolves over ssh. With the scp-like form above, these are
+# every input that makes `git clone` spawn `ssh` from PATH — which would be the
+# only ssh spawn in the product outside the rig door
+# (mcgyvr.serving.gatelib.ssh). All of them are refused before git is run.
+_SSH_SCHEME = re.compile(r"^(?:ssh|git\+ssh|ssh\+git)://", re.IGNORECASE)
+
+_SSH_REFUSED = (
+    "an ssh remote is refused: nothing in mcgyvr opens ssh except the rig "
+    "door; use https://, git://, file:// or a local path"
+)
+
 
 class AttachError(Exception):
     """A repository could not be attached.
@@ -117,9 +128,11 @@ def attach(source: str | None, *, into: Path | None = None) -> Iterator[Attached
     """Attach ``source`` and yield the repository for the duration of the block.
 
     ``source`` is either a path to a local git checkout or a URL git can clone
-    (``https://``, ``ssh://``, ``git://``, ``file://``, or the scp-like
-    ``git@host:owner/repo`` form). A path that exists is used in place; a URL is
-    cloned.
+    without opening an ssh (``https://``, ``git://``, ``file://``). An ssh
+    remote — ``ssh://``, ``git+ssh://``, or the scp-like ``git@host:owner/repo``
+    and ``host:path`` forms — is refused before git runs: nothing in mcgyvr
+    opens ssh except the rig door. A path that exists is used in place; a URL
+    is cloned.
 
     ``into`` names where a clone lands and declares its lifetime. Omitted, a
     clone goes to an ephemeral temp directory removed when this context closes.
@@ -144,13 +157,18 @@ def attach(source: str | None, *, into: Path | None = None) -> Iterator[Attached
         yield _attach_local(local, supplied)
         return
 
+    ssh_form = _ssh_form(supplied)
+    if ssh_form is not None:
+        raise AttachError(f"{supplied!r} is {ssh_form}: {_SSH_REFUSED}")
+
     if _looks_remote(supplied):
         yield from _attach_clone(supplied, into)
         return
 
     raise AttachError(
         f"{supplied!r} is neither an existing directory nor a clonable URL: "
-        "pass a path to a local git checkout, or an https/ssh/git URL"
+        "pass a path to a local git checkout, or an https://, git:// or "
+        "file:// URL (an ssh remote is refused)"
     )
 
 
@@ -170,8 +188,27 @@ def _as_local_dir(source: str) -> Path | None:
 
 
 def _looks_remote(source: str) -> bool:
-    """Whether ``source`` is a URL git could clone."""
+    """Whether ``source`` is shaped like a URL git could clone.
+
+    Shape only: an ssh remote is shaped like one and is still refused, by
+    :func:`_ssh_form`, which :func:`attach` consults first.
+    """
     return bool(_URL_SCHEME.match(source) or _SCP_LIKE.match(source))
+
+
+def _ssh_form(source: str) -> str | None:
+    """How ``source`` would make git open an ssh, or None if it would not.
+
+    A scheme is decisive when present: ``ssh://`` and ``git+ssh://`` are ssh,
+    ``https://``/``git://``/``file://`` are not. Without a scheme, the scp-like
+    ``[user@]host:path`` form is ssh — git never names the transport, it just
+    spawns ``ssh`` from PATH.
+    """
+    if _URL_SCHEME.match(source):
+        return "an ssh:// URL" if _SSH_SCHEME.match(source) else None
+    if _SCP_LIKE.match(source):
+        return "the scp-like host:path form, which git clones over ssh"
+    return None
 
 
 def _attach_local(path: Path, source: str) -> AttachedRepo:

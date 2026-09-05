@@ -10,7 +10,8 @@ between them is exactly how the first one gets skipped.
 **Why it no longer launches.** The launch half was the second of four live entry
 points to the rigs on 2026-09-02, with its own detached driver, its own trap and
 its own release path — none of which stamped rig state, product round or workload
-digest. ``tools/runs/run.sh`` is now the one door: it runs :func:`verify_markers`
+digest. ``python -m mcgyvr.serving.run`` is now the one door: its gate 2
+(``src/mcgyvr/serving/gate-scripts/02-rig.py``) runs :func:`verify_markers`
 before any step of a campaign whose ``campaign.json`` declares ``"serving":
 true`` and refuses, having written nothing, when a marker is missing. So D8's
 "one step" still holds — the check and the launch are one invocation — it is just
@@ -119,8 +120,9 @@ MARKERS: tuple[tuple[str, str, str], ...] = (
 #: A marker this list used to carry — ``("tools/bench/serving/launch.py",
 #: "wait $CHILD", "the interrupt path — a foreground phase defers the trap")``
 #: — is retired with the launch path it certified. The interrupt path now
-#: belongs to ``tools/runs/run.sh``'s teardown trap (gate 7), which is checked
-#: by a test rather than by a substring.
+#: belongs to the door's gate 7
+#: (``src/mcgyvr/serving/gate-scripts/07-teardown.py``), which is checked by a
+#: test rather than by a substring.
 
 #: Markers that must NOT be present — a withdrawn thing is only withdrawn if it
 #: is gone. Checked in the same pass, because "we removed it" is exactly the
@@ -225,9 +227,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {line}", file=sys.stderr)
     print(
         "tools/bench/serving/launch.py no longer launches anything. The marker "
-        "check runs inside tools/runs/run.sh before every step of a serving "
-        "campaign; start the run there:\n"
-        "  tools/runs/run.sh <campaign> <step> --host srv1|srv2",
+        "check runs at gate 2 of the door (src/mcgyvr/serving/gate-scripts/"
+        "02-rig.py) before every step of a serving campaign; start the run "
+        "there, and let its usage name the arguments:\n"
+        "  python -m mcgyvr.serving.run --help",
         file=sys.stderr,
     )
     return 2
