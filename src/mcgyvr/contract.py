@@ -375,11 +375,14 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "Hard cap on the worker's reply, enforced in the runner. A reply cut "
         "off at the cap is a named failure and is never applied to a file. "
-        "Left out, it is derived from what the task type's own required "
-        "evidence says the reply has to be (`output_cap`) — which is why this "
-        "is the one key in the schema with no static default: a single number "
-        "for every type is wrong for at least one of them. Deriving it "
-        "further from the target's own content is #17.",
+        "Declare it for any task type a model executes: `mcgyvr contract` and "
+        "`mcgyvr run` refuse a model contract that leaves it out (exit 2) and "
+        "print the figure the type's own evidence would derive (`output_cap`) "
+        "as the value to start from — the first live run cut its top rung's "
+        "reply at a derived 1024 that nobody had chosen. It is the one key in "
+        "the schema with no static default: a single number for every type is "
+        "wrong for at least one of them. Deriving it from the target's own "
+        "content is #17.",
         default=None,
         min_value=1,
     ),

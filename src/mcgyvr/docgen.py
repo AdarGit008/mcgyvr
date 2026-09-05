@@ -297,6 +297,8 @@ target: src/pkg/fetch.py
 interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
 stop_conditions:
   - The 404 behaviour cannot be read from the code.
+limits:
+  max_output_tokens: 512
 scope:
   allow: ["src/pkg/fetch.py"]
 """,
@@ -308,6 +310,8 @@ target: src/pkg/fetch.py
 stop_conditions:
   - A helper's return type cannot be determined from its callers.
 acceptance: ["mypy src/pkg/fetch.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/fetch.py"]
 """,
@@ -325,6 +329,8 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
 risk: low
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -340,6 +346,8 @@ deps:
 stop_conditions:
   - The expected result for a remainder group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["tests/test_chunk.py"]
 """,
@@ -353,6 +361,8 @@ stop_conditions:
   - The demonstrating test does not fail on the current code.
 demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
 acceptance: ["pytest -q tests/test_chunk.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -472,7 +482,10 @@ def render_skill() -> str:
         "```",
         "",
         "Prints what the contract resolves to, or names the key that is wrong. Fix",
-        "the contract; never guess a field.",
+        "the contract; never guess a field. A contract a model executes must",
+        "declare `limits.max_output_tokens`, or this and `run` refuse it (exit 2)",
+        "and print the figure to start from: a reply cut at a cap nobody chose",
+        "is spent silently.",
         "",
         "## Step 3 — run it, then read the result file",
         "",

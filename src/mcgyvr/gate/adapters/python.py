@@ -42,6 +42,55 @@ _EXTENSIONS = (".py", ".pyi")
 #: and a second opinion cannot guarantee the re-run gate accepts.
 RUFF = "ruff"
 
+#: The basic default a repository that declares no ruff configuration is judged
+#: by: this project's own nine families (owner, 2026-09-05). Measured in the
+#: first live e2e, ruff 0.16.4 with no configuration enables 826 rules, and
+#: TRY004 alone rejected six of nine replies for raising ``ValueError`` where
+#: the worker bundle says to; ``tools/bench/score.py:lint_config`` had already
+#: measured the same on the corpus and written this selection into every bench
+#: workspace. The live gate had no such floor. A repository that states its
+#: own ``[tool.ruff]``, ``ruff.toml`` or ``.ruff.toml`` keeps it, whatever it
+#: selects: the default is for the repository that said nothing.
+DEFAULT_RUFF_SELECT: tuple[str, ...] = (
+    "E",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+)
+DEFAULT_RUFF_LINE_LENGTH = 88
+_RUFF_CONFIG_FILES = ("ruff.toml", ".ruff.toml")
+
+
+def declares_ruff_config(repo: Path) -> bool:
+    """Whether ``repo`` states a ruff configuration of its own at its root."""
+    if any((repo / name).is_file() for name in _RUFF_CONFIG_FILES):
+        return True
+    return _has_toml_table(repo / "pyproject.toml", "ruff")
+
+
+def ruff_config_args(repo: Path) -> list[str]:
+    """The arguments that hold ruff to the basic default for a repo that
+    declares none — ``--isolated`` so no configuration is found by walking up
+    from the workspace, then the default stated inline. Empty when the repo
+    has its own, so ruff reads it exactly as it would for the repo's owner."""
+    if declares_ruff_config(repo):
+        return []
+    select = ", ".join(f'"{family}"' for family in DEFAULT_RUFF_SELECT)
+    return [
+        "--isolated",
+        "--config",
+        f"line-length = {DEFAULT_RUFF_LINE_LENGTH}",
+        "--config",
+        f"lint.select = [{select}]",
+        "--config",
+        'format.quote-style = "double"',
+    ]
+
 
 class PythonAdapter(LanguageAdapter):
     @property
@@ -98,6 +147,7 @@ class PythonAdapter(LanguageAdapter):
             [
                 ruff,
                 "check",
+                *ruff_config_args(repo),
                 "--output-format=json",
                 "--force-exclude",
                 "--",
@@ -160,7 +210,15 @@ class PythonAdapter(LanguageAdapter):
             return []
         ruff = require_tool(RUFF)
         proc = subprocess.run(
-            [ruff, "format", "--diff", "--force-exclude", "--", *_paths(files)],
+            [
+                ruff,
+                "format",
+                *ruff_config_args(repo),
+                "--diff",
+                "--force-exclude",
+                "--",
+                *_paths(files),
+            ],
             cwd=repo,
             capture_output=True,
             text=True,

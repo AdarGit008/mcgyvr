@@ -88,7 +88,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | Hard cap on the worker's reply, enforced in the runner. A reply cut off at the cap is a named failure and is never applied to a file. Left out, it is derived from what the task type's own required evidence says the reply has to be (`output_cap`) — which is why this is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. Deriving it further from the target's own content is #17. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | Hard cap on the worker's reply, enforced in the runner. A reply cut off at the cap is a named failure and is never applied to a file. Declare it for any task type a model executes: `mcgyvr contract` and `mcgyvr run` refuse a model contract that leaves it out (exit 2) and print the figure the type's own evidence would derive (`output_cap`) as the value to start from — the first live run cut its top rung's reply at a derived 1024 that nobody had chosen. It is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. Deriving it from the target's own content is #17. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times a rung may be retried before escalating. Retrying forever on one rung is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
 ### One minimal example per task type
@@ -150,6 +150,8 @@ target: src/pkg/fetch.py
 interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
 stop_conditions:
   - The 404 behaviour cannot be read from the code.
+limits:
+  max_output_tokens: 512
 scope:
   allow: ["src/pkg/fetch.py"]
 ```
@@ -164,6 +166,8 @@ target: src/pkg/fetch.py
 stop_conditions:
   - A helper's return type cannot be determined from its callers.
 acceptance: ["mypy src/pkg/fetch.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/fetch.py"]
 ```
@@ -184,6 +188,8 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
 risk: low
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/chunk.py"]
 ```
@@ -202,6 +208,8 @@ deps:
 stop_conditions:
   - The expected result for a remainder group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["tests/test_chunk.py"]
 ```
@@ -218,6 +226,8 @@ stop_conditions:
   - The demonstrating test does not fail on the current code.
 demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
 acceptance: ["pytest -q tests/test_chunk.py"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/chunk.py"]
 ```
@@ -229,7 +239,10 @@ mcgyvr contract CONTRACT.yaml
 ```
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
-the contract; never guess a field.
+the contract; never guess a field. A contract a model executes must
+declare `limits.max_output_tokens`, or this and `run` refuse it (exit 2)
+and print the figure to start from: a reply cut at a cap nobody chose
+is spent silently.
 
 ## Step 3 — run it, then read the result file
 

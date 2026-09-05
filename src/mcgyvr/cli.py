@@ -281,6 +281,28 @@ def _catalog(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cap_undeclared(contract: Contract) -> str | None:
+    """Why a model contract with no declared reply cap is refused, or None.
+
+    The loader derives ``limits.max_output_tokens`` from the task type's own
+    evidence, silently, because the bench and the corpus need a number. A
+    person's run does not get that silence (owner, 2026-09-05: "fail loud
+    when no budget is declared"): the first live ladder cut the top rung's
+    reply at a derived 1024 after a 41-second climb, and nobody had chosen
+    the number. The derived figure is printed as the value to start from. A
+    deterministic contract has no reply to cap and is not asked.
+    """
+    if contract.is_deterministic or contract.max_output_tokens_declared:
+        return None
+    return (
+        f"limits.max_output_tokens is not declared, and {contract.task_type} is "
+        f"executed by a model: a reply cut at a cap nobody chose is spent "
+        f"silently. State the cap in the contract — the type's own evidence "
+        f"would size it at {contract.limits.max_output_tokens} tokens, which is "
+        f"a starting value, not a measurement."
+    )
+
+
 def _contract(args: argparse.Namespace) -> int:
     import json
 
@@ -293,6 +315,10 @@ def _contract(args: argparse.Namespace) -> int:
         # it names the field and what a valid value looks like.
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    undeclared = _cap_undeclared(contract)
+    if undeclared is not None:
+        print(f"error: {undeclared}", file=sys.stderr)
+        return Exit.USAGE
 
     if args.worker_view:
         print(json.dumps(contract.worker_view(), indent=2))
@@ -800,6 +826,12 @@ def _run(args: argparse.Namespace) -> int:
     except ContractError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    undeclared = _cap_undeclared(contract)
+    if undeclared is not None:
+        # Before the repo, the config, the session and the journal: nothing is
+        # filed for a run that was refused for what its contract left out.
+        print(f"error: {undeclared}", file=sys.stderr)
+        return Exit.USAGE
 
     repo = Path(args.repo).resolve()
     if not (repo / ".git").exists():
