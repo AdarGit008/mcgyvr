@@ -48,7 +48,18 @@ NOT_SCANNED = {"records", "archive", ".git", ".venv", "node_modules", "__pycache
 #: argument, in a code line. Comments and docstrings are dropped first
 #: (``launch.code_lines``' argument: a record saying what a thing used to do
 #: is the opposite of the defect looked for).
-INVOCATION = re.compile(r"(?<![\w./-])(docker\s+run|ssh)\s+(?=[\w$\"'{@.-])")
+INVOCATION = re.compile(
+    # Shell form: `ssh host ...`, `docker run ...`.
+    r"(?<![\w./-])(docker\s+run|ssh)\s+(?=[\w$\"'{@.-])"
+    # LIST form: `["ssh", "-o", ...]`, `["docker", "run", ...]`. Added
+    # 2026-09-05 because the shell pattern alone could not see a subprocess
+    # argv, so a Python file could open an ssh to a rig and never appear in
+    # this scan — which is the whole thing this file is for. The gate scripts
+    # under src/mcgyvr/serving/ were invisible to it until this alternative
+    # existed; only their ERROR MESSAGES matched, by accident.
+    r"|[\"'](?:ssh|scp|rsync)[\"']\s*,"
+    r"|[\"']docker[\"']\s*,\s*[\"'](?:run|create|start)[\"']"
+)
 
 #: The door and what stands behind it. Path glob -> why it may reach a rig.
 #: ``fnmatch`` semantics: ``*`` crosses ``/``. The three root drivers and
@@ -57,6 +68,36 @@ INVOCATION = re.compile(r"(?<![\w./-])(docker\s+run|ssh)\s+(?=[\w$\"'{@.-])")
 ALLOWED: dict[str, str] = {
     "tools/runs/run.sh": (
         "the door — the one executable that opens an ssh or starts a container"
+    ),
+    # The Python door (src/mcgyvr/serving/run.py) and the scripts it spawns.
+    # run.py itself is NOT here and must not be: it reaches no rig, it only
+    # runs the gate scripts in order, which is what makes the list below the
+    # complete set of places a rig is touched from that side.
+    "src/mcgyvr/serving/gatelib.py": (
+        "the gate scripts' only ssh; a gate that opened its own would not be "
+        "one the door could time out or point at a host"
+    ),
+    "src/mcgyvr/serving/gate-scripts/02-rig.py": (
+        "gate 2 — ships rig-snapshot.sh on stdin and compares the reading with "
+        "hosts.json before any step runs"
+    ),
+    "src/mcgyvr/serving/gate-scripts/data-20-geometry.py": (
+        "the geometry read — ggufscan over `python3 -`, headers only, nothing "
+        "landing on the rig's disk"
+    ),
+    "src/mcgyvr/serving/gate-scripts/07-teardown.py": (
+        "gate 7 — re-reads the rig and lists containers named for the run"
+    ),
+    "src/mcgyvr/serving/gate-scripts/03-image.py": (
+        "gate 3 — asks the daemon whether it answers; starts nothing"
+    ),
+    "src/mcgyvr/serving/gate-scripts/rig-snapshot.sh": (
+        "the reader itself: it RUNS ON the rig, piped in on stdin by gate 2, "
+        "and opens nothing of its own"
+    ),
+    "tests/test_cross_rig_claim.py": (
+        "monkeypatches contract.ssh with a stub; reaches no rig, and appears "
+        "here only because the list-form pattern sees the stub's argv"
     ),
     "tools/runs/_common.sh": (
         "the emitter run.sh sources: rig_snapshot over ssh, image_digest over docker"

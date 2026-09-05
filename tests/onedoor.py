@@ -54,7 +54,26 @@ from types import ModuleType
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "tools" / "runs"
-RUN_SH = RUNS / "run.sh"
+
+#: ARCHIVED 2026-09-05, round r3. `run.sh` and `_common.sh` moved to
+#: `archive/runs/` when `src/mcgyvr/serving/run.py` became the one access point.
+#:
+#: The tests that drive them are kept, pointed here, and are no longer a
+#: statement about what runs — they are the SPEC the Python door has to meet.
+#: Each one is a rule that cost rig time to learn (an artifact overwritten, a
+#: rig that moved mid-run, a parser that only ran in CI), and deleting them
+#: with the file would throw away the reasons along with the implementation.
+#:
+#: What run.py already reproduces, verified 2026-09-05 by mutation: gate 5
+#: write-once, gate 5's refusal of a step that declares nothing, gate 8's
+#: parse-and-prefix read-back, gate 7's teardown, and a refusal when a gate
+#: script is missing. What is NOT yet ported: the interrupt path's stamping,
+#: the RUN_REWRITES supersede-move, and the driver seams below.
+ARCHIVED_RUNS = REPO / "archive" / "runs"
+RUN_SH = ARCHIVED_RUNS / "run.sh"
+#: NOT archived with it. `_common.sh` is the emitter LIBRARY the campaign steps
+#: source (stamps, rig readings, image digests) — the steps are callers and go
+#: on working; only the door itself moved.
 COMMON_SH = RUNS / "_common.sh"
 ROWS_PY = RUNS / "rows.py"
 WORKLOAD_PY = RUNS / "workload.py"
@@ -321,6 +340,12 @@ def fixture_repo(tmp_path: Path) -> Path:
         ignore=shutil.ignore_patterns("__pycache__", "campaigns"),
     )
     (root / "tools" / "runs" / "campaigns").mkdir()
+    # `run.sh` is no longer under RUNS to be copied by the copytree above — it
+    # was archived when src/mcgyvr/serving/run.py became the door. These tests
+    # still drive it, as the spec the Python door has to meet, so the archived
+    # copy is placed at the path they invoke.
+    shutil.copy(RUN_SH, root / "tools" / "runs" / "run.sh")
+    (root / "tools" / "runs" / "run.sh").chmod(0o755)
     (root / "tools" / "runs" / "hosts.json").write_text(
         hosts_document(), encoding="utf-8"
     )
@@ -417,11 +442,16 @@ def door_env(
 def door(
     root: Path, argv: list[str], env: dict[str, str]
 ) -> subprocess.CompletedProcess[str]:
-    """Run the fixture's copy of ``run.sh``; the real one must exist to copy."""
+    """Run the fixture's copy of the ARCHIVED ``run.sh``; it must exist to copy."""
     assert RUN_SH.is_file(), f"{RUN_SH.relative_to(REPO)} does not exist"
     assert os.access(RUN_SH, os.X_OK), f"{RUN_SH.relative_to(REPO)} is not executable"
+    # A throw-away tree has the door copied into it at the path these tests
+    # drive; the REAL checkout no longer has one there, because it was
+    # archived. Reach for the archived copy in that case rather than a path
+    # that has not existed since round r3.
+    door_path = RUN_SH if root == REPO else root / "tools" / "runs" / "run.sh"
     return subprocess.run(
-        [str(root / "tools" / "runs" / "run.sh"), *argv],
+        [str(door_path), *argv],
         cwd=root,
         env=env,
         capture_output=True,

@@ -87,9 +87,15 @@
 set -euo pipefail
 
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=./_common.sh
-# shellcheck disable=SC1091  # sourced at runtime from the script's own directory
-. "$HERE/_common.sh"
+# ARCHIVED 2026-09-05, round r3: this file moved to archive/runs/ when
+# src/mcgyvr/serving/run.py became the one access point to the rigs.
+# `_common.sh` did NOT move with it — the campaign steps source it as an
+# emitter library and go on working — so the library is reached at the home it
+# kept, and this file is no longer beside it. Kept runnable rather than
+# deleted: the one-door tests drive it as the SPEC the Python door must meet.
+# shellcheck source=../../tools/runs/_common.sh
+# shellcheck disable=SC1091  # sourced at runtime
+. "$HERE/_common.sh" 2>/dev/null || . "$HERE/../../tools/runs/_common.sh"
 
 # The checkout is where this file lives unless a caller says otherwise; the
 # cwd is not evidence of anything.
