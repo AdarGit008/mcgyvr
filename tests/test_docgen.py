@@ -1,15 +1,18 @@
-"""The config reference is a projection of the schema, and stays one.
+"""The config reference is a projection of the schema, and is never kept.
 
-Drift between the committed reference and the schema is caught by
-``make docs-check`` in CI — that is a property of the repository's state.
-What is tested here are the properties of the generator itself, which the
-drift check cannot express: that it is deterministic, that it reaches every
-key, and that the things the loader treats as load-bearing survive the
-rendering.
+The schema is the reference. A rendered copy that outlives its check becomes
+a second description of the config, so the owner's ruling (2026-09-05) is
+that every ``docgen`` run renders the reference, checks it and deletes it —
+no copy is committed and ``make docs-check`` cannot find one to compare.
+What is tested here are the properties of the generator itself: that it is
+deterministic, that it reaches every key, that the things the loader treats
+as load-bearing survive the rendering, and that the rendered file is gone
+when the run returns, whatever the verdict.
 """
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -95,32 +98,78 @@ def test_credential_keys_are_documented_as_names_not_values() -> None:
             assert "never the value" in rendered
 
 
-def test_check_mode_detects_drift(tmp_path: Path) -> None:
-    target = tmp_path / "reference.md"
+def test_the_reference_is_rendered_checked_and_deleted_on_every_run(
+    tmp_path: Path,
+) -> None:
+    # Both modes: the reference exists only for the length of its check. The
+    # skill is pre-rendered so that `--check` has nothing else to refuse.
+    reference = tmp_path / "config-reference.md"
+    skill = tmp_path / "SKILL.md"
+    skill.write_text(docgen.render_skill(), encoding="utf-8")
+    common = ["--output", str(reference), "--skill-output", str(skill)]
 
-    assert docgen.main(["--output", str(target)]) == 0
-    assert docgen.main(["--check", "--output", str(target)]) == 0
+    assert docgen.main(common) == 0
+    assert not reference.exists()
+    assert docgen.main(["--check", *common]) == 0
+    assert not reference.exists()
 
-    target.write_text("# hand-edited\n", encoding="utf-8")
-    assert docgen.main(["--check", "--output", str(target)]) == 1
+
+def test_a_reference_that_drops_a_key_fails_its_check_and_is_still_deleted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reference = tmp_path / "config-reference.md"
+    skill = tmp_path / "SKILL.md"
+    skill.write_text(docgen.render_skill(), encoding="utf-8")
+    monkeypatch.setattr(docgen, "render_reference", lambda: docgen.MARKER + "\n")
+
+    argv = ["--output", str(reference), "--skill-output", str(skill)]
+    assert docgen.main(argv) == 1
+    assert not reference.exists()
+    err = capsys.readouterr().err
+    assert "`version`" in err  # a required key the empty document does not name
 
 
-def test_check_mode_treats_a_missing_file_as_drift(tmp_path: Path) -> None:
-    assert docgen.main(["--check", "--output", str(tmp_path / "absent.md")]) == 1
+def test_check_mode_treats_a_missing_skill_as_drift(tmp_path: Path) -> None:
+    argv = [
+        "--check",
+        "--output",
+        str(tmp_path / "config-reference.md"),
+        "--skill-output",
+        str(tmp_path / "absent.md"),
+    ]
+    assert docgen.main(argv) == 1
 
 
 def test_check_mode_names_the_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    target = tmp_path / "reference.md"
-    target.write_text("stale\n", encoding="utf-8")
-    docgen.main(["--check", "--output", str(target)])
+    skill = tmp_path / "SKILL.md"
+    skill.write_text("stale\n", encoding="utf-8")
+    argv = [
+        "--check",
+        "--output",
+        str(tmp_path / "config-reference.md"),
+        "--skill-output",
+        str(skill),
+    ]
+    docgen.main(argv)
     assert "make docs" in capsys.readouterr().err
 
 
-def test_committed_reference_is_where_the_generator_writes() -> None:
-    # If this path moves, `make docs-check` silently checks nothing.
-    assert (docgen.REPO_ROOT / docgen.REFERENCE_PATH).exists()
+def test_no_rendered_reference_is_committed() -> None:
+    # The schema is the reference. A committed rendering is a second one,
+    # and the generator no longer has a checkout path to write it to.
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "*config-reference.md"],
+        cwd=docgen.REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert tracked == [], tracked
+    assert not hasattr(docgen, "REFERENCE_PATH")
 
 
 def test_table_cells_escape_pipes() -> None:

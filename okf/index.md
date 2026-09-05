@@ -15,7 +15,8 @@ Three hand-authored trees live here beside the generated concept bundle.
 
 Claims are atomic and carry a path. **The path is where the reasoning lives, not
 where the authority lives** — a claim is true because something was measured,
-and the archive is how you check that, not something to defer to.
+and `records/evidence/` and the journals are how you check that. `archive/`
+is not read, and is not an authority when it is → `must-read/always.md`.
 
 ## `models/` — sizing concepts
 
@@ -54,6 +55,9 @@ is the reason `--n-cpu-moe` is a no-op on `Qwen3.8-27B-UD-IQ3_XXS`.
 → `config/llama.cpp.md`
 
 ## Archive
+
+Locator only. The `archive/` rows are not opened unasked, and carry no
+authority when they are → `must-read/always.md`.
 
 | what | where |
 |---|---|

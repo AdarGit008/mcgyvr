@@ -41,12 +41,13 @@ jobs:
         run: make lint
       - name: typecheck
         run: make typecheck
-      # The config reference is generated from config.SCHEMA. This fails a
-      # schema change that did not regenerate it, which is the only thing
-      # keeping a documented key and a validated key from drifting apart.
-      # It lives in this job on purpose: `test` is a required status check,
-      # so drift cannot merge. A separate job would not be required.
-      - name: config reference is current
+      # The config reference is rendered from config.SCHEMA, checked and
+      # deleted — no copy is kept, so the schema is the only description of
+      # the config. The /mcgyvr skill is the document that is committed, and
+      # this fails a contract-schema change that did not regenerate it. It
+      # lives in this job on purpose: `test` is a required status check, so
+      # drift cannot merge. A separate job would not be required.
+      - name: config reference renders and the skill is current
         run: make docs-check
       - name: test
         run: make test

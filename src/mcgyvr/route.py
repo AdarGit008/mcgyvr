@@ -105,7 +105,8 @@ again after each failure would order the whole *walk* by load, and a walk
 ordered by load is a walk with no ladder in it at all — the rung a failure
 escalates to would be whichever machine happened to be quiet, which inverts the
 one thing a ladder asserts, each rung being measurably better than the one
-below it, and which ``archive/docs/config-reference.md`` calls actively harmful.
+below it, and which the ``ladder.tiers`` doc in ``config.SCHEMA`` calls actively
+harmful.
 
 **A start can also be handed in, already paid for.** :func:`climb`'s ``claimed``
 takes the name of a rung whose reservation the caller holds, and that rung goes

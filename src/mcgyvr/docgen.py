@@ -4,8 +4,15 @@
 it is required, its default and the prose explaining it. That makes the
 reference a projection of the schema rather than a second description of it,
 so a documented key and a validated key cannot drift apart. Hand-written
-config docs drift the moment the schema moves; this file exists so that
-drift is a build failure instead.
+config docs drift the moment the schema moves; this file exists so that the
+schema is the only description there is.
+
+The reference is never kept (owner's ruling, 2026-09-05). Every run renders
+it, checks it — the provenance marker is on it and every validated key is
+named — and deletes it, so no copy sits in the checkout to be read in place
+of the schema or to fall behind it. The skill is the document that is
+written, because an agent reads it from disk; ``make docs-check`` refuses a
+committed skill that differs from what the schema renders.
 
 Two constraints shape the rendering:
 
@@ -13,8 +20,8 @@ Two constraints shape the rendering:
    here reads the clock, the filesystem or the environment, and nothing
    iterates an unordered collection — the walk follows declaration order,
    which is the order a reader of the config file meets the keys. A
-   generator that embeds a timestamp cannot be diffed against its committed
-   output, which would cost exactly the check this issue is about.
+   generator that embeds a timestamp cannot be diffed against the skill it
+   last wrote, which would cost exactly the drift check.
 2. **No prose that lives only here.** Every description below comes from a
    ``Field``'s ``doc``. The fixed scaffolding is limited to structure and to
    explaining the value types, because those are properties of the loader,
@@ -33,7 +40,9 @@ the workflow, which is a property of the product and of no one key.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -50,7 +59,6 @@ MARKER = (
 # from a checkout, never from an installed wheel, so deriving the path is
 # honest here in a way it would not be in shipped code.
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REFERENCE_PATH = Path("archive/docs/config-reference.md")
 SKILL_PATH = Path("skills/mcgyvr/SKILL.md")
 SKILL_MARKER = (
     "<!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by "
@@ -560,20 +568,63 @@ def render_skill() -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
+    """Every key in the schema, at every depth, as dotted paths."""
+    out: list[str] = []
+    for field in fields:
+        path = f"{prefix}.{field.name}" if prefix else field.name
+        out.append(path)
+        out.extend(_keys(field.block, path))
+    return out
+
+
+def check_reference(target: Path) -> list[str]:
+    """Render the reference to ``target``, check it, and delete it.
+
+    Returns what is wrong with it — nothing, when it is sound. The file is
+    gone when this returns whatever the verdict: the schema is the reference,
+    and a rendered copy that outlives its check becomes a second description
+    of the config that then has to be kept current (owner ruling,
+    2026-09-05). The check is the one a reader would make — the provenance
+    marker is on it, and every key the loader validates is named in it.
+    """
+    rendered = render_reference()
+    try:
+        target.write_text(rendered, encoding="utf-8")
+        text = target.read_text(encoding="utf-8")
+    finally:
+        target.unlink(missing_ok=True)
+    problems: list[str] = []
+    if not text.startswith(MARKER):
+        problems.append("the DO NOT EDIT marker is not the first line")
+    problems.extend(
+        f"`{path.split('.')[-1]}` is validated and not named"
+        for path in _keys(SCHEMA)
+        if f"`{path.split('.')[-1]}`" not in text
+    )
+    return problems
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.docgen",
-        description="Generate the configuration reference from the config schema.",
+        description=(
+            "Render the configuration reference from the config schema, check it "
+            "and delete it; write the /mcgyvr skill, or check the committed one."
+        ),
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="exit non-zero if the committed reference is not what the schema renders",
+        help="exit non-zero if the committed skill is not what the schema renders",
     )
     parser.add_argument(
         "--output",
-        default=str(REPO_ROOT / REFERENCE_PATH),
-        help="where to write the reference (default: the checkout's copy)",
+        default=None,
+        help=(
+            "where the reference is rendered for its check; deleted afterwards "
+            "(default: a file under the temporary directory)"
+        ),
     )
     parser.add_argument(
         "--skill-output",
@@ -582,32 +633,42 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    documents = (
-        (Path(args.output), render_reference(), "SCHEMA in src/mcgyvr/config.py"),
-        (Path(args.skill_output), render_skill(), "SCHEMA in src/mcgyvr/contract.py"),
+    reference = (
+        Path(args.output)
+        if args.output is not None
+        else Path(tempfile.gettempdir()) / f"mcgyvr-config-reference-{os.getpid()}.md"
     )
+    problems = check_reference(reference)
+    if problems:
+        print(
+            f"{reference}: the reference rendered from SCHEMA in "
+            "src/mcgyvr/config.py fails its check, and was deleted:",
+            *(f"  {problem}" for problem in problems),
+            sep="\n",
+            file=sys.stderr,
+        )
+    else:
+        print(f"config reference: rendered to {reference}, checked, deleted")
 
+    skill = Path(args.skill_output)
+    rendered = render_skill()
+    stale = 0
     if args.check:
-        stale = 0
-        for target, rendered, source in documents:
-            current = target.read_text(encoding="utf-8") if target.exists() else ""
-            if current == rendered:
-                continue
-            stale += 1
+        current = skill.read_text(encoding="utf-8") if skill.exists() else ""
+        if current != rendered:
+            stale = 1
             print(
-                f"{target}: out of date with {source}.\n"
+                f"{skill}: out of date with SCHEMA in src/mcgyvr/contract.py.\n"
                 f"The document is generated from it — a schema change needs it "
                 f"regenerated in the same commit.\n"
                 f"Run: make docs",
                 file=sys.stderr,
             )
-        return 1 if stale else 0
-
-    for target, rendered, _ in documents:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(rendered, encoding="utf-8")
-        print(f"wrote {target}")
-    return 0
+    else:
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text(rendered, encoding="utf-8")
+        print(f"wrote {skill}")
+    return 1 if problems or stale else 0
 
 
 if __name__ == "__main__":  # pragma: no cover
