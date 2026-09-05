@@ -446,7 +446,17 @@ def detect_ram_gb() -> tuple[float | None, str]:
 
 
 def detect_docker() -> tuple[bool, str]:
-    """Whether a usable Docker daemon is here — it decides the sandbox mode."""
+    """Whether a usable Docker daemon is here — it decides the sandbox mode.
+
+    "Here" is this machine. With the environment pointing docker at another
+    daemon nothing is probed — the `docker info` would go wherever it points,
+    a rig included — and the answer is no, carrying the sandbox's refusal.
+    """
+    from mcgyvr.sandbox.image import foreign_daemon
+
+    refusal = foreign_daemon()
+    if refusal is not None:
+        return False, refusal
     if shutil.which("docker") is None:
         return False, "docker is not on PATH"
     output = _run(["docker", "info", "--format", "{{.ServerVersion}}"])

@@ -9,10 +9,12 @@ the pin was meant to end and only half did. So a tag is resolved ONCE, in
 digest is handed to the driver; a driver refuses any image value that is not
 a digest, before it touches docker.
 
-There is no seam: ``_common.sh`` and the drivers call the ``docker`` on PATH,
-which under the door is the shim that lands on the rig. Here that ``docker``
-is a stub that logs every argv it receives, so "before touching docker" is
-the absence of that log.
+There is no seam: the drivers call the ``docker`` on PATH, which under the
+door is the shim that lands on the rig, and ``_common.sh`` resolves the shim
+by path under ``RUN_ROOT``. Here that ``docker`` is a stub that logs every
+argv it receives, so "before touching docker" is the absence of that log.
+Both prove the door before anything else, so the runs that must get past
+the image check happen under ``onedoor.fake_door``.
 """
 
 from __future__ import annotations
@@ -24,15 +26,30 @@ import pytest
 from tests import onedoor
 
 
-def _image_digest(tmp_path: Path, tag: str) -> tuple[str, str, int, Path]:
+def _image_digest(
+    tmp_path: Path, tag: str, *, under_door: bool = True
+) -> tuple[str, str, int, Path]:
     stubs = tmp_path / "stubs"
-    env = onedoor.bare_env(stubs, RUN_REPO=str(onedoor.REPO))
+    env = onedoor.bare_env(
+        stubs, RUN_REPO=str(onedoor.REPO), RUN_ROOT=str(onedoor.REPO)
+    )
     result = onedoor.bash(
         f"set -euo pipefail\n. '{onedoor.COMMON_SH}'\nimage_digest '{tag}'\n",
         env,
         onedoor.REPO,
+        door=onedoor.fake_door(tmp_path) if under_door else None,
     )
     return result.stdout, result.stderr, result.returncode, stubs
+
+
+def test_image_digest_outside_the_door_touches_no_docker(tmp_path: Path) -> None:
+    """The same call with every variable set and no door ancestor: refused,
+    naming the door, and the stub behind the shim saw nothing."""
+    out, err, rc, stubs = _image_digest(tmp_path, onedoor.VLLM_TAG, under_door=False)
+    assert rc == 2, (rc, err)
+    assert out.strip() == ""
+    assert "python -m mcgyvr.serving.run" in err, err
+    assert onedoor.docker_log(stubs) == [], "docker was reached outside the door"
 
 
 def test_a_registry_tag_resolves_to_its_repo_digest_in_one_inspect(
@@ -76,7 +93,7 @@ def test_every_driver_refuses_a_non_digest_image_before_touching_docker(
     if image is not None:
         extra[onedoor.DRIVER_IMG_VAR[name]] = image
     env = onedoor.bare_env(stubs, **extra)
-    result = onedoor.driver(name, env)
+    result = onedoor.driver(name, env, door=onedoor.fake_door(tmp_path))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "digest" in result.stderr, f"the refusal does not say why: {result.stderr}"
     assert onedoor.docker_log(stubs) == [], (
@@ -99,7 +116,7 @@ def test_a_digest_is_accepted_and_the_driver_goes_on_to_docker(
         RUN_ID=f"{onedoor.RUN_DATE}-alpha-probe",
         **{onedoor.DRIVER_IMG_VAR[name]: digest},
     )
-    result = onedoor.driver(name, env)
+    result = onedoor.driver(name, env, door=onedoor.fake_door(tmp_path))
     log = onedoor.docker_log(stubs)
     assert any(line.startswith("run ") for line in log), (
         f"no `docker run` reached the stub: rc={result.returncode} "

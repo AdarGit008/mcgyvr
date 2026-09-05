@@ -21,10 +21,11 @@ import json
 from pathlib import Path
 
 from mcgyvr.serving import vramfit
-from mcgyvr.serving.gatelib import export, need, refuse
+from mcgyvr.serving.gatelib import door_required, export, need, refuse
 
 
 def main() -> int:
+    door_required("the placement")
     # The allowance is vramfit's, not this script's: the bench gate derives the
     # same floor from the same number, and two copies that drifted would have
     # the door and the gate disagree about one card.

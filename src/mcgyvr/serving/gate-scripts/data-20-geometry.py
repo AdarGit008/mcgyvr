@@ -21,11 +21,12 @@ from __future__ import annotations
 
 import base64
 import json
+import shlex
 import subprocess
 from pathlib import Path
 
 from mcgyvr.serving import ggufscan
-from mcgyvr.serving.gatelib import export, need, refuse, ssh
+from mcgyvr.serving.gatelib import door_required, export, need, refuse, ssh
 
 #: The real file's bytes are what ship; the module is imported only to be
 #: located, and its `__main__` guard is what keeps the import silent.
@@ -49,7 +50,25 @@ def host_path(model: str) -> str:
     return model
 
 
+def host_path_quoted(model: str) -> str:
+    """`host_path`, quoted for the remote shell: only `$HOME` is left bare.
+
+    The door refuses a `--model` with shell characters before any gate runs;
+    this is the second lock on the same door, so the remote line is safe even
+    for a caller that reached this script some other way.
+    """
+    if model == CONTAINER_MODELS or model.startswith(CONTAINER_MODELS + "/"):
+        return '"$HOME"/models' + shlex.quote(model[len(CONTAINER_MODELS) :])
+    return shlex.quote(model)
+
+
+def scan_command(blob: str, model: str) -> str:
+    """The one remote line data-20 runs: the reader from stdin over the blob."""
+    return f"echo {blob} | base64 -d | python3 - {host_path_quoted(model)}"
+
+
 def main() -> int:
+    door_required("the geometry read")
     source = SCANNER
     if not source.is_file():
         refuse(
@@ -65,7 +84,7 @@ def main() -> int:
     remote = host_path(model)
 
     try:
-        done = ssh(host, f"echo {blob} | base64 -d | python3 - {remote}", timeout=600)
+        done = ssh(host, scan_command(blob, model), timeout=600)
     except subprocess.TimeoutExpired:
         refuse(f"the geometry read of {remote} on {host} did not finish in 600s")
         raise

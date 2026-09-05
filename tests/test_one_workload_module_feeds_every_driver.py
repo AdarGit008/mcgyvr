@@ -4,7 +4,7 @@ Three drivers at the repo root each carry their own copy of the workload block
 — ``PROMPT_DECILES`` through ``mkprompt`` — and ``tools/bench/serving/sweep.py``
 carries a fourth the repo already ruled 2.4x misleading (BRIEF "The problem
 being solved"). Copies agree until one is edited; ``WORKLOAD_DIGEST``
-(``tests/sweeprows.py:293``, ``2f2bb7932a0b660653def819``) is the check that
+(``tools/runs/rows.py:340``, ``2f2bb7932a0b660653def819``) is the check that
 would catch that, and it is only run in CI, post-hoc, over one directory.
 
 After the change the block lives once, in ``tools/runs/workload.py``; the

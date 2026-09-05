@@ -23,7 +23,7 @@ import json
 import shutil
 import subprocess
 
-from mcgyvr.serving.gatelib import need, refuse, root
+from mcgyvr.serving.gatelib import door_required, need, refuse, root
 
 
 def _docker(*args: str) -> str:
@@ -47,6 +47,7 @@ def _docker(*args: str) -> str:
 
 
 def main() -> int:
+    door_required("gate 3")
     host = need("RUN_HOST")
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     hostname = pre.get("hostname")

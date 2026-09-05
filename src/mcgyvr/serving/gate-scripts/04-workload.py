@@ -11,10 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import refuse, root
+from mcgyvr.serving.gatelib import door_required, refuse, root
 
 
 def main() -> int:
+    door_required("gate 4")
     repo = root()
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))

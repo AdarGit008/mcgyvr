@@ -47,6 +47,22 @@ from tools.runs import workload
 # a pointer: the same `img=` on two rows can name two images a week apart,
 # which is the floating `:server-cuda` mistake the pin only half ended. There
 # is no default image — a default is a tag by another name.
+# THE DOOR'S PROOF, before either refusal below. Both variables they read can
+# be typed into a shell, and a driver that took them on faith reached a real
+# `ssh srv1` by hand with no shim on PATH to stop it. gatelib.door_required
+# reads the parent chain from /proc, which nothing can set; a gatelib that
+# will not import is a refusal too, not a pass.
+try:
+    from mcgyvr.serving import gatelib
+except ImportError:
+    print(
+        "vllm_sweep: mcgyvr.serving.gatelib will not import, so the door cannot be "
+        "proved and nothing is started — this driver runs under the door, "
+        "python -m mcgyvr.serving.run, on the interpreter that has mcgyvr",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+gatelib.door_required("vllm_sweep")
 RUN_ID = os.environ.get("RUN_ID", "")
 if not RUN_ID:
     print(
@@ -89,6 +105,12 @@ if not H:
 
 def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
+
+
+def rig(c):
+    """A command on the rig, through the one ssh in the product: gatelib.ssh
+    refuses outside the door and to any host but the door's."""
+    return gatelib.ssh(H, c).stdout.strip()
 
 
 def post(out, idx):
@@ -188,9 +210,7 @@ for cell in CELLS:
         print(f"{H}\t{lab}\tREFUSED\t{why}", flush=True)
         sh(f"docker rm -f {NAME}")
         continue
-    vram = sh(
-        f"ssh {H} nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits"
-    )
+    vram = rig("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
     warm = [None]
     post(warm, 0)
     if warm[0][0] == 0:

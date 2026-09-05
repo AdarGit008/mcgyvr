@@ -17,6 +17,12 @@ places a rig is touched from is small, and it is declared HERE, each with a
 reason, so a new way to reach a rig has to be argued in a diff rather than
 slipped in as a file.
 
+THE ACCEPTED LIMIT, in one sentence: the proof every gate, step and driver
+applies is an ancestor's command line plus RUN_HOST, both of which an
+operator can forge with ``bash -c ... x/mcgyvr/serving/run.py``, so the seal
+is against every code path in this repository and not against an operator
+impersonating the door.
+
 The tripwires, each a scan over the tree:
 
 1. An ssh (or scp/rsync/sftp, a paramiko/fabric/asyncssh import, ``/usr/bin/
@@ -38,6 +44,10 @@ The tripwires, each a scan over the tree:
 8. Every host that wrote a row has a declared ``rig`` block in
    ``tools/runs/hosts.json``.
 9. The retired entry points are gone.
+10. A hand-set ``RUN_*`` environment admits nothing: a campaign step, the
+    emitter's rig read, every driver, every gate script and the default
+    step, given every variable the door would export and no door ancestor,
+    exit 2 naming the door before an ``ssh`` or ``docker`` stub sees a line.
 """
 
 from __future__ import annotations
@@ -53,6 +63,8 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 import pytest
+
+from mcgyvr.serving.run import EXPORTED
 
 REPO = Path(__file__).resolve().parent.parent
 EVIDENCE = REPO / "records" / "evidence"
@@ -122,18 +134,18 @@ ALLOWED: dict[str, str] = {
         "and opens nothing of its own"
     ),
     "src/mcgyvr/serving/gate-scripts/default-step.sh": (
-        "the shipped step: its plain `ssh` and `docker` are the shims under the "
-        "door, which is the only way it is started"
+        "the shipped step: it proves the door (gatelib.under_door) first, then "
+        "runs the shims BY PATH under RUN_ROOT, never an ssh or docker from PATH"
     ),
     "tools/runs/_common.sh": (
-        "the emitter every campaign step sources: rig_snapshot over the `ssh` "
-        "on PATH, image_digest over the `docker` on PATH — the shims under the "
-        "door, and it refuses without the RUN_* only the door exports"
+        "the emitter every campaign step sources: rig_snapshot and image_digest "
+        "prove the door, then run the shims by path under RUN_ROOT; "
+        "door_required refuses without the RUN_* only the door exports AND "
+        "without the door itself"
     ),
     "tools/runs/drivers/*.py": (
-        "the sweep drivers; their plain `ssh`/`docker` are the shims under the "
-        "door, and they refuse without RUN_ID and RUN_HOST, which only the door "
-        "exports"
+        "the sweep drivers: gatelib.door_required at startup, their ssh through "
+        "gatelib.ssh, and their plain `docker` the shim under the door"
     ),
     "tools/runs/campaigns/**/*.sh": (
         "campaign steps; their plain `ssh`/`docker` are the shims under the "
@@ -307,11 +319,25 @@ def test_the_serving_harness_spawns_no_ssh_of_its_own() -> None:
 # --------------------------------------------------------------------------
 
 
+#: Files that spell a daemon override in order to REFUSE it. Path -> why.
+REFUSES_A_DAEMON: dict[str, str] = {
+    "src/mcgyvr/serving/gatelib.py": (
+        "the shim's own implementation: -H ssh://RUN_HOST is set here and a "
+        "caller's --context is refused"
+    ),
+    "src/mcgyvr/sandbox/image.py": (
+        "the sandbox's one docker runner names DOCKER_HOST and DOCKER_CONTEXT "
+        "to refuse under either: a container the product starts lands on this "
+        "machine's daemon or nowhere"
+    ),
+}
+
+
 def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     hits = _hits(DAEMON_OVERRIDE, ("src", "tools"))
-    # The shim's own implementation is where -H ssh://RUN_HOST is set and
-    # --context is refused; everything else takes the daemon the door names.
-    hits.pop("src/mcgyvr/serving/gatelib.py", None)
+    for rel in REFUSES_A_DAEMON:
+        assert (REPO / rel).is_file(), f"{rel} is allowed a mention and does not exist"
+        hits.pop(rel, None)
     assert not hits, (
         "a daemon of its own, or the door's environment stripped — under the "
         f"door `docker` reaches ssh://RUN_HOST and nothing else: {hits}"
@@ -381,6 +407,177 @@ def test_the_serving_harness_run_bare_exits_2_naming_the_door(tmp_path: Path) ->
     assert done.returncode == 2, (done.returncode, done.stdout[-400:], done.stderr)
     assert DOOR in done.stderr, done.stderr[-600:]
     assert "not started by the door" in done.stderr, done.stderr[-600:]
+
+
+# --------------------------------------------------------------------------
+# 10. a hand-set RUN_* environment admits nothing
+# --------------------------------------------------------------------------
+
+GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
+DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
+COMMON_SH = REPO / "tools" / "runs" / "_common.sh"
+KERNEL_ARMS_STEP = (
+    REPO / "tools" / "runs" / "campaigns" / "srv1-kernel-arms" / "4-kernel-arms.sh"
+)
+DRIVERS = REPO / "tools" / "runs" / "drivers"
+#: Each driver's image variable and an argv past ``sys.argv``; the image IS a
+#: digest, so the door's proof is the only refusal left between it and docker.
+DRIVER_CALLS: dict[str, tuple[str, list[str]]] = {
+    "lcp_sweep.py": ("LCP_IMG", ["/models/x.gguf", "/models", "tag", "1:4096:0:1"]),
+    "vllm_sweep.py": ("VLLM_IMG", ["tag", "org/model", "0.9:2048:8:auto:1"]),
+    "vllm_cores.py": (
+        "VLLM_IMG",
+        ["pair", "0.45", "2048", "128", "auto", "1", "a=org/model"],
+    ),
+}
+ZERO_DIGEST = "sha256:" + "0" * 64
+
+
+def _stubs(where: Path) -> Path:
+    """An ``ssh`` and a ``docker`` that log every argv and fail. Nothing in
+    this section may reach either; the absence of a log is the evidence."""
+    where.mkdir(parents=True, exist_ok=True)
+    for name in ("ssh", "docker"):
+        path = where / name
+        path.write_text(
+            "#!/usr/bin/env bash\n"
+            f"printf '%s\\n' \"$*\" >> '{where / (name + '.log')}'\n"
+            "exit 1\n",
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+    return where
+
+
+def _reached(stubs: Path) -> list[str]:
+    return sorted(
+        f"{p.name}: {p.read_text(encoding='utf-8')}" for p in stubs.glob("*.log")
+    )
+
+
+def _hand_set(stubs: Path, tmp_path: Path, **only: str) -> dict[str, str]:
+    """Every ``RUN_*`` the door would export, typed in by hand — or just
+    ``only`` — with the stubs first on PATH and the test interpreter next, so
+    a bash proof finds a python3 that CAN import gatelib and still says no."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("RUN_", "DOCKER_"))}
+    parts = [str(stubs), str(Path(sys.executable).parent)]
+    parts += (env.get("PATH") or os.defpath).split(os.pathsep)
+    env["PATH"] = os.pathsep.join(parts)
+    if only:
+        env.update(only)
+        return env
+    out_dir = tmp_path / "envelope"
+    out_dir.mkdir(exist_ok=True)
+    env.update(dict.fromkeys(EXPORTED, "x"))
+    env.update(
+        RUN_ROOT=str(REPO),
+        RUN_REPO=str(REPO),
+        RUN_HOST="srv1",
+        RUN_ID="2026-09-05-srv1-kernel-arms-kernel-arms",
+        RUN_OUT_DIR=str(out_dir),
+        RUN_ROUND="r3-05-09-2026",
+        RUN_PRODUCT_SHA256="0" * 64,
+        RUN_STEP="kernel-arms",
+        RUN_CAMPAIGN="srv1-kernel-arms",
+        RUN_MODEL="/models/x.gguf",
+        RUN_STEP_FILE=str(DEFAULT_STEP),
+        RUN_PARALLEL="1",
+        RUN_CTX_PER_SLOT="4096",
+        RUN_UBATCH="512",
+        RUN_DATE="2026-09-05",
+        RUN_SUFFIX="",
+        RUN_EXPORT_FD="1",
+        RUN_SCAN_JSON=str(out_dir / "scan.json"),
+        RUN_GEOMETRY_JSON=str(out_dir / "geometry.json"),
+        RUN_PLACEMENT_JSON=str(out_dir / "placement.json"),
+    )
+    return env
+
+
+def _outside(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """Run ``argv`` with no door anywhere above it."""
+    return subprocess.run(
+        argv,
+        cwd=REPO,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def _refused_naming_the_door(
+    done: subprocess.CompletedProcess[str], stubs: Path, what: str
+) -> None:
+    assert done.returncode == 2, (
+        what,
+        done.returncode,
+        done.stdout[-400:],
+        done.stderr,
+    )
+    assert DOOR in done.stderr, (what, done.stderr[-800:])
+    assert _reached(stubs) == [], f"{what} reached a stub outside the door"
+
+
+def test_a_campaign_step_with_every_run_variable_typed_in_is_refused_outside_the_door(
+    tmp_path: Path,
+) -> None:
+    """``RUN_ID=x RUN_HOST=srv1 ... bash 4-kernel-arms.sh --models ...`` by
+    hand, with every variable the door exports: it once passed door_required
+    on the environment alone and went on to ``ssh srv1``."""
+    stubs = _stubs(tmp_path / "stubs")
+    done = _outside(
+        ["bash", str(KERNEL_ARMS_STEP), "--models", "/models/x.gguf"],
+        _hand_set(stubs, tmp_path),
+    )
+    _refused_naming_the_door(done, stubs, "4-kernel-arms.sh")
+
+
+@pytest.mark.parametrize("full", [False, True], ids=["RUN_HOST-only", "every-RUN_*"])
+def test_rig_snapshot_by_hand_is_refused_before_ssh(tmp_path: Path, full: bool) -> None:
+    stubs = _stubs(tmp_path / "stubs")
+    env = (
+        _hand_set(stubs, tmp_path)
+        if full
+        else _hand_set(stubs, tmp_path, RUN_HOST="srv1")
+    )
+    done = _outside(["bash", "-c", f". '{COMMON_SH}'; rig_snapshot"], env)
+    _refused_naming_the_door(done, stubs, "rig_snapshot")
+
+
+@pytest.mark.parametrize("name", sorted(DRIVER_CALLS))
+def test_a_driver_with_a_run_id_and_a_digest_is_refused_outside_the_door(
+    tmp_path: Path, name: str
+) -> None:
+    stubs = _stubs(tmp_path / "stubs")
+    variable, argv = DRIVER_CALLS[name]
+    env = _hand_set(
+        stubs, tmp_path, RUN_ID="x", RUN_HOST="srv1", **{variable: ZERO_DIGEST}
+    )
+    done = _outside([sys.executable, str(DRIVERS / name), *argv], env)
+    _refused_naming_the_door(done, stubs, name)
+
+
+@pytest.mark.parametrize("script", sorted(p.name for p in GATE_SCRIPTS.glob("*.py")))
+def test_a_gate_with_every_run_variable_typed_in_is_refused_before_any_subprocess(
+    tmp_path: Path, script: str
+) -> None:
+    """Gate 7 once ran ``docker ps`` on the ambient daemon before refusing."""
+    stubs = _stubs(tmp_path / "stubs")
+    done = _outside(
+        [sys.executable, str(GATE_SCRIPTS / script)], _hand_set(stubs, tmp_path)
+    )
+    _refused_naming_the_door(done, stubs, script)
+
+
+def test_the_default_step_with_every_run_variable_typed_in_is_refused_outside_the_door(
+    tmp_path: Path,
+) -> None:
+    stubs = _stubs(tmp_path / "stubs")
+    done = _outside(["bash", str(DEFAULT_STEP)], _hand_set(stubs, tmp_path))
+    _refused_naming_the_door(done, stubs, "default-step.sh")
 
 
 # --------------------------------------------------------------------------

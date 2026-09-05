@@ -19,8 +19,9 @@ instead of ``BENCH`` rows.
 Through the door, step 3 benches its default arm list: its arm selection and
 models directory are environment knobs (``RUN_ARMS``, ``RUN_MODELS_DIR``) the
 door refuses as ambient, so what a test can reach is the door's own
-``--model`` (relative to ``$HOME/models``, which the step checks locally) and
-a ``sleep`` on PATH that returns at once, in front of the ``retry3`` waits.
+``--model`` (the blob as the rig sees it, ``/models/<path>``; the step strips
+the mount prefix and checks ``$HOME/models/<path>`` locally) and a ``sleep``
+on PATH that returns at once, in front of the ``retry3`` waits.
 """
 
 from __future__ import annotations
@@ -163,7 +164,10 @@ def _bench_fixture(tmp_path: Path, docker_body: str) -> tuple[Path, dict[str, st
 
 def _bench(root: Path, env_extra: dict[str, str], *args: str) -> Scenario:
     return Scenario(
-        CAMPAIGN, "3-llama-bench.sh", model=f"dense/{MODEL_FILE}", step_args=args
+        CAMPAIGN,
+        "3-llama-bench.sh",
+        model=f"/models/dense/{MODEL_FILE}",
+        step_args=args,
     )
 
 

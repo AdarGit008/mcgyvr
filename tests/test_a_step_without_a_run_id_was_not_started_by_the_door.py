@@ -76,11 +76,14 @@ def test_an_artifact_already_in_the_envelope_is_not_overwritten(
 
 @pytest.mark.parametrize("name", onedoor.DRIVER_NAMES)
 def test_every_driver_exits_2_without_a_run_id(tmp_path: Path, name: str) -> None:
+    """Under a stand-in door, so the ancestry proof passes and RUN_ID is the
+    only thing missing; ``tests/test_one_door.py`` runs the same drivers with
+    no door at all."""
     stubs = tmp_path / "stubs"
     digest = onedoor.LCP_DIGEST if name == "lcp_sweep.py" else onedoor.VLLM_DIGEST
     env = onedoor.bare_env(stubs, **{onedoor.DRIVER_IMG_VAR[name]: digest})
     assert "RUN_ID" not in env
-    result = onedoor.driver(name, env)
+    result = onedoor.driver(name, env, door=onedoor.fake_door(tmp_path))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "RUN_ID" in result.stderr, result.stderr
     assert DOOR_NAME in result.stderr, result.stderr

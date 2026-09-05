@@ -110,9 +110,11 @@ neighbour's value.** The budget is `free VRAM − scratch and context −
 non-expert weights − KV − slot state`, where the CUDA context measured 85–147
 MiB and not 1.0 GB and is folded, with the compute buffer, into
 `SCRATCH_AND_CONTEXT_MIB = 768` in `src/mcgyvr/serving/vramfit.py`; what
-remains, over total expert bytes, is the resident fraction, and `(1 − fraction)
-× n_layers` is the floor. Both weight terms come from the tensor table, never
-from the file size.
+remains is spent on expert blocks from the top down, each at its own byte
+count from the tensor table, and the first block that does not fit is the
+floor (`vramfit.floor`). A uniform per-block average put that floor three
+steps high. Both weight terms come from the tensor table, never from the file
+size.
 → `src/mcgyvr/serving/ggufscan.py`
 
 **Take the VRAM term from `free`, never from `total − reserve`.** The two

@@ -16,10 +16,11 @@ import os
 import subprocess
 import sys
 
-from mcgyvr.serving.gatelib import need, root
+from mcgyvr.serving.gatelib import door_required, need, root
 
 
 def main() -> int:
+    door_required("gate 6")
     step = need("RUN_STEP_FILE")
     if not os.access(step, os.X_OK):
         # Not `refuse`: a step that cannot be executed is the caller's mistake

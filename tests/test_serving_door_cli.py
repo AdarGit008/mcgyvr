@@ -478,3 +478,55 @@ def test_the_run_environment_leads_with_the_shims_and_carries_no_docker_seam(
     assert seen[1] == str(gates / "bin"), "gate-scripts/bin is not first on PATH"
     assert seen[2] == "False", "RUN_DOCKER reached a gate"
     assert seen[0] == "2026-09-02-alpha-probe"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "/models/x.gguf; touch /tmp/pwned",
+        "/models/x.gguf$(id)",
+        "/models/x.gguf`id`",
+        "/models/a b.gguf",
+        "/models/x.gguf|id",
+        "models/x.gguf",
+        "/models/../etc/passwd",
+        "/models//x.gguf",
+    ],
+)
+def test_a_model_path_with_shell_characters_is_refused_before_any_gate(
+    env: dict[str, str], step: Path, tmp_path: Path, model: str
+) -> None:
+    """--model is handed to a remote shell by data-20 and to container argv by
+    the step; the door refuses anything but an absolute path of ordinary
+    characters, before gate 1, so nothing is ever escaped in three places."""
+    argv = [a for a in base_argv(step)]
+    argv[argv.index("--model") + 1] = model
+    result = door(argv, env)
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert "--model" in result.stderr and "refused" in result.stderr, result.stderr
+    assert not (tmp_path / "stubs" / "ssh.log").exists(), "a gate reached ssh"
+
+
+def test_data_20_quotes_the_remote_path_even_so() -> None:
+    """The second lock on the same door: the remote line data-20 builds leaves
+    only `$HOME` bare, so a path that somehow carried a shell character is a
+    file name on the rig and never a command."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "data_20_geometry",
+        REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "data-20-geometry.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    line = module.scan_command("QUJD", "/models/x.gguf; touch /tmp/pwned")
+    assert line.endswith("""python3 - "$HOME"/models'/x.gguf; touch /tmp/pwned'"""), (
+        line
+    )
+    assert module.scan_command("QUJD", "/models/moe/x.gguf").endswith(
+        'python3 - "$HOME"/models/moe/x.gguf'
+    )
+    assert module.scan_command("QUJD", "/srv/blob.gguf").endswith(
+        "python3 - /srv/blob.gguf"
+    )

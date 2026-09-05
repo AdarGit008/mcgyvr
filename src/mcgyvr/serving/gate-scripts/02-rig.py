@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse, root, ssh
+from mcgyvr.serving.gatelib import door_required, export, need, refuse, root, ssh
 
 HERE = Path(__file__).resolve().parent
 
@@ -66,6 +66,7 @@ def snapshot(host: str) -> dict[str, str]:
 
 
 def main() -> int:
+    door_required("gate 2")
     host = need("RUN_HOST")
     hosts_file = root() / "tools" / "runs" / "hosts.json"
     if not hosts_file.is_file():

@@ -29,9 +29,13 @@
 # copy is what survives the reboot. PL1/PL2 are stamped at START from the scan
 # and re-read at END, because a lock has wiped srv1's BIOS profile before.
 #
-# The ssh and docker on PATH are the door's shims (gate-scripts/bin): ssh
-# refuses any host but RUN_HOST, docker lands on the rig's daemon. Bind-mount
-# paths are the RIG's, so $HOME is asked of the rig and never expanded here.
+# The ssh and docker this step runs are the door's shims (gate-scripts/bin),
+# resolved BY PATH from RUN_ROOT and never from $PATH: ssh refuses any host
+# but RUN_HOST, docker lands on the rig's daemon, and a PATH reordered
+# mid-step finds neither real binary. Before that, the door itself is proved
+# — an ancestor's command line, read by gatelib.under_door — because every
+# RUN_* below can be typed into a shell. Bind-mount paths are the RIG's, so
+# $HOME is asked of the rig and never expanded here.
 # shellcheck disable=SC2029
 set -euo pipefail
 
@@ -42,17 +46,33 @@ HEALTH_POLLS=120
 HEALTH_INTERVAL=3
 THREAD_CAP=10
 TEARDOWN_WAIT=30
-DOCKER=docker
+DOOR='python -m mcgyvr.serving.run --host H --campaign C --step PATH --model M'
 
 refuse() { printf '%s: REFUSED — %s\n' "$ME" "$*" >&2; exit 2; }
 warn() { printf '%s: %s\n' "$ME" "$*" >&2; }
 oneline() { tr '\t\r\n' '   ' | tr -s ' ' | cut -c1-300; }
+
+# The proof, first. A non-zero exit for ANY reason — no python3 on PATH, no
+# mcgyvr on it, a /proc that cannot be read — is a refusal: the door is proved
+# or it is not, and "could not check" is not. What the proof said is quoted.
+proof=$(python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemExit(0 if under_door() else 2)' 2>&1 >/dev/null) \
+    || refuse "this step was not started by the door — no ancestor is mcgyvr.serving.run${proof:+; the proof said: $(printf '%s' "$proof" | tail -n 1 | oneline)} — and RUN_* set by hand does not stand in for one. Start the run as \`$DOOR\` (okf/must-read/touching-rigs.md)"
 
 for v in RUN_ROOT RUN_HOST RUN_MODEL RUN_PARALLEL RUN_CTX_PER_SLOT RUN_UBATCH \
     RUN_ROUND RUN_PRODUCT_SHA256 RUN_ID RUN_OUT_DIR \
     RUN_SCAN_JSON RUN_GEOMETRY_JSON RUN_PLACEMENT_JSON; do
     [ -n "${!v:-}" ] || refuse "$v is not set. This step reads the run from the environment the door exports; an empty one means it was started outside mcgyvr.serving.run, where no gate has run and nothing is guarded"
 done
+
+# The shims, by path. RUN_ROOT is the door's export of its own tree; with the
+# door proved above, taking it from the environment is fine — the shim refuses
+# by itself when it is not under the door.
+SHIMS=$RUN_ROOT/src/mcgyvr/serving/gate-scripts/bin
+for bin in ssh docker; do
+    [ -x "$SHIMS/$bin" ] || refuse "$SHIMS/$bin is missing or not executable; the door's shims are the only ssh and docker this step runs, and RUN_ROOT=$RUN_ROOT holds none"
+done
+SSH=$SHIMS/ssh
+DOCKER=$SHIMS/docker
 
 # ---------------------------------------------------------------------------
 # the facts: placement, scan, geometry, hosts.json — read once, refused if short
@@ -154,9 +174,9 @@ img=$("$DOCKER" image inspect \
 # ---------------------------------------------------------------------------
 # the rig's own paths and the rig-side copy of the artifact
 # ---------------------------------------------------------------------------
-RIG_HOME=$(ssh "$RUN_HOST" 'echo $HOME' | tr -d '[:space:]') || RIG_HOME=
+RIG_HOME=$("$SSH" "$RUN_HOST" 'echo $HOME' | tr -d '[:space:]') || RIG_HOME=
 [ -n "$RIG_HOME" ] || refuse "$RUN_HOST did not answer 'echo \$HOME'; the bind mount is the rig's path and is never expanded on this machine"
-ssh "$RUN_HOST" "mkdir -p ~/mcgyvr-runs/$RUN_ID" \
+"$SSH" "$RUN_HOST" "mkdir -p ~/mcgyvr-runs/$RUN_ID" \
     || refuse "$RUN_HOST could not create ~/mcgyvr-runs/$RUN_ID; without the rig-side copy a hard lock would leave no record of what was running"
 
 OUT=$RUN_OUT_DIR/sizing.tsv
@@ -168,7 +188,7 @@ N_CTX=$((RUN_CTX_PER_SLOT * RUN_PARALLEL))
 say() {
     printf '%s\n' "$1" >>"$OUT"
     printf '%s\n' "$1"
-    if ! printf '%s\n' "$1" | ssh "$RUN_HOST" "cat >> ~/mcgyvr-runs/$RUN_ID/sizing.tsv" 2>/dev/null; then
+    if ! printf '%s\n' "$1" | "$SSH" "$RUN_HOST" "cat >> ~/mcgyvr-runs/$RUN_ID/sizing.tsv" 2>/dev/null; then
         warn "could not tee a line to $RUN_HOST:~/mcgyvr-runs/$RUN_ID/sizing.tsv; the local file has it"
     fi
 }
@@ -186,7 +206,7 @@ row() {
 # rig_read memory.free|memory.used -> MiB as one number, or the script dies
 rig_read() {
     local value
-    value=$(ssh "$RUN_HOST" "nvidia-smi --query-gpu=$1 --format=csv,noheader,nounits" | head -n 1 | tr -d '[:space:]')
+    value=$("$SSH" "$RUN_HOST" "nvidia-smi --query-gpu=$1 --format=csv,noheader,nounits" | head -n 1 | tr -d '[:space:]')
     case $value in
         '' | *[!0-9]*) refuse "nvidia-smi on $RUN_HOST read '$value' for $1, which is not a number of MiB; a card that cannot be read is not measured" ;;
     esac
@@ -197,7 +217,7 @@ rig_read() {
 # the latter is the rated TDP and reads 95000000 whatever the live limit is.
 rig_pl() {
     local value
-    value=$(ssh "$RUN_HOST" "for d in /sys/class/powercap/intel-rapl:0 /sys/class/powercap/intel-rapl/intel-rapl:0; do [ -r \$d/constraint_${1}_power_limit_uw ] && { cat \$d/constraint_${1}_power_limit_uw; exit 0; }; done; echo NA" | tr -d '[:space:]')
+    value=$("$SSH" "$RUN_HOST" "for d in /sys/class/powercap/intel-rapl:0 /sys/class/powercap/intel-rapl/intel-rapl:0; do [ -r \$d/constraint_${1}_power_limit_uw ] && { cat \$d/constraint_${1}_power_limit_uw; exit 0; }; done; echo NA" | tr -d '[:space:]')
     printf '%s' "${value:-NA}"
 }
 
@@ -255,7 +275,7 @@ launch() {
         return 0
     fi
     for ((i = 0; i < HEALTH_POLLS; i++)); do
-        if ssh "$RUN_HOST" "curl -sf http://localhost:$PORT/health" >/dev/null 2>&1; then
+        if "$SSH" "$RUN_HOST" "curl -sf http://localhost:$PORT/health" >/dev/null 2>&1; then
             healthy=1
             break
         fi
@@ -272,7 +292,7 @@ launch() {
         teardown "$name"
         return 0
     fi
-    if ! ssh "$RUN_HOST" "curl -sf -X POST http://localhost:$PORT/completion -d '{\"prompt\":\"hi\",\"n_predict\":8}'" >/dev/null 2>&1; then
+    if ! "$SSH" "$RUN_HOST" "curl -sf -X POST http://localhost:$PORT/completion -d '{\"prompt\":\"hi\",\"n_predict\":8}'" >/dev/null 2>&1; then
         L_REASON="warmup-failed: /health answered and /completion did not; $(logtail "$name")"
         teardown "$name"
         return 0

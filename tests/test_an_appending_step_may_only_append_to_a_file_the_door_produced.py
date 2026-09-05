@@ -52,7 +52,8 @@ def appender(env_file: Path) -> str:
         f"printf '%s\\tprobe\\tCRASH\\timg=sha256:{onedoor.LOCAL_ID_HEX}\\tn=2\\n' "
         '"${RUN_HOST:-nohost}"\n'
         f"printf '### END uptime_since={onedoor.UPTIME} pl1_uw=95000000 "
-        "pl2_uw=120000000 cpu_max_mhz=4600 ram_mt_s=3600\\n'\n"
+        "pl2_uw=120000000 cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s\\n' "
+        '"$RUN_ID"\n'
         '} >> "${RUN_OUT_DIR:?}/probe.tsv"\n'
     )
 

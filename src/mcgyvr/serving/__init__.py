@@ -18,7 +18,8 @@ A unit is a *launch spec*, which is why it can be built on a laptop for a rig
 it has never touched.
 
 Every number in it is read off a :class:`~mcgyvr.scan.Scan` or off the model's
-own GGUF header, and none is declared. Free VRAM decides a fit today; total
+own GGUF header; the one declared number is ``RUNTIME_RESIDENT_GB``, a
+host-side intercept measured on 2026-08-25. Free VRAM decides a fit today; total
 VRAM decides nothing. And a model too big for the card is not automatically a
 model the machine cannot serve: an MoE spills its experts to RAM, so fit is a
 question about a *machine* — card, memory and disk together — not about a GPU.

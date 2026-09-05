@@ -33,6 +33,13 @@ And two connectivity invariants that pull opposite ways (#31):
   nothing and vetted (:func:`~mcgyvr.sandbox.base.safe_env`), so a container's
   environment satisfies ``credential_env_names(env) == frozenset()`` by
   construction — the red-failing security invariant in ``SECURITY.md``.
+
+And one about WHERE the container is: on this machine's daemon, or nowhere.
+``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused by both
+places a docker argv is built (:func:`~mcgyvr.sandbox.image.subprocess_runner`
+and :func:`_docker_exec`), because a container the product starts must never
+land on a rig — the door, ``python -m mcgyvr.serving.run``, is the only way
+there.
 """
 
 from __future__ import annotations
@@ -52,6 +59,7 @@ from mcgyvr.sandbox.image import (
     DockerRunner,
     ImageError,
     ensure_image,
+    foreign_daemon,
     subprocess_runner,
 )
 from mcgyvr.sandbox.stack import detect_stack
@@ -325,7 +333,16 @@ class _ExecResult:
 
 
 def _docker_exec(exec_args: Sequence[str], timeout: float | None) -> _ExecResult:
-    """Run ``docker exec …`` on the host, capturing output under a timeout."""
+    """Run ``docker exec …`` on the host, capturing output under a timeout.
+
+    The second place the product builds a docker argv, and it takes the same
+    refusal as the first (:func:`~mcgyvr.sandbox.image.foreign_daemon`): with
+    ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set, the exec would land wherever
+    the variable points, so it is not made and the sandbox raises instead.
+    """
+    refusal = foreign_daemon()
+    if refusal is not None:
+        raise SandboxError(refusal)
     try:
         done = subprocess.run(
             ["docker", *exec_args],

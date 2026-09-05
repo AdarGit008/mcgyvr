@@ -20,10 +20,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse
+from mcgyvr.serving.gatelib import door_required, export, need, refuse
 
 
 def main() -> int:
+    door_required("the scan")
     reading = dict(
         pair.split("=", 1) for pair in need("RUN_PRE_RIG").split(" ") if "=" in pair
     )

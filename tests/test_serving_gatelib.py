@@ -129,6 +129,75 @@ def test_a_grandchild_of_the_door_is_under_it_too(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------
+# door_required: the door's ancestry AND its mark on the environment
+# --------------------------------------------------------------------------
+
+
+def test_door_required_outside_the_door_exits_2_naming_the_door_and_the_caller(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        gatelib.door_required("gate 9")
+    assert raised.value.code == 2
+    err = capsys.readouterr().err
+    assert "gate 9 refused" in err, err
+    assert DOOR in err, err
+    assert "not started by the door" in err
+
+
+def test_every_run_variable_typed_in_by_hand_admits_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The environment was the whole guard once, and every RUN_* can be
+    typed into a shell: with all of them set and no door ancestor, refused."""
+    for name, value in (
+        ("RUN_ID", "2026-09-05-alpha-probe"),
+        ("RUN_EXPORT_FD", "1"),
+        ("RUN_HOST", "srv1"),
+        ("RUN_ROOT", str(REPO)),
+    ):
+        monkeypatch.setenv(name, value)
+    with pytest.raises(SystemExit) as raised:
+        gatelib.door_required("the scan")
+    assert raised.value.code == 2
+    err = capsys.readouterr().err
+    assert "the scan refused" in err, err
+    assert DOOR in err, err
+
+
+def test_door_required_under_the_door_without_its_mark_exits_2(tmp_path: Path) -> None:
+    """An ancestor is the door but neither RUN_EXPORT_FD (a gate) nor RUN_ID
+    (a step or a driver) is set: the door's sequence never ran this."""
+    door = fake_door(tmp_path)
+    code = "from mcgyvr.serving import gatelib; gatelib.door_required('gate 9')"
+    result = under(door, [sys.executable, "-c", code], clean_env())
+    assert result.returncode == 2, result.stderr
+    assert "RUN_EXPORT_FD" in result.stderr and "RUN_ID" in result.stderr
+    assert DOOR in result.stderr, result.stderr
+
+
+@pytest.mark.parametrize(
+    "mark", [("RUN_EXPORT_FD", "1"), ("RUN_ID", "2026-09-05-alpha-probe")]
+)
+def test_door_required_under_the_door_with_its_mark_returns(
+    tmp_path: Path, mark: tuple[str, str]
+) -> None:
+    door = fake_door(tmp_path)
+    code = "from mcgyvr.serving import gatelib; gatelib.door_required('gate 9')"
+    env = clean_env()
+    env[mark[0]] = mark[1]
+    result = under(door, [sys.executable, "-c", code], env)
+    assert result.returncode == 0, result.stderr
+
+
+def test_under_door_states_the_limit_it_accepts() -> None:
+    """The proof is forgeable by an operator, and the docstring says so in one
+    sentence rather than letting the seal be read as more than it is."""
+    doc = gatelib.under_door.__doc__ or ""
+    assert "forge" in doc and "impersonating the door" in doc, doc
+
+
+# --------------------------------------------------------------------------
 # ssh: refused outside the door, refused to the wrong host, admitted otherwise
 # --------------------------------------------------------------------------
 

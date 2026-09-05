@@ -79,6 +79,22 @@ from tools.runs import workload
 # a pointer: the same `img=` on two rows can name two images a week apart,
 # which is the floating `:server-cuda` mistake the pin only half ended. There
 # is no default image — a default is a tag by another name.
+# THE DOOR'S PROOF, before either refusal below. Both variables they read can
+# be typed into a shell, and a driver that took them on faith reached a real
+# `ssh srv1` by hand with no shim on PATH to stop it. gatelib.door_required
+# reads the parent chain from /proc, which nothing can set; a gatelib that
+# will not import is a refusal too, not a pass.
+try:
+    from mcgyvr.serving import gatelib
+except ImportError:
+    print(
+        "vllm_cores: mcgyvr.serving.gatelib will not import, so the door cannot be "
+        "proved and nothing is started — this driver runs under the door, "
+        "python -m mcgyvr.serving.run, on the interpreter that has mcgyvr",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+gatelib.door_required("vllm_cores")
 RUN_ID = os.environ.get("RUN_ID", "")
 if not RUN_ID:
     print(
@@ -127,6 +143,12 @@ def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
 
 
+def rig(c):
+    """A command on the rig, through the one ssh in the product: gatelib.ssh
+    refuses outside the door and to any host but the door's."""
+    return gatelib.ssh(H, c).stdout.strip()
+
+
 def teardown(names):
     """Remove the containers AND wait for the card to actually release.
 
@@ -143,7 +165,7 @@ def teardown(names):
     for n in names:
         sh(f"docker rm -f {n}")
     for _ in range(30):
-        if not sh(f"ssh {H} nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
+        if not rig("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
             return
         time.sleep(2)
 
@@ -282,9 +304,7 @@ for i, spec in enumerate(SPECS):
             break
         sh(f"docker rm -f {s['name']}")
         for _ in range(30):
-            if not sh(
-                f"ssh {H} nvidia-smi --query-compute-apps=pid --format=csv,noheader"
-            ):
+            if not rig("nvidia-smi --query-compute-apps=pid --format=csv,noheader"):
                 break
             time.sleep(2)
         sh(
@@ -332,7 +352,7 @@ if len(alive) < len(servers):
     teardown([x["name"] for x in servers])
     sys.exit(1)
 
-vram = sh(f"ssh {H} nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
+vram = rig("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits")
 for s in alive:
     kvlog = sh(
         f"docker logs {s['name']} 2>&1 | grep -oE "

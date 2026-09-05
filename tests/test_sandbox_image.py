@@ -8,8 +8,10 @@ Every test drives a recording runner and asserts on what would have been run.
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -270,3 +272,51 @@ def test_subprocess_runner_reports_absent_docker(
     result = image_module.subprocess_runner(["ps"])
     assert result.returncode == 127
     assert "not on PATH" in result.stderr
+
+
+# --- this machine's daemon, or nowhere -----------------------------------
+
+
+def _never(*args: object, **kwargs: object) -> NoReturn:
+    raise AssertionError(f"docker was spawned: {args} {kwargs}")
+
+
+@pytest.mark.parametrize("name", ["DOCKER_HOST", "DOCKER_CONTEXT"])
+def test_the_runner_refuses_under_a_daemon_override_before_spawning(
+    name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``subprocess_runner`` is the one place the product builds a docker argv
+    for its own daemon; with the daemon named by the environment it spawns
+    nothing and says why, naming the variable, its value and the door."""
+    for other in image_module.DAEMON_OVERRIDES:
+        monkeypatch.delenv(other, raising=False)
+    monkeypatch.setenv(name, "ssh://srv1")
+    monkeypatch.setattr(subprocess, "run", _never)
+    result = image_module.subprocess_runner(["info"])
+    assert not result.ok and result.returncode == 2
+    assert result.stderr == (
+        f"the sandbox runs on this machine's daemon; {name}=ssh://srv1 is set, "
+        "and a container the product starts must never land on a rig — the "
+        "door (python -m mcgyvr.serving.run) is the only way there"
+    )
+
+
+def test_without_an_override_nothing_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in image_module.DAEMON_OVERRIDES:
+        monkeypatch.delenv(name, raising=False)
+    assert image_module.foreign_daemon() is None
+
+
+def test_a_refused_runner_surfaces_as_an_image_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every caller raises a not-ok result as its own error, so the refusal
+    reaches the CLI as ``error: ...`` and a non-zero exit."""
+    monkeypatch.setenv("DOCKER_HOST", "tcp://srv2:2375")
+    monkeypatch.setattr(subprocess, "run", _never)
+    with pytest.raises(ImageError, match="DOCKER_HOST=tcp://srv2:2375 is set"):
+        resolve_base_digest("python:3.12-slim", image_module.subprocess_runner)
+    with pytest.raises(ImageError, match="must never land on a rig"):
+        list_cached()

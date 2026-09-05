@@ -7,13 +7,17 @@ real completion, then launches one block below the floor and expects a refusal
 — the refusal is the measurement (okf/must-read/touching-rigs.md), and a load
 below the floor is a RESULT row saying the floor was loose, never an error.
 
-No test here reaches a rig. The script's only way out is the ``ssh`` and
-``docker`` on PATH (under the door those are the shims in ``gate-scripts/bin``),
-so a stub directory stands in front of PATH and answers by argument, and every
-call is logged so the test can say what the step did to the machine — which
-containers it started, and that each one was removed. ``sleep`` is stubbed too:
-the health poll is 120 x 3 s by design, and a test that waited for it would be
-a test nobody ran.
+No test here reaches a rig. The script's only way out is the door's ``ssh``
+and ``docker`` shims, which it resolves BY PATH under ``RUN_ROOT`` after
+proving the door (``gatelib.under_door``, read off /proc). So each :class:`Fake`
+runs the step under a stand-in door — a file whose path ends in
+``mcgyvr/serving/run.py`` — and puts the answering stubs at the shim path
+under a throw-away ``RUN_ROOT``; what PATH offers under the same names are
+decoys that log and fail, so a step that took ``ssh`` from PATH would show up
+in the log. Every call is logged so the test can say what the step did to
+the machine — which containers it started, and that each one was removed.
+``sleep`` is stubbed too: the health poll is 120 x 3 s by design, and a test
+that waited for it would be a test nobody ran.
 
 The fake envelope is a RECORDED one — ``records/evidence/2026-09-05-e2e-srv2-
 deepseek-coder-v2-16b/{scan,geometry,placement}.json`` — so the numbers the
@@ -27,6 +31,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import types
 from pathlib import Path
 
@@ -147,6 +152,22 @@ esac
 
 SLEEP_STUB = "#!/usr/bin/env bash\nexit 0\n"
 
+#: What PATH offers as ``ssh`` and ``docker``: never the right answer. The
+#: step resolves the shims by path under RUN_ROOT, and a decoy line in the
+#: log means it took one from PATH instead.
+DECOY_STUB = """\
+#!/usr/bin/env bash
+printf 'decoy %s %s\\n' "$(basename "$0")" "$*" >> "$STUB_LOG"
+exit 1
+"""
+
+#: The stand-in door: runs its arguments as a child, from a path that ends in
+#: mcgyvr/serving/run.py — which is what the step's proof reads off /proc.
+FAKE_DOOR = (
+    "import subprocess, sys\n"
+    "raise SystemExit(subprocess.run(sys.argv[1:]).returncode)\n"
+)
+
 
 def _is_launch(line: str) -> bool:
     """Whether a logged docker call was a launch, by its first two words."""
@@ -181,17 +202,27 @@ class Fake:
         self.rig.mkdir()
         self.log = tmp / "stub.log"
         self.log.write_text("", encoding="utf-8")
+        # The answering stubs sit where the step resolves the door's shims —
+        # by path under RUN_ROOT — and PATH offers decoys under the same names.
+        shims = self.root / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"
+        shims.mkdir(parents=True)
         stubs = tmp / "stubs"
         stubs.mkdir()
-        for name, body in {
-            "ssh": SSH_STUB,
-            "docker": DOCKER_STUB,
-            "sleep": SLEEP_STUB,
-        }.items():
-            path = stubs / name
+        for where, name, body in (
+            (shims, "ssh", SSH_STUB),
+            (shims, "docker", DOCKER_STUB),
+            (stubs, "sleep", SLEEP_STUB),
+            (stubs, "ssh", DECOY_STUB),
+            (stubs, "docker", DECOY_STUB),
+        ):
+            path = where / name
             path.write_text(body, encoding="utf-8")
             path.chmod(0o755)
         self.stubs = stubs
+        self.shims = shims
+        self.door = tmp / "door" / "mcgyvr" / "serving" / "run.py"
+        self.door.parent.mkdir(parents=True)
+        self.door.write_text(FAKE_DOOR, encoding="utf-8")
 
     def placement(self, **overrides: object) -> dict[str, object]:
         path = self.out / "placement.json"
@@ -203,8 +234,12 @@ class Fake:
     def env(self, **stub: str) -> dict[str, str]:
         model = str(self.placement()["model"])
         env = dict(os.environ)
+        # The decoys first, then the interpreter the tests run under, so the
+        # step's `python3` proof finds a python that CAN import gatelib.
+        path = [str(self.stubs), str(Path(sys.executable).parent)]
+        path += (os.environ.get("PATH") or os.defpath).split(os.pathsep)
         env.update(
-            PATH=f"{self.stubs}{os.pathsep}{os.environ.get('PATH', '')}",
+            PATH=os.pathsep.join(path),
             RUN_ROOT=str(self.root),
             RUN_CAMPAIGN=f"e2e-{self.host}",
             RUN_STEP_FILE=str(SCRIPT),
@@ -235,10 +270,19 @@ class Fake:
         return env
 
     def run(self, **stub: str) -> subprocess.CompletedProcess[str]:
+        return self.start(self.env(**stub))
+
+    def start(
+        self, env: dict[str, str], *, under_door: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        """The step, under the stand-in door unless a test wants it bare."""
+        argv = [str(SCRIPT)]
+        if under_door:
+            argv = [sys.executable, str(self.door), *argv]
         return subprocess.run(
-            [str(SCRIPT)],
+            argv,
             cwd=self.tmp,
-            env=self.env(**stub),
+            env=env,
             capture_output=True,
             text=True,
             check=False,
@@ -508,16 +552,39 @@ def test_a_host_without_a_declared_image_is_refused(srv2: Fake) -> None:
 
 
 def test_a_step_started_outside_the_door_is_refused(srv2: Fake) -> None:
+    """Every RUN_* the door exports, typed in by hand, and no door ancestor:
+    refused naming the door, before the shims by path or the decoys on PATH
+    see anything. The environment was once the whole guard."""
+    done = srv2.start(srv2.env(), under_door=False)
+    assert done.returncode == 2, done.stderr
+    assert "not started by the door" in done.stderr, done.stderr
+    assert "python -m mcgyvr.serving.run" in done.stderr, done.stderr
+    assert srv2.calls() == [], "nothing reached the stubs"
+
+
+def test_a_step_under_the_door_without_a_run_id_is_refused(srv2: Fake) -> None:
     env = srv2.env()
     del env["RUN_ID"]
-    done = subprocess.run(
-        [str(SCRIPT)],
-        cwd=srv2.tmp,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    done = srv2.start(env)
     assert done.returncode == 2
     assert "RUN_ID is not set" in done.stderr
     assert srv2.calls() == [], "nothing reached the stubs"
+
+
+def test_the_step_takes_the_shims_by_path_and_never_from_path(srv2: Fake) -> None:
+    """The answering stubs are at the shim path under RUN_ROOT; the ``ssh``
+    and ``docker`` on PATH are decoys. A run that reached the rig through
+    the shims logged no decoy line."""
+    srv2.run()
+    assert srv2.launches(), "no launch reached the shims under RUN_ROOT"
+    decoys = [line for line in srv2.calls() if line.startswith("decoy ")]
+    assert decoys == [], f"the step took ssh or docker from PATH: {decoys}"
+
+
+def test_a_run_root_without_the_shims_is_refused_before_any_call(srv2: Fake) -> None:
+    env = srv2.env()
+    env["RUN_ROOT"] = str(srv2.tmp / "elsewhere")
+    done = srv2.start(env)
+    assert done.returncode == 2, done.stderr
+    assert "gate-scripts/bin/ssh" in done.stderr, done.stderr
+    assert srv2.calls() == []

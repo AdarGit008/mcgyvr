@@ -33,6 +33,7 @@ the logic (the pattern :mod:`mcgyvr.detect` established).
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -52,6 +53,26 @@ LABEL_BASE_DIGEST = "mcgyvr.base-digest"
 # evicted. A default, not a law: a real ceiling belongs in config, and this
 # is only what an unconfigured install falls back to.
 DEFAULT_MAX_CACHED_IMAGES = 8
+
+# The variables that point `docker` at another daemon. The sandbox runs on
+# this machine's daemon and nowhere else: a container the product starts must
+# never land on a rig, and the door (python -m mcgyvr.serving.run) is the only
+# way there. So the one runner that spawns docker refuses under either — it
+# does not honour the variable, and it does not strip it and carry on.
+DAEMON_OVERRIDES = ("DOCKER_HOST", "DOCKER_CONTEXT")
+
+
+def foreign_daemon() -> str | None:
+    """Why docker must not be spawned now, or None: a daemon override is set."""
+    for name in DAEMON_OVERRIDES:
+        if name in os.environ:
+            return (
+                f"the sandbox runs on this machine's daemon; {name}="
+                f"{os.environ[name]} is set, and a container the product starts "
+                "must never land on a rig — the door (python -m "
+                "mcgyvr.serving.run) is the only way there"
+            )
+    return None
 
 
 class ImageError(Exception):
@@ -78,7 +99,16 @@ DockerRunner = Callable[[Sequence[str], "bytes | None"], DockerResult]
 
 
 def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
-    """Run a real ``docker`` command. The default :data:`DockerRunner`."""
+    """Run a real ``docker`` command. The default :data:`DockerRunner`.
+
+    The one place the product builds a docker argv for its own daemon, so the
+    one place :func:`foreign_daemon` is applied: with ``DOCKER_HOST`` or
+    ``DOCKER_CONTEXT`` set nothing is spawned, and the result carries the
+    refusal as its stderr, which every caller raises as its own error.
+    """
+    refusal = foreign_daemon()
+    if refusal is not None:
+        return DockerResult(2, "", refusal)
     if shutil.which("docker") is None:
         return DockerResult(127, "", "docker is not on PATH")
     try:

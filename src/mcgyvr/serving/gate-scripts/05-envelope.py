@@ -22,6 +22,18 @@ deleted: the superseded file stays on disk beside its replacement.
 WHY THE RUN_ID MAY NOT BE REUSED. It names the containers gate 7 looks for, the
 `### START` of exactly one run, and any `### RIGMOVED` stamp. Two invocations
 sharing one id make all three ambiguous, so a same-day re-run takes --suffix.
+And two invocations at the same moment mint the same id and would both pass
+write-once, so the id is CLAIMED here — `.<RUN_ID>.running` in the envelope,
+created O_EXCL — and the door releases the claim on every exit path. A claim
+that is still there is a run in progress, or one that died without the door;
+the refusal names the file and leaves the call to the operator.
+
+WHAT A DECLARED ARTIFACT IS. One regular file, one name, inside the envelope
+after every link is followed (gatelib.artifact_escape). A file already there
+under a declared name that is a symlink, a hard link or a path that resolves
+elsewhere is refused before the step, because the step would write through
+it into evidence the door never guarded; and the envelope itself is a
+directory the door made, never a link.
 
 Everything here happens before any rig is touched and before anything is
 written, except the deliberate moves at the end.
@@ -37,7 +49,18 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import export, need, refuse, root
+from mcgyvr.serving.gatelib import (
+    artifact_escape,
+    claim,
+    claim_path,
+    door_required,
+    envelope_escape,
+    export,
+    need,
+    refuse,
+    release,
+    root,
+)
 
 DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES", "RUN_APPENDS")
 PLAIN_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -89,6 +112,7 @@ DEFAULT_STEP = Path(__file__).resolve().parent / "default-step.sh"
 
 
 def main() -> int:
+    door_required("gate 5")
     step_file = Path(need("RUN_STEP_FILE"))
     campaign = need("RUN_CAMPAIGN")
     suffix = os.environ.get("RUN_SUFFIX", "")
@@ -168,8 +192,35 @@ def main() -> int:
             "containers (<RUN_ID>-<role>) and must be legal as a docker name prefix"
         )
     out_dir = root() / "records" / "evidence" / f"{run_date}-{campaign}"
+    escape = envelope_escape(out_dir)
+    if escape is not None:
+        refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
+
+    # The claim is judged before anything else about the envelope, so a run
+    # that collides with one in progress is told THAT and not that a file
+    # the other run is writing "already exists".
+    if claim_path(out_dir, run_id).exists():
+        refuse(
+            f"gate 5: a run with this RUN_ID ({run_id}) is in progress or died "
+            f"without releasing it; wait, or remove {claim_path(out_dir, run_id)} "
+            "if you know it is dead. Two door invocations never share a run "
+            "id: a same-day re-run takes --suffix"
+        )
+
+    def linked(name: str) -> None:
+        """Refuse a declared name that is already something other than one
+        regular file of this envelope: the step would write through it."""
+        escape = artifact_escape(out_dir / name, out_dir)
+        if escape is not None:
+            refuse(
+                f"gate 5: {name} is refused as a declared artifact: {escape}. A "
+                "declared artifact is one regular file inside the envelope, and "
+                "a step that wrote through a link would write evidence the door "
+                "never guarded"
+            )
 
     for name in declared["RUN_ARTIFACTS"]:
+        linked(name)
         if (out_dir / name).exists():
             refuse(
                 f"gate 5: {name} already exists under "
@@ -183,6 +234,7 @@ def main() -> int:
     aside_of: dict[str, str] = {}
     for name in declared["RUN_REWRITES"]:
         path = out_dir / name
+        linked(name)
         if not path.exists():
             continue
         old = start_run_id(path)
@@ -219,6 +271,7 @@ def main() -> int:
     append_state: dict[str, dict[str, object]] = {}
     for name in declared["RUN_APPENDS"]:
         path = out_dir / name
+        linked(name)
         if not path.exists():
             refuse(
                 f"gate 5: {name} is declared under RUN_APPENDS and does not "
@@ -246,13 +299,20 @@ def main() -> int:
         }
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name, aside in aside_of.items():
-        (out_dir / name).rename(out_dir / aside)
-        print(
-            f"gate 5: {name} was written by this step; moved to {aside} before "
-            "this run supersedes it (nothing recorded is lost)",
-            file=sys.stderr,
-        )
+    claim(out_dir, run_id)
+    try:
+        for name, aside in aside_of.items():
+            (out_dir / name).rename(out_dir / aside)
+            print(
+                f"gate 5: {name} was written by this step; moved to {aside} before "
+                "this run supersedes it (nothing recorded is lost)",
+                file=sys.stderr,
+            )
+    except OSError:
+        # The door releases a claim only for a run it was handed; this one
+        # never reaches it, so it is released here before the refusal.
+        release(out_dir, run_id)
+        raise
 
     export("RUN_ID", run_id)
     export("RUN_OUT_DIR", out_dir)

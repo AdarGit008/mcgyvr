@@ -2,8 +2,10 @@
 # tools/runs/_common.sh — the one emitter every campaign step under
 # `tools/runs/campaigns/` sources. The door is `python -m mcgyvr.serving.run`
 # (src/mcgyvr/serving/run.py): it runs the gates around a step and exports the
-# run to it, and a step reaches the rig only through the `ssh` and `docker` the
-# door puts first on PATH, which land on --host. Written against
+# run to it, and a step reaches the rig only through the door's `ssh` and
+# `docker` shims (gate-scripts/bin), which land on --host: rig_snapshot and
+# image_digest prove the door first (gatelib.under_door, read from /proc) and
+# resolve the shim by path from RUN_ROOT, never from $PATH. Written against
 # `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
 # authority) and the parser it cites, `tools/runs/rows.py` (once
 # `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
@@ -42,7 +44,11 @@
 #                                re-stamp per arm (`test_a_row_without_...:9-11`).
 #   start_stamp / end_stamp      §2.3 — `### START` (with
 #                                `pl1_source=constraint_0_power_limit_uw`) and
-#                                `### END`. start_stamp also records the reading
+#                                `### END`, both carrying `run_id=$RUN_ID`: gate
+#                                8 holds a run's START, ROUND and END to the id
+#                                and round the door exported, so a file whose
+#                                stamps name another run — or none — is not
+#                                green. start_stamp also records the reading
 #                                that rig_assert_unchanged compares against.
 #   rig_assert_unchanged         §2.3 and guideline 7's "start equals end" — a
 #                                fresh read, compared field by field with the
@@ -110,9 +116,12 @@
 #                     writes them.
 #
 # There is no seam. A test that needs a rig or a daemon answered puts an `ssh`
-# or `docker` of its own first on PATH — exactly where the door puts its shims;
-# nothing here reads a variable that names a substitute, because a variable
-# that replaces a reading is a variable that skips one.
+# or `docker` of its own first on PATH — the shim, having admitted the host,
+# execs the next binary of that name — and runs under the door or a stand-in
+# whose path ends in mcgyvr/serving/run.py, because nothing here reaches a
+# rig without proving the door; nothing here reads a variable that names a
+# substitute, because a variable that replaces a reading is a variable that
+# skips one.
 
 # --------------------------------------------------------------------------
 # internals
@@ -191,6 +200,37 @@ _py() {
     local root
     root=$(_repo_root) || return 1
     (cd "$root" && uv run --no-sync --quiet python "$@")
+}
+
+# _door_proof — 0 iff an ancestor of this shell is the door, read from /proc by
+# gatelib.under_door. Non-zero for ANY reason (no python3 on PATH, no mcgyvr
+# on it, /proc unreadable) is a refusal: the door is proved or it is not, and
+# "could not check" is not. What the proof said comes back on stdout so a
+# refusal can quote it.
+_door_proof() {
+    python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemExit(0 if under_door() else 2)' 2>&1 >/dev/null
+}
+
+# _door_shim NAME — the path of the door's ssh or docker shim, the door proved
+# first. By path from RUN_ROOT and never from $PATH: a PATH reordered mid-step
+# would find the real binary. The shim refuses by itself outside the door, so
+# RUN_ROOT being the environment's word is fine. Returns 2 on refusal.
+_door_shim() {
+    local said shim
+    said=$(_door_proof) || {
+        _fail "$1 refused: this process was not started by the door — no ancestor is mcgyvr.serving.run${said:+; the proof said: $(printf '%s' "$said" | tail -n 1)} — and RUN_* set by hand does not stand in for one. Start the run as: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <step> --model <blob as the rig sees it>"
+        return 2
+    }
+    if [ -z "${RUN_ROOT:-}" ]; then
+        _fail "$1 refused: RUN_ROOT is unset; the door exports its own tree there, and the $1 this file runs is the door's shim under it (src/mcgyvr/serving/gate-scripts/bin/$1), never the one on PATH"
+        return 2
+    fi
+    shim=$RUN_ROOT/src/mcgyvr/serving/gate-scripts/bin/$1
+    if [ ! -x "$shim" ]; then
+        _fail "$1 refused: $shim is missing or not executable; the door's shim is the only $1 this file runs"
+        return 2
+    fi
+    printf '%s\n' "$shim"
 }
 
 # --------------------------------------------------------------------------
@@ -327,17 +367,18 @@ RIG_READER=src/mcgyvr/serving/gate-scripts/rig-snapshot.sh
 # is legal in a marker as-is (§1.6). A rig that cannot be read is unread —
 # nothing below fills a line in.
 rig_snapshot() {
-    local root out line
+    local root out line ssh_bin
     if [ -z "${RUN_HOST:-}" ]; then
         _fail "rig_snapshot: RUN_HOST is unset. The rig is read over ssh to the host the door was given (gate 5 exports it); nothing here reads the machine a step happens to run on"
         return 1
     fi
+    ssh_bin=$(_door_shim ssh) || return 2
     root=$(_repo_root) || return 1
     if [ ! -f "$root/$RIG_READER" ]; then
         _fail "rig_snapshot: $root/$RIG_READER is missing; that file is the one reader of a rig (gate 2's), and a step reads the machine with it or not at all"
         return 1
     fi
-    out=$(ssh "$RUN_HOST" bash -s <"$root/$RIG_READER") || {
+    out=$("$ssh_bin" "$RUN_HOST" bash -s <"$root/$RIG_READER") || {
         _fail "rig_snapshot: reading $RUN_HOST over ssh failed; the rig is unread and no stamp is written from a guess"
         return 1
     }
@@ -416,9 +457,15 @@ round_stamp() {
 }
 
 # §2.3. A fresh read, emitted whatever it says — if the rig moved, the file must
-# say so. Call rig_assert_unchanged after this, not instead of it.
+# say so. Call rig_assert_unchanged after this, not instead of it. Names the
+# run it closes, as START names the run it opens: gate 8 reads `run_id=` off
+# both and refuses a file whose END is another run's, or nobody's.
 end_stamp() {
     local snap
+    if [ -z "${RUN_ID:-}" ]; then
+        _fail "end_stamp: RUN_ID is unset. A ### END names the run it closes, and only the door mints one (gate 5, 05-envelope.py) — start this step through it: python -m mcgyvr.serving.run"
+        return 1
+    fi
     snap=$(rig_snapshot) || return 1
     RUN_RIG_END=$snap
     stamp END \
@@ -426,7 +473,8 @@ end_stamp() {
         "pl1_uw=$(_snap_get "$snap" pl1_uw)" \
         "pl2_uw=$(_snap_get "$snap" pl2_uw)" \
         "cpu_max_mhz=$(_snap_get "$snap" cpu_max_mhz)" \
-        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)"
+        "ram_mt_s=$(_snap_get "$snap" ram_mt_s)" \
+        "run_id=$RUN_ID"
 }
 
 # Guideline 7's "start equals end", read on the rig rather than asserted about
@@ -541,14 +589,15 @@ rig_assert_declared() {
 # driver refuses a non-digest, so a failed resolution cannot leak through as a
 # tag. Plain JSON rather than `--format`, so one call answers both cases.
 image_digest() {
-    local tag json digest
+    local tag json digest docker_bin
     [ "$#" -eq 1 ] || { _fail "image_digest: usage: image_digest TAG"; return 1; }
     tag=$1
     if [ -z "$tag" ] || _has_space "$tag"; then
         _fail "image_digest: tag '$tag' is empty or holds whitespace"
         return 1
     fi
-    json=$(docker image inspect "$tag") || {
+    docker_bin=$(_door_shim docker) || return 2
+    json=$("$docker_bin" image inspect "$tag") || {
         _fail "image_digest: 'docker image inspect $tag' failed; '$tag' is not an image this daemon holds, so it resolves to no digest and no container is started from it (gate 3)"
         return 1
     }
@@ -602,9 +651,12 @@ else:
 # shell took a bare step straight to recorded evidence, where it truncated its
 # file before round_stamp could refuse — twice in one session. No RUN_OUT_DIR
 # is no envelope, and no envelope is nothing to write. Called by every step
-# after the RUN_ID guard, before it parses an argument.
+# after the RUN_ID guard, before it parses an argument. Then the door itself
+# is proved (_door_proof): all four variables can be typed into a shell, and
+# a full hand-set RUN_* environment once took a step to a real `ssh srv1`
+# with no shim on PATH to stop it.
 door_required() {
-    local v missing=
+    local v said missing=
     for v in RUN_ID RUN_OUT_DIR RUN_ROUND RUN_PRODUCT_SHA256; do
         [ -n "${!v:-}" ] || missing="${missing:+$missing }$v"
     done
@@ -616,6 +668,9 @@ door_required() {
     if [ ! -d "$RUN_OUT_DIR" ]; then
         _fail "RUN_OUT_DIR='$RUN_OUT_DIR' is not a directory; the envelope the door makes (gate 5, 05-envelope.py) is the only place a step writes. Start me through the door: python -m mcgyvr.serving.run" || exit 2
     fi
+    said=$(_door_proof) || {
+        _fail "this step was not started by the door — no ancestor is mcgyvr.serving.run${said:+; the proof said: $(printf '%s' "$said" | tail -n 1)} — and RUN_* set by hand does not stand in for one. Start me through the door: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <this file> --model <blob as the rig sees it>" || exit 2
+    }
 }
 
 # --------------------------------------------------------------------------

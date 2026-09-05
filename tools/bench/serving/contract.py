@@ -241,8 +241,9 @@ LATENCY_TOLERANCE = 0.10
 #:
 #: **#356, 2026-08-24: the boundary is far from every graphs-on curve.** D7
 #: showed 0.02 separating "excluded" from "valid" (srv1 width 1 at 1.00
-#: against srv2's 1.02, `calibration-2026-08-19/README.md:996-1000`) -- both
-#: were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
+#: against srv2's 1.02,
+#: `archive/docs/archive/evidence-prose/calibration-2026-08-19/README.md:996-1000`)
+#: -- both were width-1 servers under eager. On the 2026-08-24 sweep the lowest max
 #: speedup over n=1 is 3.39 (srv1, eager) and 3.61 (srv1, graphs); srv2's
 #: lowest is 7.5. Nothing is within a factor of three of the floor, so the
 #: constant excludes nothing in the new regime and its sensitivity stays a

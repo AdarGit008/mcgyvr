@@ -36,8 +36,13 @@ because the door derives its repo root from its own file — holding:
   envelope), and the rest with canned lines; the ``docker`` logs every argv it
   is handed and answers ``info``, ``version``, ``image inspect`` and ``ps``.
 
-The 11 driver-seam tests do not go through the door: :func:`bare_env` puts
-the same two stubs on PATH with ``RUN_HOST`` set, which is all a driver reads.
+The driver-seam tests do not go through the door: :func:`bare_env` puts the
+same two stubs on PATH with ``RUN_HOST`` set. A driver and the emitter's two
+rig-reaching functions prove the door before anything else, though, so a
+test that must get PAST that proof runs them under :func:`fake_door` — a
+stand-in whose path ends in ``mcgyvr/serving/run.py``, which is what
+``gatelib.under_door`` reads off /proc — with ``RUN_ROOT`` naming this tree,
+where the emitter finds the real shims by path.
 """
 
 from __future__ import annotations
@@ -221,6 +226,20 @@ def executable(path: Path, text: str) -> Path:
     return path
 
 
+#: A stand-in for the door: a file whose path ends in mcgyvr/serving/run.py —
+#: as a copy of the door in a fixture tree does — that runs its arguments as
+#: a child. What the child reads in /proc is exactly what a gate, a step or a
+#: driver reads under the real door: ``gatelib.is_door`` matches the suffix.
+FAKE_DOOR = (
+    "import subprocess, sys\n"
+    "raise SystemExit(subprocess.run(sys.argv[1:]).returncode)\n"
+)
+
+
+def fake_door(tmp_path: Path) -> Path:
+    return executable(tmp_path / "door" / "mcgyvr" / "serving" / "run.py", FAKE_DOOR)
+
+
 # --------------------------------------------------------------------------
 # the stubs behind the shims
 # --------------------------------------------------------------------------
@@ -309,8 +328,12 @@ esac
 _DOCKER_BODY = """\
 case "${1:-}" in
   ps)
+    if [ -f "$STUBS/ps-sleep" ]; then sleep "$(cat "$STUBS/ps-sleep")"; fi
     if [ -f "$STUBS/leftover-flag" ] && [ -e "$(cat "$STUBS/leftover-flag")" ]; then
-      printf '%s-lcps\\n' "${RUN_ID:-norunid}"
+      printf 'c0ffee000001\\t%s-lcps\\n' "${RUN_ID:-norunid}"
+    fi
+    if [ -f "$STUBS/stray-flag" ] && [ -e "$(cat "$STUBS/stray-flag")" ]; then
+      printf 'c0ffee000002\\t%s\\n' "STRAY_NAME"
     fi
     exit 0 ;;
   image | inspect) ;;
@@ -360,18 +383,33 @@ def ssh_stub(where: Path) -> Path:
     return executable(where / "ssh", SSH_STUB)
 
 
+#: What the docker stub calls a container the run did NOT name: no ``RUN_ID-``
+#: prefix, the shape a driver's own ``--name`` or a hand-started server has.
+STRAY_NAME = "vllm-someone-elses"
+
+
 def docker_stub(
-    where: Path, *, leftover_flag: Path | None = None, daemon_down: bool = False
+    where: Path,
+    *,
+    leftover_flag: Path | None = None,
+    stray_flag: Path | None = None,
+    daemon_down: bool = False,
+    ps_sleep: float | None = None,
 ) -> Path:
     """The default ``docker`` in ``where``; every argv line lands in ``docker.log``.
 
-    ``ps`` prints nothing until ``leftover_flag`` exists, then names a container
-    that carries the run's ``RUN_ID`` prefix. ``image inspect`` answers for the
-    two tags the tests use and refuses any other, honouring ``--format`` for
-    ``RepoDigests`` and ``Id``; the plain JSON it prints has the real
-    document's shape — ``RepoDigests`` first, then a ``Config.Labels`` block
-    whose toolkit label carries :data:`TOOLKIT_DIGEST`. ``daemon_down`` makes
-    ``info`` fail the way a CLI with no daemon behind it does.
+    ``ps`` prints nothing until ``leftover_flag`` exists, then lists (id and
+    name, tab-separated, as ``--format '{{.ID}}\\t{{.Names}}'`` does) a
+    container that carries the run's ``RUN_ID`` prefix; once ``stray_flag``
+    exists it lists :data:`STRAY_NAME` too, a container with no such prefix.
+    ``ps_sleep`` makes every ``ps`` take that many seconds first, after the
+    argv is logged — for a test that must catch the door inside gate 7.
+    ``image inspect`` answers for the two tags the tests use and refuses any
+    other, honouring ``--format`` for ``RepoDigests`` and ``Id``; the plain
+    JSON it prints has the real document's shape — ``RepoDigests`` first,
+    then a ``Config.Labels`` block whose toolkit label carries
+    :data:`TOOLKIT_DIGEST`. ``daemon_down`` makes ``info`` fail the way a CLI
+    with no daemon behind it does.
     """
     body = (
         _DOCKER_BODY.replace("VLLM_TAG", VLLM_TAG)
@@ -380,17 +418,27 @@ def docker_stub(
         .replace("LOCAL_TAG", LOCAL_TAG)
         .replace("LOCAL_ID_HEX", LOCAL_ID_HEX)
         .replace("TOOLKIT_DIGEST", TOOLKIT_DIGEST)
+        .replace("STRAY_NAME", STRAY_NAME)
     )
-    flag = where / "leftover-flag"
-    if leftover_flag is None:
-        flag.unlink(missing_ok=True)
-    else:
-        flag.write_text(str(leftover_flag), encoding="utf-8")
+    for filename, value in (
+        ("leftover-flag", leftover_flag),
+        ("stray-flag", stray_flag),
+    ):
+        flag = where / filename
+        if value is None:
+            flag.unlink(missing_ok=True)
+        else:
+            flag.write_text(str(value), encoding="utf-8")
     down = where / "daemon-down"
     if daemon_down:
         down.touch()
     else:
         down.unlink(missing_ok=True)
+    delay = where / "ps-sleep"
+    if ps_sleep is None:
+        delay.unlink(missing_ok=True)
+    else:
+        delay.write_text(str(ps_sleep), encoding="utf-8")
     return executable(where / "docker", docker_stub_text(body))
 
 
@@ -579,11 +627,15 @@ def probe_step(
     once the artifact is complete (a flag for a stub); ``end_line`` replaces
     the ``### END`` line, for the parse gate; ``directive`` is the comment
     line the file is declared under (``RUN_REWRITES`` for a step that may run
-    twice over it). The round it stamps is the one the door handed it.
+    twice over it). The round it stamps is the one the door handed it, and
+    both START and END name the run it was handed (``end_line`` may carry a
+    ``%s`` for it, or not).
     """
+    # `%s` is filled with "$RUN_ID" by the printf below: END names the run it
+    # closes, as START names the one it opens, and gate 8 reads both.
     end = end_line or (
         f"### END uptime_since={UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
-        "cpu_max_mhz=4600 ram_mt_s=3600"
+        "cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s"
     )
     rig = " ".join(f"{k}={v}" for k, v in RIG["srv1"].items())
     return (
@@ -607,7 +659,7 @@ def probe_step(
         f"printf '### RIG {rig}\\n'\n"
         "printf '%s\\tprobe\\tCONFIG\\timg=sha256:%s\\n' "
         f'"${{RUN_HOST:-nohost}}" {LOCAL_ID_HEX}\n'
-        f"printf '{end}\\n'\n"
+        f"printf '{end}\\n' \"$RUN_ID\"\n"
         '} > "$out"\n' + after + "\n"
     )
 
@@ -745,10 +797,27 @@ def written_under_records(root: Path) -> list[str]:
 DOOR_FACTS = frozenset({"scan.json", "geometry.json", "placement.json"})
 
 
+def is_claim(name: str) -> bool:
+    """Whether ``name`` is gate 5's claim on a RUN_ID (``.<RUN_ID>.running``),
+    which exists only while a run is in progress and is the door's, not a
+    step's."""
+    return name.startswith(".") and name.endswith(".running")
+
+
 def filed_by_steps(root: Path) -> list[str]:
     """Files under ``records/`` that a STEP wrote — the door's own three facts
-    (scan, geometry, placement) left out."""
-    return [p for p in written_under_records(root) if Path(p).name not in DOOR_FACTS]
+    (scan, geometry, placement) and its claim on the RUN_ID left out."""
+    return [
+        p
+        for p in written_under_records(root)
+        if Path(p).name not in DOOR_FACTS and not is_claim(Path(p).name)
+    ]
+
+
+def claims(root: Path) -> list[str]:
+    """Every claim marker under ``records/`` right now. Empty after any run
+    the door finished, however it ended."""
+    return [p for p in written_under_records(root) if is_claim(Path(p).name)]
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -769,16 +838,23 @@ def driver(
     env: dict[str, str],
     *,
     argv: list[str] | None = None,
+    door: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``tools/runs/drivers/<name>`` with the interpreter the tests use.
 
     The file must exist first: ``python missing.py`` exits 2 on its own, which
-    would read exactly like the refusal these tests are looking for.
+    would read exactly like the refusal these tests are looking for. ``door``
+    is a :func:`fake_door` to run it under; without one the driver's own
+    proof refuses it, which is what a test of that refusal wants.
     """
     path = DRIVERS / name
     assert path.is_file(), f"{path.relative_to(REPO)} does not exist"
+    command = [sys.executable, str(path)]
+    command += argv if argv is not None else DRIVER_ARGV[name]
+    if door is not None:
+        command = [sys.executable, str(door), *command]
     return subprocess.run(
-        [sys.executable, str(path), *(argv if argv is not None else DRIVER_ARGV[name])],
+        command,
         cwd=REPO,
         env=env,
         stdin=subprocess.DEVNULL,
@@ -811,10 +887,14 @@ def bare_env(stubs: Path, **extra: str) -> dict[str, str]:
 
 
 def bash(
-    script: str, env: dict[str, str], cwd: Path
+    script: str, env: dict[str, str], cwd: Path, *, door: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
+    """``bash -c script``; under ``door`` (a :func:`fake_door`) when given."""
+    command = ["bash", "-c", script]
+    if door is not None:
+        command = [sys.executable, str(door), *command]
     return subprocess.run(
-        ["bash", "-c", script],
+        command,
         cwd=cwd,
         env=env,
         stdin=subprocess.DEVNULL,

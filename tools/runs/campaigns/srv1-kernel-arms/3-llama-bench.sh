@@ -25,7 +25,7 @@
 # (ARTIFACT-CONTRACT.md §6.4); it is a projection, never a second measurement.
 #
 # Two properties are asserted here and nowhere else
-# (test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py:52-71):
+# (test_a_prefill_verdict_needs_an_instrument_that_measures_prefill.py:42-66):
 #
 #   reps / stddev  the same build read 55.7 t/s at -r 3 and 86.4 t/s at -r 9.
 #                  `reps` is COUNTED from the sample array llama-bench reports,
@@ -52,7 +52,9 @@
 #   RUN_ARMS         arms to bench.        default "L0 L1 L2 L3 L4 A3 A1"
 #   RUN_TAG_PREFIX   image tag prefix.     default llamacpp:b10644-
 #   RUN_MODELS_DIR   mounted at /models.   default $HOME/models
-#   RUN_MODEL        model, relative to RUN_MODELS_DIR
+#   RUN_MODEL        the door's --model, the blob AS THE RIG SEES IT
+#                    (/models/<path>, the container form); the /models/
+#                    mount prefix is stripped to place it under RUN_MODELS_DIR
 #   RUN_PP / RUN_TG / RUN_REPS / RUN_FA / RUN_NGL   the step-3 command line
 #   RUN_HOST / RUN_REPO / RUN_RETRY_SLEEP           read by tools/runs/_common.sh
 #
@@ -80,7 +82,11 @@ ARTIFACT=srv1-llama-bench.tsv
 
 TAG_PREFIX=${RUN_TAG_PREFIX:-llamacpp:b10644-}
 MODELS_DIR=${RUN_MODELS_DIR:-$HOME/models}
-MODEL=${RUN_MODEL:-dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf}
+MODEL=${RUN_MODEL:-/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf}
+# The door admits only the container-absolute form (run.py:MODEL_PATH), so
+# the mount prefix is what comes off; a value the door never saw keeps its
+# shape and fails the local preflight below by name.
+MODEL=${MODEL#/models/}
 PP=${RUN_PP:-512,2048}
 TG=${RUN_TG:-128}
 REPS=${RUN_REPS:-9}

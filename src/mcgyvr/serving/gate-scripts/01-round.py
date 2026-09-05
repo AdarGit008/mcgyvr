@@ -11,10 +11,11 @@ from __future__ import annotations
 import importlib.util
 import sys
 
-from mcgyvr.serving.gatelib import export, refuse, root
+from mcgyvr.serving.gatelib import door_required, export, refuse, root
 
 
 def main() -> int:
+    door_required("gate 1")
     # tools/ is not a package, so product.py is reached by path. Loaded here and
     # not at module scope: a gate that failed to import would refuse with a
     # traceback instead of a rule.

@@ -19,6 +19,17 @@ the RIG's daemon (``-H ssh://<host>``), never the operator's. And the door
 refuses to start under an ambient ``RUN_*`` or ``DOCKER_*`` variable: it mints
 its own vocabulary, and a value inherited from the shell is one no gate set.
 
+THE ACCEPTED LIMITS, in two sentences. The proof every gate, step and driver
+applies is an ancestor's command line plus RUN_HOST, both of which an operator
+can forge with ``bash -c ... x/mcgyvr/serving/run.py``, so the seal is against
+every code path in this repository and not against an operator impersonating
+the door. And a step is operator code run under the door: one that calls
+``/usr/bin/ssh srv2`` by absolute path or ``env -i ssh srv2`` on a cleared
+PATH reaches a second host, and that is the same limit — the seal is against
+every code path in this repo (the tripwire in ``tests/test_one_door.py`` bans
+an absolute-path ssh and an ``env -i`` in repo code), not against the step's
+author.
+
 WHAT "NONE IS SKIPPABLE" MEANS, MECHANICALLY. :data:`SEQUENCE` is the whole
 run. There is no flag that omits an entry, no environment variable that short
 -circuits one, and no ordering a caller can choose: `--help` will not show you
@@ -31,19 +42,26 @@ WHY EVERY ENTRY FAILS LOUD. A gate that returns a warning is a gate that gets
 ignored at 02:00 with a rig booked. Each entry exits non-zero and names the
 rule it enforced; the door prints that text and stops. The one exception is
 the pair that must run even when the step died — see :data:`ALWAYS` — and they
-still refuse loudly, they simply do not prevent each other from running.
+still refuse loudly, they simply do not prevent each other from running. Nor
+does a signal: SIGINT and SIGTERM are ignored for the whole of the ALWAYS
+phase (a ``kill -INT`` during gate 7 once escaped as a traceback with gate 8
+never run), so 7 and 8 complete whatever arrives; an interrupt that landed
+earlier still exits 130, otherwise the exit is what 7 and 8 decided. And the
+claim gate 5 took on the RUN_ID (``.<RUN_ID>.running`` in the envelope) is
+released on every exit path, the interrupted ones included.
 
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-5 refuse having
-written nothing under ``records/`` and having reached no rig, so a tree on the
-wrong round or a machine that is not what it claims costs no rig time and
-leaves no artifact to clean up. The data scripts run after the rig is known to
+written nothing under ``records/``: gate 1 reaches no rig at all, and gates 2-5
+only read one (a snapshot over ssh, a daemon's name) and never launch on it, so
+a tree on the wrong round or a machine that is not what it claims costs no rig
+time and leaves no artifact to clean up. The data scripts run after the rig is known to
 be the declared one and before the step, because a placement derived against
 the wrong machine is worse than no placement. Gates 7-8 run after the step
 whatever it did.
 
 THE CONTRACT WITH A GATE SCRIPT. It is an executable under ``gate-scripts/``.
 It reads the run from the environment (:data:`EXPORTED`), writes anything it
-learned as ``KEY=VALUE`` lines on fd 3 if it was given one, and exits 0 to
+learned as ``KEY=VALUE`` lines on the descriptor ``RUN_EXPORT_FD`` names, and exits 0 to
 admit or non-zero having said why. It is not imported: a gate that could be
 imported could be monkeypatched, and the seam that lets a test stub a gate is
 the seam that lets a caller do it.
@@ -62,6 +80,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
+
+from mcgyvr.serving import gatelib
 
 #: The package directory. ``gate-scripts`` carries a hyphen so it can never be
 #: imported: these are executables the door SPAWNS, and a caller that could
@@ -230,7 +250,8 @@ EXPORTED = (
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
-#: `KEY=VALUE`, where VALUE runs to end of line. Anything else on fd 3 is a
+#: `KEY=VALUE`, where VALUE runs to end of line. Anything else on the export
+#: descriptor is a
 #: gate trying to say something the door has no vocabulary for.
 EXPORT_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
@@ -338,7 +359,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         if match is None:
             _refuse(
                 2,
-                f"{entry.script} wrote {line!r} on fd 3, which is not "
+                f"{entry.script} wrote {line!r} on RUN_EXPORT_FD, which is not "
                 "KEY=VALUE; the door passes named facts between gates and "
                 "nothing else",
             )
@@ -418,6 +439,33 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
         proc.wait()
 
 
+#: What a `--model` may contain: an absolute path of ordinary path characters.
+#: The value is interpolated into a remote shell line by data-20 (quoted there
+#: too), named in container argv by the step, and stamped into rows, so a
+#: character that means something to a shell is refused here, before a gate
+#: runs, rather than escaped in three places.
+MODEL_PATH = re.compile(r"^/[A-Za-z0-9._+@=,:/-]+$")
+
+
+def _model_escape(model: str) -> str | None:
+    """Why ``model`` cannot be handed to a rig, or None when it can."""
+    if not MODEL_PATH.match(model):
+        bad = sorted({c for c in model if not re.match(r"[A-Za-z0-9._+@=,:/-]", c)})
+        where = f"characters {bad!r}" if bad else "a relative path"
+        return (
+            f"--model {model!r} is refused: it carries {where}, and a model path "
+            "is an absolute path of ordinary characters AS THE RIG SEES IT "
+            "(e.g. /models/moe/x.gguf); it is handed to a remote shell and to "
+            "container argv, and nothing here escapes it"
+        )
+    if "/../" in model or model.endswith("/..") or "//" in model:
+        return (
+            f"--model {model!r} is refused: a model path names one blob outright, "
+            "with no '..' segment and no empty segment"
+        )
+    return None
+
+
 def _ambient() -> str | None:
     """The first inherited variable the door would otherwise have to trust.
 
@@ -492,6 +540,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # Every refusal below happens before a gate runs: nothing checked, nothing
     # made, no rig read.
+    escape = _model_escape(opts.model)
+    if escape is not None:
+        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+        return 2
     inherited = _ambient()
     if inherited is not None:
         print(
@@ -576,21 +628,53 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    after = 0
-    for entry in ALWAYS:
-        if "RUN_ID" not in env:
-            break  # gate 5 never minted a run: nothing was started to tear down
-        try:
-            if _run_entry(entry, env) != 0:
-                print(f"run.py: {entry.why}", file=sys.stderr)
-                after = entry.status
-        except RefusedError as refusal:
-            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-            after = refusal.status
+    after = _always(env)
 
     if interrupted:
         return 130
     return step_status or after
+
+
+#: What the ALWAYS phase will not be stopped by.
+UNSTOPPABLE = (signal.SIGINT, signal.SIGTERM)
+
+
+def _always(env: dict[str, str]) -> int:
+    """Gates 7 and 8, to completion, whatever signal arrives meanwhile.
+
+    A signal handled here would end the entry that was running — gate 7
+    mid-read of the rig, gate 8 mid-parse — and the run's end state would be
+    exactly as unknown as if neither had run. So both signals are ignored
+    for the whole phase and restored after it; a run interrupted before this
+    phase still exits 130 (the caller keeps that), and one interrupted
+    during it exits with what 7 and 8 decided. The claim gate 5 took on the
+    RUN_ID is released last, on every path out of here.
+    """
+    if "RUN_ID" not in env:
+        return 0  # gate 5 never minted a run: nothing was started to tear down
+    previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
+    after = 0
+    try:
+        for entry in ALWAYS:
+            try:
+                if _run_entry(entry, env) != 0:
+                    print(f"run.py: {entry.why}", file=sys.stderr)
+                    after = entry.status
+            except RefusedError as refusal:
+                print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+                after = refusal.status
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        _release_claim(env)
+    return after
+
+
+def _release_claim(env: dict[str, str]) -> None:
+    """Release gate 5's claim on the RUN_ID, if this run holds one."""
+    out_dir, run_id = env.get("RUN_OUT_DIR"), env.get("RUN_ID")
+    if out_dir and run_id:
+        gatelib.release(Path(out_dir), run_id)
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
