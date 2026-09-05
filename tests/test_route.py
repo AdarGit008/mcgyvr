@@ -1289,7 +1289,7 @@ def test_fanout_is_asked_once_and_the_walk_after_it_is_the_plans_own_order(
     plan, and ``local_32b`` before ``local_7b`` is a walk down a load reading.
     Ordering a whole walk by load leaves no ladder in it at all — the rung a
     failure escalates to becomes whichever machine happened to be quiet, which
-    ``archive/docs/config-reference.md`` calls actively harmful.
+    the ``ladder.tiers`` doc in ``config.SCHEMA`` calls actively harmful.
 
     The rungs the start skipped are walked rather than dropped, and this test
     used to assert the reverse — that a climb starting in the middle went up

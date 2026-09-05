@@ -1,6 +1,21 @@
 # always
 
-Read at session start. All of these have burned a session.
+Read at session start. Each is an owner ruling or has burned a session.
+
+**`archive/` is not read. Asked to, it is still not an authority.** Nothing
+under `archive/` is opened on the way to a number, a plan or an answer, and a
+`→ archive/…` pointer in this store is provenance for a rule, not a place to
+go. When the owner names a file in it, read that file and no more, and treat
+what it says as retired: a measurement in `records/evidence/` or a journal
+row wins over it, and on its own it settles nothing. Owner ruling, 2026-09-05.
+
+**A run is expandable until its first measurement, and frozen from then on.**
+Levers, real tasks, fine-tunes, checkpoints, rungs — add them while the run is
+being planned. Once one cell has been measured the run's shape is fixed, and
+anything new is a new run under its own label with its own journal. A run
+whose shape changed in flight holds rows measured under two plans, and this
+store already shows what one changed list does to comparability
+(→ `reading-results.md`, the level-list desync). Owner ruling, 2026-09-05.
 
 **The rigs swap hardware. Never quote a stored spec — read it.**
 RAM moved between srv1 and srv2 twice in six days. A 2026-08-25 file was quoted

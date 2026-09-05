@@ -23,10 +23,10 @@ lint: setup  ## lint and format check
 typecheck: setup  ## strict type checking
 	uv run --no-sync mypy
 
-docs: setup  ## regenerate the generated docs (config reference, /mcgyvr skill)
+docs: setup  ## render+check+delete the config reference; regenerate the /mcgyvr skill
 	uv run --no-sync python -m mcgyvr.docgen
 
-docs-check: setup  ## fail if a committed generated doc has drifted
+docs-check: setup  ## fail if the reference does not render or the committed skill drifted
 	uv run --no-sync python -m mcgyvr.docgen --check
 
 check: lint typecheck test  ## everything CI runs
