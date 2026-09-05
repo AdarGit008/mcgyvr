@@ -1,0 +1,5 @@
+### START run_id=2026-09-05-e2e-default-step host=srv2 pl1=65000000 pl2=0 uptime_since=2026-09-01T05:20:12Z
+### ROUND id=r4-05-09-2026 product_sha256=db4bfba1873b79b248fe47ea8fa4e087f33b7bdf21aeeed7fc654127b59518a8
+srv2	Ornith-1.0-35B_Q2_K-AllGPU	OK	arm=at_floor	n_cpu_moe=9	try=1/3	predicted_mib=11663.1	measured_mib=10895	delta_mib=-768.1	free_before_mib=11911	img=ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e	reason=NA
+srv2	Ornith-1.0-35B_Q2_K-AllGPU	OK	arm=below_floor	n_cpu_moe=8	try=1/3	predicted_mib=11941.1	measured_mib=11173	delta_mib=-768.1	free_before_mib=11911	img=ghcr.io/ggml-org/llama.cpp@sha256:9f0a986a78ab9261afc3266c807c16933ee4c26c62cb063f0c17f8da890f6c7e	reason=NA
+### END run_id=2026-09-05-e2e-default-step free_mib=11911 pl1=65000000 pl2=0
