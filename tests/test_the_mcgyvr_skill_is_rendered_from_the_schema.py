@@ -61,9 +61,9 @@ def test_the_skill_walks_the_run_and_the_replan(tmp_path: Path) -> None:
 def test_docs_check_refuses_a_skill_that_drifted(tmp_path: Path) -> None:
     reference = tmp_path / "config-reference.md"
     skill = tmp_path / "SKILL.md"
-    reference.write_text(docgen.render_reference(), encoding="utf-8")
     skill.write_text("stale\n", encoding="utf-8")
     argv = ["--check", "--output", str(reference), "--skill-output", str(skill)]
     assert docgen.main(argv) == 1
     skill.write_text(docgen.render_skill(), encoding="utf-8")
     assert docgen.main(argv) == 0
+    assert not reference.exists()  # rendered for its check, then deleted
