@@ -1,0 +1,23 @@
+{
+ "blocks_on_card": 32,
+ "card_free_mib": 11911,
+ "constant_mib": 2800.2,
+ "dense": false,
+ "derived": true,
+ "experts_on_card_mib": 8896.0,
+ "floor_n_cpu_moe": 8,
+ "host": "srv2",
+ "kv_mib": 320.0,
+ "kv_swa_mib": 0.0,
+ "model": "/models/moe/KAT-Coder-V2.5-Dev.Q2_K.gguf",
+ "n_ctx_seq": 2048,
+ "n_ctx_total": 16384,
+ "n_placeable": 40,
+ "n_ubatch": 256,
+ "nonexpert_mib": 1209.7,
+ "parallel": 8,
+ "predicted_card_mib": 11696.2,
+ "run_id": "2026-09-05-e2e-srv2-kat-coder-v2-5-dev-q2k-size",
+ "scratch_allowance_mib": 768,
+ "state_mib": 502.5
+}

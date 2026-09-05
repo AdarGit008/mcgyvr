@@ -1,0 +1,4 @@
+### START run_id=2026-09-05-e2e-srv2-deepseek-coder-v2-16b-size host=srv2
+### ROUND id=r3-05-09-2026 product_sha256=247d1386fbe4de0cd674d710f86fb39039643e14902b723d6e6ed198677db333
+srv2	deepseek-coder-v2-16b	SIZED	arch=deepseek2	n_layer=27	placeable=26	floor_n_cpu_moe=7	kv_mib=4320.0	experts_on_card_mib=5940.0	predicted_mib=11794.8	free_mib=11911
+### END run_id=2026-09-05-e2e-srv2-deepseek-coder-v2-16b-size

@@ -1,0 +1,22 @@
+{
+ "cpu_max_mhz": "5200",
+ "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
+ "docker": "29.7.2",
+ "gpu": {
+  "compute_cap": "8.6",
+  "driver": "595.84",
+  "free_mib": 11911,
+  "name": "NVIDIA_GeForce_RTX_3060",
+  "reserved_mib": 377,
+  "total_mib": 12288,
+  "used_mib": 1
+ },
+ "host": "srv2",
+ "host_mem_available_mib": 45581,
+ "nproc": "20",
+ "pl1_uw": "65000000",
+ "pl2_uw": "0",
+ "ram_mt_s": "2933",
+ "run_id": "2026-09-05-e2e-srv2-kat-coder-v2-5-dev-q2k-size",
+ "uptime_since": "2026-09-01T05:20:12Z"
+}
