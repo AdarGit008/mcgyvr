@@ -33,9 +33,9 @@ build/
 *.egg-info/
 tools/breadth/worker.local.json
 node_modules/
-# The campaign driver's stop sentinel (tools/bench/serving/launch.py) — touched
-# by the interrupt trap so a phase that has not started cannot start during the
-# kill. Cleared at the next launch, so an interrupted run leaves one behind.
+# The retired campaign driver's stop sentinel: launch.py no longer launches
+# (the interrupt path is gate 7 of the door), and a sentinel left by an old
+# checkout must never be committed.
 .campaign-stop
 
 # okf-rag artifacts. `okf/` is a generated concept bundle — its authority is the

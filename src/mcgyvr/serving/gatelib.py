@@ -372,6 +372,63 @@ def ssh_target(argv: list[str]) -> str | None:
     return argv[index].rpartition("@")[2]
 
 
+#: ssh options that send the connection somewhere other than the host on the
+#: line, or open a tunnel through it: a jump host, a stdio forward, another
+#: config file, a control socket, a port forward, and the `-o` keys that do
+#: the same. Compared case-insensitively, the way ssh reads them.
+SSH_REDIRECT_FLAGS = frozenset("JWFSLRDG")
+SSH_REDIRECT_KEYS = frozenset(
+    k.lower()
+    for k in (
+        "ProxyCommand",
+        "ProxyJump",
+        "ProxyUseFdpass",
+        "Hostname",
+        "HostName",
+        "HostKeyAlias",
+        "LocalCommand",
+        "PermitLocalCommand",
+        "RemoteCommand",
+        "ControlPath",
+        "ControlMaster",
+        "LocalForward",
+        "RemoteForward",
+        "DynamicForward",
+        "Include",
+        "Match",
+        "Host",
+    )
+)
+
+
+def ssh_redirects(argv: list[str]) -> list[str]:
+    """The options before the host that would carry the connection elsewhere.
+
+    ``ssh_target`` admits the positional host; ``-J srv2``, ``-W srv2:22``,
+    ``-o Hostname=srv2`` and ``-o ProxyCommand=…`` all keep that host on the
+    line and connect somewhere else. An adversarial pass found them; the shim
+    refuses them by name. Options after the host are the remote command's.
+    """
+    found: list[str] = []
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg == "--" or not arg.startswith("-") or len(arg) == 1:
+            break
+        flag, attached = arg[1], arg[2:]
+        value = (
+            attached if attached else (argv[index + 1] if index + 1 < len(argv) else "")
+        )
+        if flag in SSH_REDIRECT_FLAGS:
+            found.append(arg)
+        elif (
+            flag == "o" and value.partition("=")[0].strip().lower() in SSH_REDIRECT_KEYS
+        ):
+            found.append(arg if attached else f"{arg} {value}")
+        index += 1 if attached or flag not in SSH_TAKES_VALUE else 2
+    return found
+
+
 def next_on_path(name: str, *, skip: Path) -> str | None:
     """The first executable ``name`` on PATH outside the directory ``skip``.
 
@@ -387,7 +444,14 @@ def next_on_path(name: str, *, skip: Path) -> str | None:
         except OSError:
             continue
         candidate = directory / name
-        if candidate.is_file() and os.access(candidate, os.X_OK):
+        # A PATH entry the caller cannot stat (another user's ~/.local/bin, a
+        # dead mount) is not the real binary; it is skipped, not a crash --
+        # the first door run on a rig died here at gate 2 on /root/.local/bin.
+        try:
+            found = candidate.is_file() and os.access(candidate, os.X_OK)
+        except OSError:
+            continue
+        if found:
             return str(candidate)
     return None
 
@@ -400,11 +464,37 @@ def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
             f"ssh refused: `ssh {shlex.join(argv)}` names no host, and the "
             "door admits exactly the host it was opened for"
         )
+    redirected = ssh_redirects(argv)
+    if redirected:
+        refuse(
+            f"ssh refused: {shlex.join(redirected)} would carry the connection "
+            f"somewhere other than {host}, and the door admits exactly the host "
+            "it was opened for — no jump host, no forward, no other config, no "
+            "control socket"
+        )
     _admit(f"ssh to {host}", host)
     real = next_on_path("ssh", skip=own)
     if real is None:
         refuse("ssh refused: no ssh on PATH beyond the door's own shim")
     os.execv(real, [real, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", *argv])
+
+
+def docker_names_a_daemon(argv: list[str]) -> list[str]:
+    """The GLOBAL docker options in ``argv`` that name a daemon or context.
+
+    Only the tokens before the subcommand are docker's own; everything after
+    ``run … IMAGE`` belongs to the container. The first door run on srv2 was
+    refused because llama-server's ``--host 0.0.0.0`` was read as docker's.
+    """
+    named: list[str] = []
+    for arg in argv:
+        if not arg.startswith("-"):
+            break  # the subcommand: what follows is its business
+        if arg in ("-H", "--host", "--context", "-c") or arg.startswith(
+            ("-H=", "--host=", "--context=", "-c=")
+        ):
+            named.append(arg)
+    return named
 
 
 def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
@@ -415,12 +505,7 @@ def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
     docker opens for it goes through ``bin/ssh``, which admits the same host.
     A caller naming a daemon of its own is refused: the door names it.
     """
-    named = [
-        arg
-        for arg in argv
-        if arg in ("-H", "--host", "--context")
-        or arg.startswith(("-H=", "--host=", "--context="))
-    ]
+    named = docker_names_a_daemon(argv)
     if named:
         refuse(
             f"docker refused: {shlex.join(named)} names a daemon, and under the "

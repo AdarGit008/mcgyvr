@@ -356,3 +356,76 @@ def test_next_on_path_skips_the_directory_it_is_told_to(
     assert gatelib.next_on_path("tool", skip=own) == str(other / "tool")
     assert gatelib.next_on_path("tool", skip=other) == str(own / "tool")
     assert gatelib.next_on_path("absent", skip=own) is None
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can stat anything")
+def test_next_on_path_skips_a_path_entry_it_cannot_stat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first door run on a rig died at gate 2: PATH carried
+    /root/.local/bin, `Path.is_file()` raised PermissionError inside the ssh
+    shim, and the traceback was the refusal. An entry the caller cannot read
+    is not the real binary; the walk moves on."""
+    own = tmp_path / "own"
+    locked = tmp_path / "locked"
+    other = tmp_path / "other"
+    executable(own / "tool", "#!/bin/sh\n")
+    executable(other / "tool", "#!/bin/sh\n")
+    locked.mkdir()
+    locked.chmod(0)
+    try:
+        monkeypatch.setenv("PATH", os.pathsep.join([str(own), str(locked), str(other)]))
+        assert gatelib.next_on_path("tool", skip=own) == str(other / "tool")
+    finally:
+        locked.chmod(0o755)
+
+
+@pytest.mark.parametrize(
+    ("argv", "named"),
+    [
+        (
+            ["run", "-d", "--name", "x", "img", "--host", "0.0.0.0", "--port", "8080"],
+            [],
+        ),
+        (["-H", "tcp://x", "ps"], ["-H"]),
+        (["--host=tcp://x", "ps"], ["--host=tcp://x"]),
+        (["--context", "c", "ps"], ["--context"]),
+        (["-c", "c", "ps"], ["-c"]),
+        (["ps", "--host"], []),
+        (["info", "--format", "{{.Name}}"], []),
+    ],
+)
+def test_the_docker_shim_reads_only_dockers_own_global_options(
+    argv: list[str], named: list[str]
+) -> None:
+    """The first door run on srv2 was refused at the launch: llama-server's
+    `--host 0.0.0.0` after the image was read as docker's `--host`. Only the
+    tokens before the subcommand are docker's."""
+    assert gatelib.docker_names_a_daemon(argv) == named
+
+
+@pytest.mark.parametrize(
+    ("argv", "found"),
+    [
+        (["-J", "srv2", "srv1", "id"], ["-J"]),
+        (["-W", "srv2:22", "srv1"], ["-W"]),
+        (["-oHostname=srv2", "srv1"], ["-oHostname=srv2"]),
+        (["-o", "ProxyCommand=nc srv2 22", "srv1"], ["-o ProxyCommand=nc srv2 22"]),
+        (["-o", "proxyjump=srv2", "srv1"], ["-o proxyjump=srv2"]),
+        (["-F", "/tmp/cfg", "srv1"], ["-F"]),
+        (["-L", "8080:srv2:8080", "srv1"], ["-L"]),
+        (["-S", "/tmp/sock", "srv1"], ["-S"]),
+        (["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "srv1", "id"], []),
+        (["--", "srv1", "docker", "system", "dial-stdio"], []),
+        (["-p", "22", "-l", "adar", "srv1"], []),
+        (["srv1", "ssh", "-J", "x", "srv2", "id"], []),
+    ],
+)
+def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
+    argv: list[str], found: list[str]
+) -> None:
+    """`ssh_target` admits the positional host; `-J`, `-W`, `-o Hostname=` and
+    `-o ProxyCommand=` keep it on the line and connect elsewhere (found by the
+    second adversarial pass). Options after the host belong to the remote
+    command and are not the shim's business."""
+    assert gatelib.ssh_redirects(argv) == found
