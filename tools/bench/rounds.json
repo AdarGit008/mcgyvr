@@ -1,9 +1,9 @@
 {
   "doctrine": {
     "_source": "ADR-0032 (#291), which makes ADR-0018 Q3 operational; the batching clause was decided on #276 and lived only in the body of a closed issue until 2026-08-17.",
-    "_read_by": "tools/bench/product.py — load_doctrine, printed by --open. Clauses added here are stated by the tool without touching that module.",
+    "_read_by": "tools/bench/product.py \u2014 load_doctrine, printed by --open. Clauses added here are stated by the tool without touching that module.",
     "clauses": [
-      "A round boundary is DRAINED, not TAKEN. Every identity change waiting on a boundary lands in the same round. Landing them one at a time, with runs in between, converts one re-baseline into several rounds whose arms are comparable only within themselves — and spends the rig time once per round.",
+      "A round boundary is DRAINED, not TAKEN. Every identity change waiting on a boundary lands in the same round. Landing them one at a time, with runs in between, converts one re-baseline into several rounds whose arms are comparable only within themselves \u2014 and spends the rig time once per round.",
       "An adopted change is anything that moves product_sha256, or any field of tools/bench/identity.py's GROUPS that a run records. The pin is over file contents, so 'does the digest move' is the test, and --check answers it.",
       "--open records the batch and does not verify it. Nothing here can know which issues are still open. What is enforced is that the batch is NAMED (--adopted) and that what moved is printed, at the one moment the rule is violable.",
       "Arms measured under two rounds are not comparable. round and product_sha256 are keyed fields (identity.KEY), so a table mixing them is refused by require_comparable rather than annotated."
