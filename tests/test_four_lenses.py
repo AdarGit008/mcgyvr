@@ -122,6 +122,17 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # than importing them (G4 — importing the adapters drags tree-sitter into a
     # planning-only process), and worker/reply.py carries the same pair.
     "_PY_EXTENSIONS": True,
+    # Must agree, and cannot be derived. `mcgyvr.cli` writes this as the `tier`
+    # of every deterministic-floor row; `tools/live/index.py` is what a reviewer
+    # filters the table by, and if the two drifted the query for "how much work
+    # finished without a model" would silently return nothing. The reviewer
+    # tool is deliberately not an importer of the CLI — it reads journals other
+    # installs and other versions wrote, and importing `mcgyvr.cli` to learn one
+    # string would drag the whole command surface into a read-only tool — so the
+    # duplication is declared rather than removed. `tests/
+    # test_a_floor_run_is_in_the_corpus_too.py` holds the value to the catalog's
+    # own family name at the writing end.
+    "DETERMINISTIC": True,
     # Must agree. Both rigs clone the same frames for the same corpus.
     "CLONE_DEPTH": True,
     "REMOTES": True,

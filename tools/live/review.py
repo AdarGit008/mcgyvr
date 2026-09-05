@@ -19,6 +19,15 @@ outcome — the latest correction, as ``fold`` decides — is the word given;
 outcome and is printed and filtered as ``uncorrected``, so the word on the
 screen is the word that selects it.
 
+**A verdict somebody else gave is printed with its author.** ``fold`` carries
+``applied_by`` — the writer of the correction that won — beside the outcome it
+belongs to, and under §9 that need not be the orchestrator that ran the
+attempt. So an outcome applied by another writer prints as ``outcome=rejected
+(applied by review)``, and one applied by the row's own runner prints as the
+outcome alone: today both of mcgyvr's ``correct()`` call sites pass the
+recording orchestrator, so the byline would otherwise repeat the row's own
+``orchestrator=`` on every line of every journal the product writes.
+
 **Absent is printed as absent.** A raised attempt has no reply and says so
 with its error; a blob the row names and the store lacks is reported as
 missing. Neither is printed as an empty reply, which is a thing a model can
@@ -104,8 +113,8 @@ def render(directory: Path, row: dict[str, Any]) -> str:
     lines = [
         f"=== {row.get('attempt_id', '<no attempt_id>')}  "
         f"orchestrator={row.get('orchestrator', '<none>')}  "
-        f"rung={row.get('rung', '<none>')}  "
-        f"outcome={row.get('outcome', UNCORRECTED)}  "
+        f"rung={row.get('rung', '<none>')}{_tier(row)}  "
+        f"outcome={row.get('outcome', UNCORRECTED)}{_byline(row)}  "
         f"round={row.get('round', '<none>')}  {ROUND_WORDS[index.off_round(row)]}"
     ]
     if row.get("session_file"):
@@ -130,6 +139,47 @@ def render(directory: Path, row: dict[str, Any]) -> str:
             )
         )
     return "\n".join(lines) + "\n"
+
+
+def _tier(row: dict[str, Any]) -> str:
+    """Which family the rung belongs to, when it is not a model's.
+
+    Beside the rung because it qualifies it: a floor row's ``rung`` is a
+    program (``ruff``) and a ladder row's is a config's tier name, and the two
+    are otherwise the same column with two vocabularies in it. Printed only for
+    the deterministic tier, which is the one whose rows have no prompt and no
+    reply — so ``rung=ruff (deterministic)`` above ``no prompt recorded`` reads
+    as an explanation rather than as a hole. On a ladder row the endpoint, the
+    model and the prompt below it already say what kind of row it is, and a
+    word repeated on every line is one a reviewer stops seeing.
+
+    Absent on every row written before the field existed, which prints as a
+    ladder row does: nothing. A journal is read as it was written.
+    """
+    tier = row.get("tier")
+    return f" ({tier})" if tier == index.DETERMINISTIC else ""
+
+
+def _byline(row: dict[str, Any]) -> str:
+    """Who applied the correction, when that is not who ran the attempt.
+
+    Beside the outcome rather than on a line of its own, because that is what
+    it qualifies: ``fold`` moves ``applied_by`` with the verdict it belongs to
+    (:mod:`mcgyvr.telemetry`), and a reviewer weighing a rejection weighs it
+    differently when a separate gate or review gave it than when the
+    orchestrator that ran the attempt did.
+
+    Empty when the two names agree, and that is the common case: both of
+    mcgyvr's own ``correct()`` call sites pass the recording orchestrator, so
+    every row of every journal the product writes today is self-corrected.
+    Printing the byline anyway would put a column of ``agent-a`` beside
+    ``agent-a`` on every screen, and a field that is noise on every row is one
+    a reviewer stops reading before the day it says something.
+    """
+    applied_by = row.get("applied_by")
+    if applied_by is None or applied_by == row.get("orchestrator"):
+        return ""
+    return f" (applied by {applied_by})"
 
 
 def _section(name: str, directory: Path, digest: object, *, absent: str) -> str:
