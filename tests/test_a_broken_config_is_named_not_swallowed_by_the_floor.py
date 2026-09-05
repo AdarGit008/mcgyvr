@@ -209,7 +209,7 @@ def test_no_config_anywhere_is_the_silent_case_the_floor_is_built_for(
 
     out = capsys.readouterr()
     assert code == 0, f"stdout: {out.out}\nstderr: {out.err}"
-    probe = home / ".config" / "mcgyvr" / "config.yaml"
+    probe = home / ".mcgyvr" / "config" / "mcgyvr.yaml"
     assert not any(str(probe) in line for line in out.out.splitlines()), out.out
     assert not any("without a config" in line for line in notes(out.out)), out.out
 

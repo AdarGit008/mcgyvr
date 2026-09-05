@@ -42,6 +42,12 @@ import yaml
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
+#: The user-level config directory (owner, 2026-09-05). A literal with `~` so
+#: help text reads the same on every machine; expanded at the point of use.
+#: This is the third and last place a config is looked for, after the
+#: environment override and the working directory, and where `mcgyvr init`
+#: writes when nobody names a path. `$XDG_CONFIG_HOME` is not consulted.
+USER_CONFIG_DIR = "~/.mcgyvr/config"
 
 
 class ConfigError(Exception):
@@ -1121,17 +1127,28 @@ def named_config_path() -> Path | None:
     return Path(override).expanduser() if override else None
 
 
+def user_config_path() -> Path:
+    """``~/.mcgyvr/config/mcgyvr.yaml``, expanded against the current HOME."""
+    return Path(USER_CONFIG_DIR).expanduser() / CONFIG_FILENAME
+
+
 def config_path() -> Path:
-    """Locate the config file: explicit override, then cwd, then user config."""
+    """Locate the config file: explicit override, then cwd, then the user dir.
+
+    The user dir is :data:`USER_CONFIG_DIR` and nothing else: the XDG config
+    home was the third answer until 2026-09-05, and the owner asked for one
+    directory of mcgyvr's own. A path that depends on an environment variable
+    only some shells export is a config that is found from one terminal and
+    not another, which is the same file in two places as far as an operator
+    debugging it is concerned.
+    """
     override = named_config_path()
     if override is not None:
         return override
     local = Path.cwd() / CONFIG_FILENAME
     if local.is_file():
         return local
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-    return base / "mcgyvr" / "config.yaml"
+    return user_config_path()
 
 
 def parse(text: str, path: Path | None = None) -> Config:

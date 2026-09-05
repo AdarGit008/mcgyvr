@@ -23,6 +23,7 @@ from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_FILENAME,
     CONFIG_PATH_ENV,
+    USER_CONFIG_DIR,
     Config,
     ConfigError,
     ConfigMissingError,
@@ -36,6 +37,12 @@ from mcgyvr.exits import Exit
 from mcgyvr.initialize import InitError, initialize
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import ModelSpec, UnitError, host_of, units_for
+
+#: The three places a config is looked for, in order, as every `--config`
+#: help line states them: one sentence, so no command names a fourth.
+CONFIG_DEFAULT_HELP = (
+    f"${CONFIG_PATH_ENV}, ./{CONFIG_FILENAME} or {USER_CONFIG_DIR}/{CONFIG_FILENAME}"
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
@@ -1236,8 +1243,8 @@ def _climb(
     from it.
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
-    command's does — ``$MCGYVR_CONFIG``, then the working directory, then the
-    user config dir — because a second resolution order for the same file is a
+    command's does — ``$MCGYVR_CONFIG``, then the working directory, then
+    ``~/.mcgyvr/config/`` — because a second resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
     a rung is chosen.
@@ -2214,7 +2221,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     conf.set_defaults(func=_config)
 
@@ -2227,7 +2234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     pool.add_argument(
         "--probe",
@@ -2266,7 +2273,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="CONFIG",
         help=(
             "resolve against a configured ladder and name the types it cannot "
-            f"start (default config: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+            f"start (default config: {CONFIG_DEFAULT_HELP})"
         ),
     )
     cat.add_argument(
@@ -2328,7 +2335,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         type=_named_path,
         metavar="PATH",
-        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     emi.add_argument(
         "--out",
@@ -2378,7 +2385,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "path",
         nargs="?",
         default=None,
-        help=f"where to write (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+        help=f"where to write (default: {CONFIG_DEFAULT_HELP})",
     )
     ini.add_argument(
         "--force",
@@ -2544,7 +2551,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ladder to climb when the contract is not deterministic. Which rung "
             "runs is this file's — the tier order, each tier's `attempts` and the "
             "`budgets` ceilings — never a flag "
-            f"(default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+            f"(default: {CONFIG_DEFAULT_HELP})"
         ),
     )
     run.add_argument(
