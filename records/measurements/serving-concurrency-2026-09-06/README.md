@@ -110,3 +110,28 @@ Widths that follow from these curves, for a ladder whose caller waits on each
 reply: **8 for both vLLM rungs** (the engine's own ceiling, 5% per-stream cost)
 and **1 or 2 for srv1's top rung** (width 4 already puts a 1024-token reply at
 131s, past the default timeout).
+
+## The same batch again, under the width this record chose
+
+26 corpus contracts against the live ladder as 26 concurrent `mcgyvr run`
+processes, before and after — same contracts, same corpus, same three rungs.
+The only differences are that dispatch now holds the declared slot and that
+srv1's rung declares 2 instead of 8.
+
+| | before | after |
+|---|---|---|
+| transport timeouts | 19 | **0** |
+| outcome `error` | 19 | **0** |
+| accepted | 6 | **10** |
+| reached the top rung | 21 | 21 |
+| wall clock | 2m38s | 8m01s |
+
+The same number of contracts reach the top rung. What changed is that they
+now finish there. `/slots` reported 2 of 8 busy throughout, against 8 of 8
+before, and nothing declined a rung: the queue drained well inside
+`budgets.task_timeout_s`.
+
+The batch takes three times as long, and that is the trade this record is
+about. Before, most of that wall clock was 19 contracts failing after two
+minutes of waiting in a queue they could not see. The rig's aggregate
+throughput was never the scarce thing; the reply that arrives is.
