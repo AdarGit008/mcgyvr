@@ -746,7 +746,11 @@ class Capacity:
             declared=declarations,
             rungs=rungs,
             urls={name: source.base_url for name, source in config.sources.items()},
-            # A task may not wait for a slot longer than it may take in total.
+            # No single wait may exceed the ceiling on the whole task. That
+            # bounds each hold and not their sum: a climb of three rungs that
+            # queued at every one of them could still wait three ceilings.
+            # Charging a climb's waits against one deadline needs a deadline
+            # threaded through the climb, which is not this seam's.
             queue_timeout_s=float(config.get("budgets.task_timeout_s")),
         )
 
