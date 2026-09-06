@@ -281,6 +281,9 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     ]
     return {
         "version": SCHEMA_VERSION,
+        # Written at its default so the file says which setup it is. The
+        # value is the schema's, never spelled here (see `_defaults`).
+        **_defaults(SCHEMA, "profile"),
         "sources": sources,
         "ladder": {"tiers": tiers},
         "orchestrator": {"source": None, "model": None},

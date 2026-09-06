@@ -12,18 +12,96 @@ tree that has moved gets the next round opened for it here, pinned to the
 revision about to run, and the run proceeds. What the pin is for is untouched —
 two revisions never share a round — and this is exactly why the new round is
 appended and the one that was open keeps the digest its own arms ran against.
+
+THE PROFILE IS SETTLED HERE TOO, for the same reason: it is a fact about the
+run that costs no rig time to know and that every later gate reads. The config
+is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./mcgyvr.yaml`
+under the run root, then `~/.mcgyvr/config/mcgyvr.yaml` — and its `profile:`
+is exported as RUN_PROFILE. No config at all is `live` (owner's ruling R4: the
+default is prod, and forgetting the variable lands there); a config that is
+there and cannot be read, or a `$MCGYVR_CONFIG` naming a file that is not
+there, is a refusal, because a run whose config cannot be read cannot say
+which profile it ran under. And a `serve up|down` under `dev` is refused here,
+before any rig is read: the live ladder is prod's (R1, live outranks dev).
 """
 
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 
+from mcgyvr import config as configlib
 from mcgyvr.serving.gatelib import door_required, export, refuse, root
+
+DEV = "dev"
+
+
+def default_profile() -> str:
+    """What a config that says nothing runs as: the schema's own default, so
+    a moved default moves this gate with it rather than a literal here."""
+    spec = configlib.field_at("profile")
+    assert spec is not None and isinstance(spec.default, str)
+    return spec.default
+
+
+def profile() -> tuple[str, str]:
+    """The run's profile and the config it was read from (``none`` if none).
+
+    Refuses on a config that is there and cannot be read, and on a named
+    (``$MCGYVR_CONFIG``) config that is not there: both are files somebody
+    chose, and a run that went on under some other profile would be the
+    silent landing the profile exists to prevent. The absent *default* is
+    the one silence: nobody chose it, and it is ``live``.
+    """
+    try:
+        loaded = configlib.load()
+    except configlib.ConfigMissingError as absent:
+        if configlib.named_config_path() is not None:
+            refuse(
+                f"gate 1: {absent}. {configlib.CONFIG_PATH_ENV} names a config "
+                "that is not there, and a run made under some other one would "
+                "not be the run that was asked for. Nothing is measured under "
+                "a profile nobody can name"
+            )
+        return default_profile(), "none"
+    except configlib.ConfigError as error:
+        refuse(
+            f"gate 1: the config cannot be read: {error}. A run whose config "
+            "cannot be read cannot say which profile it ran under, and nothing "
+            "is measured under an unknown one"
+        )
+    except (OSError, RuntimeError) as error:
+        # A `~nobody` in the variable, a working directory that went away:
+        # a config the gate cannot even locate is refused with the reason,
+        # not left as a traceback.
+        refuse(
+            f"gate 1: the config cannot be located: {error!r}. Nothing is "
+            "measured under a profile nobody can name"
+        )
+    return str(loaded.get("profile")), str(loaded.path)
 
 
 def main() -> int:
     door_required("gate 1")
+    # The profile first, and the round second: the round check may APPEND a
+    # round to tools/bench/rounds.json when the tree moved (a boundary in the
+    # record, and the door's job), while a run refused for its profile should
+    # leave nothing behind at all — and the profile needs nothing from the
+    # round to be judged.
+    which, source = profile()
+    serve = os.environ.get("RUN_SERVE")
+    if serve and which == DEV:
+        refuse(
+            f"gate 1: this run is under a dev profile ({source}), and the live "
+            f"ladder is not started or stopped under one: `serve {serve}` is "
+            "prod's. Live outranks dev (owner, 2026-09-06). Run it under the "
+            f"live config: the one at {configlib.user_config_path()} with "
+            f"`profile: live`, named by {configlib.CONFIG_PATH_ENV} or reached "
+            "by leaving the variable unset — and if that is the file this run "
+            "loaded, set its profile to live"
+        )
+
     # tools/ is not a package, so product.py is reached by path. Loaded here and
     # not at module scope: a gate that failed to import would refuse with a
     # traceback instead of a rule.
@@ -52,7 +130,11 @@ def main() -> int:
         )
     export("RUN_ROUND", round_id)
     export("RUN_PRODUCT_SHA256", digest)
-    print(f"gate 1: round={round_id} product_sha256={digest[:16]}...")
+    export("RUN_PROFILE", which)
+    print(
+        f"gate 1: round={round_id} product_sha256={digest[:16]}... "
+        f"profile={which} (config: {source})"
+    )
     return 0
 
 

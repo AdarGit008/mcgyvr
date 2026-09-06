@@ -582,6 +582,21 @@ SCHEMA: tuple[Field, ...] = (
         min_value=1,
     ),
     Field(
+        "profile",
+        "enum",
+        "Which setup this file is: `live`, the ladder that serves for real, or "
+        "`dev`, a setup under development. The default is `live`, because the "
+        "safe value is the one you get when you say nothing: "
+        "`~/.mcgyvr/config/mcgyvr.yaml` is the unnamed fallback and is the "
+        "live setup, and a dev setup is a file you name in `MCGYVR_CONFIG` "
+        "(or a `mcgyvr.yaml` beside the work), so forgetting the variable "
+        "lands on the live setup and never the other way round. Live outranks "
+        "dev on the rigs: a run under a `dev` profile does not start or stop "
+        "the live ladder.",
+        choices=("live", "dev"),
+        default="live",
+    ),
+    Field(
         "sources",
         "block_map",
         "Where model work is executed, keyed by a name you choose. A source "
@@ -870,6 +885,17 @@ def _no_duplicate_keys(
     mapping: dict[Any, Any] = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=True)
+        try:
+            hash(key)
+        except TypeError:
+            # `[dev]: x` — a list as a key. YAML allows it; a config does
+            # not, and `key in mapping` would have raised a TypeError past
+            # every caller expecting a ConfigError.
+            mark = key_node.start_mark
+            raise ConfigSchemaError(
+                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
+                "config key is one word, never a list or a mapping."
+            ) from None
         if key in mapping:
             mark = key_node.start_mark
             raise ConfigSchemaError(
