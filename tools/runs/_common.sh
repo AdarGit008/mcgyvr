@@ -176,10 +176,16 @@ _host() {
     printf '%s' "$h"
 }
 
+# The run root, where the parser and the declarations live: RUN_REPO when a
+# caller named one, else RUN_ROOT (the door's export — the tree a run is
+# filed under and measured against, which need not be the checkout this
+# shell is in), else the enclosing git checkout.
 _repo_root() {
     local root
     if [ -n "${RUN_REPO:-}" ]; then
         root=$RUN_REPO
+    elif [ -n "${RUN_ROOT:-}" ]; then
+        root=$RUN_ROOT
     else
         root=$(git rev-parse --show-toplevel 2>/dev/null) || root=
     fi
@@ -356,10 +362,20 @@ arm_label() {
 # §2.2/§2.3  the live rig
 # --------------------------------------------------------------------------
 
-# Gate 2's reader, relative to the repo root. One reader for the door and the
-# step: the `_rig_*` functions that once lived here were its source, and were
-# a second copy the moment it existed.
-RIG_READER=src/mcgyvr/serving/gate-scripts/rig-snapshot.sh
+# Gate 2's reader, beside the door's shims (RUN_BIN is `gate-scripts/bin`, and
+# the reader is `gate-scripts/rig-snapshot.sh`): the CODE's copy, the same
+# file gate 2 shipped to the rig, and never one found under the run root —
+# a run root that is another tree would read the machine with another
+# reader, and gate 7 could not diff the two readings. One reader for the
+# door and the step: the `_rig_*` functions that once lived here were its
+# source, and were a second copy the moment it existed.
+_rig_reader() {
+    if [ -z "${RUN_BIN:-}" ]; then
+        _fail "rig_snapshot: RUN_BIN is unset; the reader is the door's own (gate-scripts/rig-snapshot.sh, beside the shims RUN_BIN names), and a step reads the machine with it or not at all"
+        return 1
+    fi
+    printf '%s' "${RUN_BIN%/}/../rig-snapshot.sh"
+}
 
 # One reading of the machine, `k=v` per line, taken ON THE RIG over
 # `ssh "$RUN_HOST"`. The step runs on the operator's machine and the container
@@ -375,12 +391,12 @@ rig_snapshot() {
         return 1
     fi
     ssh_bin=$(_door_shim ssh) || return 2
-    root=$(_repo_root) || return 1
-    if [ ! -f "$root/$RIG_READER" ]; then
-        _fail "rig_snapshot: $root/$RIG_READER is missing; that file is the one reader of a rig (gate 2's), and a step reads the machine with it or not at all"
+    root=$(_rig_reader) || return 1
+    if [ ! -f "$root" ]; then
+        _fail "rig_snapshot: $root is missing; that file is the one reader of a rig (gate 2's), and a step reads the machine with it or not at all"
         return 1
     fi
-    out=$("$ssh_bin" "$RUN_HOST" bash -s <"$root/$RIG_READER") || {
+    out=$("$ssh_bin" "$RUN_HOST" bash -s <"$root") || {
         _fail "rig_snapshot: reading $RUN_HOST over ssh failed; the rig is unread and no stamp is written from a guess"
         return 1
     }

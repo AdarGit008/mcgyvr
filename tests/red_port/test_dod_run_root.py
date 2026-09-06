@@ -125,3 +125,29 @@ def test_the_serve_run_refuses_a_missing_root_the_same_way(
     assert status == 2, err
     assert RUN_ROOT_VAR in err and "existing directory" in err, err
     assert not missing.exists()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("relative/runs", id="relative"),
+        pytest.param("~nosuchuser-mcgyvr/runs", id="unexpanded-user"),
+        pytest.param("", id="empty"),
+    ],
+)
+def test_a_value_the_door_cannot_judge_is_refused_not_traced_back(
+    value: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A relative path lands somewhere different per working directory; a
+    ``~user`` the shell did not expand raises inside ``expanduser``; an empty
+    value names nothing. Each is exit 2 naming the variable, never a
+    traceback."""
+    from mcgyvr.serving import run
+
+    monkeypatch.setenv(RUN_ROOT_VAR, value)
+    status = run.main(
+        ["--host", "srv1", "--campaign", CAMPAIGN, "--model", "/models/x.gguf"]
+    )
+    err = capsys.readouterr().err
+    assert status == 2, err
+    assert RUN_ROOT_VAR in err and "absolute" in err, err

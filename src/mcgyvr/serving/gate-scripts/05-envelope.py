@@ -308,6 +308,16 @@ def main() -> int:
             "sha256": hashlib.sha256(raw).hexdigest(),
         }
 
+    # The root was judged when the door opened; gates 1-4 have spent rig time
+    # since, and a root that went away meanwhile is not re-made here — a
+    # `parents=True` below would recreate it silently, which is the root made
+    # by nobody that the door refuses to make.
+    if not root().is_dir():
+        refuse(
+            f"gate 5: the run root {root()} is no longer a directory; the door "
+            "files under a root that exists and never makes one. Nothing is "
+            "minted"
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
     claim(out_dir, run_id)
     try:

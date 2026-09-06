@@ -334,16 +334,27 @@ def run_root() -> Path:
     named = os.environ.get(ROOT_ENV)
     if named is None:
         return ROOT
-    path = Path(named).expanduser()
-    if not named or not path.is_dir():
+    # Absolute, or refused: a relative value lands somewhere different from
+    # every directory the door is invoked in, which is the one thing a root
+    # is for not doing. `~` is not absolute either, and a `~user` the shell
+    # did not expand is a value nobody checked.
+    try:
+        path = Path(named).expanduser()
+        usable = bool(named) and path.is_absolute() and path.is_dir()
+    except (OSError, RuntimeError):
+        # An unreadable parent, a `~nobody` — a root the door cannot judge
+        # is a root it does not use, and says so rather than tracing back.
+        usable = False
+    if not usable:
         _refuse(
             2,
-            f"{ROOT_ENV}={named!r} is not an existing directory. The run root "
-            "is where the envelope is made (records/evidence/) and where the "
-            "round, hosts.json and the campaigns are read from; the door never "
-            "creates it, because a root made silently is a run filed where "
-            "nobody looks. Name a directory that exists, or unset the variable "
-            f"to use the checkout ({ROOT})",
+            f"{ROOT_ENV}={named!r} is not an existing directory named by an "
+            "absolute path. The run root is where the envelope is made "
+            "(records/evidence/) and where the round, hosts.json and the "
+            "campaigns are read from; the door never creates it, because a "
+            "root made silently is a run filed where nobody looks. Name a "
+            "directory that exists, or unset the variable to use the tree "
+            f"the door runs from ({ROOT})",
         )
     return path.resolve()
 
