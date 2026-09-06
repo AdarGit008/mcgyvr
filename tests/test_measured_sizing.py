@@ -38,7 +38,6 @@ from mcgyvr.capability import GB_PER_GIB
 from mcgyvr.config import Config, ConfigSchemaError, parse
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
-    DEFAULT_CONTEXT,
     MAX_WIDTH,
     RUNTIME_RESIDENT_GB,
     ModelSpec,
@@ -52,6 +51,11 @@ from mcgyvr.serving import (
     units_for,
     vramfit,
 )
+
+#: The window these tests were written against, stated because nothing supplies
+#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
+#: the window is what the run declares, so a test is a run and declares its own.
+WINDOW = 4096
 
 MIB = 1 << 20
 GIB = 1 << 30
@@ -211,6 +215,7 @@ def test_srv1_at_the_default_context_keeps_its_experts_off_a_six_gb_card() -> No
             threads=6,
         ),
         scanned(QWEN36),
+        ctx_per_slot=WINDOW,
     )
     assert sized.fits, sized.why
     assert "experts in RAM" in sized.why
@@ -231,13 +236,19 @@ def test_the_width_is_the_widest_that_keeps_the_floor_at_one_slot() -> None:
     """
     free = 11_911 * MIB
     spec = scanned(DEEPSEEK)
-    derived = _placement(spec, free)
-    at_one = _placement(spec, free, 1)
+    derived = _placement(spec, free, ctx_per_slot=WINDOW)
+    at_one = _placement(spec, free, 1, ctx_per_slot=WINDOW)
     assert derived.n_cpu_moe == at_one.n_cpu_moe
     for width in range(1, derived.width + 1):
-        assert _placement(spec, free, width).n_cpu_moe == at_one.n_cpu_moe
+        assert (
+            _placement(spec, free, width, ctx_per_slot=WINDOW).n_cpu_moe
+            == at_one.n_cpu_moe
+        )
     if derived.width < MAX_WIDTH:
-        assert _placement(spec, free, derived.width + 1).n_cpu_moe > at_one.n_cpu_moe
+        assert (
+            _placement(spec, free, derived.width + 1, ctx_per_slot=WINDOW).n_cpu_moe
+            > at_one.n_cpu_moe
+        )
 
 
 def test_a_slot_on_a_recurrent_model_is_priced_as_state_not_just_cache() -> None:
@@ -247,8 +258,8 @@ def test_a_slot_on_a_recurrent_model_is_priced_as_state_not_just_cache() -> None
     and a per-slot constant fitted on either would be wrong on the other.
     """
     free = 12_288 * MIB
-    recurrent = _placement(scanned(QWEN36), free)
-    attention = _placement(scanned(DEEPSEEK), free)
+    recurrent = _placement(scanned(QWEN36), free, ctx_per_slot=WINDOW)
+    attention = _placement(scanned(DEEPSEEK), free, ctx_per_slot=WINDOW)
     assert vramfit.rs_bytes(QWEN36, n_seq_max=1)["total"] > 0
     assert vramfit.rs_bytes(DEEPSEEK, n_seq_max=1)["total"] == 0
     assert recurrent.width < attention.width
@@ -257,13 +268,13 @@ def test_a_slot_on_a_recurrent_model_is_priced_as_state_not_just_cache() -> None
 def test_a_written_width_is_honoured_and_its_floor_recomputed() -> None:
     free = 11_911 * MIB
     spec = scanned(DEEPSEEK)
-    written = _placement(spec, free, 8)
-    derived = _placement(spec, free)
+    written = _placement(spec, free, 8, ctx_per_slot=WINDOW)
+    derived = _placement(spec, free, ctx_per_slot=WINDOW)
     assert written.width == 8
     assert written.n_cpu_moe > derived.n_cpu_moe
-    unit = unit_for(srv2(free_mib=11_911), spec, width=8)
+    unit = unit_for(srv2(free_mib=11_911), spec, width=8, ctx_per_slot=WINDOW)
     assert unit.args["--n-cpu-moe"] == str(written.n_cpu_moe)
-    assert unit.args["-c"] == str(DEFAULT_CONTEXT * 8)
+    assert unit.args["-c"] == str(WINDOW * 8)
 
 
 # --------------------------------------------------------------------------
@@ -290,8 +301,8 @@ def test_nothing_spilled_costs_no_runtime_intercept() -> None:
 
 
 def test_a_roomy_card_and_a_cramped_one_do_not_claim_the_same_ram() -> None:
-    cramped = _placement(scanned(QWEN36), 6 * GIB)
-    roomy = _placement(scanned(QWEN36), 11_500 * MIB)
+    cramped = _placement(scanned(QWEN36), 6 * GIB, ctx_per_slot=WINDOW)
+    roomy = _placement(scanned(QWEN36), 11_500 * MIB, ctx_per_slot=WINDOW)
     assert cramped.n_cpu_moe > roomy.n_cpu_moe
     assert cramped.ram_gb > roomy.ram_gb, (
         "spilling more experts should ask more of memory; the old max() against "
@@ -301,7 +312,10 @@ def test_a_roomy_card_and_a_cramped_one_do_not_claim_the_same_ram() -> None:
 
 def test_a_stated_ram_floor_is_still_honoured() -> None:
     """An operator who knows something this module cannot see is not overruled."""
-    assert _placement(scanned(QWEN36, ram_gb=40.0), 6 * GIB).ram_gb >= 40.0
+    assert (
+        _placement(scanned(QWEN36, ram_gb=40.0), 6 * GIB, ctx_per_slot=WINDOW).ram_gb
+        >= 40.0
+    )
 
 
 # --------------------------------------------------------------------------
@@ -310,7 +324,7 @@ def test_a_stated_ram_floor_is_still_honoured() -> None:
 
 
 def test_an_moe_without_its_geometry_is_refused_and_told_where_to_scan() -> None:
-    sized = fit(srv2(), ModelSpec("m", 1.0, 0.0, 1.0, moe=True))
+    sized = fit(srv2(), ModelSpec("m", 1.0, 0.0, 1.0, moe=True), ctx_per_slot=WINDOW)
     assert not sized.fits
     assert "python -m mcgyvr.serving.ggufscan" in sized.why
     assert "models.m.geometry_json" in sized.why
@@ -358,12 +372,12 @@ def test_an_undeclared_sliding_window_split_refuses_naming_the_measurement() -> 
     to say what would answer it -- the engine's own ``llama_kv_cache_iswa``
     lines -- and must never be caught into a default on the way up.
     """
-    sized = fit(srv2(), scanned(GPT_OSS))
+    sized = fit(srv2(), scanned(GPT_OSS), ctx_per_slot=WINDOW)
     assert not sized.fits
     assert "sliding_window_pattern" in sized.why
     assert "llama_kv_cache_iswa" in sized.why
     with pytest.raises(UnitError, match="llama_kv_cache_iswa"):
-        unit_for(srv2(), scanned(GPT_OSS))
+        unit_for(srv2(), scanned(GPT_OSS), ctx_per_slot=WINDOW)
 
 
 def test_a_card_that_cannot_hold_the_constant_is_refused_as_a_card() -> None:
@@ -372,7 +386,9 @@ def test_a_card_that_cannot_hold_the_constant_is_refused_as_a_card() -> None:
         FIXTURES.read_text(encoding="utf-8")
     )
     nemotron = fixture["nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf"]
-    sized = fit(srv2(free_mib=6144, ram_gb=64.0), scanned(nemotron))
+    sized = fit(
+        srv2(free_mib=6144, ram_gb=64.0), scanned(nemotron), ctx_per_slot=WINDOW
+    )
     assert not sized.fits
     assert "does not fit at any offload" in sized.why
 
@@ -397,12 +413,12 @@ def test_a_dense_geometry_is_placed_by_the_same_law_at_floor_zero() -> None:
     }
     spec = scanned(dense)
     assert spec.moe is False
-    placed = _placement(spec, 12_288 * MIB)
+    placed = _placement(spec, 12_288 * MIB, ctx_per_slot=WINDOW)
     assert placed.n_cpu_moe == 0
     assert placed.ram_gb == 0.0
     assert placed.width > 1
     assert placed.vram_gb <= 12.0
-    unit = unit_for(srv2(free_mib=12_288), spec)
+    unit = unit_for(srv2(free_mib=12_288), spec, ctx_per_slot=WINDOW)
     assert "--n-cpu-moe" not in unit.args
     assert unit.width.how == "derived"
     assert unit.fit.headroom_gb == vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
@@ -446,7 +462,9 @@ def test_a_source_names_the_engine_and_it_reaches_the_unit() -> None:
     spec = ModelSpec(
         "qwen2.5-coder:7b", 5.0, 0.0, 4.7, hf_cache="/home/someone/.cache/huggingface"
     )
-    unit = units_for(config, {"localhost": srv2()}, specs=(spec,))[0]
+    unit = units_for(config, {"localhost": srv2()}, specs=(spec,), ctx_per_slot=WINDOW)[
+        0
+    ]
     assert unit.engine == "vllm"
     assert unit.key.engine == "vllm", "the engine is part of what makes a process"
 
@@ -456,7 +474,9 @@ def test_an_unstated_engine_is_still_llama_cpp() -> None:
     config = config_for("qwen2.5-coder:7b")
     assert config.sources["local"].engine is None
     spec = ModelSpec("qwen2.5-coder:7b", 5.0, 0.0, 4.7)
-    unit = units_for(config, {"localhost": srv2()}, specs=(spec,))[0]
+    unit = units_for(config, {"localhost": srv2()}, specs=(spec,), ctx_per_slot=WINDOW)[
+        0
+    ]
     assert unit.engine == "llama.cpp"
 
 
@@ -478,7 +498,9 @@ def test_an_operator_may_serve_a_model_the_table_never_measured(
     spec = declared_models(config)["deepseek-coder-v2-16b"]
     assert spec.geometry is not None
     assert spec.disk_gb == pytest.approx(8_905_109_984 / GIB)
-    unit = units_for(config, {"localhost": srv2(free_mib=6144)}, specs=())[0]
+    unit = units_for(
+        config, {"localhost": srv2(free_mib=6144)}, specs=(), ctx_per_slot=WINDOW
+    )[0]
     assert unit.model == "deepseek-coder-v2-16b"
     assert "--n-cpu-moe" in unit.args, "a scanned geometry should drive the offload"
 
@@ -487,7 +509,9 @@ def test_a_declaration_overrides_the_shipped_table(geometry_file: Path) -> None:
     """Config wins. mcgyvr says what it measured, then does what it was told."""
     shipped = ModelSpec("deepseek-coder-v2-16b", 99.0, 0.0, 99.0)
     config = config_for("deepseek-coder-v2-16b", models=declared(geometry_file))
-    unit = units_for(config, {"localhost": srv2()}, specs=(shipped,))[0]
+    unit = units_for(
+        config, {"localhost": srv2()}, specs=(shipped,), ctx_per_slot=WINDOW
+    )[0]
     assert unit.fit.fits, "the 99 GB shipped row should not have been consulted"
 
 
@@ -499,7 +523,7 @@ def test_a_stated_disk_gb_beside_a_geometry_must_agree_with_it(
         "deepseek-coder-v2-16b", models=declared(geometry_file, "    disk_gb: 8.9\n")
     )
     with pytest.raises(UnitError, match="re-scan"):
-        units_for(config, {"localhost": srv2()}, specs=())
+        units_for(config, {"localhost": srv2()}, specs=(), ctx_per_slot=WINDOW)
 
 
 def test_a_relative_geometry_json_is_read_beside_the_config(
@@ -556,7 +580,7 @@ def test_an_error_row_and_a_malformed_file_are_refused_naming_the_path(
 def test_a_model_nobody_declared_is_refused_with_the_fix_in_the_message() -> None:
     config = config_for("nobody-measured-this")
     with pytest.raises(UnitError, match="models:"):
-        units_for(config, {"localhost": srv2()}, specs=())
+        units_for(config, {"localhost": srv2()}, specs=(), ctx_per_slot=WINDOW)
 
 
 def test_a_size_must_be_a_number_and_not_a_flag() -> None:

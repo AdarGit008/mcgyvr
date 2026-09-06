@@ -41,7 +41,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   spare:
     base_url: http://192.168.1.9:8000
@@ -68,7 +68,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   spare:
     base_url: https://api.example.com
@@ -93,7 +93,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   spare:
     base_url: http://192.168.1.9:8000
@@ -374,25 +374,6 @@ def test_transport_failure_is_down_and_never_raises(
     assert verdict.live is False
     assert "0.5s" in verdict.reason
     assert "TimeoutError" in verdict.how
-
-
-def test_each_protocol_is_asked_at_its_own_listing_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    asked: list[str] = []
-
-    def behaviour(request: urllib.request.Request, _timeout: float) -> _Response:
-        asked.append(request.full_url)
-        return _Response(200)
-
-    _stub_urlopen(monkeypatch, behaviour)
-    probe_endpoint(endpoint(protocol=Protocol.OPENAI))
-    probe_endpoint(endpoint(protocol=Protocol.OLLAMA))
-
-    assert asked == [
-        "http://localhost:8000/v1/models",
-        "http://localhost:8000/api/tags",
-    ]
 
 
 def test_a_probe_is_a_listing_not_a_generation(monkeypatch: pytest.MonkeyPatch) -> None:

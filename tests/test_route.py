@@ -105,7 +105,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   spare:
     base_url: http://192.168.1.20:8000
@@ -134,7 +134,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -162,7 +162,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -179,11 +179,11 @@ version: 1
 sources:
   wide:
     base_url: http://wide.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 4
   narrow:
     base_url: http://narrow.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 1
 ladder:
   tiers:
@@ -206,11 +206,11 @@ version: 1
 sources:
   narrow:
     base_url: http://narrow.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 1
   wide:
     base_url: http://wide.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 4
 ladder:
   tiers:
@@ -234,15 +234,15 @@ version: 1
 sources:
   small:
     base_url: http://small.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 1
   medium:
     base_url: http://medium.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 1
   large:
     base_url: http://large.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 4
 ladder:
   tiers:
@@ -262,15 +262,15 @@ version: 1
 sources:
   small:
     base_url: http://small.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   medium:
     base_url: http://medium.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   large:
     base_url: http://large.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:

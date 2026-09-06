@@ -33,10 +33,7 @@ from mcgyvr.pool import source_map as build_source_map
 from mcgyvr.runner import (
     BackendError,
     Completion,
-    OllamaRunner,
-    OpenAIRunner,
     ProtocolError,
-    QualityCaveatError,
     Request,
     StopReason,
     TransportError,
@@ -45,10 +42,10 @@ from mcgyvr.runner import (
     runner_for,
 )
 
-LOCAL_OLLAMA = Endpoint(
+LOCAL_SECOND = Endpoint(
     source="local",
-    base_url="http://localhost:11434",
-    protocol=Protocol.OLLAMA,
+    base_url="http://localhost:8081",
+    protocol=Protocol.OPENAI,
     max_parallel=3,
     credential_env=None,
 )
@@ -68,27 +65,6 @@ KEYED_OPENAI = Endpoint(
     max_parallel=4,
     credential_env="MCGYVR_TEST_KEY",
 )
-
-
-def ollama_answer(
-    text: str = "def f():\n    return 1\n",
-    done_reason: str = "stop",
-    prompt_eval_count: int | None = 120,
-    eval_count: int | None = 9,
-) -> dict[str, Any]:
-    """An /api/generate answer, in the shape Ollama actually returns one."""
-    answer: dict[str, Any] = {
-        "model": "qwen2.5-coder:7b",
-        "response": text,
-        "done": True,
-        "done_reason": done_reason,
-        "total_duration": 1_500_000_000,
-    }
-    if prompt_eval_count is not None:
-        answer["prompt_eval_count"] = prompt_eval_count
-    if eval_count is not None:
-        answer["eval_count"] = eval_count
-    return answer
 
 
 def openai_answer(
@@ -195,61 +171,6 @@ ASK = Request(prompt="write a function", max_output_tokens=256)
 # --- the same contract executes identically on either protocol ------------
 
 
-def test_one_request_produces_the_same_completion_on_both_protocols(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """#21's first acceptance bullet, asserted as an equality rather than a list.
-
-    Two backends, two wire shapes, two different JSON documents saying the same
-    thing. What comes back must differ only in the fields that name where it
-    ran and what it cost — everything a caller would branch on is identical, or
-    the seam does not hold.
-    """
-    stub_clock(monkeypatch, 0.5)
-    stub_post(monkeypatch, ollama_answer())
-    from_ollama = runner_for(LOCAL_OLLAMA).generate("qwen2.5-coder:7b", ASK)
-
-    stub_clock(monkeypatch, 0.5)
-    stub_post(monkeypatch, openai_answer())
-    from_openai = runner_for(LOCAL_OPENAI).generate("qwen2.5-coder:7b", ASK)
-
-    assert from_ollama.text == from_openai.text
-    assert from_ollama.stop_reason is from_openai.stop_reason
-    assert from_ollama.complete and from_openai.complete
-    assert from_ollama.input_tokens == from_openai.input_tokens
-    assert from_ollama.output_tokens == from_openai.output_tokens
-    assert from_ollama.max_output_tokens == from_openai.max_output_tokens
-    assert from_ollama.latency_s == from_openai.latency_s
-
-    # And the only differences are the ones that say where it ran — plus the
-    # caveat flag, which is a property of the path and is tested below.
-    differing = {
-        field
-        for field in vars(from_ollama)
-        if getattr(from_ollama, field) != getattr(from_openai, field)
-    }
-    assert differing == {"source", "protocol", "quality_safe", "notes"}
-
-
-def test_runner_for_selects_the_implementation_from_the_protocol() -> None:
-    """A call site names a rung, never a backend — this is the only lookup."""
-    assert isinstance(runner_for(LOCAL_OLLAMA), OllamaRunner)
-    assert isinstance(runner_for(LOCAL_OPENAI), OpenAIRunner)
-    assert isinstance(runner_for(KEYED_OPENAI), OpenAIRunner)
-
-
-def test_each_protocol_posts_to_its_own_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("qwen2.5-coder:7b", ASK)
-    assert sent.url == "http://localhost:11434/api/generate"
-
-    sent = stub_post(monkeypatch, openai_answer())
-    runner_for(LOCAL_OPENAI).generate("qwen2.5-coder:7b", ASK)
-    assert sent.url == "http://localhost:8080/v1/chat/completions"
-
-
 def test_a_base_url_written_with_v1_does_not_get_a_second_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -266,15 +187,10 @@ def test_a_base_url_written_with_v1_does_not_get_a_second_one(
     assert sent.url == "https://api.example.com/v1/chat/completions"
 
 
-def test_the_system_prompt_crosses_both_protocols(
+def test_the_system_prompt_reaches_the_backend_as_a_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ask = Request(prompt="do the thing", max_output_tokens=64, system="be terse")
-
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("m", ask)
-    assert sent.payload["system"] == "be terse"
-    assert sent.payload["prompt"] == "do the thing"
 
     sent = stub_post(monkeypatch, openai_answer())
     runner_for(LOCAL_OPENAI).generate("m", ask)
@@ -289,8 +205,8 @@ def test_no_system_prompt_sends_no_empty_system_field(
 ) -> None:
     """An empty system prompt is not a system prompt — sending one is a request
     that differs from the one that was asked for."""
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("m", ASK)
+    sent = stub_post(monkeypatch, openai_answer())
+    runner_for(LOCAL_SECOND).generate("m", ASK)
     assert "system" not in sent.payload
 
     sent = stub_post(monkeypatch, openai_answer())
@@ -300,8 +216,8 @@ def test_no_system_prompt_sends_no_empty_system_field(
 
 def test_neither_protocol_streams(monkeypatch: pytest.MonkeyPatch) -> None:
     """A single document is what makes the stop reason and the counts readable."""
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("m", ASK)
+    sent = stub_post(monkeypatch, openai_answer())
+    runner_for(LOCAL_SECOND).generate("m", ASK)
     assert sent.payload["stream"] is False
 
     sent = stub_post(monkeypatch, openai_answer())
@@ -310,20 +226,6 @@ def test_neither_protocol_streams(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # --- a hard output cap, enforced by both ---------------------------------
-
-
-def test_the_cap_is_sent_in_each_protocols_own_parameter(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ask = Request(prompt="p", max_output_tokens=128)
-
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("m", ask)
-    assert sent.payload["options"]["num_predict"] == 128
-
-    sent = stub_post(monkeypatch, openai_answer())
-    runner_for(LOCAL_OPENAI).generate("m", ask)
-    assert sent.payload["max_tokens"] == 128
 
 
 def test_an_uncapped_request_cannot_be_expressed() -> None:
@@ -342,8 +244,8 @@ def test_a_backend_that_ignores_the_cap_is_caught_by_its_own_count(
     """Nothing streams, so the cap cannot be enforced mid-generation. What can
     be done is checking the backend's own report against the ceiling it was
     sent, so an overrun is visible rather than passing for a short answer."""
-    stub_post(monkeypatch, ollama_answer(eval_count=999))
-    done = runner_for(LOCAL_OLLAMA).generate(
+    stub_post(monkeypatch, openai_answer(completion_tokens=999))
+    done = runner_for(LOCAL_SECOND).generate(
         "m", Request(prompt="p", max_output_tokens=64)
     )
     assert done.overran_cap is True
@@ -369,8 +271,8 @@ def test_the_completion_carries_the_cap_it_was_issued_under(
 ) -> None:
     """A telemetry row that cannot say what ceiling it ran against cannot be
     compared with another one."""
-    stub_post(monkeypatch, ollama_answer())
-    done = runner_for(LOCAL_OLLAMA).generate(
+    stub_post(monkeypatch, openai_answer())
+    done = runner_for(LOCAL_SECOND).generate(
         "m", Request(prompt="p", max_output_tokens=77)
     )
     assert done.max_output_tokens == 77
@@ -382,13 +284,13 @@ def test_the_completion_carries_the_cap_it_was_issued_under(
 def test_truncation_is_read_from_what_the_backend_said(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub_post(monkeypatch, ollama_answer(done_reason="length"))
-    from_ollama = runner_for(LOCAL_OLLAMA).generate("m", ASK)
+    stub_post(monkeypatch, openai_answer(finish_reason="length"))
+    from_second = runner_for(LOCAL_SECOND).generate("m", ASK)
 
     stub_post(monkeypatch, openai_answer(finish_reason="length"))
     from_openai = runner_for(LOCAL_OPENAI).generate("m", ASK)
 
-    for done in (from_ollama, from_openai):
+    for done in (from_second, from_openai):
         assert done.stop_reason is StopReason.TRUNCATED
         assert done.truncated is True
         assert done.complete is False
@@ -400,8 +302,10 @@ def test_output_that_merely_looks_cut_off_is_not_truncation(
     """The property that keeps a truncated patch from being applied as a whole
     one is that the *shape* of the text is never evidence. A finished answer
     that ends mid-token, with no newline and no closing brace, is finished."""
-    stub_post(monkeypatch, ollama_answer(text="def f(:\n    retur", done_reason="stop"))
-    done = runner_for(LOCAL_OLLAMA).generate("m", ASK)
+    stub_post(
+        monkeypatch, openai_answer(text="def f(:\n    retur", finish_reason="stop")
+    )
+    done = runner_for(LOCAL_SECOND).generate("m", ASK)
     assert done.truncated is False
     assert done.complete is True
 
@@ -418,8 +322,8 @@ def test_an_unreported_stop_reason_is_not_read_as_complete(
     """The unoptimistic half of "never inferred": a backend that said nothing
     has not said the answer is whole, and neither ``complete`` nor ``truncated``
     may claim otherwise."""
-    stub_post(monkeypatch, ollama_answer(done_reason=""))
-    done = runner_for(LOCAL_OLLAMA).generate("m", ASK)
+    stub_post(monkeypatch, openai_answer(finish_reason=""))
+    done = runner_for(LOCAL_SECOND).generate("m", ASK)
     assert done.stop_reason is StopReason.UNKNOWN
     assert done.complete is False
     assert done.truncated is False
@@ -467,11 +371,6 @@ def test_no_stop_sequence_is_sent_on_either_protocol(
     from ``output_schema`` and belongs to #25's parser; what must never happen
     is one appearing as a constant here.
     """
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate("m", ASK)
-    assert "stop" not in sent.payload
-    assert "stop" not in sent.payload["options"]
-
     sent = stub_post(monkeypatch, openai_answer())
     runner_for(LOCAL_OPENAI).generate("m", ASK)
     assert "stop" not in sent.payload
@@ -505,9 +404,9 @@ def test_a_truncated_reply_is_named_as_a_failure(
 def test_token_counts_come_from_both_protocols(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub_post(monkeypatch, ollama_answer(prompt_eval_count=120, eval_count=9))
-    from_ollama = runner_for(LOCAL_OLLAMA).generate("m", ASK)
-    assert (from_ollama.input_tokens, from_ollama.output_tokens) == (120, 9)
+    stub_post(monkeypatch, openai_answer(prompt_tokens=120, completion_tokens=9))
+    from_second = runner_for(LOCAL_SECOND).generate("m", ASK)
+    assert (from_second.input_tokens, from_second.output_tokens) == (120, 9)
 
     stub_post(monkeypatch, openai_answer(prompt_tokens=120, completion_tokens=9))
     from_openai = runner_for(LOCAL_OPENAI).generate("m", ASK)
@@ -519,10 +418,10 @@ def test_an_unreported_count_is_none_and_never_zero(
 ) -> None:
     """A backend that said nothing about tokens has not said zero, and a zero
     would average into telemetry as a real measurement of nothing."""
-    stub_post(monkeypatch, ollama_answer(prompt_eval_count=None, eval_count=None))
-    from_ollama = runner_for(LOCAL_OLLAMA).generate("m", ASK)
-    assert from_ollama.input_tokens is None
-    assert from_ollama.output_tokens is None
+    stub_post(monkeypatch, openai_answer(prompt_tokens=None, completion_tokens=None))
+    from_second = runner_for(LOCAL_SECOND).generate("m", ASK)
+    assert from_second.input_tokens is None
+    assert from_second.output_tokens is None
 
     stub_post(monkeypatch, openai_answer(prompt_tokens=None, completion_tokens=None))
     from_openai = runner_for(LOCAL_OPENAI).generate("m", ASK)
@@ -545,13 +444,13 @@ def test_latency_is_measured_around_the_request(
     """Wall-clock and host-side, so it is the same quantity on both protocols —
     a server-reported duration excludes queueing and is not comparable."""
     stub_clock(monkeypatch, 2.25)
-    stub_post(monkeypatch, ollama_answer())
-    assert runner_for(LOCAL_OLLAMA).generate("m", ASK).latency_s == pytest.approx(2.25)
+    stub_post(monkeypatch, openai_answer())
+    assert runner_for(LOCAL_SECOND).generate("m", ASK).latency_s == pytest.approx(2.25)
 
 
 def test_the_timeout_reaches_the_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent = stub_post(monkeypatch, ollama_answer())
-    runner_for(LOCAL_OLLAMA).generate(
+    sent = stub_post(monkeypatch, openai_answer())
+    runner_for(LOCAL_SECOND).generate(
         "m", Request(prompt="p", max_output_tokens=8, timeout_s=5.0)
     )
     assert sent.one["timeout"] == 5.0
@@ -565,21 +464,6 @@ def test_a_non_positive_timeout_is_refused() -> None:
 # --- CAV-01: the dependency is allowed, the silence is not ---------------
 
 
-def test_a_quality_sensitive_request_is_refused_on_ollama_native(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """#21's third acceptance bullet. The refusal happens before anything is
-    sent, and it names the remedy — which is a config edit, because Ollama also
-    serves the compatible shape."""
-    sent = stub_post(monkeypatch, ollama_answer())
-    ask = Request(
-        prompt="humaneval task", max_output_tokens=512, quality_sensitive=True
-    )
-    with pytest.raises(QualityCaveatError, match="CAV-01"):
-        runner_for(LOCAL_OLLAMA).generate("qwen2.5-coder:7b", ask)
-    assert sent.calls == [], "nothing may be dispatched before the caveat is raised"
-
-
 def test_a_quality_sensitive_request_runs_on_the_compatible_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -591,19 +475,6 @@ def test_a_quality_sensitive_request_runs_on_the_compatible_path(
     done = runner_for(LOCAL_OPENAI).generate("qwen2.5-coder:7b", ask)
     assert done.quality_safe is True
     assert done.notes == ()
-
-
-def test_ordinary_work_still_runs_on_ollama_native_and_says_so(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Refusing the path outright would refuse the common machine. Every
-    completion from it carries the caveat instead, so a number read out of
-    telemetry cannot be mistaken for a measurement."""
-    stub_post(monkeypatch, ollama_answer())
-    done = runner_for(LOCAL_OLLAMA).generate("qwen2.5-coder:7b", ASK)
-    assert done.text
-    assert done.quality_safe is False
-    assert any("CAV-01" in note for note in done.notes)
 
 
 # --- credentials: named, resolved late, never logged ---------------------
@@ -702,14 +573,6 @@ def test_json_that_is_not_an_object_is_a_protocol_error() -> None:
         runner_for(local_openai(base_url)).generate("m", ASK)
 
 
-def test_a_missing_response_field_is_a_protocol_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stub_post(monkeypatch, {"done": True, "done_reason": "stop"})
-    with pytest.raises(ProtocolError, match="string 'response'"):
-        runner_for(LOCAL_OLLAMA).generate("m", ASK)
-
-
 def test_missing_choices_is_a_protocol_error(monkeypatch: pytest.MonkeyPatch) -> None:
     stub_post(monkeypatch, {"id": "chatcmpl-1", "choices": []})
     with pytest.raises(ProtocolError, match="no choices"):
@@ -737,8 +600,8 @@ LADDER = """
 version: 1
 sources:
   local:
-    base_url: http://localhost:11434
-    api: ollama
+    base_url: http://localhost:8081
+    api: openai
     max_parallel: 3
   fast:
     base_url: http://localhost:8080
@@ -774,12 +637,12 @@ def test_dispatch_takes_the_model_from_the_rung_and_the_protocol_from_its_source
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
 
-    sent = stub_post(monkeypatch, ollama_answer())
+    sent = stub_post(monkeypatch, openai_answer())
     cheap = dispatch(ladder, "cheap", ASK)
     assert cheap.model == "qwen2.5-coder:7b"
-    assert cheap.protocol is Protocol.OLLAMA
+    assert cheap.protocol is Protocol.OPENAI
     assert cheap.source == "local"
-    assert sent.url.endswith("/api/generate")
+    assert sent.url.endswith("/v1/chat/completions")
 
     sent = stub_post(monkeypatch, openai_answer())
     strong = dispatch(ladder, "strong", ASK)
@@ -871,7 +734,7 @@ def test_dispatch_holds_its_sources_slot_for_the_length_of_the_request(
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
-    seen = held_during_post(monkeypatch, capacity, "local", ollama_answer())
+    seen = held_during_post(monkeypatch, capacity, "local", openai_answer())
 
     dispatch(ladder, "cheap", ASK, capacity=capacity)
 
@@ -919,7 +782,7 @@ def test_escalating_to_another_source_has_already_released_the_first(
         timeout: float,
     ) -> dict[str, Any]:
         seen.append((capacity.in_use("local"), capacity.in_use("fast")))
-        return ollama_answer() if url.endswith("/api/generate") else openai_answer()
+        return openai_answer()
 
     monkeypatch.setattr(runner_module, "_post_json", fake_post, raising=True)
 
@@ -938,7 +801,7 @@ def test_dispatch_without_a_capacity_is_unbounded_and_says_nothing(
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     ladder = build_source_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
-    stub_post(monkeypatch, ollama_answer())
+    stub_post(monkeypatch, openai_answer())
 
     dispatch(ladder, "cheap", ASK)
 
@@ -1028,27 +891,3 @@ def test_a_keyless_local_endpoint_works_end_to_end_over_a_socket() -> None:
     assert _Handler.seen["headers"]["Content-Type"] == "application/json"
     assert _Handler.seen["payload"]["max_tokens"] == 16
     assert _Handler.seen["payload"]["model"] == "qwen2.5-coder:7b"
-
-
-def test_ollama_native_works_end_to_end_over_a_socket() -> None:
-    """The same, for the other protocol: the cap lands in ``options.num_predict``
-    and the caveat travels with the answer."""
-    with serving(
-        body=json.dumps(ollama_answer(text="hello", eval_count=2))
-    ) as base_url:
-        endpoint = Endpoint(
-            source="local",
-            base_url=base_url,
-            protocol=Protocol.OLLAMA,
-            max_parallel=1,
-            credential_env=None,
-        )
-        done = runner_for(endpoint).generate(
-            "qwen2.5-coder:7b", Request(prompt="hi", max_output_tokens=16)
-        )
-
-    assert done.text == "hello"
-    assert done.output_tokens == 2
-    assert done.quality_safe is False
-    assert _Handler.seen["path"] == "/api/generate"
-    assert _Handler.seen["payload"]["options"]["num_predict"] == 16

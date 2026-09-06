@@ -26,8 +26,9 @@ permits the sixth silently" defect approached from the other side.
 ``context_length``, ``concurrency`` and ``seed``, and until this module nothing
 in the repository wrote them — they carried ``PENDING_REASON`` =
 ``AWAITING_PROBE_SET``. None can be derived from the tree; only the server at
-request time can answer them, and on ollama's native surface it answers one of
-the four. That is the honest result and it is recorded as such, per D2: a field
+request time can answer them, and on the surfaces this build talks to it
+answers two of the four (one of them dev-mode only). That is the honest result
+and it is recorded as such, per D2: a field
 the endpoint will not answer is ``null`` **with a reason**, never a sentinel
 string, and never a plausible substitute:
 
@@ -40,23 +41,22 @@ string, and never a plausible substitute:
     The **effective** serving window, which is a serving flag and not a model
     property. Both calls report the model's *trained* window — ``32768`` for
     every `qwen2.5-coder` tag on srv2, under ``details.context_length`` and
-    ``model_info["<arch>.context_length"]`` — and ollama serves ``num_ctx``,
-    which defaults to the server's own setting and is reported by neither call
-    unless a Modelfile pins it. `qwen2.5-coder:1.5b` has no ``parameters`` key
-    at all. So this reads ``num_ctx`` where a Modelfile states it and refuses
-    otherwise: recording ``32768`` would put a number on disk that the run did
-    not have, which is worse than the null it replaces. The trained window is
-    still on disk, in :data:`NATIVE` below, under the name the endpoint gave it.
+    ``model_info["<arch>.context_length"]`` on the native surface measured
+    2026-08-18 — while the window actually being served was a serving flag that
+    neither call reported unless a Modelfile pinned it. Recording the trained
+    window would put a number on disk that the run did not have, which is worse
+    than the null it replaces. vLLM answers this one directly, from the model
+    card, and it matched the ``--max-model-len`` each server was launched with.
 
 ``concurrency``
     What decides whether greedy is reproducible at all — ADR-0027 settled that
     greedy decoding is not deterministic under continuous batching (vLLM #23138:
     one client deterministic over 70+ rounds, ~1/3 of pairs differing under
     concurrency), so ``verified`` never means "reproduces" and a run that did not
-    record its concurrency cannot be read on even that weaker signal. Neither
-    native call reports it — it is the server's own ``OLLAMA_NUM_PARALLEL``,
-    which ollama does not expose — so it refuses here, and the refusal is a true
-    statement about the surface it is about.
+    record its concurrency cannot be read on even that weaker signal. No
+    endpoint served here reports it — it is the width the server was launched
+    with, and neither engine publishes that — so it refuses here, and the
+    refusal is a true statement about the surface it is about.
 
     **It is not the last word on the field.** The refusal names where the answer
     is, and a run with host access reads it there: see :func:`resolve` and the
@@ -68,9 +68,9 @@ string, and never a plausible substitute:
 
 ``seed``
     **Observed, never set.** Greedy bypasses the sampler RNG, so no dispatch in
-    this tree sends one (``runner.OllamaRunner._payload`` sends ``num_predict``
-    and ``temperature``; ``OpenAIRunner._payload`` sends ``max_tokens`` and
-    ``temperature``) and *setting* one would be a different experiment that
+    this tree sends one (``OpenAIRunner._payload`` sends ``max_tokens`` and
+    ``temperature`` and nothing else) and *setting* one would be a different
+    experiment that
     silently re-baselines every prior measurement (#276's perturbation set, item
     9). Recording ``null`` states a fact. Where a Modelfile pins a seed
     server-side this records the value it finds, because then the fact is
@@ -82,7 +82,7 @@ since #164), and which one is talking decides what a null means — so the engin
 is identified from what answers, never from the port, and recorded in the block:
 
 ==================  ==================  ==================================
-field               ollama              vLLM 0.26.0
+field               native (2026-08-18) vLLM 0.26.0
 ==================  ==================  ==================================
 ``quantization``    ``Q4_K_M``          ``auto_awq`` (dev mode only)
 ``context_length``  ``4096``, resident  ``8192`` / ``16384``
@@ -94,19 +94,21 @@ Every cell above was measured on 2026-08-18 against four servers — ollama 0.32
 on srv1 and 0.32.5 on srv2, vLLM 0.26.0 on both — and each is the reason the
 derivation is written the way it is:
 
-``context_length`` **is answerable on both, and on neither of the endpoints the
-obvious guess would use.** ollama's ``/api/tags`` and ``/api/show`` report 32768,
-which is the model's *trained* window; the loaded instance is being served with
-4096, and only ``/api/ps`` says so — so the field reads ``/api/ps`` and refuses
-when the model is not resident, rather than writing down a window no run had.
-vLLM answers from the model card unconditionally, and it matched the
+``context_length`` **was answerable on both, and on neither of the endpoints
+the obvious guess would use.** On the native surface measured 2026-08-18 the two
+describing calls reported 32768 — the model's *trained* window — while the
+loaded instance was being served with 4096, and only the residency listing said
+so, which is why that field read the residency listing and refused when the
+model was not resident rather than writing down a window no run had. vLLM
+answers from the model card unconditionally, and it matched the
 ``--max-model-len`` each server was launched with.
 
 ``concurrency`` **is on neither engine's surface, and the lookalike is worse than
 the null.** It decides whether greedy is reproducible at all — ADR-0027 settled
 that greedy decoding is not deterministic under continuous batching, and the
-evidence it cites *is vLLM* (#23138). ollama does not expose
-``OLLAMA_NUM_PARALLEL``. vLLM does not expose ``max_num_seqs`` anywhere: not on
+evidence it cites *is vLLM* (#23138). The native surface did not publish the
+width its daemon was configured with. vLLM does not expose ``max_num_seqs``
+anywhere: not on
 ``/server_info``'s full engine config, not in any of the 122 ``/metrics`` series,
 not on ``/v1/models`` — searched across every parameterless GET in each server's
 own ``/openapi.json`` route table. ``vllm:cache_config_info`` carries
@@ -117,7 +119,8 @@ reported 5.314. It moves *opposite* to the quantity it resembles.
 ``seed`` **is where "observed, never set" needed splitting in two.** It is a
 statement about what this tree dispatches, and it is not a statement about the
 server: vLLM 0.26.0 defaults to ``seed=0`` on both rigs, so a vLLM run whose seed
-went unrecorded was seeded by something nobody wrote down. ollama reports none.
+went unrecorded was seeded by something nobody wrote down. The native surface
+measured 2026-08-18 reported none.
 
 **Dev mode is the biggest single lever.** ``/server_info`` carries the
 quantization, the seed and the window, and exists only when the server was
@@ -145,9 +148,10 @@ same shape as any other: four nulls, four reasons, an empty native capture. The
 schema does not change under a protocol that answers almost nothing — it says so.
 
 **Redaction runs on capture, before write.** ``run.json`` holds one URL; this
-holds a server's whole self-description, and the generated Modelfile carries a
-host filesystem path — measured on srv2: ``FROM /usr/share/ollama/.ollama/
-models/blobs/sha256-…``, which on a home-directory install names a user. So
+holds a server's whole self-description, and a generated Modelfile carried a
+host filesystem path — measured on srv2, 2026-08-18: a ``FROM`` line naming a
+blob under a service account's home, which on a home-directory install names a
+user. So
 every string is scrubbed on the way in: credential-bearing URLs through
 ``bundle.redact`` (the one redactor both rigs already use), home-directory
 prefixes, and the high-confidence credential shapes. Over-redaction is free
@@ -301,27 +305,20 @@ NATIVE = "native"
 
 #: Which server answered, identified from what it said rather than from its
 #: port. On the block because a refusal cannot be read without it: `null` for
-#: `context_length` means "ollama does not expose num_ctx" on one engine and
-#: "this vLLM did not list max_model_len" on the other, and those are different
-#: facts about a run.
+#: `context_length` means "this vLLM did not list max_model_len" rather than
+#: "the endpoint was not reachable", and those are different facts about a run.
 ENGINE = "engine"
 
-OLLAMA = "ollama"
 VLLM = "vllm"
 OPENAI_COMPATIBLE = "openai-compatible"
 UNREACHABLE = "unreachable"
 
-ENGINES: tuple[str, ...] = (OLLAMA, VLLM, OPENAI_COMPATIBLE, UNREACHABLE)
+ENGINES: tuple[str, ...] = (VLLM, OPENAI_COMPATIBLE, UNREACHABLE)
 
 #: Engines whose shapes this module has been run against a LIVE endpoint. Every
 #: number in this module — in the docstring, in the refusal reasons, in the test
 #: fixtures — is a measurement from one of these runs, not a documented shape.
 VERIFIED_LIVE: dict[str, str] = {
-    OLLAMA: (
-        "srv1 (0.32.4) and srv2 (0.32.5), qwen2.5-coder:1.5b and :7b, "
-        "2026-08-18. 5 of 13 tried endpoints answered; the read-only ones are "
-        "OLLAMA_READS plus the /api/show POST"
-    ),
     VLLM: (
         "srv1 (0.26.0, Qwen2.5-Coder-1.5B-Instruct-AWQ, --max-model-len 8192 "
         "--max-num-seqs 8 --enforce-eager) and srv2 (0.26.0 in the "
@@ -467,7 +464,7 @@ def scrub(value: Any) -> Any:
     Recursive because the risk is not at the top level: the Modelfile is one
     string inside one key, and the tensor rows are dicts inside a list. A
     non-string leaf — a number, a bool, ``null`` — is returned as it is, and a
-    dict key is scrubbed too, since ollama's ``model_info`` keys are model-
+    dict key is scrubbed too, since a native ``model_info``'s keys are model-
     supplied strings.
     """
     if isinstance(value, str):
@@ -544,14 +541,17 @@ def capture(
     **The engine is identified from what answers, never from the port.**
     ``detect.PORT_CONVENTIONS`` guesses identity from a port because what it
     needs downstream is the wire protocol; this needs the *server*, because the
-    server decides what a refusal means. So ollama's native pair is tried first
-    — it is the only surface that describes the weights — and anything that does
-    not answer it is asked the OpenAI-compatible questions instead.
+    server decides what a refusal means. A native pair used to be tried first —
+    it was the only surface that described the weights — and anything that did
+    not answer it was asked the OpenAI-compatible questions instead. That arm
+    went with its backend on 2026-09-06 (``archive/forensic-ollama/``), so
+    there is one arm and the identification still happens from what answered:
+    ``_identify`` tells vLLM from a bare OpenAI-compatible server from an
+    endpoint that said nothing, and those are three different facts about a run.
 
-    Ollama's two calls are exactly :func:`identity.probe_model`'s. Both arms
-    reach the identity module's fetchers by attribute lookup rather than copying
-    them, so a test that patches the seam patches this path too, and no fifth
-    ``urllib`` wrapper joins the four already in this tree.
+    The arm reaches the identity module's fetchers by attribute lookup rather
+    than copying them, so a test that patches the seam patches this path too,
+    and no fifth ``urllib`` wrapper joins the four already in this tree.
 
     Never raises. An endpoint that is down, slow or speaking another protocol
     produces the same shape as one that answers — that is what makes the shape
@@ -559,12 +559,8 @@ def capture(
     would be the worst of both.
     """
     base = endpoint.rstrip("/")
-    native, engine = _capture_ollama(base, model, timeout)
-    if engine is OLLAMA:
-        fields, reasons = _ollama_probe_set(native, model)
-    else:
-        native, engine = _capture_served(base)
-        fields, reasons = _served_probe_set(base, model, native, engine)
+    native, engine = _capture_served(base, timeout=timeout)
+    fields, reasons = _served_probe_set(base, model, native, engine)
     block: dict[str, Any] = {
         "endpoint": _bundle_rig().redact(endpoint),
         "model": model,
@@ -576,17 +572,6 @@ def capture(
         block[identity.REFUSALS] = reasons
     return scrub(elide(block))
 
-
-#: Every read-only endpoint ollama answers, as measured on srv1 (0.32.4) and
-#: srv2 (0.32.5) on 2026-08-18. ``/api/show`` is the POST that reads and is
-#: made separately because it needs the model in its body. Nothing that
-#: generates, pulls, copies or deletes is here: a capture must not move the
-#: thing it is capturing.
-OLLAMA_READS: tuple[tuple[str, str], ...] = (
-    ("tags", "/api/tags"),
-    ("ps", "/api/ps"),
-    ("version", "/api/version"),
-)
 
 #: Every read-only endpoint vLLM 0.26.0 answers, measured by asking the server
 #: for its own route table (``/openapi.json``) and taking each parameterless
@@ -611,33 +596,15 @@ VLLM_READS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _capture_ollama(
-    base: str, model: str, timeout: float
-) -> tuple[dict[str, Any], str | None]:
-    """Everything ollama will answer, and whether this is an ollama at all.
-
-    One endpoint answering is enough to call it ollama: a build that has dropped
-    one still describes an inventory nothing else does, and falling through to
-    the OpenAI arm would throw that away for a stricter test that buys nothing.
-    """
-    native: dict[str, Any] = {}
-    for name, path in OLLAMA_READS:
-        answer = identity._get_json(_url(base, path), timeout=DISCOVERY_TIMEOUT_S)
-        if answer is not None:
-            native[name] = answer
-    # The one call that earns the long timeout: `verbose` returns the tokenizer
-    # arrays, and this is the measurement CAPTURE_TIMEOUT_S was chosen for.
-    show = identity._post_json(
-        _url(base, "/api/show"), {"model": model, "verbose": True}, timeout=timeout
-    )
-    if show is not None:
-        native["show"] = show
-    if not native:
-        return {}, None
-    return native, OLLAMA
+# `_capture_ollama` and the three read-only endpoints it enumerated stood
+# here. One arm remains, and `capture` no longer has to decide which surface it
+# is looking at before it can ask a question. The removed arm, its endpoints
+# and the readings it took are in `archive/forensic-ollama/`.
 
 
-def _capture_served(base: str) -> tuple[dict[str, Any], str]:
+def _capture_served(
+    base: str, *, timeout: float = CAPTURE_TIMEOUT_S
+) -> tuple[dict[str, Any], str]:
     """Everything the OpenAI-compatible surface will answer, vLLM's extras too.
 
     ``/metrics`` is Prometheus text rather than JSON, and it is captured raw:
@@ -651,7 +618,13 @@ def _capture_served(base: str) -> tuple[dict[str, Any], str]:
         answer = identity._get_json(_url(base, path), timeout=DISCOVERY_TIMEOUT_S)
         if answer is not None:
             native[name] = answer
-    metrics = _get_text(_url(base, "/metrics"), timeout=DISCOVERY_TIMEOUT_S)
+    # The one body that can be large, and so the one call that gets the long
+    # budget. A POST returning tokenizer arrays used to be the reason
+    # CAPTURE_TIMEOUT_S existed; that surface is gone, and 58 KB of Prometheus
+    # text is what is left of the same argument. Everything else here returns
+    # kilobytes at the discovery budget, which matters because this capture
+    # runs immediately before the first draw.
+    metrics = _get_text(_url(base, "/metrics"), timeout=timeout)
     if metrics is not None:
         native["metrics"] = metrics
     return native, _identify(native)
@@ -716,24 +689,13 @@ def _counter_total(metrics: Any, series: str) -> float | None:
 #: this reading: ollama serves no `/metrics` on 11434 (404, both rigs), and its
 #: child `llama-server` answers `501 {"message": "This server does not support
 #: metrics endpoint. Start it with `--metrics`"}` while its own `/props`
-#: reports `endpoint_metrics: false`. ollama spawns that child and does not
-#: pass the flag, so the endpoint is off by ollama's choice, not by absence.
-#:
-#: `/slots` was the other candidate and is **refuted**: `id_task` is monotonic
-#: but its increment per request is neither 1 nor stable — measured 5.0, 7.0,
-#: 7.0 and 5.67 for identically shaped requests on one server, one model — so
-#: it detects that work happened and cannot count what happened.
-OLLAMA_NO_COUNTER = (
-    "this engine serves no request counter to difference: ollama answers 404 "
-    "on /metrics and its llama-server child answers 501 there, naming the "
-    "flag that would enable it (--metrics), which ollama does not pass when it "
-    "spawns the child; the child's /props reports endpoint_metrics false. Its "
-    "/slots id_task is monotonic but increments by neither 1 nor a stable "
-    "number per request (measured 5.0, 7.0, 7.0, 5.67 on srv1 2026-08-23), so "
-    "it cannot be turned into a count. The answer would be at llama-server's "
-    "own /metrics on 127.0.0.1, reachable with host access, if ollama were "
-    "started with a child argument this project does not control"
-)
+# A refusal constant stood here naming why one engine served no request
+# counter to difference -- 404 on /metrics, a llama-server child answering 501
+# and naming the flag its parent did not pass, and a /slots `id_task` that is
+# monotonic but increments by neither 1 nor a stable number per request
+# (measured 5.0, 7.0, 7.0, 5.67 on srv1 2026-08-23). That engine is in
+# `archive/forensic-ollama/` and the refutation of `/slots` with it. Every
+# engine served here answers /metrics.
 
 
 def _server_completions(
@@ -758,8 +720,6 @@ def _server_completions(
     looked yet*. None of them is a boolean.
     """
     engine = (native or {}).get(ENGINE)
-    if engine == OLLAMA:
-        return {"value": None, identity.REFUSALS: OLLAMA_NO_COUNTER}
 
     def counter(capture: dict[str, Any] | None) -> float | None:
         return _counter_total(
@@ -827,9 +787,9 @@ def resolve(
     """The two batching facts that decide whether a re-run can reproduce.
 
     **Why this block exists.** ``concurrency`` in :data:`PROBE_SET` is refused on
-    both engines above, and both refusals are correct: the width is on no
-    network surface either serves. The ollama refusal ends by naming where the
-    answer *is* — "obtainable only with access to the serving host
+    every engine above, and the refusal is correct: the width is on no network
+    surface any of them serves. The refusal ends by naming where the answer
+    *is* — "obtainable only with access to the serving host
     (``tools/bench/serving/``)" — and the ``host`` block written beside it in
     this same file is produced by exactly that module, with exactly that access.
     So the record held the number and the field declared for it read ``null``.
@@ -854,8 +814,8 @@ def resolve(
     a window rather than a boolean. On vLLM,
     ``server_completions_in_window`` is the server's own count of requests it
     finished between the two captures; subtract the rows this run dispatched
-    and the remainder is foreign traffic. On ollama there is no counter to
-    difference and the field refuses, naming where the answer would be.
+    and the remainder is foreign traffic. An engine that serves no counter to
+    difference refuses the field, naming where the answer would be.
 
     **The dispatch side is passed in, never read from a constant here.** It is a
     property of the endpoint the runner actually built (ADR-0027 D4: computed,
@@ -1007,9 +967,11 @@ def _served_probe_set(
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """The four declared fields off the OpenAI-compatible surface (D2).
 
-    vLLM answers the one ollama cannot and cannot answer the one ollama does,
-    so this is not a degraded copy of the arm above — it is the other half of
-    the probe set, and each refusal names the engine it is a fact about.
+    The only arm now. It was written as the other half of a pair — vLLM answers
+    the field the native surface could not and cannot answer the one it could —
+    and what survives that pairing is the rule each refusal is held to: a
+    refusal names the engine it is a fact about, so ``null`` is never just
+    "unavailable".
 
     **Unverified against a live vLLM** — see :data:`UNVERIFIED`. Every branch
     here is tested against the documented shapes; none has been run against a
@@ -1020,16 +982,15 @@ def _served_probe_set(
             dict.fromkeys(PROBE_SET),
             dict.fromkeys(
                 PROBE_SET,
-                f"{base} answered neither ollama's native pair nor /v1/models; "
-                "nothing there described itself at all",
+                f"{base} did not answer /v1/models; nothing there described "
+                "itself at all",
             ),
         )
 
     # Every measured claim below is a fact about vLLM 0.26.0, so it may only be
     # written when vLLM is what answered. An `openai-compatible` server is any
     # server that serves /v1/models and does not look like vLLM — llama-server,
-    # LM Studio, TGI, or an ollama whose /api/* calls failed transiently and
-    # fell through to this arm. Telling that reader its quantization is missing
+    # LM Studio or TGI. Telling that reader its quantization is missing
     # because VLLM_SERVER_DEV_MODE is unset would be a stated reason that is
     # simply untrue, and a null is required to carry a TRUE reason.
     vllm = engine is VLLM
@@ -1189,157 +1150,17 @@ def _get_text(url: str, *, timeout: float) -> str | None:
         return None
 
 
-def _ollama_probe_set(
-    native: dict[str, Any], model: str
-) -> tuple[dict[str, Any], dict[str, str]]:
-    """The four declared fields off ollama's read-only surface (D2).
-
-    Every field in :data:`PROBE_SET` is always present. An **absent** key would
-    mean the record predates the contract, identically to ``run.json``, so a
-    capture made from here on never produces one.
-    """
-    tags = native.get("tags")
-    show = native.get("show")
-    show_details = _mapping(show).get("details")
-    tags_details = _mapping(_tag_row(tags, model)).get("details")
-    details = _mapping(show_details) or _mapping(tags_details)
-    parameters = _parameters(show)
-    resident = _mapping(_resident_row(native, model))
-
-    fields: dict[str, Any] = {}
-    reasons: dict[str, str] = {}
-
-    quantization = details.get("quantization_level")
-    if isinstance(quantization, str) and quantization:
-        fields["quantization"] = quantization
-    else:
-        fields["quantization"] = None
-        reasons["quantization"] = (
-            "neither /api/show nor /api/tags gave details.quantization_level"
-        )
-
-    # `/api/ps` — and ONLY `/api/ps` — reports the window a loaded model is
-    # actually being served with. Measured on both rigs, 2026-08-18: 4096,
-    # against a trained window of 32768 that `/api/tags` and `/api/show` both
-    # report. Recording the 32768 would have put a window on disk that no run
-    # ever had; the loaded model's own number is the effective one, and it is
-    # ollama's `num_ctx` default rather than anything this tree sets.
-    loaded_window = resident.get("context_length")
-    pinned = parameters.get("num_ctx")
-    if isinstance(loaded_window, int):
-        fields["context_length"] = loaded_window
-    elif pinned is not None:
-        fields["context_length"] = pinned
-    else:
-        fields["context_length"] = None
-        reasons["context_length"] = (
-            f"the effective window is on /api/ps, which lists only models that "
-            f"are RESIDENT, and {model!r} was not loaded when this was "
-            "captured. The window /api/tags and /api/show report is the "
-            f"model's TRAINED one — recorded under {NATIVE}, never here, "
-            "because it is not the window a run gets. A capture taken once the "
-            "model is in memory answers this field"
-        )
-
-    # Both of the refusals below are refusals of REACH, not of existence, and
-    # they say so. Ollama does not serve models itself: it runs llama.cpp's
-    # `llama-server` per loaded model and proxies to it, and that child answers
-    # both fields on its own `/props` and `/slots` — bound to 127.0.0.1 on a
-    # port chosen at load time. A capture written by the dispatching client
-    # cannot reach 127.0.0.1 on the serving host, ever. So the answer exists,
-    # it is not here, and the reason names where it is rather than implying
-    # nobody can know. `tools/bench/serving/` reads it with host access.
-    fields["concurrency"] = None
-    reasons["concurrency"] = (
-        "not on any endpoint ollama serves over the network. It is "
-        "OLLAMA_NUM_PARALLEL, and it reaches `llama-server`'s /props as "
-        "`total_slots` on 127.0.0.1 — measured 2026-08-18 as 2 on srv1 and 1 "
-        "on srv2, which is two rigs serving at different widths. Obtainable "
-        "only with access to the serving host (tools/bench/serving/), never "
-        "from here. Recorded as a refusal because it is the term ADR-0027 "
-        "needs: greedy is not deterministic under continuous batching, so a "
-        "run without it cannot be read as reproducing even weakly"
-    )
-
-    seed = parameters.get("seed")
-    if seed is not None:
-        fields["seed"] = seed
-    else:
-        fields["seed"] = None
-        reasons["seed"] = (
-            "no dispatch in this tree sends a seed, no Modelfile on this model "
-            "pins one, and ollama's network API reports none. It IS observable "
-            "on `llama-server`'s /slots as `params.seed`, on 127.0.0.1 and so "
-            "out of this capture's reach: measured 4294967295 on both rigs "
-            "2026-08-18, which is llama.cpp's `draw a fresh random seed per "
-            "request`. Greedy does not read it; the sampled arm does, so those "
-            "draws are irreproducible by construction on this engine — unlike "
-            "vLLM, which defaults to seed=0. Setting one is a different "
-            "experiment that would re-baseline every prior measurement (#276, "
-            "item 9)"
-        )
-
-    return fields, reasons
-
-
-def _resident_row(native: dict[str, Any], model: str) -> Any:
-    """The ``/api/ps`` row for ``model``, or None if it is not in memory.
-
-    Matched on ``name`` and ``model`` like the ``/api/tags`` row, and for the
-    same reason: both are carried, both were the same string on every row
-    measured here, and taking whichever is present costs nothing.
-    """
-    rows = _mapping(native.get("ps")).get("models")
-    if not isinstance(rows, list):
-        return None
-    for row in rows:
-        if isinstance(row, dict) and model in (row.get("name"), row.get("model")):
-            return row
-    return None
+# A native-surface probe set stood here, with `_resident_row`, `_tag_row` and
+# `_parameters` -- the four declared fields read off a native surface, and the
+# three row-matchers that dug them out of an inventory listing, a residency
+# listing and a Modelfile's PARAMETER text. One engine answers the probe set
+# now, through `_served_probe_set`. All of it is in `archive/forensic-ollama/`,
+# with the reasoning for each field's refusal.
 
 
 def _mapping(value: Any) -> dict[str, Any]:
     """``value`` if it is a dict, else an empty one — so callers stay flat."""
     return value if isinstance(value, dict) else {}
-
-
-def _tag_row(tags: Any, model: str) -> Any:
-    """The ``/api/tags`` row for ``model``, matched on ``name`` and ``model``.
-
-    Both are carried and both are the same string on every row measured here;
-    taking whichever is present costs nothing against a build that drops one.
-    """
-    rows = _mapping(tags).get("models")
-    if not isinstance(rows, list):
-        return None
-    for row in rows:
-        if isinstance(row, dict) and model in (row.get("name"), row.get("model")):
-            return row
-    return None
-
-
-def _parameters(show: Any) -> dict[str, Any]:
-    """``/api/show``'s ``parameters`` blob, parsed into a mapping.
-
-    ollama returns the Modelfile's ``PARAMETER`` lines as one text field —
-    ``name value`` per line, values quoted where they contain spaces, repeated
-    names for list-valued parameters like ``stop`` — and omits the key entirely
-    when the model pins nothing, which is the case for every `qwen2.5-coder` tag
-    on srv2. Ints and floats are converted so a window reads as a number;
-    everything else stays the string the server sent. A repeated name keeps the
-    first value, which is only ever ``stop`` and is not read here.
-    """
-    text = _mapping(show).get("parameters")
-    if not isinstance(text, str):
-        return {}
-    parsed: dict[str, Any] = {}
-    for line in text.splitlines():
-        name, _, raw = line.strip().partition(" ")
-        raw = raw.strip().strip('"')
-        if not name or not raw or name in parsed:
-            continue
-        parsed[name] = _as_number(raw)
-    return parsed
 
 
 def _as_number(raw: str) -> Any:

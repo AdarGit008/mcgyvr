@@ -127,7 +127,7 @@ def endpoint() -> Endpoint:
     return Endpoint(
         source="workbench",
         base_url="http://127.0.0.1:11434",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_parallel=2,
         credential_env=None,
     )

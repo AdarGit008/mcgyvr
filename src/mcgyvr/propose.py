@@ -412,7 +412,7 @@ def _candidates(
     The second ground is deliberately the weaker claim and is labelled as
     such wherever it is reported (:func:`_fit_reason`). A model listing means
     different things to different backends — vLLM lists what it has loaded,
-    Ollama lists what has been pulled to disk — so it establishes that the
+    another may list what is merely on disk — so it establishes that the
     rig is *provisioned* for the model, not that the model is resident. That
     is still strictly more than this machine can otherwise know about a card
     it cannot see, and unlike a VRAM estimate it cannot be wrong about which

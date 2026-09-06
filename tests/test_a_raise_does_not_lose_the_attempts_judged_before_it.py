@@ -95,7 +95,7 @@ def test_every_row_before_the_raise_is_corrected_and_listed(
             raw_stop_reason="stop",
             model="qwen2.5-coder:7b",
             source="workstation",
-            protocol=Protocol.OLLAMA,
+            protocol=Protocol.OPENAI,
             max_output_tokens=request.max_output_tokens,
             latency_s=0.0,
         )

@@ -31,7 +31,7 @@ copies are what get the extra sentence.
 
 Usage::
 
-    tools/bundle/python/output_rule_probe.py --base-url http://srv1:11434/v1 \\
+    tools/bundle/python/output_rule_probe.py --base-url http://srv1:8080/v1 \\
         --instrument <dir with the vendored mvp/instrumentation> \\
         --out records/measurements/python-bundle-YYYY-MM-DD/output-rule-probe.jsonl
 """

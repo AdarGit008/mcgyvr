@@ -36,8 +36,8 @@ LOCAL_ONLY = """
 version: 1
 sources:
   local:
-    base_url: http://localhost:11434
-    api: ollama
+    base_url: http://localhost:8080
+    api: openai
     max_parallel: 3
 ladder:
   tiers:
@@ -84,8 +84,8 @@ def test_a_source_needing_a_key_is_not_local_only() -> None:
             version: 1
             sources:
               local:
-                base_url: http://localhost:11434
-                api: ollama
+                base_url: http://localhost:8080
+                api: openai
               cloud:
                 base_url: https://api.anthropic.com
                 api: openai
@@ -116,7 +116,7 @@ def test_missing_required_key_names_the_key() -> None:
                 version: 1
                 sources:
                   local:
-                    api: ollama
+                    api: openai
                 ladder:
                   tiers:
                     - name: cheap
@@ -126,7 +126,7 @@ def test_missing_required_key_names_the_key() -> None:
             )
         )
     assert "sources.local.base_url" in str(exc.value)
-    assert "http://localhost:11434" in str(exc.value), "the message must show a shape"
+    assert "http://localhost:8080" in str(exc.value), "the message must show a shape"
 
 
 def test_tier_bound_to_an_undeclared_source_is_rejected() -> None:
@@ -138,8 +138,8 @@ def test_tier_bound_to_an_undeclared_source_is_rejected() -> None:
                 version: 1
                 sources:
                   local:
-                    base_url: http://localhost:11434
-                    api: ollama
+                    base_url: http://localhost:8080
+                    api: openai
                 ladder:
                   tiers:
                     - name: cheap
@@ -161,8 +161,8 @@ def test_duplicate_tier_names_are_rejected() -> None:
                 version: 1
                 sources:
                   local:
-                    base_url: http://localhost:11434
-                    api: ollama
+                    base_url: http://localhost:8080
+                    api: openai
                 ladder:
                   tiers:
                     - name: cheap
@@ -252,8 +252,8 @@ def test_unknown_nested_key_names_its_valid_siblings() -> None:
                 version: 1
                 sources:
                   local:
-                    base_url: http://localhost:11434
-                    api: ollama
+                    base_url: http://localhost:8080
+                    api: openai
                     parallel: 4
                 ladder:
                   tiers:
@@ -276,8 +276,8 @@ def test_duplicate_keys_are_rejected_rather_than_silently_last_wins() -> None:
                 version: 1
                 sources:
                   local:
-                    base_url: http://localhost:11434
-                    api: ollama
+                    base_url: http://localhost:8080
+                    api: openai
                     max_parallel: 1
                     max_parallel: 8
                 ladder:
@@ -303,13 +303,13 @@ def test_a_boolean_is_not_a_capacity() -> None:
 
 def test_invalid_enum_lists_the_valid_values() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
-        parse(LOCAL_ONLY.replace("api: ollama", "api: llamacpp"))
-    assert "ollama" in str(exc.value) and "openai" in str(exc.value)
+        parse(LOCAL_ONLY.replace("api: openai", "api: llamacpp"))
+    assert "openai" in str(exc.value), "the refusal lists what is valid"
 
 
 def test_a_url_without_a_scheme_is_rejected() -> None:
     with pytest.raises(ConfigSchemaError, match="needs a scheme"):
-        parse(LOCAL_ONLY.replace("http://localhost:11434", "localhost:11434"))
+        parse(LOCAL_ONLY.replace("http://localhost:8080", "localhost:8080"))
 
 
 def test_empty_value_is_not_the_same_as_unset() -> None:
@@ -325,8 +325,8 @@ def test_an_empty_ladder_is_rejected() -> None:
                 version: 1
                 sources:
                   local:
-                    base_url: http://localhost:11434
-                    api: ollama
+                    base_url: http://localhost:8080
+                    api: openai
                 ladder:
                   tiers: []
                 """

@@ -103,11 +103,11 @@ version: 1
 sources:
   srv1:
     base_url: http://srv1.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   srv2:
     base_url: http://srv2.example.net:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   vendor:
     base_url: https://api.example.com/v1

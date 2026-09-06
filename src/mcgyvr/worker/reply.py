@@ -486,8 +486,8 @@ def parse_pinned(
     which is the guess this module exists to avoid; trying the carrier first
     depends only on the reply being the object that was asked for.
 
-    A backend that ignored the schema — Ollama's native path, an older
-    llama-server, anything behind a proxy that drops unknown fields — reaches
+    A backend that ignored the schema — an older llama-server, anything behind
+    a proxy that drops unknown fields — reaches
     the fenced reader and its file comes out identical, trailing newline
     included. That is what keeps ``response_schema`` settable on the rungs
     where it would help most: pinning one can save an attempt and can never

@@ -30,8 +30,8 @@ from mcgyvr.scan import (
 
 MEMINFO = "MemTotal:       49293144 kB\nMemAvailable:   45010000 kB\n"
 MEMINFO_SMALL = "MemTotal:       33554432 kB\nMemAvailable:   30000000 kB\n"
-SMI = "0, NVIDIA GeForce RTX 3060, 12288, 11286\n"
-SMI_IDLE = "0, NVIDIA GeForce RTX 3060, 12288, 12\n"
+SMI = "0, NVIDIA GeForce RTX 3060, 12288, 11286, 1002\n"
+SMI_IDLE = "0, NVIDIA GeForce RTX 3060, 12288, 12, 12276\n"
 LSCPU = (
     "CPU(s):                20\nCore(s) per socket:    10\nThread(s) per core:    2\n"
 )
@@ -192,11 +192,11 @@ def test_every_measured_fact_carries_its_provenance(bench: Bench) -> None:
 #: the second carries a comma inside the name a vendor chose, and the third is
 #: a shape this parser does not know.
 SMI_AWKWARD = (
-    "0, NVIDIA RTX A4000, 16376, 1000\n"
-    "1, Tesla T4, Custom, 15360, 400\n"
+    "0, NVIDIA RTX A4000, 16376, 1000, 15376\n"
+    "1, Tesla T4, Custom, 15360, 400, 14960\n"
     "2, GRID A100, 40960\n"
 )
-SMI_MIG = "0, NVIDIA A100-SXM4-40GB MIG 1g.5gb, [N/A], [N/A]\n"
+SMI_MIG = "0, NVIDIA A100-SXM4-40GB MIG 1g.5gb, [N/A], [N/A], [N/A]\n"
 
 
 def test_a_comma_in_a_card_name_does_not_drop_the_card(bench: Bench) -> None:
@@ -251,3 +251,39 @@ def test_nvidia_smi_answering_with_nothing_still_says_so(bench: Bench) -> None:
     result = scan()
     assert result.gpus == ()
     assert any("reported no device" in note for note in result.notes)
+
+
+#: srv1 as nvidia-smi printed it on 2026-09-05 with the 35B unit up: the card
+#: says 6144 total, 5306 used and 438 free, which do not sum -- 400 MiB is the
+#: driver's own reserve and is never handed to a process.
+SMI_RESERVED = "0, NVIDIA GeForce RTX 3050, 6144, 5306, 438\n"
+
+
+def test_free_vram_is_the_cards_own_number_not_total_minus_used(bench: Bench) -> None:
+    """``total - used`` is not what the card will hand out, and the gap decides fits.
+
+    Measured on srv1 (2026-09-05): total 6144, used 5306, free 438. Deriving
+    free from the first two reports 838 -- 400 MiB that no process can have,
+    because the driver is holding it. A placement sized against the derived
+    number clears every gate and then OOMs at load by exactly that reserve.
+
+    The reserve is reported rather than folded away, so the sum still closes:
+    a scan whose three numbers did not add up would be a scan nobody could
+    act on, which is the objection the derivation was answering. The rest of
+    the project already reads ``memory.free`` -- :mod:`mcgyvr.serving.servelib`
+    and the door's ``default-step.sh`` both do -- so this is the scan agreeing
+    with the gate rather than a new opinion about cards.
+    """
+    bench(smi=SMI_RESERVED)
+    vram = scan().gpus[0].vram
+    assert vram.free_mib == 438
+    assert vram.reserved_mib == 400
+    assert vram.total_mib == vram.used_mib + vram.free_mib + vram.reserved_mib
+
+
+def test_a_card_holding_nothing_back_reports_no_reserve(bench: Bench) -> None:
+    """The reserve is a reading, not a constant: a card that hands out all of
+    its free memory reports zero and the sum closes just the same."""
+    bench(smi="0, NVIDIA GeForce RTX 3060, 12288, 11286, 1002\n")
+    vram = scan().gpus[0].vram
+    assert (vram.free_mib, vram.reserved_mib) == (1002, 0)

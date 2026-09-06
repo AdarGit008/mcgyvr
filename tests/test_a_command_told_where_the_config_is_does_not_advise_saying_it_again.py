@@ -37,7 +37,13 @@ COMMANDS: list[tuple[str, list[str], list[str]]] = [
     ("config", ["config"], ["config", "{path}"]),
     ("pool", ["pool"], ["pool", "{path}"]),
     ("catalog", ["catalog", "--against"], ["catalog", "--against", "{path}"]),
-    ("emit", ["emit"], ["emit", "--config", "{path}"]),
+    # `emit` also requires the window the run serves, which is not a config
+    # question: the run declares it (test_dod_one_context_number.py).
+    (
+        "emit",
+        ["emit", "--ctx-per-slot", "4096"],
+        ["emit", "--ctx-per-slot", "4096", "--config", "{path}"],
+    ),
 ]
 
 

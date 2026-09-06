@@ -130,6 +130,11 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
+    #: Inclusive upper bound, for the values that have one because they are a
+    #: share of something rather than a count of it. Absent on every counting
+    #: field: attempts and timeouts have no natural ceiling, and inventing one
+    #: would refuse a config nobody has shown to be wrong.
+    max_value: float | None = None
     bind_hint: str = ""
 
     retired: tuple[tuple[str, str], ...] = ()
@@ -151,7 +156,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "url",
         "Where the source answers, including scheme and port.",
         required=True,
-        bind_hint="e.g. http://localhost:11434",
+        bind_hint="e.g. http://localhost:8080",
     ),
     Field(
         "api",
@@ -160,7 +165,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "TGI, so adding a backend is a protocol question, not an "
         "integration.",
         required=True,
-        choices=("ollama", "openai"),
+        choices=("openai",),
     ),
     Field(
         "max_parallel",
@@ -170,6 +175,21 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "on one card in 23.6 s against ~44 s serial.",
         default=1,
         min_value=1,
+    ),
+    Field(
+        "context_window",
+        "int",
+        "How many tokens this source's process serves in one request. Absent "
+        "means nobody declared it and nothing is enforced against it: a "
+        "window invented here would be a number nobody measured, and the "
+        "first live day found exactly that failure — a ladder whose bottom "
+        "priced a request at twice what its top could hold. Read it back "
+        "from the running unit (`max_model_len` on vLLM, `n_ctx` on "
+        "llama.cpp) and write what it said. It belongs on the source rather "
+        "than the rung because the window is a fact about the process, and a "
+        "rung that carried one could not be re-pointed at another machine.",
+        min_value=1,
+        bind_hint="e.g. 4096 — what the unit reports, not what you hoped for",
     ),
     Field(
         "api_key_env",
@@ -525,6 +545,23 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         default=900,
         min_value=1,
     ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a rung's context window one contract may claim "
+        "-- its prompt and its own declared reply together, over the whole "
+        "window. Distinct from whether the two *fit*, which the fit check "
+        "already asks: a contract that fits with nothing to spare leaves the "
+        "rung nothing to absorb a long estimate with. Unset enforces no "
+        "share, which is not the same as 1.0: a run that declared none is "
+        "recorded as having declared none.",
+        min_value=0.0,
+        max_value=1.0,
+        bind_hint=(
+            "a share between 0 and 1 -- e.g. 0.75 to keep a quarter of every "
+            "rung's window clear -- or leave it unset to enforce no share"
+        ),
+    ),
 )
 
 BREADTH_FIELDS: tuple[Field, ...] = (
@@ -706,6 +743,14 @@ class Source:
     api_key_env: str | None
     engine: str | None = None
     image: str | None = None
+    #: Tokens this source serves in one request, or ``None`` when nobody said.
+    #: ``None`` is an answer rather than a gap: every budget in mcgyvr was
+    #: spent against a number the *contract* declared, so a contract was
+    #: measured against the window it was written for and never against the
+    #: window it reached. Declaring this is what lets the gate ask the second
+    #: question; leaving it out enforces nothing, which is the honest
+    #: behaviour for a machine nobody has read back.
+    context_window: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -966,6 +1011,10 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             raise ConfigSchemaError(
                 f"{path}: must be at least {spec.min_value}, found {raw}"
             )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
+            )
         return raw
 
     if spec.kind == "float":
@@ -978,6 +1027,10 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         if spec.min_value is not None and raw < spec.min_value:
             raise ConfigSchemaError(
                 f"{path}: must be at least {spec.min_value}, found {raw}"
+            )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
             )
         return float(raw)
 
@@ -1223,6 +1276,7 @@ def parse(text: str, path: Path | None = None) -> Config:
             api_key_env=block["api_key_env"],
             engine=block["engine"],
             image=block["image"],
+            context_window=block["context_window"],
         )
         for name, block in data["sources"].items()
     }

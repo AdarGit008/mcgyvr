@@ -81,7 +81,7 @@ lens 1). So is everything that stopped a contract before or during its climb:
 could not declare (``declare``), an attempt item 3 refused to assemble
 (``assemble``), or a dispatch that raised a :class:`~mcgyvr.runner.RunnerError`
 mid-climb (``dispatch``, with the rung and the exception's name, because
-"srv2 was down" and "the ollama path refused a quality-sensitive request" are
+"srv2 was down" and "a caveated path refused a quality-sensitive request" are
 different findings about the pool and neither is a finding about the task).
 """
 

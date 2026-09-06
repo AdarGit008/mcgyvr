@@ -357,7 +357,7 @@ def test_flags_beat_the_file() -> None:
 
     assert worker.model == "qwen2.5-coder:7b"
     assert worker.endpoint == "http://box:11434"
-    assert worker.protocol is Protocol.OLLAMA
+    assert worker.protocol is Protocol.OPENAI
 
 
 def test_a_worker_with_no_endpoint_says_where_to_put_one() -> None:
@@ -389,30 +389,6 @@ def test_a_declared_key_that_is_not_in_the_environment_stops_the_sweep(
     # pool, from the environment — the same path every other source uses.
     assert worker.as_endpoint().credential_env == "MEASURE_TEST_KEY"
     assert worker.as_endpoint().requires_credential
-
-
-def test_the_native_ollama_path_is_refused_before_the_first_dispatch() -> None:
-    """Otherwise it is eighty dispatch errors, an hour in, reading as transport.
-
-    Every request the rig sends is quality-sensitive, and `runner.generate`
-    refuses those on `/api/generate` under CAV-01. The choice is not a
-    degradation, it is a run that cannot happen — so it is caught while it is
-    still a typo rather than after a night of it.
-    """
-    measure = _measure()
-    native = measure.resolve_worker(
-        {"endpoint": "http://localhost:11434", "model": "m", "protocol": "ollama"}, {}
-    )
-
-    with pytest.raises(measure.MeasureError) as caught:
-        measure.check_protocol_can_carry_a_measurement(native)
-    assert "CAV-01" in str(caught.value)
-    assert "--protocol openai" in str(caught.value)
-
-    compatible = measure.resolve_worker(
-        {"endpoint": "http://localhost:11434", "model": "m", "protocol": "openai"}, {}
-    )
-    measure.check_protocol_can_carry_a_measurement(compatible)
 
 
 def test_the_example_worker_file_names_a_protocol_a_sweep_can_use() -> None:

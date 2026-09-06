@@ -448,10 +448,18 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     # make them conditional, and a conditional gate is a skippable one.
     parser.add_argument("--model", required=True, help="blob path AS THE RIG SEES IT")
     parser.add_argument("--parallel", type=int, default=8, help="slots (-np)")
+    # Required, and this is the reader that made the case. It defaulted to
+    # 2048 while `emit` used a module constant of 4096, so an `--n-cpu-moe`
+    # floor derived through this door was computed against half the cache the
+    # compose file it was derived for actually launches with — a floor is only
+    # correct for the cache the unit will actually allocate. Two literals made
+    # to agree would agree until someone edited one; the run declares it
+    # instead, and a run that did not is refused here rather than sized
+    # silently.
     parser.add_argument(
         "--ctx-per-slot",
         type=int,
-        default=2048,
+        required=True,
         help="per-slot window; -c is this times --parallel",
     )
     parser.add_argument("--ubatch", type=int, default=512, help="-ub, and -b with it")

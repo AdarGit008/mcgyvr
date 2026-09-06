@@ -249,6 +249,7 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
 
 Kind = Literal[
     "int",
+    "float",
     "str",
     "bool",
     "enum",
@@ -286,7 +287,12 @@ class Field:
     default: Any = None
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
-    min_value: int | None = None
+    min_value: float | None = None
+    #: Inclusive upper bound, for a value that is a share of something rather
+    #: than a count of it. Absent on every counting field: a token cap has no
+    #: natural ceiling, and inventing one would refuse a contract nobody has
+    #: shown to be wrong.
+    max_value: float | None = None
     worker_facing: bool = False
     hint: str = ""
     choices_from: Callable[[], tuple[str, ...]] | None = None
@@ -385,6 +391,24 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "content is #17.",
         default=None,
         min_value=1,
+    ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a rung's context window this contract may "
+        "claim: its assembled prompt and `max_output_tokens` together, over "
+        "the whole window. A different question from whether the two fit, "
+        "which `context.max_input_tokens` already bounds — a contract that "
+        "fits with nothing to spare leaves the rung nothing to hold anything "
+        "beside it and nothing to absorb an estimate that ran long. Declared "
+        "here rather than on the ladder because it is a statement about this "
+        "unit of work, and enforced against whichever rung the work reaches. "
+        "Unset means no share is enforced, which is not the same as 1.0: a "
+        "contract that declared none is recorded as having declared none.",
+        default=None,
+        min_value=0.0,
+        max_value=1.0,
+        hint="e.g. 0.75 to leave a quarter of the rung's window clear",
     ),
     Field(
         "attempts",
@@ -603,6 +627,11 @@ class Limits:
 
     max_output_tokens: int
     attempts: int
+    #: The share of a rung's window this contract may claim, or ``None`` when
+    #: it declared none. ``None`` rather than ``1.0`` because "no share was
+    #: stated" and "the whole window was allowed" are different declarations,
+    #: and only one of them should read as an operator's choice in a record.
+    max_window_fraction: float | None = None
 
 
 @dataclass(frozen=True)
@@ -737,6 +766,15 @@ class Contract:
         exactly when it says something costs nothing to add later.
         """
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
+        # Same rule as `depends_on`, for the same reason this docstring gives:
+        # a share carried whether or not one was declared would change the
+        # serialised form of every contract that never mentioned one, and with
+        # it the digest each recorded run is keyed by.
+        share = (
+            {"max_window_fraction": self.limits.max_window_fraction}
+            if self.limits.max_window_fraction is not None
+            else {}
+        )
         return {
             "version": self.version,
             "id": self.id,
@@ -768,6 +806,7 @@ class Contract:
                     else None
                 ),
                 "attempts": self.limits.attempts,
+                **share,
             },
         }
 
@@ -881,6 +920,7 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
         limits=Limits(
             max_output_tokens=data["limits"]["max_output_tokens"],
             attempts=data["limits"]["attempts"],
+            max_window_fraction=data["limits"]["max_window_fraction"],
         ),
         max_output_tokens_declared=max_output_tokens_declared,
     )
@@ -919,6 +959,8 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     """One value, validated against its field's kind."""
     if spec.kind == "int":
         return _int(raw, spec, path)
+    if spec.kind == "float":
+        return _float(raw, spec, path)
     if spec.kind == "bool":
         if not isinstance(raw, bool):
             raise ContractSchemaError(f"{path}: must be true or false, got {raw!r}.")
@@ -956,7 +998,27 @@ def _int(raw: object, spec: Field, path: str) -> int:
         raise ContractSchemaError(
             f"{path}: must be at least {spec.min_value}, got {raw}."
         )
+    if spec.max_value is not None and raw > spec.max_value:
+        raise ContractSchemaError(
+            f"{path}: must be at most {spec.max_value}, got {raw}."
+        )
     return raw
+
+
+def _float(raw: object, spec: Field, path: str) -> float:
+    # A whole number is a valid decimal and a bool is not, which is the same
+    # rule `_int` runs on: `max_window_fraction: true` is not a share.
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ContractSchemaError(f"{path}: must be a number, got {raw!r}.")
+    if spec.min_value is not None and raw < spec.min_value:
+        raise ContractSchemaError(
+            f"{path}: must be at least {spec.min_value}, got {raw}."
+        )
+    if spec.max_value is not None and raw > spec.max_value:
+        raise ContractSchemaError(
+            f"{path}: must be at most {spec.max_value}, got {raw}."
+        )
+    return float(raw)
 
 
 def _str(raw: object, path: str, *, allow_empty: bool = False) -> str:

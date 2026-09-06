@@ -30,10 +30,13 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
     PreflightIssue,
+    ServingWindow,
     TokenCount,
     check_clean_tree,
+    check_contract_against_rung,
     check_contract_fits,
     check_prompt_fits,
+    check_window_fraction,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
@@ -56,10 +59,13 @@ __all__ = [
     "PythonAdapter",
     "SemanticCheck",
     "SemanticReport",
+    "ServingWindow",
     "TokenCount",
     "ToolFailedError",
     "ToolUnavailableError",
     "check_clean_tree",
+    "check_contract_against_rung",
     "check_contract_fits",
     "check_prompt_fits",
+    "check_window_fraction",
 ]

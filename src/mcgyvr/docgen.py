@@ -140,8 +140,16 @@ def _type_label(field: Field) -> str:
     if field.kind == "enum":
         return "one of " + ", ".join(f"`{c}`" for c in field.choices)
     label = _KIND_LABELS[field.kind]
+    # Both bounds, because a field that has a ceiling and shows only its floor
+    # reads as unbounded above -- which for a share of something is the half
+    # that matters.
+    bounds = []
     if field.min_value is not None:
-        return f"{label} (min {field.min_value})"
+        bounds.append(f"min {field.min_value}")
+    if field.max_value is not None:
+        bounds.append(f"max {field.max_value}")
+    if bounds:
+        return f"{label} ({', '.join(bounds)})"
     return label
 
 
@@ -254,6 +262,7 @@ def render_reference() -> str:
 
 _CONTRACT_KIND_LABELS: dict[str, str] = {
     "int": "number",
+    "float": "decimal number",
     "str": "text",
     "str_list": "list of text",
     "glob_list": "list of globs",
@@ -382,8 +391,15 @@ def _contract_type_label(field: contract_schema.Field) -> str:
         choices = field.choices or (field.choices_from() if field.choices_from else ())
         return "one of " + ", ".join(f"`{c}`" for c in choices)
     label = _CONTRACT_KIND_LABELS[field.kind]
+    # Both bounds, for the reason the config renderer states: a ceiling that
+    # is not shown reads as no ceiling.
+    bounds = []
     if field.min_value is not None:
-        return f"{label} (min {field.min_value})"
+        bounds.append(f"min {field.min_value}")
+    if field.max_value is not None:
+        bounds.append(f"max {field.max_value}")
+    if bounds:
+        return f"{label} ({', '.join(bounds)})"
     return label
 
 

@@ -577,29 +577,25 @@ def test_the_order_flag_reaches_every_ramp_the_phase_runs(
     calibrate: Any,
     contract: Any,
     claimed: dict[str, Any],
-    ollama_attempt: dict[str, Any],
     rig: _Host,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     """``--level-order``/``--level-seed`` travel ``main`` -> ``ramp`` ->
-    ``_widths`` / the ollama call -> ``_one_ramp`` -> ``contract.ramp``. A
-    kwarg dropped at any of those seams runs every ramp ascending while the
-    row says so honestly -- the re-run's condition silently not applied.
-    Driven from the command line, through the real ``emit``, to the rows.
+    ``_widths`` -> ``_one_ramp`` -> ``contract.ramp``. A kwarg dropped at any
+    of those seams runs every ramp ascending while the row says so honestly --
+    the re-run's condition silently not applied. Driven from the command line,
+    through the real ``emit``, to the rows.
+
+    One engine arm since 2026-09-06; the seam count the flag has to survive is
+    the same, because the arm that went was the shorter one.
     """
-    ollama: Any = _by_path("serving_ollama_order", SERVING / "backends" / "ollama.py")
     vllm: Any = _by_path("serving_vllm_order", SERVING / "backends" / "vllm.py")
-    for module in (ollama, vllm):
-        monkeypatch.setattr(module, "release", lambda host: {"card_idle": True})
-    monkeypatch.setattr(ollama, "probe", lambda host: "http://h:11434")
-    monkeypatch.setattr(ollama, "inventory", lambda host, base: ["m"])
-    monkeypatch.setattr(ollama, "claim", lambda *a, **k: dict(ollama_attempt))
-    monkeypatch.setattr(ollama, "slots_now", lambda host: {"value": 2})
+    monkeypatch.setattr(vllm, "release", lambda host: {"card_idle": True})
     monkeypatch.setattr(vllm, "claim", lambda *a, **k: dict(claimed))
     monkeypatch.setattr(vllm, "declared_slots", lambda serve, host: {"value": 1})
     monkeypatch.setattr(vllm, "serving_config", lambda base: {"refused": "stub"})
-    backends = {"ollama": ollama, "vllm": vllm}
+    backends = {"vllm": vllm}
     monkeypatch.setattr(contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(contract, "_one", _Rig().one, raising=True)
     monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
@@ -626,7 +622,7 @@ def test_the_order_flag_reaches_every_ramp_the_phase_runs(
         == 0
     )
     ramps = [row for row in _rows(out) if row.get("metric") == "ramp"]
-    assert {row["engine"] for row in ramps} == {"ollama", "vllm"}, ramps
+    assert {row["engine"] for row in ramps} == {"vllm"}, ramps
     expected = list(contract.order_levels(contract.RAMP_LEVELS, "shuffled", 7))
     for row in ramps:
         assert row["level_order"] == "shuffled", row["engine"]
@@ -891,20 +887,13 @@ def test_every_carried_launch_field_names_a_key_that_is_really_in_the_row(
         )
 
 
-def test_the_ollama_ramp_can_state_its_own_slot_count(calibrate: Any) -> None:
-    """A4: the ollama arm must not carry a null where /props answers.
-
-    Asserted against the seam rather than the loop, because the loop needs two
-    live hosts. The property is that a public seam exists at all: before this,
-    the only way to the number was ``describe``, which builds the whole
-    ``observed`` block, so the ramp went without and every ollama row read
-    ``declared_slots: null``.
-    """
-    ollama = _by_path("serving_ollama_sink", SERVING / "backends" / "ollama.py")
-    assert hasattr(ollama, "slots_now"), (
-        "no cheap seam to the declared slot count, so the ramp has no way to "
-        "record one without paying for a full capture."
-    )
+# `test_the_ollama_ramp_can_state_its_own_slot_count` stood here. A4: the arm
+# whose width was whatever its host's daemon had been configured for had to read
+# that width once per model rather than per token count, or every one of its
+# ramp rows carried `declared_slots: null` while a survey read the same number
+# off the same host. Both the arm and the `slots_now` it needed are in
+# `archive/forensic-ollama/`. The remaining arm launches at a width it chose, so
+# `declared_slots` is what it passed, not something to go and read.
 
 
 # A5: the three ways a sleep cell used to report a verdict it had not earned.
@@ -1000,11 +989,14 @@ RUN = SERVING / "run.py"
 
 #: The rule SINK_EXEMPT applies, stated once: a sink is DISPOSED when its
 #: producer is a dict this repo's code builds (`contract.ramp`, `vllm.claim`,
-#: `ollama.claim`, `describe`, `residents`), and EXEMPT -- with a reason naming
+#: `describe`, `residents`), and EXEMPT -- with a reason naming
 #: what is discarded -- when the producer is a scalar, a literal row, or a
 #: remote server's document.
 SINK_DISPOSED: dict[str, str] = {
-    "calibrate.py::load::row": "LOAD_ROW_DISPOSITION",
+    # `calibrate.py::load::row` was here, under LOAD_ROW_DISPOSITION. The load
+    # phase measured a daemon that pulls a model in on first request; both
+    # engines served now are started with their checkpoint, so the phase and
+    # its row builder went to `archive/forensic-ollama/` on 2026-09-06.
     # #326: both rows take the serving pins after the builder, so the site
     # is the name the row is held in.
     "calibrate.py::_widths::row": "LAUNCH_ROW_DISPOSITION",
@@ -1024,37 +1016,13 @@ SINK_EXEMPT: dict[str, str] = {
         "scalar: a wall-clock duration; the shell output of `free -m` and "
         "/proc/loadavg it timed is discarded unread"
     ),
-    "calibrate.py::fast::fast/discovery_seconds": (
-        "scalar: a wall-clock duration; the HTTP body of /api/tags, /api/ps "
-        "or /api/version it timed is discarded unread"
-    ),
-    "calibrate.py::fast::fast/capture_show_seconds": (
-        "scalar: a wall-clock duration and the byte length of /api/show's "
-        "body; the body itself (a remote server's document) is discarded"
-    ),
-    "calibrate.py::fast::fast/array_length": (
-        "scalar: the length of one list inside /api/show's body; the list's "
-        "contents are discarded"
-    ),
-    "calibrate.py::load::load/vram_fraction": (
-        "a re-emission of one load-row field under its own metric so the "
-        "fraction can be read as a series; nothing new is produced or dropped"
-    ),
-    "calibrate.py::ramp::ramp/refused#1": (
-        "literal row: ollama's probe returned None; nothing was produced to dispose of"
-    ),
-    "calibrate.py::ramp::ramp/refused#2": (
-        "literal row: the inventory was empty; the empty list is the whole "
-        "of what was produced"
-    ),
-    "calibrate.py::ramp::ramp/refused#3": (
+    # The three refusals above `ramp/refused` were the removed engine's arm:
+    # its probe answering None, its inventory coming back empty, and its claim
+    # raising. What is left is the one vLLM refusal, and it keeps its ordinal
+    # from before the renumber so a reader tracing an old row finds it.
+    "calibrate.py::ramp::ramp/refused": (
         "literal row: `_awq` found no checkpoint; the ssh listing (a shell "
         "string, possibly None) is discarded"
-    ),
-    "calibrate.py::ramp::ramp/error": (
-        "literal row: ollama.claim raised in the ramp phase; the exception "
-        "text is carried. The attempt trail is the load phase's to record "
-        "(its row carries it whole since #326); this row is the ramp's."
     ),
     "calibrate.py::_widths::ramp/error": (
         "literal row: vllm.claim or declared_slots raised; the exception "
@@ -1091,8 +1059,14 @@ SINK_EXEMPT: dict[str, str] = {
     ),
 }
 
+#: `load` is not here since 2026-09-06: the phase raises rather than emitting,
+#: because it measured a daemon that pulls a model in on first request and both
+#: engines served now are started with their checkpoint. A phase function with
+#: no sink in it is exactly what this check is supposed to catch, so it is
+#: removed from the list rather than left to fail — and it fails again the
+#: moment someone puts a sink back without saying what becomes of its fields.
 PHASE_FUNCTIONS = {
-    "calibrate.py": {"fast", "load", "ramp", "_widths", "_one_ramp", "sleep_state"},
+    "calibrate.py": {"fast", "ramp", "_widths", "_one_ramp", "sleep_state"},
     "run.py": {"run"},
 }
 
@@ -1234,10 +1208,14 @@ def test_nothing_is_both_disposed_and_exempt() -> None:
 
 def test_a_sink_added_without_a_disposition_is_refused(tmp_path: Path) -> None:
     """The mutation that shipped green before #324, re-applied on a copy."""
-    anchor = (
+    # The whole docstring, so the inserted sink lands in the body and not
+    # inside it. `fast`'s docstring grew when its discovery half was removed
+    # on 2026-09-06.
+    source_now = CALIBRATE.read_text(encoding="utf-8")
+    start = source_now.index(
         "def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:\n"
-        '    """Idle readings, step durations, discovery durations, array sizes."""\n'
     )
+    anchor = source_now[: source_now.index('"""\n', start) + 4][start:]
     source = CALIBRATE.read_text(encoding="utf-8")
     assert anchor in source
     mutated = tmp_path / "calibrate.py"
@@ -1314,59 +1292,14 @@ def _dropped_state_why(
         assert len(why) > 20, f"{name}: {field!r} dropped with {why!r}"
 
 
-@pytest.fixture(scope="module")
-def ollama_attempt() -> dict[str, Any]:
-    """The attempt record ``ollama.claim`` returns on success, from ``claim``.
-
-    Seams stubbed, body run -- the `claimed` fixture's idiom. The key set is
-    whatever `claim` builds today.
-    """
-    ollama: Any = _by_path(
-        "serving_ollama_load_sink", SERVING / "backends" / "ollama.py"
-    )
-    model = "qwen2.5-coder:1.5b"
-    ollama.release = lambda host: {"card_idle": True, "card_used_mib": 1}
-    ollama._resident = lambda host: [{"name": model, "size": 1000, "size_vram": 1000}]
-    ollama._digest = lambda base, m: "sha256:abc"
-    ollama._server = lambda host: {"instances": [{"pid": 1}]}
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(ollama.contract, "ssh", lambda *a, **k: "200")
-        patch.setattr(ollama.contract, "drop_page_cache", lambda host: None)
-        patch.setattr(
-            ollama.contract,
-            "first_int",
-            lambda *a, **k: ollama.IDLE_BEFORE_LOAD_MIB + 4000,
-        )
-        claimed: dict[str, Any] = ollama.claim("srv1", "http://srv1:11434", model)
-    assert claimed["verified"] is True and len(claimed["attempts"]) == 1
-    return claimed
-
-
-def test_the_load_sink_declares_a_disposition_for_every_field_an_attempt_carries(
-    calibrate: Any, ollama_attempt: dict[str, Any]
-) -> None:
-    """Before #324 the load row kept 3 of the attempt record's 21 keys."""
-    attempt = ollama_attempt["attempts"][-1]
-    _disposition_matches_producer(
-        calibrate.LOAD_ROW_DISPOSITION, set(attempt), "LOAD_ROW_DISPOSITION"
-    )
-    row = calibrate._load_row("srv1", "m", 0, 1.5, True, None, ollama_attempt)
-    _carried_are_in_row(calibrate.LOAD_ROW_DISPOSITION, row, "LOAD_ROW_DISPOSITION")
-    _dropped_state_why(
-        calibrate.LOAD_ROW_DISPOSITION,
-        calibrate.LOAD_ROW_DROPPED,
-        "LOAD_ROW_DISPOSITION",
-    )
-    # D6: does a second attempt ever rescue a first? Only answerable if the
-    # ordinal reaches the row.
-    assert row["attempt"] == len(ollama_attempt["attempts"]) == 1
-    assert row["model_sha256"] == "sha256:abc"
-    assert row["card_idle_before_load"] is True
-
-
-def test_a_failed_load_writes_no_attempt_ordinal(calibrate: Any) -> None:
-    row = calibrate._load_row("srv1", "m", 0, 1.5, False, "RefusedError: x", {})
-    assert row["attempt"] is None and row["ok"] is False
+# The `ollama_attempt` fixture stood here with the two checks it fed:
+# that LOAD_ROW_DISPOSITION declared a disposition for every one of the 21 keys
+# an attempt record carries (before #324 the row kept 3 of them), and that a
+# failed load writes no attempt ordinal. All three were about the load phase,
+# which measured a daemon that pulls a model in on first request. The phase, its
+# row builder and its disposition tables went to `archive/forensic-ollama/` on
+# 2026-09-06 — both engines served now are started with their checkpoint, so
+# there is no on-demand claim left to record.
 
 
 class _SleepVllm:
@@ -1391,11 +1324,6 @@ class _SleepVllm:
         self, host: str, base: str, serve: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
-
-
-class _SleepOllama:
-    def release(self, host: str) -> None:
-        pass
 
 
 class _SleepRun:
@@ -1425,10 +1353,10 @@ class _SleepRun:
 def sleep_run(
     calibrate: Any, claimed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> _SleepRun:
-    """One host, both arms, every seam stubbed."""
+    """One host, every seam stubbed."""
     run = _SleepRun()
     cards = iter([11109, 189, 11000] * 4)
-    backends = {"vllm": _SleepVllm(claimed), "ollama": _SleepOllama()}
+    backends = {"vllm": _SleepVllm(claimed)}
     run.vllm = backends["vllm"]
     monkeypatch.setattr(calibrate.contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(
@@ -1881,7 +1809,7 @@ def _drive_sleep(
 ) -> None:
     """`sleep_run`'s seams, with the real `emit` left in place."""
     cards = iter([11109, 189, 11000] * 4)
-    backends = {"vllm": _SleepVllm(claimed), "ollama": _SleepOllama()}
+    backends = {"vllm": _SleepVllm(claimed)}
     monkeypatch.setattr(calibrate.contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(
         calibrate.contract, "get_json", lambda *a, **k: {"is_sleeping": True}
@@ -1900,7 +1828,6 @@ def test_the_stamp_reaches_the_ramp_launch_sleep_and_survey_rows_and_every_claim
     calibrate: Any,
     contract: Any,
     claimed: dict[str, Any],
-    ollama_attempt: dict[str, Any],
     produced: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1947,12 +1874,11 @@ def test_the_stamp_reaches_the_ramp_launch_sleep_and_survey_rows_and_every_claim
         _stamped(row, FAKE_STAMP)
         _span_ordered(row)
 
-    # Every claim attempt, from the claim that built it.
-    for attempt in ollama_attempt["attempts"]:
-        _span_ordered(attempt)
+    # Every claim attempt, from the claim that built it. The load phase's
+    # attempt trail was the other half of this and went with that phase on
+    # 2026-09-06 (`archive/forensic-ollama/`); what remains is the launch
+    # claim, whose span the launch and sleep rows above already carry.
     _span_ordered(claimed["checks"])
-    load = calibrate._load_row("h", "m", 0, 1.0, True, None, ollama_attempt)
-    assert load["attempt_started_at"] == ollama_attempt["attempts"][-1]["started_at"]
 
 
 def test_the_phase_duration_is_a_row_with_a_clock_not_a_print(
@@ -2053,10 +1979,11 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
     seams that write no row. On 2026-08-20 that remainder was 8,185.3 s and
     no file held its split; here every second of it has a name.
 
-    The seams: `release` (both engines), `ollama.slots_now`,
-    `vllm.declared_slots` -- and `ollama.claim` in the ramp phase, which loads
-    a model and writes no row (the load phase's claim does; #326/#327 own
-    whether the ramp's should).
+    The seams: `release` and `vllm.declared_slots`. Two more were here — the
+    slot read and the claim of the arm removed on 2026-09-06, which loaded a
+    model and wrote no row — and their seconds went to
+    `archive/forensic-ollama/` with them. What the check is about is unchanged:
+    a remainder with no split is a phase nobody can account for.
     """
     clock = _FakeClock(contract)
     monkeypatch.setattr(contract, "now", clock.now)
@@ -2100,25 +2027,7 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
         ) -> dict[str, Any]:
             return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
 
-    class Ollama:
-        def probe(self, host: str) -> str:
-            return "http://h:11434"
-
-        def inventory(self, host: str, base: str) -> list[str]:
-            return ["m"]
-
-        def release(self, host: str) -> None:
-            clock.spend("release", 3.0)
-
-        def slots_now(self, host: str) -> dict[str, Any]:
-            clock.spend("ollama.slots_now", 5.0)
-            return {"value": 2, "provenance": "observed"}
-
-        def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
-            clock.spend("ollama.claim", 11.0)
-            return {}
-
-    backends: dict[str, Any] = {"vllm": Vllm(), "ollama": Ollama()}
+    backends: dict[str, Any] = {"vllm": Vllm()}
     monkeypatch.setattr(contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(contract, "ramp", ramp)
     monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
@@ -2130,7 +2039,9 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
     phase_ended = contract.now()
     phase = contract.seconds_between(phase_started, phase_ended)
 
-    assert [r["metric"] for r in rows] == ["ramp", "launch", "ramp", "launch", "ramp"]
+    # Two widths, each a launch then a ramp. The leading `ramp` row that used
+    # to open this list was the removed arm's, which ran before the widths.
+    assert [r["metric"] for r in rows] == ["launch", "ramp", "launch", "ramp"]
     spans = 0.0
     previous = phase_started
     for row in rows:
@@ -2144,7 +2055,9 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
             assert sum(lv["wall_s"] for lv in row["levels"]) <= span, (
                 "both repeats of every level lie inside the ramp row"
             )
-            assert span == clock.inside["contract.ramp"] / 3
+            # Two ramps now rather than three: the divisor is the number of
+            # `contract.ramp` calls the phase made, one per width.
+            assert span == clock.inside["contract.ramp"] / 2
         else:
             assert span == 60.0
     unattributed = {
@@ -2153,14 +2066,9 @@ def test_the_ramp_phase_remainder_is_a_sum_of_named_terms(
         if k not in ("contract.ramp", "vllm.claim")
     }
     assert round(phase - spans, 3) == round(sum(unattributed.values()), 3)
-    assert set(unattributed) == {
-        "release",
-        "ollama.slots_now",
-        "ollama.claim",
-        "vllm.declared_slots",
-    }
-    # vllm.release at the host's top and in `finally` (DE-9); ollama's per width.
-    assert unattributed["release"] == 7.0 * 2 + 3.0 * 2
+    assert set(unattributed) == {"release", "vllm.declared_slots"}
+    # vllm.release at the host's top and in `finally` (DE-9).
+    assert unattributed["release"] == 7.0 * 2
 
 
 # --- #326: identity on every row -----------------------------------------------
@@ -2179,19 +2087,19 @@ IDENTITY_FIELDS = (
     "serving_build",
 )
 
-#: The ten row shapes `calibrate.emit` writes, by (phase, metric). Hand-listed
+#: The row shapes `calibrate.emit` writes, by (phase, metric). Hand-listed
 #: until the discovery census child replaces it.
+#:
+#: Five went on 2026-09-06 with the phases that wrote them: the three `fast`
+#: discovery timings, which timed a native enumeration surface, and both `load`
+#: shapes, whose phase measured a daemon that pulls a model in on first request.
+#: `archive/forensic-ollama/`.
 ROW_SHAPES = {
     ("ramp", "ramp"),
     ("ramp", "launch"),
     ("sleep", "sleep"),
     ("fast", "idle_gpu_mib"),
     ("fast", "ssh_step_seconds"),
-    ("fast", "discovery_seconds"),
-    ("fast", "capture_show_seconds"),
-    ("fast", "array_length"),
-    ("load", "load_seconds"),
-    ("load", "vram_fraction"),
 }
 
 
@@ -2211,9 +2119,6 @@ class _Host:
                 if self.answers
                 else None
             )
-        if "ollama --version" in command:
-            self.build_reads["ollama"] += 1
-            return "ollama version is 0.32.5" if self.answers else None
         if "vllm --version" in command:
             self.build_reads["vllm"] += 1
             return "0.26.0" if self.answers else None
@@ -2234,29 +2139,23 @@ def _drive_every_shape(
     calibrate: Any,
     contract: Any,
     claimed: dict[str, Any],
-    ollama_attempt: dict[str, Any],
     produced: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
     out: Path,
 ) -> list[dict[str, Any]]:
-    """Every phase, every seam stubbed, the real `emit` writing to ``out``."""
-    ollama: Any = _by_path(
-        "serving_ollama_identity", SERVING / "backends" / "ollama.py"
-    )
+    """Every phase that emits, every seam stubbed, the real `emit` writing.
+
+    `load` is not driven: it raises since 2026-09-06 rather than emitting, for
+    the reason in `PHASE_FUNCTIONS`.
+    """
     vllm: Any = _by_path("serving_vllm_identity", SERVING / "backends" / "vllm.py")
-    for module in (ollama, vllm):
-        monkeypatch.setattr(module, "release", lambda host: {"card_idle": True})
-    monkeypatch.setattr(ollama, "probe", lambda host: "http://h:11434")
-    monkeypatch.setattr(ollama, "inventory", lambda host, base: ["m"])
-    monkeypatch.setattr(ollama, "claim", lambda *a, **k: dict(ollama_attempt))
-    monkeypatch.setattr(ollama, "slots_now", lambda host: {"value": 2})
+    monkeypatch.setattr(vllm, "release", lambda host: {"card_idle": True})
     monkeypatch.setattr(vllm, "claim", lambda *a, **k: dict(claimed))
     monkeypatch.setattr(vllm, "declared_slots", lambda serve, host: {"value": 1})
     monkeypatch.setattr(vllm, "serving_config", lambda base: {"refused": "stub"})
-    backends = {"ollama": ollama, "vllm": vllm}
+    backends = {"vllm": vllm}
     monkeypatch.setattr(contract, "load_backend", lambda n: backends[n])
     monkeypatch.setattr(contract, "ramp", lambda *a, **k: produced)
-    monkeypatch.setattr(calibrate, "_show", lambda base, model: {"tensors": [1, 2]})
     monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: "m")
     monkeypatch.setattr(calibrate, "_card_mib", lambda host: 100)
     monkeypatch.setattr(calibrate, "_post", lambda *a, **k: {"status": 200})
@@ -2264,7 +2163,6 @@ def _drive_every_shape(
     monkeypatch.setattr(calibrate, "TOKEN_COUNTS", (475,))
     monkeypatch.setattr(calibrate.time, "sleep", lambda s: None)
     calibrate.fast(out, ["h"], repeats=1)
-    calibrate.load(out, ["h"], repeats=1)
     calibrate.ramp(out, ["h"])
     calibrate.sleep_state(out, ["h"])
     return _rows(out)
@@ -2274,7 +2172,6 @@ def test_every_emitted_row_carries_the_identity_block(
     calibrate: Any,
     contract: Any,
     claimed: dict[str, Any],
-    ollama_attempt: dict[str, Any],
     produced: dict[str, Any],
     rig: _Host,
     monkeypatch: pytest.MonkeyPatch,
@@ -2284,7 +2181,6 @@ def test_every_emitted_row_carries_the_identity_block(
         calibrate,
         contract,
         claimed,
-        ollama_attempt,
         produced,
         monkeypatch,
         tmp_path / "all.jsonl",
@@ -2314,7 +2210,7 @@ def test_every_emitted_row_carries_the_identity_block(
             assert "serving_build" in row["identity_refusals"]
     # Read once per host; once per (host, engine).
     assert rig.hardware_reads == 1
-    assert rig.build_reads == {"ollama": 1, "vllm": 1}
+    assert rig.build_reads == {"vllm": 1}
 
 
 def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_ran(
@@ -2325,13 +2221,13 @@ def test_an_identity_field_the_host_did_not_answer_is_null_with_the_command_it_r
     monkeypatch.setattr(contract, "ssh", host.ssh)
     monkeypatch.setattr(contract, "get_json", lambda *a, **k: None)
     monkeypatch.setattr(calibrate, "IDENTITY", {})
-    block = calibrate.identify("h", "ollama")
+    block = calibrate.identify("h", "vllm")
     identity, refusals = block["identity"], block["identity_refusals"]
     for field in ("gpu_name", "gpu_total_mib", "driver_version", "compute_capability"):
         assert identity[field] is None
         assert refusals[field] == contract.HARDWARE_COMMAND
     assert identity["serving_build"] is None
-    assert "ollama --version" in refusals["serving_build"]
+    assert "vllm --version" in refusals["serving_build"]
     # Bandwidth: refused today with the reason, on every row, answered by none.
     assert identity["memory_bandwidth_gb_s"] is None
     why = refusals["memory_bandwidth_gb_s"]
@@ -2344,7 +2240,6 @@ def test_a_vllm_row_names_the_weights_it_ran_on(
     calibrate: Any,
     contract: Any,
     claimed: dict[str, Any],
-    ollama_attempt: dict[str, Any],
     produced: dict[str, Any],
     rig: _Host,
     monkeypatch: pytest.MonkeyPatch,
@@ -2354,7 +2249,6 @@ def test_a_vllm_row_names_the_weights_it_ran_on(
         calibrate,
         contract,
         claimed,
-        ollama_attempt,
         produced,
         monkeypatch,
         tmp_path / "w.jsonl",
@@ -2374,11 +2268,12 @@ def test_a_vllm_row_names_the_weights_it_ran_on(
                 row["weights_sha256"]
                 == launches[row["configured_width"]]["weights_sha256"]
             )
-    ollama_ramp = [
-        r for r in rows if r.get("engine") == "ollama" and r["metric"] == "ramp"
-    ]
-    assert (
-        ollama_ramp[0]["model_sha256"] == ollama_attempt["attempts"][-1]["model_sha256"]
+    # The other arm's ramp row carried a `model_sha256` off the claim that
+    # loaded it, which was the only weights identity that surface exposed. Both
+    # went on 2026-09-06 (`archive/forensic-ollama/`); the rows that remain
+    # carry `weights_sha256`, checked above against the claim that produced it.
+    assert not [r for r in rows if r.get("engine") not in (None, "vllm")], (
+        "a row names an engine this build does not serve"
     )
 
 
@@ -2440,10 +2335,6 @@ def test_the_calibration_claim_is_pinned_when_the_model_has_a_pin(
         ) -> dict[str, Any]:
             return {"serving_resolved_sha256": None, "refused": "stub: no host log"}
 
-    class Ollama:
-        def release(self, host: str) -> None:
-            pass
-
     rows: list[dict[str, Any]] = []
     monkeypatch.setattr(calibrate, "emit", lambda _o, row: rows.append(row))
     monkeypatch.setattr(contract, "ramp", lambda *a, **k: {"levels": []})
@@ -2451,7 +2342,7 @@ def test_the_calibration_claim_is_pinned_when_the_model_has_a_pin(
     monkeypatch.setattr(calibrate, "TOKEN_COUNTS", (475,))
     # The pinned model: the stub receives the pin, mismatches, refuses; the
     # refusal row says what it was judged against.
-    calibrate._widths(Path("unused"), awq, "h", Vllm(), Ollama(), set())
+    calibrate._widths(Path("unused"), awq, "h", Vllm(), set())
     assert received == [{"weights_sha256": pin["weights_sha256"]}]
     assert (
         rows[-1]["error"]
@@ -2459,7 +2350,7 @@ def test_the_calibration_claim_is_pinned_when_the_model_has_a_pin(
     )
     # An unpinned model: None is passed and the row records null.
     rows.clear()
-    calibrate._widths(Path("unused"), "nobody/pins-this", "h", Vllm(), Ollama(), set())
+    calibrate._widths(Path("unused"), "nobody/pins-this", "h", Vllm(), set())
     assert received[-1] is None
     assert (
         rows[0]["metric"] == "launch"
@@ -2467,9 +2358,7 @@ def test_the_calibration_claim_is_pinned_when_the_model_has_a_pin(
         == claimed["checks"]["weights_sha256_expected"]
     )
     # The sleep arm passes it too.
-    monkeypatch.setattr(
-        contract, "load_backend", lambda n: {"vllm": Vllm(), "ollama": Ollama()}[n]
-    )
+    monkeypatch.setattr(contract, "load_backend", lambda n: {"vllm": Vllm()}[n])
     monkeypatch.setattr(calibrate, "_awq", lambda host, vllm: awq)
     monkeypatch.setattr(calibrate, "_card_mib", lambda host: 100)
     rows.clear()

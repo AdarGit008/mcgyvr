@@ -87,7 +87,7 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
             raw_stop_reason="stop",
             model="qwen2.5-coder:7b",
             source="workstation",
-            protocol=Protocol.OLLAMA,
+            protocol=Protocol.OPENAI,
             max_output_tokens=request.max_output_tokens,
             latency_s=0.0,
         )
