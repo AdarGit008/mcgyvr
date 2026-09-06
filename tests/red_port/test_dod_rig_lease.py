@@ -72,11 +72,24 @@ SINCE = "2026-09-06T01:02:03Z"
 DISPLACED_RUN = "2026-09-06-other-probe"
 
 
-def _foreign(profile: str, *, holder: str = ELSEWHERE, pid: int = 1) -> str:
+def _foreign(
+    profile: str,
+    *,
+    holder: str = ELSEWHERE,
+    pid: int = 1,
+    machine: str = "elsewhere0000",
+) -> str:
     return (
-        f"lease_id=deadbeefdeadbeef profile={profile} holder={holder} pid={pid} "
-        f"started_at={SINCE} campaign=other step=probe run_id={DISPLACED_RUN}"
+        f"lease_id=deadbeefdeadbeef profile={profile} holder={holder} "
+        f"machine={machine} pid={pid} started_at={SINCE} campaign=other "
+        f"step=probe run_id={DISPLACED_RUN}"
     )
+
+
+def _machine() -> str:
+    from mcgyvr.serving.gatelib import machine_id
+
+    return machine_id()
 
 
 def _dead_pid() -> int:
@@ -183,7 +196,9 @@ def test_a_stale_lease_is_named_and_taken_over(root: Path, tmp_path: Path) -> No
     Named — an operator should know a run died without releasing — and taken,
     because a dead run holds nothing."""
     me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign("dev", holder=me, pid=_dead_pid()))
+    onedoor.plant_lease(
+        root, _foreign("dev", holder=me, pid=_dead_pid(), machine=_machine())
+    )
     done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
     assert done.returncode == 0, done.stderr[-1500:]
     assert "stale" in (done.stdout + done.stderr), done.stdout + done.stderr
@@ -258,3 +273,136 @@ def test_a_dev_run_whose_lease_was_taken_yields_at_its_next_touch_of_the_rig(
     launches = [line for line in onedoor.docker_log(root) if line.startswith("run ")]
     assert launches == [], f"the launch reached the daemon: {launches}"
     assert onedoor.read_lease(root) == taken + "\n", onedoor.read_lease(root)
+
+
+# --- what an adversarial pass found -----------------------------------------------
+
+
+def test_an_empty_lease_file_holds_nothing(root: Path, tmp_path: Path) -> None:
+    """A write that never finished leaves a zero-byte file. Noclobber would
+    refuse to write over it and no operator is named to wait for: it holds
+    nothing, and a run — dev included — takes the rig."""
+    onedoor.plant_lease(root, "")
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    assert done.returncode == 0, done.stderr[-1500:]
+    assert onedoor.read_lease(root) is None
+
+
+def test_a_lease_the_door_did_not_write_is_still_displaced_and_torn_down(
+    root: Path, tmp_path: Path
+) -> None:
+    """No lease_id on the line — a hand-written lease, or an older door's. A
+    live run still names it, takes the rig, and removes its run's containers
+    by the run id it does carry."""
+    onedoor.plant_lease(
+        root,
+        f"profile=dev holder={ELSEWHERE} pid=1 started_at={SINCE} "
+        f"campaign=other step=probe run_id={DISPLACED_RUN}",
+    )
+    onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
+    done = onedoor.door(root, _probe(root, tmp_path))
+    assert done.returncode == 0, done.stderr[-1500:]
+    removed = [
+        line
+        for line in onedoor.docker_log(root)
+        if line.startswith("rm") and f"{DISPLACED_RUN}-lcps" in line
+    ]
+    assert removed, onedoor.docker_log(root)
+    assert onedoor.read_lease(root) is None
+
+
+def test_a_live_run_that_would_mint_the_displaced_runs_id_is_refused_with_suffix(
+    root: Path, tmp_path: Path
+) -> None:
+    """One fleet, two hosts, one step, one day: the live run's RUN_ID would be
+    the displaced run's, and gate 7 could not tell their containers apart.
+    Gate 5 refuses, naming --suffix; the lease is released."""
+    line = _foreign("dev").replace(f"run_id={DISPLACED_RUN}", f"run_id={RUN_ID}")
+    onedoor.plant_lease(root, line)
+    onedoor.containers_up(root, f"{RUN_ID}-lcps")
+    done = onedoor.door(root, _probe(root, tmp_path))
+    assert done.returncode == 2, (done.returncode, done.stderr[-1500:])
+    assert "--suffix" in done.stderr and RUN_ID in done.stderr, done.stderr
+    assert not (tmp_path / "e").exists(), "the step ran under a shared run id"
+    assert onedoor.read_lease(root) is None
+
+
+def test_a_pid_that_is_alive_but_is_not_a_door_is_stale(
+    root: Path, tmp_path: Path
+) -> None:
+    """The holder's pid was reused by something else since the run died.
+    Alive is not enough: the process at that pid must be the door."""
+    me = f"{getpass.getuser()}@{socket.gethostname()}"
+    onedoor.plant_lease(root, _foreign("dev", holder=me, pid=1, machine=_machine()))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    assert done.returncode == 0, done.stderr[-1500:]
+    assert "stale" in done.stderr, done.stderr
+    assert onedoor.read_lease(root) is None
+
+
+def test_a_dead_pid_on_a_machine_with_this_hostname_but_another_id_is_honoured(
+    root: Path, tmp_path: Path
+) -> None:
+    """Two machines named alike: a dead pid here says nothing about a run
+    there. Not stale, so a dev run refuses it."""
+    me = f"{getpass.getuser()}@{socket.gethostname()}"
+    onedoor.plant_lease(root, _foreign("live", holder=me, pid=_dead_pid()))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    assert done.returncode == 2, (done.returncode, done.stderr[-1500:])
+    assert "stale" not in done.stderr, done.stderr
+
+
+@pytest.mark.parametrize(
+    "argv, spends",
+    [
+        (["run", "--name", "x", "img"], True),
+        (["container", "run", "img"], True),
+        (["--log-level", "info", "run", "img"], True),
+        (["compose", "-f", "c.yml", "up", "-d"], True),
+        (["compose", "-f", "c.yml", "down"], False),
+        (["ps", "--format", "{{.Names}}"], False),
+        (["rm", "-f", "x-run"], False),
+        (["logs", "run-x"], False),
+    ],
+)
+def test_the_docker_verbs_that_spend_a_rig_are_the_ones_checked(
+    argv: list[str], spends: bool
+) -> None:
+    from mcgyvr.serving.gatelib import docker_spends
+
+    assert docker_spends(argv) is spends, argv
+
+
+@pytest.mark.parametrize(
+    "line, spends",
+    [
+        ("srv1 docker run -d img", True),
+        ("srv1 docker container run img", True),
+        ("srv1 nohup docker run img", True),
+        ("srv1 docker ps && docker run img", True),
+        ("srv1 docker compose -p x up -d", True),
+        ("srv1 docker compose -p x down", False),
+        ("srv1 docker logs x-run", False),
+        ("srv1 nvidia-smi --query-gpu=memory.used", False),
+    ],
+)
+def test_the_ssh_lines_that_spend_a_rig_are_the_ones_checked(
+    line: str, spends: bool
+) -> None:
+    from mcgyvr.serving.gatelib import ssh_spends
+
+    assert ssh_spends(line.split()) is spends, line
+
+
+def test_a_dev_run_yields_at_a_container_run_too(root: Path, tmp_path: Path) -> None:
+    taken = _foreign("live")
+    lease = onedoor.rig_lease(root)
+    after = (
+        f"printf '%s\\n' '{taken}' > '{lease}'\n"
+        "docker container run --name probe-x some/image:tag\n"
+    )
+    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_dev(tmp_path))
+    assert done.returncode != 0
+    assert ELSEWHERE in done.stderr, done.stderr
+    launches = [line for line in onedoor.docker_log(root) if "run " in line]
+    assert launches == [], launches

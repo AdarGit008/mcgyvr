@@ -45,8 +45,8 @@ import sys
 from pathlib import Path
 
 from mcgyvr.serving.gatelib import (
-    Lease,
     artifact_escape,
+    displaced_by_run,
     door_required,
     envelope_escape,
     need,
@@ -138,7 +138,7 @@ def main() -> int:
     # that came back during the step — its step retrying a launch — is torn
     # down again here, by the name its lease gave it, and is not this run's
     # leftover: the displaced run is the one that left it.
-    displaced = Lease.parse(os.environ.get("RUN_DISPLACED", ""))
+    displaced = displaced_by_run()
     if displaced is not None and displaced.run_id != "none":
         _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7")
     up = _containers_up()

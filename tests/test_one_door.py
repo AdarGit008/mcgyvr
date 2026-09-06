@@ -116,9 +116,10 @@ RETIRED_SEAMS = re.compile(r"\bRUN_DOCKER\b|\bRUN_SSH\b|\bRUN_RIG_SNAPSHOT_CMD\b
 #: ``gatelib.ssh`` — see ``test_the_serving_harness_spawns_no_ssh_of_its_own``.
 ALLOWED: dict[str, str] = {
     "src/mcgyvr/serving/gatelib.py": (
-        "the ONLY ssh spawn in src/ and tools/: gatelib.ssh refuses outside the "
-        "door and to any host but the door's; gate 2, gate 7, the geometry read, "
-        "`mcgyvr scan` and the serving harness (contract.ssh) all go through it"
+        "the ssh spawns in src/ and tools/: gatelib.ssh, which refuses outside "
+        "the door and to any host but the door's — gate 2, gate 7, the geometry "
+        "read, `mcgyvr scan` and the serving harness (contract.ssh) all go "
+        "through it — and the shims' own lease check, which admits the same way"
     ),
     "src/mcgyvr/serving/gate-scripts/bin/ssh": (
         "the `ssh` on the PATH the door exports: admits the door's host through "
@@ -156,9 +157,10 @@ ALLOWED: dict[str, str] = {
         "contract.ssh -> gatelib.ssh; nothing here spawns a process of its own"
     ),
     "tests/red_port/test_dod_rig_lease.py": (
-        "a `docker run` LINE inside a step a test runs under the door, to prove "
-        "the shim refuses it once the run's lease is gone; the test asserts the "
-        "launch never reached the daemon"
+        "`docker run` and `ssh` LINES inside steps a test runs under the door: "
+        "the ssh asks the stub rig what its lease says, and the launch proves "
+        "the shim refuses it once the run's lease is gone — the test asserts it "
+        "never reached the daemon"
     ),
     "tools/bench/serving/knobs.py": (
         "a `docker run --help` command line shipped the same way, for the knob "

@@ -148,40 +148,59 @@ def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
 
 
 def take_lease(host: str) -> tuple[Lease, Lease | None]:
-    """This run's lease on ``host``, and the lease it displaced, if any."""
+    """This run's lease on ``host``, and the lease it displaced, if any.
+
+    Judged and written in a loop, because the rig is shared: what was read
+    can change before it is written over, and a write that finds a
+    different holder comes back to be judged again rather than overwriting
+    a run that was never named. Three changes of hands and the run gives up
+    naming the last one.
+    """
     profile = need("RUN_PROFILE")
     step_name = re.sub(r"^\d+-", "", Path(need("RUN_STEP_FILE")).stem)
     # The door's pid, not this gate's: the gate exits, the door holds the run.
     mine = new_lease(profile, need("RUN_CAMPAIGN"), step_name, os.getppid())
     held = lease_read(host)
-    if held is None:
-        held = lease_take(host, mine, displace=False)
+    for _ in range(3):
         if held is None:
+            held = lease_take(host, mine, held=None)
+            if held is None:
+                return mine, None
+            continue
+        if held.lease_id == mine.lease_id:
             return mine, None
-    if held.lease_id == mine.lease_id:
-        return mine, None
-    if held.is_stale():
+        if held.is_stale():
+            print(
+                f"gate 2: a stale lease on {host}: {held.describe()} — that "
+                "run is gone from this machine, so it died without releasing. "
+                "Taken over; nothing of it is torn down unasked",
+                file=sys.stderr,
+            )
+            held = lease_take(host, mine, held=held)
+            if held is None:
+                return mine, None
+            continue
+        if profile == DEV:
+            refuse(
+                f"gate 2: {host} is leased by {held.describe()}, and this run "
+                "is under a dev profile: dev yields, live outranks dev (owner's "
+                "ruling R1, 2026-09-06). Wait for that run, or run under the "
+                "live config if this IS the live run"
+            )
         print(
-            f"gate 2: a stale lease on {host}: {held.describe()} — that pid is "
-            "gone from this machine, so the run died without releasing. Taken "
-            "over; nothing of it is torn down unasked",
-            file=sys.stderr,
+            f"gate 2: {host} is leased by {held.describe()}; this live run "
+            "takes it (R1) and tears down what it displaced"
         )
-        lease_take(host, mine, displace=True)
-        return mine, None
-    if profile == DEV:
-        refuse(
-            f"gate 2: {host} is leased by {held.describe()}, and this run is "
-            "under a dev profile: dev yields, live outranks dev (owner's ruling "
-            "R1, 2026-09-06). Wait for that run, or run under the live config "
-            "if this IS the live run"
-        )
-    print(
-        f"gate 2: {host} is leased by {held.describe()}; this live run takes "
-        "it (R1) and tears down what it displaced"
+        displaced = held
+        held = lease_take(host, mine, held=held)
+        if held is None:
+            return mine, displaced
+    refuse(
+        f"gate 2: the lease on {host} changed hands three times while this run "
+        "tried to take it; last seen: "
+        f"{held.describe() if held is not None else 'free'}. Nothing is "
+        "measured on a rig that will not hold still"
     )
-    lease_take(host, mine, displace=True)
-    return mine, held
 
 
 def main() -> int:
@@ -209,7 +228,9 @@ def main() -> int:
     # exit path from here on, a refusal of the reading included.
     mine, displaced = take_lease(host)
     export("RUN_LEASE", mine.line())
-    export("RUN_DISPLACED", displaced.line() if displaced is not None else "")
+    # The displaced lease as it was read, whole: one the door did not write
+    # (a field missing) is still the run gate 7 must name and tear down.
+    export("RUN_DISPLACED", displaced.raw if displaced is not None else "")
     if displaced is not None:
         teardown_displaced(host, displaced, "gate 2")
 

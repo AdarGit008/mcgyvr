@@ -296,6 +296,9 @@ case $cmd in
   *".mcgyvr/lease"*)
     mkdir -p "$STUBS/rig-home"
     HOME=$STUBS/rig-home bash -c "$cmd" ;;
+  "bash -s -- lease")
+    mkdir -p "$STUBS/rig-home"
+    HOME=$STUBS/rig-home bash -s ;;
   *'echo $HOME'*) echo "$STUB_RIG_HOME" ;;
   *"cat >>"*) cat >/dev/null ;;
   *mkdir*) : ;;
