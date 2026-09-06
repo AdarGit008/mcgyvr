@@ -1124,13 +1124,17 @@ class Capacity:
 
         The slot is an exclusive lock on one of ``max_parallel`` files keyed by
         the source's ``base_url``, so it excludes every thread of every
-        mcgyvr process on this host, not only this one (#185). With the default
-        ``timeout=None`` this blocks until a slot frees — a deep batch queue is
-        a legitimate wait, and a crashed holder's locks are released by the
-        kernel, so the wait cannot be for a slot nobody can give back. A
+        mcgyvr process on this host, not only this one (#185). ``timeout=None``
+        asks for this capacity's own bound, which is ``budgets.task_timeout_s``
+        when it was built by :meth:`of` and nothing when it was built directly
+        — and nothing means blocking until a slot frees, because a deep batch
+        queue is a legitimate wait and a crashed holder's locks are released by
+        the kernel, so the wait cannot be for a slot nobody can give back. A
         finite ``timeout`` turns the acquisition into a claim: try for that
-        long, then raise :class:`CapacityError` naming the source — pass ``0``
-        for one attempt with no queueing at all, multica's shape.
+        long, then raise :class:`SlotUnavailableError` naming the source — pass
+        ``0`` for one attempt with no queueing at all, multica's shape. The
+        subclass is what lets a caller tell a rung that is merely full from a
+        capacity that does not bound the source at all.
 
         The slot is released on the way out however the body leaves — a backend
         that times out or refuses must not cost the source a slot for the rest
