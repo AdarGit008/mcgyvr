@@ -40,6 +40,11 @@ from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests.red_port.conftest import required
 
+#: The window these tests were written against, stated because nothing supplies
+#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
+#: the window is what the run declares, so a test is a run and declares its own.
+WINDOW = 4096
+
 #: One card big enough for both models only once, which is the whole case.
 CARD_MIB = 12288
 
@@ -78,8 +83,8 @@ def _rig() -> Scan:
 def _both() -> tuple[Unit, Unit]:
     """The two units srv2 actually serves, on one card, on two ports."""
     rig = _rig()
-    big = unit_for(rig, BIG, engine="vllm", width=8, port=8002)
-    small = unit_for(rig, SMALL, engine="vllm", width=6, port=8001)
+    big = unit_for(rig, BIG, engine="vllm", width=8, port=8002, ctx_per_slot=WINDOW)
+    small = unit_for(rig, SMALL, engine="vllm", width=6, port=8001, ctx_per_slot=WINDOW)
     assert big.gpu == small.gpu, "the fixture is about two units on ONE card"
     return big, small
 
@@ -128,12 +133,18 @@ def test_the_order_puts_the_larger_unit_first() -> None:
     """
     big, small = _both()
     services = _document((big, small))["services"]
+    # Matched on the service's own name rather than anywhere in its rendered
+    # body. Once an order exists at all, one service names the other inside
+    # itself — that is what an order IS, and what `_waits_for` reads — so a
+    # body-wide substring match reports both services as the big one and the
+    # comparison below becomes 8.4 >= 8.4 either way. The service name is
+    # derived from the model, which is the fixture's own fact and not a flag
+    # parsed back out of a command.
     by_size = {}
-    for name, body in services.items():
-        rendered = yaml.safe_dump(body)
-        if BIG.name in rendered:
+    for name in services:
+        if name.startswith(BIG.name):
             by_size[name] = BIG.vram_gb
-        elif SMALL.name in rendered:
+        elif name.startswith(SMALL.name):
             by_size[name] = SMALL.vram_gb
     assert len(by_size) == 2 and len(set(by_size.values())) == 2, (
         f"the two services must be tellable apart by size: {by_size}"
