@@ -1052,6 +1052,49 @@ def gate_in_sandbox(
     return gate_workspace(contract, sandbox, adapters=adapters)
 
 
+def task_ceiling() -> float | None:
+    """``budgets.task_timeout_s``, or ``None`` where no config settles it.
+
+    The key is declared as the "wall-clock ceiling for one task, including
+    acceptance commands", defaults to 900, and is written into every config
+    `mcgyvr init` creates — and until this read existed the only reader in the
+    repository was `tools/missions/run.py`. A contract's acceptance command is
+    arbitrary shell, so one that hangs hung the run under a ceiling that was
+    declared, validated and never consulted.
+
+    A missing or unusable config is not an error here. The deterministic floor
+    runs without one by design (`cli._run`), and refusing a gate because there
+    is no `mcgyvr.yaml` would make the ceiling a requirement rather than a
+    bound. No config means no declared ceiling, which is what `None` says.
+    """
+    from mcgyvr.config import ConfigError, load
+
+    try:
+        declared = load().get("budgets.task_timeout_s")
+    except (ConfigError, OSError):
+        return None
+    return float(declared) if declared is not None else None
+
+
+def acceptance_for(contract: Contract, sandbox: Sandbox) -> Acceptance | None:
+    """The contract's acceptance rung, bound to ``sandbox`` and to the ceiling.
+
+    ``None`` when the contract declares neither list — there is nothing to run
+    and nothing to time. Built here rather than inside `Gate` because only this
+    layer holds the open sandbox, and read by both the preflight in
+    `cli._climb` and by :func:`gate_workspace`, so the commands a run is judged
+    on are the commands its baseline was taken with.
+    """
+    if not (contract.acceptance_commands or contract.demonstration_commands):
+        return None
+    return Acceptance(
+        sandbox,
+        contract.acceptance_commands,
+        timeout=task_ceiling(),
+        demonstrations=contract.demonstration_commands,
+    )
+
+
 def gate_workspace(
     contract: Contract,
     sandbox: Sandbox,
@@ -1076,13 +1119,7 @@ def gate_workspace(
     anywhere between here and it, so a contract saying "sort the rows in place"
     was unsatisfiable by any change a worker could write.
     """
-    acceptance = None
-    if contract.acceptance_commands or contract.demonstration_commands:
-        acceptance = Acceptance(
-            sandbox,
-            contract.acceptance_commands,
-            demonstrations=contract.demonstration_commands,
-        )
+    acceptance = acceptance_for(contract, sandbox)
     return Gate(adapters).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,

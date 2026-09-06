@@ -211,7 +211,7 @@ def release(host: str) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
 
     def run(name: str, command: str) -> str | None:
-        stdout = contract.ssh(host, command)
+        stdout: str | None = contract.ssh(host, command)
         steps.append({"step": name, "command": command, "stdout": stdout})
         return stdout
 
@@ -726,7 +726,8 @@ def _instance_for(
     if blob:
         for instance in instances:
             if blob in (instance.get("command_line") or ""):
-                return instance
+                found: dict[str, Any] = instance
+                return found
     return instances[0] if len(instances) == 1 else None
 
 
@@ -775,7 +776,8 @@ def serving_config(
     if "n_ctx" in (props.get("default_generation_settings") or {}):
         config["n_ctx"] = props["default_generation_settings"]["n_ctx"]
     try:
-        return fingerprint.fingerprint(config)
+        printed: dict[str, Any] = fingerprint.fingerprint(config)
+        return printed
     except fingerprint.UnclassifiedError as error:
         return {"refused": str(error), "parsed": config}
 

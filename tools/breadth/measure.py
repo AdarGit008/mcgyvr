@@ -88,7 +88,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 from mcgyvr.gate.preflight import check_prompt_fits
@@ -241,7 +241,18 @@ observed_module = _bench_observed()
 CARD_SAMPLES_FILE = "card.jsonl"
 
 
-def _card_sampler(endpoint: str, out) -> object | None:
+class CardSampler(Protocol):
+    """What a card reader has to be able to do, from this side of the seam.
+
+    The class itself lives in ``tools/bench/serving/pin.py`` and is loaded
+    by path, so it cannot be named here as a type. What this run needs of
+    it is one method, and stating that is what lets the call below be
+    checked rather than believed."""
+
+    def sample(self, label: str, at: str) -> dict[str, Any] | None: ...
+
+
+def _card_sampler(endpoint: str, out: str | Path) -> CardSampler | None:
     """The per-task card reader, or ``None`` when there is no host to read.
 
     **Why the scored path reads the card at all.** Every reading that describes
@@ -273,7 +284,8 @@ def _card_sampler(endpoint: str, out) -> object | None:
         host = urlsplit(endpoint).hostname or ""
         if not host or host in ("localhost", "127.0.0.1"):
             return None
-        return module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+        sampler: CardSampler = module.CardSampler(host, Path(out) / CARD_SAMPLES_FILE)
+        return sampler
     except Exception:
         # Same promise `_host_block` makes: a recording must never be the
         # reason a sweep produces no rows. Unlike that one there is nothing to
@@ -320,13 +332,14 @@ def _host_block(endpoint: str) -> dict[str, object]:
             "rather than raised, and recorded rather than dropped: a probe that "
             "broke must not read as a machine there was nothing to read"
         )
-        return observed_module.scrub(
+        refusal: dict[str, object] = observed_module.scrub(
             {
                 "reason": "probe_failed",
                 "refused": why,
                 "width": {"value": None, "source": None, "refused": why},
             }
         )
+        return refusal
 
 
 # The variables of this experiment, all held fixed within a run.

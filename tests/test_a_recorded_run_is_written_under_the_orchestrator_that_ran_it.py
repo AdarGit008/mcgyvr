@@ -65,7 +65,8 @@ task_type: function_implementation
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
-acceptance: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+demonstration: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
 limits:
   max_output_tokens: 256
 scope:

@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -581,6 +582,80 @@ def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
     return out
 
 
+#: A section heading in the rendered reference: a level, and the dotted key it
+#: documents. `## `sources`` opens the block `sources`; `### `ladder.tiers``
+#: opens the block inside it. The two headings with no key — the document title
+#: and `## Value types` — do not match, which is correct: they document nothing
+#: the loader validates.
+_HEADING = re.compile(r"^#+ +`([A-Za-z0-9_.]+)`\s*$", re.MULTILINE)
+
+#: Where the top-level keys are tabled. It is the one block whose keys do not
+#: live under a heading named for their parent, because they have no parent.
+_TOP_LEVEL = "## Top-level keys"
+
+
+def _sections(text: str) -> dict[str, str]:
+    """The document split by heading: dotted key (or ``_TOP_LEVEL``) to body.
+
+    A body runs to the next heading of ANY level, so a block's own table is not
+    conflated with the tables of the blocks nested inside it. That is the whole
+    of what makes the check below a whole-key check: `mode` found under
+    `sandbox` is found in `sandbox`'s body and nowhere near `delivery`'s.
+    """
+    starts: list[tuple[int, int, str]] = []
+    for match in _HEADING.finditer(text):
+        starts.append((match.start(), match.end(), match.group(1)))
+    for match in re.finditer(rf"^{re.escape(_TOP_LEVEL)}\s*$", text, re.MULTILINE):
+        starts.append((match.start(), match.end(), _TOP_LEVEL))
+    # Every heading, keyed or not, bounds a body — a keyed section must not run
+    # on through `## Value types` and inherit whatever is tabled there.
+    bounds = sorted(
+        {match.start() for match in re.finditer(r"^#+ .*$", text, re.MULTILINE)}
+    )
+    out: dict[str, str] = {}
+    for start, body_start, name in sorted(starts):
+        after = [b for b in bounds if b > start]
+        out[name] = text[body_start : after[0]] if after else text[body_start:]
+    return out
+
+
+def reference_problems(text: str) -> list[str]:
+    """What is wrong with ``text`` as a reference for :data:`SCHEMA`.
+
+    Nothing, when it is sound. Every key is checked **where it belongs**: a
+    top-level key in the top-level table, and a nested key in the body of the
+    section named for its parent block. The previous check compared only the
+    last dotted segment against the whole document, and `mode`, `source`,
+    `model`, `enabled`, `image`, `dir` and `attempts` all recur across blocks —
+    so a whole block could stop rendering and `make docs-check` would pass on a
+    namesake elsewhere. A check that cannot fail is worse than no check.
+    """
+    problems: list[str] = []
+    if not text.startswith(MARKER):
+        problems.append("the DO NOT EDIT marker is not the first line")
+    sections = _sections(text)
+    absent: set[str] = set()
+    for path in _keys(SCHEMA):
+        parent, _, leaf = path.rpartition(".")
+        where = parent or _TOP_LEVEL
+        body = sections.get(where)
+        if body is None and parent:
+            # Reported once for the block, not once per key inside it: a
+            # missing section is one fault, and naming its twelve leaves would
+            # bury it. Only for a NAMED block — a document with no top-level
+            # table at all has no block to name, and every key it dropped is
+            # reported by name below.
+            if parent not in absent:
+                absent.add(parent)
+                problems.append(f"the `{parent}` block is not documented at all")
+            continue
+        if body is None:
+            body = ""
+        if f"`{leaf}`" not in body:
+            problems.append(f"`{path}` is validated and not named")
+    return problems
+
+
 def check_reference(target: Path) -> list[str]:
     """Render the reference to ``target``, check it, and delete it.
 
@@ -589,7 +664,8 @@ def check_reference(target: Path) -> list[str]:
     and a rendered copy that outlives its check becomes a second description
     of the config that then has to be kept current (owner ruling,
     2026-09-05). The check is the one a reader would make — the provenance
-    marker is on it, and every key the loader validates is named in it.
+    marker is on it, and every key the loader validates is named under the
+    block it belongs to.
     """
     rendered = render_reference()
     try:
@@ -597,15 +673,7 @@ def check_reference(target: Path) -> list[str]:
         text = target.read_text(encoding="utf-8")
     finally:
         target.unlink(missing_ok=True)
-    problems: list[str] = []
-    if not text.startswith(MARKER):
-        problems.append("the DO NOT EDIT marker is not the first line")
-    problems.extend(
-        f"`{path.split('.')[-1]}` is validated and not named"
-        for path in _keys(SCHEMA)
-        if f"`{path.split('.')[-1]}`" not in text
-    )
-    return problems
+    return reference_problems(text)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

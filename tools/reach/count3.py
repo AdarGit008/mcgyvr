@@ -46,6 +46,7 @@ import shutil
 import sys
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -97,7 +98,7 @@ Path(sys.argv[2]).write_text(json.dumps(out))
 """
 
 
-def measure_frame(frame: Mapping) -> list[dict]:
+def measure_frame(frame: Mapping[str, Any]) -> list[dict[str, Any]]:
     runtime = frames.FRAME_RUNTIME[frame["repo"]]
     clone = frames.prepare_clone(frame, CLONES)
     tag = f"reach-{frame['repo'].split('/')[-1].lower()}"
@@ -119,7 +120,7 @@ def measure_frame(frame: Mapping) -> list[dict]:
     env = {**runtime.env, "PYTHONPATH": "/cache/ghostcall-src"}
     result_path = out / "count3.json"
     targets_path = cache / "targets.json"
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
 
     with FrameContainer(tag, clone, out, cache) as container:
         provisioned: str | None = None
@@ -179,11 +180,11 @@ def _digest(clone: Path, runtime: frames.FrameRuntime) -> str:
 
 
 def _row(
-    frame: Mapping,
-    change: Mapping,
+    frame: Mapping[str, Any],
+    change: Mapping[str, Any],
     added: Mapping[str, frozenset[int]],
-    report: list[dict],
-) -> dict:
+    report: list[dict[str, Any]],
+) -> dict[str, Any]:
     totals = {
         "calls_in_files": 0,
         "calls_on_added_lines": 0,
@@ -193,8 +194,8 @@ def _row(
         "module_missing_on_added_lines": 0,
         "dynamic_on_added_lines": 0,
     }
-    flags: list[dict] = []
-    errors: list[dict] = []
+    flags: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
     missing_roots: set[str] = set()
     for entry in report:
         if "error" in entry:
@@ -244,8 +245,8 @@ def _row(
     }
 
 
-def summarise(rows: list[dict]) -> dict:
-    by_frame: dict[str, dict] = {}
+def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_frame: dict[str, dict[str, Any]] = {}
     keys = (
         "calls_in_files",
         "calls_on_added_lines",
@@ -287,12 +288,14 @@ def main() -> int:
         parser.error("pass exactly one of --run / --summarise")
 
     if args.summarise:
-        rows = [json.loads(line) for line in ROWS.read_text().splitlines() if line]
-        print(json.dumps(summarise(rows), indent=2, sort_keys=True))
+        summarised: list[dict[str, Any]] = [
+            json.loads(line) for line in ROWS.read_text().splitlines() if line
+        ]
+        print(json.dumps(summarise(summarised), indent=2, sort_keys=True))
         return 0
 
     corpus = frames.load_corpus()
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for frame in corpus["frames"]:
         if frame["repo"] not in PYTHON_FRAMES:
             print(f"{frame['repo']} — skipped, not Python", file=sys.stderr)

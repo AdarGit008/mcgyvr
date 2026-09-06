@@ -288,7 +288,7 @@ def release(host: str) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
 
     def run(name: str, command: str) -> str | None:
-        stdout = contract.ssh(host, command)
+        stdout: str | None = contract.ssh(host, command)
         steps.append({"step": name, "command": command, "stdout": stdout})
         return stdout
 
@@ -381,7 +381,8 @@ def _slot_geometry(props: dict[str, Any] | None) -> dict[str, Any]:
 def _gguf_bytes(host: str, model: str) -> int | None:
     """The size of the blob a cell names, in bytes, from the serving host."""
     raw = contract.ssh(host, f"stat -c %s {shlex.quote(model)} 2>/dev/null || true")
-    return contract.first_int(raw)
+    size: int | None = contract.first_int(raw)
+    return size
 
 
 def _available_bytes(host: str) -> int | None:
@@ -395,7 +396,8 @@ def _available_bytes(host: str) -> int | None:
     raw = contract.ssh(
         host, "awk '/MemAvailable/ {print $2 * 1024}' /proc/meminfo || true"
     )
-    return contract.first_int(raw)
+    available: int | None = contract.first_int(raw)
+    return available
 
 
 #: From :mod:`vramfit`, which owns it: the door's placement script derives
@@ -490,7 +492,8 @@ def _geometry(host: str, model: str) -> dict[str, Any] | None:
         return None
     if not rows or not isinstance(rows, list) or "error" in rows[0]:
         return None
-    return rows[0]
+    first: dict[str, Any] = rows[0]
+    return first
 
 
 def expert_floor(
@@ -853,7 +856,8 @@ def _launch_log(host: str) -> str:
         f"docker logs --tail {LAUNCH_LOG_LINES} {shlex.quote(CONTAINER_NAME)} "
         "2>&1 | tail -n " + str(LAUNCH_LOG_LINES) + " || true",
     )
-    return contract.scrub(raw or "")
+    scrubbed: str = contract.scrub(raw or "")
+    return scrubbed
 
 
 def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str, Any]:
@@ -948,7 +952,7 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
             f"The server's own last {LAUNCH_LOG_LINES} log lines, read on the "
             f"failure and before the next launch removes them: {tail!r}"
         )
-    return contract.scrub(
+    restarted: dict[str, Any] = contract.scrub(
         {
             "restarted": True,
             "command": command,
@@ -962,6 +966,7 @@ def _start(host: str, model: str, serve: dict[str, Any], width: int) -> dict[str
             "serve": serve,
         }
     )
+    return restarted
 
 
 def claim(

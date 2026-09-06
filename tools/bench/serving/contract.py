@@ -1381,7 +1381,8 @@ def _max_speedup(levels: list[dict[str, Any]]) -> float | None:
     rates = [row["tokens_per_s"] or 0 for row in levels]
     if not single or not rates:
         return None
-    return round(max(rates) / single, 2)
+    peak: float = round(max(rates) / single, 2)
+    return peak
 
 
 def _throughput_plateau(levels: list[dict[str, Any]]) -> int | None:

@@ -248,15 +248,15 @@ def test_the_manifest_requires_both_shims(
     shutil.copytree(GATE_SCRIPTS, copy, ignore=shutil.ignore_patterns("__pycache__"))
     monkeypatch.setattr(run, "GATE_SCRIPTS", copy)
     monkeypatch.setattr(run, "BIN", copy / "bin")
-    run._check_manifest()  # complete: admitted
+    run.check_manifest()  # complete: admitted
     (copy / "bin" / missing).chmod(0o644)
     with pytest.raises(run.RefusedError) as refused:
-        run._check_manifest()
+        run.check_manifest()
     assert refused.value.status == 2
     assert missing in refused.value.rule and "shim" in refused.value.rule
     (copy / "bin" / missing).unlink()
     with pytest.raises(run.RefusedError):
-        run._check_manifest()
+        run.check_manifest()
 
 
 # --------------------------------------------------------------------------

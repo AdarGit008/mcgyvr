@@ -582,7 +582,7 @@ def release(host: str) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
 
     def run(name: str, command: str) -> str | None:
-        stdout = contract.ssh(host, command)
+        stdout: str | None = contract.ssh(host, command)
         steps.append({"step": name, "command": command, "stdout": stdout})
         return stdout
 
@@ -1269,7 +1269,8 @@ def free_mib(host: str) -> int | None:
             "gate conservative cannot be relied on and the overhead constant "
             "must be refitted before anything launches. Nothing was measured."
         )
-    return total - used
+    allocatable: int = total - used
+    return allocatable
 
 
 def reserved_mib(host: str) -> int | None:
@@ -1299,7 +1300,8 @@ def reserved_mib(host: str) -> int | None:
     )
     if not (line and line.strip()):
         return None
-    return contract.first_int(line.strip().splitlines()[0])
+    reserved: int | None = contract.first_int(line.strip().splitlines()[0])
+    return reserved
 
 
 #: **`--cpu-offload-gb` does not reduce what an AWQ checkpoint holds on the
@@ -1698,7 +1700,7 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
     # The recorded command contains the exported environment VALUES — the very
     # thing an `env` block is used to pass a key through — so what is written
     # down is scrubbed even though what was executed was not.
-    return contract.scrub(
+    restarted: dict[str, Any] = contract.scrub(
         {
             "restarted": True,
             "launcher": how,
@@ -1721,6 +1723,7 @@ def _start(host: str, model: str, serve: dict[str, Any]) -> dict[str, Any]:
             "serve": serve,
         }
     )
+    return restarted
 
 
 def build(host: str) -> dict[str, Any]:
@@ -1949,7 +1952,8 @@ def serving_config(base: str) -> dict[str, Any]:
     parsed = dict(contract.scrub(fingerprint.parse_repr("Config(" + raw + ")")))
     parsed.pop("_type", None)
     try:
-        return fingerprint.fingerprint(parsed)
+        printed: dict[str, Any] = fingerprint.fingerprint(parsed)
+        return printed
     except fingerprint.UnclassifiedError as error:
         # Recorded, never guessed at. A field this build has and the
         # classification does not is a fact about a version gap.
@@ -2085,7 +2089,8 @@ def resolved_serving(
     )
     block["launcher"] = how
     block["log_read"] = read
-    return block
+    described: dict[str, Any] = block
+    return described
 
 
 def _asked(serve: dict[str, Any]) -> dict[str, Any]:

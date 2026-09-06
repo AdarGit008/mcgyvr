@@ -71,6 +71,7 @@ import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -237,10 +238,11 @@ node -e 'console.log(require("/cache/staged/node_modules/typescript").version)'
 """
 
 
-def _frame() -> Mapping:
+def _frame() -> Mapping[str, Any]:
     for frame in frames.load_corpus()["frames"]:
         if frame["repo"] == JS_FRAME:
-            return frame
+            found: Mapping[str, Any] = frame
+            return found
     raise ReachError(f"{JS_FRAME} is not in the corpus")
 
 
@@ -281,7 +283,7 @@ def _run_arm(
     resolver: str,
     out: Path,
     env: Mapping[str, str],
-) -> dict:
+) -> dict[str, Any]:
     result = out / f"{arm}.json"
     result.unlink(missing_ok=True)
     codes = json.dumps(sorted(EXISTENCE | ENVIRONMENT))
@@ -292,17 +294,18 @@ def _run_arm(
     )
     if not result.is_file():
         return {"error": f"driver produced no output (exit {code}): {output[-400:]}"}
-    return json.loads(result.read_text())
+    parsed: dict[str, Any] = json.loads(result.read_text())
+    return parsed
 
 
 def _row(
-    frame: Mapping,
-    change: Mapping,
+    frame: Mapping[str, Any],
+    change: Mapping[str, Any],
     arm: str,
     added: Mapping[str, frozenset[int]],
-    report: Mapping,
+    report: Mapping[str, Any],
     environment: str,
-) -> dict:
+) -> dict[str, Any]:
     """One change under one arm.
 
     ``environment`` records what the tree the resolver saw actually was, which
@@ -352,7 +355,7 @@ def _row(
                 if int(line_text) in lines:
                     totals[f"{bucket}_on_added_lines"] += count
 
-    flags: list[dict] = []
+    flags: list[dict[str, Any]] = []
     for diagnostic in report["diagnostics"]:
         path = diagnostic["file"]
         # Only the frame's own source is the rung's territory. A diagnostic
@@ -409,7 +412,7 @@ def _row(
     }
 
 
-def measure(frame: Mapping) -> list[dict]:
+def measure(frame: Mapping[str, Any]) -> list[dict[str, Any]]:
     runtime = frames.FRAME_RUNTIME[frame["repo"]]
     clone = frames.prepare_clone(frame, CLONES)
     bare = bare_clone(clone, BARE_CLONES)
@@ -423,8 +426,8 @@ def measure(frame: Mapping) -> list[dict]:
     targets_path = cache / "targets.json"
 
     env = dict(runtime.env)
-    rows: list[dict] = []
-    code_table: dict = {}
+    rows: list[dict[str, Any]] = []
+    code_table: dict[str, Any] = {}
 
     for label, tree, arm_names in (
         ("provisioned", clone, ("target-ts", "staged-ts")),
@@ -559,7 +562,7 @@ export function probe(s: string) {
 _PROBE_EXPECT = frozenset({2304, 2339, 2551, 2305})
 
 
-def control(frame: Mapping) -> dict:
+def control(frame: Mapping[str, Any]) -> dict[str, Any]:
     """Fire the resolver at references that certainly do not exist.
 
     The rate this tool reports is zero in every arm. That is only evidence about
@@ -582,7 +585,7 @@ def control(frame: Mapping) -> dict:
     (cache / "targets.json").write_text(json.dumps([_PROBE_NAME]), encoding="utf-8")
     env = dict(runtime.env)
     pinned = frame["pinned_commit"]
-    results: dict[str, dict] = {}
+    results: dict[str, dict[str, Any]] = {}
 
     for label, tree, arm_names in (
         ("provisioned", clone, ("target-ts", "staged-ts")),
@@ -644,7 +647,7 @@ def control(frame: Mapping) -> dict:
     }
 
 
-def summarise(rows: list[dict]) -> dict:
+def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
     keys = (
         "calls_in_files",
         "calls_on_added_lines",
@@ -659,8 +662,8 @@ def summarise(rows: list[dict]) -> dict:
         "other_in_files",
         "other_on_added_lines",
     )
-    by_arm: dict[str, dict] = {}
-    sites: dict[str, dict[str, set]] = {}
+    by_arm: dict[str, dict[str, Any]] = {}
+    sites: dict[str, dict[str, set[tuple[Any, Any, Any]]]] = {}
     for row in rows:
         arm = by_arm.setdefault(
             row["arm"],

@@ -164,7 +164,7 @@ def test_the_manifest_covers_every_file_a_gate_reads() -> None:
     check = required(
         "refuse when a file a gate reads is missing, naming it — rather than "
         "raising where the gate tried to read it",
-        lambda: door.check_manifest,  # type: ignore[attr-defined]
+        lambda: door.check_manifest,
     )
     missing = readers[0]
     moved = scripts / missing

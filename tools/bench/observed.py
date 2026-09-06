@@ -574,7 +574,8 @@ def capture(
     }
     if reasons:
         block[identity.REFUSALS] = reasons
-    return scrub(elide(block))
+    scrubbed: dict[str, Any] = scrub(elide(block))
+    return scrubbed
 
 
 #: Every read-only endpoint ollama answers, as measured on srv1 (0.32.4) and

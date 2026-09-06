@@ -195,7 +195,7 @@ def load_bounds(path: Path | None = None) -> list[dict[str, Any]]:
         raise ReportError(f"no reproducibility declaration at {source}") from None
     except json.JSONDecodeError as exc:
         raise ReportError(f"{source} is not JSON: {exc}") from None
-    bounds = raw.get("bounds", [])
+    bounds: list[dict[str, Any]] = raw.get("bounds", [])
     for entry in bounds:
         missing = [k for k in BOUND_FIELDS if k not in entry]
         if missing:
