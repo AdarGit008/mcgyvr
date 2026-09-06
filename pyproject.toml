@@ -1,6 +1,10 @@
 [project]
 name = "mcgyvr"
-version = "0.0.0"
+# The version is the git tag's (hatch-vcs, `[tool.hatch.version]` below) and
+# is spelled nowhere in the tree: a wheel is built once from a `v*` tag by
+# .github/workflows/release.yml, and `mcgyvr --version` says what was
+# installed. A literal here would be a second version that drifts.
+dynamic = ["version"]
 description = "Offload scoped coding work from your agent to a configurable worker ladder"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
@@ -36,8 +40,20 @@ measure = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+# hatch-vcs is a build requirement and not a runtime one: it reads the
+# version from git while the wheel is built, and the wheel carries the
+# result in its metadata. `dependencies` above is unchanged.
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+# A tree with no git at all (a source tarball unpacked by hand) has no
+# version to read; the fallback names that rather than failing the build,
+# and is the same "not a version" `mcgyvr.__version__` reports when the
+# package was never installed. Nothing built for a release ever sees it:
+# the release workflow checks the wheel's version against the tag.
+fallback-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcgyvr"]
