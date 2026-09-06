@@ -135,11 +135,11 @@ ALLOWED: dict[str, str] = {
     ),
     "src/mcgyvr/serving/gate-scripts/default-step.sh": (
         "the shipped step: it proves the door (gatelib.under_door) first, then "
-        "runs the shims BY PATH under RUN_ROOT, never an ssh or docker from PATH"
+        "runs the shims BY PATH under RUN_BIN, never an ssh or docker from PATH"
     ),
     "tools/runs/_common.sh": (
         "the emitter every campaign step sources: rig_snapshot and image_digest "
-        "prove the door, then run the shims by path under RUN_ROOT; "
+        "prove the door, then run the shims by path under RUN_BIN; "
         "door_required refuses without the RUN_* only the door exports AND "
         "without the door itself"
     ),
@@ -471,6 +471,7 @@ def _hand_set(stubs: Path, tmp_path: Path, **only: str) -> dict[str, str]:
     env.update(dict.fromkeys(EXPORTED, "x"))
     env.update(
         RUN_ROOT=str(REPO),
+        RUN_BIN=str(REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"),
         RUN_REPO=str(REPO),
         RUN_HOST="srv1",
         RUN_ID="2026-09-05-srv1-kernel-arms-kernel-arms",

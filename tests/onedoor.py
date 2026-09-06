@@ -41,8 +41,9 @@ same two stubs on PATH with ``RUN_HOST`` set. A driver and the emitter's two
 rig-reaching functions prove the door before anything else, though, so a
 test that must get PAST that proof runs them under :func:`fake_door` — a
 stand-in whose path ends in ``mcgyvr/serving/run.py``, which is what
-``gatelib.under_door`` reads off /proc — with ``RUN_ROOT`` naming this tree,
-where the emitter finds the real shims by path.
+``gatelib.under_door`` reads off /proc — with ``RUN_ROOT`` naming this tree
+and ``RUN_BIN`` its shim directory, where the emitter finds the real shims by
+path.
 """
 
 from __future__ import annotations
@@ -62,6 +63,9 @@ REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "tools" / "runs"
 #: The door and everything it spawns. Copied whole into a fixture.
 SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
+#: The door's shim directory — what it exports as ``RUN_BIN``, and where a
+#: step run bare under a fake door is told to find the shims.
+BIN = SERVING_SRC / "gate-scripts" / "bin"
 DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
 PRODUCT_PY = REPO / "tools" / "bench" / "product.py"
 COMMON_SH = RUNS / "_common.sh"

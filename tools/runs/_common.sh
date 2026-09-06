@@ -5,7 +5,7 @@
 # run to it, and a step reaches the rig only through the door's `ssh` and
 # `docker` shims (gate-scripts/bin), which land on --host: rig_snapshot and
 # image_digest prove the door first (gatelib.under_door, read from /proc) and
-# resolve the shim by path from RUN_ROOT, never from $PATH. Written against
+# resolve the shim by path from RUN_BIN, never from $PATH. Written against
 # `archive/docs/2026-09-02-srv1-kernel-arms-ARTIFACT-CONTRACT.md` (the
 # authority) and the parser it cites, `tools/runs/rows.py` (once
 # `tests/sweeprows.py`, moved beside the door on 2026-09-02 so the parser the
@@ -212,20 +212,22 @@ _door_proof() {
 }
 
 # _door_shim NAME — the path of the door's ssh or docker shim, the door proved
-# first. By path from RUN_ROOT and never from $PATH: a PATH reordered mid-step
-# would find the real binary. The shim refuses by itself outside the door, so
-# RUN_ROOT being the environment's word is fine. Returns 2 on refusal.
+# first. By path from RUN_BIN (the door's export of its own shim directory;
+# RUN_ROOT is the run root and need not hold any code) and never from $PATH: a
+# PATH reordered mid-step would find the real binary. The shim refuses by
+# itself outside the door, so RUN_BIN being the environment's word is fine.
+# Returns 2 on refusal.
 _door_shim() {
     local said shim
     said=$(_door_proof) || {
         _fail "$1 refused: this process was not started by the door — no ancestor is mcgyvr.serving.run${said:+; the proof said: $(printf '%s' "$said" | tail -n 1)} — and RUN_* set by hand does not stand in for one. Start the run as: python -m mcgyvr.serving.run --host <srv1|srv2> --campaign <campaign> --step <step> --model <blob as the rig sees it>"
         return 2
     }
-    if [ -z "${RUN_ROOT:-}" ]; then
-        _fail "$1 refused: RUN_ROOT is unset; the door exports its own tree there, and the $1 this file runs is the door's shim under it (src/mcgyvr/serving/gate-scripts/bin/$1), never the one on PATH"
+    if [ -z "${RUN_BIN:-}" ]; then
+        _fail "$1 refused: RUN_BIN is unset; the door exports its shim directory there, and the $1 this file runs is the door's shim under it (gate-scripts/bin/$1), never the one on PATH"
         return 2
     fi
-    shim=$RUN_ROOT/src/mcgyvr/serving/gate-scripts/bin/$1
+    shim=$RUN_BIN/$1
     if [ ! -x "$shim" ]; then
         _fail "$1 refused: $shim is missing or not executable; the door's shim is the only $1 this file runs"
         return 2

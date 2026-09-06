@@ -11,7 +11,7 @@ a digest, before it touches docker.
 
 There is no seam: the drivers call the ``docker`` on PATH, which under the
 door is the shim that lands on the rig, and ``_common.sh`` resolves the shim
-by path under ``RUN_ROOT``. Here that ``docker`` is a stub that logs every
+by path under ``RUN_BIN``. Here that ``docker`` is a stub that logs every
 argv it receives, so "before touching docker" is the absence of that log.
 Both prove the door before anything else, so the runs that must get past
 the image check happen under ``onedoor.fake_door``.
@@ -31,7 +31,10 @@ def _image_digest(
 ) -> tuple[str, str, int, Path]:
     stubs = tmp_path / "stubs"
     env = onedoor.bare_env(
-        stubs, RUN_REPO=str(onedoor.REPO), RUN_ROOT=str(onedoor.REPO)
+        stubs,
+        RUN_REPO=str(onedoor.REPO),
+        RUN_ROOT=str(onedoor.REPO),
+        RUN_BIN=str(onedoor.BIN),
     )
     result = onedoor.bash(
         f"set -euo pipefail\n. '{onedoor.COMMON_SH}'\nimage_digest '{tag}'\n",
