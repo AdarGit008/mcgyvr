@@ -25,15 +25,10 @@ from typing import Any
 
 from tests.red_port.conftest import required
 
-#: Keys `init` writes with no machine to read them off. ``sandbox.mode`` is
-#: deliberately absent: it is detected (docker present or not) and is *meant*
-#: to differ from the schema's default on a machine without docker.
-STATIC: tuple[tuple[str, str], ...] = (
-    ("cleanup", "enabled"),
-    ("breadth", "draws"),
-    ("delivery", "mode"),
-    ("journal", "dir"),
-)
+#: Keys `init` reads off the machine, which are *meant* to differ from the
+#: schema's default. Everything else it writes is a copy of a schema default
+#: and must equal it.
+DETECTED: frozenset[tuple[str, str]] = frozenset({("sandbox", "mode")})
 
 FIELDS = {
     "cleanup": "CLEANUP_FIELDS",
@@ -51,6 +46,12 @@ def _default(block: str, leaf: str) -> Any:
         if field.name == leaf:
             return field.default
     raise AssertionError(f"{block}.{leaf} is not in the schema")
+
+
+def _has_default(block: str, leaf: str) -> bool:
+    from mcgyvr import config
+
+    return any(field.name == leaf for field in getattr(config, FIELDS[block]))
 
 
 def _built() -> dict[str, Any]:
@@ -79,7 +80,14 @@ def test_init_writes_the_cleanup_default_the_owner_set() -> None:
     it is shipping, and what it silently turns off is the repair loop.
     """
     written = _built()
-    assert written["cleanup"]["enabled"] == _default("cleanup", "enabled"), (
+    # Asserted against `True` on both sides rather than against each other.
+    # A symmetric comparison is satisfied by moving the *schema* to False —
+    # which would make this file green by reversing the ruling it cites.
+    assert _default("cleanup", "enabled") is True, (
+        "the schema default is the owner's 2026-09-05 ruling; this test is "
+        "about init agreeing with it, not about the two matching each other"
+    )
+    assert written["cleanup"]["enabled"] is True, (
         "init writes cleanup.enabled=False against a schema default of True; "
         "every fresh install disables repair-and-regate (owner, 2026-09-05)"
     )
@@ -92,10 +100,17 @@ def test_no_static_key_init_writes_contradicts_its_schema_default() -> None:
     does not need someone to remember the initializer exists.
     """
     written = _built()
+    # Derived from what `build` actually wrote, intersected with the blocks the
+    # schema describes — so a static key added to `init` tomorrow is swept
+    # without anyone remembering to add it to a list here.
     drifted = [
-        f"{block}.{leaf}: init writes {written[block][leaf]!r}, "
+        f"{block}.{leaf}: init writes {value!r}, "
         f"schema default is {_default(block, leaf)!r}"
-        for block, leaf in STATIC
-        if written.get(block, {}).get(leaf) != _default(block, leaf)
+        for block, fields in written.items()
+        if block in FIELDS and isinstance(fields, dict)
+        for leaf, value in fields.items()
+        if (block, leaf) not in DETECTED
+        and _has_default(block, leaf)
+        and value != _default(block, leaf)
     ]
     assert not drifted, "\n".join(drifted)

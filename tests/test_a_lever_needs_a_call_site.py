@@ -49,7 +49,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -134,7 +134,7 @@ def _completion(text: str):  # type: ignore[no-untyped-def]
         raw_stop_reason="stop",
         model="qwen2.5-coder:7b",
         source="workstation",
-        protocol=Protocol.OLLAMA,
+        protocol=Protocol.OPENAI,
         max_output_tokens=1024,
         latency_s=0.0,
     )
@@ -773,7 +773,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   hosted:
     base_url: https://api.example.invalid

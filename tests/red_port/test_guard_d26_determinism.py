@@ -62,7 +62,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 3
 ladder:
   tiers:
@@ -77,7 +77,7 @@ ladder:
 WORKSTATION = Endpoint(
     source="workstation",
     base_url="http://localhost:11434",
-    protocol=Protocol.OLLAMA,
+    protocol=Protocol.OPENAI,
     max_parallel=3,
     credential_env=None,
 )

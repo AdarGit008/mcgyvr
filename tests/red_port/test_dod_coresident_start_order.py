@@ -1,100 +1,160 @@
-"""Two units on one card are started in an order, not at the same time.
+"""Two units sharing a card start in an order, and the bigger one goes first.
 
-``mcgyvr emit`` writes one compose service per serving unit and no dependency
-between them, so ``docker compose up -d`` starts every unit on a host at once.
-Where two of them share a GPU that is a race, and vLLM loses it in a way that
-leaves no error behind: each engine sizes its KV cache from the free memory it
-observes at its own startup instant, so a unit that measures the card while its
-neighbour is still allocating gets a smaller cache and serves fewer concurrent
-requests than it was sized for, for the life of the process.
+``emit`` writes one compose file per host and no dependency between its
+services, so ``docker compose up -d`` starts every unit at once. On a card that
+fits both only if they load one after the other, that is a race.
 
-MEASURED on srv2, 2026-09-06. Started together, the 7B unit read 1.47 GiB of
-"non-torch memory" and was left with 0.89 GiB of KV cache; started alone on the
-same card with the same flags it read 0.05 GiB and was left with 2.77 GiB — a
-concurrency of 12.68x against 4.08x, from ordering alone. On the first attempt the
-7B did not come up at all: ``Free memory on device (7.61/11.63 GiB) on startup is
-less than desired GPU memory utilization (0.72, 8.37 GiB)``, and it crash-looped
-under ``restart: unless-stopped`` until the units were stopped and started in
-sequence by hand.
+Measured on srv2, 2026-09-05: started together, the 7B got 0.89 GiB of KV cache
+and 4.08x concurrency; started alone after the 3B was resident, 2.77 GiB and
+12.68x. The first attempt crash-looped until the two were sequenced by hand —
+the 7B needed 8.37 GiB free and found 7.61.
 
-Stated as a property of the emitted file, because that is where the fix has to
-live: an operator who is handed a compose file and told to run it cannot be
-expected to know that two of its services must not start together. Whether the
-order is expressed as ``depends_on``, a healthcheck condition or something else is
-the port's choice; that the file cannot be started concurrently is the
-requirement.
+The bigger unit goes first because it is the one that cannot recover: a small
+model measuring the card after a large neighbour has taken its share still
+fits, and the large one measuring after the small has taken its share does not.
+
+**Built from real units through the shipped emit path.** An earlier draft
+invented ``compose_document(tmp_path)`` — a function taking a directory and
+somehow knowing to produce two co-resident units, with a ``units=1`` keyword for
+the single case. Nothing could implement that except a shim written for this
+test. The units here are built the way ``tests/test_emit.py`` builds them, from
+a scan and a spec, and the document is whatever ``emit_all`` writes.
+
+How the order is expressed is the port's choice — ``depends_on`` is compose's
+usual spelling, but a single service with two commands, or an explicit start
+script, would satisfy the requirement equally. What must be observable is that
+the file does not tell the daemon to start both at once, and that the order,
+however written, puts the larger first.
 """
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from typing import Any
 
+import yaml
+
+from mcgyvr.emit import emit_all
+from mcgyvr.scan import Scan
+from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests.red_port.conftest import required
 
+#: One card big enough for both models only once, which is the whole case.
+CARD_MIB = 12288
 
-def _units_on_one_gpu(tmp_path: Path) -> dict[str, Any]:
-    """The emitted compose for a host serving two models on one card."""
-    write = required(
-        "emit a compose file for a host whose units share one GPU",
-        lambda: (
-            __import__("mcgyvr.emit", fromlist=["compose_document"]).compose_document
-        ),
+#: A vLLM unit loads a repository id out of the rig's HuggingFace cache, so a
+#: spec served by it has to say where that cache is — the same requirement the
+#: live srv2 config carries for both of these models.
+BIG = ModelSpec(
+    name="qwen2.5-coder-7b",
+    vram_gb=8.4,
+    ram_gb=0.0,
+    disk_gb=5.2,
+    hf_cache="/home/x/.cache/huggingface",
+)
+SMALL = ModelSpec(
+    name="qwen2.5-coder-3b",
+    vram_gb=3.5,
+    ram_gb=0.0,
+    disk_gb=2.1,
+    hf_cache="/home/x/.cache/huggingface",
+)
+
+
+def _rig() -> Scan:
+    """One card, built the way ``tests/test_emit.py`` builds a machine."""
+    return Scan.of(
+        host="srv2",
+        vram_mib=CARD_MIB,
+        ram_gb=64.0,
+        disk_free_gb=900.0,
+        cores=10,
+        threads=20,
+        bandwidth_gbps=41.2,
     )
-    document: dict[str, Any] = write(tmp_path)
-    return document
 
 
-def test_two_units_sharing_a_card_declare_a_start_order(tmp_path: Path) -> None:
-    """One of the two waits for the other; ``compose up`` cannot race them."""
-    document = _units_on_one_gpu(tmp_path)
-    services = document["services"]
-    assert len(services) >= 2, "this fixture is about a host with two units"
-    waits = [name for name, body in services.items() if body.get("depends_on")]
-    assert waits, (
-        "two units on one GPU must not both start at once: no service in the "
-        f"emitted file waits for another ({', '.join(sorted(services))})"
+def _both() -> tuple[Unit, Unit]:
+    """The two units srv2 actually serves, on one card, on two ports."""
+    rig = _rig()
+    big = unit_for(rig, BIG, engine="vllm", width=8, port=8002)
+    small = unit_for(rig, SMALL, engine="vllm", width=6, port=8001)
+    assert big.gpu == small.gpu, "the fixture is about two units on ONE card"
+    return big, small
+
+
+def _document(units: tuple[Unit, ...]) -> dict[str, Any]:
+    written = emit_all(units, root=Path(tempfile.mkdtemp()))
+    parsed: dict[str, Any] = yaml.safe_load(written[0].read_text(encoding="utf-8"))
+    return parsed
+
+
+def _waits_for(services: dict[str, Any]) -> dict[str, set[str]]:
+    """Which service each one is declared to start after, however expressed."""
+    order: dict[str, set[str]] = {}
+    for name, body in services.items():
+        named = set()
+        for other in services:
+            if other == name:
+                continue
+            if other in yaml.safe_dump(body):
+                named.add(other)
+        if named:
+            order[name] = named
+    return order
+
+
+def test_two_units_sharing_a_card_do_not_start_at_once() -> None:
+    """The race, stated as what the file tells the daemon to do."""
+    ordered = required(
+        "emit a compose file that sequences two units sharing one GPU",
+        lambda: _document(_both()),
+    )
+    services = ordered["services"]
+    assert len(services) == 2, f"the fixture is about two units: {list(services)}"
+    assert _waits_for(services), (
+        "neither service names the other, so `compose up -d` starts both at "
+        f"once on one card: {list(services)}"
     )
 
 
-def test_the_order_puts_the_larger_unit_first(tmp_path: Path) -> None:
-    """The big model goes first, because it is the one that cannot recover.
+def test_the_order_puts_the_larger_unit_first() -> None:
+    """The direction matters, and is not satisfied by any order at all.
 
-    A unit that measures the card after a smaller neighbour has taken its share
-    still fits; the smaller one measuring after the larger has taken its share is
-    what fails to start. srv2's 7B needed 8.37 GiB free and found 7.61.
+    The size comes from the units the fixture built, not from a flag parsed
+    back out of the rendered command — a proxy that cannot be read would make
+    every comparison ``0.0 >= 0.0`` and the assertion vacuous.
     """
-    document = _units_on_one_gpu(tmp_path)
-    services = document["services"]
-    waiting = {
-        name: set(body["depends_on"])
-        for name, body in services.items()
-        if body.get("depends_on")
-    }
-    assert waiting, "no order is declared at all"
-    for name, waits_for in waiting.items():
+    big, small = _both()
+    services = _document((big, small))["services"]
+    by_size = {}
+    for name, body in services.items():
+        rendered = yaml.safe_dump(body)
+        if BIG.name in rendered:
+            by_size[name] = BIG.vram_gb
+        elif SMALL.name in rendered:
+            by_size[name] = SMALL.vram_gb
+    assert len(by_size) == 2 and len(set(by_size.values())) == 2, (
+        f"the two services must be tellable apart by size: {by_size}"
+    )
+
+    order = _waits_for(services)
+    assert order, "no order is declared at all"
+    for name, waits_for in order.items():
         for other in waits_for:
-            assert _weight_of(services[other]) >= _weight_of(services[name]), (
-                f"{name} waits for {other}, but {other} is the smaller unit"
+            assert by_size[other] >= by_size[name], (
+                f"{name} ({by_size[name]} GB) starts after {other} "
+                f"({by_size[other]} GB); the larger unit must go first"
             )
 
 
-def _weight_of(service: dict[str, Any]) -> float:
-    """The utilisation a vLLM service claims, as a stand-in for its size."""
-    command = service.get("command") or []
-    for index, token in enumerate(command):
-        if token == "--gpu-memory-utilization" and index + 1 < len(command):
-            return float(command[index + 1])
-    return 0.0
-
-
-def test_a_host_with_one_unit_declares_no_order(tmp_path: Path) -> None:
+def test_a_host_with_one_unit_declares_no_order() -> None:
     """An order where nothing contends is a dependency that only slows a restart."""
-    single = required(
-        "emit a compose file for a host with a single unit",
-        lambda: (
-            __import__("mcgyvr.emit", fromlist=["compose_document"]).compose_document
-        ),
-    )(tmp_path, units=1)
-    for body in single["services"].values():
-        assert not body.get("depends_on")
+    big, _ = _both()
+    services = _document((big,))["services"]
+    assert len(services) == 1
+    assert not _waits_for(services), (
+        "a single unit has nothing to wait for; an order here is noise that "
+        "delays every restart"
+    )

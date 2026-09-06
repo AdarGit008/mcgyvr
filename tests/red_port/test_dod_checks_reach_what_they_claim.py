@@ -51,11 +51,29 @@ REPO = Path(__file__).resolve().parents[2]
 def test_the_type_gate_covers_the_tools_the_makefile_ships() -> None:
     """1. What mypy is pointed at must include what a user is told to run."""
     config = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    files = config.get("tool", {}).get("mypy", {}).get("files", [])
+    mypy = config.get("tool", {}).get("mypy", {})
+    files = mypy.get("files", [])
     assert "tools" in files, (
         f"mypy checks {files}; `make journal-index` and `make journal-review` "
         "run tools/live/*.py over the live journal, type-checked by nothing"
     )
+    # Pointing mypy at a directory and then silencing it there is the same
+    # hole with a longer config. `ignore_errors` on `tools.*` would satisfy the
+    # assertion above and check nothing.
+    silenced = [
+        override
+        for override in mypy.get("overrides", [])
+        if override.get("ignore_errors")
+        and any(
+            str(module).startswith("tools")
+            for module in (
+                override.get("module")
+                if isinstance(override.get("module"), list)
+                else [override.get("module")]
+            )
+        )
+    ]
+    assert not silenced, f"tools/ is listed and then silenced: {silenced}"
 
 
 def test_the_package_exports_its_types() -> None:
@@ -97,23 +115,29 @@ def test_the_reference_check_notices_a_dropped_block() -> None:
     )
 
 
-def test_the_door_reads_the_constant_it_exports() -> None:
-    """4. A name the door exports must be the name the door uses.
+def test_the_always_entries_have_exactly_one_name() -> None:
+    """4. One list of always-entries, under one name.
 
-    Stated as "the run reads it", not as "the two are equal" — the equality is
-    what the current test asserts, and it is true by assignment.
+    ``SERVE_ALWAYS = ALWAYS`` is an export nothing reads: ``_serve`` iterates
+    the module-level ``ALWAYS``, and the only test on it asserts the two are
+    equal — true by assignment, on the line of the assignment.
+
+    Stated as "one name", not as "the export is read", so that **deleting** the
+    dead alias is a legal fix. A test demanding that ``SERVE_ALWAYS`` be read
+    would forbid the cleanest answer and force a use to be invented for it.
     """
-    source = (REPO / "src" / "mcgyvr" / "serving" / "run.py").read_text(
-        encoding="utf-8"
+    from mcgyvr.serving import run as door
+
+    names = sorted(
+        name
+        for name, value in vars(door).items()
+        if not name.startswith("_")
+        and isinstance(value, tuple)
+        and value == door.ALWAYS
     )
-    uses = [
-        line
-        for line in source.splitlines()
-        if "SERVE_ALWAYS" in line and not line.strip().startswith("SERVE_ALWAYS")
-    ]
-    assert uses, (
-        "SERVE_ALWAYS is exported and never read; `_serve` iterates ALWAYS "
-        "directly, and the only test on it compares the name to its own value"
+    assert len(names) == 1, (
+        f"the always-entries are reachable under {names}; two names for one "
+        "list is how a caller comes to iterate the one nothing maintains"
     )
 
 
@@ -124,19 +148,33 @@ def test_the_manifest_covers_every_file_a_gate_reads() -> None:
     missing without the manifest noticing, the door's promise that a missing
     entry is a refusal is only true of the entries someone remembered.
     """
+    import shutil
+
+    import pytest
+
     from mcgyvr.serving import run as door
 
     scripts = Path(door.__file__).resolve().parent / "gate-scripts"
-    readers = {
-        path.name
-        for path in scripts.iterdir()
-        if path.suffix == ".sh" and not path.name.startswith("_")
-    }
+    readers = sorted(path.name for path in scripts.iterdir() if path.suffix == ".sh")
     assert readers, "the fixture must find the shell readers beside the gates"
 
-    source = Path(door.__file__).read_text(encoding="utf-8")
-    uncovered = sorted(name for name in readers if name not in source)
-    assert not uncovered, (
-        f"{', '.join(uncovered)} is read by a gate and is named nowhere in the "
-        "door; deleting it gives a traceback, not a refusal"
+    # Asserted by removing one and asking the door, rather than by looking for
+    # the filename in the source: a comment naming the file would satisfy a
+    # substring check while the door still died on a traceback.
+    check = required(
+        "refuse when a file a gate reads is missing, naming it — rather than "
+        "raising where the gate tried to read it",
+        lambda: door.check_manifest,  # type: ignore[attr-defined]
     )
+    missing = readers[0]
+    moved = scripts / missing
+    spare = moved.with_suffix(".sh.moved")
+    shutil.move(str(moved), str(spare))
+    try:
+        with pytest.raises(Exception) as refusal:
+            check()
+        assert missing in str(refusal.value), (
+            f"the door must name {missing} when it is gone; it raised {refusal.value!r}"
+        )
+    finally:
+        shutil.move(str(spare), str(moved))

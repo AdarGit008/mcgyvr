@@ -24,7 +24,7 @@ spend.** Identity is checked ahead of assembling anything, because a
 self-review that ran and was then discarded has already cost what the rule
 exists to save. The comparison is on the weights the two names point at, not on
 the two strings — a rule the config file can defeat by capitalising a model
-differently, appending Ollama's own ``:latest``, or pasting in a provider
+differently, appending a registry's ``:latest``, or pasting in a provider
 prefix is not a rule, and neither is one a zero-width space defeats.
 :func:`model_identity` is that reading, and it normalises only what a registry
 itself treats as noise. Two models from one family are *not* the same model:
@@ -412,9 +412,9 @@ _CONFUSABLES = str.maketrans(
 _SEPARATORS = "-_. \t\u2212"
 _SEPARATOR_CATEGORY = "Pd"
 
-# The tag Ollama supplies when a name carries none, so ``qwen2.5-coder`` and
-# ``qwen2.5-coder:latest`` are one pull of one blob. Every *other* tag is part
-# of the identity: ``:7b`` and ``:32b`` are different weights.
+# The tag a registry supplies when a name carries none, so ``qwen2.5-coder``
+# and ``qwen2.5-coder:latest`` are one pull of one blob. Every *other* tag is
+# part of the identity: ``:7b`` and ``:32b`` are different weights.
 _DEFAULT_TAG = ":latest"
 
 
@@ -435,11 +435,11 @@ def model_identity(name: str) -> str:
       bidi mark is not part of a name; it is a way to write one name twice.
     * **Confusables folded to Latin.** A Cyrillic ``U+043E`` is the same pixels
       as a Latin ``o`` in every config file a person will ever read.
-    * **The routing prefix dropped.** ``ollama/qwen2.5-coder`` and
+    * **The routing prefix dropped.** ``registry/qwen2.5-coder`` and
       ``hf.co/Qwen/qwen2.5-coder`` say where to fetch the same blob. Only the
       last path segment names it.
-    * **A trailing** ``:latest`` **dropped**, because Ollama appends exactly
-      that to an untagged name. No other tag is touched.
+    * **A trailing** ``:latest`` **dropped**, because a registry appends
+      exactly that to an untagged name. No other tag is touched.
     * **Separators removed**, so ``qwen2.5-coder``, ``qwen2_5_coder`` and
       ``qwen25coder`` are one name.
 
@@ -581,7 +581,7 @@ def reviewer_for(
     The request is not marked ``quality_sensitive``. That flag means "this
     output will be read as a measurement of the model" and refuses a
     quality-caveated backend outright (CAV-01); a review is work, and refusing
-    would turn the ordinary Ollama install into one with no verifier at all
+    would turn the ordinary local install into one with no verifier at all
     while telling the operator nothing.
     """
     # ``role_model`` rather than ``role``: this is a presence check, and a

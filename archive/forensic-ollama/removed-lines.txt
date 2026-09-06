@@ -1,0 +1,243 @@
+# Every line naming Ollama in src/ and tools/, captured before removal
+# Tree: 814693d89674628065d9ae1fa4c8aa44c33480df  Date: 2026-09-06
+
+src/mcgyvr/verify.py:27:differently, appending Ollama's own ``:latest``, or pasting in a provider
+src/mcgyvr/verify.py:415:# The tag Ollama supplies when a name carries none, so ``qwen2.5-coder`` and
+src/mcgyvr/verify.py:438:    * **The routing prefix dropped.** ``ollama/qwen2.5-coder`` and
+src/mcgyvr/verify.py:441:    * **A trailing** ``:latest`` **dropped**, because Ollama appends exactly
+src/mcgyvr/verify.py:584:    would turn the ordinary Ollama install into one with no verifier at all
+src/mcgyvr/config.py:168:        choices=("ollama", "openai"),
+src/mcgyvr/cli.py:1880:    # this whole module exists to avoid. Ollama is exempt: it swaps models
+src/mcgyvr/cli.py:1889:            if source.api == "ollama":
+src/mcgyvr/initialize.py:94:        f"  - start a local backend (ollama, llama-server, vLLM, LM Studio, "
+src/mcgyvr/initialize.py:252:            # was ASKED what it holds. For Ollama they differ on purpose: the
+src/mcgyvr/initialize.py:292:    ``backend`` is the kind of server (``ollama``, ``vllm``) and drives the
+src/mcgyvr/worker/reply.py:489:    A backend that ignored the schema — Ollama's native path, an older
+src/mcgyvr/detect.py:32:more than one host in play "ollama answered" no longer identifies anything.
+src/mcgyvr/detect.py:39:are the same answer. Ollama is the exception and the reason the fields are
+src/mcgyvr/detect.py:96:    api: str  # how to ASK: "ollama" or "openai"
+src/mcgyvr/detect.py:98:    kind: str = ""  # the backend convention: "ollama", "vllm", ... (default: name)
+src/mcgyvr/detect.py:105:        # on Ollama is measured on Ollama whether the source is called
+src/mcgyvr/detect.py:106:        # `ollama` or `srv2_ollama`.
+src/mcgyvr/detect.py:119:# **Ollama is asked one way and bound another, and that is the point (#164).**
+src/mcgyvr/detect.py:130:    ("ollama", 11434, "ollama", "openai"),
+src/mcgyvr/detect.py:142:    matters more than it looks: the difference between asking Ollama natively
+src/mcgyvr/detect.py:237:        True for Ollama and nothing else today. Surfaced rather than left
+src/mcgyvr/detect.py:239:        `detect` called Ollama looks like a mistake until the reason is given.
+src/mcgyvr/detect.py:257:        Ollama reports `qwen2.5-coder:7b`; an OpenAI-compatible server may
+src/mcgyvr/detect.py:349:    rows = payload.get("models") if api == "ollama" else payload.get("data")
+src/mcgyvr/detect.py:352:    key = "name" if api == "ollama" else "id"
+src/mcgyvr/detect.py:363:    path = "/api/tags" if target.api == "ollama" else "/v1/models"
+src/mcgyvr/runner.py:39:  D13). Ollama's native path does not carry it: ``/api/generate`` spells the
+src/mcgyvr/runner.py:45:* **Truncation is read, never inferred.** Ollama's ``done_reason`` and the
+src/mcgyvr/runner.py:56:**CAV-01, which is why this module has an opinion about Ollama.** Ollama's
+src/mcgyvr/runner.py:59:implemented here because it is what a default Ollama install offers, but it is
+src/mcgyvr/runner.py:64:is a config edit rather than a code change, because Ollama also serves the
+src/mcgyvr/runner.py:118:    "Served by Ollama's native /api/generate, which CAV-01 records as returning "
+src/mcgyvr/runner.py:426:class OllamaRunner(Runner):
+src/mcgyvr/runner.py:427:    """Ollama's native generate — implemented, and marked by CAV-01.
+src/mcgyvr/runner.py:429:    ``/api/generate`` is what a default Ollama install offers and what most
+src/mcgyvr/runner.py:438:    protocol: ClassVar[Protocol] = Protocol.OLLAMA
+src/mcgyvr/runner.py:477:    LM Studio, Ollama's own ``/v1``, and the hosted providers.
+src/mcgyvr/runner.py:551:    Protocol.OLLAMA: OllamaRunner,
+src/mcgyvr/availability.py:12:* A **local backend** is a server on hardware the user controls — Ollama,
+src/mcgyvr/availability.py:128:    Protocol.OLLAMA: "/api/tags",
+src/mcgyvr/capacity.py:63:  not an error, nor the same as a source being down. ollama serves its
+src/mcgyvr/capacity.py:64:  parallelism from ``OLLAMA_NUM_PARALLEL`` in a unit file and exposes no
+src/mcgyvr/capacity.py:616:        still the ordinary case, since ollama does not report its parallelism at
+src/mcgyvr/capability.py:191:        of different weights: qwen3-coder-30b-a3b's ollama measurement is Q4
+src/mcgyvr/prompts/python.md:5:     That result stands and reproduces on Ollama (#167 arm B). What it was
+src/mcgyvr/worker/bundle.py:45:unchanged against Ollama, CLM-0004's own instrument reproduces its effect
+src/mcgyvr/worker/bundle.py:137:    through the same instrument on Ollama). What it was measured against is a
+tools/bundle/measure.py:54:weights through bare ``llama-server`` and this rig drives them through Ollama's
+tools/bundle/measure.py:629:    protocol_name = chosen["protocol"] or Protocol.OLLAMA.value
+tools/bundle/measure.py:657:    request on a caveated path before sending it, so a sweep against Ollama's
+tools/bundle/measure.py:664:    the same one — Ollama serves ``/v1/chat/completions`` on the same port.
+tools/bundle/measure.py:672:        f"against a true 84.1%. Use --protocol {Protocol.OPENAI.value}: Ollama "
+tools/bundle/measure.py:1129:        help=f"wire protocol the endpoint speaks (default: {Protocol.OLLAMA.value})",
+src/mcgyvr/propose.py:415:    Ollama lists what has been pulled to disk — so it establishes that the
+src/mcgyvr/pool.py:111:    OLLAMA = "ollama"
+tools/bundle/worker.example.json:7:  "_protocol": "Use `openai` — the OpenAI-compatible chat-completions shape, which Ollama, vLLM, llama-server, LM Studio, TGI and the hosted providers all speak. `ollama` here means Ollama's NATIVE /api/generate, which a sweep refuses: CAV-01 measured that path scoring a model at 32.3% against a true 84.1%, so mcgyvr will not carry a measurement on it. Same port either way.",
+tools/bundle/python/compare.py:10:  through Ollama's OpenAI-compatible path.
+tools/bundle/python/compare.py:21:``original``            Python      Ollama     local-ai         **stack**
+tools/bundle/python/compare.py:22:``rig``                 Python      Ollama     mcgyvr           **harness**
+tools/bundle/python/compare.py:23:``jsts``                JS/TS       Ollama     mcgyvr           **language**
+tools/bundle/python/compare.py:253:            "Arm B — Python, Ollama, local-ai harness unchanged",
+tools/bundle/python/compare.py:256:        ("rig", "Arm A — Python, Ollama, mcgyvr rig", load(args.out / "results.jsonl")),
+tools/bundle/python/compare.py:259:            "CLM-0012 — JS/TS, Ollama, mcgyvr rig",
+tools/bundle/conditions/c3.md:86:- File names match their primary export: `ollamaClient.ts` exports
+tools/bundle/conditions/c3.md:87:  `OllamaClient`.
+tools/breadth/measure.py:999:    the 7B against srv2 while those two hosts sat on ollama 0.32.4 and 0.32.5,
+tools/runs/hosts.json:47:    "_doc": "The three ollama settings that decide whether a model stays on the card and whether a second may join it — which is exactly what the co-residency cells measure. The owner's rule is `no limits: the hardware is the limit; if it breaks, we fix mcgyvr`, so two of the three are `0` (no cap) and the third disables the clock. Declaring `no cap` is NOT the same as leaving the engine to choose: srv2's old values were whatever 0.32.5 picked, recorded nowhere, under a different engine version from srv1's. Value strings are compared literally against the unit's `Environment=` line, which is how a survey reports them.",
+tools/runs/hosts.json:48:    "OLLAMA_NUM_PARALLEL": {
+tools/runs/hosts.json:52:    "OLLAMA_MAX_LOADED_MODELS": {
+tools/runs/hosts.json:56:    "OLLAMA_KEEP_ALIVE": {
+tools/runs/hosts.json:62:    "ollama": {
+tools/runs/hosts.json:74:    "unit": "/etc/systemd/system/ollama.service.d/override.conf",
+tools/runs/hosts.json:75:    "content": "[Service]\nEnvironment=\"OLLAMA_NUM_PARALLEL=0\"\nEnvironment=\"OLLAMA_MAX_LOADED_MODELS=0\"\nEnvironment=\"OLLAMA_KEEP_ALIVE=-1\"\n",
+tools/runs/hosts.json:76:    "after": "systemctl daemon-reload && systemctl restart ollama",
+tools/runs/hosts.json:77:    "verify": "systemctl show ollama -p Environment — the reading the survey captures as `service_environment`."
+tools/bench/report.py:17:  weights contrast, and ADR-0024 exists because two runs differed by an ollama
+tools/bench/observed.py:20:srv2, ollama 0.32.5, 2026-08-18 — three tokenizer arrays of 151,936, 151,387 and
+tools/bench/observed.py:29:request time can answer them, and on ollama's native surface it answers one of
+tools/bench/observed.py:43:    ``model_info["<arch>.context_length"]`` — and ollama serves ``num_ctx``,
+tools/bench/observed.py:57:    native call reports it — it is the server's own ``OLLAMA_NUM_PARALLEL``,
+tools/bench/observed.py:58:    which ollama does not expose — so it refuses here, and the refusal is a true
+tools/bench/observed.py:71:    this tree sends one (``runner.OllamaRunner._payload`` sends ``num_predict``
+tools/bench/observed.py:79:**Two engines, and they answer opposite halves of the probe set.** ollama and
+tools/bench/observed.py:85:field               ollama              vLLM 0.26.0
+tools/bench/observed.py:93:Every cell above was measured on 2026-08-18 against four servers — ollama 0.32.4
+tools/bench/observed.py:98:obvious guess would use.** ollama's ``/api/tags`` and ``/api/show`` report 32768,
+tools/bench/observed.py:108:evidence it cites *is vLLM* (#23138). ollama does not expose
+tools/bench/observed.py:109:``OLLAMA_NUM_PARALLEL``. vLLM does not expose ``max_num_seqs`` anywhere: not on
+tools/bench/observed.py:120:went unrecorded was seeded by something nobody wrote down. ollama reports none.
+tools/bench/observed.py:149:host filesystem path — measured on srv2: ``FROM /usr/share/ollama/.ollama/
+tools/bench/observed.py:304:#: `context_length` means "ollama does not expose num_ctx" on one engine and
+tools/bench/observed.py:309:OLLAMA = "ollama"
+tools/bench/observed.py:314:ENGINES: tuple[str, ...] = (OLLAMA, VLLM, OPENAI_COMPATIBLE, UNREACHABLE)
+tools/bench/observed.py:320:    OLLAMA: (
+tools/bench/observed.py:323:        "OLLAMA_READS plus the /api/show POST"
+tools/bench/observed.py:470:    dict key is scrubbed too, since ollama's ``model_info`` keys are model-
+tools/bench/observed.py:547:    server decides what a refusal means. So ollama's native pair is tried first
+tools/bench/observed.py:551:    Ollama's two calls are exactly :func:`identity.probe_model`'s. Both arms
+tools/bench/observed.py:562:    native, engine = _capture_ollama(base, model, timeout)
+tools/bench/observed.py:563:    if engine is OLLAMA:
+tools/bench/observed.py:564:        fields, reasons = _ollama_probe_set(native, model)
+tools/bench/observed.py:580:#: Every read-only endpoint ollama answers, as measured on srv1 (0.32.4) and
+tools/bench/observed.py:585:OLLAMA_READS: tuple[tuple[str, str], ...] = (
+tools/bench/observed.py:614:def _capture_ollama(
+tools/bench/observed.py:617:    """Everything ollama will answer, and whether this is an ollama at all.
+tools/bench/observed.py:619:    One endpoint answering is enough to call it ollama: a build that has dropped
+tools/bench/observed.py:624:    for name, path in OLLAMA_READS:
+tools/bench/observed.py:637:    return native, OLLAMA
+tools/bench/observed.py:716:#: this reading: ollama serves no `/metrics` on 11434 (404, both rigs), and its
+tools/bench/observed.py:719:#: reports `endpoint_metrics: false`. ollama spawns that child and does not
+tools/bench/observed.py:720:#: pass the flag, so the endpoint is off by ollama's choice, not by absence.
+tools/bench/observed.py:726:OLLAMA_NO_COUNTER = (
+tools/bench/observed.py:727:    "this engine serves no request counter to difference: ollama answers 404 "
+tools/bench/observed.py:729:    "flag that would enable it (--metrics), which ollama does not pass when it "
+tools/bench/observed.py:734:    "own /metrics on 127.0.0.1, reachable with host access, if ollama were "
+tools/bench/observed.py:761:    if engine == OLLAMA:
+tools/bench/observed.py:762:        return {"value": None, identity.REFUSALS: OLLAMA_NO_COUNTER}
+tools/bench/observed.py:831:    network surface either serves. The ollama refusal ends by naming where the
+tools/bench/observed.py:857:    and the remainder is foreign traffic. On ollama there is no counter to
+tools/bench/observed.py:1010:    vLLM answers the one ollama cannot and cannot answer the one ollama does,
+tools/bench/observed.py:1023:                f"{base} answered neither ollama's native pair nor /v1/models; "
+tools/bench/observed.py:1031:    # LM Studio, TGI, or an ollama whose /api/* calls failed transiently and
+tools/bench/observed.py:1192:def _ollama_probe_set(
+tools/bench/observed.py:1195:    """The four declared fields off ollama's read-only surface (D2).
+tools/bench/observed.py:1226:    # ollama's `num_ctx` default rather than anything this tree sets.
+tools/bench/observed.py:1245:    # they say so. Ollama does not serve models itself: it runs llama.cpp's
+tools/bench/observed.py:1254:        "not on any endpoint ollama serves over the network. It is "
+tools/bench/observed.py:1255:        "OLLAMA_NUM_PARALLEL, and it reaches `llama-server`'s /props as "
+tools/bench/observed.py:1271:            "pins one, and ollama's network API reports none. It IS observable "
+tools/bench/observed.py:1324:    ollama returns the Modelfile's ``PARAMETER`` lines as one text field —
+tools/bench/identity.py:104:# the scaffold ablation ran the 3B against srv1 on ollama 0.32.4 and the 7B
+tools/bench/identity.py:112:    # What answered. The tag is mutable and cannot be pinned — ollama's `@digest`
+tools/bench/identity.py:276:    # always present — answered where ollama's native surface answers it
+tools/bench/identity.py:427:    is the sha256 of ollama's *manifest file* — which lists five layers, so it
+tools/bench/identity.py:437:    `FROM /usr/share/ollama/.ollama/models/blobs/sha256-29d8c98f…` against a
+tools/bench/identity.py:456:    GGUF header, where the manifest digest is ollama's addressing of it — so two
+tools/bench/identity.py:462:    the survey is the reason: `template` is ollama's rendering on top of the
+tools/bench/identity.py:475:            "does not speak ollama's native API cannot be asked what weights it "
+tools/bench/identity.py:528:    Matched on ``name`` and on ``model``: ollama's listing carries both, they
+tools/bench/serving/pin.py:27:    hypothetical. Ollama re-derives its serving parameters **per model**:
+tools/bench/serving/pin.py:28:    measured on one host with one ``OLLAMA_NUM_PARALLEL``, ``qwen2.5-coder:*``
+tools/bench/serving/pin.py:198:    ("ollama", "'[l]lama-server'"),
+tools/bench/serving/pin.py:208:OLLAMA_WIDTH_FIELDS: tuple[str, ...] = ("n_parallel", "total_slots")
+tools/bench/serving/pin.py:253:        for name in OLLAMA_WIDTH_FIELDS
+tools/bench/serving/pin.py:263:                + " nor ".join(OLLAMA_WIDTH_FIELDS)
+tools/bench/serving/pin.py:522:    if found["engine"] == "ollama":
+tools/bench/serving/run.py:461:            # at all. Labels like `q15-ollama-srv1` READ like affinity and were
+tools/bench/serving/run.py:738:            # the ramp that takes the time: an ollama ramp at 475 tokens runs
+tools/bench/serving/calibrate.py:290:    ollama = contract.load_backend("ollama")
+tools/bench/serving/calibrate.py:321:        base = ollama.probe(host)
+tools/bench/serving/calibrate.py:324:        for model in ollama.inventory(host, base):
+tools/bench/serving/calibrate.py:338:                        "engine": "ollama",
+tools/bench/serving/calibrate.py:352:                    "engine": "ollama",
+tools/bench/serving/calibrate.py:365:                        "engine": "ollama",
+tools/bench/serving/calibrate.py:375:    ollama = contract.load_backend("ollama")
+tools/bench/serving/calibrate.py:378:        base = ollama.probe(host)
+tools/bench/serving/calibrate.py:381:        for model in ollama.inventory(host, base):
+tools/bench/serving/calibrate.py:387:                    claimed = ollama.claim(host, base, model)
+tools/bench/serving/calibrate.py:405:                            "engine": "ollama",
+tools/bench/serving/calibrate.py:416:    engines: tuple[str, ...] = ("ollama", "vllm"),
+tools/bench/serving/calibrate.py:427:    ollama = contract.load_backend("ollama")
+tools/bench/serving/calibrate.py:430:        # Ollama first: its width is whatever the host is configured for, so the
+tools/bench/serving/calibrate.py:433:        base = ollama.probe(host) if "ollama" in engines else None
+tools/bench/serving/calibrate.py:434:        if "ollama" in engines and not base:
+tools/bench/serving/calibrate.py:444:                    "engine": "ollama",
+tools/bench/serving/calibrate.py:449:            inventory = ollama.inventory(host, base)
+tools/bench/serving/calibrate.py:452:                # phase down for BOTH hosts. `ollama.release` restarts the
+tools/bench/serving/calibrate.py:459:                        "engine": "ollama",
+tools/bench/serving/calibrate.py:467:            # it every ollama ramp row carried `declared_slots: null` while the
+tools/bench/serving/calibrate.py:470:                ollama_declared = ollama.slots_now(host)
+tools/bench/serving/calibrate.py:472:                ollama_declared = {
+tools/bench/serving/calibrate.py:482:                        "engine": "ollama",
+tools/bench/serving/calibrate.py:488:                    print(f"  {host}/ollama tokens={tokens} — already done", flush=True)
+tools/bench/serving/calibrate.py:492:                    loaded = ollama.claim(host, base, model)
+tools/bench/serving/calibrate.py:498:                            "engine": "ollama",
+tools/bench/serving/calibrate.py:512:                    "ollama",
+tools/bench/serving/calibrate.py:515:                    declared=ollama_declared,
+tools/bench/serving/calibrate.py:556:            _widths(out, model, host, vllm, ollama, done, order=order, seed=seed)
+tools/bench/serving/calibrate.py:566:    ollama: types.ModuleType,
+tools/bench/serving/calibrate.py:631:            ollama.release(host)
+tools/bench/serving/calibrate.py:820:    ollama = contract.load_backend("ollama")
+tools/bench/serving/calibrate.py:866:                ollama.release(host)
+tools/bench/serving/calibrate.py:1198:#: What becomes of every key of the attempt record ``ollama.claim`` returns
+tools/bench/serving/calibrate.py:1281:    """One ollama load, timed, with the placement the attempt record saw."""
+tools/bench/serving/calibrate.py:1289:        "engine": "ollama",
+tools/bench/serving/calibrate.py:1512:    serving-config digests, or ollama's `model_sha256` -- carried as given.
+tools/bench/serving/calibrate.py:1677:        default="ollama,vllm",
+tools/bench/serving/contract.py:5:``backends/ollama.py`` contains no reference to vLLM; ``backends/vllm.py``
+tools/bench/serving/contract.py:6:contains no reference to ollama. Adding a third engine is a third file and a
+tools/bench/serving/contract.py:88:#: declared a width (ollama reports `total_slots = 1` for every model) has no
+tools/bench/serving/contract.py:234:#: was separating vLLM at 4 from ollama at 2 — and that is not the job. A
+tools/bench/serving/contract.py:965:    against ramps of ~24 min on vLLM and ~8.1 min on ollama at 475 tokens
+tools/bench/serving/contract.py:1085:    it pays two batch-times for one and a half batches of work. Against ollama
+tools/bench/serving/contract.py:1221:    measured the divergence directly: ollama on srv2 with ``-np 1`` reads a
+tools/bench/serving/contract.py:1233:    ollama ``-np 2``            4                   1.71            2
+tools/bench/serving/contract.py:1234:    ollama ``-np 1``            —                   —               1
+tools/bench/serving/contract.py:1237:    The ollama plateau column is stated **at the shipped**
+tools/bench/serving/fingerprint.py:33:``/server_info``; ollama's is split between its child process's command line and
+tools/bench/serving/configs/srv-full.json:13:      "label": "q15-ollama-srv1",
+tools/bench/serving/configs/srv-full.json:14:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:16:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:39:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:63:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:86:      "_doc": "A REASONING model, measured on both rigs: ~69% of its output budget is hidden `thinking` (54 eval_count for a 17-token visible reply). Its throughput is real throughput, but `completion_tokens` counts reasoning tokens, so the number is not comparable with a non-reasoning model's visible-token rate. Also the one model whose child overrides OLLAMA_NUM_PARALLEL: total_slots reads 1 on srv1 where every other model reads 2.",
+tools/bench/serving/configs/d7-campaign.json:87:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:110:      "_doc": "Provisioned onto srv2 in step 0.2 by `ollama pull` and verified byte-identical to srv1's copy \u2014 the digests match, so the mutable-tag risk this pin exists for did not fire.",
+tools/bench/serving/configs/d7-campaign.json:111:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:135:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:157:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:179:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:201:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:227:        "_doc": "E13: the ladder stops at 12 for the two deep-spill models. ollama on srv2 reports total_slots = 1 for every model, so levels 16 and 24 are pure queueing and the saturation point is found well below them - while at these rates each of those two levels alone costs roughly 6-9 minutes per repeat. This also interacts with the BL-4 rule: the curve must be measured to its END or it is refused, so a ladder whose top a model cannot reach would refuse the whole ramp rather than truncate it."
+tools/bench/serving/configs/d7-campaign.json:232:      "_doc": "The deepest spill on the roster at 0.581 \u2014 19.2 GB against a 12 GB card. No floor, same reason as gpt-oss:20b. Do not confuse with the off-roster `qwen3:30b-a3b` (pulled as F16, not Q4) or `qwen3-coder-next-ud:q3_K_XL` (36 GB, swaps, and has a reproducible CUDA fault on this host); both sit next to it in `ollama list`, which is why this is pinned by digest.",
+tools/bench/serving/configs/d7-campaign.json:233:      "backend": "ollama",
+tools/bench/serving/configs/d7-campaign.json:259:        "_doc": "E13: the ladder stops at 12 for the two deep-spill models. ollama on srv2 reports total_slots = 1 for every model, so levels 16 and 24 are pure queueing and the saturation point is found well below them - while at these rates each of those two levels alone costs roughly 6-9 minutes per repeat. This also interacts with the BL-4 rule: the curve must be measured to its END or it is refused, so a ladder whose top a model cannot reach would refuse the whole ramp rather than truncate it."
+tools/bench/serving/configs/d7-campaign.json:265:      "backend": "ollama",
+tools/missions/run.py:84:"srv2 was down" and "the ollama path refused a quality-sensitive request" are
+tools/bench/serving/launch.py:83:        "tools/bench/serving/backends/ollama.py",
+tools/bench/serving/launch.py:88:        "tools/bench/serving/backends/ollama.py",
+tools/bench/serving/launch.py:93:        "tools/bench/serving/backends/ollama.py",
+tools/bench/serving/launch.py:140:        "tools/bench/serving/backends/ollama.py",
+tools/bench/serving/backends/ollama.py:2:"""The ollama backend: how this engine yields the card, takes it, and describes itself.
+tools/bench/serving/backends/ollama.py:94:NAME = "ollama"
+tools/bench/serving/backends/ollama.py:171:        "service_environment": "systemctl show ollama -p Environment",
+tools/bench/serving/backends/ollama.py:172:        "version": "ollama --version 2>/dev/null || true",
+tools/bench/serving/backends/ollama.py:189:    command = "ollama --version 2>/dev/null || true"
+tools/bench/serving/backends/ollama.py:193:        return {"serving_build": f"ollama {match.group(1)}", "refused": None}
+tools/bench/serving/backends/ollama.py:227:    # **E9, 2026-08-19.** ollama runs as `User=ollama` on both rigs, so this
+tools/bench/serving/backends/ollama.py:240:        "sudo -n systemctl restart ollama 2>/dev/null && echo restarted "
+tools/bench/serving/backends/ollama.py:255:    # engine either: ollama spawns the child, chooses its port at load time and
+tools/bench/serving/backends/ollama.py:305:       ollama held nothing, including when another engine held the whole card.
+tools/bench/serving/backends/ollama.py:579:    It went without. Every ollama row in the ramp journal carries
+tools/bench/serving/backends/ollama.py:581:    ``/props`` seventeen times on the same two hosts -- so the ollama arm of a
+tools/bench/serving/backends/ollama.py:630:    ``OLLAMA_NUM_PARALLEL`` where that is configured and from the engine's
+tools/bench/serving/backends/ollama.py:697:    The manifest is the join. ``ollama show --modelfile`` names the blob a tag
+tools/bench/serving/backends/ollama.py:702:        f"ollama show --modelfile {shlex.quote(model)} 2>/dev/null "
+tools/bench/serving/backends/ollama.py:716:    resident at once (``OLLAMA_MAX_LOADED_MODELS=3`` on srv1). Taking the first
+tools/bench/serving/backends/ollama.py:895:    the neighbour *landed*. Measured on srv1 2026-08-22: ollama returns
+tools/bench/serving/backends/ollama.py:899:    ollama cannot report this about itself, and that is why it must be read

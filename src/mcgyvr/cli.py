@@ -383,11 +383,7 @@ def _detect(args: argparse.Namespace) -> int:
                 print(f"  {host}:")
             for backend in (b for b in found.backends if b.host == host):
                 indent = "    " if hosts else "  "
-                protocol = (
-                    f"asked={backend.api} bind={backend.binds_as}"
-                    if backend.bound_on_another_protocol
-                    else f"api={backend.api}"
-                )
+                protocol = f"api={backend.api}"
                 print(f"{indent}{backend.name:<20} {backend.base_url:<30} {protocol}")
                 if backend.models:
                     for model in backend.models:
@@ -1877,8 +1873,10 @@ def _emit(args: argparse.Namespace) -> int:
     # One llama-server or vLLM process serves one model, so two units sharing a
     # source share a port and the second one loses the race to bind it. The
     # emitted file would look right and fail on the rig, which is the failure
-    # this whole module exists to avoid. Ollama is exempt: it swaps models
-    # behind one endpoint by design.
+    # this whole module exists to avoid. There is no exemption: every backend
+    # this build serves is one process per model. (The one that was not is in
+    # ``archive/forensic-ollama/``, together with the reason its exemption
+    # never fired — it tested the dispatch protocol, which never held its name.)
     endpoints: dict[str, list[str]] = {}
     for unit in units:
         for rung in unit.rungs:
@@ -1886,8 +1884,6 @@ def _emit(args: argparse.Namespace) -> int:
             if tier is None:
                 continue
             source = config.sources[tier.source]
-            if source.api == "ollama":
-                continue
             endpoints.setdefault(source.base_url, [])
             if unit.key.slug not in endpoints[source.base_url]:
                 endpoints[source.base_url].append(unit.key.slug)
@@ -2011,7 +2007,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     a machine already in it.
 
     Without this, ``emit`` refuses the machine it is running on. The stock
-    config says ``base_url: http://localhost:11434``, ``mcgyvr scan`` files the
+    config says ``base_url: http://localhost:8080``, ``mcgyvr scan`` files the
     record under ``platform.node()``, and the two never agree — so the most
     ordinary setup there is, one rig serving itself, reports "localhost has
     never been scanned" the instant after it was scanned.

@@ -106,19 +106,27 @@ def test_a_round_still_holds_exactly_one_revision(tmp_path: Path) -> None:
     Opening a round automatically is a convenience about *who types it*. It is
     not permission for a round to span two revisions, which is the property the
     whole pin exists for.
+
+    Asserted on the round this call opened, not across the whole file. A sweep
+    of every round ever recorded would forbid a legitimate revert — returning
+    the tree to an earlier revision pins that digest again, correctly — and
+    would start failing for reasons that have nothing to do with `ensure_open`.
     """
     product = _product()
     repo = Path(product.REPO)
     path = _rounds_file(tmp_path, digest="0" * 64)
+    before = len(json.loads(path.read_text(encoding="utf-8"))["rounds"])
 
     ensure = required(
         "open the next round when the tree has moved, instead of refusing the run",
         lambda: product.ensure_open,
     )
-    ensure(repo, path)
+    round_id, digest = ensure(repo, path)
     rounds = json.loads(path.read_text(encoding="utf-8"))["rounds"]
-    pins = [r["product_sha256"] for r in rounds]
-    assert len(pins) == len(set(pins)), (
-        "two rounds pinning one digest, or one round pinning two, is the "
-        "confusion the pin exists to prevent"
+
+    assert len(rounds) == before + 1, "one boundary, not several"
+    opened = rounds[-1]
+    assert opened["id"] == round_id
+    assert opened["product_sha256"] == digest == product.digest(repo), (
+        "the round this call opened pins exactly the revision it opened for"
     )

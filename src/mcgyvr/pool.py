@@ -103,12 +103,14 @@ class Protocol(StrEnum):
 
     ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
     llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
-    a new backend is therefore a config entry naming one of these, not a new
-    integration — which is why this enum has two members and is expected to keep
-    having two.
+    a new backend is therefore a config entry naming it, not a new integration —
+    which is why this enum has one member and is expected to keep having one.
+
+    It had two. The second was removed on 2026-09-06 with the backend it served
+    (see ``archive/forensic-ollama/``); a protocol nothing serves is a branch
+    through every dispatch decision that no test of the live ladder reaches.
     """
 
-    OLLAMA = "ollama"
     OPENAI = "openai"
 
 

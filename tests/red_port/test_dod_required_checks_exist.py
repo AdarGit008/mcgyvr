@@ -32,6 +32,12 @@ WORKFLOWS = REPO / ".github" / "workflows"
 #: ``  test:`` at two-space indent under ``jobs:`` — how a job is declared.
 JOB = re.compile(r"^  ([A-Za-z0-9_-]+):", re.MULTILINE)
 
+#: ``    name: Full CI`` — the label GitHub actually reports as the check's
+#: context when a job sets one. A required context is matched against this,
+#: not against the job id, so a workflow can define ``test:`` with a ``name:``
+#: and still never report the context the ruleset waits for.
+JOB_NAME = re.compile(r"^    name:\s*(.+?)\s*$", re.MULTILINE)
+
 
 def _required_contexts() -> set[str]:
     found: set[str] = set()
@@ -46,20 +52,27 @@ def _required_contexts() -> set[str]:
     return found
 
 
-def _defined_jobs() -> set[str]:
-    jobs: set[str] = set()
+def _reported_contexts() -> set[str]:
+    """What the workflows would actually report, ids and declared names alike.
+
+    Both are collected because a required context matches whichever the job
+    ends up publishing; requiring only the id would call a workflow sound that
+    reports something else entirely.
+    """
+    contexts: set[str] = set()
     for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
         text = workflow.read_text(encoding="utf-8")
         after = text.partition("\njobs:\n")[2]
-        jobs.update(JOB.findall(after))
-    return jobs
+        contexts.update(JOB.findall(after))
+        contexts.update(name.strip("\"'") for name in JOB_NAME.findall(after))
+    return contexts
 
 
 def test_every_required_check_has_a_job_that_reports_it() -> None:
     """The subset that must hold for a required check to be a check at all."""
     required = _required_contexts()
     assert required, "a ruleset that requires nothing is not the file we mean"
-    defined = _defined_jobs()
+    defined = _reported_contexts()
     missing = sorted(required - defined)
     assert not missing, (
         f"{', '.join(missing)} is required before merge and no workflow job "
@@ -83,7 +96,7 @@ def test_the_prose_does_not_name_a_job_that_is_gone() -> None:
         for number, line in enumerate(
             path.read_text(encoding="utf-8").splitlines(), start=1
         ):
-            if "baseline" in line and "baseline" not in _defined_jobs():
+            if "baseline" in line and "baseline" not in _reported_contexts():
                 stale.append(f"{path.relative_to(REPO)}:{number}: {line.strip()}")
     assert not stale, (
         "prose still explains itself against a deleted job:\n" + "\n".join(stale)

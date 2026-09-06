@@ -7,74 +7,140 @@ included".
 
 It is not. ``_release_claim`` runs in the ``finally`` of the always-block, and a
 gate or data script that refuses returns out of ``main`` before that block is
-reached — three entries (``data-10-scan``, ``data-20-geometry``,
+reached — and three entries (``data-10-scan``, ``data-20-geometry``,
 ``data-30-placement``) run *after* gate 5 and can each refuse. The claim survives
 the process, and the next run of that step on that day is refused for a run that
 is not running. The operator's only move is to delete a dotfile by hand, which is
 exactly the state the claim was invented to make impossible to be in by accident.
 
-What must be observably true: after the door stops on a refusal, the out
-directory holds no claim on that RUN_ID. Which exit path stopped it is not the
-point — a claim outliving its process is the defect, whatever ended the process.
+**Driven through ``main``, not through a helper.** The finding is that an exit
+path skips the release; a test calling a new ``release_and_stop`` directly would
+be satisfied by adding one that the refusing path still does not reach. So the
+door is run with a real sequence, a real claim taken by gate 5, and a later entry
+that refuses — and the assertion is on what is left on disk afterwards.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
-from typing import Any
 
-from tests.red_port.conftest import required
+import pytest
 
+from mcgyvr.serving import run
+from tests.onedoor import executable
 
-def _door() -> Any:
-    import importlib
-
-    return importlib.import_module("mcgyvr.serving.run")
+RUN_ID = "2026-09-06-claim-probe"
 
 
-def _claimed(out_dir: Path, run_id: str) -> Path:
-    """The claim gate 5 would have taken, as it takes it."""
+def _gates(where: Path, out_dir: Path, refuse_at: str) -> Path:
+    """A full sequence whose ``refuse_at`` entry exits non-zero after gate 5.
+
+    Every other entry succeeds and exports what ``SEQUENCE`` declares it does,
+    so the run reaches the refusal the way a live run would: with a RUN_ID
+    minted, claimed, and in the environment.
+    """
+    where.mkdir(parents=True)
+    shutil.copytree(Path(run.BIN), where / "bin")
+    values = {"RUN_ID": RUN_ID, "RUN_OUT_DIR": str(out_dir)}
+    for entry in (*run.SEQUENCE, *run.ALWAYS):
+        lines = [
+            "#!/usr/bin/env python3",
+            "import os, sys",
+            "from pathlib import Path",
+        ]
+        if entry.exports:
+            lines.append("fd = int(os.environ['RUN_EXPORT_FD'])")
+            for key in entry.exports:
+                lines.append(
+                    f"os.write(fd, {f'{key}={values.get(key, "x")}\n'!r}.encode())"
+                )
+        if entry.script == "05-envelope.py":
+            # Gate 5's actual job, done the way gate 5 does it.
+            lines += [
+                "from mcgyvr.serving import gatelib",
+                f"Path({str(out_dir)!r}).mkdir(parents=True, exist_ok=True)",
+                f"gatelib.claim(Path({str(out_dir)!r}), {RUN_ID!r})",
+            ]
+        if entry.script == refuse_at:
+            lines.append("sys.exit(1)")
+        lines.append("sys.exit(0)")
+        executable(where / entry.script, "\n".join(lines) + "\n")
+    return where
+
+
+def _claim(out_dir: Path) -> Path:
     from mcgyvr.serving import gatelib
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    return gatelib.claim(out_dir, run_id)
+    return gatelib.claim_path(out_dir, RUN_ID)
 
 
-def test_a_refusal_after_gate_five_releases_the_claim(tmp_path: Path) -> None:
-    """The measured case: a data script refuses, and the claim must not survive."""
-    run_id = "r9-doorclaim-srv1"
-    out_dir = tmp_path / "out"
-    claim = _claimed(out_dir, run_id)
-    assert claim.exists(), "the fixture must start from a claim actually taken"
+def test_a_data_script_that_refuses_leaves_no_claim_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The measured case: an entry after gate 5 refuses, and the claim must go."""
+    out_dir = tmp_path / "envelope"
+    gates = _gates(tmp_path / "gate-scripts", out_dir, refuse_at="data-10-scan.py")
+    monkeypatch.setattr(run, "GATE_SCRIPTS", gates)
+    monkeypatch.setattr(run, "BIN", gates / "bin")
 
-    stop = required(
-        "release the RUN_ID claim when a gate or data script refuses, not only "
-        "when the run reaches its end",
-        lambda: _door().stop_and_release,
+    step = tmp_path / "step.sh"
+    executable(step, "#!/usr/bin/env bash\nexit 0\n")
+    status = run.main(
+        [
+            "--host",
+            "srv1",
+            "--campaign",
+            "claim-probe",
+            "--model",
+            "/models/x.gguf",
+            "--step",
+            str(step),
+            "--date",
+            "2026-09-06",
+        ]
     )
-    env = {"RUN_OUT_DIR": str(out_dir), "RUN_ID": run_id}
-    status = stop(env, 1)
 
-    assert not claim.exists(), (
-        f"{claim.name} outlived the run that took it; the next run of this step "
-        "today is refused for a run that is not running"
+    assert status != 0, "the fixture must actually refuse"
+    assert not _claim(out_dir).exists(), (
+        f"{_claim(out_dir).name} outlived the run that took it; the next run "
+        "of this step today is refused for a run that is not running"
     )
-    assert status != 0, "a refusal still reports a refusal"
 
 
-def test_a_run_that_took_no_claim_releases_nothing(tmp_path: Path) -> None:
-    """Refusing before gate 5 is the common case and must stay silent.
+def test_a_run_that_reaches_the_end_still_releases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The direction that must not break.
 
-    Gates 1 to 4 run before a RUN_ID exists. Releasing a claim nobody holds must
-    not raise, and must not invent a file.
+    The release already works on the path through the always-block. A fix that
+    moved it somewhere only the refusal reaches would trade one leak for
+    another, so both endings are stated.
     """
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
+    import pytest
 
-    stop = required(
-        "release the RUN_ID claim when a gate or data script refuses, not only "
-        "when the run reaches its end",
-        lambda: _door().stop_and_release,
-    )
-    stop({}, 2)
-    assert list(out_dir.iterdir()) == [], "no claim was taken, so none is written"
+    monkeypatch = pytest.MonkeyPatch()
+    out_dir = tmp_path / "envelope"
+    gates = _gates(tmp_path / "gate-scripts", out_dir, refuse_at="")
+    monkeypatch.setattr(run, "GATE_SCRIPTS", gates)
+    monkeypatch.setattr(run, "BIN", gates / "bin")
+    try:
+        step = tmp_path / "step.sh"
+        executable(step, "#!/usr/bin/env bash\nexit 0\n")
+        run.main(
+            [
+                "--host",
+                "srv1",
+                "--campaign",
+                "claim-probe",
+                "--model",
+                "/models/x.gguf",
+                "--step",
+                str(step),
+                "--date",
+                "2026-09-06",
+            ]
+        )
+    finally:
+        monkeypatch.undo()
+    assert not _claim(out_dir).exists(), "a completed run releases its claim"

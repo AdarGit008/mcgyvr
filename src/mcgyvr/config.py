@@ -156,7 +156,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "url",
         "Where the source answers, including scheme and port.",
         required=True,
-        bind_hint="e.g. http://localhost:11434",
+        bind_hint="e.g. http://localhost:8080",
     ),
     Field(
         "api",
@@ -165,7 +165,7 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         "TGI, so adding a backend is a protocol question, not an "
         "integration.",
         required=True,
-        choices=("ollama", "openai"),
+        choices=("openai",),
     ),
     Field(
         "max_parallel",

@@ -31,7 +31,7 @@ from mcgyvr.detect import (
 NVIDIA_SMI = "NVIDIA GeForce RTX 3060, 12288\n"
 NVIDIA_SMI_TWO = "NVIDIA GeForce RTX 3060, 12288\nNVIDIA GeForce GTX 1660 SUPER, 6144\n"
 
-OLLAMA_TAGS = {"models": [{"name": "qwen2.5-coder:7b"}, {"name": "qwen2.5-coder:3b"}]}
+LCP_MODELS = {"data": [{"id": "qwen2.5-coder:7b"}, {"id": "qwen2.5-coder:3b"}]}
 OPENAI_MODELS = {"data": [{"id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"}]}
 
 
@@ -95,11 +95,11 @@ def test_every_reported_fact_has_provenance(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch,
         {"nvidia-smi": NVIDIA_SMI, "docker": "27.1.1\n"},
     )
-    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
+    stub_http(monkeypatch, {"http://localhost:8080/v1/models": LCP_MODELS})
 
     found = detect()
     assert found.provenance["gpu:NVIDIA GeForce RTX 3060"].startswith("nvidia-smi")
-    assert "11434" in found.provenance["backend:ollama"]
+    assert "8080" in found.provenance["backend:llama-server"]
     assert found.provenance["docker"] == "docker info reported server 27.1.1"
     assert found.provenance["cpu_count"] == "os.cpu_count()"
     if found.ram_gb is not None:
@@ -152,11 +152,11 @@ def test_garbage_from_nvidia_smi_does_not_raise(
 # --- backends -------------------------------------------------------------
 
 
-def test_ollama_listing_is_read_in_its_own_protocol(
+def test_a_listing_is_read_in_the_protocol_it_was_asked_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
-    found = probe(ProbeTarget("ollama", "http://localhost:11434", "ollama"))
+    stub_http(monkeypatch, {"http://localhost:8080/v1/models": LCP_MODELS})
+    found = probe(ProbeTarget("llama-server", "http://localhost:8080", "openai"))
     assert found is not None
     assert found.models == ("qwen2.5-coder:7b", "qwen2.5-coder:3b")
     assert found.has_model("qwen2.5-coder:7b")
@@ -233,7 +233,7 @@ def test_models_present_spans_every_reachable_backend(
     stub_http(
         monkeypatch,
         {
-            "http://localhost:11434/api/tags": OLLAMA_TAGS,
+            "http://localhost:8080/v1/models": LCP_MODELS,
             "http://localhost:8000/v1/models": OPENAI_MODELS,
         },
     )
@@ -243,7 +243,7 @@ def test_models_present_spans_every_reachable_backend(
         "qwen2.5-coder:3b",
         "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
     }
-    assert found.backend("ollama") is not None
+    assert found.backend("llama-server") is not None
     assert found.backend("tgi") is None
 
 
@@ -310,7 +310,7 @@ def test_a_named_host_is_swept_on_every_port_convention() -> None:
     targets = targets_for(["srv1"])
     assert len(targets) == len(PORT_CONVENTIONS)
     assert {t.host for t in targets} == {"srv1"}
-    assert "http://srv1:11434" in {t.base_url for t in targets}
+    assert "http://srv1:8080" in {t.base_url for t in targets}
     assert "http://srv1:8000" in {t.base_url for t in targets}
 
 
@@ -322,7 +322,7 @@ def test_a_single_named_host_still_gets_bare_names() -> None:
 
 
 def test_two_hosts_qualify_names_so_sources_cannot_collide() -> None:
-    """Both rigs run ollama on 11434. Unqualified, one would overwrite the other.
+    """Both rigs run llama-server on 8080. Unqualified, one would overwrite the other.
 
     The config maps sources by name, so a collision here is not a cosmetic
     problem: it is one rig silently disappearing from the ladder.
@@ -330,15 +330,15 @@ def test_two_hosts_qualify_names_so_sources_cannot_collide() -> None:
     targets = targets_for(["srv1", "srv2"])
     names = [t.name for t in targets]
     assert len(names) == len(set(names)), "every candidate source is distinctly named"
-    assert "srv1_ollama" in names
-    assert "srv2_ollama" in names
+    assert "srv1_llama-server" in names
+    assert "srv2_llama-server" in names
 
 
 def test_qualifying_a_name_never_changes_what_the_backend_is() -> None:
     """`requires_backend` in the table matches the kind, not the config name.
 
-    A model measured on ollama is measured on ollama whether the source is
-    called `ollama` or `srv2_ollama`. Conflating the two would withhold every
+    A model measured on vLLM is measured on vLLM whether the source is
+    called `vllm` or `srv2_vllm`. Conflating the two would withhold every
     backend-pinned model the moment a second host was named.
     """
     for target in targets_for(["srv1", "srv2"]):
@@ -363,7 +363,7 @@ def test_a_remote_backend_is_not_reported_as_local(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://srv2:11434/api/tags": OLLAMA_TAGS})
+    stub_http(monkeypatch, {"http://srv2:8080/v1/models": LCP_MODELS})
     found = detect(targets_for(["srv2"]))
     assert found.backends
     assert found.has_remote_backend
@@ -381,7 +381,7 @@ def test_a_tunnelled_rig_named_localhost_is_treated_as_local(
     distinction nothing acts on.
     """
     stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
+    stub_http(monkeypatch, {"http://localhost:8080/v1/models": LCP_MODELS})
     found = detect(targets_for(["localhost"]))
     assert not found.has_remote_backend
 
@@ -394,52 +394,23 @@ def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
     found = detect(targets_for(["srv1", "srv2"]))
     joined = " ".join(found.notes)
     assert "--host" in joined
-    assert "http://srv1:11434" in joined, "and says exactly what was tried"
+    assert "http://srv1:8080" in joined, "and says exactly what was tried"
 
 
-# --- asked one way, dispatched another (#164) ----------------------------
+# --- one protocol, asked and dispatched alike ----------------------------
 
 
-def test_ollama_is_asked_natively_and_bound_compatibly() -> None:
-    """The two protocols are used for the thing each is better at.
+def test_every_backend_is_bound_as_it_is_asked() -> None:
+    """Asking and dispatching were once two questions; today they are one.
 
-    `/api/tags` is the only listing that includes models pulled but not
-    loaded, which is the inventory a proposal needs. `/api/generate` is the
-    path CAV-01 measured at 32.3% against a true 84.1%.
+    The backend that made them separate, and the measurement that justified it
+    (#164, CAV-01), are in ``archive/forensic-ollama/``. What must stay true is
+    that nothing quietly reintroduces a split without the fields to describe
+    it: a convention asking on one protocol and dispatching on another would
+    need somewhere to say so, and there is nowhere.
     """
-    ollama = next(t for t in targets_for() if t.kind == "ollama")
-    assert ollama.api == "ollama", "detection still asks natively"
-    assert ollama.binds_as == "openai", "dispatch does not"
-
-
-def test_every_other_backend_is_bound_as_it_is_asked() -> None:
-    """Only Ollama has two doors. A split everywhere would be noise."""
     for target in targets_for():
-        if target.kind == "ollama":
-            continue
-        assert target.binds_as == target.api
-
-
-def test_a_probed_ollama_reports_both_protocols(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
-    found = detect()
-    backend = found.backend("ollama")
-    assert backend is not None
-    assert backend.models, "the native listing is what enumerates pulled models"
-    assert backend.bound_on_another_protocol
-    assert backend.binds_as == "openai"
-
-
-def test_a_backend_bound_as_it_answered_is_not_flagged(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The flag exists to explain a surprise; firing always would explain nothing."""
-    stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://localhost:8000/v1/models": OPENAI_MODELS})
-    found = detect()
-    backend = found.backend("vllm")
-    assert backend is not None
-    assert not backend.bound_on_another_protocol
+        assert target.api == "openai", (
+            f"{target.kind} is asked on {target.api!r}; this build speaks one "
+            "wire protocol and carries no field to say it dispatches elsewhere"
+        )

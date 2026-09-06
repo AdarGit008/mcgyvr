@@ -91,7 +91,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         f"with no source or no rung dispatches nowhere.\n\n"
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these, then re-run:\n"
-        f"  - start a local backend (ollama, llama-server, vLLM, LM Studio, "
+        f"  - start a local backend (llama-server, vLLM, LM Studio, "
         f"TGI) and re-run, or\n"
         f"  - name the rig that serves your models, if it is not this one\n"
         f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
@@ -248,11 +248,10 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     sources = {
         backend.name: {
             "base_url": backend.base_url,
-            # How work will be DISPATCHED, which is not always how the backend
-            # was ASKED what it holds. For Ollama they differ on purpose: the
-            # native path enumerates pulled models but is the one CAV-01
-            # measured at 32.3% against a true 84.1% (#164).
-            "api": backend.binds_as,
+            # The wire protocol, asked and dispatched alike. They were once
+            # separate questions; see ``archive/forensic-ollama/`` for the
+            # backend that made them so and the measurement behind it (#164).
+            "api": backend.api,
             "max_parallel": 1,
         }
         for backend in detection.backends
@@ -289,7 +288,7 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
 def _sources_for(detection: Detection) -> list[AvailableSource]:
     """Detected backends as proposal inputs.
 
-    ``backend`` is the kind of server (``ollama``, ``vllm``) and drives the
+    ``backend`` is the kind of server (``vllm``, ``llama-server``) and drives the
     table's ``requires_backend`` check; ``name`` is what the source will be
     called in the config, which for a multi-host sweep is qualified with the
     machine. They are the same string on a single-host sweep and must not be
@@ -323,19 +322,8 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
             f"Source '{backend.name}' {where} at {backend.base_url} speaking "
-            f"{backend.binds_as}; {len(backend.models)} model(s) already pulled."
+            f"{backend.api}; {len(backend.models)} model(s) already pulled."
         )
-        if backend.bound_on_another_protocol:
-            decisions.append(
-                f"  '{backend.name}' answered as {backend.api} but is bound as "
-                f"{backend.binds_as}: the same port serves both, with the same "
-                f"model ids. CAV-01 measured the native path scoring "
-                f"qwen2.5-coder:7b at 32.3% against a true 84.1%, so work "
-                f"dispatched on it carries a quality caveat and cannot serve a "
-                f"measurement at all. Detection still asks natively, because "
-                f"that is the only listing that includes models pulled but not "
-                f"loaded."
-            )
     for rung in proposal.rungs:
         presence = (
             "already pulled"

@@ -60,10 +60,10 @@ question — llama.cpp states its slot count on ``GET /slots`` and
 * A reported width **larger** than the declared one wins. The declaration was a
   guess and the report is a fact, and the fact is the whole return on asking.
 * A reported ``None`` is an ordinary answer — "this backend does not say" — and
-  not an error, nor the same as a source being down. ollama serves its
-  parallelism from ``OLLAMA_NUM_PARALLEL`` in a unit file and exposes no
-  endpoint for it; at ``0`` it decides per model at load time against free VRAM,
-  so the width is not even a per-machine constant. The declaration stands, and
+  not an error, nor the same as a source being down. A backend may take its
+  parallelism from a unit file and expose no endpoint for it, or decide it per
+  model at load time against free VRAM — in which case the width is not even a
+  per-machine constant. The declaration stands, and
   :meth:`Capacity.confirmed` reports that it was never confirmed — because a
   number a rig stated and a number an operator typed must not look alike to
   anyone reading a report when only one of the two is evidence.
@@ -613,8 +613,8 @@ class Capacity:
 
         Without a probe every width is the declared one and nothing is
         confirmed — the behaviour this had before there was anything to ask, and
-        still the ordinary case, since ollama does not report its parallelism at
-        all. With one, the module docstring's three rules apply: a larger report
+        still the ordinary case for a backend that does not report its
+        parallelism. With one, the module docstring's three rules apply: a larger report
         wins, ``None`` leaves the declaration standing and unconfirmed, and a
         smaller report raises rather than silently lowering the bound.
 

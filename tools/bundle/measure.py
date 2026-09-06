@@ -626,7 +626,7 @@ def resolve_worker(explicit: dict[str, str | None], defaults: dict[str, str]) ->
             "without a worker."
         )
 
-    protocol_name = chosen["protocol"] or Protocol.OLLAMA.value
+    protocol_name = chosen["protocol"] or Protocol.OPENAI.value
     try:
         protocol = Protocol(protocol_name)
     except ValueError:
@@ -1126,7 +1126,7 @@ def main() -> int:
         "--protocol",
         choices=[p.value for p in Protocol],
         default=None,
-        help=f"wire protocol the endpoint speaks (default: {Protocol.OLLAMA.value})",
+        help=f"wire protocol the endpoint speaks (default: {Protocol.OPENAI.value})",
     )
     parser.add_argument(
         "--api-key-env",

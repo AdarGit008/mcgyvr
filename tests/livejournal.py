@@ -41,7 +41,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -148,7 +148,7 @@ def scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
             raw_stop_reason="stop",
             model="qwen2.5-coder:7b",
             source="workstation",
-            protocol=Protocol.OLLAMA,
+            protocol=Protocol.OPENAI,
             max_output_tokens=request.max_output_tokens,
             latency_s=0.0,
         )

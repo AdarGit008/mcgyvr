@@ -102,6 +102,48 @@ def test_the_law_still_refuses_an_offload_that_does_not_fit() -> None:
     )
 
 
+def test_the_guard_sits_at_the_edge_rather_than_two_gigabytes_past_it() -> None:
+    """The refusal that deleting the allowance would admit.
+
+    The case above overflows by ~2.1 GiB, so it refuses whether the allowance is
+    768 MiB or zero — which means the two tests together are satisfied by
+    deleting the allowance outright, the trivial "fix" this file exists to
+    prevent. This case sits inside that band: the raw prediction fits the card,
+    and it must still be refused because a server needs room to work in beyond
+    the weights it holds.
+    """
+    fits = _judge()
+    # Free memory chosen so the measured placement's own prediction fits with
+    # less than the allowance to spare: accepting here means the allowance is
+    # gone, not that the law was loosened.
+    edge = (SRV1_RUNNING_MIB + 200) * MIB
+    assert not fits(
+        _geometry(),
+        n_cpu_moe=SRV1_RUNNING_NCMOE,
+        slots=SRV1_SLOTS,
+        free_bytes=edge,
+    ), (
+        f"a placement predicted at {SRV1_RUNNING_MIB} MiB with only 200 MiB "
+        "spare must refuse; a server needs working room past its weights"
+    )
+
+
+def test_the_law_reads_the_free_memory_it_is_given() -> None:
+    """The card is an input, not a constant.
+
+    Without this, a law of the form ``n_cpu_moe >= 32`` satisfies both
+    directions above: the two cases differ only in the offload, at one fixed
+    ``free_bytes``. Halving the card must change the answer.
+    """
+    fits = _judge()
+    assert not fits(
+        _geometry(),
+        n_cpu_moe=SRV1_RUNNING_NCMOE,
+        slots=SRV1_SLOTS,
+        free_bytes=(SRV1_USABLE_MIB // 2) * MIB,
+    ), "the same offload on half the card must refuse"
+
+
 def test_the_prediction_is_readable_apart_from_the_allowance() -> None:
     """A person checking the arithmetic against ``nvidia-smi`` needs both numbers.
 
@@ -116,7 +158,12 @@ def test_the_prediction_is_readable_apart_from_the_allowance() -> None:
         lambda: __import__("mcgyvr.serving.vramfit", fromlist=["explain"]).explain,
     )
     told = report(_geometry(), n_cpu_moe=SRV1_RUNNING_NCMOE, slots=SRV1_SLOTS)
-    assert told.allowance_mib == vramfit.SCRATCH_AND_CONTEXT_MIB
+    # A positive allowance reported as its own number. Compared against the
+    # module constant only as a sanity check on the reading, not as the
+    # requirement: `allowance_mib = SCRATCH_AND_CONTEXT_MIB` would otherwise be
+    # satisfied by assignment, and a port is free to derive the allowance
+    # differently as long as a reader can see it apart from the prediction.
+    assert told.allowance_mib > 0
     assert (
         abs(told.predicted_mib - SRV1_RUNNING_MIB) < vramfit.SCRATCH_AND_CONTEXT_MIB
     ), (

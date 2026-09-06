@@ -94,7 +94,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
   spare:
     base_url: http://192.168.1.20:8000
@@ -123,7 +123,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:
@@ -896,7 +896,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 1
   spare:
     base_url: http://192.168.1.20:8000
@@ -1485,7 +1485,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 1
   spare:
     base_url: http://192.168.1.20:8000

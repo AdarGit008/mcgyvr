@@ -56,7 +56,7 @@ version: 1
 sources:
   workstation:
     base_url: http://localhost:11434
-    api: ollama
+    api: openai
     max_parallel: 2
 ladder:
   tiers:

@@ -9,7 +9,7 @@ a source that is declared, credentialled and simply **down**.
 and a wire protocol, so the same code reaches both — but reading the results
 without keeping them apart is how a classification here goes wrong:
 
-* A **local backend** is a server on hardware the user controls — Ollama,
+* A **local backend** is a server on hardware the user controls —
   llama-server, vLLM, LM Studio, TGI. Typically keyless, on ``localhost`` or a
   LAN address. Its characteristic failures are *the process is not running*
   (connection refused, which returns instantly) and *the machine is off or
@@ -125,7 +125,6 @@ PROBE_TIMEOUT_S = 2.0
 # because a connect proves a socket is open, not that an HTTP server is behind
 # it.
 _LIST_PATH: dict[Protocol, str] = {
-    Protocol.OLLAMA: "/api/tags",
     Protocol.OPENAI: "/v1/models",
 }
 
