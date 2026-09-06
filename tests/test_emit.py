@@ -42,6 +42,12 @@ MOE = ModelSpec(
 SMALL = ModelSpec(name="qwen2.5-coder-3b", vram_gb=2.4, ram_gb=0.0, disk_gb=2.1)
 
 
+#: The window these tests were written against, stated because nothing supplies
+#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
+#: the window is what the run declares, so a test is a run and declares its own.
+WINDOW = 4096
+
+
 def machine(host: str, *, vram_mib: int, ram_gb: float, threads: int) -> Scan:
     return Scan.of(
         host=host,
@@ -59,8 +65,12 @@ def units() -> dict[str, Unit]:
     one = machine("desktop-1", vram_mib=6144, ram_gb=48.0, threads=10)
     two = machine("desktop-2", vram_mib=12288, ram_gb=16.0, threads=20)
     return {
-        "desktop-1": unit_for(one, MOE, engine="llama.cpp", width=8),
-        "desktop-2": unit_for(two, SMALL, engine="llama.cpp", width=16),
+        "desktop-1": unit_for(
+            one, MOE, engine="llama.cpp", width=8, ctx_per_slot=WINDOW
+        ),
+        "desktop-2": unit_for(
+            two, SMALL, engine="llama.cpp", width=16, ctx_per_slot=WINDOW
+        ),
     }
 
 
@@ -249,8 +259,12 @@ def test_one_model_on_two_ports_yields_two_services() -> None:
     the model alone throws that away again, and the second rung dies.
     """
     rig = machine("desktop-4", vram_mib=49152, ram_gb=128.0, threads=20)
-    fast = unit_for(rig, SMALL, engine="llama.cpp", width=16, port=8080)
-    careful = unit_for(rig, SMALL, engine="llama.cpp", width=2, port=8081)
+    fast = unit_for(
+        rig, SMALL, engine="llama.cpp", width=16, port=8080, ctx_per_slot=WINDOW
+    )
+    careful = unit_for(
+        rig, SMALL, engine="llama.cpp", width=2, port=8081, ctx_per_slot=WINDOW
+    )
     written = emit_all((fast, careful), root=Path(tempfile.mkdtemp()))
     document = yaml.safe_load(written[0].read_text(encoding="utf-8"))
     assert len(document["services"]) == 2

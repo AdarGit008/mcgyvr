@@ -79,9 +79,18 @@ def _emitted(window: int | None) -> Any:
 
 
 def _scans() -> dict[str, Any]:
+    """A machine roomy enough that only the window is in question.
+
+    Built through :meth:`Scan.of`, the constructor this codebase offers for
+    "callers that need a machine to reason about". An earlier draft used
+    ``Scan.__new__(Scan)``, which has neither a ``machine`` nor a card: no unit
+    can be built on it whatever window is declared, so the assertions below
+    could never be reached. The figures are deliberately generous — a refusal
+    for want of VRAM would be this test failing for the wrong reason.
+    """
     from mcgyvr.scan import Scan
 
-    return {"rig": Scan.__new__(Scan)}
+    return {"rig": Scan.of(host="rig", vram_mib=12288, ram_gb=64.0, disk_free_gb=200.0)}
 
 
 def test_the_window_the_run_declares_is_the_window_emit_writes() -> None:

@@ -56,11 +56,29 @@ from mcgyvr.serving import vramfit
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 
-# Context PER SLOT. llama-server's ``-c`` is the total across slots (measured
-# 2026-09-05: ``-c 8192`` allocates the same cache at ``-np 8``, ``-np 4`` and
-# ``-np 1``), so the argv states this times the slot count and the cache law
-# is fed the same product. One number, two readers, no drift.
-DEFAULT_CONTEXT = 4096
+# There is no module-level context number, and its absence is the design.
+#
+# One stood here — ``DEFAULT_CONTEXT = 4096`` — and claimed "one number, two
+# readers, no drift". There was a third reader and it disagreed: the door's
+# ``--ctx-per-slot`` defaulted to 2048, so an ``--n-cpu-moe`` floor derived
+# through ``mcgyvr.serving.run`` was computed against half the cache the
+# compose file it was derived for actually launches with. The same class of
+# error as ``VLLM_MAX_MODEL_LEN`` of 8192 against a llama.cpp rung serving
+# 4096, which the first live day found.
+#
+# Owner's ruling, 2026-09-06: the window is what the run says, and it is not a
+# constant. Making two literals agree would only make them agree until someone
+# edits one. A default in a module is a number nobody chose for a rig nobody
+# measured, so ``ctx_per_slot`` is threaded from the run's own declaration
+# through every reader that prices a cache against it -- :func:`units_for`,
+# :func:`unit_for`, :func:`fit`, :func:`_placement` -- and a run that declared
+# none is refused rather than sized against somebody's module.
+#
+# llama-server's ``-c`` is the total across slots (measured 2026-09-05:
+# ``-c 8192`` allocates the same cache at ``-np 8``, ``-np 4`` and ``-np 1``),
+# so the argv states the declaration times the slot count and the cache law is
+# fed the same product -- through :func:`kv_bytes_for_run`, which is the one
+# place that multiplication happens.
 
 # The micro-batch the cache law is sized at, and what the argv states as
 # ``-ub`` and ``-b``. A sliding-window cache grows with it, so it has to be the
@@ -88,14 +106,14 @@ RUNTIME_RESIDENT_GB = 1.53
 # a 12 GB card). Past it this arithmetic would be extrapolating.
 MAX_WIDTH = 32
 # vLLM sizes its own cache from ``--gpu-memory-utilization`` and prices a
-# request against ``--max-model-len``, so these two are what a vLLM unit
-# states and the cache law is not consulted. The number is
-# :data:`DEFAULT_CONTEXT` and not a second opinion about window size: a rung
-# is a rung whichever engine serves it, and a ladder whose bottom prices a
-# request at twice what its top can hold would escalate work into a window it
-# no longer fits. The utilisation itself is the operator's, in ``serve_args``:
-# #337 measures it per rig and never inherits.
-VLLM_MAX_MODEL_LEN = DEFAULT_CONTEXT
+# request against ``--max-model-len``, so that ceiling is what a vLLM unit
+# states and the cache law is not consulted. It is the run's ``ctx_per_slot``
+# and not a second opinion about window size: a rung is a rung whichever
+# engine serves it, and a ladder whose bottom prices a request at twice what
+# its top can hold would escalate work into a window it no longer fits --
+# which is what an 8192 here against llama.cpp rungs serving 4096 did. The
+# utilisation itself is the operator's, in ``serve_args``: #337 measures it
+# per rig and never inherits.
 # The sequence cap a vLLM unit gets when no rung wrote a width. A scheduler
 # cap, not an allocation — the engine's cache decides how many actually run
 # — so unlike a llama.cpp slot it costs nothing to state, and 8 is what every
@@ -311,7 +329,9 @@ class Unit:
         return self.weights.parent
 
 
-def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
+def fit(
+    scan: Scan, spec: ModelSpec, *, width: int | None = None, ctx_per_slot: int
+) -> Fit:
     """Whether ``scan``'s machine can hold ``spec``, measured not declared.
 
     Four refusals, checked in the order that makes the message useful. A spec
@@ -332,6 +352,12 @@ def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
     a number here that the emitted argv does not honour is how a fit says yes
     to an offload the machine cannot hold, which is a compose file that passes
     review and swaps the host.
+
+    ``ctx_per_slot`` is the window the run declared, and it has no default
+    here for the reason stated at the top of this module: the cache is priced
+    against it, so a fit checked at one window and an argv emitted at another
+    is a fit for another process — the same defect ``width`` is required to
+    avoid, one field over.
 
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
@@ -355,7 +381,7 @@ def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
         )
 
     try:
-        placed = _placement(spec, free_bytes, width)
+        placed = _placement(spec, free_bytes, width, ctx_per_slot=ctx_per_slot)
     except UnitError as exc:
         return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
     if placed.ram_gb > available_ram:
@@ -383,7 +409,7 @@ def fit(scan: Scan, spec: ModelSpec, *, width: int | None = None) -> Fit:
         held = f"{DEFAULT_HEADROOM_GB:.1f} GB headroom held back"
     else:
         held = (
-            f"{placed.width} slot(s) at {DEFAULT_CONTEXT} context each, "
+            f"{placed.width} slot(s) at {ctx_per_slot} context each, "
             f"{placed.headroom_gb:.2f} GB of it scratch allowance"
         )
     spilled = (
@@ -409,6 +435,7 @@ def unit_for(
     engine: str = DEFAULT_ENGINE,
     width: int | None = None,
     port: int = DEFAULT_PORT,
+    ctx_per_slot: int,
 ) -> Unit:
     """The one process that would serve ``spec`` on the machine ``scan`` measured.
 
@@ -420,6 +447,11 @@ def unit_for(
     not know that — only a ladder does — so a unit built from those two alone
     takes :data:`DEFAULT_PORT`, which is the number the engine would have
     chosen anyway. :func:`units_for` is where the config's answer arrives.
+
+    ``ctx_per_slot`` is the window the run declared. It reaches the rig from
+    here two ways and only two — ``-c`` times the slot count on llama.cpp,
+    ``--max-model-len`` on vLLM — and the same number priced the cache the fit
+    approved, which is what makes the launch and the law one number.
     """
     if engine == "vllm" and not spec.hf_cache:
         raise UnitError(
@@ -427,7 +459,7 @@ def unit_for(
             f"rig's HuggingFace cache, and nothing says where that cache is — "
             f"set models.{spec.name}.hf_cache to its absolute path on the rig"
         )
-    sized = fit(scan, spec, width=width)
+    sized = fit(scan, spec, width=width, ctx_per_slot=ctx_per_slot)
     if not sized.fits:
         raise UnitError(f"{scan.machine.host}: {sized.why}")
 
@@ -451,7 +483,7 @@ def unit_for(
             width=seqs,
             args={
                 "--max-num-seqs": str(seqs.value),
-                "--max-model-len": str(VLLM_MAX_MODEL_LEN),
+                "--max-model-len": str(ctx_per_slot),
             },
             fit=sized,
             port=port,
@@ -461,7 +493,7 @@ def unit_for(
     # The same derivation :func:`fit` just approved, not a second one that
     # agrees today: an argv whose offload differs from the one the fit checked
     # is a unit that was never sized for this machine.
-    placed = _placement(spec, gpu.vram.free_mib << 20, width)
+    placed = _placement(spec, gpu.vram.free_mib << 20, width, ctx_per_slot=ctx_per_slot)
     if width is not None:
         chosen = Width(value=width, how="written")
     elif spec.geometry is not None:
@@ -479,7 +511,7 @@ def unit_for(
     args: dict[str, str] = {
         "--model": str(weights),
         "-ngl": "99",
-        "-c": str(DEFAULT_CONTEXT * chosen.value),
+        "-c": str(ctx_per_slot * chosen.value),
         "-ub": str(DEFAULT_UBATCH),
         "-b": str(DEFAULT_UBATCH),
         "-fa": "on",
@@ -514,6 +546,7 @@ def units_for(
     scans: Mapping[str, Scan],
     *,
     specs: Iterable[ModelSpec],
+    ctx_per_slot: int | None,
 ) -> tuple[Unit, ...]:
     """The processes a ladder implies: one per port on one host, not one per rung.
 
@@ -539,7 +572,28 @@ def units_for(
     the second rung is told to knock, and because the two URLs differ the
     caller's port-contention check has nothing to complain about either. That
     rung is dead in a ladder that reads as fine.
+
+    ``ctx_per_slot`` is the window this run is bringing the ladder up with,
+    and ``None`` is refused rather than defaulted. This is the entry every
+    reader below derives from, so a default here would be the one place a
+    number nobody chose could reach a rig nobody measured — and the half a
+    default hides is the run that forgot to say, sized silently and told
+    nothing.
     """
+    if ctx_per_slot is None:
+        raise UnitError(
+            "no context window was declared for this run, so nothing can be "
+            "sized: the cache, the `-c` on the argv and the `--n-cpu-moe` "
+            "floor are all priced against it, and a window this module chose "
+            "would be a number nobody measured. Declare it — read it back off "
+            "the running unit (`max_model_len` on vLLM, `n_ctx` on llama.cpp) "
+            "and state what it said"
+        )
+    if ctx_per_slot < 1:
+        raise UnitError(
+            f"the declared context window is {ctx_per_slot}, which is not a "
+            f"window: a slot serves at least one token"
+        )
     # The config wins over the table, and the precedence lives here rather than
     # in the caller so that every caller gets it: measured where mcgyvr can
     # measure, stated where it cannot, refused only when neither has an answer.
@@ -603,6 +657,7 @@ def units_for(
                     engine=key.engine,
                     width=widths.get(key),
                     port=key.port,
+                    ctx_per_slot=ctx_per_slot,
                 ),
                 tuple(rungs),
             ),
@@ -876,7 +931,7 @@ def _placement(
     free_bytes: int,
     width: int | None = None,
     *,
-    ctx_per_slot: int = DEFAULT_CONTEXT,
+    ctx_per_slot: int,
     n_ubatch: int = DEFAULT_UBATCH,
 ) -> _Placement:
     """How this card splits this model, and how wide it can be served.
@@ -932,8 +987,11 @@ def _placement(
 
     def constant(slots: int) -> int:
         try:
-            kv = vramfit.kv_bytes(
-                geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch
+            kv_total = kv_bytes_for_run(
+                ctx_per_slot=ctx_per_slot,
+                slots=slots,
+                geometry=geometry,
+                n_ubatch=n_ubatch,
             )
             rs = vramfit.rs_bytes(geometry, n_seq_max=slots)
         except ValueError as exc:
@@ -946,7 +1004,7 @@ def _placement(
             ) from exc
         return (
             int(geometry["bytes_nonexpert"])
-            + kv["total"]
+            + kv_total
             + rs["total"]
             + (vramfit.SCRATCH_AND_CONTEXT_MIB << 20)
         )
@@ -1048,3 +1106,90 @@ def _weights_path(scan: Scan, spec: ModelSpec) -> Path:
     """
     root = scan.disk.path if scan.disk is not None else default_weights_dir()
     return root / _weights_file_name(spec.name)
+
+
+def kv_bytes_for_run(
+    *,
+    ctx_per_slot: int,
+    slots: int,
+    geometry: Mapping[str, Any] | None = None,
+    n_ubatch: int = DEFAULT_UBATCH,
+) -> int:
+    """The cache a run's own declaration asks for, derived in one place.
+
+    The multiplication ``ctx_per_slot * slots`` used to happen twice — once in
+    :func:`unit_for`, writing ``-c`` onto the argv, and once in
+    :func:`_placement`, feeding :func:`vramfit.kv_bytes` — and the two were fed
+    by different readers. ``emit`` used the module's 4096 and the door used its
+    own ``--ctx-per-slot`` default of 2048, so an ``--n-cpu-moe`` floor derived
+    through the door was computed against half the cache the compose file it
+    was derived for actually launches with. A floor is only correct for the
+    cache the unit will actually allocate, so the law and the launch have to be
+    fed one number, and this is the function that produces it.
+
+    Two answers, and which one comes back depends on what the caller can price
+    it against:
+
+    * **With a ``geometry``** — a ``ggufscan`` header — the answer is device
+      bytes, summed per layer by :func:`vramfit.kv_bytes`. That is the figure a
+      placement is judged with, and it is not linear in the window: a
+      sliding-window checkpoint caps its sliding half at
+      ``PAD256(n_swa x seqs + n_ubatch)``, so doubling the declared window does
+      not double the cache and must not be assumed to.
+
+    * **Without one** the answer is the extent in tokens, which is exactly what
+      ``-c`` states and exactly what :func:`vramfit.kv_bytes` is handed as its
+      ``n_ctx``. Nothing here invents a bytes-per-token rate to convert it: a
+      cache cannot be priced in bytes without a header, and a plausible
+      unfalsifiable number is the failure :mod:`mcgyvr.serving.vramfit` exists
+      to end.
+
+    Both are the size of one thing asked in the two units it can be asked in,
+    and the caller says which by handing over a header or not.
+    """
+    if ctx_per_slot < 1 or slots < 1:
+        raise UnitError(
+            f"a cache cannot be sized at {ctx_per_slot} context across "
+            f"{slots} slot(s): both are counts of something a process holds"
+        )
+    extent = ctx_per_slot * slots
+    if geometry is None:
+        return extent
+    return int(
+        vramfit.kv_bytes(dict(geometry), extent, n_seq_max=slots, n_ubatch=n_ubatch)[
+            "total"
+        ]
+    )
+
+
+def served_window(reported: Mapping[str, Any]) -> int | None:
+    """The window a *running* unit says it serves, read from what it published.
+
+    Declared going in and measured coming back are two different questions, and
+    only this one is a fact about a process. No module knows the answer in
+    advance: on 2026-09-06 srv2:8001 and srv2:8002 reported ``max_model_len``
+    4096 on ``/v1/models`` and srv1:8080 reported ``n_ctx`` 4096 on ``/props``,
+    each over its own API, and any of the three could have been started
+    otherwise.
+
+    Both engines are read because both serve rungs on this ladder. vLLM lists
+    its models under ``data``; llama.cpp answers about the one process it is.
+
+    ``None`` is a unit that published nothing, and it is deliberately not the
+    same answer as a number: "this unit serves 4096" and "nobody can say what
+    this unit serves" lead to different moves, and collapsing them into a
+    window somebody assumed is how a ladder ends up priced against a rig it
+    never asked.
+    """
+    models = reported.get("data")
+    if isinstance(models, list):
+        for entry in models:
+            if not isinstance(entry, Mapping):
+                continue
+            window = entry.get("max_model_len")
+            if isinstance(window, int) and not isinstance(window, bool):
+                return window
+    window = reported.get("n_ctx")
+    if isinstance(window, int) and not isinstance(window, bool):
+        return window
+    return None

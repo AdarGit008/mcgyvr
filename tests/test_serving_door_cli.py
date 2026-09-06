@@ -110,6 +110,13 @@ def base_argv(step: Path, campaign: str = "alpha-cli-test") -> list[str]:
         str(step),
         "--date",
         RUN_DATE,
+        # The window the run serves. Required rather than defaulted since
+        # 2026-09-06: the door's own 2048 was the third reader of a number
+        # `emit` had at 4096, and an `--n-cpu-moe` floor derived here was
+        # computed against half the cache the compose file allocates
+        # (test_dod_one_context_number.py).
+        "--ctx-per-slot",
+        "4096",
     ]
 
 

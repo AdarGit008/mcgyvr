@@ -1861,7 +1861,9 @@ def _emit(args: argparse.Namespace) -> int:
     # behind. A caller branching on the code should read them the same way it
     # reads an unscanned host. A malformed capability table is a real error.
     try:
-        units = units_for(config, scans, specs=_model_specs())
+        units = units_for(
+            config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
+        )
         hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
@@ -2371,6 +2373,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         metavar="DIR",
         help="where the compose files are written (default: the current directory)",
+    )
+    # Required, and deliberately not defaulted. The window prices the cache,
+    # the `-c` on the argv and the `--n-cpu-moe` floor, so a run that did not
+    # say is a run sized against a number nobody chose — which is what a
+    # module constant here was doing until 2026-09-06, against a door that
+    # defaulted to a different one. Read it off the unit and state what it
+    # said.
+    emi.add_argument(
+        "--ctx-per-slot",
+        type=int,
+        required=True,
+        metavar="N",
+        help=(
+            "the window this run serves per slot; `-c` is this times the slot "
+            "count, and the cache law is fed the same product"
+        ),
     )
     emi.set_defaults(func=_emit)
 

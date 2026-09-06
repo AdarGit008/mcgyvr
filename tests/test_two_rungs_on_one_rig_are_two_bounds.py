@@ -19,6 +19,11 @@ from mcgyvr.pool import source_map
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, units_for
 
+#: The window these tests were written against, stated because nothing supplies
+#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
+#: the window is what the run declares, so a test is a run and declares its own.
+WINDOW = 4096
+
 CO_RESIDENT = """
 version: 1
 sources:
@@ -80,5 +85,7 @@ def test_the_ladder_implies_two_processes_on_the_one_host() -> None:
         ModelSpec("Qwen/Qwen2.5-Coder-3B-Instruct-AWQ", 3.49, 0.0, 1.95, hf_cache=HF),
         ModelSpec("Qwen/Qwen2.5-Coder-7B-Instruct-AWQ", 7.12, 0.0, 4.93, hf_cache=HF),
     )
-    units = units_for(parse(CO_RESIDENT), {"srv2": scan}, specs=specs)
+    units = units_for(
+        parse(CO_RESIDENT), {"srv2": scan}, specs=specs, ctx_per_slot=WINDOW
+    )
     assert sorted((u.host, u.port) for u in units) == [("srv2", 8001), ("srv2", 8002)]
