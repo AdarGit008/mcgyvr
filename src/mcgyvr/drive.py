@@ -54,6 +54,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.deliver import Accepted
@@ -231,6 +232,7 @@ def dispatch_prompt(
     *,
     capacity: Capacity | None = None,
     response_schema: dict[str, Any] | None = None,
+    timeout_s: float | None = None,
 ) -> Completion:
     """Send an assembled prompt to a rung, under the contract's own ceilings.
 
@@ -253,12 +255,19 @@ def dispatch_prompt(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
             f"own ceiling and was not sent — {prompt.fit_issue}"
         )
-    request = Request(
-        prompt=prompt.user,
-        system=prompt.system,
-        max_output_tokens=contract.limits.max_output_tokens,
-        response_schema=response_schema,
-    )
+    # ``timeout_s`` is the run's, threaded from ``budgets.request_timeout_s``
+    # by the caller that holds the config. ``None`` keeps ``Request``'s own
+    # default, which is that budget's default, so a caller with no config to
+    # read sends what this has always sent.
+    fields: dict[str, Any] = {
+        "prompt": prompt.user,
+        "system": prompt.system,
+        "max_output_tokens": contract.limits.max_output_tokens,
+        "response_schema": response_schema,
+    }
+    if timeout_s is not None:
+        fields["timeout_s"] = timeout_s
+    request = Request(**fields)
     return dispatch(source_map, rung, request, capacity=capacity)
 
 
@@ -540,6 +549,10 @@ def worker_attempt(
     reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
     draws = int(config.get("breadth.draws", 1))
     tidying = bool(config.get("cleanup.enabled", True))
+    # Read once per driver, beside the other two budgets this function spends,
+    # so that what bounds a request is the run's declaration and not a literal
+    # in the transport. See `budgets.request_timeout_s`.
+    request_timeout = float(config.get("budgets.request_timeout_s"))
 
     def attempt(this: Try) -> Judgement:
         # The whole of this function's failure path, in one place. Everything
@@ -552,6 +565,20 @@ def worker_attempt(
         made = _Dispatches()
         try:
             return _attempt(this, made)
+        except SlotUnavailableError as busy:
+            # Every slot of this rung was taken for as long as the task was
+            # willing to wait. Nothing was asked and nothing answered, so this
+            # is the cooldown's verdict and not a failure: `escalate` walks
+            # past a declined rung without spending an attempt or funding an
+            # escalation, which sends the work to a rung that has room instead
+            # of holding a command open on one that does not.
+            return Judgement(
+                verdict=Verdict.DECLINED,
+                policy=required_policy(contract, family_of(config, this.rung.name)),
+                detail=f"rung {this.rung.name!r} has no free slot: {busy}",
+                draws=draws,
+                rows=made.rows,
+            )
         except Exception as exc:
             raise DispatchRaisedError(
                 exc, draws=draws, rows=made.rows, draw=made.in_flight
@@ -593,6 +620,7 @@ def worker_attempt(
                         prompt,
                         contract,
                         capacity=this.capacity,
+                        timeout_s=request_timeout,
                     )
                 endpoint = pool.bind(this.rung.name)
                 try:
@@ -602,6 +630,7 @@ def worker_attempt(
                         prompt,
                         contract,
                         capacity=this.capacity,
+                        timeout_s=request_timeout,
                     )
                 except RunnerError:
                     # The dispatch is what the cooldown learns from: a source
