@@ -1,0 +1,83 @@
+{
+  "url": "http://srv2:8002",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+  "tokens": 256,
+  "label": "srv2-vllm-7b-awq",
+  "results": [
+    {
+      "width": 1,
+      "ok": 1,
+      "failed": 0,
+      "wall": 3.9615744138136506,
+      "tokens_out": 256,
+      "per_stream_tps": 64.63847629106783,
+      "per_stream_min": 64.63847629106783,
+      "per_stream_max": 64.63847629106783,
+      "aggregate_tps": 64.62077276835977,
+      "latency_p50": 3.960489397170022,
+      "latency_max": 3.960489397170022,
+      "error": "",
+      "label": "srv2-vllm-7b-awq"
+    },
+    {
+      "width": 2,
+      "ok": 2,
+      "failed": 0,
+      "wall": 3.9782822120469064,
+      "tokens_out": 512,
+      "per_stream_tps": 64.46447313509435,
+      "per_stream_min": 64.38804621778979,
+      "per_stream_max": 64.5409000523989,
+      "aggregate_tps": 128.6987631117717,
+      "latency_p50": 3.97118517186027,
+      "latency_max": 3.9758932758122683,
+      "error": "",
+      "label": "srv2-vllm-7b-awq"
+    },
+    {
+      "width": 4,
+      "ok": 4,
+      "failed": 0,
+      "wall": 4.035020747920498,
+      "tokens_out": 1024,
+      "per_stream_tps": 63.51072220426066,
+      "per_stream_min": 63.483590797597365,
+      "per_stream_max": 63.78864318698465,
+      "aggregate_tps": 253.77812506360272,
+      "latency_p50": 4.030815480859019,
+      "latency_max": 4.032538121799007,
+      "error": "",
+      "label": "srv2-vllm-7b-awq"
+    },
+    {
+      "width": 8,
+      "ok": 8,
+      "failed": 0,
+      "wall": 4.186638357117772,
+      "tokens_out": 2048,
+      "per_stream_tps": 61.27807951720837,
+      "per_stream_min": 61.21939845324511,
+      "per_stream_max": 61.5621832380476,
+      "aggregate_tps": 489.1752822448019,
+      "latency_p50": 4.177676618564874,
+      "latency_max": 4.181681076064706,
+      "error": "",
+      "label": "srv2-vllm-7b-awq"
+    },
+    {
+      "width": 16,
+      "ok": 16,
+      "failed": 0,
+      "wall": 8.200161634013057,
+      "tokens_out": 4096,
+      "per_stream_tps": 46.335608169940194,
+      "per_stream_min": 31.262390744573185,
+      "per_stream_max": 61.93662633631452,
+      "aggregate_tps": 499.50234919887413,
+      "latency_p50": 6.169288615346886,
+      "latency_max": 8.188753128051758,
+      "error": "",
+      "label": "srv2-vllm-7b-awq"
+    }
+  ]
+}
