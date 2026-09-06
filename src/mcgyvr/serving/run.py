@@ -50,6 +50,14 @@ earlier still exits 130, otherwise the exit is what 7 and 8 decided. And the
 claim gate 5 took on the RUN_ID (``.<RUN_ID>.running`` in the envelope) is
 released on every exit path, the interrupted ones included.
 
+WHERE A RUN IS FILED. The run root is ``$MCGYVR_RUN_ROOT`` when it is set and
+the checkout otherwise (:func:`run_root`): the envelope is made under its
+``records/evidence/``, and the round, ``hosts.json`` and the campaigns are
+read from it. The code and the root are two places on purpose — an installed
+wheel has no ``records/`` — and the door exports both, ``RUN_ROOT`` and
+``RUN_BIN`` (its shim directory), so a step derives neither from the other. A
+value naming a directory that does not exist is refused, never created.
+
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-5 refuse having
 written nothing under ``records/``: gate 1 reaches no rig at all, and gates 2-5
 only read one (a snapshot over ssh, a daemon's name) and never launch on it, so
@@ -116,10 +124,18 @@ MINTED_PREFIXES = ("RUN_", "DOCKER_")
 #: :func:`_check_step_args`).
 OUTPUT_FLAGS = ("--out", "--out-dir")
 
-#: The repo root, four levels up from this file (src/mcgyvr/serving/run.py).
-#: Read from the file's own location and never from the caller's cwd, because a
-#: door invoked from a subdirectory must still put evidence in one place.
+#: The checkout this file sits in, four levels up (src/mcgyvr/serving/run.py),
+#: and the run root when nothing names one. Read from the file's own location
+#: and never from the caller's cwd, because a door invoked from a subdirectory
+#: must still put evidence in one place.
 ROOT = HERE.parents[2]
+#: Names the run root: where the envelope is made (``records/evidence/``) and
+#: where the gates read the declarations a run is measured against — the
+#: round (``tools/bench/``), the rigs (``tools/runs/hosts.json``) and the
+#: campaigns. Separate from the code because the code need not be a checkout:
+#: from an installed wheel :data:`ROOT` is ``site-packages/``, and a run's
+#: evidence written there is evidence nobody finds. See :func:`run_root`.
+ROOT_ENV = "MCGYVR_RUN_ROOT"
 
 
 class RefusedError(Exception):
@@ -272,7 +288,13 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
 #: The full vocabulary a gate script may read. A script that wants something
 #: not on this list is asking for a fact nobody gated.
 EXPORTED = (
+    # The run root (:func:`run_root`) and the door's own shim directory. Two
+    # variables because they are two places: the root is where a run is filed
+    # and measured against, the shims are part of the code, and a step that
+    # derived one from the other found no shims under a run root that was not
+    # a checkout.
     "RUN_ROOT",
+    "RUN_BIN",
     "RUN_CAMPAIGN",
     "RUN_STEP_FILE",
     "RUN_HOST",
@@ -297,6 +319,44 @@ EXPORT_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
 def _refuse(status: int, rule: str) -> NoReturn:
     raise RefusedError(status, rule)
+
+
+def run_root() -> Path:
+    """The run root: ``$MCGYVR_RUN_ROOT`` when it is set, else the checkout.
+
+    A value that is set names a directory that exists, or the run is refused
+    before any gate — the door does not create it. A root the door made
+    silently is how evidence goes missing: the operator meant one directory,
+    typed another, and the run filed itself under a path nobody looks at,
+    exit 0. Resolved, so every gate sees one spelling of it (``RUN_ROOT`` is
+    exported once, by the door, and gate 5 files under exactly that).
+    """
+    named = os.environ.get(ROOT_ENV)
+    if named is None:
+        return ROOT
+    # Absolute, or refused: a relative value lands somewhere different from
+    # every directory the door is invoked in, which is the one thing a root
+    # is for not doing. `~` is not absolute either, and a `~user` the shell
+    # did not expand is a value nobody checked.
+    try:
+        path = Path(named).expanduser()
+        usable = bool(named) and path.is_absolute() and path.is_dir()
+    except (OSError, RuntimeError):
+        # An unreadable parent, a `~nobody` — a root the door cannot judge
+        # is a root it does not use, and says so rather than tracing back.
+        usable = False
+    if not usable:
+        _refuse(
+            2,
+            f"{ROOT_ENV}={named!r} is not an existing directory named by an "
+            "absolute path. The run root is where the envelope is made "
+            "(records/evidence/) and where the round, hosts.json and the "
+            "campaigns are read from; the door never creates it, because a "
+            "root made silently is a run filed where nobody looks. Name a "
+            "directory that exists, or unset the variable to use the tree "
+            f"the door runs from ({ROOT})",
+        )
+    return path.resolve()
 
 
 def check_manifest() -> None:
@@ -373,7 +433,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     try:
         proc = subprocess.Popen(
             [sys.executable, str(GATE_SCRIPTS / entry.script), *(args or [])],
-            cwd=ROOT,
+            cwd=env.get("RUN_ROOT") or ROOT,
             env=dict(env, RUN_EXPORT_FD=str(write_fd)),
             pass_fds=(write_fd,),
         )
@@ -532,7 +592,9 @@ def _inside(path: Path, envelope: Path) -> bool:
     return True
 
 
-def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
+def _check_step_args(
+    step_args: list[str], envelope: Path, root: Path = ROOT
+) -> str | None:
     """A step's own output flag may not leave the envelope — the door owns it.
 
     Ported from the archived door (archive/runs/run.sh, check_step_args): six
@@ -548,7 +610,7 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
         if token == "--force":
             return (
                 f"step argument '{token}' is refused: the door owns the envelope "
-                f"({_rel(envelope)}/) and every declared artifact is written "
+                f"({_rel(envelope, root)}/) and every declared artifact is written "
                 "there, once. A re-run is --suffix S over a RUN_REWRITES "
                 "declaration; nothing is written elsewhere, or by force"
             )
@@ -560,11 +622,11 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
             else:
                 continue
             target = Path(value)
-            target = target if target.is_absolute() else ROOT / target
+            target = target if target.is_absolute() else root / target
             if not value or not _inside(target, envelope):
                 return (
                     f"step argument '{flag} {value}' is refused: it names a path "
-                    f"outside the envelope {_rel(envelope)}/, and the door owns "
+                    f"outside the envelope {_rel(envelope, root)}/, and the door owns "
                     "the envelope — every declared artifact is written there, "
                     "once. A re-run is --suffix S over a RUN_REWRITES "
                     "declaration; nothing is written elsewhere"
@@ -572,9 +634,9 @@ def _check_step_args(step_args: list[str], envelope: Path) -> str | None:
     return None
 
 
-def _rel(path: Path) -> str:
+def _rel(path: Path, base: Path = ROOT) -> str:
     try:
-        return str(path.relative_to(ROOT))
+        return str(path.relative_to(base))
     except ValueError:
         return str(path)
 
@@ -610,6 +672,11 @@ def _serve(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    try:
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     compose_file = Path(opts.compose)
     compose_file = (
         compose_file if compose_file.is_absolute() else Path.cwd() / compose_file
@@ -635,7 +702,8 @@ def _serve(argv: list[str]) -> int:
     env = dict(os.environ)
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
     env.update(
-        RUN_ROOT=str(ROOT),
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
         RUN_CAMPAIGN=f"live-{opts.host}",
         RUN_STEP_FILE=str(SERVE_STEPS[opts.mode].resolve()),
         RUN_HOST=opts.host,
@@ -703,6 +771,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    # The root is settled before the step is looked for and before the
+    # envelope is named, because both are said relative to it.
+    try:
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
 
     if opts.step:
         step = Path(opts.step)
@@ -724,8 +799,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
-    envelope = ROOT / "records" / "evidence" / f"{run_date}-{opts.campaign}"
-    escape = _check_step_args(step_args, envelope)
+    envelope = root / "records" / "evidence" / f"{run_date}-{opts.campaign}"
+    escape = _check_step_args(step_args, envelope, root)
     if escape is not None:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
@@ -735,7 +810,8 @@ def main(argv: list[str] | None = None) -> int:
     # door's; whatever PATH the operator had follows for everything else.
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
     env.update(
-        RUN_ROOT=str(ROOT),
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
         RUN_CAMPAIGN=opts.campaign,
         RUN_STEP_FILE=str(step.resolve()),
         RUN_HOST=opts.host,

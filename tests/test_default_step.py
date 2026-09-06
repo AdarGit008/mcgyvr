@@ -8,11 +8,11 @@ real completion, then launches one block below the floor and expects a refusal
 below the floor is a RESULT row saying the floor was loose, never an error.
 
 No test here reaches a rig. The script's only way out is the door's ``ssh``
-and ``docker`` shims, which it resolves BY PATH under ``RUN_ROOT`` after
+and ``docker`` shims, which it resolves BY PATH under ``RUN_BIN`` after
 proving the door (``gatelib.under_door``, read off /proc). So each :class:`Fake`
 runs the step under a stand-in door — a file whose path ends in
 ``mcgyvr/serving/run.py`` — and puts the answering stubs at the shim path
-under a throw-away ``RUN_ROOT``; what PATH offers under the same names are
+it names as ``RUN_BIN``; what PATH offers under the same names are
 decoys that log and fail, so a step that took ``ssh`` from PATH would show up
 in the log. Every call is logged so the test can say what the step did to
 the machine — which containers it started, and that each one was removed.
@@ -153,7 +153,7 @@ esac
 SLEEP_STUB = "#!/usr/bin/env bash\nexit 0\n"
 
 #: What PATH offers as ``ssh`` and ``docker``: never the right answer. The
-#: step resolves the shims by path under RUN_ROOT, and a decoy line in the
+#: step resolves the shims by path under RUN_BIN, and a decoy line in the
 #: log means it took one from PATH instead.
 DECOY_STUB = """\
 #!/usr/bin/env bash
@@ -203,8 +203,8 @@ class Fake:
         self.log = tmp / "stub.log"
         self.log.write_text("", encoding="utf-8")
         # The answering stubs sit where the step resolves the door's shims —
-        # by path under RUN_ROOT — and PATH offers decoys under the same names.
-        shims = self.root / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"
+        # by path under RUN_BIN — and PATH offers decoys under the same names.
+        shims = self.tmp / "shims"
         shims.mkdir(parents=True)
         stubs = tmp / "stubs"
         stubs.mkdir()
@@ -241,6 +241,7 @@ class Fake:
         env.update(
             PATH=os.pathsep.join(path),
             RUN_ROOT=str(self.root),
+            RUN_BIN=str(self.shims),
             RUN_CAMPAIGN=f"e2e-{self.host}",
             RUN_STEP_FILE=str(SCRIPT),
             RUN_HOST=self.host,
@@ -572,19 +573,23 @@ def test_a_step_under_the_door_without_a_run_id_is_refused(srv2: Fake) -> None:
 
 
 def test_the_step_takes_the_shims_by_path_and_never_from_path(srv2: Fake) -> None:
-    """The answering stubs are at the shim path under RUN_ROOT; the ``ssh``
+    """The answering stubs are at the shim path RUN_BIN names; the ``ssh``
     and ``docker`` on PATH are decoys. A run that reached the rig through
     the shims logged no decoy line."""
     srv2.run()
-    assert srv2.launches(), "no launch reached the shims under RUN_ROOT"
+    assert srv2.launches(), "no launch reached the shims under RUN_BIN"
     decoys = [line for line in srv2.calls() if line.startswith("decoy ")]
     assert decoys == [], f"the step took ssh or docker from PATH: {decoys}"
 
 
-def test_a_run_root_without_the_shims_is_refused_before_any_call(srv2: Fake) -> None:
+def test_a_shim_directory_without_the_shims_is_refused_before_any_call(
+    srv2: Fake,
+) -> None:
+    """RUN_BIN names a directory holding no ssh: refused, naming the path, and
+    the step never fell through to the decoys on PATH."""
     env = srv2.env()
-    env["RUN_ROOT"] = str(srv2.tmp / "elsewhere")
+    env["RUN_BIN"] = str(srv2.tmp / "elsewhere")
     done = srv2.start(env)
     assert done.returncode == 2, done.stderr
-    assert "gate-scripts/bin/ssh" in done.stderr, done.stderr
+    assert "elsewhere/ssh" in done.stderr and "RUN_BIN" in done.stderr, done.stderr
     assert srv2.calls() == []
