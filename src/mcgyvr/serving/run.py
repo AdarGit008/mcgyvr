@@ -174,7 +174,13 @@ SEQUENCE: tuple[Entry, ...] = (
         "which profile it is under. A measurement taken against an unpinned "
         "tree cannot be compared with anything, and a dev run does not touch "
         "the live ladder, so both refuse before the rig is touched",
-        exports=("RUN_ROUND", "RUN_PRODUCT_SHA256", "RUN_PROFILE"),
+        exports=(
+            "RUN_ROUND",
+            "RUN_PRODUCT_SHA256",
+            "RUN_PROFILE",
+            "RUN_CONFIG",
+            "RUN_CONFIG_DIGEST",
+        ),
     ),
     Entry(
         "02-rig.py",

@@ -348,6 +348,11 @@ class Recording:
     #: orchestrator is one (:mod:`mcgyvr.session`). Written on every row so an
     #: attempt can be followed back to the conversation that produced it.
     session_file: Path | None = None
+    #: The identity of the config the run was made under
+    #: (:meth:`mcgyvr.config.Config.digest`), written on every row so a result
+    #: can be traced to the exact setup that produced it (R2). ``None`` for a
+    #: run made with no config, and then absent from the row rather than null.
+    config_digest: str | None = None
     #: Directories the caller asked for a copy of this journal in (``--record``).
     #: Every line and every blob goes to each of them as well as to
     #: :attr:`path`, which is mcgyvr's own and is the one that cannot move: the
@@ -691,6 +696,7 @@ def worker_attempt(
                     endpoint=endpoint,
                     task_type=contract.task_type,
                     session_file=recording.session_file,
+                    config_digest=recording.config_digest,
                     # The tier this rung belongs to, so one query can count a
                     # ladder dispatch against a floor run: the floor's rows
                     # carry a program's name in `rung` and `deterministic`

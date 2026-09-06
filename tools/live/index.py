@@ -113,6 +113,10 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("condition", "TEXT"),
     ("round", "TEXT"),
     ("product_sha256", "TEXT"),
+    # Which setup made the row (`mcgyvr.config.Config.digest`): the column a
+    # reviewer groups by to lay one ladder's runs beside another's, and the
+    # name of the copy kept under `configs/` that re-selects that setup.
+    ("config_digest", "TEXT"),
     ("off_round", "INTEGER"),
     ("bundle_sha256", "TEXT"),
     ("prompt_sha256", "TEXT"),

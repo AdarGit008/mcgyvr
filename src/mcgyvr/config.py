@@ -29,6 +29,7 @@ bindings, and writing the file are separate concerns and do not live here.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import urllib.parse
@@ -42,6 +43,13 @@ import yaml
 SCHEMA_VERSION = 1
 CONFIG_FILENAME = "mcgyvr.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
+#: What a config's identity starts with (:meth:`Config.digest`), so it can
+#: never be read as a product digest or a blob name: those are bare hex.
+DIGEST_PREFIX = "cfg-"
+#: Where the journal keeps the config each run was made under, by its digest
+#: (:func:`keep`): ``<journal.dir>/configs/<digest>.yaml``. Naming that file
+#: in ``MCGYVR_CONFIG`` re-selects the setup a result names, in one command.
+CONFIGS_DIR = "configs"
 #: The user-level config directory (owner, 2026-09-05). A literal with `~` so
 #: help text reads the same on every machine; expanded at the point of use.
 #: This is the third and last place a config is looked for, after the
@@ -487,7 +495,10 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
         "copy for your own use. Read either back with `tools/live/review.py "
-        "DIR`.",
+        "DIR`. The config each run was made under is kept here too, as "
+        "`configs/<digest>.yaml`, and every row and result names that "
+        "digest: `MCGYVR_CONFIG=<dir>/configs/<digest>.yaml` re-selects the "
+        "exact setup a result was produced under.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )
@@ -821,6 +832,36 @@ class Config:
             )
         return value
 
+    def canonical(self) -> str:
+        """The loaded config as one YAML text, the same for every spelling of it.
+
+        Keys sorted, no anchors or aliases, block style throughout, and every
+        default the loader filled in written out: two files that load to the
+        same config render to the same bytes, whatever their comments, blank
+        lines or key order, and a file that omits a defaulted key renders as
+        one that states it. What is NOT in it is where the file sat —
+        ``path`` is a fact about the caller, not the config. Loading this text
+        back yields the same config, and the same digest.
+        """
+        return yaml.dump(
+            _plain(self.data),
+            Dumper=_CanonicalDumper,
+            sort_keys=True,
+            default_flow_style=False,
+            allow_unicode=True,
+            width=1_000_000,
+        )
+
+    def digest(self) -> str:
+        """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
+
+        Over the loaded and validated tree and never over the file's bytes,
+        because an identity that moved when a comment was added would name
+        the edit and not the setup (owner's ruling R2, 2026-09-06).
+        """
+        raw = self.canonical().encode("utf-8")
+        return DIGEST_PREFIX + hashlib.sha256(raw).hexdigest()
+
     def _unbound(self, key: str) -> str:
         field = field_at(key)
         parts = [f"`{key}` is not bound{self._in_file()}."]
@@ -832,6 +873,57 @@ class Config:
 
     def _in_file(self) -> str:
         return f" in {self.path}" if self.path is not None else ""
+
+
+class _CanonicalDumper(yaml.SafeDumper):
+    """A SafeDumper that never writes an anchor.
+
+    Two keys sharing one default object — a tuple declared once in the
+    schema — would otherwise render as ``&id001`` and ``*id001``, and the
+    digest would depend on object identity inside this process.
+    """
+
+    def ignore_aliases(self, data: object) -> bool:
+        return True
+
+
+def _plain(value: Any) -> Any:
+    """``value`` as plain dicts, lists and scalars, for a canonical dump."""
+    if isinstance(value, Mapping):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        return [_plain(v) for v in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def keep(config: Config, journal_dir: Path) -> Path:
+    """File ``config`` under ``journal_dir`` by its digest, and return the path.
+
+    ``<journal_dir>/configs/<digest>.yaml``, holding :meth:`Config.canonical`:
+    the one place a result's ``config_digest`` can be followed back to, and
+    the file to name in ``MCGYVR_CONFIG`` to run under exactly that setup
+    again. Content-addressed, so one that is already there is left alone —
+    same digest, same text — and a new one is written whole to a staging name
+    and moved into place, as the journal's blobs are, so a reader never opens
+    a copy whose text does not hash to its name. An ``OSError`` propagates:
+    a copy that cannot be written is a result that cannot be traced, and the
+    caller says so.
+    """
+    where = journal_dir / CONFIGS_DIR
+    path = where / f"{config.digest()}.yaml"
+    if path.exists():
+        return path
+    where.mkdir(parents=True, exist_ok=True)
+    staging = path.with_name(f".{path.name}.part")
+    try:
+        staging.write_text(config.canonical(), encoding="utf-8")
+        os.replace(staging, path)
+    except OSError:
+        staging.unlink(missing_ok=True)
+        raise
+    return path
 
 
 def field_at(key: str) -> Field | None:
