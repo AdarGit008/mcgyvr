@@ -604,7 +604,8 @@ SCHEMA: tuple[Field, ...] = (
         "(or a `mcgyvr.yaml` beside the work), so forgetting the variable "
         "lands on the live setup and never the other way round. Live outranks "
         "dev on the rigs: a run under a `dev` profile does not start or stop "
-        "the live ladder.",
+        "the live ladder, refuses a rig another run holds, and yields the rig "
+        "to a live run that takes it.",
         choices=("live", "dev"),
         default="live",
     ),

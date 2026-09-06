@@ -282,13 +282,23 @@ case $cmd in
     fi
     # While the daemon lists serving units (serving-names), the rig reads
     # busy: the card is held and containers are up, as a serving rig is.
-    if [ -f "$STUBS/serving-names" ]; then
+    if [ -s "$STUBS/serving-names" ]; then
       sed -e 's/^containers=.*/containers=c0ffee000011;c0ffee000012/' \
           -e 's/^gpu_procs=.*/gpu_procs=4242,llama-server,5584MiB/' "$f"
     else
       cat "$f"
     fi ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
+  # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
+  # run as written, by a real bash, under a HOME of the stub's own — so
+  # `set -C` and `>` mean what they mean on the rig, and a test reads or
+  # plants the file at `rig-home/.mcgyvr/lease`.
+  *".mcgyvr/lease"*)
+    mkdir -p "$STUBS/rig-home"
+    HOME=$STUBS/rig-home bash -c "$cmd" ;;
+  "bash -s -- lease")
+    mkdir -p "$STUBS/rig-home"
+    HOME=$STUBS/rig-home bash -s ;;
   *'echo $HOME'*) echo "$STUB_RIG_HOME" ;;
   *"cat >>"*) cat >/dev/null ;;
   *mkdir*) : ;;
@@ -354,7 +364,7 @@ case "${1:-}" in
     if [ -f "$STUBS/stray-flag" ] && [ -e "$(cat "$STUBS/stray-flag")" ]; then
       row c0ffee000002 "STRAY_NAME"
     fi
-    if [ -f "$STUBS/serving-names" ]; then
+    if [ -s "$STUBS/serving-names" ]; then
       n=10
       while read -r name; do
         [ -n "$name" ] || continue
@@ -362,6 +372,18 @@ case "${1:-}" in
         row "c0ffee0000$n" "$name"
       done < "$STUBS/serving-names"
     fi
+    exit 0 ;;
+  rm)
+    # `docker rm -f NAME...` takes a unit off the daemon's list, so what
+    # `ps` and the rig's snapshot say next is what a removed container is.
+    shift
+    for name in "$@"; do
+      case $name in -*) continue ;; esac
+      if [ -f "$STUBS/serving-names" ]; then
+        grep -vx -- "$name" "$STUBS/serving-names" > "$STUBS/serving-names.new" || true
+        mv "$STUBS/serving-names.new" "$STUBS/serving-names"
+      fi
+    done
     exit 0 ;;
   compose)
     # `compose ... up -d` brings up what a test queued (serving-pending
@@ -504,6 +526,34 @@ def rig_stub(
 def rig_unreadable(where: Path) -> None:
     """Every ssh fails the way a rig that is down does."""
     (where / "ssh-down").touch()
+
+
+def rig_lease(root: Path) -> Path:
+    """Where the stub rig keeps ``~/.mcgyvr/lease``: the file a door takes
+    at gate 2 and releases when it is done, as the ssh stub answers it."""
+    return stubs_dir(root) / "rig-home" / ".mcgyvr" / "lease"
+
+
+def plant_lease(root: Path, line: str) -> Path:
+    """A lease already on the rig before the door opens, as another run
+    (or a dead one) would have left it."""
+    path = rig_lease(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(line.rstrip("\n") + "\n", encoding="utf-8")
+    return path
+
+
+def read_lease(root: Path) -> str | None:
+    """The lease on the stub rig now, or ``None`` when it is released."""
+    path = rig_lease(root)
+    return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+def containers_up(root: Path, *names: str) -> None:
+    """Make the stub daemon list ``names`` as up (and the rig read busy)."""
+    (stubs_dir(root) / "serving-names").write_text(
+        "".join(f"{n}\n" for n in names), encoding="utf-8"
+    )
 
 
 def stub_sleep(where: Path) -> Path:

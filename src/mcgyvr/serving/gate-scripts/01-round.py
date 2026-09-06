@@ -32,9 +32,7 @@ import os
 import sys
 
 from mcgyvr import config as configlib
-from mcgyvr.serving.gatelib import door_required, export, refuse, root
-
-DEV = "dev"
+from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
 
 
 def default_profile() -> str:

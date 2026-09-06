@@ -66,6 +66,8 @@ def _gates(where: Path, out_dir: Path, refuse_at: str) -> Path:
             lines.append("sys.exit(1)")
         lines.append("sys.exit(0)")
         executable(where / entry.script, "\n".join(lines) + "\n")
+    # The lease release the door spawns on its way out is on the manifest too.
+    executable(where / run.LEASE_RELEASE.script, "#!/usr/bin/env python3\n")
     return where
 
 
