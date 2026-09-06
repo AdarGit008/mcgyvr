@@ -843,13 +843,22 @@ def is_claim(name: str) -> bool:
     return name.startswith(".") and name.endswith(".running")
 
 
+def is_header(name: str) -> bool:
+    """Whether ``name`` is gate 5's header for a run (``<RUN_ID>.run.json``):
+    the run's identity, filed by the door before the step."""
+    return name.endswith(".run.json")
+
+
 def filed_by_steps(root: Path) -> list[str]:
     """Files under ``records/`` that a STEP wrote — the door's own three facts
-    (scan, geometry, placement) and its claim on the RUN_ID left out."""
+    (scan, geometry, placement), its header for the run and its claim on the
+    RUN_ID left out."""
     return [
         p
         for p in written_under_records(root)
-        if Path(p).name not in DOOR_FACTS and not is_claim(Path(p).name)
+        if Path(p).name not in DOOR_FACTS
+        and not is_claim(Path(p).name)
+        and not is_header(Path(p).name)
     ]
 
 

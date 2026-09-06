@@ -59,7 +59,7 @@ proof=$(python3 -c 'from mcgyvr.serving.gatelib import under_door; raise SystemE
     || refuse "this step was not started by the door — no ancestor is mcgyvr.serving.run${proof:+; the proof said: $(printf '%s' "$proof" | tail -n 1 | oneline)} — and RUN_* set by hand does not stand in for one. Start the run as \`$DOOR\` (okf/must-read/touching-rigs.md)"
 
 for v in RUN_ROOT RUN_BIN RUN_HOST RUN_MODEL RUN_PARALLEL RUN_CTX_PER_SLOT RUN_UBATCH \
-    RUN_ROUND RUN_PRODUCT_SHA256 RUN_ID RUN_OUT_DIR \
+    RUN_ROUND RUN_PRODUCT_SHA256 RUN_PROFILE RUN_CONFIG_DIGEST RUN_ID RUN_OUT_DIR \
     RUN_SCAN_JSON RUN_GEOMETRY_JSON RUN_PLACEMENT_JSON; do
     [ -n "${!v:-}" ] || refuse "$v is not set. This step reads the run from the environment the door exports; an empty one means it was started outside mcgyvr.serving.run, where no gate has run and nothing is guarded"
 done
@@ -319,6 +319,7 @@ end_stamp() {
 # ---------------------------------------------------------------------------
 say "### START run_id=$RUN_ID host=$RUN_HOST pl1=$S_PL1 pl2=$S_PL2 uptime_since=$S_UPTIME"
 say "### ROUND id=$RUN_ROUND product_sha256=$RUN_PRODUCT_SHA256"
+say "### CONFIG profile=$RUN_PROFILE digest=$RUN_CONFIG_DIGEST"
 
 if [ "$H_OFFLOAD" != true ] && [ "$P_FLOOR" -gt 0 ]; then
     say "$(row REFUSED at_floor "$P_FLOOR" 0 "$P_PREDICTED" NA "$S_FREE" cpu-expert-offload-disabled-on-host)"

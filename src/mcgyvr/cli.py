@@ -14,7 +14,7 @@ import sys
 import textwrap
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
 from mcgyvr import scan as scan_module
@@ -23,6 +23,7 @@ from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load, table_path
 from mcgyvr.config import (
     CONFIG_FILENAME,
     CONFIG_PATH_ENV,
+    CONFIGS_DIR,
     USER_CONFIG_DIR,
     Config,
     ConfigError,
@@ -30,6 +31,7 @@ from mcgyvr.config import (
     named_config_path,
 )
 from mcgyvr.config import config_path as resolve_config_path
+from mcgyvr.config import keep as keep_config
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.emit import EmitError, emit_all
@@ -94,7 +96,10 @@ def _config(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print(f"{config.path}: valid\n")
+    print(f"{config.path}: valid")
+    # The identity every row and result made under this file will carry, and
+    # the name of its copy under the journal's configs/ (R2).
+    print(f"digest: {config.digest()}\n")
     print("Sources:")
     for source in config.sources.values():
         credential = (
@@ -965,11 +970,13 @@ def _run(args: argparse.Namespace) -> int:
             orchestrator=session.orchestrator,
             run=stamp,
             session_file=session.session_file,
+            config_digest=config.digest() if config is not None else None,
             mirrors=mirrors,
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    report.config_digest = recording.config_digest
     # Asked before the run rather than discovered during it. Our sink raises on
     # an unwritable path, by the rule `telemetry` opens with — but raising from
     # inside a dispatch reached the caller as a traceback with no `result:`
@@ -987,6 +994,31 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    # The config that is about to run, kept by its digest beside the journal
+    # (R2): the file every row of this run will name, and the one to hand
+    # `MCGYVR_CONFIG` to run under exactly this setup again. A copy that
+    # cannot be written is refused the way the journal is, and for the same
+    # reason: a run whose setup cannot be traced is a run recorded wrong.
+    if config is not None:
+        try:
+            keep_config(config, journal_dir)
+        except OSError as exc:
+            print(
+                f"error: the config this run is made under cannot be kept at "
+                f"{journal_dir / CONFIGS_DIR} ({exc}). Every run names its "
+                f"config by digest and that copy is what the digest resolves "
+                f"to, so this one is refused rather than run untraceable.",
+                file=sys.stderr,
+            )
+            return 1
+        # A copy of the journal is a copy of the whole of it — every line,
+        # every blob, the result, and the config those rows name — and a
+        # copy that fails is a note, as every other part of a copy is.
+        for mirror in mirrors:
+            try:
+                keep_config(config, mirror)
+            except OSError as exc:
+                recording.copy_failed(mirror, exc)
     print(f"journal: {recording.path}", file=sys.stderr)
 
     # Settled once, here, so both paths below open the same sandbox. The
@@ -1208,6 +1240,7 @@ def _floor(
                 task_type=contract.task_type,
                 session_file=recording.session_file,
                 tier=DETERMINISTIC,
+                config_digest=recording.config_digest,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
@@ -2264,7 +2297,12 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
     )
-    parser.add_argument("--version", action="version", version=f"mcgyvr {__version__}")
+    parser.add_argument(
+        "--version",
+        action=_Version,
+        nargs=0,
+        help="the product version, and the digest of the config a run would use",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     caps = sub.add_parser(
@@ -2711,6 +2749,42 @@ def build_parser() -> argparse.ArgumentParser:
     ``tempdir`` ran under Docker and was told nothing.
     """
     return _build()[0]
+
+
+class _Version(argparse.Action):
+    """``--version``: the product, then the config a run here would be made under.
+
+    Two lines and not one, because they are two identities (owner's ruling
+    R2): the wheel is the code, and the config is the setup, and a result
+    names both. The config is the one `load()` locates — `$MCGYVR_CONFIG`,
+    then the working directory, then the user dir — so the digest printed is
+    the digest a run typed at this prompt would carry. No config prints
+    `none`; one that is there and cannot be read prints why, because a
+    version line that swallowed that would be the one lie an operator
+    checking their setup cannot afford.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        print(f"mcgyvr {__version__}")
+        try:
+            config = load_config(None)
+        except ConfigMissingError:
+            print("config: none")
+        except ConfigError as exc:
+            print(f"config: unreadable ({exc})")
+        except (OSError, RuntimeError) as exc:
+            # A `~nobody` in the variable, a working directory that is gone:
+            # not a config that cannot be read, one that cannot be found.
+            print(f"config: cannot be located ({exc!r})")
+        else:
+            print(f"config: {config.digest()} ({config.path})")
+        parser.exit(0)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
