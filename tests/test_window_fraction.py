@@ -18,8 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import ConfigError
+from mcgyvr.config import Config, ConfigError
 from mcgyvr.config import load as load_config
+from mcgyvr.contract import Contract
 from mcgyvr.gate.preflight import PreflightIssue, check_window_fraction
 
 CONFIG = """
@@ -39,7 +40,7 @@ journal:
 """
 
 
-def _config(tmp_path: Path, budgets: str = "") -> object:
+def _config(tmp_path: Path, budgets: str = "") -> Config:
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(CONFIG + budgets, encoding="utf-8")
     return load_config(path)
@@ -165,7 +166,7 @@ def test_a_declared_share_survives_a_round_trip() -> None:
 # --- the two checks together, at the one seam that runs both --------------
 
 
-def _contract(limits: str = "") -> object:
+def _contract(limits: str = "") -> Contract:
     from mcgyvr.contract import loads
 
     return loads(CONTRACT + "limits:\n  max_output_tokens: 512\n" + limits)

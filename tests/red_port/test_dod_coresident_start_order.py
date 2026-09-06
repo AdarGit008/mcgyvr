@@ -41,7 +41,8 @@ def _units_on_one_gpu(tmp_path: Path) -> dict[str, Any]:
             __import__("mcgyvr.emit", fromlist=["compose_document"]).compose_document
         ),
     )
-    return write(tmp_path)
+    document: dict[str, Any] = write(tmp_path)
+    return document
 
 
 def test_two_units_sharing_a_card_declare_a_start_order(tmp_path: Path) -> None:
