@@ -42,8 +42,11 @@ measure = [
 [build-system]
 # hatch-vcs is a build requirement and not a runtime one: it reads the
 # version from git while the wheel is built, and the wheel carries the
-# result in its metadata. `dependencies` above is unchanged.
-requires = ["hatchling", "hatch-vcs"]
+# result in its metadata. `dependencies` above is unchanged. Pinned, all
+# three, because they are the algorithm that turns a tag into a version:
+# a build backend resolved from the PyPI of the day would make "built
+# once" mean "built once per backend release".
+requires = ["hatchling==1.32.0", "hatch-vcs==0.5.0", "setuptools-scm==10.2.3"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -51,9 +54,26 @@ source = "vcs"
 # A tree with no git at all (a source tarball unpacked by hand) has no
 # version to read; the fallback names that rather than failing the build,
 # and is the same "not a version" `mcgyvr.__version__` reports when the
-# package was never installed. Nothing built for a release ever sees it:
-# the release workflow checks the wheel's version against the tag.
+# package was never installed. A checkout without tags is NOT that case: it
+# reads as `0.0.1.dev<N>+g<sha>`, the distance from nothing. Nothing built
+# for a release ever sees the fallback: the release workflow checks the
+# wheel's version against the tag.
 fallback-version = "0.0.0"
+
+[tool.hatch.version.raw-options]
+# Only a `v<digit>…` tag is a version. This repository also names tags
+# `archive/<lane>`; the default `--match '*[0-9]*'` picks the nearest tag of
+# any name, and an `archive/review-4xx` above the last release made every
+# build on every full clone fail with "does not parse as a version".
+git_describe_command = [
+    "git",
+    "describe",
+    "--dirty",
+    "--tags",
+    "--long",
+    "--match",
+    "v[0-9]*",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcgyvr"]

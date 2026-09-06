@@ -11,7 +11,11 @@
 .PHONY: setup test lint typecheck docs docs-check check journal-index journal-review
 
 setup:  ## install dependencies (frozen — resolved from uv.lock)
-	uv sync --frozen
+	# The project itself is rebuilt every time: its version is read from git
+	# (hatch-vcs), and an editable install that was not rebuilt reports the
+	# commit it was last built at, not HEAD — `mcgyvr --version` on a checkout
+	# would name the wrong code.
+	uv sync --frozen --reinstall-package mcgyvr
 
 test: setup  ## run the test suite
 	uv run --no-sync pytest

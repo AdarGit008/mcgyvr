@@ -60,6 +60,7 @@ BUILD_INPUTS = (
     "src",
     "data",
     "records/evidence/ghostcall-2026-08-02",
+    "tools/release",
 )
 
 
@@ -137,11 +138,39 @@ def test_the_version_is_the_tags_and_nothing_spells_one(tmp_path: Path) -> None:
 
 
 def test_the_product_says_which_version_is_installed() -> None:
+    """What is installed, and not a literal: a checkout has a git history,
+    so the version read from it is never the no-git fallback."""
     import importlib.metadata
 
     import mcgyvr
 
     assert mcgyvr.__version__ == importlib.metadata.version("mcgyvr")
+    assert mcgyvr.__version__ != "0.0.0", "the literal survived"
+
+
+def test_a_tag_that_is_not_a_version_does_not_break_the_build(tmp_path: Path) -> None:
+    """This repository names tags `archive/<lane>` too. One above the last
+    release must leave the version the release's, at a distance — not fail
+    every build on every full clone with "does not parse as a version"."""
+    tree = _tagged_copy(tmp_path, "v9.9.9")
+    (tree / "NOTE").write_text("one commit later\n", encoding="utf-8")
+    _git(tree, "add", "-A")
+    _git(tree, "commit", "-qm", "later")
+    _git(tree, "tag", "archive/review-9")
+    wheel = _build_wheel(tree, tmp_path / "dist")
+    assert wheel.name.startswith("mcgyvr-9.9.10.dev1+g"), wheel.name
+
+
+def test_a_pre_release_tag_is_the_version_it_normalises_to() -> None:
+    """The release checks the wheel against the tag as versions: `v0.1.0-rc1`
+    builds `mcgyvr-0.1.0rc1-…`, which is that tag and not a mismatch."""
+    from tools.release.wheel_is_tag import mismatch
+
+    assert mismatch("v0.1.0-rc1", Path("mcgyvr-0.1.0rc1-py3-none-any.whl")) is None
+    assert mismatch("v0.1.0", Path("mcgyvr-0.1.0-py3-none-any.whl")) is None
+    why = mismatch("v0.2.0", Path("mcgyvr-0.1.0-py3-none-any.whl"))
+    assert why is not None and "0.2.0" in why and "0.1.0" in why, why
+    assert mismatch("archive/x", Path("mcgyvr-0.1.0-py3-none-any.whl")) is not None
 
 
 # --- the wheel --------------------------------------------------------------------

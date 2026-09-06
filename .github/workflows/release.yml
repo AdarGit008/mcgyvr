@@ -6,11 +6,15 @@
 # source -> product -> install — and config joins at install time, never at
 # build time: the same wheel runs on the laptop and on srv1, and only
 # $MCGYVR_CONFIG differs. A wheel built twice would be two products with one
-# name, so `ci.yml` builds nothing and this workflow builds exactly once.
+# name, so `ci.yml` publishes nothing (the wheels its tests build go to
+# temporary directories and prove packaging) and this workflow builds exactly
+# once. A tag pushed a second time finds its release already there and is
+# refused by `gh`: a moved tag is not a second product under the first name.
 #
 # The version is the tag's, read by hatch-vcs from git: `fetch-depth: 0`
-# because a checkout without its tags has no version to read, and a wheel
-# stamped with a fallback would be a product that cannot say which code it is.
+# because a checkout without its tags reads as a distance from nothing
+# (`0.0.1.dev<N>+g<sha>`), and a wheel stamped with that would be a product
+# that cannot say which tag it is.
 name: release
 on:
   push:
@@ -34,13 +38,14 @@ jobs:
       - name: build the distribution, once
         run: uv build
       # The version the wheel says it is must be the tag's: a mismatch here
-      # is a tag on the wrong commit, or a build that read a fallback, and
-      # publishing it would be a product that lies about its code.
+      # is a tag on the wrong commit, or a build that read something other
+      # than the tag, and publishing it would be a product that lies about
+      # its code. Compared as versions, not strings — a wheel's filename is
+      # PEP 440-normalised, so `v0.1.0-rc1` builds `mcgyvr-0.1.0rc1-…`.
       - name: the wheel is the tag's version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           ls dist/
-          test -f "dist/mcgyvr-${tag}-py3-none-any.whl"
+          uv run --no-project --with packaging python tools/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
       # `gh` is on every ubuntu runner and needs no action to pin. The release
       # carries the wheel and the sdist as assets; the tag's notes are
       # generated from the commits since the previous tag.
