@@ -89,6 +89,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
+from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.serving import gatelib
 
 #: The package directory. ``gate-scripts`` carries a hyphen so it can never be
@@ -320,6 +321,34 @@ EXPORT_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
 def _refuse(status: int, rule: str) -> NoReturn:
     raise RefusedError(status, rule)
+
+
+def pin_config(env: dict[str, str]) -> None:
+    """Make ``$MCGYVR_CONFIG`` in ``env`` the path the operator meant.
+
+    The gates run with the run root as their working directory, so a
+    relative value — ``MCGYVR_CONFIG=dev.yaml`` typed in ``~/work`` — would
+    have been read against the run root by gate 1 and against ``~/work`` by
+    ``mcgyvr`` itself: refused if absent, silently another file if present.
+    Resolved here, once, against the directory the door was invoked from, so
+    the config a run is made under is the one the shell that typed it would
+    load. Whether the file exists is gate 1's question, with its own rule;
+    a value that cannot even be read as a path is refused here.
+    """
+    named = env.get(CONFIG_PATH_ENV)
+    if not named:
+        return
+    try:
+        path = Path(named).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+    except (OSError, RuntimeError) as escape:
+        _refuse(
+            2,
+            f"{CONFIG_PATH_ENV}={named!r} cannot be read as a path "
+            f"({escape!r}); name the config file by an absolute path",
+        )
+    env[CONFIG_PATH_ENV] = str(path)
 
 
 def run_root() -> Path:
@@ -702,6 +731,11 @@ def _serve(argv: list[str]) -> int:
 
     env = dict(os.environ)
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     env.update(
         RUN_ROOT=str(root),
         RUN_BIN=str(BIN),
@@ -810,6 +844,11 @@ def main(argv: list[str] | None = None) -> int:
     # The shims come first, so `ssh` and `docker` under the door are the
     # door's; whatever PATH the operator had follows for everything else.
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
     env.update(
         RUN_ROOT=str(root),
         RUN_BIN=str(BIN),

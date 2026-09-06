@@ -174,3 +174,65 @@ def test_a_config_that_cannot_be_read_is_refused_before_any_rig(
     assert str(broken) in done.stderr, done.stderr
     assert onedoor.ssh_log(root) == [], "a rig was read before the refusal"
     assert onedoor.written_under_records(root) == []
+
+
+# --- what an adversarial pass found -----------------------------------------------
+
+
+def test_a_relative_config_path_is_read_where_the_operator_typed_it(
+    tmp_path: Path,
+) -> None:
+    """The gates run with the run root as their working directory; a relative
+    ``MCGYVR_CONFIG`` must still mean the file beside the shell that typed it,
+    which is what ``mcgyvr`` itself would load."""
+    checkout = onedoor.fixture_repo(tmp_path / "checkout")
+    run_root = onedoor.fixture_repo(tmp_path / "run-root")
+    _write(checkout, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
+    env_file = tmp_path / "env.txt"
+    done = onedoor.door(
+        checkout,
+        _probe(run_root, env_file),
+        env_extra={CONFIG_VAR: "dev.yaml", "MCGYVR_RUN_ROOT": str(run_root)},
+    )
+    assert done.returncode == 0, done.stderr[-1500:]
+    assert onedoor.read_env_file(env_file).get("RUN_PROFILE") == "dev"
+
+
+def test_a_dev_serve_refused_at_gate_1_leaves_even_the_rounds_file_alone(
+    tmp_path: Path,
+) -> None:
+    """A tree that moved would have the round opened for it; a run refused for
+    its profile is refused before that, and writes nothing anywhere."""
+    from tests.test_the_door_serves_a_ladder_and_leaves_it_up import compose_file
+
+    root = onedoor.fixture_repo(tmp_path)
+    (root / "pyproject.toml").write_text("# moved\n", encoding="utf-8")
+    rounds = root / "tools" / "bench" / "rounds.json"
+    before = rounds.read_bytes()
+    dev = _write(tmp_path, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
+    result = onedoor.serve_door(
+        root, "up", compose_file(root), env_extra={CONFIG_VAR: str(dev)}
+    )
+    assert result.returncode == 2, (result.stdout, result.stderr[-1500:])
+    assert rounds.read_bytes() == before, "the refusal opened a round"
+
+
+def test_a_config_variable_that_is_not_a_path_is_refused_not_traced_back(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.serving import run
+
+    monkeypatch.setenv(CONFIG_VAR, "~nosuchuser-mcgyvr/dev.yaml")
+    status = run.main(
+        ["--host", "srv1", "--campaign", CAMPAIGN, "--model", "/models/x.gguf"]
+    )
+    err = capsys.readouterr().err
+    assert status == 2, err
+    assert CONFIG_VAR in err, err
+
+
+def test_a_list_as_a_key_is_a_config_error_and_not_a_type_error() -> None:
+    from mcgyvr.config import ConfigSchemaError
+
+    with pytest.raises(ConfigSchemaError):
+        _parse("[dev]: x\n" + BASE_CONFIG)
