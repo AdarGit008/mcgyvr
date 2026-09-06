@@ -156,7 +156,8 @@ def existing_task_roots() -> tuple[Path, ...]:
     is the reason the id rule over there is sound: no pool problem can take an
     instrument's id, so an instrument id in a run is instrument material.
     """
-    return _instruments().task_roots()
+    roots: tuple[Path, ...] = _instruments().task_roots()
+    return roots
 
 
 @dataclass(frozen=True)

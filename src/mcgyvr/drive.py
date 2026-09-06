@@ -67,6 +67,8 @@ from mcgyvr.escalate import (
 from mcgyvr.gate import Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.semantic import SemanticCheck
+from mcgyvr.gate.typecheck import TypeCheck
 from mcgyvr.route import Try, Verdict, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.telemetry import observe
@@ -197,16 +199,19 @@ def run_tool_step(
     acceptance rung classifies with, so "could not run" cannot come to mean two
     things in one process.
 
-    Raises :class:`UnrunnableStepError` for a step whose ``argv`` is empty.
+    A step with no ``argv`` is not a step with nothing to do: the floor's one
+    in-process type, ``rename_symbol``, is executed here against the sandbox's
+    own tree by :func:`mcgyvr.rename.apply`, because what performs it is
+    mcgyvr's index rather than a program on PATH. Its refusals are the type's
+    own — an unstated pair, a symbol the index does not know — and they arrive
+    as a failed :class:`ToolOutcome`, never as an environment issue: nothing is
+    missing from the machine.
+
+    Raises :class:`UnrunnableStepError` for a step that names neither a command
+    nor an in-process executor.
     """
     if not step.argv:
-        raise UnrunnableStepError(
-            f"task type {step.tool.task_type!r} is executed in-process by "
-            f"mcgyvr's own index, not by a program: its step names no command "
-            f"to run. A subprocess executor has nothing to do with it, and "
-            f"reporting it complete would report a file changed that nothing "
-            f"opened."
-        )
+        return _run_in_process(step, sandbox)
 
     result = sandbox.run(step.argv, timeout=timeout)
     if result.exit_code in DID_NOT_RUN and not result.timed_out:
@@ -221,6 +226,43 @@ def run_tool_step(
             ),
         )
     return ToolOutcome(step=step, result=result)
+
+
+def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
+    """The floor's in-process executors, keyed by the type they perform.
+
+    The outcome is shaped as a :class:`~mcgyvr.sandbox.base.CommandResult` with
+    a command of ``()`` so that every reader downstream — the journal, the
+    escalation ladder, the CLI's own reporting — handles one kind of thing. A
+    second outcome shape for the one type with no program would have every one
+    of those readers grow a branch for it.
+    """
+    from mcgyvr.deterministic import IN_PROCESS
+    from mcgyvr.rename import RenameError
+    from mcgyvr.rename import apply as rename_apply
+    from mcgyvr.sandbox.base import CommandResult
+
+    if step.tool.task_type not in IN_PROCESS:
+        raise UnrunnableStepError(
+            f"task type {step.tool.task_type!r} names no command to run and "
+            f"mcgyvr has no in-process executor for it. Reporting it complete "
+            f"would report a file changed that nothing opened."
+        )
+    try:
+        report = rename_apply(Path(sandbox.workspace), step.rename.old, step.rename.new)
+    except RenameError as refusal:
+        return ToolOutcome(
+            step=step,
+            result=CommandResult(
+                command=(), exit_code=1, stdout="", stderr=str(refusal)
+            ),
+        )
+    return ToolOutcome(
+        step=step,
+        result=CommandResult(
+            command=(), exit_code=0, stdout=report.summary(), stderr=""
+        ),
+    )
 
 
 def dispatch_prompt(
@@ -1010,6 +1052,49 @@ def gate_in_sandbox(
     return gate_workspace(contract, sandbox, adapters=adapters)
 
 
+def task_ceiling() -> float | None:
+    """``budgets.task_timeout_s``, or ``None`` where no config settles it.
+
+    The key is declared as the "wall-clock ceiling for one task, including
+    acceptance commands", defaults to 900, and is written into every config
+    `mcgyvr init` creates — and until this read existed the only reader in the
+    repository was `tools/missions/run.py`. A contract's acceptance command is
+    arbitrary shell, so one that hangs hung the run under a ceiling that was
+    declared, validated and never consulted.
+
+    A missing or unusable config is not an error here. The deterministic floor
+    runs without one by design (`cli._run`), and refusing a gate because there
+    is no `mcgyvr.yaml` would make the ceiling a requirement rather than a
+    bound. No config means no declared ceiling, which is what `None` says.
+    """
+    from mcgyvr.config import ConfigError, load
+
+    try:
+        declared = load().get("budgets.task_timeout_s")
+    except (ConfigError, OSError):
+        return None
+    return float(declared) if declared is not None else None
+
+
+def acceptance_for(contract: Contract, sandbox: Sandbox) -> Acceptance | None:
+    """The contract's acceptance rung, bound to ``sandbox`` and to the ceiling.
+
+    ``None`` when the contract declares neither list — there is nothing to run
+    and nothing to time. Built here rather than inside `Gate` because only this
+    layer holds the open sandbox, and read by both the preflight in
+    `cli._climb` and by :func:`gate_workspace`, so the commands a run is judged
+    on are the commands its baseline was taken with.
+    """
+    if not (contract.acceptance_commands or contract.demonstration_commands):
+        return None
+    return Acceptance(
+        sandbox,
+        contract.acceptance_commands,
+        timeout=task_ceiling(),
+        demonstrations=contract.demonstration_commands,
+    )
+
+
 def gate_workspace(
     contract: Contract,
     sandbox: Sandbox,
@@ -1034,16 +1119,20 @@ def gate_workspace(
     anywhere between here and it, so a contract saying "sort the rows in place"
     was unsatisfiable by any change a worker could write.
     """
-    acceptance = None
-    if contract.acceptance_commands or contract.demonstration_commands:
-        acceptance = Acceptance(
-            sandbox,
-            contract.acceptance_commands,
-            demonstrations=contract.demonstration_commands,
-        )
+    acceptance = acceptance_for(contract, sandbox)
     return Gate(adapters).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
+        # The other two rungs `Gate.run` accepts. Both shipped complete and
+        # neither was constructed anywhere in `src`, so a `type_annotation`
+        # contract — which the catalog defines as "the project's type checker
+        # accepts" — was judged by everything except a type checker. They are
+        # built here and not inside `Gate` because both need what only this
+        # layer holds: the open sandbox, and the workspace the declaration
+        # lives in. A repository that declares no checker still gets `None`
+        # from `TypeCheck.declared_command`, so the absence is not a rejection.
+        typecheck=TypeCheck(repo=sandbox.workspace),
+        semantic=SemanticCheck(sandbox=sandbox),
         contract_text=contract.prose,
     )

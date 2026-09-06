@@ -989,6 +989,16 @@ def _run(args: argparse.Namespace) -> int:
         return 1
     print(f"journal: {recording.path}", file=sys.stderr)
 
+    # Settled once, here, so both paths below open the same sandbox. The
+    # precedence is the one `sandbox/base.py` states and nothing implemented:
+    # a flag typed at the terminal is a person overriding their own file and
+    # wins; with no flag the file answers; with neither, `docker`.
+    args.sandbox = (
+        args.sandbox
+        or (config.get("sandbox.mode") if config is not None else None)
+        or "docker"
+    )
+
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, recording=recording)
     else:
@@ -1290,7 +1300,7 @@ def _climb(
     """
     from mcgyvr.availability import AvailabilityVerdict
     from mcgyvr.cooldown import Cooldown
-    from mcgyvr.drive import DriveError, worker_attempt
+    from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
@@ -1367,6 +1377,29 @@ def _climb(
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
+            # The baseline, before the first rung. `Acceptance.precondition`
+            # runs both lists against the UNCHANGED tree, and until it was
+            # called nothing did: `run` reasoned from a baseline nobody took
+            # ("they failed at baseline, so one still failing is ..."). Two
+            # silent failures followed. A `bug_fix` whose demonstration was
+            # already passing was judged by running it after the change,
+            # seeing green, and reporting the bug fixed — nothing was
+            # demonstrated and the result file could not say so. And a
+            # contract whose acceptance suite was already red charged the
+            # model for the tree's fault, which is the exact thing a preflight
+            # exists to prevent. The issue's own wording tells the two apart,
+            # because the operator's next move differs completely: one says
+            # fix the contract, the other says fix the tree.
+            acceptance = acceptance_for(contract, sandbox)
+            if acceptance is not None:
+                issue = acceptance.precondition()
+                if issue is not None:
+                    # Filed under `error`, the word the result file
+                    # documents for a run that reached no verdict — a
+                    # preflight issue is an orchestration error and not
+                    # a rejected change (gate/preflight.py). The detail
+                    # names it as one.
+                    return _error(report, str(issue))
             driver = worker_attempt(
                 config,
                 pool,
@@ -2219,7 +2252,14 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         run.error(str(exc))
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
+    """The whole command line, plus the ``run`` subparser on its own.
+
+    Two returns because :func:`_name_the_writer` refuses a blank
+    ``--orchestrator`` through the subparser that owns the flag, so its usage
+    line is the one the caller was typing against
+    (tests/test_a_blank_orchestrator_is_refused_not_filed.py).
+    """
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
@@ -2596,11 +2636,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     run.add_argument(
         "--sandbox",
-        default="docker",
+        # No default. `sandbox.mode` in the config is declared as where this
+        # comes from, and a flag that is never absent is a flag the config can
+        # never lose to. `_run` settles the precedence: typed flag, else the
+        # file, else `docker`.
+        default=None,
         choices=("docker", "tempdir"),
         help=(
-            "sandbox mode; `docker` falls back to `tempdir` when no daemon "
-            "answers, and says so"
+            "sandbox mode; defaults to `sandbox.mode` in the config, then to "
+            "`docker`, which falls back to `tempdir` when no daemon answers "
+            "and says so"
         ),
     )
     run.add_argument(
@@ -2653,6 +2698,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     run.set_defaults(func=_run)
 
+    return parser, run
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The command line as a person types it.
+
+    Public so what a run reads and what a person typed can be checked against
+    each other. ``--sandbox`` is the case that made it necessary: it carried an
+    argparse default of ``docker``, so the flag was never absent, so
+    ``sandbox.mode`` in a config was never reached and an operator who wrote
+    ``tempdir`` ran under Docker and was told nothing.
+    """
+    return _build()[0]
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser, run = _build()
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)

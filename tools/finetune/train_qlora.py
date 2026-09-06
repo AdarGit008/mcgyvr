@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 
 def main() -> None:
@@ -67,7 +68,7 @@ def main() -> None:
         },
     )
 
-    def to_text(example: dict) -> dict:
+    def to_text(example: dict[str, Any]) -> dict[str, Any]:
         return {
             "text": tokenizer.apply_chat_template(
                 example["messages"], tokenize=False, add_generation_prompt=False

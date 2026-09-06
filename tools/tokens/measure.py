@@ -54,6 +54,7 @@ import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "src"))
@@ -133,7 +134,7 @@ def fetch_tokenizer(model: str, cache: Path) -> Path:
     return target
 
 
-def frame_language(frame: dict) -> str:
+def frame_language(frame: dict[str, Any]) -> str:
     """The frame's language, as the corpus already declares it."""
     return str(frame.get("language", "unknown")).lower()
 
@@ -154,7 +155,7 @@ def queries_for(index: object) -> list[str]:
     return names[:QUERIES_PER_FRAME]
 
 
-def capture(frame: dict, workdir: Path) -> Iterator[Unit]:
+def capture(frame: dict[str, Any], workdir: Path) -> Iterator[Unit]:
     """Every string the real read planner charged the budget for, for one frame."""
     clone = prepare_clone(frame, workdir)
     index = build_index(clone)
@@ -178,7 +179,7 @@ def capture(frame: dict, workdir: Path) -> Iterator[Unit]:
             )
 
 
-def worker_documents(workdir: Path, frames: list[dict]) -> Iterator[Unit]:
+def worker_documents(workdir: Path, frames: list[dict[str, Any]]) -> Iterator[Unit]:
     """Worker-view documents, the other text the estimator sizes today.
 
     Built from real definitions in each frame — one contract per exported symbol
@@ -329,15 +330,15 @@ def main() -> int:
     return 0
 
 
-def summarise(rows_path: Path, corpus: dict) -> dict:
+def summarise(rows_path: Path, corpus: dict[str, Any]) -> dict[str, Any]:
     """Bands overall, per tokenizer, per language and per kind."""
     rows = [json.loads(line) for line in rows_path.read_text().splitlines() if line]
     names = list(TOKENIZERS)
 
-    def errors(subset: list[dict], name: str) -> list[float]:
+    def errors(subset: list[dict[str, Any]], name: str) -> list[float]:
         return [r[f"error.{name}"] for r in subset]
 
-    def group(subset: list[dict]) -> dict:
+    def group(subset: list[dict[str, Any]]) -> dict[str, Any]:
         return {name: band(errors(subset, name)) for name in names if subset}
 
     languages = sorted({r["language"] for r in rows})
@@ -366,7 +367,7 @@ def summarise(rows_path: Path, corpus: dict) -> dict:
     }
 
 
-def _identical(rows: list[dict], names: list[str]) -> list[list[str]]:
+def _identical(rows: list[dict[str, Any]], names: list[str]) -> list[list[str]]:
     """Tokenizer names that produced the same counts on every unit, grouped.
 
     Two models can ship the same vocabulary, and when they do, reporting both

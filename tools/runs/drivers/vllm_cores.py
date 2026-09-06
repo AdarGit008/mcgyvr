@@ -8,6 +8,7 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from tools.runs import workload
@@ -139,17 +140,28 @@ BASE_PORT = 8100
 LAUNCH_TRIES = 3
 
 
-def sh(c):
+#: One request's row: tokens generated, wall seconds, prompt tokens, and the
+#: budget it was given. `None` is a slot no thread ever filled, which is a
+#: crashed thread and not a cell that measured zero.
+Cell = tuple[int, float, int, int]
+
+#: One launched server, as this driver carries it around: a tag, a model, a
+#: container name, a port, and the readings taken off it once it is up. The
+#: values are of every type a reading has, which is what `Any` says here.
+Server = dict[str, Any]
+
+
+def sh(c: str) -> str:
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
 
 
-def rig(c):
+def rig(c: str) -> str:
     """A command on the rig, through the one ssh in the product: gatelib.ssh
     refuses outside the door and to any host but the door's."""
     return gatelib.ssh(H, c).stdout.strip()
 
 
-def teardown(names):
+def teardown(names: list[str]) -> None:
     """Remove the containers AND wait for the card to actually release.
 
     `docker rm -f` returns before the CUDA context is torn down, and vLLM
@@ -170,7 +182,7 @@ def teardown(names):
         time.sleep(2)
 
 
-def batch(n):
+def batch(n: int) -> list[tuple[str, int]]:
     """The same n (prompt, want) pairs for every server, every phase.
 
     Rebinding `workload.UID` resets the sequence; `mkprompt` reads it as a
@@ -181,7 +193,13 @@ def batch(n):
     return [workload.mkprompt() for _ in range(n)]
 
 
-def post(port, model, item, out, idx):
+def post(
+    port: int,
+    model: str,
+    item: tuple[str, int],
+    out: list[Cell | None],
+    idx: int,
+) -> None:
     prompt, want = item
     b = json.dumps(
         {
@@ -213,24 +231,28 @@ def post(port, model, item, out, idx):
         out[idx] = (0, time.time() - t0, 0, want)
 
 
-def row(phase, tag, n, out, wall):
-    gen = sum(o[0] for o in out)
-    if gen == 0:
+def row(phase: str, tag: str, n: int, out: list[Cell | None], wall: float) -> None:
+    # A slot still holding `None` is a thread that died before it could write
+    # its own failure row, which is not a request that returned nothing: the
+    # level is refused rather than averaged over whichever threads survived.
+    rows = [o for o in out if o is not None]
+    gen = sum(o[0] for o in rows)
+    if len(rows) != n or gen == 0:
         print(f"{H}\t{PAIR}\t{tag}\t{phase}\tn={n}\tERR", flush=True)
         return
-    pin = sum(o[2] for o in out)
-    lat = sorted(o[1] for o in out)
+    pin = sum(o[2] for o in rows)
+    lat = sorted(o[1] for o in rows)
     print(
         f"{H}\t{PAIR}\t{tag}\t{phase}\tn={n}\tagg={gen / wall:.1f}"
         f"\tp50={lat[len(lat) // 2]:.2f}\tprefill={pin / wall:.1f}"
         f"\tptok={pin // n}\totok={gen // n}"
-        f"\tearly_stop={sum(1 for o in out if 0 < o[0] < o[3])}/{n}"
-        f"\tfailed={sum(1 for o in out if o[0] == 0)}/{n}\twall={wall:.1f}",
+        f"\tearly_stop={sum(1 for o in rows if 0 < o[0] < o[3])}/{n}"
+        f"\tfailed={sum(1 for o in rows if o[0] == 0)}/{n}\twall={wall:.1f}",
         flush=True,
     )
 
 
-def ramp(srv, items, out):
+def ramp(srv: Server, items: list[tuple[str, int]], out: list[Cell | None]) -> None:
     th = [
         threading.Thread(target=post, args=(srv["port"], srv["model"], it, out, i))
         for i, it in enumerate(items)
@@ -264,7 +286,8 @@ if int(MAXLEN) < workload.MAXLEN_NEED:
 # precondition, capping how high a LATER server's util may be set. So give the
 # small model its share first; large-first leaves the second server a budget
 # smaller than the first already occupies, and it gets nothing.
-servers, alive = [], []
+servers: list[Server] = []
+alive: list[Server] = []
 for i, spec in enumerate(SPECS):
     tag, model = spec[0], spec[1]
     util = spec[2] if len(spec) > 2 else UTIL
@@ -280,7 +303,7 @@ for i, spec in enumerate(SPECS):
         f"--port 8000 --gpu-memory-utilization {util} --max-model-len {MAXLEN} "
         f"--max-num-seqs {SEQS} {kvflag}"
     )
-    s = {"tag": tag, "model": model, "name": name, "port": port, "util": util}
+    s: Server = {"tag": tag, "model": model, "name": name, "port": port, "util": util}
     servers.append(s)
 
     # RETRY: a launch near the memory edge fails INTERMITTENTLY. Measured on
@@ -359,19 +382,21 @@ for s in alive:
         "'(GPU KV cache size: [0-9,]+ tokens|"
         "Maximum concurrency for [0-9,]+ tokens per request: [0-9.]+x)' | tail -2"
     )
-    kvtok = re.search(r"GPU KV cache size: ([\d,]+) tokens", kvlog)
+    kvmatch = re.search(r"GPU KV cache size: ([\d,]+) tokens", kvlog)
     conc = re.search(r"per request: ([\d.]+)x", kvlog)
-    s["kvtok"] = int(kvtok.group(1).replace(",", "")) if kvtok else None
+    s["kvtok"] = int(kvmatch.group(1).replace(",", "")) if kvmatch else None
     s["conc"] = (
         float(conc.group(1))
         if conc
         else (s["kvtok"] / int(MAXLEN) if s["kvtok"] else None)
     )
-    w = [None]
+    w: list[Cell | None] = [None]
     post(s["port"], s["model"], batch(1)[0], w, 0)
-    if w[0][0] <= 1:
+    warm = w[0]
+    if warm is None or warm[0] <= 1:
         print(
-            f"{H}\t{PAIR}\t{s['tag']}\tDEGENERATE\twarmup otok={w[0][0]}",
+            f"{H}\t{PAIR}\t{s['tag']}\tDEGENERATE"
+            f"\twarmup otok={warm[0] if warm else 0}",
             flush=True,
         )
         teardown([x["name"] for x in servers])
@@ -380,7 +405,7 @@ for s in alive:
         f"{H}\t{PAIR}\t{s['tag']}\tCONFIG\timg={IMG}\tport={s['port']}"
         f"\tutil={s['util']}\tkv={KV}\tkv_tok={s['kvtok']}"
         f"\tmaxconc={s['conc'] if s['conc'] is None else round(s['conc'], 1)}"
-        f"\twarm_ptok={w[0][2]}\tpair_vram={vram}\ttries={s['attempts']}",
+        f"\twarm_ptok={warm[2]}\tpair_vram={vram}\ttries={s['attempts']}",
         flush=True,
     )
 
@@ -396,14 +421,15 @@ for n in LEVELS:
 
     # Phase 1: each server alone, its neighbour resident but idle.
     for s in alive:
-        items, out = batch(n), [None] * n
+        items = batch(n)
+        out: list[Cell | None] = [None] * n
         t0 = time.time()
         ramp(s, items, out)
         row("solo", s["tag"], n, out, time.time() - t0)
 
     # Phase 2: every server at once, same work as its own solo row.
     items = batch(n)
-    outs = {s["tag"]: [None] * n for s in alive}
+    outs: dict[str, list[Cell | None]] = {s["tag"]: [None] * n for s in alive}
     th = [threading.Thread(target=ramp, args=(s, items, outs[s["tag"]])) for s in alive]
     t0 = time.time()
     for t in th:

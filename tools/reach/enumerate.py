@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent.parent
 CORPUS = REPO / "records" / "corpora" / "reach-2026-08-02" / "corpus.json"
@@ -55,7 +56,7 @@ def matches(path: str, glob: str) -> bool:
     return path.startswith(prefix) and path.endswith(suffix)
 
 
-def walk(cwd: Path, rev: str, unit: str, glob: str, limit: int) -> list[dict]:
+def walk(cwd: Path, rev: str, unit: str, glob: str, limit: int) -> list[dict[str, Any]]:
     """The frame's qualifying changes, newest first."""
     first_parent = unit.startswith("first-parent")
     log = ["log", rev, "--format=%H%x1f%ci%x1f%s"]
@@ -63,7 +64,7 @@ def walk(cwd: Path, rev: str, unit: str, glob: str, limit: int) -> list[dict]:
         ["--first-parent", "--merges"] if first_parent else ["--no-merges", "-n", "400"]
     )
 
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for line in git(cwd, *log).strip().split("\n"):
         if not line:
             continue
@@ -109,7 +110,7 @@ def fetch_pinned(remote: str, sha: str, dest: Path) -> Path:
     return dest
 
 
-def rebuild(pinned: dict, workdir: Path) -> list[dict]:
+def rebuild(pinned: dict[str, Any], workdir: Path) -> list[dict[str, Any]]:
     frames = []
     for frame in pinned["frames"]:
         repo, sha = frame["repo"], frame["pinned_commit"]

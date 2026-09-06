@@ -58,9 +58,22 @@ id: rename
 task_type: rename_symbol
 task: Rename the helper.
 target: src/pkg/messy.py
+rename:
+  from: fetch_page
+  to: fetch_document
 scope:
   allow: ["src/**"]
 """
+
+#: A definition and, in a second file, an import and a call of it. Three files
+#: are the point: a rename that only reached ``target`` would leave the caller
+#: importing a name that no longer exists, and pass a single-file assertion.
+RENAME_TREE = {
+    "src/pkg/helper.py": "def fetch_page(url):\n    return url\n",
+    "src/pkg/caller.py": (
+        "from pkg.helper import fetch_page\n\ndef go():\n    return fetch_page(1)\n"
+    ),
+}
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -126,22 +139,70 @@ def test_the_users_checkout_is_not_what_gets_formatted(repo: Path) -> None:
     assert (repo / contract.target).read_bytes() == before
 
 
-def test_an_in_process_step_is_refused_rather_than_reported_done(repo: Path) -> None:
+def test_an_in_process_step_is_performed_and_not_refused(repo: Path) -> None:
     """``rename_symbol`` has no program, and an empty argv is not "nothing to do".
 
     ``ToolStep.argv`` returns ``()`` deliberately — "an empty tuple is the
     honest answer and is the answer a caller can distinguish". Distinguishing it
-    is the executor's half: run it as a command and the contract is reported
-    complete over a file nothing opened.
+    is the executor's half, and until #418 the distinction was drawn the wrong
+    way: the one type on the floor with nothing to install raised rather than
+    ran, so a contract of the type the shipped skill offers as an example
+    validated and then reached ``error``.
+
+    The rename is asserted across two files, because fanning across files is
+    the whole warrant for calling this type deterministic.
     """
+    for path, source in RENAME_TREE.items():
+        (repo / path).write_text(source, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "a symbol and a caller")
+
     contract = load_contract(RENAME_CONTRACT)
     (step,) = tool_steps(contract)
+    assert step.argv == ()
+
+    with TempDirSandbox(repo) as sandbox:
+        outcome = run_tool_step(step, sandbox)
+        after = {
+            path: (Path(sandbox.workspace) / path).read_text(encoding="utf-8")
+            for path in RENAME_TREE
+        }
+
+    assert outcome.ok, (outcome.environment_issue, outcome.result)
+    assert "fetch_page" not in after["src/pkg/helper.py"]
+    assert "def fetch_document" in after["src/pkg/helper.py"]
+    assert "fetch_page" not in after["src/pkg/caller.py"], (
+        "the caller still imports a name the rename removed; a rename that "
+        "stops at `target` leaves a tree that does not import"
+    )
+    assert (repo / "src" / "pkg" / "helper.py").read_text(
+        encoding="utf-8"
+    ) == RENAME_TREE["src/pkg/helper.py"], "the user's checkout was rewritten"
+
+
+def test_a_step_with_no_program_and_no_executor_is_still_refused(
+    repo: Path,
+) -> None:
+    """The half of the old refusal that must survive.
+
+    Reporting a step complete because there was no command to fail is how a
+    contract gets reported done over a file nothing opened. That is still the
+    answer for a step naming neither a program nor an executor mcgyvr has —
+    what changed is only that ``rename_symbol`` now has one.
+    """
+    from dataclasses import replace
+
+    from mcgyvr.deterministic import Tool
+
+    contract = load_contract(RENAME_CONTRACT)
+    (planned,) = tool_steps(contract)
+    step = replace(planned, tool=Tool(task_type="no_such_type"))
     assert step.argv == ()
 
     with TempDirSandbox(repo) as sandbox, pytest.raises(UnrunnableStepError) as exc:
         run_tool_step(step, sandbox)
 
-    assert "in-process" in str(exc.value)
+    assert "no_such_type" in str(exc.value)
 
 
 def test_a_missing_program_is_an_environment_issue_never_a_failure(

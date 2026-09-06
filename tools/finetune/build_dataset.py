@@ -471,7 +471,8 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
     )
 
     refuse_withheld_material(kept, classified, instruments)
-    train, val = [], []
+    train: list[dict[str, Any]] = []
+    val: list[dict[str, Any]] = []
     for item in kept:
         # Hashed on the bare id rather than on the scoped one, deliberately.
         # Two sets sharing an id are two problems, and holding out both when

@@ -61,7 +61,7 @@ def test_serve_is_a_fixed_sequence_of_the_doors_own_gates() -> None:
         "05-envelope.py",
         "06-step.py",
     ]
-    assert run.SERVE_ALWAYS == run.ALWAYS
+    assert [e.script for e in run.ALWAYS] == ["07-teardown.py", "08-parse.py"]
     for step in run.SERVE_STEPS.values():
         assert step.is_file(), step
 

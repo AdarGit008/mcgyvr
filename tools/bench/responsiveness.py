@@ -99,10 +99,10 @@ def retired_ids() -> frozenset[str]:
 
 def tranche(task: str) -> int:
     """The authoring tranche an `f1` id belongs to."""
-    return (
-        FIRST_TRANCHE
-        + (int(re.match(r"b(\d+)", task).group(1)) - FIRST_ID) // TRANCHE_SIZE
-    )
+    numbered = re.match(r"b(\d+)", task)
+    if numbered is None:
+        raise ValueError(f"{task!r} is not a `b<number>` id, so it has no tranche")
+    return FIRST_TRANCHE + (int(numbered.group(1)) - FIRST_ID) // TRANCHE_SIZE
 
 
 def read_rows(path: Path) -> list[dict[str, Any]]:
@@ -303,7 +303,7 @@ def main() -> int:
 
     # --- primary: psi_draw -------------------------------------------------
     kinds = {k: classify(v) for k, v in built.items()}
-    tally = defaultdict(int)
+    tally: defaultdict[str, int] = defaultdict(int)
     for kind in kinds.values():
         tally[kind] += 1
     n = len(built)

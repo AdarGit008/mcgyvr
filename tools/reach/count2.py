@@ -34,6 +34,7 @@ import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -136,7 +137,7 @@ def declarations(clone: Path, commit: str) -> list[dict[str, str]]:
     return found
 
 
-def measure_frame(frame: Mapping) -> list[dict]:
+def measure_frame(frame: Mapping[str, Any]) -> list[dict[str, Any]]:
     clone = frames.prepare_clone(frame, CLONES)
     rows = []
     for change in frame["changes"]:
@@ -154,8 +155,8 @@ def measure_frame(frame: Mapping) -> list[dict]:
     return rows
 
 
-def summarise(rows: list[dict]) -> dict:
-    by_frame: dict[str, dict] = {}
+def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_frame: dict[str, dict[str, Any]] = {}
     for row in rows:
         frame = by_frame.setdefault(
             row["frame"], {"commits": 0, "commits_without_declaration": 0}

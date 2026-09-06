@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""gate 1 — the tree is on the open product round.
+"""gate 1 — name the round this run is measured under, opening one if needed.
 
-Runs first and reaches no rig, so a tree that is not pinned costs no rig time.
-A measurement taken against an unpinned tree is not comparable with any other
-measurement, which makes it worse than no measurement: it looks like evidence.
+Runs first and reaches no rig, so the round is settled before any rig time is
+spent. A measurement taken against an unpinned tree is not comparable with any
+other measurement, which makes it worse than no measurement: it looks like
+evidence — so every run is stamped with a round that pins the tree it ran on.
+
+It gets there by drawing the boundary rather than demanding it (owner,
+2026-09-06). A round is a boundary in the record, not a permission to work: a
+tree that has moved gets the next round opened for it here, pinned to the
+revision about to run, and the run proceeds. What the pin is for is untouched —
+two revisions never share a round — and this is exactly why the new round is
+appended and the one that was open keeps the digest its own arms ran against.
 """
 
 from __future__ import annotations
@@ -29,16 +37,17 @@ def main() -> int:
     spec.loader.exec_module(product)
 
     try:
-        round_id, digest = product.require_pinned()
+        round_id, digest = product.ensure_open()
     except product.ProductError as error:
-        refuse(
-            f"gate 1: {error}. The tree is not on the open round and nothing "
-            "is measured on it"
-        )
+        # What is left to refuse on is a rounds file that cannot be read or a
+        # surface that cannot be digested — the run has no round to be stamped
+        # with either way, and a run nobody can trace to a revision is the
+        # thing this gate exists to prevent.
+        refuse(f"gate 1: {error}. Nothing is measured against a round it has not got")
 
     if not round_id or not digest:
         refuse(
-            f"gate 1: require_pinned() returned round={round_id!r} "
+            f"gate 1: ensure_open() returned round={round_id!r} "
             f"digest={digest!r}; a round it cannot name is not a round it checked"
         )
     export("RUN_ROUND", round_id)

@@ -117,17 +117,33 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
-# The formatter is declared explicitly (not left to defaults) so it is a
-# machine-readable statement of intent the baseline detects (QUAL-02); these
-# are ruff's defaults, so `ruff format` behaviour is unchanged.
+# The formatter is declared explicitly (not left to defaults) so the repo's
+# formatting is pinned to a file rather than inherited from whichever ruff a
+# machine has; `make lint` enforces it with `ruff format --check .`. These are
+# ruff's current defaults, so `ruff format` behaviour is unchanged.
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests"]
+# `tools/` is here for the same reason `src` and `tests` are: `make
+# journal-index` and `make journal-review` run tools/live/*.py over the live
+# journal, and tests/conftest.py imports tools/bench/*.py at collection. A
+# directory ruff lints and the type checker never sees is a check that reports
+# green over code nothing measured.
+files = ["src", "tests", "tools"]
 strict = true
+# The four task-material directories ruff already excludes, for the reason
+# stated there: their contents are digest-pinned instruments, not code this
+# repository maintains.
+exclude = "^tools/(bundle/python/tasks|problems/tasks|bench/tasks|bench/reserve)/"
+# `tools/` is not a package (tests/conftest.py:109), so two rigs may both hold
+# a `measure.py` and neither is `measure`. Naming each file by its path is what
+# lets both be checked; MYPYPATH puts `src` ahead of the repository root so a
+# module under it stays `mcgyvr.*` and is not also found as `src.mcgyvr.*`.
+explicit_package_bases = true
+mypy_path = "src"
 
 # ggufscan.py is held byte-comparable with the evidence copy (see the ruff
 # exclusion above); it is shipped to the rig as text and checked by
@@ -135,6 +151,22 @@ strict = true
 [[tool.mypy.overrides]]
 module = "mcgyvr.serving.ggufscan"
 ignore_errors = true
+
+# The siblings a rig under `tools/` reaches by bare name. `tools/` is not a
+# package, so these scripts put their neighbour's directory on `sys.path` and
+# import it as `mode`, `mde`, `frames` — a name no import system resolves from
+# the repository root. The files themselves are checked in full under their
+# own paths; this says only that the *importer's* view of them is untyped,
+# which is what the path-loading already made true at runtime.
+[[tool.mypy.overrides]]
+module = ["mode", "mde", "power.mde", "frames", "emit", "product", "responsiveness"]
+ignore_missing_imports = true
+
+# Third-party packages with no stubs, installed only on the machines that run
+# these two rigs (a fine-tune box and the okf service).
+[[tool.mypy.overrides]]
+module = ["datasets", "tokenizers", "trl", "unsloth.*", "unsloth", "okf_rag.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -392,9 +392,10 @@ MODEL_PROBE_TIMEOUT_S = 30.0
 
 def _refused(
     fields: tuple[str, ...], why: str
-) -> tuple[dict[str, None], dict[str, str]]:
+) -> tuple[dict[str, str | None], dict[str, str]]:
     """Every field in ``fields`` as ``null``, all for the same stated reason."""
-    return ({f: None for f in fields}, {f: why for f in fields})
+    blanked: dict[str, str | None] = {f: None for f in fields}
+    return (blanked, {f: why for f in fields})
 
 
 MODEL_PROBE_FIELDS: tuple[str, ...] = (

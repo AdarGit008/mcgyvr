@@ -93,6 +93,15 @@ BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
 #: The step a caller gets without naming one.
 DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
+#: The shell files beside the gates that a gate READS rather than spawns.
+#: `rig-snapshot.sh` is the reader gate 2 sends to the rig and gate 7 compares
+#: against; `default-step.sh` is what a run without `--step` executes. Neither
+#: is an entry in SEQUENCE, so neither was on the manifest — and a check that
+#: covers only the entries someone remembered is the absence the manifest
+#: exists to turn into a refusal: delete `rig-snapshot.sh` and gate 2 died on a
+#: FileNotFoundError traceback, which is a gate that stopped running without
+#: anyone deciding it should.
+READERS = (DEFAULT_STEP, GATE_SCRIPTS / "rig-snapshot.sh")
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
 #: is not an experiment, and the envelope it files under is the host's.
@@ -259,7 +268,6 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     if entry.script
     in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
 )
-SERVE_ALWAYS: tuple[Entry, ...] = ALWAYS
 
 #: The full vocabulary a gate script may read. A script that wants something
 #: not on this list is asking for a fact nobody gated.
@@ -291,19 +299,24 @@ def _refuse(status: int, rule: str) -> NoReturn:
     raise RefusedError(status, rule)
 
 
-def _check_manifest() -> None:
+def check_manifest() -> None:
     """Every entry exists and is executable, BEFORE anything runs.
 
     Checked as a set rather than lazily at each step, so a run cannot get four
     gates in — past the round check, past the rig comparison — and then stop
     because the fifth file is missing. And checked at all because a deleted
     script is the cheapest way to skip a gate: without this, `rm` is a flag.
+
+    :data:`READERS` is on the list for the same reason the gates are. A file a
+    gate reads is part of the door whether or not the door spawns it, and one
+    that can go missing unnoticed makes the promise above true only of the
+    entries someone remembered to list.
     """
     missing = [
         e.script
         for e in (*SEQUENCE, *ALWAYS)
         if not (GATE_SCRIPTS / e.script).is_file()
-    ] + [step.name for step in SERVE_STEPS.values() if not step.is_file()]
+    ] + [path.name for path in (*SERVE_STEPS.values(), *READERS) if not path.is_file()]
     if missing:
         _refuse(
             2,
@@ -637,28 +650,35 @@ def _serve(argv: list[str]) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SERVE_SEQUENCE:
-            status = _run_entry(entry, env)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            check_manifest()
+            for entry in SERVE_SEQUENCE:
+                status = _run_entry(entry, env)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
-    if interrupted:
-        return 130
-    return step_status or after
+        after = _always(env)
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -731,37 +751,44 @@ def main(argv: list[str] | None = None) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SEQUENCE:
-            args = step_args if entry.script == "06-step.py" else None
-            status = _run_entry(entry, env, args)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                # The step's own failure is the operator's result, not the
-                # door's refusal: 7 and 8 still run, and its status propagates
-                # after them.
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
-        # was running has been ended by `_run_entry`; what follows is the
-        # main flow, not a signal handler, so gate 7's own ssh is not the
-        # nested read that came back empty in the shell door.
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            check_manifest()
+            for entry in SEQUENCE:
+                args = step_args if entry.script == "06-step.py" else None
+                status = _run_entry(entry, env, args)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    # The step's own failure is the operator's result, not the
+                    # door's refusal: 7 and 8 still run, and its status propagates
+                    # after them.
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
+            # was running has been ended by `_run_entry`; what follows is the
+            # main flow, not a signal handler, so gate 7's own ssh is not the
+            # nested read that came back empty in the shell door.
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
+        after = _always(env)
 
-    if interrupted:
-        return 130
-    return step_status or after
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
 
 
 #: What the ALWAYS phase will not be stopped by.

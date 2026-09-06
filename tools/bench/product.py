@@ -101,8 +101,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -295,6 +297,83 @@ def require_pinned(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, st
             f"Changed: {', '.join(_moved(repo, current)) or 'unknown'}"
         )
     return str(current["id"]), measured
+
+
+#: ``r7-05-09-2026`` — the counter, then the day the boundary was drawn. The
+#: counter is the only ordering the file has; `r1-commissioning` predates the
+#: date suffix and still carries one.
+_ROUND_COUNTER = re.compile(r"^r(\d+)\b")
+
+
+def next_round_id(rounds: list[dict[str, Any]], when: datetime | None = None) -> str:
+    """The identifier the round after ``rounds`` takes.
+
+    One sequence, whatever opened it: a reader tracing a measurement back has
+    only the counter to order the file by, so a round the door opened for
+    itself is numbered off the same series as one an operator typed.
+    """
+    highest = 0
+    for entry in rounds:
+        found = _ROUND_COUNTER.match(str(entry.get("id", "")))
+        if found:
+            highest = max(highest, int(found.group(1)))
+    day = (when or datetime.now(UTC)).strftime("%d-%m-%Y")
+    return f"r{highest + 1}-{day}"
+
+
+def ensure_open(repo: Path = REPO, path: Path = ROUNDS_FILE) -> tuple[str, str]:
+    """The round this tree runs under, opening the next one if the tree moved.
+
+    :func:`require_pinned` answers the same question by refusing, which is what
+    check 3's teeth were until the owner ruled otherwise on 2026-09-06: **a
+    round is a boundary in the record, not a permission to work.** The refusal
+    was enforced by stopping the operator, whose only move was to retype the
+    ``--open`` line the refusal printed — and on 2026-09-06 it stopped `serve
+    up` and `serve down` outright, ten product files having moved since
+    ``r7-05-09-2026`` was pinned. A gate that blocks a rig read to make a
+    record tidy has the two the wrong way round.
+
+    So the boundary is drawn rather than demanded. What the pin exists for is
+    unchanged and is the reason this appends instead of re-pinning: two
+    revisions never share a round, the round that was open keeps the digest its
+    arms ran against, and the new round pins exactly the tree about to run.
+
+    An unmoved tree writes nothing. A boundary is drawn where the product
+    moved, not once per run.
+
+    Returns the same ``(round_id, digest)`` pair as :func:`require_pinned`.
+    """
+    current = open_round(path)
+    measured = digest(repo)
+    if current.get("product_sha256") == measured:
+        return str(current["id"]), measured
+
+    rounds = load_rounds(path)
+    doctrine = load_doctrine(path)
+    moved = _moved(repo, current)
+    entry: dict[str, Any] = {
+        "id": next_round_id(rounds),
+        "opened": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "issue": None,
+        "product_sha256": measured,
+        # No `--adopted` claim, and none invented: nobody named this batch, and
+        # a fabricated one would be a claim with no author. What moved is a
+        # fact the file can state on its own.
+        "why": (
+            f"Opened by the door: the tree had moved off `{current.get('id')}` "
+            f"and a run was dispatched against it. "
+            f"{len(moved)} surface file(s) changed."
+        ),
+        "adopted": [],
+        "moved": moved,
+        "files": {line.split(" ")[0]: line.split(" ")[1] for line in _lines(repo)},
+    }
+    payload: dict[str, Any] = {}
+    if doctrine:
+        payload["doctrine"] = doctrine
+    payload["rounds"] = [*rounds, entry]
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return str(entry["id"]), measured
 
 
 def declare(manifest: dict[str, Any] | Any) -> str:

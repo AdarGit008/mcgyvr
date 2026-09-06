@@ -70,7 +70,7 @@ SYSTEM = (
 )
 
 
-def mkprompt():
+def mkprompt() -> tuple[str, int]:
     """SYSTEM (shared, cacheable) + a unique body sized from the real deciles."""
     with UIDLOCK:
         i = next(UID)

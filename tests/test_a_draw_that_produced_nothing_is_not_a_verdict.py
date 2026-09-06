@@ -63,7 +63,8 @@ task_type: function_implementation
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
-acceptance: ["sh -c 'grep -q RETRY {TARGET}'"]
+demonstration: ["sh -c 'grep -q RETRY {TARGET}'"]
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
 limits:
   max_output_tokens: 256
 scope:

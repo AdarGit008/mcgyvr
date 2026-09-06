@@ -383,6 +383,7 @@ def bar_of(tasks: list[Any]) -> dict[str, Any] | None:
     """
     if not tasks:
         return None
+    material: dict[str, Any]
     material, _ = breadth.identity_module.bar_material(
         rungs=score.GATE_RUNGS,
         language=tasks[0].language.name,
