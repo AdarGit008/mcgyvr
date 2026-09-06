@@ -24,7 +24,7 @@ from mcgyvr.exits import Exit
 LSCPU = (
     "CPU(s):                20\nCore(s) per socket:    10\nThread(s) per core:    2\n"
 )
-SMI = "0, NVIDIA GeForce RTX 3060, 12288, 12\n"
+SMI = "0, NVIDIA GeForce RTX 3060, 12288, 12, 12276\n"
 
 
 #: What the `bench` fixture hands a case: a re-installer for the stubbed

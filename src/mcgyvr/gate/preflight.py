@@ -124,11 +124,7 @@ def check_prompt_fits(
     be attributed to the proxy rather than to the prompt.
     """
     budget = context_window - output_reserve
-    charged = (
-        math.ceil(prompt_tokens * (1 + ESTIMATE_RESERVE))
-        if counted_by is TokenCount.ESTIMATE
-        else prompt_tokens
-    )
+    charged = _charged(prompt_tokens, counted_by)
     if charged <= budget:
         return None
     basis = (
@@ -144,8 +140,25 @@ def check_prompt_fits(
     )
 
 
+def _charged(prompt_tokens: int, counted_by: TokenCount) -> int:
+    """What a prompt costs against a window, given how it was counted.
+
+    One function because two callers charge the same prompt — the fit check
+    and the share check — and a prompt charged one way for "does it fit" and
+    another for "how much of the window is that" would be two budgets sized
+    the same way that disagree.
+    """
+    if counted_by is TokenCount.ESTIMATE:
+        return math.ceil(prompt_tokens * (1 + ESTIMATE_RESERVE))
+    return prompt_tokens
+
+
 def check_contract_fits(
-    contract: Contract, prompt: str, context_window: int
+    contract: Contract,
+    prompt: str,
+    context_window: int,
+    *,
+    default_fraction: float | None = None,
 ) -> PreflightIssue | None:
     """Refuse a contract whose prompt and its own reply cannot share a window.
 
@@ -182,8 +195,79 @@ def check_contract_fits(
     # helper.
     from mcgyvr.orchestrator.read import estimate_tokens
 
-    return check_prompt_fits(
-        estimate_tokens(prompt),
+    estimated = estimate_tokens(prompt)
+    does_not_fit = check_prompt_fits(
+        estimated,
         context_window,
         contract.limits.max_output_tokens,
+    )
+    if does_not_fit is not None:
+        # The harder failure is reported first and alone. A contract that
+        # cannot fit at all is not also usefully described as claiming too
+        # large a share: one of those is fixed by re-decomposing and the other
+        # might be fixed by re-declaring, and naming both invites the second.
+        return does_not_fit
+    # The contract's own share wins where it stated one, and the caller's
+    # standing default applies where it did not. Never the other way round: a
+    # contract that declared a share declared it about itself, and a config
+    # that overrode it would make the contract's own text untrue.
+    share = contract.limits.max_window_fraction
+    if share is None:
+        share = default_fraction
+    return check_window_fraction(
+        _charged(estimated, TokenCount.ESTIMATE) + contract.limits.max_output_tokens,
+        context_window,
+        share,
+    )
+
+
+def check_window_fraction(
+    contract_tokens: int, context_window: int, fraction: float | None
+) -> PreflightIssue | None:
+    """Refuse a contract that claims more of a rung's window than the run allows.
+
+    A different question from :func:`check_prompt_fits`, which asks whether a
+    prompt and its reply can fit at all. This asks how much of the window one
+    contract may *want*. The two come apart at the top of the range: a contract
+    that fits with nothing to spare has left the rung no room to hold anything
+    beside it and no room to absorb an estimate that ran long, and "it fits"
+    cannot see either.
+
+    ``fraction`` is the run's, not this module's. ``None`` means the run
+    declared no share and none is enforced — deliberately not the same as
+    ``1.0``, which is a declaration that a contract may have the whole window.
+    A default invented here would bound every install that never asked to be
+    bounded, with a number nobody measured; the project's rule against
+    unsourced constants is what makes the absence an answer rather than a gap.
+
+    ``contract_tokens`` is the contract's whole footprint — the prompt as
+    charged, plus the reply it declared room for — because that is the thing
+    that occupies the window. Charging the prompt alone would let a contract
+    with a large ``max_output_tokens`` pass a share it will exceed the moment
+    the reply arrives.
+
+    Both fractions are named in the refusal, because which one is wrong
+    decides the fix: a contract to re-decompose, or a share to re-declare.
+    """
+    if fraction is None:
+        return None
+    if context_window <= 0:
+        # Not a division. A rung with no window is a routing error, and
+        # dividing by it would either raise here or report an infinity that
+        # reads as a very greedy contract.
+        return PreflightIssue(
+            "window-share",
+            f"the rung declares a context window of {context_window}, so no "
+            f"share of it can be computed; a rung with no window is a routing "
+            f"error rather than a contract that is too large",
+        )
+    claimed = contract_tokens / context_window
+    if claimed <= fraction:
+        return None
+    return PreflightIssue(
+        "window-share",
+        f"contract claims {claimed:.2f} of the rung's window "
+        f"({contract_tokens} tokens of {context_window}), but this run allows "
+        f"{fraction:.2f}. Either decompose into smaller contracts or raise "
+        f"the share this run allows",
     )

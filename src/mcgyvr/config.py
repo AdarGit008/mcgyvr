@@ -130,6 +130,11 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
+    #: Inclusive upper bound, for the values that have one because they are a
+    #: share of something rather than a count of it. Absent on every counting
+    #: field: attempts and timeouts have no natural ceiling, and inventing one
+    #: would refuse a config nobody has shown to be wrong.
+    max_value: float | None = None
     bind_hint: str = ""
 
     retired: tuple[tuple[str, str], ...] = ()
@@ -524,6 +529,23 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Wall-clock ceiling for one task, including acceptance commands.",
         default=900,
         min_value=1,
+    ),
+    Field(
+        "max_window_fraction",
+        "float",
+        "The largest share of a rung's context window one contract may claim "
+        "-- its prompt and its own declared reply together, over the whole "
+        "window. Distinct from whether the two *fit*, which the fit check "
+        "already asks: a contract that fits with nothing to spare leaves the "
+        "rung nothing to absorb a long estimate with. Unset enforces no "
+        "share, which is not the same as 1.0: a run that declared none is "
+        "recorded as having declared none.",
+        min_value=0.0,
+        max_value=1.0,
+        bind_hint=(
+            "a share between 0 and 1 -- e.g. 0.75 to keep a quarter of every "
+            "rung's window clear -- or leave it unset to enforce no share"
+        ),
     ),
 )
 
@@ -966,6 +988,10 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             raise ConfigSchemaError(
                 f"{path}: must be at least {spec.min_value}, found {raw}"
             )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
+            )
         return raw
 
     if spec.kind == "float":
@@ -978,6 +1004,10 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         if spec.min_value is not None and raw < spec.min_value:
             raise ConfigSchemaError(
                 f"{path}: must be at least {spec.min_value}, found {raw}"
+            )
+        if spec.max_value is not None and raw > spec.max_value:
+            raise ConfigSchemaError(
+                f"{path}: must be at most {spec.max_value}, found {raw}"
             )
         return float(raw)
 

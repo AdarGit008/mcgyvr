@@ -89,12 +89,13 @@ RUNTIME_RESIDENT_GB = 1.53
 MAX_WIDTH = 32
 # vLLM sizes its own cache from ``--gpu-memory-utilization`` and prices a
 # request against ``--max-model-len``, so these two are what a vLLM unit
-# states and the cache law is not consulted. 8192 is a contract's 4096-token
-# prompt ceiling with as much again for the reply, and the length the live
-# ladder was measured at (2026-09-05: the 7B AWQ held 3.48 such requests at
-# 0.68 of srv2's card, the 3B 4.40 at 0.33). The utilisation itself is the
-# operator's, in ``serve_args``: #337 measures it per rig and never inherits.
-VLLM_MAX_MODEL_LEN = 8192
+# states and the cache law is not consulted. The number is
+# :data:`DEFAULT_CONTEXT` and not a second opinion about window size: a rung
+# is a rung whichever engine serves it, and a ladder whose bottom prices a
+# request at twice what its top can hold would escalate work into a window it
+# no longer fits. The utilisation itself is the operator's, in ``serve_args``:
+# #337 measures it per rig and never inherits.
+VLLM_MAX_MODEL_LEN = DEFAULT_CONTEXT
 # The sequence cap a vLLM unit gets when no rung wrote a width. A scheduler
 # cap, not an allocation — the engine's cache decides how many actually run
 # — so unlike a llama.cpp slot it costs nothing to state, and 8 is what every
