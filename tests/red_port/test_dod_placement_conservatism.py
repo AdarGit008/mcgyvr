@@ -53,6 +53,16 @@ SRV1_USABLE_MIB = 5726
 SRV1_RUNNING_MIB = 5306
 SRV1_RUNNING_NCMOE = 32
 SRV1_SLOTS = 8
+#: The window that measurement was taken at: srv1 was serving ``-c 32768`` at
+#: ``--parallel 8``, and llama-server's ``-c`` is the total across slots.
+#:
+#: Stated here because nothing supplies it any more. The sibling ruling in
+#: ``test_dod_one_context_number.py`` retired ``DEFAULT_CONTEXT`` on the same
+#: day: the cache is priced against the window, so a law asked to judge a
+#: placement without one would be judging a process nobody is running — and a
+#: default in the module is the number nobody chose that both files exist to
+#: end. A test is a run, so it declares its own.
+SRV1_CTX_PER_SLOT = 4096
 
 
 def _geometry() -> dict[str, Any]:
@@ -79,6 +89,7 @@ def test_the_law_accepts_the_offload_srv1_is_running() -> None:
         _geometry(),
         n_cpu_moe=SRV1_RUNNING_NCMOE,
         slots=SRV1_SLOTS,
+        ctx_per_slot=SRV1_CTX_PER_SLOT,
         free_bytes=SRV1_USABLE_MIB * MIB,
     ), (
         f"srv1 runs --n-cpu-moe {SRV1_RUNNING_NCMOE} at {SRV1_RUNNING_MIB} MiB of "
@@ -98,6 +109,7 @@ def test_the_law_still_refuses_an_offload_that_does_not_fit() -> None:
         _geometry(),
         n_cpu_moe=SRV1_RUNNING_NCMOE - 8,
         slots=SRV1_SLOTS,
+        ctx_per_slot=SRV1_CTX_PER_SLOT,
         free_bytes=SRV1_USABLE_MIB * MIB,
     )
 
@@ -121,6 +133,7 @@ def test_the_guard_sits_at_the_edge_rather_than_two_gigabytes_past_it() -> None:
         _geometry(),
         n_cpu_moe=SRV1_RUNNING_NCMOE,
         slots=SRV1_SLOTS,
+        ctx_per_slot=SRV1_CTX_PER_SLOT,
         free_bytes=edge,
     ), (
         f"a placement predicted at {SRV1_RUNNING_MIB} MiB with only 200 MiB "
@@ -140,6 +153,7 @@ def test_the_law_reads_the_free_memory_it_is_given() -> None:
         _geometry(),
         n_cpu_moe=SRV1_RUNNING_NCMOE,
         slots=SRV1_SLOTS,
+        ctx_per_slot=SRV1_CTX_PER_SLOT,
         free_bytes=(SRV1_USABLE_MIB // 2) * MIB,
     ), "the same offload on half the card must refuse"
 
@@ -157,7 +171,12 @@ def test_the_prediction_is_readable_apart_from_the_allowance() -> None:
         "allowance added to it",
         lambda: __import__("mcgyvr.serving.vramfit", fromlist=["explain"]).explain,
     )
-    told = report(_geometry(), n_cpu_moe=SRV1_RUNNING_NCMOE, slots=SRV1_SLOTS)
+    told = report(
+        _geometry(),
+        n_cpu_moe=SRV1_RUNNING_NCMOE,
+        slots=SRV1_SLOTS,
+        ctx_per_slot=SRV1_CTX_PER_SLOT,
+    )
     # A positive allowance reported as its own number. Compared against the
     # module constant only as a sanity check on the reading, not as the
     # requirement: `allowance_mib = SCRATCH_AND_CONTEXT_MIB` would otherwise be

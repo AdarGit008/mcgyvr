@@ -39,6 +39,7 @@ is a probe that measured something other than what it thinks.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 #: Bytes per cache element by ``--cache-type-k/v``. ``q8_0`` is 34 bytes per
@@ -63,6 +64,33 @@ CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 #: and then OOMs at load.
 #: -> ``records/evidence/2026-09-05-context-decomposition/``
 SCRATCH_AND_CONTEXT_MIB = 768
+
+#: The same quantity MEASURED, per checkpoint, from the readings the paragraph
+#: above bounds. 768 is a bound over every architecture probed and it is the
+#: right number for a *derivation*, which walks down from it and has no
+#: measurement of the card in hand. It is the wrong number for judging a
+#: placement somebody is holding: on srv1, 2026-09-06, the card hands out 5726
+#: MiB, the running ``--n-cpu-moe 32`` placement occupies 5306, and this
+#: module's own prediction for it is 5347.2 -- accurate to 41 MiB. Adding 768
+#: to that refuses a placement the rig has been running for hours, and derives
+#: 34 instead. A measurement in hand outranks an allowance.
+#:
+#: The 768 was also calibrated while the free figure it was subtracted from was
+#: itself over-stated: :mod:`mcgyvr.scan` derived free VRAM as ``total - used``
+#: and so carried the driver's reserve (401 MiB on srv1, 376 on srv2) as though
+#: it were available. Correcting the scan on 2026-09-06 removed that
+#: over-statement, and the allowance had been quietly absorbing it.
+#:
+#: Absent an entry, the bound stands: an architecture nobody has probed gets
+#: the conservative number, which is the direction that costs throughput rather
+#: than the one that admits a cell that OOMs at load.
+#: -> ``records/evidence/2026-09-05-context-decomposition/``
+MEASURED_SCRATCH_MIB = {
+    "deepseek2": 259.5,
+    "gptoss": 302.1,
+    "qwen35moe": 302.7,
+    "nemotron_h_moe": 521.2,
+}
 
 #: llama.cpp pads the sliding-window cache to a multiple of this. Measured at
 #: 256 with flash-attention both on and off, so it is not an FA alignment.
@@ -307,3 +335,103 @@ def floor(geometry: dict[str, Any], free_bytes: int, constant: int) -> int | Non
 def predict(geometry: dict[str, Any], n_cpu_moe: int, constant: int) -> int:
     """Card bytes at a placement: the probe's constant plus that placement's experts."""
     return constant + experts_on_card(geometry, n_cpu_moe)
+
+
+@dataclass(frozen=True)
+class Placement:
+    """A placement's card usage, with the claim and the policy kept apart.
+
+    ``predicted_mib`` is what this module says the card will hold at this
+    offload: non-expert weights, cache, recurrent state and the experts that
+    stay. It is a claim about the card, checkable against ``nvidia-smi`` — on
+    srv1, 2026-09-06, it reads 5347.2 against a measured 5306.
+
+    ``allowance_mib`` is the room demanded past that claim, which is policy.
+    They were one number until 2026-09-06, and a single figure of 6115 against
+    a measured 5306 cannot be told apart from a law that is wrong by 809 MiB.
+    Reported separately, the reader can see which is which — and can see that
+    the law is accurate to 41 MiB and the allowance is what refused a running
+    placement.
+    """
+
+    predicted_mib: float
+    allowance_mib: float
+
+    @property
+    def required_mib(self) -> float:
+        """What the card must hand out for this placement: the claim plus the room."""
+        return self.predicted_mib + self.allowance_mib
+
+
+def allowance_mib(geometry: dict[str, Any]) -> float:
+    """The working room this checkpoint must have past its own prediction.
+
+    Its own measured compute buffer where one has been probed, and
+    :data:`SCRATCH_AND_CONTEXT_MIB` otherwise. See
+    :data:`MEASURED_SCRATCH_MIB` for why the bound is the wrong number to
+    judge a placement with and the right one to derive a floor from.
+    """
+    return MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")), SCRATCH_AND_CONTEXT_MIB)
+
+
+def explain(
+    geometry: dict[str, Any],
+    *,
+    n_cpu_moe: int,
+    slots: int,
+    ctx_per_slot: int,
+    n_ubatch: int = 512,
+) -> Placement:
+    """What this placement is predicted to occupy, and what is demanded beyond it.
+
+    ``ctx_per_slot`` has no default here for the reason stated at the top of
+    :mod:`mcgyvr.serving`: the cache is priced against the window, so a
+    prediction made at a window nobody declared is a prediction about a process
+    nobody is running. srv1's figures above are at 4096 per slot across eight
+    slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
+    """
+    kv = kv_bytes(geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch)
+    rs = rs_bytes(geometry, n_seq_max=slots)
+    predicted = (
+        int(geometry["bytes_nonexpert"])
+        + kv["total"]
+        + rs["total"]
+        + experts_on_card(geometry, n_cpu_moe)
+    )
+    return Placement(
+        predicted_mib=predicted / (1 << 20),
+        allowance_mib=allowance_mib(geometry),
+    )
+
+
+def fits_measured(
+    geometry: dict[str, Any],
+    *,
+    n_cpu_moe: int,
+    slots: int,
+    free_bytes: int,
+    ctx_per_slot: int,
+    n_ubatch: int = 512,
+) -> bool:
+    """Whether a card handing out ``free_bytes`` can hold this placement.
+
+    The question asked of a placement somebody already has — the offload a rig
+    is running, or one a person is proposing against a card they have just
+    scanned — as distinct from :func:`floor`, which derives one from nothing and
+    keeps the conservative bound because it has no measurement to check itself
+    against.
+
+    Both halves matter and the tests that pin this say so. Loosening the
+    allowance must not become deleting it: a placement whose raw prediction
+    fits the card with less than its working room to spare is still refused,
+    because a server needs room past the weights it holds, and an under-stated
+    allowance admits a cell that clears every gate and then fails to allocate.
+    """
+    told = explain(
+        geometry,
+        n_cpu_moe=n_cpu_moe,
+        slots=slots,
+        ctx_per_slot=ctx_per_slot,
+        n_ubatch=n_ubatch,
+    )
+    return told.required_mib * (1 << 20) <= free_bytes
