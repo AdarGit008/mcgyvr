@@ -981,16 +981,19 @@ def serve_door(
     host: str = "srv1",
     date: str = RUN_DATE,
     suffix: str = "",
+    env_extra: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """One `serve up|down` invocation from the fixture, to completion."""
     argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
     argv += ["--host", host, "--compose", str(compose), "--date", date]
     if suffix:
         argv += ["--suffix", suffix]
+    env = door_env(root)
+    env.update(env_extra or {})
     return subprocess.run(
         argv,
         cwd=root,
-        env=door_env(root),
+        env=env,
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
