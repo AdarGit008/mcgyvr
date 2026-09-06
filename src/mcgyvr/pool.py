@@ -132,6 +132,13 @@ class Endpoint:
     protocol: Protocol
     max_parallel: int
     credential_env: str | None
+    #: Tokens the process behind this URL serves in one request, or ``None``
+    #: when its source declared none. Below the seam on purpose: a window is a
+    #: fact about the machine, and :class:`Rung` stays empty so that a rung can
+    #: be re-pointed at another one. ``None`` enforces nothing rather than
+    #: standing in for a number — see
+    #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
+    context_window: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -435,6 +442,7 @@ def _endpoint(source: Source) -> Endpoint:
         protocol=Protocol(source.api),
         max_parallel=source.max_parallel,
         credential_env=source.api_key_env,
+        context_window=source.context_window,
     )
 
 

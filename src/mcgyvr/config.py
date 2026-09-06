@@ -177,6 +177,21 @@ SOURCE_FIELDS: tuple[Field, ...] = (
         min_value=1,
     ),
     Field(
+        "context_window",
+        "int",
+        "How many tokens this source's process serves in one request. Absent "
+        "means nobody declared it and nothing is enforced against it: a "
+        "window invented here would be a number nobody measured, and the "
+        "first live day found exactly that failure — a ladder whose bottom "
+        "priced a request at twice what its top could hold. Read it back "
+        "from the running unit (`max_model_len` on vLLM, `n_ctx` on "
+        "llama.cpp) and write what it said. It belongs on the source rather "
+        "than the rung because the window is a fact about the process, and a "
+        "rung that carried one could not be re-pointed at another machine.",
+        min_value=1,
+        bind_hint="e.g. 4096 — what the unit reports, not what you hoped for",
+    ),
+    Field(
         "api_key_env",
         "env_name",
         "NAME of the environment variable holding this source's key. Absent "
@@ -728,6 +743,14 @@ class Source:
     api_key_env: str | None
     engine: str | None = None
     image: str | None = None
+    #: Tokens this source serves in one request, or ``None`` when nobody said.
+    #: ``None`` is an answer rather than a gap: every budget in mcgyvr was
+    #: spent against a number the *contract* declared, so a contract was
+    #: measured against the window it was written for and never against the
+    #: window it reached. Declaring this is what lets the gate ask the second
+    #: question; leaving it out enforces nothing, which is the honest
+    #: behaviour for a machine nobody has read back.
+    context_window: int | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -1253,6 +1276,7 @@ def parse(text: str, path: Path | None = None) -> Config:
             api_key_env=block["api_key_env"],
             engine=block["engine"],
             image=block["image"],
+            context_window=block["context_window"],
         )
         for name, block in data["sources"].items()
     }

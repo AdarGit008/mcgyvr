@@ -25,6 +25,7 @@ import subprocess
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import Protocol
 
 from mcgyvr.contract import Contract
 
@@ -57,6 +58,31 @@ class TokenCount(StrEnum):
 # improvement — a hard cap enforced by an unmeasured proxy could not say which
 # way it was failing. Re-derive with `tools/tokens/measure.py`.
 ESTIMATE_RESERVE = 0.32
+
+
+class ServingWindow(Protocol):
+    """What this module needs of the thing a rung resolves to, and no more.
+
+    Structural rather than :class:`mcgyvr.pool.Endpoint` itself, because
+    ``tests/test_pool.py`` makes importing that type the definition of reaching
+    below the seam and this module is above it. The argument the guard asks for
+    is that the dependency is real, not that the spelling is clever: what a
+    contract is checked against is a window and a name to put in the refusal,
+    and neither is a way to dispatch. A base URL, a protocol or a credential
+    would be, and none of them is named here — so an ``Endpoint`` satisfies
+    this and nothing in this module can send a request with one.
+
+    Read-only on purpose: the endpoint is a frozen dataclass and this is a
+    question asked of it, never a place to write a window back.
+    """
+
+    @property
+    def source(self) -> str:
+        """The declared source name, for a refusal that says which rung."""
+
+    @property
+    def context_window(self) -> int | None:
+        """Tokens served in one request, or ``None`` when nobody declared it."""
 
 
 @dataclass(frozen=True)
@@ -270,4 +296,68 @@ def check_window_fraction(
         f"({contract_tokens} tokens of {context_window}), but this run allows "
         f"{fraction:.2f}. Either decompose into smaller contracts or raise "
         f"the share this run allows",
+    )
+
+
+def check_contract_against_rung(
+    contract: Contract,
+    prompt: str,
+    *,
+    rung: ServingWindow,
+    default_fraction: float | None = None,
+) -> PreflightIssue | None:
+    """Refuse a contract that cannot fit the window of the rung it will reach.
+
+    Every other budget in this module is spent against a number the *caller*
+    supplied, and until this existed the only supplier was the contract:
+    ``context.max_input_tokens``, a number an operator typed into a file about
+    the work. So a contract was measured against the window it was written for
+    and never against the window it reaches, and the two failures that follow
+    are opposite. A contract declaring more than the rung serves passes the
+    check and is truncated by the engine at a boundary nobody chose. A contract
+    declaring less is refused on a rung that had room. Which one happens is
+    decided by the file rather than by the machine that will answer.
+
+    Two questions, asked in this order because they have different repairs:
+
+    1. **What the contract declared it may read**, against what the rung
+       serves. A ceiling larger than the window is a promise the rung cannot
+       keep whatever this particular prompt turned out to weigh, and the
+       refusal names the *rung's* number — the operator's next move is to
+       decompose against the real window, and a message quoting the contract's
+       own 32768 tells them the opposite. Only the input ceiling is compared:
+       a contract may declare a reply that, added to a full read, would exceed
+       the window, and whether those two actually collide is question 2's,
+       measured on the prompt that exists rather than on the one the ceiling
+       allows for.
+
+    2. **What the prompt actually weighs**, through :func:`check_contract_fits`
+       — which is the truncation the contract's own ceiling cannot see. A
+       contract declaring a small ceiling passes question 1 and is still
+       assembled into a prompt larger than the rung will hold; today that
+       reaches the engine and comes back cut.
+
+    A rung whose source declared no window enforces nothing, the same answer
+    and for the same reason as ``fraction=None`` in
+    :func:`check_window_fraction`: the number would have to be invented, and an
+    invented window is the defect this function exists to end rather than a
+    conservative default. Declaring ``context_window`` on the source is what
+    turns the check on, and reading it back off the running unit is how the
+    number stops being a guess.
+    """
+    window = rung.context_window
+    if window is None:
+        return None
+    declared = contract.max_input_tokens
+    if declared > window:
+        return PreflightIssue(
+            "rung-window",
+            f"the contract declares it may read {declared} tokens, but rung "
+            f"{rung.source!r} serves a window of {window}. Decompose against "
+            f"{window}, or point the rung at a machine that serves more — a "
+            f"ceiling the rung cannot keep is truncation at a boundary "
+            f"nobody chose",
+        )
+    return check_contract_fits(
+        contract, prompt, window, default_fraction=default_fraction
     )
