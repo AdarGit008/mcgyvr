@@ -44,26 +44,11 @@
     "cpu_expert_offload": true
   },
   "residency": {
-    "_doc": "The three ollama settings that decide whether a model stays on the card and whether a second may join it — which is exactly what the co-residency cells measure. The owner's rule is `no limits: the hardware is the limit; if it breaks, we fix mcgyvr`, so two of the three are `0` (no cap) and the third disables the clock. Declaring `no cap` is NOT the same as leaving the engine to choose: srv2's old values were whatever 0.32.5 picked, recorded nowhere, under a different engine version from srv1's. Value strings are compared literally against the unit's `Environment=` line, which is how a survey reports them.",
-    "OLLAMA_NUM_PARALLEL": {
-      "value": "0",
-      "why": "no cap on slots — the hardware is the limit (owner, 2026-08-22). srv1 previously declared `2`, which split its context 8192x2 while srv2 ran 4096x1; that split is K2 and K7."
-    },
-    "OLLAMA_MAX_LOADED_MODELS": {
-      "value": "0",
-      "why": "no cap on co-resident models (owner, 2026-08-22). srv1 previously declared `3`; srv2 declared nothing and the engine chose `0`."
-    },
-    "OLLAMA_KEEP_ALIVE": {
-      "value": "-1",
-      "why": "nothing is evicted by a clock (owner, 2026-08-22). Resolves to `2562047h47m16.854775807s` — max int64 — on both rigs. srv1 previously declared `5m`; srv2 declared nothing and the engine chose `5m0s`."
-    }
+    "_removed_2026_09_06": "This block declared the three daemon settings that decided whether a model stayed on the card and whether a second could join it, and the owner's `no limits` rule that chose their values. The engine they configured was removed from the product and masked on srv2 the same day. The settings, the rule and the co-residency measurements that chose them are in archive/forensic-ollama/. The engines this build serves take the equivalent decisions on the command line the compose file carries -- `--parallel` and `-c` on llama.cpp, `--max-num-seqs` and `--max-model-len` on vLLM -- so there is no daemon-wide setting left to declare."
   },
   "engine": {
-    "_doc": "Engine builds a past campaign was measured under. Provenance, not a declaration to apply — see `apply`.",
-    "ollama": {
-      "build": "0.32.15",
-      "why": "One build on both rigs. srv1 ran 0.32.4 and srv2 ran 0.32.5 through the 2026-08-19 campaign, and no ramp row said so — that is K6. After the eleven-version jump the byte-identical `size_vram` reading of 1166236712 for qwen2.5-coder:1.5b reproduced exactly on both."
-    }
+    "_doc": "Engine builds a past campaign was measured under. Provenance, not a declaration to apply -- see `apply`.",
+    "_removed_2026_09_06": "The build recorded here served a backend that is no longer in the product; it is in archive/forensic-ollama/ with the eleven-version jump (K6) that made it worth recording. The builds the live ladder runs are declared where they are applied: `llamacpp_image` above, and the vLLM image digest under `not_declared_here`."
   },
   "not_declared_here": {
     "_doc": "Named so the omissions are not read as completeness — ADR-0026 lens 3.",
@@ -72,7 +57,7 @@
   },
   "apply": {
     "_doc": "What a host must be set to. This repository states it and checks it; it does not apply it, because nothing here has write access to a rig's unit files and a setter that silently disagreed with this file would be the drift over again.",
-    "_removed_2026_09_06": "This block declared an ollama.service override (OLLAMA_NUM_PARALLEL/MAX_LOADED_MODELS/KEEP_ALIVE) and the `systemctl restart ollama` that applied it. Ollama was removed from the product and masked on srv2 the same day; the settings, and the co-residency measurements that chose them, are in archive/forensic-ollama/. Nothing is applied to a rig for the engines this build serves: vLLM and llama.cpp both take their settings on the command line the compose file carries."
+    "_removed_2026_09_06": "This block declared a unit-file override for the daemon whose three residency settings are described under `residency`, and the service restart that applied it. That backend was removed from the product and masked on srv2 the same day; the settings, and the co-residency measurements that chose them, are in archive/forensic-ollama/. Nothing is applied to a rig for the engines this build serves: vLLM and llama.cpp both take their settings on the command line the compose file carries."
   },
   "_procedure_doc": "Per-host keys read by the door's default step (`src/mcgyvr/serving/gate-scripts/default-step.sh`): `llamacpp_image` is the image every row is stamped with (srv1 is only valid against a stated image: the stock server-cuda build runs emulated tensor-core kernels on TU116 -> okf/must-read/touching-rigs.md), and `cpu_expert_offload` says whether the procedure may launch with `--n-cpu-moe > 0` on this host at all; srv1 hard-locked three times under CPU expert offload on 2026-09-01 and a lock wipes its BIOS profile, so the step refused there until 2026-09-05, when the owner declared the lock fixed: the 09-04 floor sweep (records/evidence/2026-09-04-srv1-ncmoe-floor/) and the 09-05 spike ran Qwen3.6-35B at --n-cpu-moe 29-32 on srv1 with uptime unbroken since 2026-09-01T08:11, and the live ladder's top rung is that placement (touching-rigs.md, 'srv1 hard-locks')."
 }

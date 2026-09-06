@@ -8,6 +8,19 @@ the reasoning rather than repeat the experiment.
 Nothing here is read by the product. `archive/` is not on any import path and
 no gate reads it.
 
+## What is kept here
+
+- `d7-campaign.json` — the 2026-08-19 D7 campaign's serving config, moved out
+  of `tools/bench/serving/configs/` on 2026-09-06. All eleven of its model
+  entries name this backend, so there was no half of it to keep: gutting it
+  would have left an empty config, and the `_doc` keys on those entries are
+  the only surviving statement of what E2 and E13 decided and why
+  (`records/headers/2026-08-19-d7-campaign.json` says as much — its intent
+  survived in three places and none of them was a record).
+- `runner-ollama-excerpt.py`, `detect-conventions-excerpt.py` — the product
+  code as it stood at removal.
+- `bench-records.txt`, `removed-lines.txt`, `runner-cav01-excerpt.md`.
+
 ## What was removed
 
 Ollama was mcgyvr's first backend. Removed from `src/` and `tools/` in full:

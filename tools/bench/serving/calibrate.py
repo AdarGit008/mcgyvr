@@ -286,8 +286,14 @@ def completed(out: Path, retry_failed: bool = False) -> set[tuple[Any, ...]]:
 
 
 def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
-    """Idle readings, step durations, discovery durations, array sizes."""
-    ollama = contract.load_backend("ollama")
+    """Idle readings and step durations.
+
+    The discovery half of this phase — three native enumeration endpoints and
+    the array lengths of the document a fourth returned — measured an API this
+    build no longer speaks, and is in ``archive/forensic-ollama/`` with the
+    readings it produced. The engines served now are asked over the
+    OpenAI-compatible surface, which has no equivalent enumeration to time.
+    """
     for host in hosts:
         for index in range(repeats):
             began = time.monotonic()
@@ -318,208 +324,49 @@ def fast(out: Path, hosts: list[str], repeats: int = 30) -> None:
                 },
             )
 
-        base = ollama.probe(host)
-        if not base:
-            continue
-        for model in ollama.inventory(host, base):
-            for name, path in (
-                ("tags", "/api/tags"),
-                ("ps", "/api/ps"),
-                ("version", "/api/version"),
-            ):
-                began = time.monotonic()
-                contract.get_json(contract.url(base, path), timeout=30.0)
-                emit(
-                    out,
-                    {
-                        "phase": "fast",
-                        "metric": "discovery_seconds",
-                        "host": host,
-                        "engine": "ollama",
-                        "endpoint": name,
-                        "model": model,
-                        "value": round(time.monotonic() - began, 3),
-                    },
-                )
-            began = time.monotonic()
-            show = _show(base, model)
-            emit(
-                out,
-                {
-                    "phase": "fast",
-                    "metric": "capture_show_seconds",
-                    "host": host,
-                    "engine": "ollama",
-                    "model": model,
-                    "value": round(time.monotonic() - began, 3),
-                    "bytes": len(json.dumps(show)) if show else 0,
-                },
-            )
-            for key, length in _list_lengths(show).items():
-                emit(
-                    out,
-                    {
-                        "phase": "fast",
-                        "metric": "array_length",
-                        "host": host,
-                        "engine": "ollama",
-                        "model": model,
-                        "key": key,
-                        "value": length,
-                    },
-                )
-
 
 def load(out: Path, hosts: list[str], repeats: int = 2) -> None:
-    """Load duration and VRAM placement, one model at a time, cleared between."""
-    ollama = contract.load_backend("ollama")
-    vllm = contract.load_backend("vllm")
-    for host in hosts:
-        base = ollama.probe(host)
-        if not base:
-            continue
-        for model in ollama.inventory(host, base):
-            for index in range(repeats):
-                vllm.release(host)
-                started_at = contract.now()
-                began = time.monotonic()
-                try:
-                    claimed = ollama.claim(host, base, model)
-                    ok, why = True, None
-                except Exception as error:
-                    # #326: a refused load keeps its trail. `RefusedError`
-                    # carries every attempt; any other exception carries none.
-                    claimed = {"attempts": list(getattr(error, "attempts", []))}
-                    ok, why = False, f"{type(error).__name__}: {error}"
-                seconds = round(time.monotonic() - began, 3)
-                row = _load_row(host, model, index, seconds, ok, why, claimed)
-                row["started_at"], row["ended_at"] = started_at, contract.now()
-                emit(out, row)
-                if row["vram_fraction"] is not None:
-                    emit(
-                        out,
-                        {
-                            "phase": "load",
-                            "metric": "vram_fraction",
-                            "host": host,
-                            "engine": "ollama",
-                            "model": model,
-                            "index": index,
-                            "value": row["vram_fraction"],
-                        },
-                    )
+    """Load duration and VRAM placement, one model at a time, cleared between.
+
+    Measured through the engine's own launch rather than through a daemon that
+    pulls a model in on first request. The arm that did the latter is in
+    ``archive/forensic-ollama/``: it enumerated an inventory over a native API
+    and timed a claim against it, and neither vLLM nor llama-server has an
+    inventory to enumerate — a process serves the one checkpoint it was
+    started with, so what this phase can still time is the launch, which
+    ``launch.py`` already does with the geometry to price it against.
+    """
+    raise NotImplementedError(
+        "the load phase measured a daemon that loads on demand, and this "
+        "build serves engines that are started with their checkpoint. Use "
+        "`launch.py`, which times a launch and records the placement it was "
+        "sized against"
+    )
 
 
 def ramp(
     out: Path,
     hosts: list[str],
-    engines: tuple[str, ...] = ("ollama", "vllm"),
+    engines: tuple[str, ...] = ("vllm",),
     done: set[tuple[Any, ...]] | None = None,
     *,
     order: str = "ascending",
     seed: int | None = None,
 ) -> None:
-    """The concurrency matrix: configured width x token count, both engines.
+    """The concurrency matrix: configured width x token count.
 
     ``order``/``seed`` (#327): the sequence every ramp offers its levels in.
+
+    One engine arm now. The other enumerated an inventory over a native API,
+    claimed the smallest model on it, and ramped at a width that was whatever
+    the host's daemon had been configured for — one axis rather than two,
+    which is why it ran first and separately. That arm and the curves it read
+    are in ``archive/forensic-ollama/``.
     """
     done = done if done is not None else set()
-    ollama = contract.load_backend("ollama")
     vllm = contract.load_backend("vllm")
     for host in hosts:
-        # Ollama first: its width is whatever the host is configured for, so the
-        # only axis here is the token count.
         vllm.release(host)
-        base = ollama.probe(host) if "ollama" in engines else None
-        if "ollama" in engines and not base:
-            # **BL-A.** `probe` returns None for an unreachable engine AND for a
-            # transient ssh or HTTP failure, and this used to `continue` with no
-            # row and no message. A phase that skips a host in silence and exits
-            # 0 is indistinguishable from one that had nothing to do.
-            emit(
-                out,
-                {
-                    "phase": "ramp",
-                    "host": host,
-                    "engine": "ollama",
-                    "refused": "the engine did not answer its probe on this host",
-                },
-            )
-        if base:
-            inventory = ollama.inventory(host, base)
-            if not inventory:
-                # DE-H: `_smallest([])` raised IndexError and took the whole
-                # phase down for BOTH hosts. `ollama.release` restarts the
-                # service, so an empty inventory mid-restart is realistic.
-                emit(
-                    out,
-                    {
-                        "phase": "ramp",
-                        "host": host,
-                        "engine": "ollama",
-                        "refused": "the engine reported an empty inventory",
-                    },
-                )
-                continue
-            model = _smallest(inventory)
-            # **A4.** Read once per model rather than per token count: it is one
-            # ssh and the answer cannot change between token budgets. Without
-            # it every ollama ramp row carried `declared_slots: null` while the
-            # survey read the same number off /props on the same host.
-            try:
-                ollama_declared = ollama.slots_now(host)
-            except Exception as error:
-                ollama_declared = {
-                    "value": None,
-                    "provenance": None,
-                    "refused": f"{type(error).__name__}: {error}",
-                }
-            for tokens in TOKEN_COUNTS:
-                probe = key(
-                    {
-                        "phase": "ramp",
-                        "host": host,
-                        "engine": "ollama",
-                        "model": model,
-                        "tokens": tokens,
-                    }
-                )
-                if probe in done:
-                    print(f"  {host}/ollama tokens={tokens} — already done", flush=True)
-                    continue
-                started_at = contract.now()
-                try:
-                    loaded = ollama.claim(host, base, model)
-                except Exception as error:
-                    emit(
-                        out,
-                        {
-                            "phase": "ramp",
-                            "engine": "ollama",
-                            "host": host,
-                            "tokens": tokens,
-                            "error": str(error)[:200],
-                            "started_at": started_at,
-                            "ended_at": contract.now(),
-                        },
-                    )
-                    continue
-                _one_ramp(
-                    out,
-                    base,
-                    model,
-                    host,
-                    "ollama",
-                    None,
-                    tokens,
-                    declared=ollama_declared,
-                    # #326: the weights this curve was read on, from the
-                    # claim this phase used to discard.
-                    pins={"model_sha256": _attempt_of(loaded).get("model_sha256")},
-                    order=order,
-                    seed=seed,
-                )
-
         # vLLM: launch at each configured width, ramp at each token count.
         model = _awq(host, vllm) if "vllm" in engines else None
         if "vllm" in engines and not model:
@@ -553,7 +400,7 @@ def ramp(
         # phase-3 ramps. It bites between phases and at the end of the campaign
         # — which is precisely when the record says "both rigs left idle".
         try:
-            _widths(out, model, host, vllm, ollama, done, order=order, seed=seed)
+            _widths(out, model, host, vllm, done, order=order, seed=seed)
         finally:
             vllm.release(host)
 
@@ -563,7 +410,6 @@ def _widths(
     model: str,
     host: str,
     vllm: types.ModuleType,
-    ollama: types.ModuleType,
     done: set[tuple[Any, ...]],
     *,
     order: str = "ascending",
@@ -628,7 +474,10 @@ def _widths(
         }
         started_at = contract.now()
         try:
-            ollama.release(host)
+            # A release of the co-resident daemon stood here, clearing the card
+            # before each launch. It is gone and masked (archive/forensic-ollama/),
+            # and `vllm.release` at the top of each host's iteration is what
+            # clears the card now.
             # **A1.** The return value used to be discarded. `vllm.claim` times
             # every launch and hands back `checks.started.start_seconds` with a
             # comment saying D6 wants it -- and ten launches computed it and
@@ -817,7 +666,6 @@ def sleep_state(
     than left for a reader to notice.
     """
     vllm = contract.load_backend("vllm")
-    ollama = contract.load_backend("ollama")
     for host in hosts:
         model = _awq(host, vllm)
         if not model:
@@ -863,7 +711,6 @@ def sleep_state(
                 "started_at": contract.now(),
             }
             try:
-                ollama.release(host)
                 # **#324.** A1's defect one function down: `claim` times the
                 # launch and the return was discarded here too, so the three
                 # sleep-arm launches that came up on 2026-08-19/20 recorded no
@@ -1195,7 +1042,7 @@ SLEEP_ROW_DISPOSITION: dict[str, tuple[str, ...] | None] = {
 SLEEP_ROW_DROPPED: dict[str, str] = {}
 
 
-#: What becomes of every key of the attempt record ``ollama.claim`` returns
+#: What becomes of every key of the attempt record a native-API claim returned
 #: (the last entry of ``attempts`` on success), when the load phase writes its
 #: row. Before #324 the row kept three of the twenty-one and no check could say
 #: so. Same contract as :data:`RAMP_ROW_DISPOSITION`.
@@ -1269,58 +1116,10 @@ LOAD_ROW_DROPPED: dict[str, str] = {
 }
 
 
-def _load_row(
-    host: str,
-    model: str,
-    index: int,
-    seconds: float,
-    ok: bool,
-    why: str | None,
-    claimed: dict[str, Any],
-) -> dict[str, Any]:
-    """One ollama load, timed, with the placement the attempt record saw."""
-    attempts = claimed.get("attempts") or []
-    attempt = _attempt_of(claimed)
-    outcomes = [bool(each.get("ok")) for each in attempts]
-    return {
-        "phase": "load",
-        "metric": "load_seconds",
-        "host": host,
-        "engine": "ollama",
-        "model": model,
-        "index": index,
-        "value": seconds,
-        "ok": ok,
-        "why": why,
-        "attempt": attempt.get("attempt"),
-        # #326: the whole trail, counted. LOAD_ATTEMPTS's cost side: did a
-        # second attempt ever rescue a first, and what did each cost.
-        "attempts": len(attempts) or None,
-        "attempt_outcomes": outcomes or None,
-        "rescued_by_retry": (
-            None
-            if not attempts
-            else len(attempts) > 1 and outcomes[-1] and not all(outcomes[:-1])
-        ),
-        "attempt_started_at": attempt.get("started_at"),
-        "attempt_ended_at": attempt.get("ended_at"),
-        "attempt_seconds": attempt.get("seconds"),
-        "card_idle_before_load": attempt.get("card_idle_before_load"),
-        "card_used_mib_before_load": attempt.get("card_used_mib_before_load"),
-        "card_used_mib_after_load": attempt.get("card_used_mib_after_load"),
-        "load_http_status": attempt.get("load_http_status"),
-        "resident_names": attempt.get("resident_names"),
-        "resident_placements": attempt.get("resident_placements"),
-        "sole_resident": attempt.get("sole_resident"),
-        "size": attempt.get("size"),
-        "size_vram": attempt.get("size_vram"),
-        "vram_fraction": attempt.get("vram_fraction"),
-        "placement_expected": attempt.get("placement_expected"),
-        "placement_meets_expectation": attempt.get("placement_meets_expectation"),
-        "residency_contradicts_card": attempt.get("residency_contradicts_card"),
-        "model_sha256": attempt.get("model_sha256"),
-        "server": attempt.get("server"),
-    }
+# `_load_row` stood here: it flattened the attempt record an on-demand claim
+# returned into a `load` row. Its only caller was `load()`, which measured a
+# daemon that pulls a model in on first request. Both are in
+# `archive/forensic-ollama/`, with LOAD_ROW_DISPOSITION and the rows they wrote.
 
 
 def _launch_row(
@@ -1509,7 +1308,8 @@ def _one_ramp(
     """One ramp, every level recorded so thresholds can be re-derived later.
 
     ``pins`` (#326) is what the curve was read on -- the vLLM weights and
-    serving-config digests, or ollama's `model_sha256` -- carried as given.
+    serving-config digests, or a native claim's `model_sha256` -- carried as
+    given.
     ``order``/``seed`` (#327) are the sequence the levels are offered in;
     ``host`` is also where the per-level card and load are read from.
     """
@@ -1599,28 +1399,10 @@ def _one_ramp(
     )
 
 
-def _show(base: str, model: str) -> dict[str, Any] | None:
-    observed = contract.observed()
-    return observed.identity._post_json(
-        contract.url(base, "/api/show"),
-        {"model": model, "verbose": True},
-        timeout=120.0,
-    )
-
-
-def _list_lengths(show: Any) -> dict[str, int]:
-    """Every list in the document, by key — what MAX_INLINE_ITEMS separates."""
-    out: dict[str, int] = {}
-
-    def walk(value: Any, path: str) -> None:
-        if isinstance(value, dict):
-            for key, item in value.items():
-                walk(item, f"{path}.{key}" if path else str(key))
-        elif isinstance(value, list):
-            out[path] = len(value)
-
-    walk(show or {}, "")
-    return out
+# `_show` and `_list_lengths` stood here, reading a native `/api/show`
+# document and counting the arrays in it -- what MAX_INLINE_ITEMS was sized
+# against. Their only caller was the discovery half of `fast()`. Both are in
+# `archive/forensic-ollama/`.
 
 
 def _smallest(models: list[str]) -> str:
@@ -1674,7 +1456,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=30)
     parser.add_argument(
         "--engines",
-        default="ollama,vllm",
+        default="vllm",
         help="restrict the ramp phase — re-running one half must not redo the other",
     )
     # **E12, 2026-08-19.** The module-level TOKEN_COUNTS is the HISTORICAL

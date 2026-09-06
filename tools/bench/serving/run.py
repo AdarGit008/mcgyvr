@@ -735,8 +735,8 @@ def run(
                     }
                 )
             # **BL-6.** Co-residency is re-read AFTER the ramp, because it is
-            # the ramp that takes the time: an ollama ramp at 475 tokens runs
-            # minutes per level, and a neighbour that left part way through
+            # the ramp that takes the time: the 2026-08-19 ramps at 475
+            # tokens ran minutes per level, and a neighbour that left part way through
             # turns D7 item 4 into a solo measurement with
             # `coresidency_arranged: true` written beside it. The neighbours are
             # loaded `keep_alive: -1` so this should hold; this is the check

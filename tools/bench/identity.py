@@ -101,17 +101,19 @@ ABSENT: State = "absent"  # no key: the record predates the contract
 #
 # ADR-0026 named three fields — the bar, the model and the condition. It was one
 # short. The SERVER is the missing group and it has already cost a contrast:
-# the scaffold ablation ran the 3B against srv1 on ollama 0.32.4 and the 7B
-# against srv2 on 0.32.5, and nothing on disk said so.
+# the 2026-08-19 scaffold ablation ran the 3B against srv1 and the 7B against
+# srv2 on two different builds of the backend they served, and nothing on disk
+# said so.
 #
 # A name here is what the record CARRIES, not what the guard checks. Fields
 # nothing writes yet are listed on purpose: the fan-out that computes a digest
 # adds a writer, and flips one entry in KEY below, rather than inventing a field
 # name of its own three months from now.
 GROUPS: dict[str, tuple[str, ...]] = {
-    # What answered. The tag is mutable and cannot be pinned — ollama's `@digest`
-    # grammar exists in types/model/name.go and the parser discards it — so
-    # identity is captured at request time or not at all.
+    # What answered. A tag is mutable and, on the surfaces this build talks to,
+    # cannot be pinned at all: the OpenAI-compatible protocol carries a name
+    # and nothing else about the weights. So identity is captured at request
+    # time from a digest pin or a ggufscan geometry, or not at all.
     "model": (
         "model",
         "model_sha256",
@@ -408,139 +410,46 @@ MODEL_PROBE_FIELDS: tuple[str, ...] = (
 def probe_model(
     endpoint: str, model: str, *, timeout: float = MODEL_PROBE_TIMEOUT_S
 ) -> tuple[dict[str, str | None], dict[str, str]]:
-    """What the endpoint will say about the weights it is serving, hashed here.
+    """What the endpoint will say about the weights it is serving: nothing.
 
-    Returns ``(fields, reasons)``. Every field in :data:`MODEL_PROBE_FIELDS` is
-    always present in ``fields`` — ``null`` where the endpoint would not answer,
-    with the reason in ``reasons``. An **absent** key means the record predates
-    the contract (D2), so a run made from here on must never produce one.
+    Returns ``(fields, reasons)`` with every field in
+    :data:`MODEL_PROBE_FIELDS` ``null`` and one reason, which is D2's shape for
+    a field the endpoint will not answer — never a sentinel string and never a
+    plausible substitute.
 
-    **The `verbose` flag is load-bearing and is why this is a probe rather than
-    a one-liner.** Without it `/api/show` returns ``tokenizer.ggml.tokens`` and
-    ``tokenizer.ggml.merges`` as ``null`` rather than omitting them — measured
-    on `qwen2.5-coder:1.5b`, 0 against 151,936. A probe that left the flag off
-    would record "unobtainable" while the answer was one flag away, which reads
-    as having checked.
+    **It answered once, and the surface that answered is gone.** This read a
+    native API: a listing that carried a manifest digest per model, and a show
+    call that returned the GGUF header's ``tokenizer.ggml.tokens`` and
+    ``merges`` arrays and the server's rendered template, which were hashed
+    here into the other three fields. That backend was removed from the product
+    on 2026-09-06 and the probe with it; the reasoning — including why the
+    manifest digest is over-sensitive, and #286's correction that the layer
+    digest turned out to be readable off the Modelfile's ``FROM`` line after
+    all — is in ``archive/forensic-ollama/``.
 
-    **`model_sha256` is the manifest digest, and it is over-sensitive.** It is
-    the value `/api/tags` returns and `src/mcgyvr/detect.py` throws away, and it
-    is the sha256 of ollama's *manifest file* — which lists five layers, so it
-    moves when the template, the system prompt or the licence layer changes and
-    the weights do not. The separable weights identity is the **model layer**
-    digest, which `/api/show` and `/api/tags` do not expose; reading it needs
-    manifest parsing on the serving host and is not something a dispatch can do.
+    **The OpenAI-compatible surface is identity-free.** That is not a gap in
+    this function: the protocol carries a model *name*, and a name is what
+    `serving_build` and the pins exist to distrust. So a refusal here is a true
+    statement about what the endpoints this build talks to will say, and the
+    comparability guard it fed is now the digest pins in
+    ``tools/bench/serving/pin.py`` and the ``ggufscan`` geometry an envelope
+    carries, both of which read the weights rather than ask the server about
+    them.
 
-    **Correction, 2026-08-18 (#286).** The last sentence is too strong. Building
-    the `observed` capture found the layer digest on the native surface after
-    all: `/api/show` returns a generated Modelfile whose `FROM` line is the blob
-    path, and on srv2 `qwen2.5-coder:1.5b` gives
-    `FROM /usr/share/ollama/.ollama/models/blobs/sha256-29d8c98f…` against a
-    manifest digest of `d7372fd8…` — two different values, the second of which
-    is what this function records. What remains true is that this function does
-    not read it and `model_sha256` stays the manifest digest: parsing a digest
-    out of a free-text field is a different contract from reading one the API
-    states, and promoting it is D7's decision rather than this docstring's. The
-    string is captured verbatim in `observed.json`, so the material is on disk
-    for whoever takes that up.
-
-    Over-sensitive is the safe direction for a comparability guard: it refuses a
-    contrast that would have been sound, and it never permits one that is not.
-    The unsafe direction is the one this cannot close — ``model_info`` and
-    ``tensors`` carry name, shape and dtype rather than weight values, so a
-    fine-tune has identical shapes. **Different digest implies a different
-    model; the same digest does not imply the same model**, and the gap sits
-    exactly where identity matters most, since #189 was a fine-tune contrast.
-
-    ``vocabulary_sha256`` and ``merges_sha256`` are why the model group has six
-    fields rather than one. They are the model's **own** content, out of the
-    GGUF header, where the manifest digest is ollama's addressing of it — so two
-    records that disagree on ``model_sha256`` while agreeing on both of these
-    are a re-tag or a re-import rather than a different tokenizer, and a reader
-    can tell those apart only because both are recorded.
-
-    ``template_sha256`` is in the **server** group and not the model group, and
-    the survey is the reason: `template` is ollama's rendering on top of the
-    GGUF, not the GGUF. The same weights served under two templates are two
-    instruments, which is `serving_build`'s argument applied one level in.
+    Kept as a function returning refusals rather than deleted, because callers
+    (``tools/breadth/measure.py``) write these four fields into every manifest
+    and a record that silently stopped carrying them would read as a run that
+    never asked.
     """
-    base = endpoint.rstrip("/")
-    tags = _get_json(f"{base}/api/tags", timeout=timeout)
-    show = _post_json(
-        f"{base}/api/show", {"model": model, "verbose": True}, timeout=timeout
+    return _refused(
+        MODEL_PROBE_FIELDS,
+        f"{endpoint.rstrip('/')} is asked over the OpenAI-compatible surface, "
+        "which carries a model name and no weights identity. The native API "
+        "that answered these four was removed with its backend on 2026-09-06 "
+        "(archive/forensic-ollama/); weights identity now comes from a digest "
+        "pin or a ggufscan geometry, which read the file rather than ask the "
+        "server",
     )
-    if show is None and tags is None:
-        return _refused(
-            MODEL_PROBE_FIELDS,
-            f"{base} answered neither /api/tags nor /api/show; an endpoint that "
-            "does not speak ollama's native API cannot be asked what weights it "
-            "holds, and the OpenAI surface it does speak is identity-free",
-        )
-
-    fields: dict[str, str | None] = {}
-    reasons: dict[str, str] = {}
-
-    manifest_digest = _tag_digest(tags, model)
-    if manifest_digest is None:
-        fields["model_sha256"] = None
-        reasons["model_sha256"] = (
-            f"/api/tags listed no digest for {model!r}"
-            if tags is not None
-            else f"{base}/api/tags did not answer"
-        )
-    else:
-        fields["model_sha256"] = manifest_digest
-
-    if show is None:
-        for field in ("vocabulary_sha256", "merges_sha256", "template_sha256"):
-            fields[field] = None
-            reasons[field] = f"{base}/api/show did not answer"
-        return fields, reasons
-
-    info = show.get("model_info")
-    info = info if isinstance(info, dict) else {}
-    for field, key in (
-        ("vocabulary_sha256", "tokenizer.ggml.tokens"),
-        ("merges_sha256", "tokenizer.ggml.merges"),
-    ):
-        value = info.get(key)
-        if not isinstance(value, list) or not value:
-            fields[field] = None
-            reasons[field] = (
-                f"/api/show returned no {key}; the array is null without "
-                "verbose=true and absent on a model with no GGUF tokenizer "
-                "header, and this probe sends the flag"
-            )
-        else:
-            fields[field] = digest(value)
-
-    template = show.get("template")
-    if not isinstance(template, str) or not template:
-        fields["template_sha256"] = None
-        reasons["template_sha256"] = "/api/show returned no template"
-    else:
-        fields["template_sha256"] = digest(template)
-    return fields, reasons
-
-
-def _tag_digest(tags: Any, model: str) -> str | None:
-    """The manifest digest `/api/tags` lists for ``model``, or None.
-
-    Matched on ``name`` and on ``model``: ollama's listing carries both, they
-    are the same string on every row measured here, and taking whichever is
-    present costs nothing against a build that drops one.
-    """
-    if not isinstance(tags, dict):
-        return None
-    rows = tags.get("models")
-    if not isinstance(rows, list):
-        return None
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if model in (row.get("name"), row.get("model")):
-            found = row.get("digest")
-            return str(found) if found else None
-    return None
 
 
 def _get_json(url: str, *, timeout: float) -> Any | None:

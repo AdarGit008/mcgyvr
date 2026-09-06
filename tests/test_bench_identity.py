@@ -666,109 +666,70 @@ def test_the_type_check_entry_is_the_adapters_answer_and_not_a_constant(
 
 # --- the model --------------------------------------------------------------
 
-SHOW = {
-    "template": "{{ .System }}\n{{ .Prompt }}",
-    "model_info": {
-        "tokenizer.ggml.tokens": ["a", "b", "c"],
-        "tokenizer.ggml.merges": ["a b"],
-    },
-}
-TAGS = {"models": [{"name": "qwen2.5-coder:1.5b", "digest": "d7372fd828518a4d"}]}
+#: What the four fields were read off, before 2026-09-06: a native listing
+#: carrying a manifest digest per model, and a ``show`` call returning the GGUF
+#: header's tokenizer arrays and the server's rendered template. Kept as a
+#: comment rather than as fixtures because nothing dials that surface any more
+#: — the shapes themselves are in ``archive/forensic-ollama/``.
 
 
-def _endpoint(
-    identity: Any, monkeypatch: pytest.MonkeyPatch, tags: Any, show: Any
-) -> dict[str, Any]:
-    """Answer the two ollama-native calls without a server."""
-    sent: dict[str, Any] = {}
-
-    def get(url: str, *, timeout: float) -> Any:
-        sent["get"] = url
-        return tags
-
-    def post(url: str, body: dict[str, Any], *, timeout: float) -> Any:
-        sent["post"] = (url, body)
-        return show
-
-    monkeypatch.setattr(identity, "_get_json", get)
-    monkeypatch.setattr(identity, "_post_json", post)
-    return sent
-
-
-def test_the_model_probe_records_all_four_fields(
-    identity: Any, monkeypatch: pytest.MonkeyPatch
+def test_the_model_probe_refuses_all_four_fields_with_one_reason(
+    identity: Any,
 ) -> None:
-    _endpoint(identity, monkeypatch, TAGS, SHOW)
-    fields, reasons = identity.probe_model("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert set(fields) == set(identity.MODEL_PROBE_FIELDS)
-    assert not reasons
-    assert fields["model_sha256"] == "d7372fd828518a4d"
-    assert all(len(fields[f]) == 64 for f in fields if f != "model_sha256")
+    """D2's shape, which is the contract that outlived the surface.
 
-
-def test_the_probe_sends_verbose_because_the_flag_is_load_bearing(
-    identity: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Without it the tokenizer arrays come back `null` rather than absent.
-
-    Measured on `qwen2.5-coder:1.5b`: 0 tokens against 151,936. A probe that
-    left the flag off would record "unobtainable" while the answer was one flag
-    away, which reads as having checked — so the flag is pinned here rather than
-    described in a comment.
+    Every field in ``MODEL_PROBE_FIELDS`` is present and ``null``, and every
+    one carries a reason: never a sentinel string, never an absent key on a
+    fresh run. A record that silently stopped carrying these four would read as
+    a run that never asked, which is why the function still exists.
     """
-    sent = _endpoint(identity, monkeypatch, TAGS, SHOW)
-    identity.probe_model("http://srv2:11434", "qwen2.5-coder:1.5b")
-    _, body = sent["post"]
-    assert body["verbose"] is True
-
-
-def test_an_endpoint_that_will_not_answer_is_null_with_a_reason(
-    identity: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """D2: never a sentinel string, and never an absent key on a fresh run."""
-    _endpoint(identity, monkeypatch, None, None)
-    fields, reasons = identity.probe_model("http://nowhere:11434", "m")
+    fields, reasons = identity.probe_model("http://srv2:8000", "qwen2.5-coder:1.5b")
     assert set(fields) == set(identity.MODEL_PROBE_FIELDS)
-    assert all(v is None for v in fields.values())
+    assert all(value is None for value in fields.values())
     assert set(reasons) == set(identity.MODEL_PROBE_FIELDS)
-    assert all("nowhere" in why for why in reasons.values())
 
 
-def test_a_half_answering_endpoint_records_the_half_it_gave(
+def test_the_refusal_names_the_endpoint_it_is_about(identity: Any) -> None:
+    """A reason that could be about any endpoint is not a reason about this run."""
+    _, reasons = identity.probe_model("http://srv2:8000/", "m")
+    assert all("srv2:8000" in why for why in reasons.values())
+    # The trailing slash is stripped, so the reason names the endpoint once and
+    # in the form the rest of the record uses.
+    assert all("srv2:8000/" not in why for why in reasons.values())
+
+
+def test_the_refusal_says_where_weights_identity_comes_from_instead(
+    identity: Any,
+) -> None:
+    """A refusal that only says "no" sends a reader looking for a bug.
+
+    The OpenAI-compatible surface carries a model NAME and nothing about the
+    weights, which is exactly what `serving_build` and the pins exist to
+    distrust. So the reason points at what replaced it rather than leaving the
+    field looking like a regression.
+    """
+    _, reasons = identity.probe_model("http://srv2:8000", "m")
+    why = next(iter(reasons.values()))
+    assert "ggufscan" in why or "pin" in why
+    assert "archive/forensic-ollama" in why
+
+
+def test_the_probe_reaches_no_network_at_all(
     identity: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """One field unobtainable is not four, and saying so is the point of D2."""
-    _endpoint(identity, monkeypatch, TAGS, None)
-    fields, reasons = identity.probe_model("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert fields["model_sha256"] == "d7372fd828518a4d"
-    assert "model_sha256" not in reasons
-    assert fields["template_sha256"] is None
-    assert "api/show" in reasons["template_sha256"]
+    """It cannot ask, so it must not try.
 
+    Pinned rather than assumed: a probe that still dialled and then discarded
+    the answer would spend a timeout per manifest on every run, and the
+    refusal would read the same either way.
+    """
 
-def test_a_null_tokenizer_array_is_refused_rather_than_hashed(
-    identity: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`verbose` off returns null, and `digest(None)` would be a real-looking hash."""
-    _endpoint(
-        identity,
-        monkeypatch,
-        TAGS,
-        {"template": "t", "model_info": {"tokenizer.ggml.tokens": None}},
-    )
-    fields, reasons = identity.probe_model("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert fields["vocabulary_sha256"] is None
-    assert "verbose" in reasons["vocabulary_sha256"]
+    def refuse(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("probe_model must not reach the network")
 
-
-def test_a_model_absent_from_the_listing_is_named(
-    identity: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _endpoint(identity, monkeypatch, {"models": []}, SHOW)
-    fields, reasons = identity.probe_model("http://srv2:11434", "not-pulled")
-    assert fields["model_sha256"] is None
-    assert "not-pulled" in reasons["model_sha256"]
-    assert fields["template_sha256"] is not None
+    monkeypatch.setattr(identity, "_get_json", refuse)
+    monkeypatch.setattr(identity, "_post_json", refuse)
+    identity.probe_model("http://srv2:8000", "m")
 
 
 # --- the two reasons a field is pending -------------------------------------

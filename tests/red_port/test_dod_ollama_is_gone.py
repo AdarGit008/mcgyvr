@@ -68,19 +68,37 @@ CITED = re.compile(
 )
 
 #: Operational: the backend named as something the product talks to, rather
-#: than something it once measured. An identifier, a config value, a URL, a
-#: unit file, a daemon command.
+#: than something it once measured. An identifier, a config value, a unit
+#: file, a daemon command. None of these can be provenance — a dispatch
+#: branch, an env var the daemon reads or a CLI verb is a capability wherever
+#: it appears — so they are flagged without consulting the citation window.
 OPERATIONAL = re.compile(
     r"OLLAMA_[A-Z_]+"  # env the daemon reads
     r"|Protocol\.OLLAMA"  # the dispatch branch
     r"|OllamaRunner"  # the client
     r"|[\"']ollama[\"']"  # a config value or a dict key
     r"|ollama\.service"  # the unit
-    r"|:11434"  # the port
     r"|/api/(tags|generate)"  # the native endpoints
     r"|\bollama (serve|pull|run|list)\b",  # the CLI
     re.IGNORECASE,
 )
+
+#: An ADDRESS, which is operational in a live config and provenance in a dated
+#: record — so unlike :data:`OPERATIONAL` it is read against the citation
+#: window like any other mention.
+#:
+#: The port was in ``OPERATIONAL`` and that was wrong in one direction that
+#: matters. ``tools/bench/strata.json`` is an append-only measurement record
+#: whose own doctrine is "a re-assignment is a new dated block appended to
+#: `blocks`, never an edit of an old one"; every block carries the endpoint the
+#: sweep was pointed at, and every block carries a ``date``. Editing those to
+#: satisfy a port ban would make the record say a sweep ran somewhere it did
+#: not — the failure this file's own docstring says a word-ban causes.
+#:
+#: Narrow on purpose. A live config that dialled this port would also name the
+#: backend as a value (``"api": "ollama"``) or reach it through a branch, and
+#: both of those stay in :data:`OPERATIONAL` where no citation excuses them.
+ADDRESS = re.compile(r":11434")
 
 
 def _lines(root: Path, *suffixes: str) -> list[str]:
@@ -98,7 +116,8 @@ def _lines(root: Path, *suffixes: str) -> list[str]:
             continue
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         for index, line in enumerate(lines):
-            if not OLLAMA.search(line) and not OPERATIONAL.search(line):
+            named = OLLAMA.search(line) or ADDRESS.search(line)
+            if not named and not OPERATIONAL.search(line):
                 continue
             if OPERATIONAL.search(line):
                 found.append(f"{path.relative_to(REPO)}:{index + 1}: {line.strip()}")

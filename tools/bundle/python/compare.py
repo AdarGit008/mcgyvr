@@ -17,7 +17,7 @@ them are what separate the readings:
 ======================  ==========  =========  ===============  =============
 row set                 task set    stack      harness          isolates
 ======================  ==========  =========  ===============  =============
-``clm0004``             Python      llama.cpp  local-ai         —
+``clm0004``             Python      llama.cpp  local-ai         #167 control
 ``original``            Python      Ollama     local-ai         **stack**
 ``rig``                 Python      Ollama     mcgyvr           **harness**
 ``jsts``                JS/TS       Ollama     mcgyvr           **language**
@@ -250,7 +250,7 @@ def main() -> int:
         ),
         (
             "original",
-            "Arm B — Python, Ollama, local-ai harness unchanged",
+            "Arm B (#167) — Python, Ollama, local-ai harness unchanged",
             load(args.out / "original-harness" / "results_q3b.jsonl"),
         ),
         ("rig", "Arm A — Python, Ollama, mcgyvr rig", load(args.out / "results.jsonl")),

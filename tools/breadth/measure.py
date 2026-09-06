@@ -63,7 +63,7 @@ Usage::
 
     # the sweep
     uv run --no-sync python tools/breadth/measure.py \\
-        --endpoint http://srv2:11434 --protocol openai \\
+        --endpoint http://srv2:8000 --protocol openai \\
         --model qwen2.5-coder:14b \\
         --out records/measurements/breadth-YYYY-MM-DD
 
@@ -995,8 +995,9 @@ def serving_build(endpoint: str) -> str | None:
     """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
 
     ADR-0024: two rates are only comparable if the same build produced them.
-    This is not hypothetical. The scaffold ablation ran the 3B against srv1 and
-    the 7B against srv2 while those two hosts sat on ollama 0.32.4 and 0.32.5,
+    This is not hypothetical. The 2026-08-19 scaffold ablation ran the 3B
+    against srv1 and the 7B against srv2 while those two hosts sat on two
+    different builds of the backend they then served (ollama 0.32.4 and 0.32.5),
     so the one cross-model contrast the campaign most wanted to draw had a
     serving-build difference folded into it that no manifest recorded.
 
@@ -1585,7 +1586,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, help="measurement directory for the rows")
     parser.add_argument(
-        "--endpoint", help="base URL of the worker, e.g. http://srv2:11434"
+        "--endpoint", help="base URL of the worker, e.g. http://srv2:8000"
     )
     parser.add_argument("--model", help="model name as the backend knows it")
     parser.add_argument(
