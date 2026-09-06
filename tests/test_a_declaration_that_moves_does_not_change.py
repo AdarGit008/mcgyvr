@@ -25,47 +25,13 @@ REPO = Path(__file__).resolve().parent.parent
 NEW = REPO / "tools" / "runs" / "hosts.json"
 OLD = REPO / "tools" / "bench" / "serving" / "configs" / "hosts.json"
 
-#: ``residency`` as ``tools/bench/serving/configs/hosts.json`` declared it on
-#: 2026-08-22 (commit 70294f0e), copied here rather than read from the old
-#: path, because the old path is what goes away.
-RESIDENCY: dict[str, Any] = {
-    "_doc": (
-        "The three ollama settings that decide whether a model stays on the card "
-        "and whether a second may join it — which is exactly what the co-residency "
-        "cells measure. The owner's rule is `no limits: the hardware is the limit; "
-        "if it breaks, we fix mcgyvr`, so two of the three are `0` (no cap) and the "
-        "third disables the clock. Declaring `no cap` is NOT the same as leaving "
-        "the engine to choose: srv2's old values were whatever 0.32.5 picked, "
-        "recorded nowhere, under a different engine version from srv1's. Value "
-        "strings are compared literally against the unit's `Environment=` line, "
-        "which is how a survey reports them."
-    ),
-    "OLLAMA_NUM_PARALLEL": {
-        "value": "0",
-        "why": (
-            "no cap on slots — the hardware is the limit (owner, 2026-08-22). srv1 "
-            "previously declared `2`, which split its context 8192x2 while srv2 "
-            "ran 4096x1; that split is K2 and K7."
-        ),
-    },
-    "OLLAMA_MAX_LOADED_MODELS": {
-        "value": "0",
-        "why": (
-            "no cap on co-resident models (owner, 2026-08-22). srv1 previously "
-            "declared `3`; srv2 declared nothing and the engine chose `0`."
-        ),
-    },
-    "OLLAMA_KEEP_ALIVE": {
-        "value": "-1",
-        "why": (
-            "nothing is evicted by a clock (owner, 2026-08-22). Resolves to "
-            "`2562047h47m16.854775807s` — max int64 — on both rigs. srv1 previously "
-            "declared `5m`; srv2 declared nothing and the engine chose `5m0s`."
-        ),
-    },
-}
-
-ENGINE_BUILD = "0.32.15"
+#: The two blocks the move carried, as they stood, are no longer in the file.
+#: They described a daemon that was removed from the product and masked on srv2
+#: on 2026-09-06; both are in ``archive/forensic-ollama/``, verbatim, with the
+#: owner's `no limits` rule that chose their values. The file records the
+#: removal in place rather than dropping the keys, which is what lets the check
+#: below tell a deliberate removal from a block that fell out in a merge.
+REMOVAL_KEY = "_removed_2026_09_06"
 
 
 def _new() -> dict[str, Any]:
@@ -82,16 +48,46 @@ def test_the_declaration_lives_beside_the_door_and_nowhere_else() -> None:
     )
 
 
-def test_the_residency_block_is_what_was_declared_on_2026_08_22() -> None:
-    assert _new()["residency"] == RESIDENCY
+def test_the_blocks_the_move_carried_record_their_own_removal() -> None:
+    """A removal that is stated is a different thing from a block that vanished.
+
+    This file exists because a move is the moment a value gets retyped, and it
+    held the two blocks to what they said before the move. They are gone now,
+    with the engine they described — so what it can still hold is that they were
+    taken out on purpose: each key is still present, carries the removal note,
+    and the note points at where the values went. A block that simply
+    disappeared would fail this exactly as a retyped one used to.
+    """
+    document = _new()
+    for block in ("residency", "engine"):
+        assert block in document, (
+            f"{block!r} is gone from the declaration entirely; a removal is "
+            "recorded in place so a reader can tell it from a merge accident"
+        )
+        note = document[block].get(REMOVAL_KEY, "")
+        assert note.strip(), f"{block!r} was emptied without saying why"
+        assert "archive/forensic-ollama/" in note, (
+            f"{block!r}'s removal note does not say where the values went"
+        )
 
 
-def test_the_engine_build_is_what_was_declared_on_2026_08_22() -> None:
-    assert _new()["engine"]["ollama"]["build"] == ENGINE_BUILD
+def test_no_setting_survived_the_removal_unstated() -> None:
+    """The half a removal note cannot cover on its own.
+
+    A note saying "these were removed" beside a key that is still declared
+    would read as removed and behave as declared. So the two blocks carry
+    nothing but documentation keys.
+    """
+    document = _new()
+    for block in ("residency", "engine"):
+        live = {k for k in document[block] if not k.startswith("_")}
+        assert not live, (
+            f"{block!r} says it was removed and still declares {sorted(live)}"
+        )
 
 
 def test_the_sibling_checks_read_the_declaration_at_its_new_path() -> None:
     assert declared_host_state.DECLARATION == NEW, (
         f"tests/test_declared_host_state.py reads {declared_host_state.DECLARATION}"
     )
-    assert declared_host_state.declaration()["residency"] == RESIDENCY
+    assert declared_host_state.declaration()["residency"] == _new()["residency"]

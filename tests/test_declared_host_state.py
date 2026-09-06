@@ -45,8 +45,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
 EVIDENCE = REPO / "records" / "evidence"
 DECLARATION = REPO / "tools" / "runs" / "hosts.json"
@@ -55,11 +53,17 @@ DECLARATION = REPO / "tools" / "runs" / "hosts.json"
 #: second may join it. Named here as well as in the declaration on purpose: the
 #: first check below holds the two to each other, so a setting added to one and
 #: forgotten in the other is a red test rather than a silent hole.
-RESIDENCY_SETTINGS = (
-    "OLLAMA_NUM_PARALLEL",
-    "OLLAMA_MAX_LOADED_MODELS",
-    "OLLAMA_KEEP_ALIVE",
-)
+#:
+#: **Empty since 2026-09-06, and the emptiness is the declaration.** The three
+#: that were here configured a daemon that served many checkpoints from one
+#: process, and it was removed from the product and masked on srv2 the same day
+#: (``archive/forensic-ollama/``). Both engines served now take the equivalent
+#: decisions on the command line the compose file carries — ``--parallel`` and
+#: ``-c`` on llama.cpp, ``--max-num-seqs`` and ``--max-model-len`` on vLLM — so
+#: there is no daemon-wide setting left for a rig to hold and for this file to
+#: state. The checks below stay: they are what re-arms the moment one returns,
+#: and an empty tuple still refuses a setting added to the declaration alone.
+RESIDENCY_SETTINGS: tuple[str, ...] = ()
 
 
 def declaration(path: Path | None = None) -> dict[str, Any]:
@@ -156,7 +160,7 @@ def test_the_declaration_covers_every_setting_that_decides_residency() -> None:
     that decides residency, sets it on the rigs, and the declaration keeps
     describing three.
     """
-    declared = set(declaration()["residency"]) - {"_doc"}
+    declared = set(declaration()["residency"]) - {"_doc", "_removed_2026_09_06"}
     assert declared == set(RESIDENCY_SETTINGS), (
         "the declaration and this module disagree about which settings decide "
         f"residency: declared {sorted(declared)}, expected {sorted(RESIDENCY_SETTINGS)}"
@@ -169,16 +173,26 @@ def test_every_declared_setting_states_a_value_and_why_it_is_that_value() -> Non
     K10 is the whole argument for this check: a constant that entered the tree
     without saying whose it was survived four months and two rigs.
     """
-    residency = declaration()["residency"]
-    unexplained = sorted(
-        name
-        for name in RESIDENCY_SETTINGS
-        if not str(residency[name].get("value", "")).strip()
-        or not str(residency[name].get("why", "")).strip()
-    )
+    unexplained = _unexplained(declaration()["residency"], RESIDENCY_SETTINGS)
     assert not unexplained, (
         f"{len(unexplained)} declared setting(s) carry no value or no reason "
         f"for it: {unexplained}"
+    )
+
+
+def _unexplained(residency: dict[str, Any], names: tuple[str, ...]) -> list[str]:
+    """Which of ``names`` the declaration states without a value or a reason.
+
+    Lifted out of the check above so the canary can exercise the same predicate
+    on a declaration it builds. With :data:`RESIDENCY_SETTINGS` empty the check
+    has nothing to iterate, and a check that cannot be shown to reject is the
+    thing ADR-0037 refuses — so the predicate is what is tested, not the loop.
+    """
+    return sorted(
+        name
+        for name in names
+        if not str(residency.get(name, {}).get("value", "")).strip()
+        or not str(residency.get(name, {}).get("why", "")).strip()
     )
 
 
@@ -196,13 +210,29 @@ def test_the_declaration_names_what_it_does_not_declare() -> None:
 
 
 def test_canary_a_declaration_missing_a_reason_is_refused(tmp_path: Path) -> None:
-    """The check above can be shown to reject — ADR-0037's price."""
+    """The check above can be shown to reject — ADR-0037's price.
+
+    Against a setting this canary invents rather than one the declaration
+    holds, because it holds none: the daemon-wide settings that were here went
+    with their engine on 2026-09-06. Exercising the predicate keeps the canary
+    true to what the check does, and keeps it working on the day a setting
+    comes back.
+    """
     mutated = json.loads(DECLARATION.read_text(encoding="utf-8"))
-    mutated["residency"]["OLLAMA_KEEP_ALIVE"]["why"] = "  "
+    mutated["residency"]["SOME_FUTURE_RESIDENCY_SETTING"] = {
+        "value": "0",
+        "why": "  ",
+    }
     path = tmp_path / "hosts.json"
     path.write_text(json.dumps(mutated), encoding="utf-8")
     residency = declaration(path)["residency"]
-    assert not str(residency["OLLAMA_KEEP_ALIVE"]["why"]).strip()
+    assert _unexplained(residency, ("SOME_FUTURE_RESIDENCY_SETTING",)) == [
+        "SOME_FUTURE_RESIDENCY_SETTING"
+    ]
+    # And a setting that states both is not flagged, so the predicate is
+    # discriminating rather than always-true.
+    residency["SOME_FUTURE_RESIDENCY_SETTING"]["why"] = "because it was measured"
+    assert _unexplained(residency, ("SOME_FUTURE_RESIDENCY_SETTING",)) == []
 
 
 # --------------------------------------------------------------------------
@@ -210,65 +240,15 @@ def test_canary_a_declaration_missing_a_reason_is_refused(tmp_path: Path) -> Non
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-22: decided — every host declares them, and an engine default "
-        "inherited in silence is not a declaration (owner, K9). Red until a "
-        "campaign runs after 2026-08-22: the newest survey is 2026-08-19, "
-        "where srv1 declared 2/3/5m and srv2 declared none"
-    ),
-)
-def test_every_surveyed_host_declares_the_values_this_project_declared() -> None:
-    """By value, not by presence — which is the half K9's check cannot see.
-
-    K9 asks whether the name appears in the unit. A rig that reverted
-    ``OLLAMA_KEEP_ALIVE`` to ``5m`` would still satisfy it and would silently
-    put a clock back over the co-residency cells. This asks for the value.
-    """
-    directory = campaign()
-    residency = declaration()["residency"]
-    observed = _environment(directory)
-    assert observed, f"{directory.name}'s survey names no host"
-    wrong = sorted(
-        (host, name, residency[name]["value"], settings.get(name))
-        for host, settings in observed.items()
-        for name in RESIDENCY_SETTINGS
-        if settings.get(name) != residency[name]["value"]
-    )
-    assert not wrong, (
-        f"{len(wrong)} (host, setting) pair(s) in {directory.name} do not hold "
-        "the declared value — each is (host, setting, declared, observed), and "
-        f"`None` observed means the host declared nothing at all: {wrong}"
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-22: decided — one build on both rigs, declared rather than "
-        "read off whatever each host happened to have (owner, K6/K9). Red "
-        "until a campaign runs after the 2026-08-22 upgrade: the newest survey "
-        "is 2026-08-19, where srv1 ran 0.32.4 and srv2 ran 0.32.5"
-    ),
-)
-def test_every_surveyed_host_runs_the_declared_engine_build() -> None:
-    """The version split K6 found, asked of the instrument instead of a row.
-
-    K6 asks whether a figure carries the build it ran on. This asks whether the
-    two hosts ran the same one — the question a carried build lets a reader
-    answer, and the state the declaration says must hold.
-    """
-    directory = campaign()
-    declared = declaration()["engine"]["ollama"]["build"]
-    observed = _builds(directory)
-    assert observed, f"{directory.name}'s survey names no host"
-    wrong = sorted(
-        (host, declared, build)
-        for host, build in observed.items()
-        if build is None or declared not in build
-    )
-    assert not wrong, (
-        f"{len(wrong)} host(s) in {directory.name} do not run the declared "
-        f"ollama build — each is (host, declared, observed): {wrong}"
-    )
+# Two checks stood here, both `xfail(strict=True)` and both waiting on a
+# campaign that ran after 2026-08-22: that every surveyed host held the
+# DECLARED VALUE of each residency setting rather than merely naming it (K9's
+# other half), and that both rigs ran one declared engine build (K6). They are
+# gone with the engine they were about, on 2026-09-06
+# (`archive/forensic-ollama/`). Keeping them would have been a strict xfail
+# waiting forever: the newest survey is 2026-08-19, no later campaign will run
+# on that engine, and this project now declares no daemon-wide setting for a
+# host to hold. The questions themselves are not retired — the moment a
+# residency setting returns, `RESIDENCY_SETTINGS` above is what re-arms the
+# completeness half, and the value half would be written against whatever
+# surveys the engine that carries it.

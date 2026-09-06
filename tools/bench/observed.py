@@ -559,7 +559,7 @@ def capture(
     would be the worst of both.
     """
     base = endpoint.rstrip("/")
-    native, engine = _capture_served(base)
+    native, engine = _capture_served(base, timeout=timeout)
     fields, reasons = _served_probe_set(base, model, native, engine)
     block: dict[str, Any] = {
         "endpoint": _bundle_rig().redact(endpoint),
@@ -602,7 +602,9 @@ VLLM_READS: tuple[tuple[str, str], ...] = (
 # and the readings it took are in `archive/forensic-ollama/`.
 
 
-def _capture_served(base: str) -> tuple[dict[str, Any], str]:
+def _capture_served(
+    base: str, *, timeout: float = CAPTURE_TIMEOUT_S
+) -> tuple[dict[str, Any], str]:
     """Everything the OpenAI-compatible surface will answer, vLLM's extras too.
 
     ``/metrics`` is Prometheus text rather than JSON, and it is captured raw:
@@ -616,7 +618,13 @@ def _capture_served(base: str) -> tuple[dict[str, Any], str]:
         answer = identity._get_json(_url(base, path), timeout=DISCOVERY_TIMEOUT_S)
         if answer is not None:
             native[name] = answer
-    metrics = _get_text(_url(base, "/metrics"), timeout=DISCOVERY_TIMEOUT_S)
+    # The one body that can be large, and so the one call that gets the long
+    # budget. A POST returning tokenizer arrays used to be the reason
+    # CAPTURE_TIMEOUT_S existed; that surface is gone, and 58 KB of Prometheus
+    # text is what is left of the same argument. Everything else here returns
+    # kilobytes at the discovery budget, which matters because this capture
+    # runs immediately before the first draw.
+    metrics = _get_text(_url(base, "/metrics"), timeout=timeout)
     if metrics is not None:
         native["metrics"] = metrics
     return native, _identify(native)

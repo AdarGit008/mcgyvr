@@ -208,111 +208,21 @@ def test_every_declared_field_is_present_and_every_null_states_why(
             assert field not in reasons
 
 
-def test_quantization_is_answered_because_the_native_surface_answers_it(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The one of the four that is on the surface. Measured: `Q4_K_M` on srv2."""
-    _endpoint(observed, monkeypatch, TAGS, SHOW)
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert block["quantization"] == "Q4_K_M"
-
-
-def test_quantization_falls_back_to_the_tags_row(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Both calls carry `details`, and a build that drops one is not a refusal."""
-    _endpoint(observed, monkeypatch, TAGS, {"template": "x"})
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert block["quantization"] == "Q4_K_M"
-
-
-def test_the_effective_window_comes_from_api_ps_and_never_from_the_tag(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The measured difference between the trained window and the served one.
-
-    `/api/tags` and `/api/show` both report 32768 — what the model was trained
-    with. `/api/ps` reports 4096 — what the loaded instance is actually being
-    served with, which is ollama's `num_ctx` default and is what a run gets.
-    Measured on srv1 (0.32.4) and srv2 (0.32.5), 2026-08-18. Recording the
-    32768 would put a window on disk that no run ever had.
-    """
-    _endpoint(observed, monkeypatch, TAGS, SHOW, ps=PS)
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-
-    assert block["context_length"] == 4096
-    assert "context_length" not in block.get(observed.identity.REFUSALS, {})
-    native = block[observed.NATIVE]
-    assert native["show"]["model_info"]["qwen2.context_length"] == 32768
-    assert native["tags"]["models"][0]["details"]["context_length"] == 32768
-
-
-def test_a_model_that_is_not_resident_refuses_and_says_so(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`/api/ps` lists only what is IN MEMORY, so the answer has a lifetime.
-
-    Observed for real: srv1 answered 4096 and srv2 refused in the same sweep,
-    because srv2's five-minute idle timer had already evicted the model. The
-    refusal names residency rather than blaming the endpoint, since a capture
-    taken while the model is loaded answers the field.
-    """
-    _endpoint(observed, monkeypatch, TAGS, SHOW, ps={"models": []})
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-
-    assert block["context_length"] is None
-    reason = block[observed.identity.REFUSALS]["context_length"]
-    assert "RESIDENT" in reason and "not loaded" in reason
-
-
-def test_a_pinned_num_ctx_is_the_effective_window_and_is_recorded(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The other branch: where the Modelfile states it, the endpoint answers."""
-    show = {**SHOW, "parameters": 'num_ctx 8192\nstop "<|im_end|>"\n'}
-    _endpoint(observed, monkeypatch, TAGS, show)
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert block["context_length"] == 8192
-    assert "context_length" not in block[observed.identity.REFUSALS]
-
-
-def test_concurrency_refuses_and_says_what_that_costs_a_reader(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Not on either call at any time — it is the server's OLLAMA_NUM_PARALLEL.
-
-    Recorded as a refusal rather than omitted because it is the term ADR-0027
-    needs: greedy is not deterministic under continuous batching, so a run
-    without it cannot be read as reproducing even weakly.
-    """
-    _endpoint(observed, monkeypatch, TAGS, {**SHOW, "parameters": "num_ctx 8192\n"})
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert block["concurrency"] is None
-    assert "OLLAMA_NUM_PARALLEL" in block[observed.identity.REFUSALS]["concurrency"]
-
-
-def test_a_server_side_seed_is_observed_and_an_absent_one_is_stated(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Both branches, and a refusal that names where the answer actually is.
-
-    The seed is NOT unobtainable on ollama — it is on `llama-server`'s /slots
-    as `params.seed`, measured 4294967295 (llama.cpp's "fresh random seed per
-    request") on both rigs. That endpoint binds 127.0.0.1 on the serving host,
-    so a capture written by the dispatching client can never reach it. The
-    refusal has to say that, or a later reader concludes nobody can know.
-    """
-    _endpoint(observed, monkeypatch, TAGS, SHOW)
-    absent = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert absent["seed"] is None
-    reason = absent[observed.identity.REFUSALS]["seed"]
-    assert "127.0.0.1" in reason and "4294967295" in reason, (
-        "a refusal of REACH must not read as a refusal of existence"
-    )
-
-    _endpoint(observed, monkeypatch, TAGS, {**SHOW, "parameters": "seed 42\n"})
-    pinned = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    assert pinned["seed"] == 42
+# Seven checks stood here, and all seven were about the four declared fields as
+# read off a native surface: quantization off `details.quantization_level` with
+# a fallback to the listing row, the EFFECTIVE window off the residency listing
+# rather than the trained one both describing calls reported, the refusal when
+# the model was not resident, the pinned `num_ctx` branch, the concurrency
+# refusal naming the daemon-wide setting that held the answer, and the seed
+# refusal naming `llama-server`'s /slots on 127.0.0.1 where the answer actually
+# was. That surface went with its backend on 2026-09-06; the checks and the
+# readings behind them are in `archive/forensic-ollama/`.
+#
+# What they were protecting is not gone. The shape they held — every declared
+# field present, every null carrying a reason that is about THIS engine — is
+# pinned above by `test_every_declared_field_is_present_and_every_null_states_why`
+# and below by the vLLM arm's own refusal checks, which is where the whole probe
+# set is now answered or refused.
 
 
 def test_no_runner_in_this_tree_sends_a_seed() -> None:
@@ -558,11 +468,11 @@ def test_two_unmatched_cards_refuse_rather_than_pick_one(
 def test_every_engine_says_whether_it_has_been_run_live(observed: Any) -> None:
     """ADR-0033's convention: the contingency lives where the code is.
 
-    The ollama arm was built against srv2 and its docstring numbers are
-    measurements. The vLLM arm was built from documentation because no vLLM was
-    reachable. That difference is a fact about how far the module can be
-    trusted, so it is declared per engine — and a third arm cannot arrive
-    unmarked, because this fails if one does.
+    The vLLM arm was built from documentation because no vLLM was reachable;
+    the arm that was built against a live server on 2026-08-18 went with its
+    backend on 2026-09-06. Measured and documented shapes are not the same
+    evidence, so the difference is declared per engine — and a third arm cannot
+    arrive unmarked, because this fails if one does.
     """
     for engine in observed.ENGINES:
         marked = (engine in observed.VERIFIED_LIVE) + (engine in observed.UNVERIFIED)
@@ -572,12 +482,11 @@ def test_every_engine_says_whether_it_has_been_run_live(observed: Any) -> None:
             "against a live endpoint — a documented shape and a measured one "
             "are not the same evidence."
         )
-    for engine in (observed.OLLAMA, observed.VLLM):
-        assert engine in observed.VERIFIED_LIVE, (
-            f"{engine} was run against a live server on 2026-08-18 and every "
-            "number this module states for it is a measurement; demoting it "
-            "means deleting that evidence, not just moving a key."
-        )
+    assert observed.VLLM in observed.VERIFIED_LIVE, (
+        "vLLM was run against a live server on 2026-08-18 and every number "
+        "this module states for it is a measurement; demoting it means "
+        "deleting that evidence, not just moving a key."
+    )
 
 
 # --- redaction, on capture and before write ---------------------------------
@@ -588,25 +497,38 @@ def test_a_planted_secret_never_reaches_disk(
 ) -> None:
     """A comprehensive capture of a server's self-description is the risk.
 
-    ``run.json`` holds one URL that one call redacts. This holds a licence, a
-    generated Modelfile and a template, any of which a serving host can have
-    edited. The fixtures are assembled at runtime rather than written as
-    literals: a secret-shaped literal in a tracked file is rejected by GitHub's
-    push protection and flagged by this repo's own scanner, and the reassembled
-    string exercises the scrub identically.
+    ``run.json`` holds one URL that one call redacts. This holds a server's
+    whole self-description — on vLLM that is ``/server_info``'s ``vllm_config``,
+    a 3,118-character Python repr on srv1 that names the checkpoint it loaded
+    and every setting it was launched with, and a serving host can have any of
+    it pointing at a private registry. The fixtures are assembled at runtime
+    rather than written as literals: a secret-shaped literal in a tracked file
+    is rejected by GitHub's push protection and flagged by this repo's own
+    scanner, and the reassembled string exercises the scrub identically.
     """
     token = "ghp_" + "a" * 36
     key_id = "AKIA" + "B" * 16
     credentialed = "https://someone:hunter2@registry.example.com/qwen"
-    show = {
-        **SHOW,
-        "license": f"contact {token} for support",
-        "modelfile": f"FROM {credentialed}\n# pulled with {key_id}\n",
-        "system": "You are Qwen.",
+    server_info = {
+        **VLLM_SERVER_INFO,
+        "vllm_config": (
+            f"model='{credentialed}', download_dir=None, "
+            f"revision=None, hf_token={token}, "
+            f"# pulled with {key_id}"
+        ),
     }
-    _endpoint(observed, monkeypatch, TAGS, show)
+    _endpoint(
+        observed,
+        monkeypatch,
+        None,
+        None,
+        models=VLLM_MODELS,
+        version={"version": "0.26.0"},
+        server_info=server_info,
+        metrics=VLLM_METRICS,
+    )
 
-    written = observed.write(tmp_path, "http://srv2:11434", "qwen2.5-coder:1.5b")
+    written = observed.write(tmp_path, "http://srv1:8000", "m")
     assert written is not None
     text = written.read_text(encoding="utf-8")
 
@@ -619,19 +541,31 @@ def test_a_planted_secret_never_reaches_disk(
 def test_a_home_directory_prefix_is_reduced_and_the_blob_digest_is_kept(
     observed: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The measured shape, from srv2: the Modelfile's FROM line is a host path.
+    """A served checkpoint's path is a host path, and on a home-directory
+    install it names a user.
 
-    On a home-directory install that path names a user, which is what goes; the
-    blob filename under it is `sha256-<hex>`, which is the one piece of weights
-    identity the native surface exposes and which stays.
+    That is what goes. The digest under it is `sha256-<hex>`, which is a piece
+    of weights identity and which stays — reducing the prefix must not reduce
+    the thing a reader joins on. Measured shape: a local checkpoint under a
+    user's cache, which is what `vllm_config` carries when the model was not
+    loaded from a repository id.
     """
-    blob = "/home/adar/.ollama/models/blobs/sha256-29d8c98fa6b0"
-    _endpoint(observed, monkeypatch, TAGS, {**SHOW, "modelfile": f"FROM {blob}\n"})
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
+    blob = "/home/adar/.cache/models/blobs/sha256-29d8c98fa6b0"
+    _endpoint(
+        observed,
+        monkeypatch,
+        None,
+        None,
+        models=VLLM_MODELS,
+        version={"version": "0.26.0"},
+        server_info={**VLLM_SERVER_INFO, "vllm_config": f"model='{blob}'"},
+        metrics=VLLM_METRICS,
+    )
+    block = observed.capture("http://srv1:8000", "m")
 
-    modelfile = block[observed.NATIVE]["show"]["modelfile"]
-    assert "/home/adar/" not in modelfile
-    assert "/home/<redacted>/.ollama/models/blobs/sha256-29d8c98fa6b0" in modelfile
+    config = block[observed.NATIVE]["server_info"]["vllm_config"]
+    assert "/home/adar/" not in config
+    assert "/home/<redacted>/.cache/models/blobs/sha256-29d8c98fa6b0" in config
 
 
 def test_redaction_reaches_a_string_nested_anywhere(observed: Any) -> None:
@@ -647,38 +581,52 @@ def test_redaction_reaches_a_string_nested_anywhere(observed: Any) -> None:
 def test_a_long_array_is_recorded_as_its_count_and_its_digest(
     observed: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Measured: the raw `/api/show` document for the 1.5B is 7.7 MB of JSON.
+    """A comprehensive capture must not copy megabytes into every run directory.
 
-    Essentially all of it is three tokenizer arrays. Nothing a reader can act on
-    is lost — the digest is :func:`identity.digest`, the same convention
-    ``run.json`` uses, so an elided array joins to ``vocabulary_sha256`` there
-    without rehashing anything. Proven here rather than asserted: the two
-    digests are computed by the two modules over the same list.
+    The array that made this necessary was a tokenizer vocabulary — 151,936
+    entries, 7.7 MB of JSON for the 1.5B — off a surface that is gone. The rule
+    is not about that array: :func:`elide` walks whatever it is given, so any
+    long list in any server's self-description is summarised the same way.
+    Nothing a reader can act on is lost, because the summary carries
+    :func:`identity.digest`, the same convention ``run.json`` uses.
     """
-    _endpoint(observed, monkeypatch, TAGS, SHOW)
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    info = block[observed.NATIVE]["show"]["model_info"]
-
-    tokens = info["tokenizer.ggml.tokens"]
-    assert tokens[observed.ELIDED] is True
-    assert tokens["count"] == 1000
-    assert tokens["sha256"] == observed.identity.digest(
-        SHOW["model_info"]["tokenizer.ggml.tokens"]
+    # Past MAX_INLINE_ITEMS, so the length backstop fires. The by-name rule
+    # is what caught the tokenizer arrays and is exercised below.
+    long_list = [f"task{n}" for n in range(5000)]
+    _endpoint(
+        observed,
+        monkeypatch,
+        None,
+        None,
+        models=VLLM_MODELS,
+        version={"version": "0.26.0"},
+        server_info={**VLLM_SERVER_INFO, "supported_tasks": long_list},
+        metrics=VLLM_METRICS,
     )
-    # Under the threshold, so it stays as it was — a summary of a 1-row list
-    # would be less information, not more.
-    assert block[observed.NATIVE]["show"]["tensors"] == SHOW["tensors"]
+    block = observed.capture("http://srv1:8000", "m")
+
+    recorded = block[observed.NATIVE]["server_info"]["supported_tasks"]
+    assert recorded[observed.ELIDED] is True
+    assert recorded["count"] == 5000
+    assert recorded["rule"] == "length"
+    assert recorded["sha256"] == observed.identity.digest(long_list)
+    # Under the threshold, so it stays as it was — a summary of a one-key
+    # mapping would be less information, not more.
+    assert (
+        block[observed.NATIVE]["server_info"]["vllm_env"]
+        == (VLLM_SERVER_INFO["vllm_env"])
+    )
 
 
-def test_the_elided_digest_is_the_one_run_json_records(
-    observed: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The join key claim, checked against `probe_model` rather than restated."""
-    _endpoint(observed, monkeypatch, TAGS, SHOW)
-    fields, _ = observed.identity.probe_model("http://srv2:11434", "qwen2.5-coder:1.5b")
-    block = observed.capture("http://srv2:11434", "qwen2.5-coder:1.5b")
-    tokens = block[observed.NATIVE]["show"]["model_info"]["tokenizer.ggml.tokens"]
-    assert tokens["sha256"] == fields["vocabulary_sha256"]
+# `test_the_elided_digest_is_the_one_run_json_records` stood here. It held the
+# join key claim by computing it both ways: the digest an elided array carries
+# in the capture had to equal `probe_model`'s `vocabulary_sha256` in
+# `run.json`, so a reader could rejoin the summarised array to the identity
+# record without rehashing anything. Both sides were read off the same native
+# surface, and `probe_model` now refuses all four of its fields — there is no
+# second computation of that digest left to hold this one to. The convention
+# itself is still pinned, one check up: an elided array carries
+# `identity.digest` of what it replaced.
 
 
 # --- one capture per directory ----------------------------------------------
@@ -875,9 +823,12 @@ def test_the_long_timeout_is_spent_only_on_the_call_that_earned_it(
 ) -> None:
     """A dozen probes at the /api/show budget put six minutes before a sweep.
 
-    `CAPTURE_TIMEOUT_S` exists for one call — `/api/show` with `verbose`, which
-    returns the tokenizer arrays. Everything else returns kilobytes, and this
-    capture runs immediately before the first draw.
+    `CAPTURE_TIMEOUT_S` is spent on one call — `/metrics`, which is 58 KB of
+    Prometheus text. Everything else returns kilobytes at the discovery budget.
+    The call that originally earned the long budget was a POST returning the
+    tokenizer arrays, and it went with its surface on 2026-09-06; what the
+    check protects is unchanged, which is that a second long call cannot be
+    added in front of a sweep without someone noticing.
     """
     seen: list[tuple[str, float]] = []
 
@@ -895,11 +846,11 @@ def test_the_long_timeout_is_spent_only_on_the_call_that_earned_it(
     observed.capture("http://srv2:11434", "m")
 
     long_calls = [url for url, timeout in seen if timeout >= observed.CAPTURE_TIMEOUT_S]
-    assert long_calls == ["http://srv2:11434/api/show"]
+    assert long_calls == ["http://srv2:11434/metrics"]
     assert all(
         timeout == observed.DISCOVERY_TIMEOUT_S
         for url, timeout in seen
-        if url != "http://srv2:11434/api/show"
+        if url != "http://srv2:11434/metrics"
     )
 
 
@@ -1408,27 +1359,36 @@ def test_a_series_whose_name_merely_starts_the_same_is_not_added_in(
 def test_an_engine_with_no_counter_refuses_and_names_where_the_answer_would_be(
     observed: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ollama, and the reason is a fact about the ENGINE rather than about us.
+    """The reason is a fact about the ENGINE rather than about us.
 
-    Measured on srv1 2026-08-23: ollama answers 404 on `/metrics`, its
-    `llama-server` child answers 501 there naming `--metrics`, and the child's
-    own `/props` reports `endpoint_metrics: false`. The refusal has to carry
-    that, because "no route" and "we did not look" are the two states this
-    field exists to keep apart.
+    "No route" and "we did not look" are the two states this field exists to
+    keep apart, so a capture that holds no counter refuses and says which
+    engine answered — an `openai-compatible` server is llama-server, LM Studio
+    or TGI, and none of them serves the series vLLM does.
+
+    A named constant used to carry this for one engine, with its 404s and its
+    `--metrics` flag and the `/slots` `id_task` that was monotonic but
+    increments by neither 1 nor a stable number per request. That engine and
+    the refutation went to `archive/forensic-ollama/` on 2026-09-06; what is
+    left is the generic refusal, which is what every non-vLLM server gets.
     """
     written = _write_pair(
         observed,
         tmp_path,
         monkeypatch,
-        at_open={"engine": "ollama", "native": {}},
-        at_close={"engine": "ollama", "native": {}},
+        at_open={"engine": "openai-compatible", "native": {}},
+        at_close={"engine": "openai-compatible", "native": {}},
     )
     closed = written[observed.CAPTURES][observed.AT_CLOSE][observed.RESOLVED_SOURCE]
     term = closed[observed.SERVER_COMPLETIONS]
     assert term["value"] is None
     reason = term[observed.identity.REFUSALS]
-    for named in ("--metrics", "endpoint_metrics", "llama-server", "id_task"):
-        assert named in reason, f"the refusal does not name {named!r}"
+    assert "openai-compatible" in reason, (
+        f"the refusal does not name the engine it is a fact about: {reason}"
+    )
+    assert "not a counter reading zero" in reason, (
+        f"a refusal that reads as a zero is the defect: {reason}"
+    )
 
 
 def test_an_open_capture_keeps_its_reading_and_says_it_cannot_difference_yet(

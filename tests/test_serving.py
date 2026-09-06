@@ -749,45 +749,17 @@ def test_one_model_failing_does_not_destroy_the_survey(
     assert result["refusals"][-1]["stage"].startswith("describe/ramp")
 
 
-def test_a_model_id_with_a_quote_cannot_reach_the_shell(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Serving config is interpolated into a shell on the serving host.
-
-    A model id containing an apostrophe closes the quote — breaking the command
-    at best and running the remainder as shell at worst. Checked by building the
-    command and handing it to a real shell, because reasoning about quoting is
-    how quoting bugs survive review: a first attempt at this test reported a
-    false positive by looking for the wrong escape sequence.
-    """
-    import contextlib
-    import subprocess
-
-    backend: Any = _by_path("quote_ollama", SERVING / "backends" / "ollama.py")
-    sent: list[str] = []
-
-    def record(host: str, command: str, timeout: float | None = None) -> str:
-        sent.append(command)
-        return "200"
-
-    monkeypatch.setattr(backend.contract, "ssh", record)
-    monkeypatch.setattr(backend.contract, "drop_page_cache", lambda host: {})
-    monkeypatch.setattr(backend, "release", lambda host: {"released": True})
-    monkeypatch.setattr(backend, "_resident", lambda host: [])
-    monkeypatch.setattr(backend, "_server", lambda host: {"instances": []})
-    monkeypatch.setattr(backend, "_digest", lambda base, model: None)
-    marker = "/tmp/mcgyvr-quote-probe"
-    # The claim will fail its verification — irrelevant. What is under test is
-    # the command it BUILT before failing.
-    with contextlib.suppress(Exception):
-        backend.claim("h", "http://x", f"evil'; touch {marker}; echo '")
-
-    command = next(c for c in sent if "api/generate" in c)
-    probe = command.replace("curl", "true").replace("-o /dev/null", "")
-    subprocess.run(["bash", "-c", probe], capture_output=True)
-    assert not Path(marker).exists(), (
-        "a model id reached the shell as a command: " + command[:200]
-    )
+# `test_a_model_id_with_a_quote_cannot_reach_the_shell` stood here. It built the
+# command one backend interpolated a model id into, handed it to a real bash,
+# and asserted that an id containing an apostrophe could not close the quote and
+# run the remainder — checked against a shell rather than by reading, because
+# reasoning about quoting is how quoting bugs survive review. That backend is in
+# `archive/forensic-ollama/`. The same class of defect on the path that is
+# actually driven is refused before any gate runs, by argument validation rather
+# than by quoting:
+# `tests/test_serving_door_cli.py`'s
+# `test_a_model_path_with_shell_characters_is_refused_before_any_gate` covers
+# `;`, `$(...)`, backticks, `|`, a space, `..` and a relative path.
 
 
 def test_an_unusable_environment_variable_name_is_refused(
@@ -869,12 +841,11 @@ def test_no_host_reading_reaches_disk_unredacted(
 
     Fixtures are assembled at runtime, never written as literals.
     """
-    ollama: Any = _by_path("leak_ollama", SERVING / "backends" / "ollama.py")
     vllm: Any = _by_path("leak_vllm", SERVING / "backends" / "vllm.py")
     token = "ghp_" + "z" * 36
     key = "AKIA" + "Q" * 16
     leak = (
-        f'Environment="OLLAMA_KEY={token}" HOME=/home/someone '
+        f'Environment="SERVER_KEY={token}" HOME=/home/someone '
         f"api=https://user:pw@host/x {key} --port 9 llama-server"
     )
 
@@ -886,7 +857,7 @@ def test_no_host_reading_reaches_disk_unredacted(
         # launch record can be inspected. Everything else leaks on purpose.
         return "ready" if "/health" in c else leak
 
-    for module in (contract, ollama.contract, vllm.contract):
+    for module in (contract, vllm.contract):
         monkeypatch.setattr(module, "ssh", _ssh)
     monkeypatch.setattr(vllm, "launcher", lambda host: "pip")
     # #354: `_ssh` leaks on purpose and answers nothing numeric, so the card
@@ -900,8 +871,6 @@ def test_no_host_reading_reaches_disk_unredacted(
     written = json.dumps(
         {
             "snapshot": contract.snapshot("h"),
-            "ollama_readings": ollama.readings("h"),
-            "ollama_server": ollama._server("h"),
             "vllm_readings": vllm.readings("h"),
             "vllm_launch": vllm._start(
                 "h",
@@ -1171,325 +1140,25 @@ def test_a_reused_pid_after_a_reboot_is_not_the_same_process(pin_module: Any) ->
 
 
 # --- the two paths the adversarial review found untested --------------------
-
-
-def _ollama_rig(
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    card_before: int,
-    card_after: int,
-    resident: list[dict[str, Any]],
-    children: str | list[str] = "4242 /usr/local/lib/ollama/llama-server --model "
-    "/blobs/sha256-aaa --port 4242 -c 4096 -np 2",
-) -> Any:
-    """A fake ollama host: one card reading, one `/api/ps`, one child listing.
-
-    ``children`` may be a per-attempt sequence (#326): attempt *n* sees the
-    *n*-th listing, so a load that fails once and succeeds once is expressible.
-
-    Loaded by path and patched on its OWN contract reference, because an earlier
-    test clears the shared module slot and a fresh load holds a different module
-    object.
-    """
-    ollama: Any = _by_path("gated_ollama", SERVING / "backends" / "ollama.py")
-
-    reads: list[int] = []
-    listings = iter(children) if isinstance(children, list) else None
-
-    def _ssh(host: str, command: str, timeout: float | None = None) -> str | None:
-        if "memory.used" in command:
-            # The card is read twice per attempt and the two readings are
-            # different facts: once by `release`, BEFORE the load, and once by
-            # `claim` after it. A stub returning one value for both cannot
-            # express "idle beforehand, holding the model afterwards" — which is
-            # the only state in which a clean claim succeeds.
-            # Two reads per ATTEMPT, and `claim` retries the whole cycle, so
-            # the pattern is before/after/before/after — not first/rest.
-            reads.append(1)
-            return f"{card_before if len(reads) % 2 else card_after} MiB"
-        if "api/ps" in command and "curl -s -m 15" in command:
-            return json.dumps({"models": resident})
-        # `pgrep -af '[l]lama-server'` — the bracket keeps pgrep from matching
-        # its own command line, and it also means the literal "llama-server"
-        # does not appear in the string. Matching on it silently returned no
-        # children, so these tests raised on `no_server_child` and would have
-        # passed with the gate under test deleted.
-        if "pgrep -af" in command:
-            return next(listings) if listings is not None else str(children)
-        if "http_code" in command:
-            return "200"
-        if "pgrep -c" in command:
-            return "0"
-        if "modelfile" in command:
-            return "/blobs/sha256-aaa"
-        return ""
-
-    monkeypatch.setattr(ollama.contract, "ssh", _ssh)
-    monkeypatch.setattr(
-        ollama.contract,
-        "get_json",
-        lambda url, timeout=None: {"models": [{"name": "m", "digest": "d"}]},
-    )
-    return ollama
-
-
-def test_a_dirty_card_refuses_the_load_that_lands_on_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """D4 withdrew a gate on the promise that this check replaced it.
-
-    `MIN_VRAM_FRACTION` was removed because a placement fraction means different
-    things per architecture — and the stated replacement was that `claim`
-    already refuses a card that was not idle before the load. It did not: the
-    field was READ and then left out of the verdict, so the promise was only
-    ever true of the prose. Without it nothing catches contamination for the two
-    MoE entries, which are precisely the entries D4 exists to make measurable.
-
-    A foreign allocation before the load, the model placed at 8% — the case this
-    module's own docstring describes as serving happily at a twentieth of speed.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=4916,
-        card_after=4996,
-        resident=[{"name": "m", "size": 1000, "size_vram": 80}],
-    )
-    with pytest.raises(ollama.contract.NotCleanError) as raised:
-        ollama.claim("h", "http://h:11434", "m")
-    # EXACTLY this reason: a refusal for some other cause would carry
-    # `card_not_idle_before_load` too, since the reason list is built from every
-    # failing condition. Equality is what makes this a test of the gate.
-    assert raised.value.reasons == ["card_not_idle_before_load"]
-
-
-def test_a_refusal_carries_its_reasons_as_data_not_prose(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """D8's third defect was a reason recoverable only by regex over a sentence.
-
-    Building reason codes and then interpolating them into the message would
-    reproduce it exactly: the codes exist and a consumer still has to parse them
-    back out of a string.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
-        children="",
-    )
-    with pytest.raises(ollama.contract.RefusedError) as raised:
-        ollama.claim("h", "http://h:11434", "m")
-    assert raised.value.reasons == ["no_server_child"]
-
-
-def test_a_load_that_fails_once_and_succeeds_once_records_both_attempts(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The dogfood for `LOAD_ATTEMPTS = 2` (#326): does a second attempt ever
-    rescue a first, and what did each cost. Before this no test named the
-    constant and no sink kept more than the last attempt."""
-    good = (
-        "4242 /usr/local/lib/ollama/llama-server --model /blobs/sha256-aaa "
-        "--port 4242 -c 4096 -np 2"
-    )
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
-        children=["", good],
-    )
-    assert ollama.LOAD_ATTEMPTS == 2
-    claimed = ollama.claim("h", "http://h:11434", "m")
-    trail = claimed["attempts"]
-    assert [a["ok"] for a in trail] == [False, True]
-    assert [a["attempt"] for a in trail] == [1, 2]
-    for attempt in trail:
-        assert isinstance(attempt["seconds"], float) and attempt["seconds"] >= 0
-        assert attempt["started_at"] <= attempt["ended_at"]
-
-    calibrate: Any = _by_path("serving_calibrate_dogfood", SERVING / "calibrate.py")
-    row = calibrate._load_row("h", "m", 0, 3.0, True, None, claimed)
-    assert row["attempts"] == 2
-    assert row["attempt_outcomes"] == [False, True]
-    assert row["rescued_by_retry"] is True
-    assert row["attempt"] == 2 and row["attempt_seconds"] == trail[-1]["seconds"]
-    # A first-try success is not a rescue.
-    first = calibrate._load_row("h", "m", 0, 3.0, True, None, {"attempts": trail[-1:]})
-    assert first["attempts"] == 1 and first["rescued_by_retry"] is False
-
-
-def test_a_refused_claim_carries_its_attempt_trail_as_data(
-    runner: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """`RefusedError.attempts` is the whole trail, and both sinks keep it."""
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
-        children="",
-    )
-    with pytest.raises(ollama.contract.RefusedError) as raised:
-        ollama.claim("h", "http://h:11434", "m")
-    trail = raised.value.attempts
-    assert len(trail) == ollama.LOAD_ATTEMPTS
-    assert [a["ok"] for a in trail] == [False, False]
-    assert all("seconds" in a for a in trail)
-
-    # The load row: the trail, counted and judged.
-    calibrate: Any = _by_path("serving_calibrate_refusal", SERVING / "calibrate.py")
-    row = calibrate._load_row(
-        "h", "m", 0, 5.0, False, "RefusedError: x", {"attempts": list(trail)}
-    )
-    assert row["attempts"] == 2 and row["attempt_outcomes"] == [False, False]
-    assert row["rescued_by_retry"] is False and row["attempt"] == 2
-
-    # The survey's refusal block, through the real `run`.
-    class Refusing:
-        NAME, PORT = "alpha", 11434
-
-        def probe(self, host: str) -> str:
-            return "http://h:11434"
-
-        def inventory(self, host: str, base: str) -> list[str]:
-            return ["m"]
-
-        def readings(self, host: str) -> dict[str, Any]:
-            return {}
-
-        def release(self, host: str) -> dict[str, Any]:
-            return {"released": True}
-
-        def claim(self, *a: Any, **k: Any) -> dict[str, Any]:
-            raise raised.value
-
-    monkeypatch.setattr(runner.contract, "load_backend", lambda name: Refusing())
-    monkeypatch.setattr(runner.contract, "snapshot", lambda host: {})
-    journal = tmp_path / "j.jsonl"
-    result = runner.run(
-        {
-            "hosts": ["h"],
-            "backends": ["alpha"],
-            "models": [{"label": "x", "backend": "alpha", "id": "m"}],
-        },
-        journal=journal,
-    )
-    measured = result["hosts"]["h"]["measured"]["x"]
-    assert measured["outcome"] == "launch_failed"
-    assert measured["refusal"]["reasons"] == ["no_server_child"]
-    assert measured["refusal"]["attempts"] == trail
-    recorded = json.loads(journal.read_text().splitlines()[0])
-    assert recorded["refusal"]["attempts"] == trail
-
-
-def test_a_placement_key_the_backend_does_not_read_is_refused(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """`expect` has had this guard from the start; `placement` had none.
-
-    D4 replaced a constant with a per-entry declaration, so an ignored typo in
-    that declaration is an entry believing it set a floor it does not have — on
-    the one field whose whole purpose is to BE the declaration.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
-    )
-    with pytest.raises(ollama.contract.NotCleanError, match="placement declaration"):
-        ollama.claim("h", "http://h:11434", "m", placement={"min_vram_fracton": 0.8})
-
-
-def test_co_residency_is_arranged_rather_than_merely_tolerated(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """D7 item 4 measures INTENDED co-residency.
-
-    Accepting a neighbour is not arranging one, and before this the gate was
-    `resident_names == [model]`, so the step was refused by construction. A
-    neighbour that does not become resident refuses the entry: a row that asked
-    to measure sharing and silently measured solo is the wrong answer, not a
-    lenient one.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[{"name": "m", "size": 1000, "size_vram": 1000}],
-    )
-    with pytest.raises(ollama.contract.RefusedError) as raised:
-        ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
-    assert raised.value.reasons == ["coresidency_not_arranged"]
-
-
-def test_the_placement_of_every_resident_is_recorded_not_only_the_model_under_test(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """#335 box 5 — "it loaded" and "it fits" are different facts.
-
-    `_placement` ran for the model under test alone, so a co-residency cell
-    recorded that its neighbour was *listed* and never where the neighbour
-    *landed*. The campaign header's first `void_if` — "any cell records a
-    verdict without the placement of EVERY resident on it" — was therefore
-    unevaluable on every cell in the tree, including the sixty of the plan it
-    was written for.
-
-    The fraction here is srv1's, measured 2026-08-22: ollama answered
-    `load_http=200` with 93% of the model on the CPU, and the spilled model
-    still returned correct code. Nothing in the record said so.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[
-            {"name": "neighbour", "size": 1000, "size_vram": 68},
-            {"name": "m", "size": 1000, "size_vram": 1000},
-        ],
-    )
-    claimed = ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
-    attempt = claimed["attempts"][-1]
-    # The existing verdict, unchanged and still true: the neighbour is there.
-    assert attempt["coresidency_arranged"] is True
-    placed = {row["name"]: row for row in attempt["resident_placements"]}
-    assert set(placed) == {"m", "neighbour"}, (
-        "a placement for the model under test alone is the gap, not the fix"
-    )
-    assert placed["m"]["fraction"] == 1.0
-    assert placed["neighbour"]["fraction"] == 0.068
-    # Recorded, never gated. A spilled neighbour is the frontier this campaign
-    # exists to map; a claim that refused it would refuse its own question.
-    assert attempt["ok"] is True
-
-
-def test_a_resident_whose_row_carries_no_usable_size_is_named_without_a_fraction(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A missing fraction says "unknown", and must not say "on the card".
-
-    `_placed` returns `size`/`size_vram` and no `fraction` when either is not a
-    positive integer — the same shape `_placement` has always had for the model
-    under test. Asserted here because the whole-card view is the one a reader
-    scans for a number, and a `0.0` invented for an unreadable row would be a
-    measurement nobody took.
-    """
-    ollama = _ollama_rig(
-        monkeypatch,
-        card_before=10,
-        card_after=1200,
-        resident=[
-            {"name": "neighbour", "size": None, "size_vram": 900},
-            {"name": "m", "size": 1000, "size_vram": 1000},
-        ],
-    )
-    claimed = ollama.claim("h", "http://h:11434", "m", coresident_with=["neighbour"])
-    attempt = claimed["attempts"][-1]
-    placed = {row["name"]: row for row in attempt["resident_placements"]}
-    assert "fraction" not in placed["neighbour"]
-    assert placed["neighbour"]["size_vram"] == 900
+#
+# `_ollama_rig` and the eight checks it fed stood here. All eight were about one
+# backend's `claim`: that a card which was not idle before the load is refused
+# (D4's withdrawn gate, whose stated replacement this proved was only ever true
+# of the prose), that a refusal carries its reasons as data rather than as
+# prose, that a load which fails once and succeeds once records both attempts
+# (#326), that a refused claim keeps its whole attempt trail, that a placement
+# key the backend does not read is refused, and the three co-residency checks —
+# that a neighbour is arranged rather than merely tolerated, that every
+# resident's placement is recorded and not only the model under test, and that a
+# resident whose row carries no usable size is named without inventing a
+# fraction for it.
+#
+# That backend was removed on 2026-09-06. The checks, the rig and the shapes
+# they were built from are in `archive/forensic-ollama/`. The two backends that
+# remain are launched with their checkpoint rather than pulling one in on
+# demand, so `claim` on them is `_start` plus a readiness loop, which
+# `test_the_launcher_refuses_the_exact_failure_it_exists_for` and the vLLM
+# launch checks below hold to.
 
 
 # --- #345: the same question, asked of the engine that cannot spill ---------
@@ -2788,23 +2457,21 @@ def test_canary_ours_is_told_from_a_stranger_by_the_one_thing_that_differs(
     assert vllm._classify_containers("no tab in this line") == []
 
 
-@pytest.mark.parametrize("backend", ["vllm", "ollama"])
-def test_neither_backend_still_calls_a_scope_reading_an_ownership_one(
-    monkeypatch: pytest.MonkeyPatch, backend: str
+def test_no_backend_still_calls_a_scope_reading_an_ownership_one(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The rename, on both arms, because both were the same false claim.
+    """The rename, because the count was the same false claim on both arms.
 
-    ollama's is not narrowable and is renamed rather than fixed: ollama spawns
-    the `llama-server` child, chooses its port at load time and gives it no name
-    this project sets, so nothing on the host distinguishes a child we caused
-    from one we did not. Saying `engine_` is the whole of what can be true there.
+    `own_processes_remaining` said the process was ours. Nothing on a host
+    distinguishes a server this project caused from one it did not — that was
+    sharpest on the backend removed on 2026-09-06, which spawned a child, chose
+    its port at load time and gave it no name anything set, but it is true of a
+    container someone started by hand too. `engine_` is the whole of what can be
+    true, so it is what the key says.
+
+    One arm now. The other is in `archive/forensic-ollama/` with its rig.
     """
-    if backend == "vllm":
-        module, _, _sent = _vllm_stopped_box(monkeypatch, name="renamed_vllm")
-    else:
-        module = _ollama_rig(
-            monkeypatch, card_before=1, card_after=1, resident=[], children=""
-        )
+    module, _, _sent = _vllm_stopped_box(monkeypatch, name="renamed_vllm")
     released = module.release("h")
     assert "own_processes_remaining" not in released
     assert "own_containers_remaining" not in released
