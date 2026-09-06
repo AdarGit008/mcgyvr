@@ -129,31 +129,68 @@ def pi_transcript(home: Path, session_id: str) -> Path:
     return path
 
 
-def scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
-    """Answer each dispatch from a script; an unscripted dispatch is a failure."""
-    import mcgyvr.drive as drive
+def completion(text: str, request: Any) -> Any:
+    """The reply a stubbed dispatch hands back, shaped as the runner's own."""
     from mcgyvr.pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
+    return Completion(
+        text=text,
+        stop_reason=StopReason.COMPLETE,
+        raw_stop_reason="stop",
+        model="qwen2.5-coder:7b",
+        source="workstation",
+        protocol=Protocol.OPENAI,
+        max_output_tokens=request.max_output_tokens,
+        latency_s=0.0,
+    )
+
+
+def patch_dispatch(monkeypatch: pytest.MonkeyPatch, fn: Any) -> None:
+    """Put ``fn`` where :func:`mcgyvr.drive.dispatch` is looked up.
+
+    Separate from :func:`scripted` because a test about *how* a dispatch is
+    made needs the keyword arguments it was made with, and a script that
+    swallows them into ``**_`` cannot see the one under test.
+    """
+    import mcgyvr.drive as drive
+
+    monkeypatch.setattr(drive, "dispatch", fn)
+
+
+def patch_backend(monkeypatch: pytest.MonkeyPatch, generate: Any) -> None:
+    """Stub the wire, leaving :func:`mcgyvr.runner.dispatch` itself running.
+
+    :func:`patch_dispatch` replaces the function that *holds the slot*, so a
+    test about capacity cannot use it: the bound under test lives inside the
+    thing it swapped out. This goes one layer lower — the runner a protocol
+    selects — so the hold, the endpoint binding and the rung lookup all still
+    happen and only the HTTP call is stubbed.
+    """
+    import mcgyvr.runner as runner
+
+    class _Stub:
+        def __init__(self, endpoint: Any) -> None:
+            self.endpoint = endpoint
+
+        def generate(self, model: str, request: Any) -> Any:
+            return generate(model, request)
+
+    monkeypatch.setattr(runner, "runner_for", lambda endpoint: _Stub(endpoint))
+
+
+def scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
+    """Answer each dispatch from a script; an unscripted dispatch is a failure."""
     sent: list[str] = []
     queue = list(replies)
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Completion:
+    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
         if not queue:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
         sent.append(request.prompt)
-        return Completion(
-            text=queue.pop(0),
-            stop_reason=StopReason.COMPLETE,
-            raw_stop_reason="stop",
-            model="qwen2.5-coder:7b",
-            source="workstation",
-            protocol=Protocol.OPENAI,
-            max_output_tokens=request.max_output_tokens,
-            latency_s=0.0,
-        )
+        return completion(queue.pop(0), request)
 
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
+    patch_dispatch(monkeypatch, fake_dispatch)
     return sent
 
 
