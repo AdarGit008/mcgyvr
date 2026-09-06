@@ -169,10 +169,11 @@ class Entry:
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "01-round.py",
-        "gate 1: the tree is on the open product round. A measurement taken "
-        "against an unpinned tree cannot be compared with anything, so this "
-        "refuses before the rig is touched",
-        exports=("RUN_ROUND", "RUN_PRODUCT_SHA256"),
+        "gate 1: the tree is on the open product round, and the run knows "
+        "which profile it is under. A measurement taken against an unpinned "
+        "tree cannot be compared with anything, and a dev run does not touch "
+        "the live ladder, so both refuse before the rig is touched",
+        exports=("RUN_ROUND", "RUN_PRODUCT_SHA256", "RUN_PROFILE"),
     ),
     Entry(
         "02-rig.py",

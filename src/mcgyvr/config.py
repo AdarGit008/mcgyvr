@@ -582,6 +582,21 @@ SCHEMA: tuple[Field, ...] = (
         min_value=1,
     ),
     Field(
+        "profile",
+        "enum",
+        "Which setup this file is: `live`, the ladder that serves for real, or "
+        "`dev`, a setup under development. The default is `live`, because the "
+        "safe value is the one you get when you say nothing: "
+        "`~/.mcgyvr/config/mcgyvr.yaml` is the unnamed fallback, and a "
+        "`dev.yaml` is only ever reached through `MCGYVR_CONFIG`, so "
+        "forgetting the variable lands on the live setup and never the other "
+        "way round. Live outranks dev on the rigs: a run under a `dev` profile "
+        "does not start or stop the live ladder, and yields the rig to a live "
+        "run.",
+        choices=("live", "dev"),
+        default="live",
+    ),
+    Field(
         "sources",
         "block_map",
         "Where model work is executed, keyed by a name you choose. A source "
