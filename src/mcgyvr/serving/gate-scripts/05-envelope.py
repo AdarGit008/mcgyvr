@@ -136,16 +136,18 @@ def header_path(out_dir: Path, run_id: str) -> Path:
     return out_dir / f"{run_id}.run.json"
 
 
-def write_header(
-    path: Path, run_id: str, step_name: str, campaign: str, run_date: str
-) -> None:
-    """File the run's identity, once, from what gates 1-5 established.
+def header_record(
+    run_id: str, step_name: str, campaign: str, run_date: str
+) -> dict[str, str]:
+    """The run's identity, from what gates 1-5 established.
 
     Every value is one the door exported or minted — nothing here is read
     from the rig or guessed — and the config's digest is the one gate 1 took
-    from the config it loaded, or ``none`` when there was none.
+    from the config it loaded, or ``none`` when there was none. Assembled
+    before the claim is taken, so a missing export refuses with nothing to
+    release.
     """
-    record = {
+    return {
         "run_id": run_id,
         "campaign": campaign,
         "step": step_name,
@@ -159,6 +161,9 @@ def write_header(
         "mcgyvr_version": mcgyvr.__version__,
         "started_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+
+def write_header(path: Path, record: dict[str, str]) -> None:
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 
@@ -370,11 +375,12 @@ def main() -> int:
             f"this RUN_ID ({run_id}) has been made before. Two door invocations "
             "never share a run id: a same-day re-run takes --suffix"
         )
+    record = header_record(run_id, step_name, campaign, run_date)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     claim(out_dir, run_id)
     try:
-        write_header(header, run_id, step_name, campaign, run_date)
+        write_header(header, record)
         for name, aside in aside_of.items():
             (out_dir / name).rename(out_dir / aside)
             print(

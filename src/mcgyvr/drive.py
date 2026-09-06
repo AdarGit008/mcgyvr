@@ -349,9 +349,11 @@ class Recording:
     #: attempt can be followed back to the conversation that produced it.
     session_file: Path | None = None
     #: The identity of the config the run was made under
-    #: (:meth:`mcgyvr.config.Config.digest`), written on every row so a result
-    #: can be traced to the exact setup that produced it (R2). ``None`` for a
-    #: run made with no config, and then absent from the row rather than null.
+    #: (:meth:`mcgyvr.config.Config.digest`), written on every attempt row so
+    #: a result can be traced to the exact setup that produced it (R2); a
+    #: correction row carries no identity and names its attempt instead.
+    #: ``None`` for a run made with no config, and then absent from the row
+    #: rather than null.
     config_digest: str | None = None
     #: Directories the caller asked for a copy of this journal in (``--record``).
     #: Every line and every blob goes to each of them as well as to

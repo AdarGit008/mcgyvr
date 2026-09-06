@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -840,17 +841,40 @@ class Config:
         same config render to the same bytes, whatever their comments, blank
         lines or key order, and a file that omits a defaulted key renders as
         one that states it. What is NOT in it is where the file sat —
-        ``path`` is a fact about the caller, not the config. Loading this text
-        back yields the same config, and the same digest.
+        ``path`` is a fact about the caller, not the config — except through
+        the one key whose meaning depends on it: a relative ``geometry_json``
+        is read beside the config (:func:`mcgyvr.serving.units_for`), so it
+        is written here as the file it names, absolutely. Two copies of a
+        config that name different geometry files are two setups, and a kept
+        copy that pointed beside itself would re-select a geometry that is
+        not there. Loading this text back yields the same config, and the
+        same digest.
         """
         return yaml.dump(
-            _plain(self.data),
+            _plain(self._pinned()),
             Dumper=_CanonicalDumper,
             sort_keys=True,
             default_flow_style=False,
             allow_unicode=True,
             width=1_000_000,
         )
+
+    def _pinned(self) -> Mapping[str, Any]:
+        """``data`` with every path-valued key made absolute, as it is used."""
+        models = self.data.get("models")
+        if not isinstance(models, Mapping) or self.path is None:
+            return self.data
+        pinned: dict[str, Any] = {}
+        for name, block in models.items():
+            stated = block.get("geometry_json") if isinstance(block, Mapping) else None
+            if not stated:
+                pinned[name] = block
+                continue
+            where = Path(str(stated)).expanduser()
+            if not where.is_absolute():
+                where = self.path.parent / where
+            pinned[name] = {**block, "geometry_json": str(where)}
+        return {**self.data, "models": pinned}
 
     def digest(self) -> str:
         """The config's identity: ``cfg-`` and the sha256 of :meth:`canonical`.
@@ -904,23 +928,36 @@ def keep(config: Config, journal_dir: Path) -> Path:
     ``<journal_dir>/configs/<digest>.yaml``, holding :meth:`Config.canonical`:
     the one place a result's ``config_digest`` can be followed back to, and
     the file to name in ``MCGYVR_CONFIG`` to run under exactly that setup
-    again. Content-addressed, so one that is already there is left alone —
-    same digest, same text — and a new one is written whole to a staging name
-    and moved into place, as the journal's blobs are, so a reader never opens
-    a copy whose text does not hash to its name. An ``OSError`` propagates:
-    a copy that cannot be written is a result that cannot be traced, and the
-    caller says so.
+    again. Content-addressed, so one that is already there and reads as the
+    text it should hold is left alone; one that reads otherwise — a copy a
+    crash left short — is replaced, because a kept copy that will not load
+    is worse than none. A new one is staged under a name unique to this
+    writer, opened exclusively, and moved into place whole, as the journal's
+    blobs are: two runs keeping the same config at once each stage their
+    own, and the last move wins with bytes identical to the first. An
+    ``OSError`` propagates: a copy that cannot be written is a result that
+    cannot be traced, and the caller says so.
     """
+    text = config.canonical()
     where = journal_dir / CONFIGS_DIR
     path = where / f"{config.digest()}.yaml"
-    if path.exists():
-        return path
-    where.mkdir(parents=True, exist_ok=True)
-    staging = path.with_name(f".{path.name}.part")
     try:
-        staging.write_text(config.canonical(), encoding="utf-8")
+        if path.read_text(encoding="utf-8") == text:
+            return path
+    except (OSError, UnicodeDecodeError):
+        pass
+    where.mkdir(parents=True, exist_ok=True)
+    staging = where / f".{path.name}.{os.getpid()}-{threading.get_ident()}.part"
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        try:
+            data = text.encode("utf-8")
+            while data:
+                data = data[os.write(fd, data) :]
+        finally:
+            os.close(fd)
         os.replace(staging, path)
-    except OSError:
+    except BaseException:
         staging.unlink(missing_ok=True)
         raise
     return path

@@ -281,3 +281,57 @@ def test_the_envelope_header_names_the_config_digest(tmp_path: Path) -> None:
     assert doc.get("config_digest") == _digest("profile: dev\n" + BASE), doc
     assert doc.get("profile") == "dev", doc
     assert doc.get("round") == onedoor.pinned(root)[0], doc
+
+
+# --- what an adversarial pass found -----------------------------------------------
+
+
+def test_a_kept_copy_a_crash_left_short_is_replaced_not_trusted(
+    tmp_path: Path,
+) -> None:
+    """Content-addressed means the bytes hash to the name; a file under the
+    right name with the wrong bytes is a copy that will never load, and
+    ``exists()`` alone would keep it forever."""
+    from mcgyvr.config import CONFIGS_DIR, keep, load, parse
+
+    config = parse(BASE)
+    journal = tmp_path / "journal"
+    short = journal / CONFIGS_DIR / f"{_identity(config)}.yaml"
+    short.parent.mkdir(parents=True)
+    short.write_text(config.canonical()[:40], encoding="utf-8")
+    kept = keep(config, journal)
+    assert kept == short
+    assert _identity(load(kept)) == _identity(config)
+
+
+def test_a_relative_geometry_file_is_part_of_the_identity(tmp_path: Path) -> None:
+    """A relative ``geometry_json`` is read beside the config. Two copies of
+    one file in two directories name two geometry files, so they are two
+    setups — and the kept copy, which sits elsewhere, must still name the
+    file the original did."""
+    from mcgyvr.config import CONFIGS_DIR, keep, load
+
+    text = BASE + 'models:\n  m:\n    geometry_json: "geo/m.json"\n'
+    a = tmp_path / "a" / "mcgyvr.yaml"
+    b = tmp_path / "b" / "mcgyvr.yaml"
+    for path in (a, b):
+        path.parent.mkdir()
+        path.write_text(text, encoding="utf-8")
+    assert _identity(load(a)) != _identity(load(b))
+    kept = keep(load(a), tmp_path / "journal")
+    assert kept.parent == tmp_path / "journal" / CONFIGS_DIR
+    assert _identity(load(kept)) == _identity(load(a))
+    assert str(a.parent / "geo" / "m.json") in kept.read_text(encoding="utf-8")
+
+
+def test_version_with_a_config_that_cannot_be_located_says_so(
+    home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    from mcgyvr.cli import main
+
+    monkeypatch.setenv("MCGYVR_CONFIG", "~nosuchuser-mcgyvr/dev.yaml")
+    with pytest.raises(SystemExit) as left:
+        main(["--version"])
+    assert left.value.code == 0
+    out = capsys.readouterr().out
+    assert "config:" in out and "located" in out, out

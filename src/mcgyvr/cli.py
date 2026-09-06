@@ -1011,6 +1011,14 @@ def _run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        # A copy of the journal is a copy of the whole of it — every line,
+        # every blob, the result, and the config those rows name — and a
+        # copy that fails is a note, as every other part of a copy is.
+        for mirror in mirrors:
+            try:
+                keep_config(config, mirror)
+            except OSError as exc:
+                recording.copy_failed(mirror, exc)
     print(f"journal: {recording.path}", file=sys.stderr)
 
     # Settled once, here, so both paths below open the same sandbox. The
@@ -2770,6 +2778,10 @@ class _Version(argparse.Action):
             print("config: none")
         except ConfigError as exc:
             print(f"config: unreadable ({exc})")
+        except (OSError, RuntimeError) as exc:
+            # A `~nobody` in the variable, a working directory that is gone:
+            # not a config that cannot be read, one that cannot be found.
+            print(f"config: cannot be located ({exc!r})")
         else:
             print(f"config: {config.digest()} ({config.path})")
         parser.exit(0)
