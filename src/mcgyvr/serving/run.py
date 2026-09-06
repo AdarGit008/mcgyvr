@@ -637,28 +637,35 @@ def _serve(argv: list[str]) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SERVE_SEQUENCE:
-            status = _run_entry(entry, env)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            _check_manifest()
+            for entry in SERVE_SEQUENCE:
+                status = _run_entry(entry, env)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
-    if interrupted:
-        return 130
-    return step_status or after
+        after = _always(env)
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -731,37 +738,44 @@ def main(argv: list[str] | None = None) -> int:
     interrupted = False
     step_status = 0
     try:
-        _check_manifest()
-        for entry in SEQUENCE:
-            args = step_args if entry.script == "06-step.py" else None
-            status = _run_entry(entry, env, args)
-            if status != 0:
-                if entry.script != "06-step.py":
-                    return _stop(entry, status, env)
-                # The step's own failure is the operator's result, not the
-                # door's refusal: 7 and 8 still run, and its status propagates
-                # after them.
-                step_status = status
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    except KeyboardInterrupt:
-        # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
-        # was running has been ended by `_run_entry`; what follows is the
-        # main flow, not a signal handler, so gate 7's own ssh is not the
-        # nested read that came back empty in the shell door.
-        interrupted = True
-        print(
-            "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-            "state is unknown is the one that ended silently",
-            file=sys.stderr,
-        )
+        try:
+            _check_manifest()
+            for entry in SEQUENCE:
+                args = step_args if entry.script == "06-step.py" else None
+                status = _run_entry(entry, env, args)
+                if status != 0:
+                    if entry.script != "06-step.py":
+                        return _stop(entry, status, env)
+                    # The step's own failure is the operator's result, not the
+                    # door's refusal: 7 and 8 still run, and its status propagates
+                    # after them.
+                    step_status = status
+        except RefusedError as refusal:
+            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+            return refusal.status
+        except KeyboardInterrupt:
+            # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
+            # was running has been ended by `_run_entry`; what follows is the
+            # main flow, not a signal handler, so gate 7's own ssh is not the
+            # nested read that came back empty in the shell door.
+            interrupted = True
+            print(
+                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
+                "state is unknown is the one that ended silently",
+                file=sys.stderr,
+            )
 
-    after = _always(env)
+        after = _always(env)
 
-    if interrupted:
-        return 130
-    return step_status or after
+        if interrupted:
+            return 130
+        return step_status or after
+    finally:
+        # Gate 5's claim is released here and not only in `_always`, which
+        # a refusal between the claim and the always-block returns straight
+        # past. Releasing twice is releasing once: `gatelib.release`
+        # unlinks `missing_ok`.
+        _release_claim(env)
 
 
 #: What the ALWAYS phase will not be stopped by.

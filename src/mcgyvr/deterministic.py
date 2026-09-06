@@ -67,10 +67,11 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from mcgyvr.catalog import Family, catalog
+from mcgyvr.contract import Rename
 from mcgyvr.route import Plan, Planned, Step, attempts_for, plan
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -127,7 +128,7 @@ _PROGRAMS: dict[tuple[str, str], tuple[str, ...]] = {
 # PATH — which is why it is the one deterministic type a bare machine can
 # always run, and why it is keyed by type alone: an index that resolved the
 # references did so whatever language they were written in.
-_IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
+IN_PROCESS: frozenset[str] = frozenset({"rename_symbol"})
 
 # Which task types leave work on the floor and say so with a non-zero exit —
 # and, therefore, which exit codes mean the tool is *reporting* rather than
@@ -242,6 +243,14 @@ class ToolStep:
     tool: Tool
     target: str
     attempts: int = 1
+    rename: Rename = field(default_factory=Rename)
+    """The pair a ``rename_symbol`` step renames, empty on every other type.
+
+    Carried on the step for the reason ``target`` is: an in-process step whose
+    executor had to fetch the contract back to learn what it was renaming would
+    determine nothing that could be run from the step alone, and
+    :func:`~mcgyvr.drive.run_tool_step` is handed a step and a sandbox.
+    """
 
     @property
     def argv(self) -> tuple[str, ...]:
@@ -375,7 +384,7 @@ def tool_for(contract: Contract) -> Tool | None:
     is not an error, because a contract nothing can execute deterministically
     is still perfectly executable by a model.
     """
-    if contract.task_type in _IN_PROCESS:
+    if contract.task_type in IN_PROCESS:
         return Tool(task_type=contract.task_type)
     language = _language_of(contract.target)
     if language is None:
@@ -410,6 +419,7 @@ def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
             tool=tool,
             target=contract.target,
             attempts=attempts_for(contract.type.starts_on, 1, contract),
+            rename=contract.rename,
         ),
     )
 

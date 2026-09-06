@@ -101,9 +101,14 @@ rather than tidying it for free.
 from __future__ import annotations
 
 import ast
+import io
 import re
 import subprocess
-from collections.abc import Iterable, Sequence
+import tarfile
+import tempfile
+from collections import Counter
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -114,7 +119,7 @@ from mcgyvr.gate.adapter import (
     require_tool,
     trusted_stdout,
 )
-from mcgyvr.gate.changeset import ChangeSet, FileChange
+from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.findings import Finding
 
 if TYPE_CHECKING:  # see _python_adapter — a runtime import here closes a cycle
@@ -257,11 +262,30 @@ class TypeCheck:
             return []
 
         tool = command[0]
+        paths = [change.path for change in targets]
+        stdout = self._check(command, tool, self.repo, paths)
+        reported = _diagnostics(stdout, paths, self.repo)
+
+        added = {change.path: change.added_lines for change in targets}
+
+        def worker_line(d: _Diagnostic) -> bool:
+            return d.line in added.get(d.path, frozenset())
+
+        on_added = [d for d in reported if worker_line(d)]
+        elsewhere = [d for d in reported if not worker_line(d)]
+        if elsewhere:
+            on_added.extend(self._new_since_base(elsewhere, changeset, command, tool))
+        return [_finding(d) for d in sorted(on_added, key=lambda d: (d.path, d.line))]
+
+    def _check(
+        self, command: Sequence[str], tool: str, repo: Path, paths: Sequence[str]
+    ) -> str:
+        """Run the declared checker over ``paths`` in ``repo``; return its report."""
         checker = require_tool(tool)
         try:
             proc = subprocess.run(
-                [checker, *command[1:], *[change.path for change in targets]],
-                cwd=self.repo,
+                [checker, *command[1:], *paths],
+                cwd=repo,
                 capture_output=True,
                 text=True,
                 env=plain_env(),
@@ -280,46 +304,155 @@ class TypeCheck:
         # stdout empty, which reads as "no diagnostics" — a clean pass over a
         # bar that never ran. The exit code is the only thing that separates
         # the two, so it is checked before the output is parsed.
-        stdout = trusted_stdout(tool, proc, expected=_REPORTING)
-        return _diagnostics(stdout, targets, self.repo)
+        return trusted_stdout(tool, proc, expected=_REPORTING)
+
+    def _new_since_base(
+        self,
+        elsewhere: Sequence[_Diagnostic],
+        changeset: ChangeSet,
+        command: Sequence[str],
+        tool: str,
+    ) -> list[_Diagnostic]:
+        """Of the diagnostics off the worker's added lines, the ones it caused.
+
+        A line number is a proxy for novelty and this is where the proxy breaks.
+        ``def fetch(url):`` annotated to ``def fetch(url: int) -> str:`` changes
+        line 1; mypy's complaint lands on line 2, ``return url``, which the
+        worker did not touch. That error is not pre-existing — line 2 checked
+        clean before the change — and dropping it is how a ``type_annotation``
+        contract could be annotated wrong and accepted.
+
+        So "pre-existing" is measured rather than inferred: the same checker
+        runs over the base tree, and a diagnostic absent there is the worker's
+        wherever it sits. The base run happens only when something landed off
+        the added lines, so the common change — clean, or wrong on its own
+        line — still costs one checker invocation.
+
+        Where the base cannot be materialised — no commit yet, or ``git
+        archive`` refusing — the tree comes back empty, every file reads as one
+        the base did not have, and the diagnostics are the worker's. That is
+        the same answer the change set already gives such a repository: a first
+        change against no history is attributed as wholly added.
+        """
+        with _base_tree(changeset) as root:
+            present = sorted({d.path for d in elsewhere if (root / d.path).is_file()})
+            was: Counter[tuple[str, str | None, str]] = Counter()
+            if present:
+                was.update(
+                    d.key
+                    for d in _diagnostics(
+                        self._check(command, tool, root, present), present, root
+                    )
+                )
+            seen: Counter[tuple[str, str | None, str]] = Counter()
+            caused: list[_Diagnostic] = []
+            for diagnostic in elsewhere:
+                if not (root / diagnostic.path).is_file():
+                    # The base does not have the file, so the file is the
+                    # worker's and so is everything the checker says about it.
+                    caused.append(diagnostic)
+                    continue
+                seen[diagnostic.key] += 1
+                if seen[diagnostic.key] > was[diagnostic.key]:
+                    caused.append(diagnostic)
+            return caused
 
 
-def _diagnostics(
-    stdout: str, targets: Sequence[FileChange], repo: Path
-) -> list[Finding]:
-    """Parse a checker's report, keeping errors on worker-added lines only.
+@dataclass(frozen=True)
+class _Diagnostic:
+    """One error a checker reported, before anything decides whose it is."""
 
-    A checker follows imports, so it reports on files the worker never touched
-    and on lines that were already there. Both are dropped here: the gate's
-    core promise is that pre-existing state in the repository can never fail a
-    change. The reported path is normalised to the repository-relative form the
-    change set keys on first — a checker configured with
-    ``show_absolute_path`` reports absolute paths, and a bare report may carry a
-    ``./`` prefix, and either spelling must still land on the worker's line or
-    the whole rung silently reports clean over a change it could not attribute.
+    path: str
+    line: int
+    code: str | None
+    message: str
+
+    @property
+    def key(self) -> tuple[str, str | None, str]:
+        """What makes two reports of the same problem the same problem.
+
+        The line is deliberately not part of it. A worker that inserts three
+        lines above a pre-existing error moves that error without causing it,
+        and a key carrying the line would read the move as a new fault.
+        """
+        return (self.path, self.code, self.message)
+
+
+def _finding(diagnostic: _Diagnostic) -> Finding:
+    return Finding(
+        check=CHECK,
+        path=diagnostic.path,
+        line=diagnostic.line,
+        code=diagnostic.code,
+        message=diagnostic.message,
+    )
+
+
+def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnostic]:
+    """Parse a checker's report, keeping errors in the files that were checked.
+
+    A checker follows imports, so it reports on files the worker never touched;
+    those are dropped, because the gate's core promise is that pre-existing
+    state in the repository can never fail a change. Which of the surviving
+    lines the worker is answerable for is decided by the caller, against the
+    base tree — not here.
+
+    The reported path is normalised to the repository-relative form the change
+    set keys on first: a checker configured with ``show_absolute_path`` reports
+    absolute paths, and a bare report may carry a ``./`` prefix, and either
+    spelling must still land on the worker's file or the whole rung silently
+    reports clean over a change it could not attribute.
     """
-    added = {change.path: change.added_lines for change in targets}
-    findings: list[Finding] = []
+    wanted = set(paths)
+    diagnostics: list[_Diagnostic] = []
     for raw in stdout.splitlines():
         match = _DIAGNOSTIC.match(raw)
         if match is None or match["severity"] not in _REJECTING:
             continue
         path = _relative_to_repo(match["path"], repo)
-        line = int(match["line"])
-        if line not in added.get(path, frozenset()):
+        if path not in wanted:
             continue
         message = match["message"].strip()
         code = _CODE.search(message)
-        findings.append(
-            Finding(
-                check=CHECK,
+        diagnostics.append(
+            _Diagnostic(
                 path=path,
-                line=line,
+                line=int(match["line"]),
                 code=code.group(1) if code else None,
                 message=_CODE.sub("", message),
             )
         )
-    return findings
+    return diagnostics
+
+
+@contextmanager
+def _base_tree(changeset: ChangeSet) -> Iterator[Path]:
+    """The pre-worker tree, checked out whole, for the length of the ``with``.
+
+    Whole rather than the changed files alone: a type checker reads the
+    repository's own configuration and follows its imports, and a base tree
+    missing either would answer a different question from the worker tree's
+    run — which is the one thing a difference of two runs must not do.
+
+    ``git archive`` is used rather than a worktree or a stash because neither
+    the repository's index nor its refs are this rung's to touch: the gate is
+    judging a tree, not editing one.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-typecheck-base-") as name:
+        root = Path(name)
+        archive = subprocess.run(
+            ["git", "archive", "--format=tar", changeset.base],
+            cwd=changeset.repo,
+            capture_output=True,
+            env=plain_env(),
+            check=False,
+        )
+        if archive.returncode != 0:
+            yield root  # empty: an empty base is a base in which nothing existed
+            return
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+            tar.extractall(root, filter="data")
+        yield root
 
 
 def _relative_to_repo(path: str, repo: Path) -> str:

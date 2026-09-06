@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The JS half of the gate's own bar (ADR-0025). Two reasons this job needs
-      # a toolchain the baseline job's Node 20 does not supply:
+      # a Node newer than 20:
       #
       # * the JS lint rung is only a rung if it can reject, and the test that
       #   proves it needs eslint plus the pinned typescript-eslint parser. A

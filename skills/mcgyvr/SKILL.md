@@ -44,6 +44,7 @@ type's guarantee.
 | `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs. A floor on how cheap the work may start and how cheaply it may be verified, never a preference. Deterministic classification from type, prompt and scope is #16; a declared value may raise that classification, never lower it. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
+| `rename` | block | no | — | Which symbol becomes which, for `task_type: rename_symbol`. The one task type the floor executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there. (orchestrator-facing) |
 
 #### `deps`
 
@@ -91,6 +92,15 @@ Hard ceilings on what one execution of this contract may spend.
 | `limits.max_output_tokens` | number (min 1) | no | unset | Hard cap on the worker's reply, enforced in the runner. A reply cut off at the cap is a named failure and is never applied to a file. Declare it for any task type a model executes: `mcgyvr contract` and `mcgyvr run` refuse a model contract that leaves it out (exit 2) and print the figure the type's own evidence would derive (`output_cap`) as the value to start from — the first live run cut its top rung's reply at a derived 1024 that nobody had chosen. It is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. Deriving it from the target's own content is #17. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times a rung may be retried before escalating. Retrying forever on one rung is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
+#### `rename`
+
+Which symbol becomes which, for `task_type: rename_symbol`. The one task type the floor executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: the floor renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. (orchestrator-facing) |
+| `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the floor rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. (orchestrator-facing) |
+
 ### One minimal example per task type
 
 Each example loads through the contract validator; they are checked by the
@@ -136,6 +146,9 @@ id: rename-fetch
 task_type: rename_symbol
 task: Rename fetch_page to fetch_document in the module.
 target: src/pkg/messy.py
+rename:
+  from: fetch_page
+  to: fetch_document
 scope:
   allow: ["src/pkg/**"]
 ```

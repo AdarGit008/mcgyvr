@@ -37,7 +37,11 @@ from typing import Any
 from mcgyvr.capability import CapabilityTable
 from mcgyvr.capability import load as load_table
 from mcgyvr.config import (
-    JOURNAL_DIR_DEFAULT,
+    BREADTH_FIELDS,
+    BUDGET_FIELDS,
+    CLEANUP_FIELDS,
+    DELIVERY_FIELDS,
+    JOURNAL_FIELDS,
     SCHEMA,
     SCHEMA_VERSION,
     Config,
@@ -243,6 +247,20 @@ def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return text + "\n"
 
 
+def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
+    """The schema's own default for each named key.
+
+    `init` writes these keys out rather than leaving the renderer to show them
+    commented, so the file says what the loader does. Restating the *value*
+    here makes the file say what the loader used to do: `cleanup.enabled`
+    drifted exactly that way and shipped repair-and-regate turned off against
+    the ruling that turned it on. So a static key is read from the schema and
+    never spelled twice — a moved default reaches a new install by moving.
+    """
+    by_name = {field.name: field for field in fields}
+    return {name: by_name[name].default for name in names}
+
+
 def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     """The config data implied by what was detected and proposed."""
     sources = {
@@ -272,17 +290,17 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
             "image": None,
             "setup": [],
         },
-        "delivery": {"mode": "branch"},
-        "budgets": {"max_escalations": 1, "task_timeout_s": 900},
+        "delivery": _defaults(DELIVERY_FIELDS, "mode"),
+        "budgets": _defaults(BUDGET_FIELDS, "max_escalations", "task_timeout_s"),
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is
         # true of the file and false of the behaviour: the loader fills 1 in.
         # A knob whose off position is a number is better read than inferred.
-        "breadth": {"draws": 1},
-        "cleanup": {"enabled": False},
+        "breadth": _defaults(BREADTH_FIELDS, "draws"),
+        "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
         # Spelled out for the same reason: the journal is where a user's runs
         # are recorded, and a key they can see is a key they can move.
-        "journal": {"dir": JOURNAL_DIR_DEFAULT},
+        "journal": _defaults(JOURNAL_FIELDS, "dir"),
     }
 
 

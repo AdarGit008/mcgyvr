@@ -117,9 +117,10 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
-# The formatter is declared explicitly (not left to defaults) so it is a
-# machine-readable statement of intent the baseline detects (QUAL-02); these
-# are ruff's defaults, so `ruff format` behaviour is unchanged.
+# The formatter is declared explicitly (not left to defaults) so the repo's
+# formatting is pinned to a file rather than inherited from whichever ruff a
+# machine has; `make lint` enforces it with `ruff format --check .`. These are
+# ruff's current defaults, so `ruff format` behaviour is unchanged.
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

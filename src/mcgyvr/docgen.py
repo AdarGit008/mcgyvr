@@ -294,6 +294,9 @@ id: rename-fetch
 task_type: rename_symbol
 task: Rename fetch_page to fetch_document in the module.
 target: src/pkg/messy.py
+rename:
+  from: fetch_page
+  to: fetch_document
 scope:
   allow: ["src/pkg/**"]
 """,
