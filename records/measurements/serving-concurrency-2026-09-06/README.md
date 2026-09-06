@@ -7,7 +7,8 @@ transport timeouts at the top rung.
 **The two engines answer the width question in opposite directions, and the
 ladder was configured as though they answered it the same way.** vLLM on a
 GPU-resident model gives back nearly all of its per-stream rate up to
-`--max-num-seqs` and multiplies aggregate throughput by 7.6x. llama.cpp serving
+`--max-num-seqs` and multiplies aggregate throughput 7.5x on the 3B and
+7.6x on the 7B. llama.cpp serving
 a 35B MoE with 32 of 40 expert layers on the CPU gives up 81% of its per-stream
 rate to buy 50% aggregate. One of those is worth running wide. The other is
 not, and it was the one running widest.
@@ -39,7 +40,8 @@ srv2, Qwen2.5-Coder AWQ, both units co-resident on one card.
 | 8 | 109.61 | 873.59 | 61.28 | 489.18 |
 | 16 | 82.59 | 900.67 | 46.34 | 499.50 |
 
-Up to `--max-num-seqs`, per-stream cost is 5% and aggregate is near-linear.
+Up to `--max-num-seqs`, per-stream cost is 5.4% on the 3B and 5.2% on the 7B,
+and aggregate is near-linear.
 Past it, aggregate plateaus and latency roughly doubles — 2.3s to 3.4s on the
 3B, 4.2s to 6.2s on the 7B. That is queueing, and it is what the engine
 documents: `--max-num-seqs` is the "maximum number of sequences to be processed
