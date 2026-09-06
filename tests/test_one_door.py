@@ -155,6 +155,11 @@ ALLOWED: dict[str, str] = {
         "a `docker run` command LINE the serving backends ship to the rig over "
         "contract.ssh -> gatelib.ssh; nothing here spawns a process of its own"
     ),
+    "tests/red_port/test_dod_rig_lease.py": (
+        "a `docker run` LINE inside a step a test runs under the door, to prove "
+        "the shim refuses it once the run's lease is gone; the test asserts the "
+        "launch never reached the daemon"
+    ),
     "tools/bench/serving/knobs.py": (
         "a `docker run --help` command line shipped the same way, for the knob "
         "census; spawns nothing locally"

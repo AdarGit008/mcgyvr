@@ -11,17 +11,44 @@ date — and every declared key must match now.
 The reading is exported for gate 7, which takes a second one after the step and
 stamps any key that moved into the artifacts, because rows produced under two
 machines have to say so.
+
+THE RIG IS LEASED HERE, before it is read. Gate 5's claim on the RUN_ID is per
+envelope, so two steps — or a laptop and srv1 — could still land on one rig
+together; the contended resource is the rig, so the lease sits on it, at
+``~/.mcgyvr/lease``, and every run takes it before it spends rig time. Under a
+``dev`` profile a held rig is a refusal naming the holder and since when
+(owner's ruling R1, 2026-09-06: live outranks dev). Under ``live`` the lease is
+taken whatever holds it, the displaced run is named, and its containers — by
+the run id its lease carries — are removed here, so this run's step opens on
+an idle rig, and again by gate 7 for anything that came back. A lease whose
+holder is a pid on this machine that is gone is stale: named, not silently
+ignored, and taken. The door releases the lease on every way out, and the
+shims refuse a displaced run's next touch of the rig, so dev yields by the
+machine and not by convention.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import door_required, export, need, refuse, root, ssh
+from mcgyvr.serving.gatelib import (
+    DEV,
+    Lease,
+    door_required,
+    export,
+    lease_read,
+    lease_take,
+    need,
+    new_lease,
+    refuse,
+    root,
+    ssh,
+)
 
 HERE = Path(__file__).resolve().parent
 
@@ -66,6 +93,97 @@ def snapshot(host: str) -> dict[str, str]:
     return reading
 
 
+def teardown_displaced(host: str, displaced: Lease, who: str) -> None:
+    """Remove the containers a displaced run left, by the name its lease gave it.
+
+    The one place the door removes a container it did not start, and the
+    exception is the point: run contract §4 says a cell never repairs a
+    machine it found wrong, because it cannot know what it found — here it
+    can. The lease names the run, the run names its containers
+    (`<RUN_ID>-<role>`), and R1 says the live run may take the rig from it.
+    """
+    if displaced.run_id == "none":
+        print(f"{who}: the displaced run had minted no run id; nothing to tear down")
+        return
+    prefix = f"{displaced.run_id}-"
+    try:
+        listed = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        listed = None
+    if listed is None or listed.returncode != 0:
+        print(
+            f"{who}: the daemon on {host} could not be asked for the displaced "
+            f"run's containers; any named {prefix}* are still up",
+            file=sys.stderr,
+        )
+        return
+    names = [n.strip() for n in listed.stdout.splitlines() if n.startswith(prefix)]
+    if not names:
+        print(f"{who}: nothing of the displaced run ({displaced.run_id}) is up")
+        return
+    removed = subprocess.run(
+        ["docker", "rm", "-f", *names],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    if removed.returncode != 0:
+        print(
+            f"{who}: could not remove {' '.join(names)}: "
+            f"{removed.stderr.strip()[:300]}",
+            file=sys.stderr,
+        )
+        return
+    print(
+        f"{who}: torn down what this live run displaced ({displaced.holder}, "
+        f"run {displaced.run_id}): {' '.join(names)}"
+    )
+
+
+def take_lease(host: str) -> tuple[Lease, Lease | None]:
+    """This run's lease on ``host``, and the lease it displaced, if any."""
+    profile = need("RUN_PROFILE")
+    step_name = re.sub(r"^\d+-", "", Path(need("RUN_STEP_FILE")).stem)
+    # The door's pid, not this gate's: the gate exits, the door holds the run.
+    mine = new_lease(profile, need("RUN_CAMPAIGN"), step_name, os.getppid())
+    held = lease_read(host)
+    if held is None:
+        held = lease_take(host, mine, displace=False)
+        if held is None:
+            return mine, None
+    if held.lease_id == mine.lease_id:
+        return mine, None
+    if held.is_stale():
+        print(
+            f"gate 2: a stale lease on {host}: {held.describe()} — that pid is "
+            "gone from this machine, so the run died without releasing. Taken "
+            "over; nothing of it is torn down unasked",
+            file=sys.stderr,
+        )
+        lease_take(host, mine, displace=True)
+        return mine, None
+    if profile == DEV:
+        refuse(
+            f"gate 2: {host} is leased by {held.describe()}, and this run is "
+            "under a dev profile: dev yields, live outranks dev (owner's ruling "
+            "R1, 2026-09-06). Wait for that run, or run under the live config "
+            "if this IS the live run"
+        )
+    print(
+        f"gate 2: {host} is leased by {held.describe()}; this live run takes "
+        "it (R1) and tears down what it displaced"
+    )
+    lease_take(host, mine, displace=True)
+    return mine, held
+
+
 def main() -> int:
     door_required("gate 2")
     host = need("RUN_HOST")
@@ -85,6 +203,15 @@ def main() -> int:
             "measured on a machine nobody has described"
         )
     declared = declared_all[host]["rig"]
+
+    # The lease first: it is what makes the reading below this run's to act
+    # on. Exported before the reading so the door can release it on every
+    # exit path from here on, a refusal of the reading included.
+    mine, displaced = take_lease(host)
+    export("RUN_LEASE", mine.line())
+    export("RUN_DISPLACED", displaced.line() if displaced is not None else "")
+    if displaced is not None:
+        teardown_displaced(host, displaced, "gate 2")
 
     live = snapshot(host)
     bad = [

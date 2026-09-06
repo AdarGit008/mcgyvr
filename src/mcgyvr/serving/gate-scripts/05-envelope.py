@@ -66,6 +66,8 @@ from mcgyvr.serving.gatelib import (
     door_required,
     envelope_escape,
     export,
+    lease_of_run,
+    lease_stamp,
     need,
     refuse,
     release,
@@ -376,6 +378,13 @@ def main() -> int:
             "never share a run id: a same-day re-run takes --suffix"
         )
     record = header_record(run_id, step_name, campaign, run_date)
+
+    # The rig's lease learns the RUN_ID, so a live run that displaces this
+    # one can name its containers; and if the lease is no longer this run's
+    # by now, this run yields here, before anything is minted.
+    lease = lease_of_run()
+    if lease is not None:
+        lease_stamp(need("RUN_HOST"), lease, run_id)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     claim(out_dir, run_id)

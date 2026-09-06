@@ -378,10 +378,12 @@ def test_a_gate_run_by_hand_exits_2(env: dict[str, str], script: str) -> None:
 
 
 def test_every_entry_in_sequence_is_a_shipped_script() -> None:
-    """Every shipped .py under gate-scripts is a gate the door runs, or one of
-    the door's own serve steps — nothing shipped there is reachable by no run."""
+    """Every shipped .py under gate-scripts is a gate the door runs, one of
+    the door's own serve steps, or the lease release the door spawns on its
+    way out — nothing shipped there is reachable by no run."""
     steps = [path.name for path in run.SERVE_STEPS.values()]
-    assert sorted([*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]) == GATES
+    owned = [*(e.script for e in (*run.SEQUENCE, *run.ALWAYS)), *steps]
+    assert sorted([*owned, run.LEASE_RELEASE.script]) == GATES
 
 
 # --------------------------------------------------------------------------
@@ -421,6 +423,9 @@ def fake_gates(where: Path, out_dir: Path, flag: Path) -> Path:
             lines.append(f"Path({str(out_dir / 'parse-ran')!r}).touch()")
         lines.append("sys.exit(0)")
         executable(where / entry.script, "\n".join(lines) + "\n")
+    # The release the door spawns on its way out: on the manifest, so a
+    # fixture without it is an incomplete door.
+    executable(where / run.LEASE_RELEASE.script, "#!/usr/bin/env python3\n")
     return where
 
 

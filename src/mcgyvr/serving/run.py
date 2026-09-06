@@ -184,12 +184,14 @@ SEQUENCE: tuple[Entry, ...] = (
     ),
     Entry(
         "02-rig.py",
-        "gate 2: the live machine equals its declaration in hosts.json. The "
+        "gate 2: the rig is leased to this run — a dev run yields to a held "
+        "rig, a live run takes it and tears down what it displaced (R1) — "
+        "and the live machine equals its declaration in hosts.json. The "
         "steps' own start==end check catches a rig that moves DURING a run and "
         "says nothing about one that moved before it — RAM swapped between "
         "these two rigs twice in six days with every artifact internally "
         "consistent",
-        exports=("RUN_PRE_RIG",),
+        exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
     ),
     Entry(
         "03-image.py",
@@ -273,6 +275,18 @@ ALWAYS: tuple[Entry, ...] = (
         "red a commit later",
         status=1,
     ),
+)
+
+#: What releases the rig's lease on every way out. Spawned from the door's
+#: `finally` like gate 5's claim is unlinked there, and on the manifest for
+#: the same reason the gates are: a release that could go missing is a lease
+#: that outlives every run.
+LEASE_RELEASE = Entry(
+    "lease-release.py",
+    "the rig's lease is released if it is still this run's; a rig that "
+    "cannot be reached is said, and the lease reads as stale to the next run "
+    "on this machine",
+    status=1,
 )
 
 #: THE SERVE RUN (`python -m mcgyvr.serving.run serve up|down --host H
@@ -410,7 +424,7 @@ def check_manifest() -> None:
     """
     missing = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS)
+        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
         if not (GATE_SCRIPTS / e.script).is_file()
     ] + [path.name for path in (*SERVE_STEPS.values(), *READERS) if not path.is_file()]
     if missing:
@@ -424,7 +438,7 @@ def check_manifest() -> None:
         )
     unrunnable = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS)
+        for e in (*SEQUENCE, *ALWAYS, LEASE_RELEASE)
         if not os.access(GATE_SCRIPTS / e.script, os.X_OK)
     ] + [step.name for step in SERVE_STEPS.values() if not os.access(step, os.X_OK)]
     if unrunnable:
@@ -788,6 +802,7 @@ def _serve(argv: list[str]) -> int:
         # past. Releasing twice is releasing once: `gatelib.release`
         # unlinks `missing_ok`.
         _release_claim(env)
+        _release_lease(env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -911,6 +926,7 @@ def main(argv: list[str] | None = None) -> int:
         # past. Releasing twice is releasing once: `gatelib.release`
         # unlinks `missing_ok`.
         _release_claim(env)
+        _release_lease(env)
 
 
 #: What the ALWAYS phase will not be stopped by.
@@ -953,6 +969,28 @@ def _release_claim(env: dict[str, str]) -> None:
     out_dir, run_id = env.get("RUN_OUT_DIR"), env.get("RUN_ID")
     if out_dir and run_id:
         gatelib.release(Path(out_dir), run_id)
+
+
+def _release_lease(env: dict[str, str]) -> None:
+    """Release the rig's lease, if gate 2 took one for this run.
+
+    Through a script and not in-process: the door itself is not *under* the
+    door — the shims prove an ancestor — so its own ssh would be refused,
+    and rightly. Signals are ignored for the duration, as for gates 7 and
+    8: a Ctrl-C that landed on the release would leave a lease a rig cannot
+    tell from a live one. Released once: the variable is dropped after.
+    """
+    if not env.get(gatelib.LEASE_VAR):
+        return
+    previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
+    try:
+        _run_entry(LEASE_RELEASE, env)
+    except RefusedError as refusal:
+        print(f"run.py: {refusal.rule}", file=sys.stderr)
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        env.pop(gatelib.LEASE_VAR, None)
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
